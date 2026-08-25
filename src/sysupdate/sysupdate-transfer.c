@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+#include <linux/magic.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -15,6 +17,7 @@
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "gpt.h"
@@ -32,6 +35,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "specifier.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -1323,6 +1327,133 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
                 t->final_partition_label = TAKE_PTR(formatted_pattern);
         }
 
+        return 0;
+}
+
+static int open_nearest_existing_ancestor(const char *path, int flags) {
+        _cleanup_free_ char *candidate = NULL;
+
+        assert(path);
+
+        candidate = strdup(path);
+        if (!candidate)
+                return -ENOMEM;
+
+        for (;;) {
+                _cleanup_free_ char *parent = NULL;
+                int r;
+                int fd;
+
+                fd = open_parent(candidate, flags, 0);
+                if (fd >= 0)
+                        return fd;
+
+                if (fd != -ENOENT)
+                        return fd;
+
+                r = path_extract_directory(candidate, &parent);
+                if (r == -EDESTADDRREQ)
+                        parent = strdup(".");
+                else if (r == -EADDRNOTAVAIL)
+                        parent = strdup(candidate);
+                else if (r < 0)
+                        return r;
+                if (!parent)
+                        return -ENOMEM;
+
+                if (streq(parent, "/"))
+                        return -ENOENT;
+
+                free(candidate);
+                candidate = TAKE_PTR(parent);
+        }
+}
+
+static int fd_supports_sparse_files(int fd) {
+        struct statfs st;
+
+        assert(fd >= 0);
+
+        if (fstatfs(fd, &st) < 0)
+                return -errno;
+
+        /* Keep this conservative: unknown filesystems, and filesystems such as vfat, are assumed not to
+         * preserve holes when writing a regular file. */
+        return is_fs_type(&st, BTRFS_SUPER_MAGIC) ||
+               is_fs_type(&st, EXT2_SUPER_MAGIC) ||
+               is_fs_type(&st, EXT3_SUPER_MAGIC) ||
+               is_fs_type(&st, EXT4_SUPER_MAGIC) ||
+               is_fs_type(&st, F2FS_SUPER_MAGIC) ||
+               is_fs_type(&st, TMPFS_MAGIC) ||
+               is_fs_type(&st, XFS_SUPER_MAGIC);
+}
+
+int transfer_measure_free_space(
+                Transfer *t,
+                Instance *i,
+                uint64_t *ret_required,
+                uint64_t *ret_free,
+                dev_t *ret_dev) {
+        _cleanup_close_ int parent_fd = -EBADF;
+        struct stat st;
+        uint64_t allocated, required, free_bytes;
+        int r;
+
+        assert(t);
+        assert(i);
+        assert(ret_required);
+        assert(ret_free);
+        assert(ret_dev);
+
+        *ret_required = UINT64_MAX;
+
+        if (!RESOURCE_IS_FILESYSTEM(t->target.type) ||
+            i->resource == &t->target ||
+            resource_find_instance(&t->target, i->metadata.version))
+                return 0;
+
+        assert(t->final_path);
+
+        parent_fd = open_nearest_existing_ancestor(t->final_path, O_RDONLY|O_CLOEXEC|O_NOFOLLOW);
+        if (parent_fd < 0) {
+                log_debug_errno(parent_fd, "Failed to open existing parent directory of '%s', "
+                                             "skipping free space check: %m",
+                                t->final_path);
+                return 0;
+        }
+
+        if (fstat(parent_fd, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat parent directory of '%s', "
+                                        "skipping free space check: %m",
+                                t->final_path);
+                return 0;
+        }
+
+        r = vfs_free_bytes(parent_fd, &free_bytes);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine free space for '%s', "
+                                   "skipping free space check: %m",
+                                t->final_path);
+                return 0;
+        }
+
+        r = instance_get_expected_size(i, &required, &allocated);
+        if (r < 0)
+                return r;
+        if (required == UINT64_MAX)
+                return 0;
+
+        r = fd_supports_sparse_files(parent_fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether the filesystem containing '%s' "
+                                   "supports sparse files, using logical size: %m",
+                                t->final_path);
+        else if (r > 0 && allocated < required)
+                required = allocated;
+
+        *ret_required = required;
+        *ret_free = free_bytes;
+        *ret_dev = st.st_dev;
         return 0;
 }
 

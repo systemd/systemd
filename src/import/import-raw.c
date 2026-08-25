@@ -387,8 +387,6 @@ static int raw_import_write(const void *p, size_t sz, void *userdata) {
                 n = sparse_write(i->output_fd, p, sz, 64);
                 if (n < 0)
                         return log_error_errno((int) n, "Failed to write file: %m");
-                if ((size_t) n < sz)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write");
         } else {
                 r = loop_write(i->output_fd, p, sz);
                 if (r < 0)

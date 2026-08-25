@@ -62,6 +62,7 @@ SIGTEST_OTHERHOME=
 at_exit() {
     set +e
 
+    umount "$WORKDIR/full-esp" "$WORKDIR/full-esp-good" 2>/dev/null
     systemctl stop test-sysupdate-notify-recorder.socket
     rm -f /run/systemd/system/test-sysupdate-notify-recorder.socket \
           /run/systemd/system/test-sysupdate-notify-recorder@.service
@@ -256,6 +257,62 @@ verify_object_fields() {
 
     [[ "${updatectl_output}" != *"Unrecognized object field"* ]]
 }
+
+test_full_esp_space() {
+    local full_esp="$WORKDIR/full-esp"
+    local full_esp_good="$WORKDIR/full-esp-good"
+    local full_esp_defs="$WORKDIR/full-esp-definitions"
+    local full_esp_src="$WORKDIR/full-esp-source"
+    local full_esp_log="$WORKDIR/full-esp-update.log"
+    local rc
+
+    rm -rf "$full_esp" "$full_esp_good" "$full_esp_defs" "$full_esp_src" "$full_esp_log"
+    mkdir -p "$full_esp" "$full_esp_good" "$full_esp_defs" "$full_esp_src"
+    if ! mount -t tmpfs -o size=1M tmpfs "$full_esp"; then
+        echo "No tmpfs support, skipping full ESP space test"
+        return 0
+    fi
+
+    dd if=/dev/urandom of="$full_esp_src/uki-v1.efi" bs=1M count=2
+
+    cat >"$full_esp_defs/01-full.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$full_esp_src
+MatchPattern=uki-@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=esp
+MatchPattern=uki_@v.efi
+Mode=0444
+EOF
+
+    if ! mount -t tmpfs -o size=8M tmpfs "$full_esp_good"; then
+        echo "No tmpfs support, skipping full ESP space test"
+        umount "$full_esp" 2>/dev/null || :
+        return 0
+    fi
+    SYSTEMD_ESP_PATH="$full_esp_good" "$SYSUPDATE" --definitions="$full_esp_defs" --verify=no update
+    cmp "$full_esp_src/uki-v1.efi" "$full_esp_good/EFI/Linux/uki_v1.efi"
+    umount "$full_esp_good"
+
+    set +e
+    SYSTEMD_ESP_PATH="$full_esp" "$SYSUPDATE" \
+        --definitions="$full_esp_defs" \
+        --verify=no update &>"$full_esp_log"
+    rc=$?
+    set -e
+    [[ $rc -ne 0 ]]
+    grep -F "Not enough free space on the filesystem containing" "$full_esp_log" >/dev/null
+    grep -F "No space left on device" "$full_esp_log" >/dev/null
+    [[ -n "$(find "$full_esp" -name '.sysupdate.partial.*' -print -quit)" ]]
+    umount "$full_esp"
+    rm -rf "$full_esp" "$full_esp_good" "$full_esp_defs" "$full_esp_src" "$full_esp_log"
+}
+
+test_full_esp_space
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
 for client in sysupdate-cli varlink; do
