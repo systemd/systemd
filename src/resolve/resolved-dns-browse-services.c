@@ -722,6 +722,20 @@ int mdns_queriers_notify_goodbye(DnsScope *scope) {
         return 0;
 }
 
+/* Does any of these goodbyes name an instance this querier has reported to its subscribers? The
+ * records are compared whole, rdata included, so an unrelated instance under the same browsed type
+ * does not count. The caller has already established that the querier reads the link they arrived
+ * on, so the link a record was discovered over is not compared again here. */
+static bool mdns_goodbyes_hit_discovered(DnsServiceQuerier *sq, DnsAnswer *goodbyes) {
+        assert(sq);
+
+        LIST_FOREACH(dns_services, service, sq->dns_services)
+                if (dns_answer_contains(goodbyes, service->rr))
+                        return true;
+
+        return false;
+}
+
 /* RFC 6762 §10.1 defers acting on a goodbye by one second so that other
  * publishers of the same records can rescue them. resolved keeps a single
  * cache entry per record, whatever machine announced it, so without a nudge
@@ -732,44 +746,32 @@ int mdns_queriers_notify_goodbye(DnsScope *scope) {
  * as soon as a goodbye matches it: a surviving publisher's answer then
  * refreshes the record inside the one-second grace and no removal is ever
  * reported. If nobody answers, the goodbye takes effect exactly as before. */
-void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *answer) {
+void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *goodbyes) {
         DnsServiceQuerier *sq;
-        DnsResourceRecord *rr;
-        usec_t t;
         int r;
 
         assert(scope);
         assert(scope->manager);
 
-        t = now(CLOCK_BOOTTIME);
+        if (dns_answer_isempty(goodbyes))
+                return;
 
         HASHMAP_FOREACH(sq, scope->manager->dns_service_queriers) {
-                bool match = false;
-
                 if (!dns_service_querier_covers_ifindex(sq, dns_scope_ifindex(scope)))
                         continue;
 
-                /* Half the §10.1 grace: covers goodbye repetitions at their
-                 * usual one-second spacing, and bounds the query rate should
-                 * someone flood us with goodbyes. */
-                if (sq->last_goodbye_rescue_usec > 0 &&
-                    t < usec_add(sq->last_goodbye_rescue_usec, USEC_PER_SEC / 2))
+                /* Match the goodbyes against what this querier actually reported, not just against
+                 * its question: dns_answer_match_key() looks at owner name, type and class only, so
+                 * every PTR under the browsed type passes it — including an instance nothing ever
+                 * cached. Only an instance the querier holds can be spuriously removed, and only
+                 * that instance is worth a rescue query. */
+                if (!mdns_goodbyes_hit_discovered(sq, goodbyes))
                         continue;
 
-                DNS_ANSWER_FOREACH(rr, answer) {
-                        /* Goodbyes arrive here with their TTL already rewritten to 1. */
-                        if (rr->ttl > 1)
-                                continue;
-
-                        if (dns_resource_key_equal(rr->key, sq->key) > 0) {
-                                match = true;
-                                break;
-                        }
-                }
-                if (!match)
+                /* One rescue per half grace period: covers goodbye repetitions at their usual
+                 * one-second spacing, and bounds the query rate under a goodbye flood. */
+                if (!ratelimit_below(&sq->goodbye_rescue_ratelimit))
                         continue;
-
-                sq->last_goodbye_rescue_usec = t;
 
                 r = mdns_querier_send_question(sq, /* cache_ok= */ false);
                 if (r < 0)
@@ -959,6 +961,7 @@ static int dns_service_querier_new(
                 .ifindex = ifindex,
                 .flags = flags,
                 .delay = 0,
+                .goodbye_rescue_ratelimit = { USEC_PER_SEC / 2, 1 },
         };
 
         r = sd_event_add_time_relative(
