@@ -9,6 +9,7 @@
 #include <sched.h>
 #include <sys/mman.h>
 #include <sys/prctl.h> /* IWYU pragma: keep */
+#include <sys/ptrace.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
 
@@ -2147,6 +2148,44 @@ int seccomp_filter_set_add(Hashmap *filter, bool add, const SyscallFilterSet *se
                 r = seccomp_filter_set_add_by_name(filter, add, i);
                 if (r < 0)
                         return r;
+        }
+
+        return 0;
+}
+
+/* PTRACE_POKETEXT and PTRACE_POKEDATA use FOLL_FORCE to forcibly write into a tracee's memory. That includes
+ * executable read-only pages. If we restrict execution to trusted binaries PID 1 must enforce that it's
+ * impossible to abuse this to get untrusted code execution. Note, that usermodehelpers are not subject to
+ * PID 1's seccomp filters. */
+int seccomp_restrict_ptrace(void) {
+        uint32_t arch;
+        int r;
+
+        r = dlopen_libseccomp(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return r;
+
+                r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(ptrace),
+                                               1, SCMP_A0(SCMP_CMP_EQ, PTRACE_POKETEXT));
+                if (r < 0)
+                        return r;
+
+                r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(ptrace),
+                                               1, SCMP_A0(SCMP_CMP_EQ, PTRACE_POKEDATA));
+                if (r < 0)
+                        return r;
+
+                r = sym_seccomp_load(seccomp);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to apply ptrace restrictions for architecture %s: %m",
+                                               seccomp_arch_to_string(arch));
         }
 
         return 0;
