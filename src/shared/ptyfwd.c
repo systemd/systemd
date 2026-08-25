@@ -652,7 +652,6 @@ static int do_shovel(PTYForward *f) {
 
                         k = read(f->input_fd, f->in_buffer + f->in_buffer_full, LINE_MAX - f->in_buffer_full);
                         if (k < 0) {
-
                                 if (errno == EAGAIN)
                                         f->stdin_readable = false;
                                 else if (errno == EIO || ERRNO_IS_DISCONNECT(errno)) {
@@ -697,7 +696,7 @@ static int do_shovel(PTYForward *f) {
 
                                 if (IN_SET(errno, EAGAIN, EIO))
                                         f->master_writable = false;
-                                else if (IN_SET(errno, EPIPE, ECONNRESET)) {
+                                else if (ERRNO_IS_DISCONNECT(errno)) {
                                         f->master_writable = f->master_readable = false;
                                         f->master_hangup = true;
 
@@ -724,13 +723,20 @@ static int do_shovel(PTYForward *f) {
 
                                 if (errno == EAGAIN || (errno == EIO && !pty_forward_vhangup_honored(f)))
                                         f->master_readable = false;
-                                else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
+                                else if (errno == EIO || ERRNO_IS_DISCONNECT(errno)) {
                                         f->master_readable = f->master_writable = false;
                                         f->master_hangup = true;
 
                                         f->master_event_source = sd_event_source_unref(f->master_event_source);
                                 } else
                                         return log_error_errno(errno, "Failed to read from pty master fd: %m");
+                        } else if (k == 0) {
+                                /* EOF on master? (can only really happen if the master wasn't really a master */
+
+                                f->master_readable = f->master_writable = false;
+                                f->master_hangup = true;
+
+                                f->master_event_source = sd_event_source_unref(f->master_event_source);
                         } else {
                                 f->read_from_master = true;
                                 size_t scan_index = f->out_buffer_full;

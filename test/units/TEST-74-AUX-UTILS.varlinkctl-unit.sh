@@ -211,6 +211,18 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 timeout 30 bash -c 'until systemctl is-active varlink-transient-wd-home.service; do sleep 0.5; done'
 systemctl show -P WorkingDirectory varlink-transient-wd-home.service | grep '^~$' >/dev/null
 
+# Exec.StandardInput/StandardOutput/StandardError enum properties and Exec.TTYPath
+defer_transient_cleanup varlink-transient-stdio.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-stdio.service","Exec":{"StandardInput":"null","StandardOutput":"null","StandardError":"journal","TTYPath":"/dev/tty2"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Exec.StandardOutput == "null"'
+echo "$result" | jq -e '.context.Exec.StandardError == "journal"'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-stdio.service; do sleep 0.5; done'
+systemctl show -P StandardInput varlink-transient-stdio.service | grep '^null$' >/dev/null
+systemctl show -P StandardOutput varlink-transient-stdio.service | grep '^null$' >/dev/null
+systemctl show -P StandardError varlink-transient-stdio.service | grep '^journal$' >/dev/null
+systemctl show -P TTYPath varlink-transient-stdio.service | grep '^/dev/tty2$' >/dev/null
+
 # Exec.SetCredential: pass a credential and verify the running process can read it
 defer_transient_cleanup varlink-transient-cred.service
 CRED_VALUE_B64=$(printf 'secret-value' | base64 -w0)
@@ -340,6 +352,15 @@ defer_transient_cleanup varlink-transient-bad-rd.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-rd.service","Exec":{"RootDirectory":"relative/path"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
     "Exec.RootDirectory"
+# Note that an unparsable enum value (e.g. StandardOutput=bogus) is rejected by the Varlink IDL
+# validation layer before the JSON dispatch even runs, hence there's no point in testing pid1's
+# dispatch-level enum handling here — and doing so would trip post.sh's "didn't pass validation"
+# journal check, since the IDL layer logs about the rejection.
+# Relative TTYPath is rejected
+defer_transient_cleanup varlink-transient-bad-ttypath.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-ttypath.service","Exec":{"TTYPath":"relative/tty"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.TTYPath"
 # Invalid credential ID
 defer_transient_cleanup varlink-transient-bad-cred-id.service
 expect_invalid_parameter \
