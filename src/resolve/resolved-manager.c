@@ -923,9 +923,10 @@ Manager* manager_free(Manager *m) {
         manager_etc_hosts_flush(m);
         manager_static_records_flush(m);
 
-        while ((sb = hashmap_first(m->dns_service_browsers)))
+        while ((sb = hashmap_steal_first(m->dns_service_browsers)))
                 dns_service_browser_free(sb);
         hashmap_free(m->dns_service_browsers);
+        hashmap_free(m->dns_service_queriers);
 
         hashmap_free(m->hooks);
 
@@ -1819,8 +1820,9 @@ void manager_flush_caches(Manager *m, int log_level) {
         LIST_FOREACH(scopes, scope, m->dns_scopes)
                 dns_cache_flush(&scope->cache);
 
-        dns_browse_services_purge(m, AF_UNSPEC); /* Clear records of DNS service browse subscriber, since caches are flushed */
-        dns_browse_services_restart(m);
+        /* Reconcile the browse subscriptions against the flushed caches and restart their
+         * continuous queries (the purge re-arms every affected querier itself). */
+        dns_browse_services_purge(m, AF_UNSPEC, /* ifindex= */ 0);
 
         log_full(log_level, "Flushed all caches.");
 }
