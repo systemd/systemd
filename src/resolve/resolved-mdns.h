@@ -21,3 +21,15 @@ void manager_mdns_maybe_stop(Manager *m);
 int manager_mdns_start(Manager *m);
 
 int mdns_enumeration_service_ptr_new(const char *service_type, DnsResourceRecord **ret);
+
+void mdns_announcement_max_sizes(
+                int family,
+                size_t link_mtu,
+                size_t *ret_max_size,
+                size_t *ret_fragmented_max);
+int mdns_announcement_packetize(
+                DnsAnswer *answer,
+                size_t max_size,
+                size_t fragmented_max,
+                DnsPacket ***ret_packets,
+                size_t *ret_n_packets);
