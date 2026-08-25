@@ -81,7 +81,7 @@ assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initr
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
 }
 
-bool dm_verity_require_signatures(void) {
+static bool dm_verity_require_signatures(void) {
         int r;
 
         r = read_boolean_file("/sys/module/dm_verity/parameters/require_signatures");
@@ -92,6 +92,35 @@ bool dm_verity_require_signatures(void) {
         }
 
         return r > 0;
+}
+
+/* The kernel-side prerequisites of the policy, shared with test-bpf-restrict-fsaccess. */
+int bpf_restrict_fsaccess_check_prerequisites(void) {
+        int r;
+
+        r = dlopen_bpf(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        r = lsm_supported("bpf");
+        if (r == -ENOPKG)
+                return log_error_errno(r, "bpf-restrict-fsaccess: securityfs not mounted, BPF LSM not available.");
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Can't determine whether the BPF LSM module is "
+                                       "used: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "bpf-restrict-fsaccess: BPF LSM hook not enabled in the kernel, not supported.");
+        log_debug("bpf-restrict-fsaccess: BPF LSM: supported.");
+
+        if (!dm_verity_require_signatures())
+                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "bpf-restrict-fsaccess: dm-verity require_signatures is not enabled. "
+                                       "RestrictFileSystemAccess= requires the kernel to enforce dm-verity signatures. "
+                                       "Set dm_verity.require_signatures=1 on the kernel command line.");
+        log_debug("bpf-restrict-fsaccess: dm-verity require_signatures: enabled.");
+
+        return 0;
 }
 
 static int get_root_s_dev(uint32_t *ret) {
@@ -416,26 +445,9 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                 return 0;
         }
 
-        /* Fresh setup: verify BPF LSM is available */
-        r = dlopen_bpf(LOG_WARNING);
+        r = bpf_restrict_fsaccess_check_prerequisites();
         if (r < 0)
                 return r;
-
-        r = lsm_supported("bpf");
-        if (r == -ENOPKG)
-                return log_warning_errno(r, "bpf-restrict-fsaccess: securityfs not mounted, BPF LSM not available.");
-        if (r < 0)
-                return log_warning_errno(r, "bpf-restrict-fsaccess: Can't determine whether the BPF LSM module is used: %m");
-        if (r == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                         "bpf-restrict-fsaccess: BPF LSM hook not enabled in the kernel, not supported.");
-
-        /* Require dm-verity signature enforcement */
-        if (!dm_verity_require_signatures())
-                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
-                                       "bpf-restrict-fsaccess: dm-verity require_signatures is not enabled. "
-                                       "RestrictFileSystemAccess= requires the kernel to enforce dm-verity signatures. "
-                                       "Set dm_verity.require_signatures=1 on the kernel command line.");
 
         r = bpf_restrict_fsaccess_prepare(&obj);
         if (r < 0)
@@ -554,8 +566,8 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
 
 #else /* ! BPF_FRAMEWORK || ! HAVE_LSM_INTEGRITY_TYPE */
 
-bool dm_verity_require_signatures(void) {
-        return false;
+int bpf_restrict_fsaccess_check_prerequisites(void) {
+        return -EOPNOTSUPP;
 }
 
 int bpf_restrict_fsaccess_setup(Manager *m) {
