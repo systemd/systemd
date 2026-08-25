@@ -1147,6 +1147,16 @@ matrix_run_one() {
         [[ "$IS_USERNS_SUPPORTED" == "no" && "$api_vfs_writable" = "yes" ]] && return 1
     fi
 
+    if [[ "$IS_USERNS_SUPPORTED" == "yes" && "$api_vfs_writable" == "no" ]]; then
+        SYSTEMD_NSPAWN_USE_CGNS="$use_cgns" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$api_vfs_writable" \
+            systemd-nspawn --pipe --register=no \
+                           --directory="$root" \
+                           --private-network \
+                           --private-users=pick \
+                           cat /proc/sys/net/ipv4/ping_group_range | \
+            grep -Ex '0[[:space:]]+65535' >/dev/null
+    fi
+
     local netns_opt="--network-namespace-path=/proc/self/ns/net"
     local net_opt
     local net_opts=(
