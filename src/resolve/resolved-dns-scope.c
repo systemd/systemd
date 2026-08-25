@@ -167,7 +167,10 @@ DnsScope* dns_scope_free(DnsScope *s) {
         dns_zone_flush(&s->zone);
 
         /* Clear records of mDNS service browse subscriber, since cache bas been flushed */
-        dns_browse_services_purge(s->manager, s->family);
+        /* Only an mDNS scope's cache feeds the browse reconciliation; a unicast or LLMNR scope
+         * going away must not touch the browse schedules. */
+        if (s->protocol == DNS_PROTOCOL_MDNS)
+                dns_browse_services_purge(s->manager, s->family, dns_scope_ifindex(s));
 
         LIST_REMOVE(scopes, s->manager->dns_scopes, s);
         return mfree(s);

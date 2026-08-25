@@ -522,9 +522,13 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         free(q->request_address_string);
 
-        dnssd_discovered_service_unref(q->dnsservice_request);
-
-        dns_service_browser_unref(q->service_browser_request);
+        if (q->service_querier_request) {
+                /* As with the varlink userdata above: clear the querier's tracking pointer whichever way
+                 * the query goes away, so that it never dangles. */
+                if (q->service_querier_request->maintenance_query == q)
+                        q->service_querier_request->maintenance_query = NULL;
+                dns_service_querier_unref(q->service_querier_request);
+        }
 
         hook_query_free(q->hook_query);
 
