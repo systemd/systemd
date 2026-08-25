@@ -436,8 +436,10 @@ int home_setup_done(HomeSetup *setup) {
         if (setup->image_fd >= 0) {
                 if (setup->do_offline_fallocate) {
                         q = run_fallocate(setup->image_fd, NULL);
-                        if (q < 0)
+                        if (q < 0 && !setup->offline_fallocate_best_effort)
                                 r = q;
+                        else if (q < 0)
+                                log_debug_errno(q, "Failed to allocate backing file on teardown, ignoring: %m");
                 }
 
                 if (setup->do_mark_clean) {
@@ -468,6 +470,7 @@ int home_setup_done(HomeSetup *setup) {
         setup->undo_dm = false;
         setup->do_offline_fitrim = false;
         setup->do_offline_fallocate = false;
+        setup->offline_fallocate_best_effort = false;
         setup->do_mark_clean = false;
 
         setup->dm_name = mfree(setup->dm_name);
@@ -1686,7 +1689,7 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
                 return user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
         }
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1788,7 +1791,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1866,7 +1869,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
