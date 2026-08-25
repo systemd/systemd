@@ -119,7 +119,6 @@ int dns_scope_announce(DnsScope *scope, bool goodbye);
  * Those are the records the shutdown goodbyes deliberately keep, so they are still ours to answer
  * for while the withdrawal of everything else stands. */
 bool dns_scope_rr_is_host_record(DnsScope *scope, DnsResourceRecord *rr);
-int dns_scope_send_goodbye(DnsScope *scope, DnsAnswer *answer);
 
 int dns_scope_add_dnssd_registered_services(DnsScope *scope);
 int dns_scope_remove_dnssd_registered_services(DnsScope *scope);

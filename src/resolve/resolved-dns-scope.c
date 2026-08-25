@@ -1547,41 +1547,6 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
         return 0;
 }
 
-int dns_scope_send_goodbye(DnsScope *scope, DnsAnswer *answer) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        int r;
-
-        assert(scope);
-        assert(answer);
-
-        /* Sends an unsolicited response withdrawing the specified RRs, which are expected to be flagged as
-         * goodbye (TTL 0), without touching anything else published in the zone. */
-
-        if (scope->protocol != DNS_PROTOCOL_MDNS)
-                return 0;
-
-        r = sd_event_get_state(scope->manager->event);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get event loop state: %m");
-
-        /* If this is called on exit, through manager_free() -> link_free(), then we cannot announce. */
-        if (r == SD_EVENT_FINISHED)
-                return 0;
-
-        if (dns_answer_isempty(answer))
-                return 0;
-
-        r = dns_scope_make_reply_packet(scope, /* id= */ 0, DNS_RCODE_SUCCESS, /* q= */ NULL, answer,
-                                        /* soa= */ NULL, /* tentative= */ false, &p);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to build reply packet: %m");
-
-        r = dns_scope_emit_udp(scope, -EBADF, AF_UNSPEC, p);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to send reply packet: %m");
-
-        return 0;
-}
 static int dns_scope_make_announcement_packet(DnsScope *scope, size_t max_size, DnsPacket **ret) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         int r;
