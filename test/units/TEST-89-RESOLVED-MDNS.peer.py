@@ -498,26 +498,29 @@ def query(args):
         + b''.join(inline)
     )
     log(f'LISTENING iface={args.iface}')
-    sock.sendto(packet, (MDNS_GROUP, MDNS_PORT))
-    if args.followup_known_answer:
-        time.sleep(0.1)
-        continuation = make_record(
-            qname_labels,
-            TYPE_PTR,
-            120,
-            encode_name(tuple(args.followup_known_answer.split('.'))),
-            flush=False,
+    for i in range(args.repeat):
+        sock.sendto(packet, (MDNS_GROUP, MDNS_PORT))
+        if args.followup_known_answer:
+            time.sleep(0.1)
+            continuation = make_record(
+                qname_labels,
+                TYPE_PTR,
+                120,
+                encode_name(tuple(args.followup_known_answer.split('.'))),
+                flush=False,
+            )
+            sock.sendto(
+                struct.pack('>HHHHHH', qid, 0, 0, 1, 0, 0) + continuation,
+                (MDNS_GROUP, MDNS_PORT),
+            )
+            log('FOLLOWUP known answers')
+        log(
+            f'QUERY name={loggable(args.qname)} qtype={args.qtype} qu={1 if args.qu else 0} '
+            f'ka={loggable(args.known_answer_ptr) if args.known_answer_ptr else "-"} '
+            f'witness={loggable(args.witness_qname) if args.witness_qname else "-"}'
         )
-        sock.sendto(
-            struct.pack('>HHHHHH', qid, 0, 0, 1, 0, 0) + continuation,
-            (MDNS_GROUP, MDNS_PORT),
-        )
-        log('FOLLOWUP known answers')
-    log(
-        f'QUERY name={loggable(args.qname)} qtype={args.qtype} qu={1 if args.qu else 0} '
-        f'ka={loggable(args.known_answer_ptr) if args.known_answer_ptr else "-"} '
-        f'witness={loggable(args.witness_qname) if args.witness_qname else "-"}'
-    )
+        if i + 1 < args.repeat:
+            time.sleep(args.interval)
     capture(sock, args.duration)
 
 
@@ -592,6 +595,8 @@ def main():
         help='response code to put in the query header (RFC 6762 section 18.11)',
     )
     query_parser.add_argument('--duration', type=float, default=5)
+    query_parser.add_argument('--repeat', type=int, default=1, help='send the query this many times')
+    query_parser.add_argument('--interval', type=float, default=1.0, help='seconds between repeated queries')
 
     args = parser.parse_args()
     if args.mode == 'query' and args.compress_witness and args.witness_qname != args.qname:
