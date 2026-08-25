@@ -1595,22 +1595,6 @@ int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
         return ret;
 }
 
-int dns_scope_send_goodbye(DnsScope *scope, DnsAnswer *answer) {
-        assert(scope);
-        assert(answer);
-
-        /* Sends an unsolicited response withdrawing the specified RRs, which are expected to be flagged as
-         * goodbye (TTL 0), without touching anything else published in the zone. */
-
-        if (scope->protocol != DNS_PROTOCOL_MDNS)
-                return 0;
-
-        if (dns_answer_isempty(answer))
-                return 0;
-
-        return dns_scope_emit_announcement(scope, answer);
-}
-
 /* RFC 6762 section 10.2: the cache-flush bit belongs on unique records only. DNS-SD PTRs are
  * shared, and flushing them would evict a peer's other sources along with ours. One place
  * decides, for the announce pass and every withdrawal path. */

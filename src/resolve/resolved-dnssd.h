@@ -53,7 +53,7 @@ typedef struct DnssdRegisteredService {
 extern const struct hash_ops dnssd_registered_service_hash_ops;
 
 void dnssd_snapshot_file_service_rrs(Manager *m, DnsAnswer **ret);
-int dnssd_withdraw_stale_rrs(Manager *m, DnsAnswer *old_rrs);
+int dnssd_withdraw_filtered(Manager *m, DnsAnswer *candidates, const DnssdRegisteredService *except);
 
 DnssdTxtData* dnssd_txtdata_free(DnssdTxtData *txt_data);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdTxtData*, dnssd_txtdata_free);
