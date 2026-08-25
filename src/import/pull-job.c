@@ -228,9 +228,6 @@ static int pull_job_write_compressed(PullJob *j, const struct iovec *data) {
         assert(j);
         assert(iovec_is_valid(data));
 
-        if (!iovec_is_set(data))
-                return 0;
-
         if (j->written_compressed + data->iov_len < j->written_compressed)
                 return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
 
