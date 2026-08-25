@@ -1671,13 +1671,28 @@ static int add_any_file(
                 }
         }
 
+        if (our_fd >= 0 && st.st_size == 0) {
+                /* Journal writers create journal files empty at their final name, and write the header in
+                 * a second step. Hence an empty journal file is likely one we caught right at the time of
+                 * its creation, before its header was written, and carries no data yet. Skip it, as if it
+                 * didn't exist yet, instead of failing the whole open with -ENODATA. If the file is inside
+                 * a watched directory we'll pick it up via inotify once the header has been written. Do
+                 * this only for files we opened ourselves by path: for a caller provided fd skipping the
+                 * file would leave the fd's ownership in limbo, neither taken by us nor reported back. */
+                log_debug("Journal file %s is empty, likely being created right now, skipping.", path);
+                return 0;
+        }
+
         if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
                 r = log_debug_errno(SYNTHETIC_ERRNO(ETOOMANYREFS),
                                     "Too many open journal files, not adding %s.", path ?: "fd");
                 goto error;
         }
 
-        r = journal_file_open(fd, path, O_RDONLY, 0, 0, 0, NULL, j->mmap, NULL, &f);
+        JournalFileFlags file_flags =
+                FLAGS_SET(j->flags, SD_JOURNAL_ASSUME_IMMUTABLE) ? JOURNAL_ASSUME_IMMUTABLE : 0;
+
+        r = journal_file_open(fd, path, O_RDONLY, file_flags, 0, 0, NULL, j->mmap, NULL, &f);
         if (r < 0) {
                 log_debug_errno(r, "Failed to open journal file %s: %m", path ?: "from fd");
                 goto error;
