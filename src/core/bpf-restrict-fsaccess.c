@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "bpf-restrict-fsaccess.h"
@@ -111,6 +112,38 @@ static int proc_mem_force_override_restricted(void) {
         return streq(value, "never");
 }
 
+/* Unknown command line options are silently ignored, so verify the kernel really refuses FOLL_FORCE
+ * writes. Returns > 0 if a write through /proc/self/mem overrode a read-only mapping, 0 if it was refused. */
+static int proc_mem_can_force_override(void) {
+        _cleanup_close_ int fd = -EBADF;
+        const uint8_t zero = 0;
+        ssize_t n;
+        void *p;
+        int r;
+
+        p = mmap(/* addr= */ NULL, page_size(), PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, /* fd= */ -1, /* offset= */ 0);
+        if (p == MAP_FAILED)
+                return -errno;
+
+        fd = open("/proc/self/mem", O_RDWR|O_CLOEXEC);
+        if (fd < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        /* Without FOLL_FORCE access_remote_vm() copies nothing and mem_rw() fails with EIO. */
+        n = pwrite(fd, &zero, sizeof(zero), (off_t) (uintptr_t) p);
+        if (n < 0)
+                r = errno == EIO ? 0 : -errno;
+        else
+                r = n > 0 ? 1 : -EIO; /* Nothing written and no error is not a refusal, fail closed. */
+
+finish:
+        (void) munmap(p, page_size());
+        return r;
+}
+
+/* Both /proc/<pid>/mem gates: the command line says "never", and the kernel honours it. */
 static int restrict_fsaccess_check_proc_mem(void) {
         int r;
 
@@ -124,6 +157,18 @@ static int restrict_fsaccess_check_proc_mem(void) {
                                        "RestrictFileSystemAccess=. Add proc_mem.force_override=never to the kernel "
                                        "command line, or boot with systemd.restrict_filesystem_access=no to disable "
                                        "the policy.");
+
+        r = proc_mem_can_force_override();
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to probe whether /proc/self/mem overrides "
+                                       "memory protections: %m");
+        if (r > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "bpf-restrict-fsaccess: proc_mem.force_override=never is on the kernel command "
+                                       "line, but a write through /proc/self/mem still overrides memory protections. "
+                                       "The kernel apparently does not support the option (Linux 6.12 or newer is "
+                                       "required). Boot with systemd.restrict_filesystem_access=no to disable the "
+                                       "policy.");
 
         return 0;
 }
