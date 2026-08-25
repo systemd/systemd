@@ -6,6 +6,7 @@
 #include "dns-answer.h"
 #include "dns-question.h"
 #include "dns-rr.h"
+#include "ratelimit.h"
 
 typedef struct DnsServiceBrowser DnsServiceBrowser;
 typedef struct DnsServiceQuerier DnsServiceQuerier;
@@ -55,7 +56,7 @@ struct DnsServiceQuerier {
                                                  reconciliation (re-arming skips the rungs already
                                                  behind us, so a wind-back only takes effect once an
                                                  expiry moved) */
-        usec_t last_goodbye_rescue_usec;      /* rate limit for the §10.1 goodbye rescue query */
+        RateLimit goodbye_rescue_ratelimit;   /* bounds the §10.1 goodbye rescue queries */
         LIST_HEAD(DnssdDiscoveredService, dns_services);
         LIST_HEAD(DnsServiceBrowser, subscribers);
 };
@@ -108,4 +109,4 @@ int dns_subscribe_browse_service(
 void dns_unsubscribe_browse_service(Manager *m, sd_varlink *link);
 int mdns_queriers_notify_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family);
 int mdns_queriers_notify_goodbye(DnsScope *scope);
-void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *answer);
+void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *goodbyes);
