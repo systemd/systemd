@@ -35,6 +35,7 @@ extern const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCES
 
 bool dm_verity_require_signatures(void);
 int proc_mem_force_override_restricted(void);
+int proc_mem_force_override_probe(void);
 int bpf_restrict_fsaccess_setup(Manager *m);
 int bpf_restrict_fsaccess_prepare(struct restrict_fsaccess_bpf **ret);
 int bpf_restrict_fsaccess_populate_guard(struct restrict_fsaccess_bpf *obj);
