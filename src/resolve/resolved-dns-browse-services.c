@@ -712,44 +712,31 @@ int mdns_queriers_notify_goodbye(DnsScope *scope) {
  * as soon as a goodbye matches it: a surviving publisher's answer then
  * refreshes the record inside the one-second grace and no removal is ever
  * reported. If nobody answers, the goodbye takes effect exactly as before. */
-void mdns_queriers_rescue_query_goodbye(DnsScope *scope, DnsAnswer *answer) {
+void mdns_queriers_rescue_query_goodbye(DnsScope *scope, DnsAnswer *goodbyes) {
         DnsServiceQuerier *sq;
-        DnsResourceRecord *rr;
-        usec_t t;
         int r;
 
         assert(scope);
         assert(scope->manager);
 
-        t = now(CLOCK_BOOTTIME);
+        if (dns_answer_isempty(goodbyes))
+                return;
 
         HASHMAP_FOREACH(sq, scope->manager->dns_service_queriers) {
-                bool match = false;
-
                 if (sq->ifindex != 0 && sq->ifindex != dns_scope_ifindex(scope))
                         continue;
 
-                /* Half the §10.1 grace: covers goodbye repetitions at their
-                 * usual one-second spacing, and bounds the query rate should
-                 * someone flood us with goodbyes. */
-                if (sq->last_goodbye_rescue_usec > 0 &&
-                    t < usec_add(sq->last_goodbye_rescue_usec, USEC_PER_SEC / 2))
+                r = dns_answer_match_key(goodbyes, sq->key, NULL);
+                if (r <= 0) {
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to match goodbye records against service querier's key, ignoring: %m");
                         continue;
-
-                DNS_ANSWER_FOREACH(rr, answer) {
-                        /* Goodbyes arrive here with their TTL already rewritten to 1. */
-                        if (rr->ttl > 1)
-                                continue;
-
-                        if (dns_resource_key_equal(rr->key, sq->key) > 0) {
-                                match = true;
-                                break;
-                        }
                 }
-                if (!match)
-                        continue;
 
-                sq->last_goodbye_rescue_usec = t;
+                /* One rescue per half grace period: covers goodbye repetitions at their usual
+                 * one-second spacing, and bounds the query rate under a goodbye flood. */
+                if (!ratelimit_below(&sq->goodbye_rescue_ratelimit))
+                        continue;
 
                 r = mdns_querier_send_question(sq, /* cache_ok= */ false);
                 if (r < 0)
@@ -936,6 +923,7 @@ static int dns_service_querier_new(
                 .ifindex = ifindex,
                 .flags = flags,
                 .delay = 0,
+                .goodbye_rescue_ratelimit = { USEC_PER_SEC / 2, 1 },
         };
 
         r = sd_event_add_time_relative(
