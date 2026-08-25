@@ -553,6 +553,10 @@
         shared libraries (<literal>mmap_file</literal>), and write-to-execute transitions such as JIT
         compilation (<literal>file_mprotect</literal>).</para>
 
+        <para>Right now, the policy aims to enforce W^X on all memory mappings, system-wide. So no mapping may
+        be writable and executable at the same time. A private file mapping that was modified through
+        copy-on-write may not be made executable afterwards.
+
         <para>Since v262, files on overlayfs mounts are resolved to the layer that hosts their data, so
         execution from an overlay whose data resides on a signed dm-verity device is permitted, while files
         in a writable upper layer are denied. This requires kernel v7.2 or newer; on older kernels execution from
