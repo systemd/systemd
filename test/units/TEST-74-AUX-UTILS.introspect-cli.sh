@@ -61,6 +61,7 @@ INTROSPECTABLE=(
     systemd-detect-virt
     systemd-dissect
     systemd-escape
+    systemd-executor
     systemd-export
     systemd-factory-reset
     systemd-firstboot
