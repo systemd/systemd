@@ -1894,7 +1894,9 @@ static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata
 
         assert(t);
 
-        log_debug("Client of active request vanished, destroying DNS-SD service.");
+        log_debug("Client of active request vanished, withdrawing DNS-SD service.");
+
+        (void) dnssd_registered_service_withdraw(s);
         dnssd_registered_service_free(s);
 
         return 0;
