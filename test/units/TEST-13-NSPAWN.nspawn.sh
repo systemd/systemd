@@ -1211,6 +1211,26 @@ matrix_run_one() {
     return 0
 }
 
+testcase_ping_group_range() {
+    local range root
+
+    if [[ "$IS_USERNS_SUPPORTED" == "no" ]]; then
+        echo "Skipping user namespace test..."
+        return 0
+    fi
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.ping-group-range.XXX)"
+    create_dummy_container "$root"
+    trap 'rm -fr "$root"' RETURN ERR
+
+    range="$(systemd-nspawn --pipe --register=no \
+                            --directory="$root" \
+                            --private-network \
+                            --private-users=pick \
+                            cat /proc/sys/net/ipv4/ping_group_range)"
+    assert_eq "${range//[[:space:]]/ }" "0 65535"
+}
+
 testcase_api_vfs() {
     local api_vfs_writable
 
