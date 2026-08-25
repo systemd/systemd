@@ -16,6 +16,7 @@
 #include "alloc-util.h"
 #include "async.h"
 #include "binfmt-util.h"
+#include "build.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "constants.h"
@@ -49,6 +50,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "umount.h"
+#include "verbs.h"
 #include "virt.h"
 #include "watchdog.h"
 
@@ -59,6 +61,13 @@
 static const char *arg_verb = NULL;
 static uint8_t arg_exit_code = 0;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
+
+COMMAND(
+        "systemd-shutdown\0",
+        "Execute the final phase of system shutdown.",
+        .argspec = "reboot|poweroff|halt|kexec|exit\0",
+        .man_pages = "systemd-shutdown.8\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
@@ -74,6 +83,12 @@ static int parse_argv(int argc, char *argv[]) {
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return command_print_help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
 
                 OPTION_COMMON_LOG_LEVEL:
                         r = log_set_max_level_from_string(opts.arg);
@@ -144,12 +159,15 @@ static int parse_argv(int argc, char *argv[]) {
                         else
                                 log_warning("Got extraneous argument, ignoring.");
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (!arg_verb)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verb argument missing.");
 
-        return 0;
+        return 1; /* Further action */
 }
 
 static int switch_root_initramfs(void) {
@@ -403,7 +421,17 @@ static int run(int argc, char *argv[]) {
         log_set_prohibit_ipc(true);
         log_parse_environment();
 
-        if (getpid_cached() != 1)
+        r = parse_argv(argc, argv);
+        if (r <= 0) {
+                /* On error, or with --help, --version, and such, our work is done. But if we're not PID1 we
+                 * cannot exit, as that would cause the kernel to panic. We must treat that as an error.
+                 * Reenable logging and ctrl-alt-del first, so the user can see and maybe react. */
+                if (getpid_cached() != 1)
+                        return r;
+
+        } else if (getpid_cached() != 1)
+                /* After parsing options it looks like we're being asked to do some real work,
+                 * but should do that only as part of the real shutdown sequence. */
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Not executed by init (PID 1). Refusing to operate.");
 
@@ -414,8 +442,7 @@ static int run(int argc, char *argv[]) {
          * through kernel. */
         (void) reboot(RB_ENABLE_CAD);
 
-        r = parse_argv(argc, argv);
-        if (r < 0)
+        if (r <= 0)
                 goto error;
 
         log_open();
@@ -711,9 +738,14 @@ static int run(int argc, char *argv[]) {
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");
 
 error:
-        log_struct_errno(LOG_EMERG, r,
-                         LOG_MESSAGE("Critical error while doing system shutdown: %m"),
-                         LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_ERROR_STR));
+        if (r == 0)
+                log_struct(LOG_EMERG,
+                           LOG_MESSAGE("Invalid operation requested while doing system shutdown."),
+                           LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_ERROR_STR));
+        else
+                log_struct_errno(LOG_EMERG, r,
+                                 LOG_MESSAGE("Critical error while doing system shutdown: %m"),
+                                 LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_ERROR_STR));
         freeze();
 }
 
