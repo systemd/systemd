@@ -1,22 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
 #include <sys/stat.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
-#include "argv-util.h"
+#include "build.h"
 #include "cryptsetup-util.h"
 #include "dlopen-note.h"
 #include "fileio.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "integrity-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
 #include "time-util.h"
 #include "verbs.h"
 
@@ -43,25 +41,11 @@ static const char* const dm_integrity_algorithm_table[_INTEGRITY_ALGORITHM_MAX] 
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(dm_integrity_algorithm, IntegrityAlgorithm);
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        help_cmdline("COMMAND ...");
-        help_abstract("Attach or detach an integrity protected block device.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-integritysetup@.service", "8");
-        return 0;
-}
+COMMAND(
+        "systemd-integritysetup\0",
+        "Attach or detach an integrity protected block device.",
+        .man_pages = "systemd-integritysetup@.service.8\0",
+);
 
 static int load_key_file(
                 const char *key_file,
@@ -197,15 +181,43 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
+VERB_COMMON_HELP_AUTO_HIDDEN();
+
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        assert(argc >= 0);
+        assert(argv);
+        assert(ret_args);
+
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return command_print_help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
+                }
+
+        *ret_args = option_parser_get_args(&opts);
+        return 1;
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
-        LIBCRYPTSETUP_NOTE(required);
-
-        if (argv_looks_like_help(argc, argv))
-                return help();
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
 
         log_setup();
+
+        LIBCRYPTSETUP_NOTE(required);
 
         r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
@@ -213,7 +225,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        return dispatch_verb(strv_skip(argv, 1), /* userdata= */ NULL);
+        return dispatch_verb(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

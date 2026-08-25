@@ -73,6 +73,7 @@ INTROSPECTABLE=(
     systemd-import
     systemd-import-fs
     systemd-inhibit
+    systemd-integritysetup
     systemd-journal-gatewayd
     systemd-journal-remote
     systemd-journal-upload
