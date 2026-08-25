@@ -756,6 +756,10 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         assert(input_fd >= 0);
         assert(tree_fd >= 0);
 
+        r = dlopen_libarchive(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         _cleanup_(archive_read_freep) struct archive *a = NULL;
         a = sym_archive_read_new();
         if (!a)
@@ -1612,6 +1616,10 @@ int tar_c(int tree_fd, int output_fd, const char *filename, int hardlink_db_fd, 
 
         assert(tree_fd >= 0);
         assert(output_fd >= 0);
+
+        r = dlopen_libarchive(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         _cleanup_(archive_write_freep) struct archive *a = sym_archive_write_new();
         if (!a)
