@@ -278,6 +278,13 @@
         url="https://systemd.io/USER_RECORD">JSON User Records</ulink> for details on which settings may be
         used with such per-machine matching and which ones may not.</para>
 
+        <para>When used with <option>--rlimit=</option>, the match selection applies when setting a resource
+        limit. The user record format cannot express removing a resource limit from only one per-machine match.
+        Consequently, the removal forms <option>--rlimit=<replaceable>LIMIT</replaceable>=</option> and
+        <option>--rlimit=</option> are refused when an explicit <literal>this</literal>, <literal>other</literal>
+        or <literal>any</literal> match is selected. Use <option>--match=auto</option>, or omit
+        <option>--match=</option>, to remove resource limits from the complete record.</para>
+
         <para><option>-A</option> is a shortcut for <option>--match=any</option>, <option>-T</option> is
         short for <option>--match=this</option> and <option>-N</option> is short for
         <option>--match=other</option>.</para>
@@ -879,6 +886,11 @@
         sign, followed by a numeric limit. Optionally, separated by colon a second numeric limit may be
         specified. If two are specified this refers to the soft and hard limits, respectively. If only one
         limit is specified the setting sets both limits in one.</para>
+
+        <para>To remove a specific resource limit, specify the resource limit name followed by an empty value,
+        for example <option>--rlimit=LIMIT_NOFILE=</option>. This removes the limit from the complete user
+        record and cannot be combined with an explicit machine match. To remove all resource limits, use
+        <option>--rlimit=</option>, which likewise cannot be combined with an explicit machine match.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
