@@ -272,6 +272,11 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         assert(s);
         assert(p);
 
+        /* We are on the way out and our records have been goodbye'd: answering queries positively
+         * now would just re-populate the peer caches we made an effort to clean. */
+        if (s->manager->mdns_withdrawing)
+                return 0;
+
         r = dns_packet_extract(p);
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
@@ -368,6 +373,30 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to send reply packet: %m");
 
+        return 0;
+}
+
+/* The RFC 6763 section 9 type-enumeration PTR for a service type. One constructor for the
+ * announce and the withdrawal paths, which must build byte-identical records for zone removal
+ * and cache matching to work. */
+int mdns_enumeration_service_ptr_new(const char *service_type, DnsResourceRecord **ret) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        assert(service_type);
+        assert(ret);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
+                                          "_services._dns-sd._udp.local");
+        if (!rr)
+                return -ENOMEM;
+
+        rr->ptr.name = strdup(service_type);
+        if (!rr->ptr.name)
+                return -ENOMEM;
+
+        rr->ttl = MDNS_DEFAULT_TTL;
+
+        *ret = TAKE_PTR(rr);
         return 0;
 }
 
