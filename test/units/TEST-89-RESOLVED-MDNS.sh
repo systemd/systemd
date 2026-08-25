@@ -19,8 +19,9 @@ CONTAINER_1="test-mdns-1"
 CONTAINER_2="test-mdns-2"
 
 # SD_RESOLVED_MDNS_IPV4|SD_RESOLVED_MDNS_IPV6|SD_RESOLVED_NO_ZONE|SD_RESOLVED_NO_STALE
-# (src/shared/resolved-def.h): browse over mDNS only, do not answer from our own
-# zone, and never serve a stale cache entry.
+# (src/shared/resolved-def.h): browse over mDNS only and do not answer from our own zone. NO_STALE
+# is inert for a browse, the subscribe path masks it out of the querier's identity; it stays here to
+# pin exactly that.
 BROWSE_FLAGS=$(((1 << 3) | (1 << 4) | (1 << 13) | (1 << 24)))
 
 # The io.systemd.Resolve.BrowseServices parameters blob, for a service type
