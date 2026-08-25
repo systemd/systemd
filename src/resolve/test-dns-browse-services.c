@@ -173,7 +173,7 @@ TEST(mdns_querier_maintenance_query_completing_synchronously) {
                 .rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT,
         };
 
-        ASSERT_OK(mdns_querier_maintenance(/* s= */ NULL, /* usec= */ 0, &sq));
+        ASSERT_OK(mdns_querier_run_maintenance(&sq));
 
         /* The rung advanced, the query was issued and is gone again, and nothing leaked. */
         ASSERT_EQ(sq.rr_ttl_state, DNS_RECORD_TTL_STATE_85_PERCENT);
@@ -194,7 +194,7 @@ TEST(mdns_querier_maintenance_terminal_rung_resets_ladder) {
                 .rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT,
         };
 
-        ASSERT_OK(mdns_querier_maintenance(/* s= */ NULL, /* usec= */ 0, &sq));
+        ASSERT_OK(mdns_querier_run_maintenance(&sq));
 
         ASSERT_EQ(sq.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
         ASSERT_NULL(sq.maintenance_query);
