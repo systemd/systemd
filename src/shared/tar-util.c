@@ -79,12 +79,14 @@ static void open_inode_done(OpenInode *of) {
                 of->fd = safe_close(of->fd);
                 of->path = mfree(of->path);
         }
+
         xattr_free_array(of->xattr, of->n_xattr);
+        of->xattr = NULL;
+        of->n_xattr = 0;
+
 #if HAVE_ACL
-        if (of->acl_access)
-                sym_acl_free(of->acl_access);
-        if (of->acl_default)
-                sym_acl_free(of->acl_default);
+        acl_freep(&of->acl_access);
+        acl_freep(&of->acl_default);
 #endif
 }
 
