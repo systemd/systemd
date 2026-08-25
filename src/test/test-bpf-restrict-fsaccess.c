@@ -7,7 +7,8 @@
  *   test-bpf-restrict-fsaccess attach              — Load, attach, print IDs, then block.
  *                                                Kill the process to detach (synchronous
  *                                                via bpf_link_put_direct on last FD close).
- *   test-bpf-restrict-fsaccess check               — Check BPF LSM + require_signatures preconditions
+ *   test-bpf-restrict-fsaccess check               — Run PID 1's prerequisite checks (BPF LSM,
+ *                                                require_signatures)
  *   test-bpf-restrict-fsaccess mmap-exec PATH      — Attempt PROT_READ|PROT_EXEC mmap of PATH
  *   test-bpf-restrict-fsaccess anon-mmap-exec      — Attempt anonymous PROT_READ|PROT_EXEC mmap
  *   test-bpf-restrict-fsaccess mprotect-exec PATH  — mmap PATH PROT_READ, then mprotect to PROT_EXEC
@@ -34,7 +35,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "lsm-util.h"
 #include "string-util.h"
 #include "tests.h"
 
@@ -242,15 +242,12 @@ static int do_attach(void) {
 static int do_check(void) {
         int r;
 
-        r = dlopen_bpf(LOG_WARNING);
+        r = bpf_restrict_fsaccess_check_prerequisites();
         if (r < 0)
                 return r;
 
-        r = lsm_supported("bpf");
-        if (r <= 0)
-                return log_error_errno(r < 0 ? r : EOPNOTSUPP, "BPF LSM is not available: %m");
-        log_info("BPF LSM: supported");
-
+        /* Last: linking attaches bprm_check for an instant with an empty trust map, during which every
+         * execve() on the system is denied. Keep that window out of the cheap failure paths above. */
         _cleanup_(restrict_fsaccess_bpf_freep) struct restrict_fsaccess_bpf *obj = NULL;
         r = bpf_restrict_fsaccess_prepare(&obj);
         if (r < 0)
@@ -259,10 +256,6 @@ static int do_check(void) {
         if (!bpf_can_link_lsm_program(obj->progs.restrict_fsaccess_bprm_check))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "bpf-restrict-fsaccess: Failed to link program.");
-
-        if (!dm_verity_require_signatures())
-                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "dm-verity require_signatures is not enabled.");
-        log_info("dm-verity require_signatures: enabled");
 
         return 0;
 }
