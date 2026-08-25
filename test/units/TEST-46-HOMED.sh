@@ -40,6 +40,18 @@ wait_for_state() {
     timeout 2m bash -c "until homectl inspect '${1:?}' | grep -F 'State: $2' >/dev/null; do sleep 2; done"
 }
 
+homectl_dry_run() {
+    SYSTEMD_LOG_LEVEL=err SYSTEMD_HOME_DRY_RUN=1 NEWPASSWORD=secretsecret \
+        homectl --no-ask-password "$@" 2>&1
+}
+
+assert_rlimit_targeted_removal_rejected() {
+    if homectl_dry_run create test-rlimit-user "$@" >/dev/null; then
+        echo "targeted resource limit removal unexpectedly succeeded" >&2
+        return 1
+    fi
+}
+
 FSTYPE="$(stat --file-system --format "%T" /)"
 
 systemctl start systemd-homed.service systemd-userdbd.socket
@@ -50,6 +62,64 @@ mount -t tmpfs tmpfs /home -o size=290M
 
 # Make sure systemd-homed takes notice of the overmounted /home/
 systemctl kill -sUSR1 systemd-homed
+
+testcase_dry_run_rlimit_matching() {
+    local output
+
+    output="$(homectl_dry_run create test-rlimit-user --rlimit=NOFILE=42 --enforce-password-policy=no)"
+    jq -e '
+        .resourceLimits == null and
+        (.perMachine | map(select(has("matchMachineId"))) | length == 1) and
+        (.perMachine | map(select(has("matchNotMachineId") and has("resourceLimits"))) | length == 0)
+    ' <<<"$output"
+    jq -e '
+        .perMachine[]
+        | select(has("matchMachineId"))
+        | .resourceLimits.RLIMIT_NOFILE == {"cur":42,"max":42}
+    ' <<<"$output"
+
+    output="$(homectl_dry_run create test-rlimit-user \
+        --storage=directory --enforce-password-policy=no -N --rlimit=NOFILE=42)"
+    jq -e '
+        .resourceLimits == null and
+        (.perMachine | map(select(has("matchMachineId") and has("resourceLimits"))) | length == 0)
+    ' <<<"$output"
+    jq -e '
+        .perMachine[]
+        | select(has("matchNotMachineId"))
+        | .resourceLimits.RLIMIT_NOFILE == {"cur":42,"max":42}
+    ' <<<"$output"
+
+    output="$(homectl_dry_run create test-rlimit-user -A --rlimit=NOFILE=42 --enforce-password-policy=no)"
+    jq -e '.resourceLimits.RLIMIT_NOFILE == {"cur":42,"max":42}' <<<"$output"
+    jq -e '(.perMachine // []) | map(select(has("resourceLimits"))) | length == 0' <<<"$output"
+
+    output="$(homectl_dry_run create test-rlimit-user \
+        --storage=directory --enforce-password-policy=no \
+        --rlimit=NOFILE=42 -N --rlimit=NOFILE=43 -A --rlimit=NPROC=7)"
+    jq -e '
+        .resourceLimits.RLIMIT_NPROC == {"cur":7,"max":7} and
+        .resourceLimits.RLIMIT_NOFILE == null
+    ' <<<"$output"
+    jq -e '[.perMachine[] | select(has("matchMachineId")) | .resourceLimits.RLIMIT_NOFILE] == [{"cur":42,"max":42}]' <<<"$output"
+    jq -e '[.perMachine[] | select(has("matchNotMachineId")) | .resourceLimits.RLIMIT_NOFILE] == [{"cur":43,"max":43}]' <<<"$output"
+    jq -e '[.perMachine[] | select(.resourceLimits.RLIMIT_NPROC != null)] | length == 0' <<<"$output"
+
+    output="$(homectl_dry_run create test-rlimit-user \
+        --rlimit=NOFILE=42 --rlimit= --rlimit=NOFILE=43 --enforce-password-policy=no)"
+    jq -e '
+        .resourceLimits == null and
+        ([.perMachine[] | select(has("matchMachineId")) | .resourceLimits.RLIMIT_NOFILE] == [{"cur":43,"max":43}]) and
+        ([.perMachine[] | select(has("matchNotMachineId") and has("resourceLimits"))] | length == 0)
+    ' <<<"$output"
+
+    output="$(homectl_dry_run create test-rlimit-user \
+        --rlimit=NOFILE=42 --rlimit=NOFILE= --enforce-password-policy=no)"
+    jq -e '.resourceLimits == null and ((.perMachine // []) | map(select(has("resourceLimits"))) | length == 0)' <<<"$output"
+
+    assert_rlimit_targeted_removal_rejected -T --rlimit=NOFILE=
+    assert_rlimit_targeted_removal_rejected -N --rlimit=NOFILE=
+}
 
 testcase_basic() {
     local TMP_SKEL
@@ -1027,6 +1097,22 @@ testcase_match() {
     NEWPASSWORD=test homectl create --storage=directory --nice=5 -P matchtest
     homectl inspect matchtest
     homectl inspect matchtest | grep "Nice: 5"
+    PASSWORD=test homectl update -A --rlimit=NOFILE=42 matchtest
+    jq -e '.resourceLimits.RLIMIT_NOFILE == {"cur":42,"max":42}' \
+        <<<"$(homectl inspect --json=short matchtest)"
+    if PASSWORD=test homectl update -N --rlimit=NOFILE= matchtest; then
+        echo "targeted resource limit removal unexpectedly succeeded" >&2
+        return 1
+    fi
+    if PASSWORD=test homectl update -T --rlimit=NOFILE= matchtest; then
+        echo "targeted resource limit removal unexpectedly succeeded" >&2
+        return 1
+    fi
+    PASSWORD=test homectl update --rlimit= matchtest
+    jq -e 'has("resourceLimits") | not' <<<"$(homectl inspect --json=short matchtest)"
+    PASSWORD=test homectl update -A --rlimit=NOFILE=42 matchtest
+    PASSWORD=test homectl update -A --rlimit= matchtest
+    jq -e 'has("resourceLimits") | not' <<<"$(homectl inspect --json=short matchtest)"
     PASSWORD=test homectl update -N --nice=7 -T --nice=3 matchtest
     homectl inspect matchtest
     homectl inspect matchtest | grep "Nice: 3"
