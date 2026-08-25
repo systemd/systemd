@@ -13,6 +13,7 @@
 #include "lsm-util.h"
 #include "manager.h"
 #include "memory-util.h"
+#include "seccomp-util.h"
 #include "serialize.h"
 #include "string-table.h"
 
@@ -120,6 +121,26 @@ int bpf_restrict_fsaccess_check_prerequisites(void) {
                                        "Set dm_verity.require_signatures=1 on the kernel command line.");
         log_debug("bpf-restrict-fsaccess: dm-verity require_signatures: enabled.");
 
+        return 0;
+}
+
+/* The seccomp filter survives execve() so ensure that we're not installing another filter. */
+static int restrict_fsaccess_install_ptrace_filter(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->restrict_fsaccess_ptrace_filter)
+                return 0;
+
+        r = seccomp_restrict_ptrace();
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "bpf-restrict-fsaccess: seccomp support is not available, cannot block "
+                                       "ptrace() code injection.");
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to install the ptrace() seccomp filter: %m");
+
+        m->restrict_fsaccess_ptrace_filter = true;
         return 0;
 }
 
@@ -442,10 +463,18 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                                 return r;
                 }
 
+                /* v261 serialized the link FDs without installing the filter. Enforcement is active already,
+                 * so only complain. */
+                (void) restrict_fsaccess_install_ptrace_filter(m);
+
                 return 0;
         }
 
         r = bpf_restrict_fsaccess_check_prerequisites();
+        if (r < 0)
+                return r;
+
+        r = restrict_fsaccess_install_ptrace_filter(m);
         if (r < 0)
                 return r;
 
@@ -548,7 +577,15 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        if (!MANAGER_IS_SYSTEM(m) || m->restrict_filesystem_access <= RESTRICT_FILESYSTEM_ACCESS_NO)
+        if (!MANAGER_IS_SYSTEM(m))
+                return 0;
+
+        /* Process state, not policy state: the filter outlives the setting being turned off. */
+        r = serialize_bool_elide(f, "restrict-fsaccess-ptrace-filter", m->restrict_fsaccess_ptrace_filter);
+        if (r < 0)
+                return r;
+
+        if (m->restrict_filesystem_access <= RESTRICT_FILESYSTEM_ACCESS_NO)
                 return 0;
 
         FOREACH_ELEMENT(fd, m->restrict_fsaccess_link_fds) {
