@@ -13,6 +13,7 @@
 #include "lsm-util.h"
 #include "manager.h"
 #include "memory-util.h"
+#include "seccomp-util.h"
 #include "serialize.h"
 #include "string-table.h"
 
@@ -121,6 +122,34 @@ int bpf_restrict_fsaccess_check_prerequisites(void) {
         log_debug("bpf-restrict-fsaccess: dm-verity require_signatures: enabled.");
 
         return 0;
+}
+
+/* The seccomp filter survives execve() so ensure that we're not installing another filter. */
+static int restrict_fsaccess_install_ptrace_filter(Manager *m) {
+        assert(m);
+
+        if (m->restrict_fsaccess_ptrace_filter)
+                return 0;
+
+#if HAVE_SECCOMP
+        int r;
+
+        r = dlopen_libseccomp(LOG_DEBUG);
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: libseccomp is required to block ptrace() code "
+                                       "injection: %m");
+
+        r = seccomp_restrict_ptrace();
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to install the ptrace() seccomp filter: %m");
+
+        m->restrict_fsaccess_ptrace_filter = true;
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "bpf-restrict-fsaccess: Built without seccomp support, cannot block ptrace() code "
+                               "injection.");
+#endif
 }
 
 static int get_root_s_dev(uint32_t *ret) {
@@ -442,10 +471,19 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                                 return r;
                 }
 
+                /* v261 serialized the link FDs without installing the filter. */
+                r = restrict_fsaccess_install_ptrace_filter(m);
+                if (r < 0)
+                        return r;
+
                 return 0;
         }
 
         r = bpf_restrict_fsaccess_check_prerequisites();
+        if (r < 0)
+                return r;
+
+        r = restrict_fsaccess_install_ptrace_filter(m);
         if (r < 0)
                 return r;
 
@@ -558,6 +596,10 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
         }
 
         r = serialize_fd(f, fds, "restrict-fsaccess-bss-map", m->restrict_fsaccess_bss_map_fd);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool(f, "restrict-fsaccess-ptrace-filter", m->restrict_fsaccess_ptrace_filter);
         if (r < 0)
                 return r;
 

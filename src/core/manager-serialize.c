@@ -519,7 +519,7 @@ static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
 
 static void deserialize_restrict_fsaccess(Manager *m, const char *l, FDSet *fds) {
         const char *val;
-        int fd;
+        int fd, r;
 
         FOREACH_ELEMENT(name, restrict_fsaccess_link_names) {
                 val = startswith(l, *name);
@@ -534,6 +534,17 @@ static void deserialize_restrict_fsaccess(Manager *m, const char *l, FDSet *fds)
                         return;
                 }
                 close_and_replace(m->restrict_fsaccess_link_fds[name - restrict_fsaccess_link_names], fd);
+                return;
+        }
+
+        val = startswith(l, "restrict-fsaccess-ptrace-filter=");
+        if (val) {
+                r = parse_boolean(val);
+                if (r < 0)
+                        log_warning_errno(r, "bpf-restrict-fsaccess: Failed to parse ptrace filter state '%s', "
+                                          "ignoring: %m", val);
+                else
+                        m->restrict_fsaccess_ptrace_filter = r;
                 return;
         }
 
