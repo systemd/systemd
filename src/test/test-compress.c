@@ -392,8 +392,7 @@ TEST(compress_decompress_stream) {
                 log_debug("/* test faulty decompression */");
 
                 ASSERT_OK_ERRNO(lseek(dst, 1, SEEK_SET));
-                r = decompress_stream(c, dst, dst2, st.st_size);
-                ASSERT_TRUE(IN_SET(r, 0, -EBADMSG));
+                ASSERT_ERROR(decompress_stream(c, dst, dst2, st.st_size), EBADMSG);
 
                 ASSERT_OK_ERRNO(lseek(dst, 0, SEEK_SET));
                 ASSERT_OK_ERRNO(lseek(dst2, 0, SEEK_SET));
@@ -519,6 +518,28 @@ TEST(decompress_stream_sparse) {
                 ASSERT_OK_ZERO(decompress_stream(c, compressed, decompressed, st_src.st_size));
 
                 compare_fd(src, decompressed);
+
+                log_debug("/* testing %s sparse decompression with garbage at the end */", compression_to_string(c));
+
+                off_t end = ASSERT_OK_ERRNO(lseek(compressed, 0, SEEK_END));
+                ASSERT_OK(loop_write(compressed, "a", 1));
+                ASSERT_OK_ERRNO(lseek(compressed, 0, SEEK_SET));
+                ASSERT_OK_ERRNO(lseek(decompressed, 0, SEEK_SET));
+                ASSERT_ERROR(decompress_stream(c, compressed, decompressed, st_src.st_size), EBADMSG);
+
+                log_debug("/* testing %s sparse decompression with truncated data */", compression_to_string(c));
+
+                ASSERT_OK_ERRNO(ftruncate(compressed, end - 1));
+                ASSERT_OK_ERRNO(lseek(compressed, 0, SEEK_SET));
+                ASSERT_OK_ERRNO(lseek(decompressed, 0, SEEK_SET));
+                ASSERT_ERROR(decompress_stream(c, compressed, decompressed, st_src.st_size), EBADMSG);
+
+                log_debug("/* testing %s sparse decompression with zero length stream */", compression_to_string(c));
+
+                ASSERT_OK_ERRNO(ftruncate(compressed, 0));
+                ASSERT_OK_ERRNO(lseek(compressed, 0, SEEK_SET));
+                ASSERT_OK_ERRNO(lseek(decompressed, 0, SEEK_SET));
+                ASSERT_ERROR(decompress_stream(c, compressed, decompressed, st_src.st_size), EBADMSG);
 
                 /* Test all-zeros input: entire output should be a hole */
                 log_debug("/* testing %s sparse decompression of all-zeros */", compression_to_string(c));
