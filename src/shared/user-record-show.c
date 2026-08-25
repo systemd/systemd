@@ -82,6 +82,7 @@ static void show_tmpfs_limit(const char *tmpfs, const TmpfsLimit *limit, uint32_
 void user_record_show(UserRecord *hr, bool show_full_group_info) {
         _cleanup_strv_free_ char **langs = NULL;
         const char *hd, *ip, *shell;
+        bool disk_size_known;
         UserStorage storage;
         usec_t t;
         size_t k;
@@ -484,11 +485,15 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->skeleton_directory)
                 printf("  Skel. Dir.: %s\n", user_record_skeleton_directory(hr));
 
-        if (hr->disk_size != UINT64_MAX)
+        disk_size_known = hr->disk_size != UINT64_MAX && !user_record_disk_size_is_fill(hr);
+
+        if (user_record_disk_size_is_fill(hr))
+                printf("   Disk Size: max\n");
+        else if (hr->disk_size != UINT64_MAX)
                 printf("   Disk Size: %s\n", FORMAT_BYTES(hr->disk_size));
 
         if (hr->disk_usage != UINT64_MAX) {
-                if (hr->disk_size != UINT64_MAX) {
+                if (disk_size_known) {
                         unsigned permille;
 
                         permille = (unsigned) DIV_ROUND_UP(hr->disk_usage * 1000U, hr->disk_size); /* Round up! */
@@ -500,7 +505,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         }
 
         if (hr->disk_free != UINT64_MAX) {
-                if (hr->disk_size != UINT64_MAX) {
+                if (disk_size_known) {
                         const char *color_on, *color_off;
                         unsigned permille;
 
