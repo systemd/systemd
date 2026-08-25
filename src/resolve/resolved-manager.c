@@ -1820,8 +1820,9 @@ void manager_flush_caches(Manager *m, int log_level) {
         LIST_FOREACH(scopes, scope, m->dns_scopes)
                 dns_cache_flush(&scope->cache);
 
-        dns_browse_services_purge(m, AF_UNSPEC); /* Clear records of DNS service browse subscriber, since caches are flushed */
-        dns_browse_services_restart(m);
+        /* Reconcile the browse subscriptions against the flushed caches and restart their
+         * continuous queries (the purge re-arms every affected querier itself). */
+        dns_browse_services_purge(m, AF_UNSPEC, /* ifindex= */ 0);
 
         log_full(log_level, "Flushed all caches.");
 }
