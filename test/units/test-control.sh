@@ -115,12 +115,14 @@ run_subtests_with_signals() {
     for subtest in "${subtests[@]}"; do
         if [[ -n "${TEST_MATCH_SUBTEST:-}" ]] && ! [[ "$subtest" =~ $TEST_MATCH_SUBTEST ]]; then
             echo "Skipping $subtest (not matching '$TEST_MATCH_SUBTEST')"
+            _SKIPPED_TESTS+=("$subtest")
             continue
         fi
 
         for skip in ${TEST_SKIP_SUBTESTS:-}; do
             if [[ "$subtest" =~ $skip ]]; then
                 echo "Skipping $subtest (matching '$skip')"
+                _SKIPPED_TESTS+=("$subtest")
                 continue 2
             fi
         done
@@ -151,12 +153,14 @@ run_subtests() {
     for subtest in "${subtests[@]}"; do
         if [[ -n "${TEST_MATCH_SUBTEST:-}" ]] && ! [[ "$subtest" =~ $TEST_MATCH_SUBTEST ]]; then
             echo "Skipping $subtest (not matching '$TEST_MATCH_SUBTEST')"
+            _SKIPPED_TESTS+=("$subtest")
             continue
         fi
 
         for skip in ${TEST_SKIP_SUBTESTS:-}; do
             if [[ "$subtest" =~ $skip ]]; then
                 echo "Skipping $subtest (matching '$skip')"
+                _SKIPPED_TESTS+=("$subtest")
                 continue 2
             fi
         done
