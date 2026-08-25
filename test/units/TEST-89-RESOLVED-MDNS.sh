@@ -197,6 +197,216 @@ testcase_single_service_multiple_times() {
     done
 }
 
+testcase_mdns_goodbye_on_stop() {
+    : "Stopping resolved must withdraw its published services promptly via goodbye"
+    resolvectl flush-caches
+
+    local out_file error_file unit_name service_type
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-goodbye-$SRANDOM.service"
+    service_type="_testService6._udp"
+
+    # An EXIT trap, not RETURN: set -e aborts skip RETURN traps, and this subshell's EXIT trap
+    # fires however the testcase ends — the infinity browse unit must never outlive it. Armed
+    # before anything can fail, so an early abort cleans up the files too.
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file" EXIT
+
+    # Note: --timeout=infinity, since the subscription sits idle between discovery
+    # and the goodbye-driven removal, and varlinkctl's default 45s idle timeout
+    # could sever it in between on a slow runner.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+
+    # Wait until the second container's services have been discovered.
+    local ok=0
+    for _ in {0..14}; do
+        if grep "on $CONTAINER_2" "$out_file" >/dev/null; then ok=1; break; fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered $CONTAINER_2 services"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # Checkpoint the output so we only count 'removed' events produced AFTER the
+    # stop -- a match is then provably caused by the goodbye, not by earlier churn.
+    local off
+    off="$(wc -c <"$out_file")"
+
+    # Gracefully stop resolved in the second container. On a clean stop resolved
+    # multicasts mDNS goodbye packets (TTL=0) for its published services, so the
+    # browser must observe a 'removed' event for them well before the 120s record
+    # TTL would otherwise expire them.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl stop systemd-resolved.service
+
+    # Count distinct withdrawn instances rather than stopping at the first one: the goodbye for the
+    # container's 200 published services spans several packets, and a truncated emission would still
+    # withdraw a random subset of them (the zone is walked in hashmap order). Every instance of the
+    # browsed type must go.
+    local removed_names removed=0
+    for _ in {0..29}; do  # ~60s: generous for slow (sanitizer) runners, still far below the 120s record TTL
+        removed_names="$(tail -c "+$((off + 1))" "$out_file" \
+                         | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } \
+                         | { grep "on $CONTAINER_2" || :; } \
+                         | sed 's/.*"name":"//;s/"$//' | sort -u)"
+        removed="$(printf '%s\n' "$removed_names" | { grep -c "on $CONTAINER_2" || :; })"
+        if [[ "$removed" -ge "$SERVICE_COUNT" ]]; then
+            break
+        fi
+        sleep 2
+    done
+
+    if [[ "$removed" -lt "$SERVICE_COUNT" ]]; then
+        echo >&2 "Only $removed of $SERVICE_COUNT $CONTAINER_2 services were 'removed' after stopping its resolved (goodbye missing or truncated?):"
+        printf '%s\n' "$removed_names" >&2
+        cat "$out_file" "$error_file" >&2
+        # Best-effort restore before failing.
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl start systemd-resolved.service || :
+        return 1
+    fi
+
+    # Restore the second container's resolved (and its per-link mDNS/LLMNR
+    # overrides, which a resolved restart drops) for the remaining testcases.
+    # The freshly started resolved may not have re-enumerated its links yet, in
+    # which case resolvectl fails on the not-yet-known 'host0' — retry briefly
+    # rather than tripping set -e on the transient.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl start systemd-resolved.service
+    ok=0
+    for _ in {0..9}; do
+        if systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+               bash -xec "resolvectl mdns host0 yes; resolvectl llmnr host0 yes"; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Could not re-enable mDNS/LLMNR on $CONTAINER_2's host0 after restarting its resolved"
+        return 1
+    fi
+
+    echo testcase_end
+}
+
+testcase_mdns_runtime_withdrawal() {
+    : "Unregistering a service or dropping its file on reload must withdraw exactly that service"
+    resolvectl flush-caches
+
+    local out_file error_file unit_name service_type off
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-withdraw-$SRANDOM.service"
+    service_type="_withdrawBye._udp"
+
+    # An EXIT trap, not RETURN: set -e aborts skip RETURN traps, and this subshell's EXIT trap
+    # fires however the testcase ends — the infinity browse unit must never outlive it. Armed
+    # before anything can fail, so an early abort cleans up the files too.
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file" EXIT
+
+    # Two canary services in the second container. Their ids double as their bus object paths,
+    # so they must not contain characters the bus path encoding would escape.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/unregbye.dnssd <<EOF
+[Service]
+Name=Unregister Canary
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/reloadbye.dnssd <<EOF
+[Service]
+Name=Reload Canary
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    # Reload rather than restart: it re-runs dnssd_load() to pick up the new files while
+    # leaving the runtime per-link mDNS switches from setup intact.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service
+
+    # --timeout=infinity: the subscription idles between the events asserted below, longer than
+    # varlinkctl's default 45s method-call timeout.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+
+    # Wait until both canaries are discovered.
+    local ok=0
+    for _ in {0..14}; do
+        if grep "Unregister Canary" >/dev/null "$out_file" &&
+           grep "Reload Canary" >/dev/null "$out_file"; then
+            ok=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered both canary instances"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # Checkpoint the output: only events produced after the unregister count.
+    off="$(wc -c <"$out_file")"
+
+    # Unregister the first canary at runtime. Remove its file first, so a later reload cannot
+    # resurrect the unregistered instance.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/unregbye.dnssd
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+        UnregisterService o /org/freedesktop/resolve1/dnssd/unregbye
+
+    # Its goodbye must remove it well before the 120s record TTL...
+    local removed=0
+    for _ in {0..14}; do
+        if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Unregister Canary" >/dev/null; then
+            removed=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "The unregistered canary was not removed by its goodbye"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # ...and must withdraw only that service: the sibling canary stays published, so a 'removed'
+    # for it here means the unregister withdrew more than the unregistered service.
+    sleep 3
+    if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Reload Canary" >/dev/null; then
+        echo >&2 "Unregistering one service withdrew its still-published sibling:"
+        tail -c "+$((off + 1))" "$out_file" >&2
+        return 1
+    fi
+
+    # Checkpoint again, then drop the second canary's file and reload: the reload must withdraw
+    # the vanished service with a goodbye, again well before its record TTL.
+    off="$(wc -c <"$out_file")"
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/reloadbye.dnssd
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service
+
+    removed=0
+    for _ in {0..14}; do
+        if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Reload Canary" >/dev/null; then
+            removed=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "The canary whose file was removed was not withdrawn on reload"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    echo testcase_end
+}
+
 # Helper function to run browse services with a custom ifindex
 run_and_check_services_with_ifindex() {
     local service_id="${1:?}"
@@ -318,7 +528,26 @@ testcase_browse_ifindex_zero_no_flap() {
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
-    resolvectl flush-caches
+    # Announcements that were already on the wire (or sitting unread in our socket buffer)
+    # can straddle a single flush and leak the now-unreachable container back into the
+    # cache: resolved's (re)start reliably re-announces every published service, and the
+    # preceding testcase restarts the second container's resolved. Flush until the cache
+    # stays clean of that container (bounded: the stragglers are only whatever queued up
+    # before host0 went down, but on slow sanitizer runners draining it can take a while).
+    local clean=0
+    for _ in {0..29}; do  # ~60s: the same budget the goodbye-detection loop grants slow runners
+        resolvectl flush-caches
+        sleep 1
+        if ! resolvectl show-cache | grep "$CONTAINER_2" >/dev/null; then
+            clean=1
+            break
+        fi
+    done
+    if [[ "$clean" -ne 1 ]]; then
+        echo >&2 "Cache could not be cleaned of $CONTAINER_2 records after its link went down"
+        resolvectl show-cache >&2
+        return 1
+    fi
     for id in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
         run_and_check_services "$id" check_first
     done
