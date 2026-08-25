@@ -1636,6 +1636,10 @@ static int context_acquire(
         if (r < 0)
                 return r;
 
+        r = transfer_check_free_space(c->transfers, us->instances, c->n_transfers);
+        if (r < 0)
+                return r;
+
         if (c->sync)
                 sync();
 

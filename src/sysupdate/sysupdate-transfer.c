@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -15,6 +16,7 @@
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "gpt.h"
@@ -32,6 +34,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "specifier.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -1322,6 +1325,194 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
 
                 t->final_partition_label = TAKE_PTR(formatted_pattern);
         }
+
+        return 0;
+}
+
+typedef struct TransferFreeSpaceCheck {
+        dev_t dev;
+        uint64_t required;
+        uint64_t free;
+        char **paths;
+} TransferFreeSpaceCheck;
+
+static TransferFreeSpaceCheck *transfer_free_space_check_free(TransferFreeSpaceCheck *check) {
+        if (!check)
+                return NULL;
+
+        strv_free(check->paths);
+        return mfree(check);
+}
+
+static int open_existing_parent(const char *path, int flags, mode_t mode) {
+        _cleanup_free_ char *candidate = NULL;
+
+        assert(path);
+
+        candidate = strdup(path);
+        if (!candidate)
+                return -ENOMEM;
+
+        for (;;) {
+                _cleanup_free_ char *parent = NULL;
+                int r;
+                int fd;
+
+                r = path_extract_directory(candidate, &parent);
+                if (r < 0)
+                        return r;
+
+                fd = open(parent, flags, mode);
+                if (fd >= 0)
+                        return fd;
+
+                if (errno != ENOENT)
+                        return -errno;
+
+                if (streq(parent, "/"))
+                        return -ENOENT;
+
+                free(candidate);
+                candidate = TAKE_PTR(parent);
+        }
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                transfer_free_space_check_hash_ops,
+                dev_t,
+                devt_hash_func,
+                devt_compare_func,
+                TransferFreeSpaceCheck,
+                transfer_free_space_check_free);
+
+static uint64_t instance_get_expected_disk_usage(const Transfer *t, const Instance *i) {
+        struct stat st;
+        uint64_t size, allocated;
+
+        assert(t);
+        assert(i);
+
+        size = instance_get_expected_size(i);
+        if (size == UINT64_MAX)
+                return size;
+
+        if (t->target.type != RESOURCE_REGULAR_FILE || i->resource->type != RESOURCE_REGULAR_FILE)
+                return size;
+
+        if (stat(i->path, &st) < 0)
+                return size;
+
+        if (!S_ISREG(st.st_mode))
+                return size;
+
+        if ((uint64_t) st.st_size != size)
+                return size;
+
+        if (!MUL_SAFE(&allocated, (uint64_t) st.st_blocks, UINT64_C(512)))
+                return size;
+
+        /* Sparse raw images can occupy far less than their logical size, and the free-space check is only
+         * advisory. Use the smaller on-disk allocation when it is known to avoid false alarms. */
+        if (allocated < size)
+                size = allocated;
+
+        return size;
+}
+
+int transfer_check_free_space(Transfer *const *transfers, Instance *const *instances, size_t n_transfers) {
+        _cleanup_hashmap_free_ Hashmap *checks = NULL;
+        TransferFreeSpaceCheck *check;
+
+        assert(transfers);
+        assert(instances);
+
+        for (size_t i = 0; i < n_transfers; i++) {
+                Transfer *t = transfers[i];
+                Instance *inst = instances[i];
+                _cleanup_close_ int parent_fd = -EBADF;
+                struct stat st;
+                uint64_t required;
+                uint64_t free_bytes;
+                int r;
+
+                assert(t);
+                assert(inst);
+
+                if (!RESOURCE_IS_FILESYSTEM(t->target.type) ||
+                    inst->resource == &t->target ||
+                    resource_find_instance(&t->target, inst->metadata.version))
+                        continue;
+
+                assert(t->final_path);
+
+                required = instance_get_expected_disk_usage(t, inst);
+                if (required == UINT64_MAX)
+                        continue;
+
+                parent_fd = open_existing_parent(t->final_path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW, 0);
+                if (parent_fd < 0) {
+                        log_debug_errno(parent_fd, "Failed to open existing parent directory of '%s', skipping free space check: %m", t->final_path);
+                        continue;
+                }
+
+                if (fstat(parent_fd, &st) < 0) {
+                        log_debug_errno(errno, "Failed to stat parent directory of '%s', skipping free space check: %m", t->final_path);
+                        continue;
+                }
+
+                r = vfs_free_bytes(parent_fd, &free_bytes);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to determine free space for '%s', skipping free space check: %m", t->final_path);
+                        continue;
+                }
+
+                check = hashmap_get(checks, &st.st_dev);
+                if (!check) {
+                        check = new(TransferFreeSpaceCheck, 1);
+                        if (!check)
+                                return log_oom();
+
+                        *check = (TransferFreeSpaceCheck) {
+                                .dev = st.st_dev,
+                                .free = free_bytes,
+                                .paths = NULL,
+                        };
+
+                        r = strv_extend(&check->paths, t->final_path);
+                        if (r < 0) {
+                                transfer_free_space_check_free(check);
+                                return log_oom();
+                        }
+
+                        r = hashmap_ensure_put(&checks, &transfer_free_space_check_hash_ops, &check->dev, check);
+                        if (r < 0) {
+                                transfer_free_space_check_free(check);
+                                return log_oom();
+                        }
+                } else {
+                        r = strv_extend(&check->paths, t->final_path);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                check->required = saturate_add(check->required, required, UINT64_MAX);
+        }
+
+        HASHMAP_FOREACH(check, checks)
+                if (check->free < check->required) {
+                        _cleanup_free_ char *paths = NULL;
+
+                        paths = strv_join(check->paths, "', '");
+                        if (!paths)
+                                return log_oom();
+
+                        log_warning_errno(
+                                        SYNTHETIC_ERRNO(ENOSPC),
+                                        "Not enough free space on the filesystem containing paths '%s' to acquire the update: need %s, have %s; proceeding anyway.",
+                                        paths,
+                                        FORMAT_BYTES(check->required),
+                                        FORMAT_BYTES(check->free));
+                }
 
         return 0;
 }
