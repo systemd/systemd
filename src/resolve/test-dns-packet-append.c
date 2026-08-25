@@ -1318,9 +1318,15 @@ TEST(packet_append_name_beyond_compression_pointer_range) {
 
         /* The first occurrence of this name lands beyond pointer range, so it must not be added to
          * the compression map... */
+        /* The invariant the append-side assert relies on: every mapped offset is pointer-
+         * expressible. Checked directly, not just via map-size bookkeeping. */
+        void *v;
+        HASHMAP_FOREACH(v, packet->names)
+                ASSERT_LT(PTR_TO_SIZE(v), (size_t) DNS_PACKET_COMPRESSION_OFFSET_MAX);
+
         size_t n_mapped = hashmap_size(packet->names);
         ASSERT_OK(dns_packet_append_name(packet, "far.example.org", /* allow_compression= */ true, /* canonical_candidate= */ false, &start));
-        ASSERT_GE(start, (size_t) 0x4000);
+        ASSERT_GE(start, (size_t) DNS_PACKET_COMPRESSION_OFFSET_MAX);
         ASSERT_EQ(hashmap_size(packet->names), n_mapped);
 
         /* ...and since no pointer can reference it, later occurrences must be appended as labels
@@ -1329,6 +1335,8 @@ TEST(packet_append_name_beyond_compression_pointer_range) {
         ASSERT_OK(dns_packet_append_name(packet, "far.example.org", /* allow_compression= */ true, /* canonical_candidate= */ false, &second));
         ASSERT_OK(dns_packet_append_name(packet, "far.example.org", /* allow_compression= */ true, /* canonical_candidate= */ false, NULL));
         ASSERT_EQ(hashmap_size(packet->names), n_mapped);
+        HASHMAP_FOREACH(v, packet->names)
+                ASSERT_LT(PTR_TO_SIZE(v), (size_t) DNS_PACKET_COMPRESSION_OFFSET_MAX);
 
         /* Names first seen within pointer range still compress: re-appending one takes exactly the
          * two bytes of a compression pointer. */
@@ -1347,6 +1355,28 @@ TEST(packet_append_name_beyond_compression_pointer_range) {
         dns_packet_rewind(packet, before);
         ASSERT_OK(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true, NULL));
         ASSERT_STREQ(parsed, "filler0.example.com");
+
+        /* A name beyond the pointer range whose suffix IS mapped in range — the shape every DNS-SD
+         * name hits via ".local" — must still compress from that suffix: one label plus a two-byte
+         * pointer, on every occurrence, with the map unchanged. */
+        dns_packet_rewind(packet, packet->size);
+        n_mapped = hashmap_size(packet->names);
+        for (size_t i = 0; i < 2; i++) {
+                size_t at, occurrence_start = packet->size;
+
+                ASSERT_OK(dns_packet_append_name(packet, "far.example.com", /* allow_compression= */ true, /* canonical_candidate= */ false, &at));
+                ASSERT_GE(at, (size_t) DNS_PACKET_COMPRESSION_OFFSET_MAX);
+                ASSERT_EQ(packet->size, occurrence_start + 1 + STRLEN("far") + 2);
+                ASSERT_EQ(hashmap_size(packet->names), n_mapped);
+                HASHMAP_FOREACH(v, packet->names)
+                        ASSERT_LT(PTR_TO_SIZE(v), (size_t) DNS_PACKET_COMPRESSION_OFFSET_MAX);
+
+                parsed = mfree(parsed);
+                dns_packet_rewind(packet, at);
+                ASSERT_OK(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true, NULL));
+                ASSERT_STREQ(parsed, "far.example.com");
+                dns_packet_rewind(packet, occurrence_start + 1 + STRLEN("far") + 2);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG)
