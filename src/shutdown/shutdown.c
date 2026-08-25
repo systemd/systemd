@@ -34,6 +34,7 @@
 #include "killall.h"
 #include "log.h"
 #include "luo-util.h"
+#include "main-func.h"
 #include "options.h"
 #include "parse-util.h"
 #include "pidref.h"
@@ -366,7 +367,7 @@ static void sleep_until_minimum_uptime(void) {
         }
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         static const char* const dirs[] = {
                 SYSTEM_SHUTDOWN_PATH,
                 NULL
@@ -402,10 +403,9 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(true);
         log_parse_environment();
 
-        if (getpid_cached() != 1) {
-                log_error("Not executed by init (PID 1). Refusing to operate.");
-                return EXIT_FAILURE;
-        }
+        if (getpid_cached() != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not executed by init (PID 1). Refusing to operate.");
 
         log_set_always_reopen_console(true);
 
@@ -668,7 +668,6 @@ int main(int argc, char *argv[]) {
         switch (cmd) {
 
         case LINUX_REBOOT_CMD_KEXEC:
-
                 if (!in_container) {
                         /* Preserve fd stores via the kernel Live Update Orchestrator before kexec.
                          * The session fd must stay open until the kexec syscall. */
@@ -706,7 +705,7 @@ int main(int argc, char *argv[]) {
                 /* If we are in a container, and we lacked CAP_SYS_BOOT just exit, this will kill our
                  * container for good. */
                 log_info("Exiting container.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");
@@ -717,3 +716,5 @@ error:
                          LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_ERROR_STR));
         freeze();
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
