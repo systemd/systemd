@@ -847,11 +847,10 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
 
                 /* Finalize all inodes we won't need anymore now (go backwards, i.e. close inner fds first) */
                 while (n_open_inodes > i) {
-                        r = open_inode_finalize(open_inodes + n_open_inodes - 1);
+                        n_open_inodes--;
+                        r = open_inode_finalize(open_inodes + n_open_inodes);
                         if (r < 0)
                                 return r;
-
-                        n_open_inodes--;
                 }
 
                 /* And now create all remaining components */
