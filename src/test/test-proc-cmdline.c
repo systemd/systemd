@@ -271,9 +271,10 @@ TEST(proc_cmdline_filter_pid1_args) {
                                                "--log-color\0--log-level\0drop3\0"   /* optional argument ("--log-level" is handled as another option) */
                                                "--log-color\0accept5\0"              /* optional argument (separated with space) */
                                                "--log-color=drop4\0accept6\0"        /* optional argument (concatenated with '=') */
+                                               "--introspect-cli\0accept7\0"         /* no argument */
                                                "--log-color\0--\0"                   /* "--" is _not_ handled as argument, and remaining strings are accepted */
                                                "remaining\0-x\0--foo\0",
-                                               STRV_MAKE("accept1", "accept2", "accept3", "accept4", "accept5", "accept6", "remaining", "-x", "--foo"));
+                                               STRV_MAKE("accept1", "accept2", "accept3", "accept4", "accept5", "accept6", "accept7", "remaining", "-x", "--foo"));
 
         /* test for "--" */
         test_proc_cmdline_filter_pid1_args_one("systemd\0"

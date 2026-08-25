@@ -48,6 +48,7 @@
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
+#include "verbs.h"
 #include "web-util.h"
 
 typedef struct Manager Manager;
@@ -2080,6 +2081,17 @@ static void manager_parse_env(Manager *m) {
                 log_warning_errno(r, "Failed to parse $SYSTEMD_IMPORT_BTRFS_QUOTA: %m");
 }
 
+COMMAND(
+        "systemd-importd\0",
+        "Import and export VM and container images.",
+        .man_pages = "systemd-importd.service.8\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0"
+                "Runtime scope\0",
+);
+
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
@@ -2089,9 +2101,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = service_parse_argv("systemd-importd.service",
-                               "VM and container image import and export service.",
-                               BUS_IMPLEMENTATIONS(&manager_object,
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
                                &scope,
                                argc, argv);

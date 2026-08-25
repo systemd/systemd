@@ -51,13 +51,11 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
@@ -119,6 +117,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 #include "utf8.h"
+#include "verbs.h"
 #include "version.h"
 #include "virt.h"
 #include "watchdog.h"
@@ -131,6 +130,7 @@ static enum {
         ACTION_RUN,
         ACTION_HELP,
         ACTION_VERSION,
+        ACTION_INTROSPECT_CLI,
         ACTION_TEST,
         ACTION_DUMP_CONFIGURATION_ITEMS,
         ACTION_DUMP_BUS_PROPERTIES,
@@ -1039,6 +1039,14 @@ static int redirect_telinit(char *argv[], char **args) {
                                strnull(a), strnull(b), strnull(c));
 }
 
+COMMAND(
+        "systemd\0",
+        "Start and monitor system and user services.",
+        .man_pages = "systemd.1\0",
+        .option_namespace = "systemd",
+        .pager_flags = &arg_pager_flags,
+);
+
 static int parse_argv(int argc, char *argv[]) {
         bool user_arg_seen = false;
         int r;
@@ -1268,6 +1276,11 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Switch -%c is only supported when running as PID 1.", opts.opt->short_code);
                         /* In PID1, do nothing and continue with option parsing. */
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        arg_action = ACTION_INTROSPECT_CLI;
+                        break;
+
                 OPTION_ERROR:
                         if (getpid_cached() != 1)
                                 return -EINVAL;
@@ -1287,28 +1300,6 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Explicit --user argument required to run as user manager.");
 
-        return 0;
-}
-
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("systemd", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...]");
-        help_abstract("Starts and monitors system and user services.");
-
-        printf("\nThis program takes no positional arguments.\n");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd", "1");
         return 0;
 }
 
@@ -3745,17 +3736,22 @@ static int run_systemd(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS, ACTION_DUMP_BUS_PROPERTIES, ACTION_BUS_INTROSPECT))
+        if (IN_SET(arg_action, ACTION_TEST, ACTION_DUMP_CONFIGURATION_ITEMS, ACTION_DUMP_BUS_PROPERTIES, ACTION_BUS_INTROSPECT))
                 pager_open(arg_pager_flags);
 
         if (arg_action != ACTION_RUN)
                 skip_setup = true;
 
         if (arg_action == ACTION_HELP) {
-                retval = help() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                r = command_print_help_name("systemd");
+                retval = r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
                 goto finish;
         } else if (arg_action == ACTION_VERSION) {
                 retval = version();
+                goto finish;
+        } else if (arg_action == ACTION_INTROSPECT_CLI) {
+                r = introspect_cli(SD_JSON_FORMAT_OFF);
+                retval = r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
                 goto finish;
         } else if (arg_action == ACTION_DUMP_CONFIGURATION_ITEMS) {
                 unit_dump_config_items(stdout);
