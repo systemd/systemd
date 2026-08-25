@@ -549,7 +549,8 @@ int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int ow
                         continue;
                 }
 
-                r = browse_service_update_append(&array, item->rr, owner_family, ifindex, BROWSE_SERVICE_UPDATE_ADDED);
+                r = browse_service_update_append(
+                                &array, item->rr, owner_family, ifindex, BROWSE_SERVICE_UPDATE_ADDED);
                 if (r < 0) {
                         log_error_errno(r, "Failed to append 'added' service event: %m");
                         goto finish;
@@ -577,7 +578,9 @@ int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int ow
                 if (r > 0)
                         continue;
 
-                r = browse_service_update_append(&array, service->rr, owner_family, service->ifindex, BROWSE_SERVICE_UPDATE_REMOVED);
+                r = browse_service_update_append(
+                                &array, service->rr, owner_family, service->ifindex,
+                                BROWSE_SERVICE_UPDATE_REMOVED);
                 if (r < 0) {
                         log_error_errno(r, "Failed to append 'removed' service event: %m");
                         goto finish;
@@ -609,7 +612,7 @@ int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int ow
                 LIST_FOREACH(subscribers, sb, sq->subscribers) {
                         r = sd_varlink_notify(sb->link, vm);
                         if (r < 0) {
-                                log_debug_errno(r, "Failed to notify a browse subscriber via varlink, dropping its subscription: %m");
+                                log_debug_errno(r, "Failed to notify a browse subscriber, dropping its subscription: %m");
                                 (void) sd_varlink_error_errno(sb->link, r);
                         }
                 }
@@ -792,7 +795,7 @@ int mdns_queriers_notify_unsolicited_updates(Manager *m, DnsAnswer *answer, int 
 
                 r = dns_answer_match_key(answer, sq->key, NULL);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to match answer key with service querier's key, ignoring: %m");
+                        log_warning_errno(r, "Failed to match answer key against a querier, ignoring: %m");
                         continue;
                 }
                 if (r == 0)
@@ -917,7 +920,9 @@ static int dns_service_browser_send_snapshot(DnsServiceBrowser *sb) {
         assert(sb->querier);
 
         LIST_FOREACH(dns_services, service, sb->querier->dns_services) {
-                r = browse_service_update_append(&array, service->rr, service->family, service->ifindex, BROWSE_SERVICE_UPDATE_ADDED);
+                r = browse_service_update_append(
+                                &array, service->rr, service->family, service->ifindex,
+                                BROWSE_SERVICE_UPDATE_ADDED);
                 if (r < 0)
                         return r;
         }
@@ -1046,11 +1051,6 @@ int dns_subscribe_browse_service(
         if (r < 0)
                 return log_error_errno(r, "Failed to create DNS question for UTF8 version: %m");
 
-        r = dns_question_new_service_pointer(
-                        &question_idna, type, domain, /* convert_idna= */ true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create DNS question for IDNA version: %m");
-
         /* One querier per browse question: if somebody is asking this already, join them instead of
          * multicasting the same question a second time. */
         DnsServiceQuerier *shared = hashmap_get(
@@ -1065,6 +1065,11 @@ int dns_subscribe_browse_service(
                 log_debug("Joining existing browse querier for %s.",
                           dns_resource_key_to_string(sq->key, key_str, sizeof key_str));
         } else {
+                r = dns_question_new_service_pointer(
+                                &question_idna, type, domain, /* convert_idna= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create DNS question for IDNA version: %m");
+
                 r = dns_service_querier_new(m, question_utf8, question_idna, ifindex, flags, &sq);
                 if (r < 0)
                         return r;
