@@ -1297,8 +1297,10 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
         scope->conflict_event_source = sd_event_source_disable_unref(scope->conflict_event_source);
 
         /* Once the shutdown goodbyes went out, conflicted records must not be re-published: the
-         * withdrawal is to stand, and we are gone before any conflict resolution could conclude. */
-        if (scope->manager->mdns_withdrawing)
+         * withdrawal is to stand, and we are gone before any conflict resolution could conclude.
+         * This concerns mDNS alone — LLMNR records are not withdrawn by the goodbyes, so its
+         * conflict handling keeps running to the end. */
+        if (scope->protocol == DNS_PROTOCOL_MDNS && scope->manager->mdns_withdrawing)
                 return 0;
 
         for (;;) {
@@ -1374,7 +1376,7 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
          * records back to probing and multicast them, and could not conclude before we exit.
          * Defending the host's own records, which the goodbyes keep, stays the query path's job
          * (mdns_scope_process_query(), RFC 6762 section 8.1). */
-        if (scope->manager->mdns_withdrawing)
+        if (scope->protocol == DNS_PROTOCOL_MDNS && scope->manager->mdns_withdrawing)
                 return;
 
         if (DNS_PACKET_RRCOUNT(p) <= 0)
@@ -1627,10 +1629,9 @@ bool dns_scope_rr_is_host_record(const DnsScope *scope, const DnsResourceRecord 
         return false;
 }
 
-/* Shared by the size-counting and the answer-building pass below, which must agree for the pre-sized
- * answer allocation to stay correct. A goodbye also covers items under re-verification: only initial
- * establishment goes through probing, so a VERIFYING item was announced before, and a re-verification
- * in flight — e.g. right after a configuration reload — must not exempt it from withdrawal. */
+/* The announcement filter. A goodbye also covers items under re-verification: only initial
+ * establishment goes through probing, so a VERIFYING item was announced before, and a
+ * re-verification in flight, e.g. right after a reload, must not exempt it from withdrawal. */
 static bool dns_scope_wants_announce_item(DnsZoneItem *i, bool goodbye) {
         assert(i);
 
@@ -1650,6 +1651,23 @@ static bool dns_scope_wants_announce_item(DnsZoneItem *i, bool goodbye) {
                 return false;
 
         return true;
+}
+
+/* Whether a goodbye announcement on this scope would carry any record: the filter excludes
+ * probing and withdrawn items and the host's own records, so a non-empty zone alone means
+ * nothing. */
+bool dns_scope_shutdown_goodbye_has_content(DnsScope *scope) {
+        DnsZoneItem *z;
+
+        if (!scope)
+                return false;
+
+        HASHMAP_FOREACH(z, scope->zone.by_key)
+                LIST_FOREACH(by_key, i, z)
+                        if (dns_scope_wants_announce_item(i, /* goodbye= */ true))
+                                return true;
+
+        return false;
 }
 
 int dns_scope_announce(DnsScope *scope, bool goodbye) {
@@ -1726,9 +1744,10 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                         }
                 }
 
+                /* The size only reserves the answer's backing set — dns_answer_add() grows it as
+                 * needed — so a slight overcount for items the building pass then filters is fine. */
                 LIST_FOREACH(by_key, i, z)
-                        if (dns_scope_wants_announce_item(i, goodbye))
-                                size++;
+                        size++;
         }
 
         answer = dns_answer_new(size + set_size(types));
@@ -1858,6 +1877,13 @@ int dns_scope_remove_dnssd_registered_services(DnsScope *scope) {
         int r;
 
         assert(scope);
+
+        /* The counterpart of the guard in dns_scope_add_dnssd_registered_services(): a refresh
+         * during the grace second would empty the zone and be unable to put anything back,
+         * leaving the second transmission with nothing to send. The goodbyes finish against the
+         * zone they were built from. */
+        if (scope->manager->mdns_withdrawing)
+                return 0;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR,
                                    "_services._dns-sd._udp.local");
