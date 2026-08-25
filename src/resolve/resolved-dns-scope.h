@@ -115,6 +115,8 @@ const char* dns_scope_ifname(DnsScope *s);
 
 int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer);
 bool dns_scope_goodbye_has_content(DnsScope *scope);
+int mdns_enumeration_service_ptr_new(const char *service_type, DnsResourceRecord **ret);
+int dns_scope_withdraw_rrs(DnsScope *scope, DnsAnswer *candidates, DnsAnswer **ret_emitted);
 int dns_scope_announce(DnsScope *scope, bool goodbye);
 
 int dns_scope_add_dnssd_registered_services(DnsScope *scope);
