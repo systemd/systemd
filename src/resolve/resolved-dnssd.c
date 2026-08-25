@@ -20,6 +20,7 @@
 #include "resolved-dnssd.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
+#include "resolved-mdns.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
@@ -74,69 +75,7 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
         return mfree(service);
 }
 
-static int dnssd_registered_service_make_goodbye(
-                DnssdRegisteredService *service,
-                DnsScope *scope,
-                DnsAnswer **ret) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        size_t n_rrs = 3;
-        int r;
-
-        assert(service);
-        assert(scope);
-        assert(ret);
-
-        /* Collects those of the service's RRs that are established in the scope's zone (or under
-         * re-verification, in which case they are still served from the zone), flagged as goodbye (TTL 0),
-         * so that only this service is withdrawn, and only where we actually asserted ownership of the
-         * records, i.e. not while a record is still being probed for uniqueness, was withdrawn again after
-         * a conflict, or was never published in this scope in the first place. */
-
-        LIST_FOREACH(items, txt_data, service->txt_data_items)
-                n_rrs++;
-
-        answer = dns_answer_new(n_rrs);
-        if (!answer)
-                return -ENOMEM;
-
-        DnsResourceRecord *rrs[] = { service->ptr_rr, service->sub_ptr_rr, service->srv_rr };
-
-        FOREACH_ELEMENT(rr, rrs) {
-                if (!*rr)
-                        continue;
-
-                DnsZoneItem *i = dns_zone_get(&scope->zone, *rr);
-                if (!i || !IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
-                        continue;
-
-                r = dns_answer_add(answer, *rr, /* ifindex= */ 0,
-                                   dns_resource_key_is_dnssd_ptr((*rr)->key) ?
-                                   DNS_ANSWER_GOODBYE : (DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH),
-                                   /* rrsig= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        LIST_FOREACH(items, txt_data, service->txt_data_items) {
-                if (!txt_data->rr)
-                        continue;
-
-                DnsZoneItem *i = dns_zone_get(&scope->zone, txt_data->rr);
-                if (!i || !IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
-                        continue;
-
-                r = dns_answer_add(answer, txt_data->rr, /* ifindex= */ 0,
-                                   DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH, /* rrsig= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        *ret = TAKE_PTR(answer);
-        return 0;
-}
-
 void dnssd_registered_service_unregister(DnssdRegisteredService *service) {
-        Link *l;
         int r;
 
         assert(service);
@@ -144,27 +83,16 @@ void dnssd_registered_service_unregister(DnssdRegisteredService *service) {
         Manager *m = ASSERT_PTR(service->manager);
 
         /* Takes the service out of service: sends goodbye messages for it, removes its RRs from all mDNS
-         * zones, and drops it from the manager. Note that this also frees the passed object. */
+         * zones, and drops it from the manager. Note that this also frees the passed object.
+         *
+         * The withdrawal is routed through the precise runtime path: it goodbyes the type's
+         * enumeration PTR too when this was the last service of its type, leaves records alone
+         * that another service still stands behind, splits oversized emissions, and retransmits
+         * once per RFC 6762 section 8.3. */
 
-        HASHMAP_FOREACH(l, m->links)
-                FOREACH_ELEMENT(scope, ((DnsScope*[]) { l->mdns_ipv4_scope, l->mdns_ipv6_scope })) {
-                        if (!*scope)
-                                continue;
-
-                        _cleanup_(dns_answer_unrefp) DnsAnswer *goodbye = NULL;
-
-                        r = dnssd_registered_service_make_goodbye(service, *scope, &goodbye);
-                        if (r >= 0)
-                                r = dns_scope_send_goodbye(*scope, goodbye);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to send goodbye messages, ignoring: %m");
-
-                        dns_zone_remove_rr(&(*scope)->zone, service->ptr_rr);
-                        dns_zone_remove_rr(&(*scope)->zone, service->sub_ptr_rr);
-                        dns_zone_remove_rr(&(*scope)->zone, service->srv_rr);
-                        LIST_FOREACH(items, txt_data, service->txt_data_items)
-                                dns_zone_remove_rr(&(*scope)->zone, txt_data->rr);
-                }
+        r = dnssd_registered_service_withdraw(service);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send goodbye messages, ignoring: %m");
 
         /* This drops the service from the manager's hashmap, hence the subsequent refresh will not simply
          * add its RRs back. */
@@ -185,12 +113,47 @@ void dnssd_registered_service_clear_on_reload(Hashmap *services) {
 
 /* Collect the records a registered service publishes, flagged for withdrawal: TTL 0 on the wire
  * (DNS_ANSWER_GOODBYE), with cache-flush on the unique (non-PTR) records. */
+/* The type-enumeration PTR (RFC 6763 section 9) that announcing a service of this type makes
+ * resolved synthesize into the zone. Reconstructed here so a withdrawal can cover it once the last
+ * service of the type goes away. */
+static int dnssd_registered_service_enumeration_rr(DnssdRegisteredService *s, DnsResourceRecord **ret) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_free_ char *service_name = NULL;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        r = dns_name_concat(s->type, "local", 0, &service_name);
+        if (r < 0)
+                return r;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, "_services._dns-sd._udp.local");
+        if (!rr)
+                return -ENOMEM;
+
+        rr->ptr.name = TAKE_PTR(service_name);
+        rr->ttl = MDNS_DEFAULT_TTL;
+
+        *ret = TAKE_PTR(rr);
+        return 0;
+}
+
 static int dnssd_registered_service_collect_withdraw_rrs(DnssdRegisteredService *s, DnsAnswer **answer) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *enumeration_rr = NULL;
         DnsResourceRecord *ptr;
         int r;
 
         assert(s);
         assert(answer);
+
+        r = dnssd_registered_service_enumeration_rr(s, &enumeration_rr);
+        if (r < 0)
+                return r;
+
+        r = dns_answer_add_extend(answer, enumeration_rr, 0, DNS_ANSWER_GOODBYE, NULL);
+        if (r < 0)
+                return r;
 
         FOREACH_ARGUMENT(ptr, s->ptr_rr, s->sub_ptr_rr) {
                 if (!ptr)
@@ -221,8 +184,10 @@ static int dnssd_registered_service_collect_withdraw_rrs(DnssdRegisteredService 
 
 /* Multicast a goodbye for the given records and drop them from the mDNS zones. Unlike
  * dns_scope_announce() with goodbye=true, which withdraws the entire zone, this withdraws exactly
- * the given records: everything else stays published. */
-static int dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
+ * the given records: everything else stays published. Best effort by design: emission failures are
+ * logged and the zone removal happens regardless — the records are going away either way, and
+ * peers then age them out over their TTL. */
+static void dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
         DnsResourceRecord *rr;
         DnsScope *scope;
         Link *l;
@@ -231,7 +196,9 @@ static int dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
         assert(m);
 
         if (dns_answer_isempty(answer))
-                return 0;
+                return;
+
+        log_debug("Withdrawing %zu DNS-SD record(s) with a goodbye.", dns_answer_size(answer));
 
         HASHMAP_FOREACH(l, m->links)
                 FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope) {
@@ -239,12 +206,14 @@ static int dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
                                 continue;
 
                         /* Withdraw on each scope only what that scope actually serves, mirroring
-                         * dnssd_registered_service_make_goodbye(): a record still being probed for
+                         * the zone-state filter of the shutdown goodbye: a record still being probed for
                          * uniqueness, withdrawn again after a conflict, or never published here
                          * (e.g. a MulticastDNS=resolve link) is not ours to goodbye on this link. */
                         _cleanup_(dns_answer_unrefp) DnsAnswer *scoped = dns_answer_new(dns_answer_size(answer));
-                        if (!scoped)
-                                return -ENOMEM;
+                        if (!scoped) {
+                                (void) log_oom();
+                                continue;
+                        }
 
                         DnsAnswerItem *item;
                         DNS_ANSWER_FOREACH_ITEM(item, answer) {
@@ -253,8 +222,10 @@ static int dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
                                         continue;
 
                                 r = dns_answer_add(scoped, item->rr, item->ifindex, item->flags, item->rrsig);
-                                if (r < 0)
-                                        return r;
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to collect mDNS withdrawal records, ignoring: %m");
+                                        break;
+                                }
                         }
 
                         /* The same MTU/RFC 6762 section 17 bounded, multi-packet emission the
@@ -269,7 +240,62 @@ static int dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
                         DNS_ANSWER_FOREACH(rr, answer)
                                 dns_zone_remove_rr(&scope->zone, rr);
                 }
+}
 
+/* Everything the still-registered services publish — their own records plus their types'
+ * enumeration PTRs — except the given one: records some other service still stands behind must
+ * not be withdrawn along with it. */
+static int dnssd_collect_published_rrs(Manager *m, DnssdRegisteredService *except, DnsAnswer **ret) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *published = NULL;
+        DnssdRegisteredService *s;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        HASHMAP_FOREACH(s, m->dnssd_registered_services) {
+                if (s == except)
+                        continue;
+
+                r = dnssd_registered_service_collect_withdraw_rrs(s, &published);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(published);
+        return 0;
+}
+
+/* Withdraw the candidate records that no service outside 'except' publishes identically. */
+int dnssd_withdraw_filtered(Manager *m, DnsAnswer *candidates, DnssdRegisteredService *except) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *published = NULL, *stale = NULL;
+        DnsAnswerItem *item;
+        int r;
+
+        assert(m);
+
+        /* The common reload has nothing to withdraw; do not build the published-record index
+         * just to filter an empty candidate list against it. */
+        if (dns_answer_isempty(candidates))
+                return 0;
+
+        r = dnssd_collect_published_rrs(m, except, &published);
+        if (r < 0)
+                return r;
+
+        DNS_ANSWER_FOREACH_ITEM(item, candidates) {
+                r = dns_answer_contains(published, item->rr);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                r = dns_answer_add_extend_full(&stale, item->rr, item->ifindex, item->flags, item->rrsig, item->until);
+                if (r < 0)
+                        return r;
+        }
+
+        dnssd_withdraw_rrs(m, stale);
         return 0;
 }
 
@@ -284,7 +310,7 @@ int dnssd_registered_service_withdraw(DnssdRegisteredService *s) {
         if (r < 0)
                 return r;
 
-        return dnssd_withdraw_rrs(s->manager, answer);
+        return dnssd_withdraw_filtered(s->manager, answer, s);
 }
 
 /* Snapshot the records of all file-sourced registered services, for reconciling a reload: taken
@@ -308,49 +334,6 @@ int dnssd_snapshot_file_service_rrs(Manager *m, DnsAnswer **ret) {
 
         *ret = TAKE_PTR(answer);
         return 0;
-}
-
-static bool dnssd_rr_is_published(Manager *m, DnsResourceRecord *rr) {
-        DnssdRegisteredService *s;
-
-        assert(m);
-        assert(rr);
-
-        HASHMAP_FOREACH(s, m->dnssd_registered_services) {
-                DnsResourceRecord *own;
-
-                FOREACH_ARGUMENT(own, s->ptr_rr, s->sub_ptr_rr, s->srv_rr)
-                        if (own && dns_resource_record_equal(own, rr) > 0)
-                                return true;
-
-                LIST_FOREACH(items, txt_data, s->txt_data_items)
-                        if (txt_data->rr && dns_resource_record_equal(txt_data->rr, rr) > 0)
-                                return true;
-        }
-
-        return false;
-}
-
-/* Withdraw the snapshotted records that did not survive a reload. Records a re-loaded service
- * still publishes identically are left alone, so an unchanged .dnssd file does not flap its
- * service on every reload. */
-int dnssd_withdraw_stale_rrs(Manager *m, DnsAnswer *old_rrs) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *stale = NULL;
-        DnsAnswerItem *item;
-        int r;
-
-        assert(m);
-
-        DNS_ANSWER_FOREACH_ITEM(item, old_rrs) {
-                if (dnssd_rr_is_published(m, item->rr))
-                        continue;
-
-                r = dns_answer_add_extend_full(&stale, item->rr, item->ifindex, item->flags, item->rrsig, item->until);
-                if (r < 0)
-                        return r;
-        }
-
-        return dnssd_withdraw_rrs(m, stale);
 }
 
 static int dnssd_id_from_path(const char *path, char **ret_id) {
