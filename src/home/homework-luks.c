@@ -1143,8 +1143,33 @@ int run_fitrim(int root_fd) {
         return 1;
 }
 
+static int run_fallocate_range(int backing_fd, off_t offset, off_t size) {
+
+        assert(backing_fd >= 0);
+        assert(offset >= 0);
+        assert(size >= 0);
+
+        if (fallocate(backing_fd, FALLOC_FL_KEEP_SIZE, offset, size) < 0) {
+
+                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                        log_debug_errno(errno, "fallocate() not supported on file system, ignoring.");
+                        return 0;
+                }
+
+                if (ERRNO_IS_DISK_SPACE(errno)) {
+                        log_debug_errno(errno, "Not enough disk space to fully allocate home.");
+                        return -ENOSPC; /* make recognizable */
+                }
+
+                return log_error_errno(errno, "Failed to allocate backing file blocks: %m");
+        }
+
+        return 1;
+}
+
 int run_fallocate(int backing_fd, const struct stat *st) {
         struct stat stbuf;
+        int r;
 
         assert(backing_fd >= 0);
 
@@ -1166,20 +1191,9 @@ int run_fallocate(int backing_fd, const struct stat *st) {
                 return 0;
         }
 
-        if (fallocate(backing_fd, FALLOC_FL_KEEP_SIZE, 0, st->st_size) < 0) {
-
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
-                        log_debug_errno(errno, "fallocate() not supported on file system, ignoring.");
-                        return 0;
-                }
-
-                if (ERRNO_IS_DISK_SPACE(errno)) {
-                        log_debug_errno(errno, "Not enough disk space to fully allocate home.");
-                        return -ENOSPC; /* make recognizable */
-                }
-
-                return log_error_errno(errno, "Failed to allocate backing file blocks: %m");
-        }
+        r = run_fallocate_range(backing_fd, 0, st->st_size);
+        if (r <= 0)
+                return r;
 
         log_info("Allocated additional %s.",
                  FORMAT_BYTES((DIV_ROUND_UP(st->st_size, 512) - st->st_blocks) * 512));
@@ -1430,7 +1444,7 @@ int home_setup_luks(
                 if (run_mark_dirty(setup->image_fd, true) > 0)
                         setup->do_mark_clean = true;
 
-                if (!user_record_luks_discard(h)) {
+                if (!FLAGS_SET(flags, HOME_SETUP_LUKS_DONT_FALLOCATE) && !user_record_luks_discard(h)) {
                         r = run_fallocate(setup->image_fd, &st);
                         if (r < 0)
                                 return r;
@@ -1505,7 +1519,8 @@ int home_setup_luks(
                 if (user_record_luks_discard(h))
                         (void) run_fitrim(setup->root_fd);
 
-                setup->do_offline_fallocate = !(setup->do_offline_fitrim = user_record_luks_offline_discard(h));
+                setup->do_offline_fitrim = user_record_luks_offline_discard(h);
+                setup->do_offline_fallocate = !setup->do_offline_fitrim;
         }
 
         if (!sd_id128_is_null(found_partition_uuid))
@@ -1609,7 +1624,7 @@ int home_activate_luks(
 
         r = home_setup_luks(
                         h,
-                        0,
+                        flags | HOME_SETUP_LUKS_DONT_FALLOCATE,
                         NULL,
                         setup,
                         cache,
@@ -3336,7 +3351,7 @@ int home_resize_luks(
 
         r = home_setup_luks(
                         h,
-                        flags,
+                        flags | HOME_SETUP_LUKS_DONT_FALLOCATE,
                         whole_disk,
                         setup,
                         cache,
@@ -3573,8 +3588,10 @@ int home_resize_luks(
                                 /* Before we shrink, let's trim the file system, so that we need less space on disk during the shrinking */
                                 (void) run_fitrim(setup->root_fd);
                         else {
-                                /* If discard is off, let's ensure all backing blocks are allocated, so that our resize operation doesn't fail half-way */
-                                r = run_fallocate(image_fd, &st);
+                                /* If discard is off, ensure all backing blocks retained after the resize are allocated,
+                                 * so that our resize operation doesn't fail half-way. */
+                                assert(new_image_size <= (uint64_t) st.st_size);
+                                r = run_fallocate_range(image_fd, 0, (off_t) new_image_size);
                                 if (r < 0)
                                         return r;
                         }

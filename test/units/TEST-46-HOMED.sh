@@ -40,6 +40,22 @@ wait_for_state() {
     timeout 2m bash -c "until homectl inspect '${1:?}' | grep -F 'State: $2' >/dev/null; do sleep 2; done"
 }
 
+cleanup_update_auto_resize_mode_without_space() (
+    set +e
+
+    rm -f /tmp/no-space-update.create /home/no-space-update.filler
+
+    if homectl inspect no-space-update >/dev/null 2>&1; then
+        homectl deactivate no-space-update 2>/dev/null
+        wait_for_state no-space-update inactive 2>/dev/null
+        homectl remove no-space-update 2>/dev/null
+    fi
+
+    mount /home -o remount,size=290M || :
+    systemctl restart systemd-homed.service || :
+    return 0
+)
+
 FSTYPE="$(stat --file-system --format "%T" /)"
 
 systemctl start systemd-homed.service systemd-userdbd.socket
@@ -336,6 +352,94 @@ testcase_recovery_key_file() (
     homectl remove recoverykeyfiletest
     rm -rf "$KEY_DIR"
 )
+
+testcase_update_auto_resize_mode_without_space() {
+    local blocks bsize create_output fill_mbytes fill_size filler home_size image
+    local fs_stat image_stat image_blocks image_size image_unallocated
+
+    create_output="/tmp/no-space-update.create"
+    filler="/home/no-space-update.filler"
+    home_size=512M
+    image="/home/no-space-update.home"
+
+    trap cleanup_update_auto_resize_mode_without_space RETURN ERR EXIT
+
+    mount /home -o remount,size="$home_size"
+
+    if ! NEWPASSWORD=xEhErW0ndafV4s \
+        homectl create no-space-update \
+        --storage=luks \
+        --disk-size=300M \
+        --auto-resize-mode=shrink-and-grow \
+        --luks-discard=no \
+        --luks-offline-discard=yes \
+        --image-path="$image" \
+        --luks-pbkdf-type=pbkdf2 \
+        --luks-pbkdf-time-cost=1ms \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000 \
+        >"$create_output" 2>&1; then
+
+        if grep -F "System does not support selected storage backend" "$create_output" >/dev/null; then
+            cat "$create_output"
+            echo "LUKS storage backend not supported, skipping update without space test."
+            return 0
+        fi
+
+        cat "$create_output" >&2
+        return 1
+    fi
+    cat "$create_output"
+
+    PASSWORD=xEhErW0ndafV4s homectl update no-space-update --disk-size=max
+    wait_for_state no-space-update inactive
+
+    image_stat="$(stat -c '%s %b' "$image")"
+    read -r image_size image_blocks <<<"$image_stat"
+    [[ "$image_size" =~ ^[0-9]+$ && "$image_blocks" =~ ^[0-9]+$ ]]
+    image_unallocated=$((image_size - image_blocks * 512))
+    fs_stat="$(stat --file-system --format "%a %S" /home)"
+    read -r blocks bsize <<<"$fs_stat"
+    [[ "$blocks" =~ ^[0-9]+$ && "$bsize" =~ ^[0-9]+$ ]]
+    fill_size=$((blocks * bsize - 128 * 1024 * 1024))
+    fill_mbytes=$((fill_size / 1024 / 1024))
+    if [[ "$fill_mbytes" -le 0 ]]; then
+        echo "Not enough free space to set up update without space test, skipping."
+        return 0
+    fi
+
+    # Leave enough room for the small identity update below, but not enough for the old full-image fallocate().
+    dd if=/dev/zero of="$filler" bs=1M count="$fill_mbytes"
+
+    fs_stat="$(stat --file-system --format "%a %S" /home)"
+    read -r blocks bsize <<<"$fs_stat"
+    [[ "$blocks" =~ ^[0-9]+$ && "$bsize" =~ ^[0-9]+$ ]]
+    (( image_unallocated > blocks * bsize ))
+
+    systemctl restart systemd-homed.service
+    wait_for_exist no-space-update
+
+    PASSWORD=xEhErW0ndafV4s homectl authenticate no-space-update
+    PASSWORD=xEhErW0ndafV4s homectl activate no-space-update
+    wait_for_state no-space-update active
+    homectl deactivate no-space-update
+    wait_for_state no-space-update inactive
+
+    PASSWORD=xEhErW0ndafV4s homectl update no-space-update \
+        --luks-discard=yes \
+        --luks-offline-discard=no
+
+    PASSWORD=xEhErW0ndafV4s homectl update no-space-update \
+        --luks-discard=no \
+        --luks-offline-discard=yes
+
+    PASSWORD=xEhErW0ndafV4s NEWPASSWORD=yPN4N0fYNKUkOq homectl passwd no-space-update
+    PASSWORD=yPN4N0fYNKUkOq homectl update no-space-update --auto-resize-mode=off
+
+    PASSWORD=yPN4N0fYNKUkOq homectl resize no-space-update 256M
+    wait_for_state no-space-update inactive
+    homectl inspect no-space-update | grep -F "Auto Resize: off" >/dev/null
+}
 
 testcase_blob() {
     # blob directory tests
