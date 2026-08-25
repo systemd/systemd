@@ -62,15 +62,6 @@ struct DnsServiceQuerier {
         LIST_HEAD(DnsServiceBrowser, subscribers);
 };
 
-/* One per varlink BrowseServices subscription; just the client's connection plus its seat on the
- * shared querier. */
-struct DnsServiceBrowser {
-        sd_varlink *link;
-        DnsServiceQuerier *querier;
-        LIST_FIELDS(DnsServiceBrowser, subscribers);
-};
-
-DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb);
 void dns_remove_service(DnsServiceQuerier *sq, DnssdDiscoveredService *service);
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceQuerier, dns_service_querier);
@@ -78,7 +69,6 @@ DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceQuerier, dns_service_querier);
 void dns_browse_services_purge(Manager *m, int family, int ifindex);
 void dns_browse_services_restart(Manager *m, int ifindex);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceBrowser *, dns_service_browser_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceQuerier *, dns_service_querier_unref);
 
 int dns_service_match_and_update(
