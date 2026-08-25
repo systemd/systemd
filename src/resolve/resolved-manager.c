@@ -654,6 +654,14 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         Link *l;
         int r;
 
+        /* A reload racing the shutdown withdrawal would republish what the goodbyes just took back
+         * and, worse, report the unit READY again for a process that exits a second later. The
+         * daemon has committed to leaving; let the next instance pick the configuration up. */
+        if (m->mdns_withdrawing) {
+                log_debug("Ignoring reload request, already shutting down.");
+                return 0;
+        }
+
         (void) notify_reloading();
 
         dns_server_unlink_on_reload(m->dns_servers);
@@ -741,10 +749,11 @@ static bool manager_needs_mdns_goodbyes(Manager *m) {
                 return false;
 
         HASHMAP_FOREACH(l, m->links) {
-                if (l->mdns_ipv4_scope && !dns_zone_is_empty(&l->mdns_ipv4_scope->zone))
-                        return true;
-                if (l->mdns_ipv6_scope && !dns_zone_is_empty(&l->mdns_ipv6_scope->zone))
-                        return true;
+                DnsScope *scope;
+
+                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope)
+                        if (dns_scope_shutdown_goodbye_has_content(scope))
+                                return true;
         }
 
         return false;
@@ -784,28 +793,16 @@ static int manager_dispatch_exit_signal(
                 const struct signalfd_siginfo *si,
                 void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        usec_t n;
         int r;
 
-        assert_se(sd_event_now(m->event, CLOCK_MONOTONIC, &n) >= 0);
-
-        /* If the goodbye retransmission is already pending, a second stop request arrived: exit right
-         * away. Except when it is not actually a second request: signals that were pending together
-         * (say, a SIGTERM+SIGINT pair) dispatch back-to-back in one event-loop iteration and share
-         * the loop's cached timestamp — treat those as a single request and let the grace second and
-         * the §8.3 retransmission run their course. */
-        if (m->mdns_goodbye_retransmit_event_source) {
-                if (n == m->mdns_goodbye_signal_usec)
-                        return 0;
-
+        /* The goodbye retransmission already pending means a further stop signal arrived while the
+         * grace second was running: exit right away. */
+        if (m->mdns_goodbye_retransmit_event_source)
                 return sd_event_exit(m->event, 0);
-        }
 
         /* Nothing published that needs a goodbye? Exit right away. */
         if (!manager_needs_mdns_goodbyes(m))
                 return sd_event_exit(m->event, 0);
-
-        m->mdns_goodbye_signal_usec = n;
 
         /* Send mDNS goodbyes for our published DNS-SD services on the way out. RFC 6762 §8.3 wants
          * announcements — which goodbyes are — repeated at least twice, one second apart, so hold the
