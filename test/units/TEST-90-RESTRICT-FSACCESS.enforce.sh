@@ -47,6 +47,20 @@ if [[ ! -x "$HELPER" ]]; then
     exit 1
 fi
 
+# The helper's probes exit with 0 if the operation was allowed, 1 if it was
+# refused with the errno the mechanism under test produces, 2 if it could not
+# be attempted and 3 if it was refused with an unexpected errno. Only the exact
+# code counts, so a broken probe cannot pass as a denial.
+expect_probe() {
+    local expected="$1" what="$2" rc=0
+    shift 2
+    "$HELPER" "$@" || rc=$?
+    if [[ "$rc" -ne "$expected" ]]; then
+        echo "ERROR: $what: helper '$*' exited with $rc, expected $expected" >&2
+        exit 1
+    fi
+}
+
 # Helper exits 77 when systemd was built with bpf-framework=enabled but no
 # vmlinux.h (HAVE_LSM_INTEGRITY_TYPE=0), so the BPF program isn't compiled in.
 rc=0
@@ -162,28 +176,18 @@ echo "Execution from tmpfs blocked: OK"
 # Write a test file on the tmpfs mount for mmap/mprotect tests
 dd if=/dev/zero of=/tmp/restrict-fsaccess-test/testfile bs=4096 count=1 2>/dev/null
 
-# File-backed PROT_EXEC mmap should be denied.
-# The helper exits 0 if mmap succeeds (bad), 1 if denied (good).
-if "$HELPER" mmap-exec /tmp/restrict-fsaccess-test/testfile; then
-    echo "ERROR: PROT_EXEC mmap of tmpfs file should have been blocked!" >&2
-    exit 1
-fi
+# File-backed PROT_EXEC mmap should be denied (with EPERM, see expect_probe).
+expect_probe 1 "PROT_EXEC mmap of tmpfs file" mmap-exec /tmp/restrict-fsaccess-test/testfile
 echo "PROT_EXEC mmap from tmpfs blocked: OK"
 
 # Anonymous PROT_EXEC mmap should be denied (NULL file — mmap_file hook)
-if "$HELPER" anon-mmap-exec; then
-    echo "ERROR: Anonymous PROT_EXEC mmap should have been blocked!" >&2
-    exit 1
-fi
+expect_probe 1 "anonymous PROT_EXEC mmap" anon-mmap-exec
 echo "Anonymous PROT_EXEC mmap blocked: OK"
 
 # ------ Test: mprotect adding PROT_EXEC is blocked (file_mprotect hook) ------
 
 # mmap PROT_READ then mprotect to PROT_EXEC — the file_mprotect hook should deny this.
-if "$HELPER" mprotect-exec /tmp/restrict-fsaccess-test/testfile; then
-    echo "ERROR: mprotect PROT_EXEC on tmpfs file should have been blocked!" >&2
-    exit 1
-fi
+expect_probe 1 "mprotect PROT_EXEC on tmpfs file" mprotect-exec /tmp/restrict-fsaccess-test/testfile
 echo "mprotect PROT_EXEC from tmpfs blocked: OK"
 
 # ------ Test: Execution from signed dm-verity device ------
