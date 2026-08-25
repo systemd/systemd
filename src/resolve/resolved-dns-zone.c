@@ -502,6 +502,14 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
         if (!IN_SET(i->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_VERIFYING, DNS_ZONE_ITEM_ESTABLISHED))
                 return;
 
+        /* Not once the mDNS goodbyes went out: the withdrawal is to stand, and conceding a conflict
+         * now would rename the host and re-add every registered service's records to the zones,
+         * restarting their probes — multicast traffic in the very window every other publication
+         * path holds quiet, for a resolution that cannot conclude before we exit. mDNS only, like
+         * the gates above: LLMNR records are not withdrawn by the goodbyes. */
+        if (i->scope->protocol == DNS_PROTOCOL_MDNS && i->scope->manager->mdns_withdrawing)
+                return;
+
         log_info("Detected conflict on %s", strna(dns_resource_record_to_string(i->rr)));
 
         dns_zone_item_probe_stop(i);
