@@ -118,7 +118,6 @@ int dns_scope_announce(DnsScope *scope, bool goodbye);
 /* Is this record one of the host's own, an address record or its reverse mapping, on this scope?
  * Those the shutdown goodbyes keep, so they stay ours to answer for while the withdrawal stands. */
 bool dns_scope_rr_is_host_record(DnsScope *scope, DnsResourceRecord *rr);
-int dns_scope_send_goodbye(DnsScope *scope, DnsAnswer *answer);
 
 int dns_scope_add_dnssd_registered_services(DnsScope *scope);
 int dns_scope_remove_dnssd_registered_services(DnsScope *scope);
