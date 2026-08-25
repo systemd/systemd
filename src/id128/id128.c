@@ -234,7 +234,7 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-VERB_COMMON_HELP_AUTO("systemd-id128");
+VERB_COMMON_HELP_AUTO();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -247,7 +247,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-id128");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

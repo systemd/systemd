@@ -52,7 +52,7 @@ COMMAND(
         .man_pages = "systemd-sbsign.1\0",
 );
 
-VERB_COMMON_HELP_AUTO_HIDDEN("systemd-sbsign");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -66,7 +66,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-sbsign");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

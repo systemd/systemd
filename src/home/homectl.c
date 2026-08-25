@@ -4043,7 +4043,7 @@ static int parse_fido2_device_field(const char *arg) {
         return 1;
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("homectl");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         _cleanup_strv_free_ char **arg_languages = NULL;
@@ -4072,7 +4072,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("homectl");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
