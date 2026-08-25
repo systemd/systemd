@@ -509,6 +509,15 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
         /* Withdraw the conflict item */
         i->state = DNS_ZONE_ITEM_WITHDRAWN;
 
+        /* Not once the mDNS goodbyes went out: what follows a conceded conflict, the Conflicted
+         * signal and for the host name a rename that re-adds every service and restarts its
+         * probes, is churn in the window every other publication path holds quiet, for a
+         * resolution that cannot conclude before we exit. The record was stopped and withdrawn
+         * above all the same: that is the loser's silent deferral (RFC 6762 section 8.2), and
+         * skipping it would leave a lost record answerable for the rest of the second. */
+        if (i->scope->protocol == DNS_PROTOCOL_MDNS && i->scope->manager->mdns_withdrawing)
+                return;
+
         (void) dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));
 
         /* Maybe change the hostname */

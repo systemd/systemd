@@ -973,6 +973,12 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
         assert(a);
 
+        /* Not while the shutdown withdrawal runs: the host's mDNS records are the ones the goodbyes
+         * keep, and a refresh would take them down and probe them anew, multicast traffic in the
+         * window every other publication path holds quiet. Whichever caller refreshes, an
+         * unregistration, a hostname change or a conflict rename, it holds; LLMNR is unaffected. */
+        bool mdns_frozen = a->link->manager->mdns_withdrawing;
+
         if (a->family == AF_INET) {
 
                 if (!force_remove &&
@@ -1029,6 +1035,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 }
 
                 if (!force_remove &&
+                    !mdns_frozen &&
                     link_address_relevant(a, true) &&
                     a->link->mdns_ipv4_scope &&
                     link_get_mdns_support(a->link) == RESOLVE_SUPPORT_YES) {
@@ -1066,7 +1073,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         r = dns_zone_put(&a->link->mdns_ipv4_scope->zone, a->link->mdns_ipv4_scope, a->mdns_ptr_rr, false);
                         if (r < 0)
                                 log_link_warning_errno(a->link, r, "Failed to add IPv4 PTR record to MDNS zone, ignoring: %m");
-                } else {
+                } else if (!mdns_frozen) {
                         if (a->mdns_address_rr) {
                                 if (a->link->mdns_ipv4_scope)
                                         dns_zone_remove_rr(&a->link->mdns_ipv4_scope->zone, a->mdns_address_rr);
@@ -1137,6 +1144,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 }
 
                 if (!force_remove &&
+                    !mdns_frozen &&
                     link_address_relevant(a, true) &&
                     a->link->mdns_ipv6_scope &&
                     link_get_mdns_support(a->link) == RESOLVE_SUPPORT_YES) {
@@ -1175,7 +1183,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         r = dns_zone_put(&a->link->mdns_ipv6_scope->zone, a->link->mdns_ipv6_scope, a->mdns_ptr_rr, false);
                         if (r < 0)
                                 log_link_warning_errno(a->link, r, "Failed to add IPv6 PTR record to MDNS zone, ignoring: %m");
-                } else {
+                } else if (!mdns_frozen) {
                         if (a->mdns_address_rr) {
                                 if (a->link->mdns_ipv6_scope)
                                         dns_zone_remove_rr(&a->link->mdns_ipv6_scope->zone, a->mdns_address_rr);
