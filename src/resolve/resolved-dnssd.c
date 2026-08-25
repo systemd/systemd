@@ -98,7 +98,12 @@ void dnssd_registered_service_unregister(DnssdRegisteredService *service) {
          * add its RRs back. */
         dnssd_registered_service_free(service);
 
-        manager_refresh_rrs(m);
+        /* Not while the shutdown withdrawal runs: the refresh force-re-adds the host's address
+         * records to the zones, restarting their probes — multicast traffic in the very window
+         * every other publication path holds quiet. The zones are torn down with the daemon
+         * moments later anyway. */
+        if (!m->mdns_withdrawing)
+                manager_refresh_rrs(m);
 }
 
 void dnssd_registered_service_clear_on_reload(Hashmap *services) {
