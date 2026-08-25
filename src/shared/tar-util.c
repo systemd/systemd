@@ -79,12 +79,21 @@ static void open_inode_done(OpenInode *of) {
                 of->fd = safe_close(of->fd);
                 of->path = mfree(of->path);
         }
+
         xattr_free_array(of->xattr, of->n_xattr);
+        of->xattr = NULL;
+        of->n_xattr = 0;
+
 #if HAVE_ACL
-        if (of->acl_access)
+        if (of->acl_access) {
                 sym_acl_free(of->acl_access);
-        if (of->acl_default)
+                of->acl_access = NULL;
+        }
+
+        if (of->acl_default) {
                 sym_acl_free(of->acl_default);
+                of->acl_default = NULL;
+        }
 #endif
 }
 
@@ -746,6 +755,10 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
 
         assert(input_fd >= 0);
         assert(tree_fd >= 0);
+
+        r = dlopen_libarchive(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         _cleanup_(archive_read_freep) struct archive *a = NULL;
         a = sym_archive_read_new();
@@ -1603,6 +1616,10 @@ int tar_c(int tree_fd, int output_fd, const char *filename, int hardlink_db_fd, 
 
         assert(tree_fd >= 0);
         assert(output_fd >= 0);
+
+        r = dlopen_libarchive(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         _cleanup_(archive_write_freep) struct archive *a = sym_archive_write_new();
         if (!a)
