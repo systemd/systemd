@@ -167,8 +167,7 @@ static void vl_on_disconnect(sd_varlink_server *s, sd_varlink *link, void *userd
         if (!m)
                 return;
 
-        DnsServiceBrowser *sb = hashmap_remove(m->dns_service_browsers, link);
-        dns_service_browser_unref(sb);
+        dns_unsubscribe_browse_service(m, link);
 
         q = sd_varlink_get_userdata(link);
         if (!q)
