@@ -55,6 +55,11 @@ typedef struct DnsScope {
 
         RateLimit ratelimit;
 
+        /* Bounds the RFC 6762 §10.1 goodbye rescue queries across every browse querier reading this
+         * scope. The per-querier tiers cannot: one received packet can match many queriers, and a
+         * client may stand up as many browse questions -- and hence budgets -- as it likes. */
+        RateLimit goodbye_rescue_ratelimit;
+
         usec_t resend_timeout;
         usec_t max_rtt;
 
