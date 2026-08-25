@@ -173,7 +173,7 @@ static void mdns_querier_revisit_cache_both(DnsServiceQuerier *sq) {
                 (void) mdns_querier_revisit_cache(sq, af);
 }
 
-static void mdns_maintenance_query_complete(DnsQuery *q) {
+static void mdns_querier_query_complete(DnsQuery *q) {
         _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = q;
 
@@ -205,7 +205,7 @@ static void mdns_querier_abort_maintenance_query(DnsServiceQuerier *sq) {
 /* Fire the querier's browse question on the wire once; the answers flow back through the regular
  * completion revisit. At most one such query in flight per querier: one that has not completed by
  * the time the next is due is superseded. */
-static int mdns_querier_send_question(DnsServiceQuerier *sq) {
+static int mdns_querier_send_question(DnsServiceQuerier *sq, bool cache_ok) {
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         int r;
 
@@ -213,6 +213,7 @@ static int mdns_querier_send_question(DnsServiceQuerier *sq) {
 
         mdns_querier_abort_maintenance_query(sq);
 
+        /* sq->flags itself stays untouched: it is part of the querier's identity. */
         r = dns_query_new(
                         sq->manager,
                         &q,
@@ -220,11 +221,11 @@ static int mdns_querier_send_question(DnsServiceQuerier *sq) {
                         sq->question_idna,
                         /* question_bypass= */ NULL,
                         sq->ifindex,
-                        sq->flags | SD_RESOLVED_QUERY_CONTINUOUS | SD_RESOLVED_NO_CACHE);
+                        sq->flags | SD_RESOLVED_QUERY_CONTINUOUS | (cache_ok ? 0 : SD_RESOLVED_NO_CACHE));
         if (r < 0)
                 return r;
 
-        q->complete = mdns_maintenance_query_complete;
+        q->complete = mdns_querier_query_complete;
         q->service_querier_request = dns_service_querier_ref(sq);
 
         /* Track the query before starting it: dns_query_go() completes a query synchronously when no
@@ -272,7 +273,7 @@ int mdns_querier_maintenance(sd_event_source *s, uint64_t usec, void *userdata) 
 
         mdns_querier_schedule_maintenance(sq);
 
-        r = mdns_querier_send_question(sq);
+        r = mdns_querier_send_question(sq, /* cache_ok= */ false);
         if (r < 0)
                 log_warning_errno(r, "Failed to send mDNS maintenance query, ignoring: %m");
 
@@ -745,7 +746,7 @@ void mdns_queriers_rescue_query_goodbye(DnsScope *scope, DnsAnswer *answer) {
 
                 sq->last_goodbye_rescue_usec = t;
 
-                r = mdns_querier_send_question(sq);
+                r = mdns_querier_send_question(sq, /* cache_ok= */ false);
                 if (r < 0)
                         log_warning_errno(r, "Failed to send mDNS rescue query for a goodbye, ignoring: %m");
         }
@@ -778,65 +779,19 @@ int mdns_queriers_notify_unsolicited_updates(Manager *m, DnsAnswer *answer, int 
         return 0;
 }
 
-static void mdns_browse_service_query_complete(DnsQuery *q) {
-        _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = q;
-        int r;
-
-        assert(query);
-        assert(query->manager);
-
-        if (query->state != DNS_TRANSACTION_SUCCESS)
-                return;
-
-        sq = dns_service_querier_ref(query->service_querier_request);
-        if (!sq)
-                return;
-
-        r = mdns_querier_revisit_cache(sq, query->answer_family);
-        if (r < 0)
-                return (void) log_error_errno(r, "Failed to revisit cache for service querier: %m");
-
-        /* When the query is answered from cache, we only get answers for one
-         * answer_family i.e. either ipv4 or ipv6. We need to perform another
-         * cache lookup for the other answer_family */
-        if (query->answer_query_flags == SD_RESOLVED_FROM_CACHE) {
-                r = mdns_querier_revisit_cache(sq, query->answer_family == AF_INET ? AF_INET6 : AF_INET);
-                if (r < 0)
-                        return (void) log_error_errno(r, "Failed to revisit cache for service querier: %m");
-        }
-}
-
 static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *userdata) {
         _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
-        uint64_t flags;
+        bool first;
         int r;
 
         assert(userdata);
         assert_se(sq = dns_service_querier_ref(userdata));
 
-        /* RFC 6762 Section 5.2 outlines timing requirements for continuous queries. Only the very
-         * first query may be served from the cache; every later one exists to poke the network.
-         * sq->flags itself stays untouched: it is part of the querier's identity. */
-        flags = sq->flags | SD_RESOLVED_QUERY_CONTINUOUS;
-        if (sq->delay != 0)
-                flags |= SD_RESOLVED_NO_CACHE;
-
-        r = dns_query_new(sq->manager, &q, sq->question_utf8, sq->question_idna, NULL, sq->ifindex, flags);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create new DNS query: %m");
-
-        /* Continuous queries are not tracked individually: each one pins the querier through its own
-         * reference, so one firing before the previous one completed is harmless. */
-        q->complete = mdns_browse_service_query_complete;
-        q->service_querier_request = dns_service_querier_ref(sq);
-
-        r = dns_query_go(q);
-        if (r < 0)
-                return log_error_errno(r, "Failed to send DNS query: %m");
-
-        /* Calculate the next query delay */
+        /* Re-arm before issuing anything: a negative return from the handler would make sd-event
+         * disable the source, silently ending the continuous query for every subscriber sharing
+         * this querier — with late joiners then attaching to a dead querier. A transient failure
+         * below must cost one interval, not the subscription. */
+        first = sq->delay == 0;
         sq->delay = mdns_calculate_next_query_delay(sq->delay);
 
         r = event_reset_time_relative(
@@ -851,9 +806,13 @@ static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *use
                         "mdns-next-query-schedule",
                         /* force_reset= */ true);
         if (r < 0)
-                return log_error_errno(r, "Failed to reset event time for next query schedule: %m");
+                log_warning_errno(r, "Failed to schedule next continuous browse query, ignoring: %m");
 
-        TAKE_PTR(q);
+        /* RFC 6762 Section 5.2 outlines timing requirements for continuous queries. Only the very
+         * first query may be served from the cache; every later one exists to poke the network. */
+        r = mdns_querier_send_question(sq, /* cache_ok= */ first);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send continuous browse query, ignoring: %m");
 
         return 0;
 }
