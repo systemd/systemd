@@ -250,17 +250,24 @@ int hostname_setup(bool really) {
         }
 
         if (!hn) {
-                /* Don't override the hostname if it is already set and not explicitly configured */
-
+                /* Don't override the hostname if it is already set and not explicitly configured. However,
+                 * update it if it was set by us in the initrd, so that '?' and '$' patterns are derived from
+                 * the real machine ID, not from the random one of the initrd. */
                 r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &hn);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r >= 0) {
-                        log_debug("No hostname configured, leaving existing hostname <%s> in place.", hn);
-                        goto finish;
-                }
+                        _cleanup_free_ char *default_hostname = NULL;
 
-                if (enoent)
+                        (void) read_one_line_file("/run/systemd/default-hostname", &default_hostname);
+                        if (!streq_ptr(default_hostname, hn)) {
+                                log_debug("No hostname configured, leaving existing hostname <%s> in place.",
+                                          hn);
+                                goto finish;
+                        }
+
+                        hn = mfree(hn);
+                } else if (enoent)
                         log_info("No hostname configured, using default hostname.");
 
                 hn = get_default_hostname();
