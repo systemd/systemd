@@ -13,6 +13,7 @@
 #include "lsm-util.h"
 #include "manager.h"
 #include "memory-util.h"
+#include "seccomp-util.h"
 #include "serialize.h"
 #include "string-table.h"
 
@@ -436,6 +437,14 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                                        "bpf-restrict-fsaccess: dm-verity require_signatures is not enabled. "
                                        "RestrictFileSystemAccess= requires the kernel to enforce dm-verity signatures. "
                                        "Set dm_verity.require_signatures=1 on the kernel command line.");
+
+#if HAVE_SECCOMP
+        r = seccomp_restrict_ptrace();
+#else
+        r = -EOPNOTSUPP;
+#endif
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to install the ptrace() seccomp filter: %m");
 
         r = bpf_restrict_fsaccess_prepare(&obj);
         if (r < 0)
