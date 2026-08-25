@@ -41,8 +41,9 @@ conformance scorecard testcase:
 
              34.567 R qr=1 dst=224.0.0.251 sec=an name=_refpub._udp.local type=12 ttl=0 flush=0 ptr=RefPub89._refpub._udp.local
 
-  query    Send one crafted query on an interface, then capture like listen
-           for --duration. Supports the QU bit (unicast-response requested,
+  query    Send a crafted query on an interface -- once, or --repeat times
+           spaced --interval seconds apart -- then capture like listen for
+           --duration. Supports the QU bit (unicast-response requested,
            section 5.4), legacy queries from an ephemeral source port
            (section 6.7, --source-port 0), and a known answer in the answer
            section (section 7.1, --known-answer-ptr). With --tc the query sets
@@ -504,28 +505,31 @@ def query(args):
         + b''.join(answers)
     )
     log(f'LISTENING iface={args.iface}')
-    sock.sendto(packet, (MDNS_GROUP, MDNS_PORT))
-    # Logged before the follow-up's 100ms sleep: this line is the timestamp
-    # ref_min_answer_delay() measures from, so it must mean "the query went out".
-    log(
-        f'QUERY name={loggable(args.qname)} qtype={args.qtype} qu={1 if args.qu else 0} '
-        f'ka={loggable(args.known_answer_ptr) if args.known_answer_ptr else "-"} '
-        f'witness={loggable(args.witness_qname) if args.witness_qname else "-"}'
-    )
-    if args.followup_known_answer:
-        time.sleep(0.1)
-        continuation = make_record(
-            qname_labels,
-            TYPE_PTR,
-            120,
-            encode_name(tuple(args.followup_known_answer.split('.'))),
-            flush=False,
+    for i in range(args.repeat):
+        sock.sendto(packet, (MDNS_GROUP, MDNS_PORT))
+        # Logged before the follow-up's 100ms sleep: this line is the timestamp
+        # ref_min_answer_delay() measures from, so it must mean "the query went out".
+        log(
+            f'QUERY name={loggable(args.qname)} qtype={args.qtype} qu={1 if args.qu else 0} '
+            f'ka={loggable(args.known_answer_ptr) if args.known_answer_ptr else "-"} '
+            f'witness={loggable(args.witness_qname) if args.witness_qname else "-"}'
         )
-        sock.sendto(
-            struct.pack('>HHHHHH', qid, 0, 0, 1, 0, 0) + continuation,
-            (MDNS_GROUP, MDNS_PORT),
-        )
-        log('FOLLOWUP known answers')
+        if args.followup_known_answer:
+            time.sleep(0.1)
+            continuation = make_record(
+                qname_labels,
+                TYPE_PTR,
+                120,
+                encode_name(tuple(args.followup_known_answer.split('.'))),
+                flush=False,
+            )
+            sock.sendto(
+                struct.pack('>HHHHHH', qid, 0, 0, 1, 0, 0) + continuation,
+                (MDNS_GROUP, MDNS_PORT),
+            )
+            log('FOLLOWUP known answers')
+        if i + 1 < args.repeat:
+            time.sleep(args.interval)
     capture(sock, args.duration)
 
 
@@ -600,6 +604,8 @@ def main():
         help='response code to put in the query header (RFC 6762 section 18.11)',
     )
     query_parser.add_argument('--duration', type=float, default=5)
+    query_parser.add_argument('--repeat', type=int, default=1, help='send the query this many times')
+    query_parser.add_argument('--interval', type=float, default=1.0, help='seconds between repeated queries')
 
     args = parser.parse_args()
     if args.mode == 'query' and args.compress_witness and args.witness_qname != args.qname:
