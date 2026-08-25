@@ -649,6 +649,7 @@ static void manager_set_defaults(Manager *m) {
 }
 
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *old_dnssd_rrs = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Link *l;
         int r;
@@ -659,6 +660,9 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         dns_server_unlink_on_reload(m->fallback_dns_servers);
         m->dns_extra_stub_listeners = ordered_set_free(m->dns_extra_stub_listeners);
         manager_dns_stub_stop(m);
+        /* Snapshot the file-sourced services' records before dropping them, so that whatever does
+         * not come back out of dnssd_load() below can be withdrawn with a goodbye. */
+        (void) dnssd_snapshot_file_service_rrs(m, &old_dnssd_rrs);
         dnssd_registered_service_clear_on_reload(m->dnssd_registered_services);
         m->unicast_scope = dns_scope_free(m->unicast_scope);
         m->delegates = hashmap_free(m->delegates);
@@ -682,6 +686,12 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
                 log_info("Config file reloaded.");
 
         (void) dnssd_load(m);
+
+        /* Send goodbyes for service records that did not survive the reload (their file was
+         * removed, or the service was renamed): without this, peers would keep the vanished
+         * services listed until their TTLs expire. */
+        (void) dnssd_withdraw_stale_rrs(m, old_dnssd_rrs);
+
         (void) manager_load_delegates(m);
 
         /* The default scope configuration is influenced by the manager's configuration (modes, etc.), so
