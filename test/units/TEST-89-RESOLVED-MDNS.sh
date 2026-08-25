@@ -292,6 +292,140 @@ testcase_mdns_goodbye_on_stop() {
     echo testcase_end
 }
 
+testcase_mdns_runtime_withdrawal() {
+    : "Unregistering a service or dropping its file on reload must withdraw exactly that service"
+    resolvectl flush-caches
+
+    local out_file error_file unit_name service_type off
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-withdraw-$SRANDOM.service"
+    service_type="_withdrawBye._udp"
+
+    # An EXIT trap, not RETURN: set -e aborts skip RETURN traps, and this subshell's EXIT trap
+    # fires however the testcase ends — the infinity browse unit must never outlive it. Armed
+    # before anything can fail, so an early abort cleans up the files too.
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file" EXIT
+
+    # Two canary services in the second container. Their ids double as their bus object paths,
+    # so they must not contain characters the bus path encoding would escape.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/unregbye.dnssd <<EOF
+[Service]
+Name=Unregister Canary
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/reloadbye.dnssd <<EOF
+[Service]
+Name=Reload Canary
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    # Reload rather than restart: it re-runs dnssd_load() to pick up the new files while
+    # leaving the runtime per-link mDNS switches from setup intact.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service
+
+    # --timeout=infinity: the subscription idles between the events asserted below, longer than
+    # varlinkctl's default 45s method-call timeout.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+
+    # Wait until both canaries are discovered.
+    local ok=0
+    for _ in {0..14}; do
+        if grep "Unregister Canary" >/dev/null "$out_file" &&
+           grep "Reload Canary" >/dev/null "$out_file"; then
+            ok=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered both canary instances"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # Checkpoint the output: only events produced after the unregister count.
+    off="$(wc -c <"$out_file")"
+
+    # Unregister the first canary at runtime. Remove its file first, so a later reload cannot
+    # resurrect the unregistered instance.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/unregbye.dnssd
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+        UnregisterService o /org/freedesktop/resolve1/dnssd/unregbye
+
+    # Its goodbye must remove it well before the 120s record TTL...
+    local removed=0
+    for _ in {0..14}; do
+        if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Unregister Canary" >/dev/null; then
+            removed=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "The unregistered canary was not removed by its goodbye"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # ...and must withdraw only that service: the sibling canary stays published, so a 'removed'
+    # for it here means the unregister withdrew more than the unregistered service.
+    sleep 3
+    if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Reload Canary" >/dev/null; then
+        echo >&2 "Unregistering one service withdrew its still-published sibling:"
+        tail -c "+$((off + 1))" "$out_file" >&2
+        return 1
+    fi
+
+    # The type-enumeration PTR (RFC 6763 section 9) is shared by every instance of the type, so the
+    # withdrawal filter has to keep it while a sibling still publishes it -- withdrawing it with the
+    # first instance would make the whole type vanish from a type enumeration while it is still
+    # being served. Nothing else in this file would notice.
+    ok=0
+    for _ in {0..14}; do
+        if resolvectl query -p mdns -t PTR _services._dns-sd._udp.local 2>/dev/null |
+               grep -F "$service_type.local" >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "The type-enumeration PTR went away while a sibling of the type is still published"
+        resolvectl query -p mdns -t PTR _services._dns-sd._udp.local >&2 || :
+        return 1
+    fi
+
+    # Checkpoint again, then drop the second canary's file and reload: the reload must withdraw
+    # the vanished service with a goodbye, again well before its record TTL.
+    off="$(wc -c <"$out_file")"
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/reloadbye.dnssd
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service
+
+    removed=0
+    for _ in {0..14}; do
+        if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Reload Canary" >/dev/null; then
+            removed=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "The canary whose file was removed was not withdrawn on reload"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    echo testcase_end
+}
+
 # Helper function to run browse services with a custom ifindex
 run_and_check_services_with_ifindex() {
     local service_id="${1:?}"
