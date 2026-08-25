@@ -90,9 +90,8 @@ testcase_no_require_signatures_helper() {
         fi
     fi
 
-    # The helper's "check" command runs the same bpf_restrict_fsaccess_supported()
-    # and dm_verity_require_signatures() checks that PID1 uses. It must fail
-    # because require_signatures is not enabled.
+    # The helper's "check" command runs the same bpf_restrict_fsaccess_check_prerequisites()
+    # checks that PID1 uses. It must fail because require_signatures is not enabled.
     if "$HELPER" check; then
         echo "ERROR: helper check succeeded but require_signatures is not enabled"
         return 1
