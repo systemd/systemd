@@ -3,7 +3,9 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
+#include "alloc-util.h"
 #include "bpf-restrict-fsaccess.h"
 #include "devnum-util.h"
 #include "fd-util.h"
@@ -13,8 +15,11 @@
 #include "lsm-util.h"
 #include "manager.h"
 #include "memory-util.h"
+#include "proc-cmdline.h"
+#include "seccomp-util.h"
 #include "serialize.h"
 #include "string-table.h"
+#include "string-util.h"
 
 /* DMVERITY_DEVICES_MAX lives in bpf-restrict-fsaccess.h for sharing with tests. */
 
@@ -81,7 +86,7 @@ assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initr
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
 }
 
-bool dm_verity_require_signatures(void) {
+static bool dm_verity_require_signatures(void) {
         int r;
 
         r = read_boolean_file("/sys/module/dm_verity/parameters/require_signatures");
@@ -92,6 +97,139 @@ bool dm_verity_require_signatures(void) {
         }
 
         return r > 0;
+}
+
+/* proc_mem.force_override= is __ro_after_init. We require "never" because "ptrace" still lets a tracer
+ * rewrite its tracee. */
+static int proc_mem_force_override_restricted(void) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        r = proc_cmdline_get_key("proc_mem.force_override", /* flags= */ 0, &value);
+        if (r < 0)
+                return r;
+        if (r == 0 || !value)
+                return 0;
+
+        return streq(value, "never");
+}
+
+/* Unknown command line options are silently ignored, so verify the kernel really refuses FOLL_FORCE
+ * writes. Returns > 0 if a write through /proc/self/mem overrode a read-only mapping, 0 if it was refused. */
+static int proc_mem_can_force_override(void) {
+        _cleanup_close_ int fd = -EBADF;
+        const uint8_t zero = 0;
+        ssize_t n;
+        void *p;
+        int r;
+
+        p = mmap(NULL, page_size(), PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+        if (p == MAP_FAILED)
+                return -errno;
+
+        fd = open("/proc/self/mem", O_RDWR|O_CLOEXEC);
+        if (fd < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        /* Without FOLL_FORCE access_remote_vm() copies nothing and mem_rw() fails with EIO. */
+        n = pwrite(fd, &zero, sizeof(zero), (off_t) (uintptr_t) p);
+        if (n < 0)
+                r = errno == EIO ? 0 : -errno;
+        else
+                r = n > 0;
+
+finish:
+        (void) munmap(p, page_size());
+        return r;
+}
+
+/* Both /proc/<pid>/mem gates: the command line says "never", and the kernel honours it. */
+static int restrict_fsaccess_check_proc_mem(void) {
+        int r;
+
+        r = proc_mem_force_override_restricted();
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to read the kernel command line: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "bpf-restrict-fsaccess: proc_mem.force_override is not set to \"never\", so "
+                                       "/proc/<pid>/mem can rewrite executable pages and bypass "
+                                       "RestrictFileSystemAccess=. Add proc_mem.force_override=never to the kernel "
+                                       "command line, or boot with systemd.restrict_filesystem_access=no to disable "
+                                       "the policy.");
+
+        r = proc_mem_can_force_override();
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to probe whether /proc/self/mem overrides "
+                                       "memory protections: %m");
+        if (r > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "bpf-restrict-fsaccess: proc_mem.force_override=never is on the kernel command "
+                                       "line, but a write through /proc/self/mem still overrides memory protections. "
+                                       "The kernel apparently does not support the option (Linux 6.12 or newer is "
+                                       "required). Boot with systemd.restrict_filesystem_access=no to disable the "
+                                       "policy.");
+
+        return 0;
+}
+
+/* The kernel-side prerequisites of the policy, shared with test-bpf-restrict-fsaccess. */
+int bpf_restrict_fsaccess_check_prerequisites(void) {
+        int r;
+
+        r = dlopen_bpf(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        r = lsm_supported("bpf");
+        if (r == -ENOPKG)
+                return log_error_errno(r, "bpf-restrict-fsaccess: securityfs not mounted, BPF LSM not available.");
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Can't determine whether the BPF LSM module is "
+                                       "used: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "bpf-restrict-fsaccess: BPF LSM hook not enabled in the kernel, not supported.");
+        log_debug("bpf-restrict-fsaccess: BPF LSM: supported.");
+
+        if (!dm_verity_require_signatures())
+                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "bpf-restrict-fsaccess: dm-verity require_signatures is not enabled. "
+                                       "RestrictFileSystemAccess= requires the kernel to enforce dm-verity signatures. "
+                                       "Set dm_verity.require_signatures=1 on the kernel command line.");
+        log_debug("bpf-restrict-fsaccess: dm-verity require_signatures: enabled.");
+
+        return restrict_fsaccess_check_proc_mem();
+}
+
+/* The seccomp filter survives execve() so ensure that we're not installing another filter. */
+static int restrict_fsaccess_install_ptrace_filter(Manager *m) {
+        assert(m);
+
+        if (m->restrict_fsaccess_ptrace_filter)
+                return 0;
+
+#if HAVE_SECCOMP
+        int r;
+
+        r = dlopen_libseccomp(LOG_DEBUG);
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: libseccomp is required to block ptrace() code "
+                                       "injection: %m");
+
+        r = seccomp_restrict_ptrace();
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to install the ptrace() seccomp filter: %m");
+
+        m->restrict_fsaccess_ptrace_filter = true;
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "bpf-restrict-fsaccess: Built without seccomp support, cannot block ptrace() code "
+                               "injection.");
+#endif
 }
 
 static int get_root_s_dev(uint32_t *ret) {
@@ -413,29 +551,24 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                                 return r;
                 }
 
+                /* A v261 PID 1 neither checked this nor installed the filter. The former needs a reboot to
+                 * fix, so only complain; the latter we can still do. */
+                (void) restrict_fsaccess_check_proc_mem();
+
+                r = restrict_fsaccess_install_ptrace_filter(m);
+                if (r < 0)
+                        return r;
+
                 return 0;
         }
 
-        /* Fresh setup: verify BPF LSM is available */
-        r = dlopen_bpf(LOG_WARNING);
+        r = bpf_restrict_fsaccess_check_prerequisites();
         if (r < 0)
                 return r;
 
-        r = lsm_supported("bpf");
-        if (r == -ENOPKG)
-                return log_warning_errno(r, "bpf-restrict-fsaccess: securityfs not mounted, BPF LSM not available.");
+        r = restrict_fsaccess_install_ptrace_filter(m);
         if (r < 0)
-                return log_warning_errno(r, "bpf-restrict-fsaccess: Can't determine whether the BPF LSM module is used: %m");
-        if (r == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                         "bpf-restrict-fsaccess: BPF LSM hook not enabled in the kernel, not supported.");
-
-        /* Require dm-verity signature enforcement */
-        if (!dm_verity_require_signatures())
-                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
-                                       "bpf-restrict-fsaccess: dm-verity require_signatures is not enabled. "
-                                       "RestrictFileSystemAccess= requires the kernel to enforce dm-verity signatures. "
-                                       "Set dm_verity.require_signatures=1 on the kernel command line.");
+                return r;
 
         r = bpf_restrict_fsaccess_prepare(&obj);
         if (r < 0)
@@ -549,13 +682,17 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
         if (r < 0)
                 return r;
 
+        r = serialize_bool(f, "restrict-fsaccess-ptrace-filter", m->restrict_fsaccess_ptrace_filter);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
 #else /* ! BPF_FRAMEWORK || ! HAVE_LSM_INTEGRITY_TYPE */
 
-bool dm_verity_require_signatures(void) {
-        return false;
+int bpf_restrict_fsaccess_check_prerequisites(void) {
+        return -EOPNOTSUPP;
 }
 
 int bpf_restrict_fsaccess_setup(Manager *m) {
