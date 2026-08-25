@@ -112,6 +112,13 @@ check_first() {
     return 1
 }
 
+# Did any 'removed' event whose name matches $3 arrive in $1 after byte offset $2?
+removed_since() {
+    local file="${1:?}" off="${2:?}" needle="${3:?}"
+
+    tail -c "+$((off + 1))" "$file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep -e "$needle" >/dev/null
+}
+
 run_and_check_services() {
     local service_id="${1:?}"
     local check_func="${2:?}"
@@ -220,14 +227,19 @@ testcase_mdns_goodbye_on_stop() {
         varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
         "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
 
-    # Wait until the second container's services have been discovered.
-    local ok=0
-    for _ in {0..14}; do
-        if grep "on $CONTAINER_2" "$out_file" >/dev/null; then ok=1; break; fi
+    # Wait until ALL of the second container's instances of this type have been discovered: a
+    # 'removed' is only emitted for an instance the browser knew about, so the assertion below
+    # requires every one of the $SERVICE_COUNT instances to have arrived before the stop.
+    local ok=0 seen
+    for _ in {0..29}; do
+        seen="$( { grep -oE '"updateFlag":"added"[^}]*"name":"[^"]*"' "$out_file" || :; } \
+                 | { grep "on $CONTAINER_2" || :; } \
+                 | sed 's/.*"name":"//;s/"$//' | sort -u | { grep -c . || :; })"
+        if [[ "$seen" -ge "$SERVICE_COUNT" ]]; then ok=1; break; fi
         sleep 2
     done
     if [[ "$ok" -ne 1 ]]; then
-        echo >&2 "Never discovered $CONTAINER_2 services"
+        echo >&2 "Only discovered $seen of $SERVICE_COUNT $CONTAINER_2 services"
         cat "$out_file" "$error_file" >&2
         return 1
     fi
@@ -308,8 +320,10 @@ testcase_mdns_runtime_withdrawal() {
     # shellcheck disable=SC2064
     trap "systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file" EXIT
 
-    # Two canary services in the second container. Their ids double as their bus object paths,
-    # so they must not contain characters the bus path encoding would escape.
+    # Three canary services in the second container. Their ids double as their bus object paths,
+    # so they must not contain characters the bus path encoding would escape. The third stays
+    # published throughout: it is the control that an unchanged .dnssd file survives a reload
+    # without being withdrawn.
     systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/unregbye.dnssd <<EOF
 [Service]
 Name=Unregister Canary
@@ -320,6 +334,13 @@ EOF
     systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/reloadbye.dnssd <<EOF
 [Service]
 Name=Reload Canary
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/keepbye.dnssd <<EOF
+[Service]
+Name=Keep Canary
 Type=$service_type
 Port=8010
 TxtText=DC=Device PN=123456 SN=1234567890
@@ -338,14 +359,15 @@ EOF
     local ok=0
     for _ in {0..14}; do
         if grep "Unregister Canary" >/dev/null "$out_file" &&
-           grep "Reload Canary" >/dev/null "$out_file"; then
+           grep "Reload Canary" >/dev/null "$out_file" &&
+           grep "Keep Canary" >/dev/null "$out_file"; then
             ok=1
             break
         fi
         sleep 2
     done
     if [[ "$ok" -ne 1 ]]; then
-        echo >&2 "Never discovered both canary instances"
+        echo >&2 "Never discovered all three canary instances"
         cat "$out_file" "$error_file" >&2
         return 1
     fi
@@ -363,7 +385,7 @@ EOF
     # Its goodbye must remove it well before the 120s record TTL...
     local removed=0
     for _ in {0..14}; do
-        if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Unregister Canary" >/dev/null; then
+        if removed_since "$out_file" "$off" "Unregister Canary"; then
             removed=1
             break
         fi
@@ -378,7 +400,7 @@ EOF
     # ...and must withdraw only that service: the sibling canary stays published, so a 'removed'
     # for it here means the unregister withdrew more than the unregistered service.
     sleep 3
-    if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Reload Canary" >/dev/null; then
+    if removed_since "$out_file" "$off" "Reload Canary"; then
         echo >&2 "Unregistering one service withdrew its still-published sibling:"
         tail -c "+$((off + 1))" "$out_file" >&2
         return 1
@@ -392,7 +414,7 @@ EOF
 
     removed=0
     for _ in {0..14}; do
-        if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Reload Canary" >/dev/null; then
+        if removed_since "$out_file" "$off" "Reload Canary"; then
             removed=1
             break
         fi
@@ -403,6 +425,19 @@ EOF
         cat "$out_file" "$error_file" >&2
         return 1
     fi
+
+    # The reload must leave the untouched canary alone: a 'removed' for it means the reload
+    # reconciliation withdrew a service whose file survived unchanged.
+    sleep 1
+    if removed_since "$out_file" "$off" "Keep Canary"; then
+        echo >&2 "A reload withdrew a service whose .dnssd file survived unchanged:"
+        tail -c "+$((off + 1))" "$out_file" >&2
+        return 1
+    fi
+
+    # Withdraw the kept canary again. Best-effort cleanup.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/keepbye.dnssd || :
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service || :
 
     echo testcase_end
 }
