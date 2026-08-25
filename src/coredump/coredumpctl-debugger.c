@@ -71,7 +71,7 @@ int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to retrieve COREDUMP_EXE field: %m");
 
-        assert(len > STRLEN("COREDUMP_EXE="));
+        assert(len >= STRLEN("COREDUMP_EXE="));
         data += STRLEN("COREDUMP_EXE=");
         len -= STRLEN("COREDUMP_EXE=");
 
