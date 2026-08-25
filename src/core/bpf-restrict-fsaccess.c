@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "bpf-restrict-fsaccess.h"
 #include "devnum-util.h"
 #include "fd-util.h"
@@ -13,9 +14,11 @@
 #include "lsm-util.h"
 #include "manager.h"
 #include "memory-util.h"
+#include "proc-cmdline.h"
 #include "seccomp-util.h"
 #include "serialize.h"
 #include "string-table.h"
+#include "string-util.h"
 
 /* DMVERITY_DEVICES_MAX lives in bpf-restrict-fsaccess.h for sharing with tests. */
 
@@ -95,6 +98,36 @@ static bool dm_verity_require_signatures(void) {
         return r > 0;
 }
 
+/* proc_mem.force_override= is __ro_after_init. We require "never" because "ptrace" still lets a tracer
+ * rewrite its tracee. */
+static int proc_mem_force_override_restricted(void) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        r = proc_cmdline_get_key("proc_mem.force_override", /* flags= */ 0, &value);
+        if (r <= 0)
+                return r;
+
+        return streq(value, "never");
+}
+
+static int restrict_fsaccess_check_proc_mem(void) {
+        int r;
+
+        r = proc_mem_force_override_restricted();
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to read the kernel command line: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "bpf-restrict-fsaccess: proc_mem.force_override is not set to \"never\", so "
+                                       "/proc/<pid>/mem can rewrite executable pages and bypass "
+                                       "RestrictFileSystemAccess=. Add proc_mem.force_override=never to the kernel "
+                                       "command line, or boot with systemd.restrict_filesystem_access=no to disable "
+                                       "the policy.");
+
+        return 0;
+}
+
 /* The kernel-side prerequisites of the policy, shared with test-bpf-restrict-fsaccess. */
 int bpf_restrict_fsaccess_check_prerequisites(void) {
         int r;
@@ -121,7 +154,7 @@ int bpf_restrict_fsaccess_check_prerequisites(void) {
                                        "Set dm_verity.require_signatures=1 on the kernel command line.");
         log_debug("bpf-restrict-fsaccess: dm-verity require_signatures: enabled.");
 
-        return 0;
+        return restrict_fsaccess_check_proc_mem();
 }
 
 /* The seccomp filter survives execve() so ensure that we're not installing another filter. */
@@ -463,8 +496,9 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                                 return r;
                 }
 
-                /* v261 serialized the link FDs without installing the filter. Enforcement is active already,
+                /* A v261 PID 1 neither checked this nor installed the filter. Enforcement is active already,
                  * so only complain. */
+                (void) restrict_fsaccess_check_proc_mem();
                 (void) restrict_fsaccess_install_ptrace_filter(m);
 
                 return 0;
