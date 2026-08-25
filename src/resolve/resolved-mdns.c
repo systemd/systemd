@@ -299,6 +299,11 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to look up key: %m");
 
+                /* This runs during the shutdown grace second too: losing a tiebreak has to
+                 * suppress our reply (RFC 6762 section 8.2), or a peer probing for a name we
+                 * still probe would see a spurious conflict from a daemon about to exit. The
+                 * loss still withdraws the record locally; only what would follow is held back,
+                 * inside dns_zone_item_conflict(). */
                 if (tentative && DNS_PACKET_NSCOUNT(p) > 0) {
                         /*
                          * A race condition detected with the probe packet from

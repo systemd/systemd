@@ -336,7 +336,11 @@ void dnssd_registered_service_unregister(DnssdRegisteredService *service) {
          * add its RRs back. */
         dnssd_registered_service_free(service);
 
-        manager_refresh_rrs(m);
+        /* Not while the shutdown withdrawal runs: the refresh re-adds the host's address records
+         * and restarts their probes, multicast traffic in the window every other publication
+         * path holds quiet. */
+        if (!m->mdns_withdrawing)
+                manager_refresh_rrs(m);
 }
 
 /* Snapshot the records of all file-sourced registered services, for reconciling a reload: taken
