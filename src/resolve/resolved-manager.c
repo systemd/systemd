@@ -654,6 +654,19 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         Link *l;
         int r;
 
+        /* A reload racing the shutdown withdrawal would republish what the goodbyes just took back.
+         * The daemon has committed to leaving; let the next instance pick the configuration up.
+         *
+         * No notify-reload handshake here, although this returns without one: the flag is set
+         * together with the NOTIFY_STOPPING that manager_dispatch_exit_signal() sends, so by the
+         * time a SIGHUP can be dispatched PID 1 has latched STOPPING and refuses both RELOADING=1
+         * and READY=1 with an error each. Nothing waits for the handshake either -- a unit that is
+         * stopping cannot have a reload job in flight. */
+        if (m->mdns_withdrawing) {
+                log_debug("Not reloading the configuration, already shutting down.");
+                return 0;
+        }
+
         (void) notify_reloading();
 
         dns_server_unlink_on_reload(m->dns_servers);
@@ -741,10 +754,11 @@ static bool manager_needs_mdns_goodbyes(Manager *m) {
                 return false;
 
         HASHMAP_FOREACH(l, m->links) {
-                if (l->mdns_ipv4_scope && !dns_zone_is_empty(&l->mdns_ipv4_scope->zone))
-                        return true;
-                if (l->mdns_ipv6_scope && !dns_zone_is_empty(&l->mdns_ipv6_scope->zone))
-                        return true;
+                DnsScope *scope;
+
+                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope)
+                        if (dns_scope_shutdown_goodbye_has_content(scope))
+                                return true;
         }
 
         return false;

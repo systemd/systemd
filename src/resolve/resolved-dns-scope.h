@@ -114,6 +114,7 @@ int dns_scope_ifindex(DnsScope *s);
 const char* dns_scope_ifname(DnsScope *s);
 
 int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer);
+bool dns_scope_shutdown_goodbye_has_content(DnsScope *scope);
 int dns_scope_announce(DnsScope *scope, bool goodbye);
 /* Is this record one of the host's own (an address record or its reverse mapping) on this scope?
  * Those are the records the shutdown goodbyes deliberately keep, so they are still ours to answer

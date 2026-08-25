@@ -509,6 +509,18 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
         /* Withdraw the conflict item */
         i->state = DNS_ZONE_ITEM_WITHDRAWN;
 
+        /* Not once the mDNS goodbyes went out: what follows a conceded conflict — the
+         * DnssdService.Conflicted signal, and for the host name a rename that re-adds every
+         * registered service's records to the zones and restarts their probes — is multicast
+         * traffic and state churn in the very window every other publication path holds quiet,
+         * for a resolution that cannot conclude before we exit. The record itself was stopped and
+         * withdrawn above all the same: that part is local and silent, the loser's deferral of RFC
+         * 6762 section 8.2, and skipping it would leave a record we just lost answerable — still
+         * probing, or established once its probe runs out — for the rest of the second. mDNS
+         * only, like the gates above: LLMNR records are not withdrawn by the goodbyes. */
+        if (i->scope->protocol == DNS_PROTOCOL_MDNS && i->scope->manager->mdns_withdrawing)
+                return;
+
         (void) dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));
 
         /* Maybe change the hostname */
