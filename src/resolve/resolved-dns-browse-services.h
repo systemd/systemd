@@ -70,7 +70,6 @@ struct DnsServiceBrowser {
         LIST_FIELDS(DnsServiceBrowser, subscribers);
 };
 
-DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb);
 void dns_remove_service(DnsServiceQuerier *sq, DnssdDiscoveredService *service);
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceQuerier, dns_service_querier);
@@ -78,7 +77,6 @@ DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceQuerier, dns_service_querier);
 void dns_browse_services_purge(Manager *m, int family, int ifindex);
 void dns_browse_services_restart(Manager *m);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceBrowser *, dns_service_browser_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceQuerier *, dns_service_querier_unref);
 
 int dns_service_match_and_update(

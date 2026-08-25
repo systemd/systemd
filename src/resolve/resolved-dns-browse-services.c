@@ -174,6 +174,9 @@ static usec_t mdns_maintenance_jitter(usec_t ttl_usec) {
         return random_u64_range(2 * ttl_usec / 100);
 }
 
+static DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceBrowser *, dns_service_browser_free);
+
 static void mdns_querier_schedule_maintenance(DnsServiceQuerier *sq);
 static void mdns_querier_restart_schedule(DnsServiceQuerier *sq);
 static int mdns_querier_revisit_cache(DnsServiceQuerier *sq, int owner_family);
@@ -923,6 +926,16 @@ static int dns_service_querier_compare_func(const DnsServiceQuerier *a, const Dn
         return CMP(a->flags, b->flags);
 }
 
+/* The browsers map owns its entries: dropping it (manager teardown) frees them, while
+ * hashmap_remove() — how a single subscription goes away — hands the browser back instead. */
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                dns_service_browser_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                DnsServiceBrowser,
+                dns_service_browser_free);
+
 DEFINE_PRIVATE_HASH_OPS(
                 dns_service_querier_hash_ops,
                 DnsServiceQuerier,
@@ -1115,7 +1128,7 @@ int dns_subscribe_browse_service(
                         return log_error_errno(r, "Failed to add service querier to the hashmap: %m");
         }
 
-        r = hashmap_ensure_put(&m->dns_service_browsers, NULL, link, sb);
+        r = hashmap_ensure_put(&m->dns_service_browsers, &dns_service_browser_hash_ops, link, sb);
         if (r < 0)
                 return log_error_errno(r, "Failed to add service browser to the hashmap: %m");
 
@@ -1158,7 +1171,7 @@ void dns_unsubscribe_browse_service(Manager *m, sd_varlink *link) {
         dns_service_browser_free(hashmap_remove(m->dns_service_browsers, link));
 }
 
-DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb) {
+static DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb) {
         if (!sb)
                 return NULL;
 

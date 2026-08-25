@@ -841,7 +841,6 @@ int manager_start(Manager *m) {
 Manager* manager_free(Manager *m) {
         Link *l;
         DnssdRegisteredService *s;
-        DnsServiceBrowser *sb;
 
         if (!m)
                 return NULL;
@@ -923,8 +922,8 @@ Manager* manager_free(Manager *m) {
         manager_etc_hosts_flush(m);
         manager_static_records_flush(m);
 
-        while ((sb = hashmap_first(m->dns_service_browsers)))
-                dns_unsubscribe_browse_service(m, sb->link);
+        /* Browsers first: freeing one detaches it from its querier, which the queriers map below
+         * must still be around for. */
         hashmap_free(m->dns_service_browsers);
         hashmap_free(m->dns_service_queriers);
 
