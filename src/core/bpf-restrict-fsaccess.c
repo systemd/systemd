@@ -3,8 +3,10 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "bpf-restrict-fsaccess.h"
+#include "alloc-util.h"
 #include "devnum-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -13,8 +15,11 @@
 #include "lsm-util.h"
 #include "manager.h"
 #include "memory-util.h"
+#include "proc-cmdline.h"
+#include "seccomp-util.h"
 #include "serialize.h"
 #include "string-table.h"
+#include "string-util.h"
 
 /* DMVERITY_DEVICES_MAX lives in bpf-restrict-fsaccess.h for sharing with tests. */
 
@@ -36,6 +41,70 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = "restrict-fsaccess-bpf-prog-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = "restrict-fsaccess-bpf-guard-link",
 };
+
+/* Whether /proc/<pid>/mem is barred from overriding memory protections.
+ *
+ * The W^X hooks stop writable+executable mappings, but a write through
+ * /proc/<pid>/mem is serviced by the kernel with a FOLL_FORCE copy-on-write that
+ * no mmap()/mprotect() hook sees. proc_mem.force_override (CONFIG_PROC_MEM_*)
+ * decides whether that is allowed: "always", "ptrace" (for an active tracer) or
+ * "never". Only "never" is acceptable: attaching stays allowed, so under
+ * "ptrace" a tracer could still rewrite its tracee. The setting is
+ * __ro_after_init and has no readout, hence it is taken from the kernel command
+ * line, which is part of the measured boot; an unreadable Kconfig default is
+ * not trusted, the option must be explicit.
+ *
+ * Returns > 0 if set to "never", 0 otherwise (always/ptrace/unset/unknown), or a
+ * negative errno if the command line could not be read. */
+int proc_mem_force_override_restricted(void) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        r = proc_cmdline_get_key("proc_mem.force_override", /* flags= */ 0, &value);
+        if (r < 0)
+                return r;
+        if (r == 0 || !value)
+                return 0;
+
+        return streq(value, "never");
+}
+
+/* Cross-check that the kernel actually honours the option: an unknown command
+ * line parameter is silently ignored, so a kernel without CONFIG_PROC_MEM_*
+ * would pass the check above while still forcing writes. Writes one byte
+ * through /proc/self/mem into a private read-only anonymous page, which only
+ * succeeds with FOLL_FORCE.
+ *
+ * Returns > 0 if the write overrode the protection, 0 if it was refused, or a
+ * negative errno on any other failure. */
+int proc_mem_force_override_probe(void) {
+        _cleanup_close_ int fd = -EBADF;
+        static const uint8_t zero = 0;
+        ssize_t n;
+        void *p;
+        int r;
+
+        p = mmap(NULL, page_size(), PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+        if (p == MAP_FAILED)
+                return -errno;
+
+        fd = open("/proc/self/mem", O_RDWR|O_CLOEXEC);
+        if (fd < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        /* Without FOLL_FORCE access_remote_vm() copies nothing and mem_rw() fails with EIO. */
+        n = pwrite(fd, &zero, sizeof(zero), (off_t) (uintptr_t) p);
+        if (n < 0)
+                r = errno == EIO ? 0 : -errno;
+        else
+                r = n > 0;
+
+finish:
+        (void) munmap(p, page_size());
+        return r;
+}
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
 #include "bpf-util.h"
@@ -436,6 +505,32 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                                        "bpf-restrict-fsaccess: dm-verity require_signatures is not enabled. "
                                        "RestrictFileSystemAccess= requires the kernel to enforce dm-verity signatures. "
                                        "Set dm_verity.require_signatures=1 on the kernel command line.");
+
+        r = proc_mem_force_override_restricted();
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to read the kernel command line: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "bpf-restrict-fsaccess: proc_mem.force_override is not set to \"never\", so /proc/<pid>/mem "
+                                       "can rewrite executable pages and bypass RestrictFileSystemAccess=. Add "
+                                       "proc_mem.force_override=never to the kernel command line.");
+
+        r = proc_mem_force_override_probe();
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to probe whether /proc/self/mem overrides memory protections: %m");
+        if (r > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "bpf-restrict-fsaccess: proc_mem.force_override=never is on the kernel command line, but a write "
+                                       "through /proc/self/mem still overrides memory protections. The kernel apparently does not "
+                                       "support the option, refusing.");
+
+#if HAVE_SECCOMP
+        r = seccomp_restrict_ptrace();
+#else
+        r = -EOPNOTSUPP;
+#endif
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to install the ptrace() seccomp filter: %m");
 
         r = bpf_restrict_fsaccess_prepare(&obj);
         if (r < 0)
