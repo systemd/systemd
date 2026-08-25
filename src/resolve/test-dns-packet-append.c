@@ -11,6 +11,7 @@
 #include "resolved-dns-rr.h"
 #include "stdio-util.h"
 #include "tests.h"
+#include "unaligned.h"
 
 #define BIT_QR (1 << 7)
 #define BIT_AA (1 << 2)
@@ -1301,20 +1302,6 @@ TEST(packet_append_key_name_too_long) {
         ASSERT_EQ(packet->size, 12U);
 }
 
-/* Pad the packet to exactly `target` bytes, so the next append starts at a chosen offset. Opaque
- * filler: nothing parses it, and it leaves the compression map empty. */
-static void pad_packet_to(DnsPacket *p, size_t target) {
-        _cleanup_free_ void *filler = NULL;
-        size_t gap;
-
-        ASSERT_GT(target, p->size);
-        gap = target - p->size;
-        ASSERT_NOT_NULL(filler = malloc0(gap));
-        ASSERT_OK(dns_packet_append_blob(p, filler, gap, NULL));
-        ASSERT_EQ(p->size, target);
-        ASSERT_EQ(hashmap_size(p->names), 0u);
-}
-
 /* The reader's label-type dispatch. RFC 1035 section 4.1.4 gives a length octet the top bits 00 and
  * a compression pointer 11, and reserves 01 and 10: it takes both bits to make a pointer. The
  * reserved octet points at a real name here, so a dispatch accepting either bit follows it and
@@ -1342,6 +1329,14 @@ TEST(packet_read_name_rejects_reserved_label_types) {
                 ASSERT_ERROR(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true,
                                                   NULL), EBADMSG);
         }
+}
+
+/* Every offset in the compression map must be pointer-expressible. */
+static void assert_offsets_in_pointer_range(const DnsPacket *p) {
+        void *v;
+
+        HASHMAP_FOREACH(v, p->names)
+                ASSERT_LE(PTR_TO_SIZE(v), (size_t) DNS_COMPRESSION_OFFSET_MAX);
 }
 
 TEST(packet_append_name_beyond_compression_pointer_range) {
@@ -1381,6 +1376,7 @@ TEST(packet_append_name_beyond_compression_pointer_range) {
                                          /* allow_compression= */ true, /* canonical_candidate= */ false,
                                          NULL));
         ASSERT_EQ(hashmap_size(packet->names), n_mapped);
+        assert_offsets_in_pointer_range(packet);
 
         /* Names first seen within pointer range still compress: re-appending one takes exactly the
          * two bytes of a compression pointer. */
@@ -1401,6 +1397,115 @@ TEST(packet_append_name_beyond_compression_pointer_range) {
         dns_packet_rewind(packet, before);
         ASSERT_OK(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true, NULL));
         ASSERT_STREQ(parsed, "filler0.example.com");
+
+        /* A name beyond the pointer range whose suffix IS mapped in range -- the shape every DNS-SD
+         * name hits via ".local" -- must still compress from that suffix: one label plus a two-byte
+         * pointer, on every occurrence, with the map unchanged. */
+        n_mapped = hashmap_size(packet->names);
+        for (size_t i = 0; i < 2; i++) {
+                size_t at, occurrence_start = packet->size;
+
+                ASSERT_OK(dns_packet_append_name(packet, "far.example.com",
+                                                 /* allow_compression= */ true,
+                                                 /* canonical_candidate= */ false,
+                                                 &at));
+                ASSERT_GT(at, (size_t) DNS_COMPRESSION_OFFSET_MAX);
+                ASSERT_EQ(packet->size, occurrence_start + 1 + STRLEN("far") + 2);
+                ASSERT_EQ(hashmap_size(packet->names), n_mapped);
+                assert_offsets_in_pointer_range(packet);
+
+                /* The pointer must address the suffix's mapped prior occurrence, not just any
+                 * in-range length octet (RFC 1035 section 4.1.4): compare it with the map. */
+                size_t suffix = PTR_TO_SIZE(hashmap_get(packet->names, "example.com"));
+                size_t pointer_at = occurrence_start + 1 + STRLEN("far");
+                ASSERT_GT(suffix, 0u);
+                ASSERT_LT(suffix, occurrence_start);
+                ASSERT_EQ(unaligned_read_be16(DNS_PACKET_DATA(packet) + pointer_at),
+                          (uint16_t) (DNS_COMPRESSION_POINTER_FLAG | suffix));
+
+                parsed = mfree(parsed);
+                dns_packet_rewind(packet, at);
+                ASSERT_OK(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true, NULL));
+                ASSERT_STREQ(parsed, "far.example.com");
+        }
+}
+
+/* Pad the packet to exactly `target` bytes, so the next append starts at a chosen offset. Opaque
+ * filler: nothing parses it, and it leaves the compression map empty. */
+static void pad_packet_to(DnsPacket *p, size_t target) {
+        _cleanup_free_ void *filler = NULL;
+        size_t gap;
+
+        ASSERT_GT(target, p->size);
+        gap = target - p->size;
+        ASSERT_NOT_NULL(filler = malloc0(gap));
+        ASSERT_OK(dns_packet_append_blob(p, filler, gap, NULL));
+        ASSERT_EQ(p->size, target);
+        ASSERT_EQ(hashmap_size(p->names), 0u);
+}
+
+TEST(packet_append_name_at_compression_offset_max) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        size_t start;
+
+        /* A name whose first label starts at exactly the last pointer-expressible offset must be
+         * mapped and referenced by pointer... */
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        pad_packet_to(packet, DNS_COMPRESSION_OFFSET_MAX);
+
+        ASSERT_OK(dns_packet_append_name(packet, "edge.example.org",
+                                         /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                         &start));
+        ASSERT_EQ(start, (size_t) DNS_COMPRESSION_OFFSET_MAX);
+        /* Only the whole name is mapped: its suffixes start past the bound. */
+        ASSERT_EQ(hashmap_size(packet->names), 1u);
+
+        size_t before = packet->size;
+        ASSERT_OK(dns_packet_append_name(packet, "edge.example.org",
+                                         /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                         NULL));
+        ASSERT_EQ(packet->size, before + 2);
+        /* The pointer's wire bytes, independent of the parser: offset 0x3FFF under the tag bits. */
+        ASSERT_EQ(DNS_PACKET_DATA(packet)[before], 0xFFu);
+        ASSERT_EQ(DNS_PACKET_DATA(packet)[before + 1], 0xFFu);
+
+        _cleanup_free_ char *parsed = NULL;
+        dns_packet_rewind(packet, before);
+        ASSERT_OK(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true, NULL));
+        ASSERT_STREQ(parsed, "edge.example.org");
+
+        /* The same two bytes must be refused, not followed, where compression is not allowed. */
+        parsed = mfree(parsed);
+        dns_packet_rewind(packet, before);
+        ASSERT_ERROR(dns_packet_read_name(packet, &parsed, /* allow_compression= */ false, NULL),
+                     EBADMSG);
+}
+
+TEST(packet_append_name_past_compression_offset_max) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_free_ char *parsed = NULL;
+        size_t start, before;
+
+        /* One byte past the last pointer-expressible offset, a name stays out of the map and every
+         * occurrence is re-emitted as labels. */
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        pad_packet_to(packet, DNS_COMPRESSION_OFFSET_MAX + 1);
+
+        ASSERT_OK(dns_packet_append_name(packet, "past.example.org",
+                                         /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                         &start));
+        ASSERT_EQ(start, (size_t) DNS_COMPRESSION_OFFSET_MAX + 1);
+        ASSERT_EQ(hashmap_size(packet->names), 0u);
+
+        before = packet->size;
+        ASSERT_OK(dns_packet_append_name(packet, "past.example.org",
+                                         /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                         NULL));
+        ASSERT_EQ(packet->size, before + STRLEN("past.example.org") + 2);
+
+        dns_packet_rewind(packet, before);
+        ASSERT_OK(dns_packet_read_name(packet, &parsed, /* allow_compression= */ true, NULL));
+        ASSERT_STREQ(parsed, "past.example.org");
 }
 
 /* The same case via dns_packet_append_rr(), where the name append is nested inside the rdlength
