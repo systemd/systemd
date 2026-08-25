@@ -13,6 +13,7 @@
 #include "event-util.h"
 #include "glyph-util.h"
 #include "log.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
@@ -522,13 +523,10 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         free(q->request_address_string);
 
-        if (q->service_querier_request) {
-                /* As with the varlink userdata above: clear the querier's tracking pointer whichever way
-                 * the query goes away, so that it never dangles. */
-                if (q->service_querier_request->in_flight_query == q)
-                        q->service_querier_request->in_flight_query = NULL;
-                dns_service_querier_unref(q->service_querier_request);
-        }
+        /* As with the varlink userdata above: let the querier drop its tracking pointer whichever
+         * way the query goes away, so that it never dangles. */
+        dns_service_querier_forget_query(q->service_querier_request, q);
+        dns_service_querier_unref(q->service_querier_request);
 
         hook_query_free(q->hook_query);
 
