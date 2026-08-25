@@ -22,6 +22,7 @@
 #include "timesyncd-bus.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
+#include "verbs.h"
 
 static int advance_tstamp(int fd, usec_t epoch) {
         assert(fd >= 0);
@@ -122,6 +123,16 @@ static int load_clock_timestamp(void) {
         return 0;
 }
 
+COMMAND(
+        "systemd-timesyncd\0",
+        "Synchronize the system clock across the network.",
+        .man_pages = "systemd-timesyncd.service.8\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0",
+);
+
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
@@ -130,9 +141,7 @@ static int run(int argc, char *argv[]) {
         log_set_facility(LOG_CRON);
         log_setup();
 
-        r = service_parse_argv("systemd-timesyncd.service",
-                               "Network time synchronization",
-                               BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
                                /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
