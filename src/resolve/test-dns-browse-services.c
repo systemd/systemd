@@ -9,6 +9,7 @@
 #include "dns-question.h"
 #include "dns-rr.h"
 #include "resolved-dns-browse-services.h"
+#include "resolved-dns-query.h"
 #include "resolved-manager.h"
 #include "tests.h"
 #include "time-util.h"
@@ -41,8 +42,11 @@ TEST(dns_service_match_and_update_goodbye_and_expiry) {
         ASSERT_OK_POSITIVE(dns_service_match_and_update(&service, rr, AF_INET, 2, 100));
         ASSERT_EQ(service.until, (usec_t) 100);
 
+        /* A shorter expiry is taken too: it is the cache's, and the maintenance ladder is armed off
+         * this value — holding on to the longer one would leave the ladder waiting past the point
+         * the cache drops the record, and the instance listed until it finally comes around. */
         ASSERT_OK_POSITIVE(dns_service_match_and_update(&service, rr, AF_INET, 2, 75));
-        ASSERT_EQ(service.until, (usec_t) 100);
+        ASSERT_EQ(service.until, (usec_t) 75);
 
         rr = dns_resource_record_unref(rr);
         ASSERT_NOT_NULL(rr = new_test_service_rr(1));
@@ -156,7 +160,7 @@ TEST(mdns_answer_contains_service_ifindex) {
  * completion handler then frees the query. The ladder tracks its maintenance query by pointer, so the
  * pointer has to be stored before the query is started and be gone again once the handler returns — a
  * manager without any scope makes the completion synchronous. */
-TEST(mdns_querier_maintenance_query_completing_synchronously) {
+TEST(mdns_querier_maintenance_query_is_untracked_when_it_ends) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         Manager manager = {};
@@ -173,10 +177,18 @@ TEST(mdns_querier_maintenance_query_completing_synchronously) {
                 .rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT,
         };
 
-        ASSERT_OK(mdns_querier_maintenance(/* s= */ NULL, /* usec= */ 0, &sq));
+        mdns_querier_run_maintenance(&sq);
 
-        /* The rung advanced, the query was issued and is gone again, and nothing leaked. */
         ASSERT_EQ(sq.rr_ttl_state, DNS_RECORD_TTL_STATE_85_PERCENT);
+
+        /* Whether the query already finished inside that call is up to the environment — with no
+         * scope to send it on it usually completes right away, but nothing here may depend on it.
+         * End it explicitly otherwise, and pin what the tracking exists for either way: the querier
+         * lets go of the query whichever way it ends, so the pointer cannot dangle, and neither the
+         * querier nor the manager is left holding anything. */
+        if (sq.maintenance_query)
+                dns_query_complete(sq.maintenance_query, DNS_TRANSACTION_ABORTED);
+
         ASSERT_NULL(sq.maintenance_query);
         ASSERT_EQ(sq.n_ref, 1u);
         ASSERT_EQ(manager.n_dns_queries, 0u);
@@ -194,8 +206,46 @@ TEST(mdns_querier_maintenance_terminal_rung_resets_ladder) {
                 .rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT,
         };
 
-        ASSERT_OK(mdns_querier_maintenance(/* s= */ NULL, /* usec= */ 0, &sq));
+        mdns_querier_run_maintenance(&sq);
 
+        ASSERT_EQ(sq.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
+        ASSERT_NULL(sq.maintenance_query);
+        /* With nothing discovered there is nothing to re-arm against, so the ladder stays off. The
+         * companion test below covers the rung that does have something to reconcile. */
+        ASSERT_NULL(sq.maintenance_event);
+        ASSERT_EQ(sq.n_ref, 1u);
+        ASSERT_EQ(manager.n_dns_queries, 0u);
+}
+
+/* The other half of the terminal rung: it reconciles before deciding. With a discovered service on
+ * the list and no scope left that could still answer for it, the pass must drop it — that removal
+ * (and the "removed" event with it) is what the rung exists for, and a branch that just rescheduled
+ * without revisiting would leave the service listed forever. */
+TEST(mdns_querier_maintenance_terminal_rung_reconciles_services) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        usec_t t = now(CLOCK_BOOTTIME);
+
+        ASSERT_OK(sd_event_new(&event));
+
+        Manager manager = {
+                .event = event,
+        };
+        DnsServiceQuerier sq = {
+                .n_ref = 1,
+                .manager = &manager,
+                .ifindex = 2,
+        };
+
+        ASSERT_NOT_NULL(rr = new_test_service_rr(120));
+        ASSERT_OK(dns_add_new_service(&sq, rr, AF_INET, /* ifindex= */ 2, usec_add(t, 60 * USEC_PER_SEC)));
+        sq.rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT;
+        ASSERT_NOT_NULL(sq.dns_services);
+
+        mdns_querier_run_maintenance(&sq);
+
+        /* Reconciled away, and with nothing left the ladder winds down instead of re-arming. */
+        ASSERT_NULL(sq.dns_services);
         ASSERT_EQ(sq.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
         ASSERT_NULL(sq.maintenance_query);
         ASSERT_NULL(sq.maintenance_event);
