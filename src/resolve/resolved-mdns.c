@@ -728,3 +728,151 @@ int manager_mdns_ipv6_fd(Manager *m) {
 
         return m->mdns_ipv6_fd = TAKE_FD(s);
 }
+
+static int mdns_announcement_packet_new(size_t max_size, DnsPacket **ret) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        int r;
+
+        assert(ret);
+
+        r = dns_packet_new(&p, DNS_PROTOCOL_MDNS, /* min_alloc_dsize= */ 0, max_size);
+        if (r < 0)
+                return r;
+
+        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
+                                                              1 /* qr */,
+                                                              0 /* opcode */,
+                                                              1 /* aa, see RFC 6762, section 18.4 */,
+                                                              0 /* tc */,
+                                                              0 /* (tentative) */,
+                                                              0 /* (ra) */,
+                                                              0 /* (ad) */,
+                                                              0 /* (cd) */,
+                                                              DNS_RCODE_SUCCESS));
+
+        *ret = TAKE_PTR(p);
+        return 0;
+}
+
+/* Append one record to the packet under construction, creating it first if there is none. Returns
+ * -EMSGSIZE when the record does not fit, which the caller answers by sealing what it has (or by
+ * widening the packet), exactly as it would for a bare dns_packet_append_rr(). */
+static int mdns_announcement_packet_append(DnsPacket **p, size_t max_size, DnsAnswerItem *item) {
+        int r;
+
+        assert(p);
+        assert(item);
+
+        if (!*p) {
+                r = mdns_announcement_packet_new(max_size, p);
+                if (r < 0)
+                        return r;
+        }
+
+        return dns_packet_append_rr(*p, item->rr, item->flags,
+                                    /* start= */ NULL, /* rdata_start= */ NULL);
+}
+
+/* Seal the announcement packet under construction — set its ancount and push it onto the result
+ * array. A no-op without a packet or without any RRs appended yet. */
+static int mdns_announcement_packet_seal(
+                DnsPacket ***packets,
+                size_t *n_packets,
+                DnsPacket **p,
+                unsigned n_answer) {
+        assert(packets);
+        assert(n_packets);
+        assert(p);
+
+        if (!*p || n_answer == 0)
+                return 0;
+
+        if (!GREEDY_REALLOC(*packets, *n_packets + 1))
+                return -ENOMEM;
+
+        DNS_PACKET_HEADER(*p)->ancount = htobe16(n_answer);
+        (*packets)[(*n_packets)++] = TAKE_PTR(*p);
+
+        return 0;
+}
+
+/* Pack the answer's records into as many announcement packets of at most max_size bytes as needed,
+ * in answer order, each with its ancount finalized. A single record that does not fit any packet
+ * on its own is retried alone within fragmented_max — RFC 6762 § 17 allows a lone resource record
+ * to rely on IP fragmentation, up to a hard 9000-byte ceiling including headers — and dropped if
+ * even that bound cannot accommodate it. */
+int mdns_announcement_packetize(
+                DnsAnswer *answer,
+                size_t max_size,
+                size_t fragmented_max,
+                DnsPacket ***ret_packets,
+                size_t *ret_n_packets) {
+
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsPacket **packets = NULL;
+        size_t n_packets = 0;
+        unsigned n_answer = 0;
+        DnsAnswerItem *item;
+        int r;
+
+        assert(max_size <= fragmented_max);
+        assert(ret_packets);
+        assert(ret_n_packets);
+
+        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                r = mdns_announcement_packet_append(&p, max_size, item);
+                if (r == -EMSGSIZE && n_answer > 0) {
+                        /* Packet full — seal it and retry this RR in a fresh one. */
+                        r = mdns_announcement_packet_seal(&packets, &n_packets, &p, n_answer);
+                        if (r < 0)
+                                goto fail;
+
+                        n_answer = 0;
+
+                        r = mdns_announcement_packet_append(&p, max_size, item);
+                }
+                if (r == -EMSGSIZE && max_size < fragmented_max) {
+                        /* A single RR larger than the MTU. Emit it alone in an oversized packet
+                         * within the § 17 fragmented-packet ceiling. */
+                        p = dns_packet_unref(p);
+
+                        r = mdns_announcement_packet_append(&p, fragmented_max, item);
+                        if (r >= 0) {
+                                /* n_answer is 0 here — the packet this RR rides alone in is sealed
+                                 * with a count of its own, and the caller's counter keeps counting
+                                 * the regular packet still under construction. */
+                                r = mdns_announcement_packet_seal(&packets, &n_packets, &p, /* n_answer= */ 1);
+                                if (r < 0)
+                                        goto fail;
+
+                                continue;
+                        }
+                }
+                if (r == -EMSGSIZE) {
+                        /* Not even § 17's fragmented-packet ceiling accommodates this RR, so it
+                         * cannot be emitted at all. Skip it rather than failing the rest of the
+                         * announcement. */
+                        log_debug("Skipping resource record too large for an mDNS packet.");
+                        p = dns_packet_unref(p);
+                        continue;
+                }
+                if (r < 0)
+                        goto fail;
+
+                n_answer++;
+        }
+
+        r = mdns_announcement_packet_seal(&packets, &n_packets, &p, n_answer);
+        if (r < 0)
+                goto fail;
+
+        *ret_packets = packets;
+        *ret_n_packets = n_packets;
+        return 0;
+
+fail:
+        FOREACH_ARRAY(i, packets, n_packets)
+                dns_packet_unref(*i);
+        free(packets);
+        return r;
+}
