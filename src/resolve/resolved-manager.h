@@ -166,6 +166,9 @@ typedef struct Manager {
 
         /* Map varlink links to DnsServiceBrowser instances. */
         Hashmap *dns_service_browsers;
+        /* Keyed by (question, ifindex, flags); holds NO reference to its entries -- a querier
+         * lives on its subscribers' refs alone, so anything that can drop the last subscriber must
+         * pin the querier across the call. */
         Hashmap *dns_service_queriers;
 
         Hashmap *hooks;
