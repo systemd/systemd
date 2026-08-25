@@ -689,7 +689,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 
         /* Send goodbyes for service records that did not survive the reload, or peers would keep
          * the vanished services listed until their TTLs expire. */
-        (void) dnssd_withdraw_stale_rrs(m, old_dnssd_rrs);
+        (void) dnssd_withdraw_filtered(m, old_dnssd_rrs, /* except= */ NULL);
 
         (void) manager_load_delegates(m);
 
