@@ -1177,4 +1177,185 @@ EOF
     homectl remove idgrouptest2
 }
 
+testcase_thin_volume() {
+    local metadata_backing="/var/tmp/homed-thin-metadata-$$.img"
+    local data_backing="/var/tmp/homed-thin-data-$$.img"
+    local config=/run/systemd/homed.conf.d/90-test-thin.conf
+    local metadata_loop="" data_loop=""
+    local pool_name="homed-test-pool-$$"
+    local pool="/dev/mapper/$pool_name"
+    local pool_uuid="HOMED-POOL-test-$$"
+    local default_user=thin-default-user password=thin-test-password user=thin-user second=thin-user-2
+    local data_sectors=$((768 * 1024 * 1024 / 512))
+
+    for command in awk cryptsetup dd dmsetup findmnt fstrim jq losetup modprobe truncate; do
+        if ! command -v "$command" >/dev/null; then
+            echo "Skipping thin-volume test: $command is not installed"
+            return 0
+        fi
+    done
+    modprobe dm-thin-pool ||:
+    if ! dmsetup targets | awk '$1 == "thin-pool" { found = 1 } END { exit !found }'; then
+        echo "Skipping thin-volume test: dm-thin-pool is unavailable"
+        return 0
+    fi
+
+    thin_cleanup() {
+        set +e
+        homectl deactivate "$second"
+        homectl remove "$second"
+        homectl deactivate "$default_user"
+        homectl remove "$default_user"
+        homectl deactivate "$user"
+        homectl remove "$user"
+        homectl remove thin-policy-test
+        rm -f "$config"
+        systemctl restart systemd-homed.service
+        dmsetup remove --retry "$pool_name"
+        if [[ -n "$metadata_loop" ]]; then
+            losetup --detach "$metadata_loop"
+        fi
+        if [[ -n "$data_loop" ]]; then
+            losetup --detach "$data_loop"
+        fi
+        rm -f /var/lib/systemd/home/.thin-pool-state /var/lib/systemd/home/.thin-pool-state.lock \
+            /run/homed-thin-state-backup-$$
+        rm -f "$metadata_backing" "$data_backing"
+    }
+    trap thin_cleanup EXIT
+
+    truncate --size=16M "$metadata_backing"
+    truncate --size=768M "$data_backing"
+    metadata_loop="$(losetup --find --show "$metadata_backing")"
+    data_loop="$(losetup --find --show "$data_backing")"
+    dd if=/dev/zero of="$metadata_loop" bs=4096 count=1 conv=fsync
+    rm -f /var/lib/systemd/home/.thin-pool-state /var/lib/systemd/home/.thin-pool-state.lock
+    dmsetup create "$pool_name" --uuid "LVM-test-pool-$$" --table \
+        "0 $data_sectors thin-pool $metadata_loop $data_loop 512 128 1 error_if_no_space"
+
+    mkdir -p "$(dirname "$config")"
+    cat >"$config" <<EOF
+[Home]
+DefaultStorage=luks
+ThinPool=$pool
+HardwareWrappedKeys=no
+EOF
+    systemctl restart systemd-homed.service
+
+    # Raw ownership is mandatory; accepting an LVM UUID would make the numeric ID namespace ambiguous.
+    (! NEWPASSWORD="$password" homectl create thin-policy-test \
+        --storage=luks --fs-type=ext4 --disk-size=300M \
+        --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms)
+    (! homectl inspect thin-policy-test)
+    dmsetup remove --retry "$pool_name"
+    dmsetup create "$pool_name" --uuid "$pool_uuid" --table \
+        "0 $data_sectors thin-pool $metadata_loop $data_loop 512 128 1 error_if_no_space"
+    systemctl restart systemd-homed.service
+
+    # queue_if_no_space is rejected before any device ID is allocated.
+    dmsetup suspend "$pool_name"
+    dmsetup reload "$pool_name" --table \
+        "0 $data_sectors thin-pool $metadata_loop $data_loop 512 128 0"
+    dmsetup resume "$pool_name"
+    (! NEWPASSWORD="$password" homectl create thin-policy-test \
+        --storage=luks --fs-type=ext4 --disk-size=300M \
+        --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms)
+    (! homectl inspect thin-policy-test)
+    dmsetup suspend "$pool_name"
+    dmsetup reload "$pool_name" --table \
+        "0 $data_sectors thin-pool $metadata_loop $data_loop 512 128 1 error_if_no_space"
+    dmsetup resume "$pool_name"
+
+    local machine_id default_record default_size default_mapping default_device_id
+    machine_id="$(cat /etc/machine-id)"
+    default_size=$((data_sectors * 512 / 1048576 * 1048576))
+    NEWPASSWORD="$password" homectl create "$default_user" \
+        --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms
+    default_record="$(homectl inspect --json=short "$default_user")"
+    default_device_id="$(jq -er --arg m "$machine_id" '.binding[$m].thinDeviceId' <<<"$default_record")"
+    [[ "$(jq -er --arg m "$machine_id" \
+        '.perMachine[] | select(.matchMachineId | if type == "array" then index($m) else . == $m end) | .diskSize' \
+        <<<"$default_record")" == "$default_size" ]]
+    default_mapping="homed-$(jq -er '.uuid | gsub("-"; "")' <<<"$default_record")"
+    PASSWORD="$password" homectl activate "$default_user"
+    [[ "$(dmsetup table "$default_mapping" | awk 'NR == 1 { print $3 }')" == thin ]]
+    homectl deactivate "$default_user"
+    homectl remove "$default_user"
+
+    NEWPASSWORD="$password" homectl create "$user" \
+        --storage=luks --fs-type=ext4 --disk-size=800M \
+        --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms
+
+    local record record_uuid device_id image_path mapping usage_before usage_after
+    record="$(homectl inspect --json=short "$user")"
+    record_uuid="$(jq -er '.uuid' <<<"$record")"
+    mapping="homed-${record_uuid//-/}"
+    device_id="$(jq -er --arg m "$machine_id" '.binding[$m].thinDeviceId' <<<"$record")"
+    (( device_id > default_device_id ))
+    image_path="$(jq -er --arg m "$machine_id" '.binding[$m].imagePath' <<<"$record")"
+    [[ "$(jq -er --arg m "$machine_id" '.binding[$m].thinPoolUuid' <<<"$record")" == "$pool_uuid" ]]
+    [[ "$(jq -er --arg m "$machine_id" '.binding[$m].storage' <<<"$record")" == luks ]]
+
+    PASSWORD="$password" homectl activate "$user"
+    [[ "$(dmsetup table "$mapping" | awk 'NR == 1 { print $3 }')" == thin ]]
+    dmsetup table "$mapping" | grep -w "$device_id"
+    dd if=/dev/zero of="/home/$user/discard-me" bs=1M count=64 conv=fsync
+    echo persistent >"/home/$user/persistent"
+    sync
+    usage_before="$(dmsetup status "$pool_name" | awk '{ print $6 }')"
+    rm "/home/$user/discard-me"
+    usage_after="$usage_before"
+    for _ in {1..10}; do
+        fstrim "/home/$user"
+        sync
+        usage_after="$(dmsetup status "$pool_name" | awk '{ print $6 }')"
+        if awk -F '[/ ]' -v before="$usage_before" -v after="$usage_after" \
+            'BEGIN { split(before, b, "/"); split(after, a, "/"); exit !(a[1] < b[1]) }'; then
+            break
+        fi
+        sleep 0.2
+    done
+    awk -v before="$usage_before" -v after="$usage_after" \
+        'BEGIN { split(before, b, "/"); split(after, a, "/"); exit !(a[1] < b[1]) }'
+
+    homectl deactivate "$user"
+
+    # Losing the durable allocator must not silently restart allocation at device ID zero.
+    cp /var/lib/systemd/home/.thin-pool-state /run/homed-thin-state-backup-$$
+    rm /var/lib/systemd/home/.thin-pool-state
+    systemctl restart systemd-homed.service
+    (! PASSWORD="$password" homectl activate "$user")
+    cp /run/homed-thin-state-backup-$$ /var/lib/systemd/home/.thin-pool-state
+    rm /run/homed-thin-state-backup-$$
+
+    # The record and allocator are tied to the pool generation UUID, not merely its backing devices.
+    dmsetup remove --retry "$pool_name"
+    dmsetup create "$pool_name" --uuid "HOMED-POOL-wrong-$$" --table \
+        "0 $data_sectors thin-pool $metadata_loop $data_loop 512 128 1 error_if_no_space"
+    systemctl restart systemd-homed.service
+    (! PASSWORD="$password" homectl activate "$user")
+    dmsetup remove --retry "$pool_name"
+    dmsetup create "$pool_name" --uuid "$pool_uuid" --table \
+        "0 $data_sectors thin-pool $metadata_loop $data_loop 512 128 1 error_if_no_space"
+    systemctl restart systemd-homed.service
+    PASSWORD="$password" homectl activate "$user"
+    grep -Fx persistent "/home/$user/persistent"
+
+    NEWPASSWORD="$password" homectl create "$second" \
+        --storage=luks --fs-type=ext4 --disk-size=300M \
+        --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms
+    PASSWORD="$password" homectl activate "$second"
+    dd if=/dev/zero of="/home/$user/concurrent" bs=1M count=32 conv=fsync
+    dd if=/dev/zero of="/home/$second/concurrent" bs=1M count=32 conv=fsync
+
+    homectl deactivate "$second"
+    homectl remove "$second"
+    homectl deactivate "$user"
+    homectl remove "$user"
+    (! dmsetup info "$mapping")
+
+    trap - EXIT
+    thin_cleanup
+}
+
 run_testcases
