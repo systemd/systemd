@@ -115,6 +115,7 @@ INTROSPECTABLE=(
     systemd-resolved
     systemd-run
     systemd-sbsign
+    systemd-shutdown
     systemd-sleep
     systemd-socket-activate
     systemd-socket-proxyd
