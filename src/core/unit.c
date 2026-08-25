@@ -1388,6 +1388,14 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
+        /* If any of the standard streams is connected to a pseudo TTY allocated by ptybrokerd, make sure the
+         * broker's socket is around first. */
+        if (exec_context_has_broker(c)) {
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, "systemd-ptybrokerd.socket", true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
