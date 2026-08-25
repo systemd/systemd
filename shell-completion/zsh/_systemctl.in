@@ -268,14 +268,25 @@ for fun in cat mask ; do
     }
 done
 
+(( $+functions[_systemctl_non_template_units] )) || _systemctl_non_template_units()
+{
+    _wanted systemd-units expl unit \
+            compadd "$@" - $(_systemctl_get_non_template_names)
+}
+
 # Completion functions for NONTEMPLATE_UNITS
-for fun in is-active is-failed is-enabled status show preset help list-dependencies edit revert add-wants add-requires set-property; do
-    (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
-    {
-        _wanted systemd-units expl unit \
-                compadd "$@" - $(_systemctl_get_non_template_names)
-    }
+for fun in is-active is-failed is-enabled status preset help list-dependencies edit revert add-wants add-requires set-property; do
+    (( $+functions[_systemctl_$fun] )) || _systemctl_$fun() { _systemctl_non_template_units "$@" }
 done
+
+# "show" additionally takes most of systemctl's own options (e.g. --property=, --all),
+# which zsh doesn't otherwise offer once completion has dispatched into a subcommand's
+# own function; reuse the same option specs as the top-level _arguments call below.
+(( $+functions[_systemctl_show] )) || _systemctl_show()
+{
+    _arguments -s "$_sys_arguments[@]" \
+        '*:unit:_systemctl_non_template_units'
+}
 
 # Completion functions for ENABLED_UNITS
 (( $+functions[_systemctl_disable] )) || _systemctl_disable()
@@ -504,44 +515,52 @@ done
 # Build arguments for "systemctl" to be used in completion.
 # Use the last mode, or --system (they are exclusive and the last one is used).
 local _sys_service_mgr=${words[(R)(--user|--system)]:---system}
-_arguments -s \
-    '(- *)'{-h,--help}'[Show help]' \
-    '(- *)--version[Show package version]' \
-    '(-t --type)'{-t+,--type=}'[List only units of a particular type]:unit type:_systemctl_unit_types' \
-    '--state=[Display units in the specified state]:unit state:_systemctl_unit_states' \
-    '--job-mode=[Specify how to deal with other jobs]:mode:_systemctl_job_modes' \
-    '(-p --property)'{-p+,--property=}'[Show only properties by specific name]:unit property:_systemctl_unit_properties' \
-    '(-a --all)'{-a,--all}'[Show all units/properties, including dead/empty ones]' \
-    '--reverse[Show reverse dependencies]' \
-    '--after[Show units ordered after]' \
-    '--before[Show units ordered before]' \
-    '(-l --full)'{-l,--full}"[Don't ellipsize unit names on output]" \
-    '--show-types[When showing sockets, show socket type]' \
-    '--check-inhibitors[Specify if inhibitors should be checked]:mode:_systemctl_check_inhibitors' \
-    '(-q --quiet)'{-q,--quiet}'[Suppress output]' \
-    '--no-warn[Suppress several warnings shown by default]' \
-    '--no-block[Do not wait until operation finished]' \
-    '--legend=no[Do not print a legend, i.e. the column headers and the footer with hints]' \
-    '--no-pager[Do not pipe output into a pager]' \
-    '--system[Connect to system manager]' \
-    '--user[Connect to user service manager]' \
-    "--no-wall[Don't send wall message before halt/power-off/reboot]" \
-    '--global[Enable/disable/mask default user unit files globally]' \
-    "--no-reload[When enabling/disabling unit files, don't reload daemon configuration]" \
-    '--no-ask-password[Do not ask for system passwords]' \
-    '--kill-whom=[Whom to send signal to]:killwhom:(main control all)' \
-    '(-s --signal)'{-s+,--signal=}'[Which signal to send]:signal:_signals' \
-    '(-f --force)'{-f,--force}'[When enabling unit files, override existing symlinks. When shutting down, execute action immediately]' \
-    '--root=[Enable/disable/mask unit files in the specified root directory]:directory:_directories' \
-    '--runtime[Enable/disable/mask unit files only temporarily until next reboot]' \
-    '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
-    '(-P --privileged)'{-P,--privileged}'[Acquire privileges before execution]' \
-    '(-n --lines)'{-n+,--lines=}'[Journal entries to show]:number of entries' \
-    '(-o --output)'{-o+,--output=}'[Change journal output mode]:modes:_sd_outputmodes' \
-    '--firmware-setup[Tell the firmware to show the setup menu on next boot]' \
-    '--plain[When used with list-dependencies, print output as a list]' \
-    '--failed[Show failed units]' \
-    '--timestamp=[Change format of printed timestamps]:style:_systemctl_timestamp' \
-    '--when=[Schedule halt/power-off/reboot/kexec action after a certain timestamp]:timestamp:(show cancel auto)' \
-    '--kernel-cmdline-reuse[Reuse the current kernel command line when loading the kexec kernel]' \
+
+# Kept in an array (rather than inlined into the _arguments call below) so that
+# _systemctl_show() can also complete these options once past the subcommand word.
+local -a _sys_arguments
+_sys_arguments=(
+    '(- *)'{-h,--help}'[Show help]'
+    '(- *)--version[Show package version]'
+    '*'{-t+,--type=}'[List only units of a particular type]:unit type:_systemctl_unit_types'
+    '*--state=[Display units in the specified state]:unit state:_systemctl_unit_states'
+    '--job-mode=[Specify how to deal with other jobs]:mode:_systemctl_job_modes'
+    '*'{-p+,--property=}'[Show only properties by specific name]:unit property:_systemctl_unit_properties'
+    '*-P+[Equivalent to --value --property=NAME]:unit property:_systemctl_unit_properties'
+    '(-a --all)'{-a,--all}'[Show all units/properties, including dead/empty ones]'
+    '--value[When showing properties, only print the value]'
+    '--reverse[Show reverse dependencies]'
+    '--after[Show units ordered after]'
+    '--before[Show units ordered before]'
+    '(-l --full)'{-l,--full}"[Don't ellipsize unit names on output]"
+    '--show-types[When showing sockets, show socket type]'
+    '--check-inhibitors[Specify if inhibitors should be checked]:mode:_systemctl_check_inhibitors'
+    '(-q --quiet)'{-q,--quiet}'[Suppress output]'
+    '--no-warn[Suppress several warnings shown by default]'
+    '--no-block[Do not wait until operation finished]'
+    '--legend=no[Do not print a legend, i.e. the column headers and the footer with hints]'
+    '--no-pager[Do not pipe output into a pager]'
+    '--system[Connect to system manager]'
+    '--user[Connect to user service manager]'
+    "--no-wall[Don't send wall message before halt/power-off/reboot]"
+    '--global[Enable/disable/mask default user unit files globally]'
+    "--no-reload[When enabling/disabling unit files, don't reload daemon configuration]"
+    '--no-ask-password[Do not ask for system passwords]'
+    '--kill-whom=[Whom to send signal to]:killwhom:(main control all)'
+    '(-s --signal)'{-s+,--signal=}'[Which signal to send]:signal:_signals'
+    '(-f --force)'{-f,--force}'[When enabling unit files, override existing symlinks. When shutting down, execute action immediately]'
+    '--root=[Enable/disable/mask unit files in the specified root directory]:directory:_directories'
+    '--runtime[Enable/disable/mask unit files only temporarily until next reboot]'
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host'
+    '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machine:_sd_machines'
+    '(-n --lines)'{-n+,--lines=}'[Journal entries to show]:number of entries'
+    '(-o --output)'{-o+,--output=}'[Change journal output mode]:modes:_sd_outputmodes'
+    '--firmware-setup[Tell the firmware to show the setup menu on next boot]'
+    '--plain[When used with list-dependencies, print output as a list]'
+    '--failed[Show failed units]'
+    '--timestamp=[Change format of printed timestamps]:style:_systemctl_timestamp'
+    '--when=[Schedule halt/power-off/reboot/kexec action after a certain timestamp]:timestamp:(show cancel auto)'
+    '--kernel-cmdline-reuse[Reuse the current kernel command line when loading the kexec kernel]'
+)
+_arguments -s "$_sys_arguments[@]" \
     '*::systemctl command:_systemctl_commands'
