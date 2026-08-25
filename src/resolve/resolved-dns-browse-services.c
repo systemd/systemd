@@ -595,7 +595,6 @@ finish:
 }
 
 int mdns_querier_revisit_cache(DnsServiceQuerier *sq, int owner_family) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *lookup_ret_answer = NULL;
         int r;
 
         assert(sq);
@@ -609,93 +608,62 @@ int mdns_querier_revisit_cache(DnsServiceQuerier *sq, int owner_family) {
          * bookkeeping always wants the truth, whatever flags the subscriber passed. */
         uint64_t lookup_flags = sq->flags | SD_RESOLVED_NO_STALE;
 
-        /* ifindex=0 means "all interfaces". Collect the cached answers from
-         * every matching mDNS scope into a single combined answer and reconcile
-         * once. Reconciling per-scope would be wrong: mdns_manage_services_answer()
-         * derives removals by diffing the querier's global service list against
-         * the answer it is handed, so a single scope's answer would spuriously
-         * "remove" (and then, on the next scope/pass, re-"add") services that are
-         * still present on other interfaces — resulting in a continuous
-         * added/removed event flap for services seen on more than the current
-         * scope. */
-        if (sq->ifindex == 0) {
-                _cleanup_(dns_answer_unrefp) DnsAnswer *combined = NULL;
+        /* ifindex=0 means "all interfaces"; with a specific ifindex the loop below degenerates to
+         * the one matching scope. Collect the cached answers from every matching mDNS scope into a
+         * single combined answer and reconcile once. Reconciling per-scope would be wrong:
+         * mdns_manage_services_answer() derives removals by diffing the querier's global service
+         * list against the answer it is handed, so a single scope's answer would spuriously
+         * "remove" (and then, on the next scope/pass, re-"add") services that are still present on
+         * other interfaces — resulting in a continuous added/removed event flap for services seen
+         * on more than the current scope. With no matching scope at all (mDNS is off on the link,
+         * or the link is gone) the reconcile runs against an empty answer: lingering instances get
+         * their removed events and the ladder winds down, instead of re-checking a list nothing
+         * can update once per second. */
+        _cleanup_(dns_answer_unrefp) DnsAnswer *combined = NULL;
 
-                LIST_FOREACH(scopes, scope, sq->manager->dns_scopes) {
-                        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-                        DnsAnswerItem *item;
+        LIST_FOREACH(scopes, scope, sq->manager->dns_scopes) {
+                _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+                DnsAnswerItem *item;
 
-                        if (scope->protocol != DNS_PROTOCOL_MDNS)
-                                continue;
+                if (scope->protocol != DNS_PROTOCOL_MDNS)
+                        continue;
 
-                        if (scope->family != owner_family)
-                                continue;
+                if (scope->family != owner_family)
+                        continue;
 
-                        dns_cache_prune(&scope->cache);
+                if (sq->ifindex != 0 && dns_scope_ifindex(scope) != sq->ifindex)
+                        continue;
 
-                        r = dns_cache_lookup(
-                                        &scope->cache,
-                                        sq->key,
-                                        lookup_flags,
-                                        /* ret_rcode= */ NULL,
-                                        &answer,
-                                        /* ret_full_packet= */ NULL,
-                                        /* ret_query_flags= */ NULL,
-                                        /* ret_dnssec_result= */ NULL);
+                dns_cache_prune(&scope->cache);
+
+                r = dns_cache_lookup(
+                                &scope->cache,
+                                sq->key,
+                                lookup_flags,
+                                /* ret_rcode= */ NULL,
+                                &answer,
+                                /* ret_full_packet= */ NULL,
+                                /* ret_query_flags= */ NULL,
+                                /* ret_dnssec_result= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look up DNS cache for service browser key on scope %s: %m",
+                                               dns_scope_ifname(scope) ?: "global");
+
+                /* Merge preserving each item's ifindex, flags, rrsig and
+                 * cache-expiry 'until'. (dns_answer_extend()/merge() would
+                 * reset 'until' to USEC_INFINITY, which would skew the RFC
+                 * 6762 §5.2 TTL-maintenance schedule that
+                 * mdns_manage_services_answer() derives from item->until.) */
+                DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                        r = dns_answer_add_extend_full(&combined, item->rr, item->ifindex,
+                                                       item->flags, item->rrsig, item->until);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to look up DNS cache for service browser key on scope %s: %m",
+                                return log_error_errno(r, "Failed to merge mDNS cache answer from scope %s: %m",
                                                        dns_scope_ifname(scope) ?: "global");
-
-                        /* Merge preserving each item's ifindex, flags, rrsig and
-                         * cache-expiry 'until'. (dns_answer_extend()/merge() would
-                         * reset 'until' to USEC_INFINITY, which would skew the RFC
-                         * 6762 §5.2 TTL-maintenance schedule that
-                         * mdns_manage_services_answer() derives from item->until.) */
-                        DNS_ANSWER_FOREACH_ITEM(item, answer) {
-                                r = dns_answer_add_extend_full(&combined, item->rr, item->ifindex,
-                                                               item->flags, item->rrsig, item->until);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to merge mDNS cache answer from scope %s: %m",
-                                                               dns_scope_ifname(scope) ?: "global");
-                        }
                 }
-
-                r = mdns_manage_services_answer(sq, combined, owner_family);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to manage mDNS services after cache lookup for all interfaces: %m");
-
-                return 0;
         }
 
-        /* Single scope for specifically requested interface */
-        DnsScope *scope = manager_find_scope_from_protocol(sq->manager, sq->ifindex, DNS_PROTOCOL_MDNS, owner_family);
-        if (!scope) {
-                /* No scope to reconcile against — mDNS is off on the link, or the link is gone. Treat
-                 * it like the all-interfaces path with no matching scope and reconcile against an
-                 * empty answer: lingering instances get their removed events and the ladder winds
-                 * down, instead of re-checking a list nothing can update once per second. */
-                r = mdns_manage_services_answer(sq, NULL, owner_family);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to manage mDNS services without a scope: %m");
-
-                return 0;
-        }
-
-        dns_cache_prune(&scope->cache);
-
-        r = dns_cache_lookup(
-                        &scope->cache,
-                        sq->key,
-                        lookup_flags,
-                        /* ret_rcode= */ NULL,
-                        &lookup_ret_answer,
-                        /* ret_full_packet= */ NULL,
-                        /* ret_query_flags= */ NULL,
-                        /* ret_dnssec_result= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to look up DNS cache for service browser key: %m");
-
-        r = mdns_manage_services_answer(sq, lookup_ret_answer, owner_family);
+        r = mdns_manage_services_answer(sq, combined, owner_family);
         if (r < 0)
                 return log_error_errno(r, "Failed to manage mDNS services after cache lookup: %m");
 
