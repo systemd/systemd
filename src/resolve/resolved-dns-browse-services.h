@@ -51,11 +51,13 @@ struct DnsServiceQuerier {
         DnsQuery *maintenance_query;          /* in-flight ladder query; cleared by dns_query_free() */
         DnsRecordTTLState rr_ttl_state;       /* the ladder's rung: wound back to 80% whenever the list
                                                  changes or an instance is seen again, advanced only by
-                                                 mdns_querier_maintenance(), re-armed once per
+                                                 mdns_querier_run_maintenance(), re-armed once per
                                                  reconciliation (re-arming skips the rungs already
                                                  behind us, so a wind-back only takes effect once an
                                                  expiry moved) */
-        RateLimit goodbye_rescue_ratelimit;   /* bounds the §10.1 goodbye rescue queries */
+        RateLimit goodbye_rescue_ratelimit;   /* bounds the §10.1 goodbye rescue queries (burst tier) */
+        RateLimit goodbye_rescue_sustained_ratelimit; /* second tier: caps a sustained goodbye flood */
+        bool initial_query_done;              /* only a querier's very first query may be cache-served */
         LIST_HEAD(DnssdDiscoveredService, dns_services);
         LIST_HEAD(DnsServiceBrowser, subscribers);
 };
@@ -73,8 +75,8 @@ void dns_remove_service(DnsServiceQuerier *sq, DnssdDiscoveredService *service);
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceQuerier, dns_service_querier);
 
-void dns_browse_services_purge(Manager *m, int family);
-void dns_browse_services_restart(Manager *m);
+void dns_browse_services_purge(Manager *m, int family, int ifindex);
+void dns_browse_services_restart(Manager *m, int ifindex);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceBrowser *, dns_service_browser_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceQuerier *, dns_service_querier_unref);
@@ -91,8 +93,7 @@ int mdns_answer_contains_service(
                 DnssdDiscoveredService *service);
 int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int owner_family);
 int dns_add_new_service(DnsServiceQuerier *sq, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until);
-int mdns_querier_revisit_cache(DnsServiceQuerier *sq, int owner_family);
-int mdns_querier_maintenance(sd_event_source *s, uint64_t usec, void *userdata);
+int mdns_querier_run_maintenance(DnsServiceQuerier *sq);
 int dns_subscribe_browse_service(
                 Manager *m,
                 sd_varlink *link,
@@ -101,6 +102,8 @@ int dns_subscribe_browse_service(
                 int ifindex,
                 uint64_t flags);
 void dns_unsubscribe_browse_service(Manager *m, sd_varlink *link);
-int mdns_queriers_notify_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family);
-int mdns_queriers_notify_goodbye(DnsScope *scope);
+void dns_service_querier_forget_query(DnsServiceQuerier *sq, DnsQuery *q);
+bool mdns_queriers_exist(Manager *m);
+void mdns_queriers_notify_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family);
+void mdns_queriers_notify_goodbye(DnsScope *scope);
 void mdns_queriers_rescue_query_goodbye(DnsScope *scope, DnsAnswer *goodbyes);
