@@ -1149,9 +1149,15 @@ int dns_cache_lookup(
                         dnssec_result = _DNSSEC_RESULT_INVALID;
                 }
 
-                /* If the question is being resolved using stale data, the clamp TTL will be set to CACHE_STALE_TTL_MAX_USEC. */
-                usec_t until = FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE) ? j->until_valid
-                                                                            : usec_add(current, CACHE_STALE_TTL_MAX_USEC);
+                /* An entry served past its TTL expiry (possible only when SD_RESOLVED_NO_STALE is unset,
+                 * see above) reports its expiry as CACHE_STALE_TTL_MAX_USEC from now instead, so that
+                 * clients don't hold on to the stale data for longer than that (see
+                 * answer_add_clamp_ttl()). An entry whose TTL has not expired always reports its real
+                 * expiry time, whether or not stale data was acceptable to the caller. (When neither
+                 * SD_RESOLVED_NO_STALE nor SD_RESOLVED_CLAMP_TTL is set, 'current' is 0 and the fresh
+                 * branch is taken unconditionally.) */
+                usec_t until = j->until_valid < current ? usec_add(current, CACHE_STALE_TTL_MAX_USEC)
+                                                        : j->until_valid;
 
                 /* Append the answer RRs to our answer. Ideally we have the answer object, which we
                  * preferably use. But if the cached entry was generated as "side-effect" of a reply,
