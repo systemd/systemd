@@ -542,6 +542,7 @@ static bool hash_table_is_valid(uint64_t offset, uint64_t size, uint64_t header_
 
 static int journal_file_verify_header(JournalFile *f) {
         uint64_t arena_size, header_size;
+        int r;
 
         assert(f);
         assert(f->header);
@@ -584,6 +585,15 @@ static int journal_file_verify_header(JournalFile *f) {
         if (UINT64_MAX - header_size < arena_size)
                 return -ENODATA;
 
+        /* The writer grows the file before it updates arena_size, hence refresh possibly stale stat data
+         * before judging (#41992), except in immutable mode, whose point is to avoid fstat(): there the
+         * checks below simply treat anything beyond the cached size as truncated. */
+        if (!f->assume_immutable && header_size + arena_size > (uint64_t) f->last_stat.st_size) {
+                r = journal_file_fstat(f);
+                if (r < 0)
+                        return r;
+        }
+
         uint64_t file_size = (uint64_t) f->last_stat.st_size;
 
         /* Probably an unclean shutdown where the header was written, but the arena data was not. On write we
@@ -607,6 +617,16 @@ static int journal_file_verify_header(JournalFile *f) {
                 arena_size = available - header_size;
                 truncated = true;
         }
+
+        /* The remaining checks compare header fields the writer updates one at a time, without locks, as
+         * it appends. A reader racing an append can load a torn pair, e.g. a tail_entry_offset pointing
+         * past the tail_object_offset loaded a moment earlier, and would fail spuriously here (#40053).
+         * Hence run them only if the file cannot legitimately change under us: on writable opens, or if
+         * the state field says the file is settled (the writer syncs all other header updates before
+         * leaving STATE_ONLINE). The object accessors revalidate all offsets at access time anyway. Don't
+         * key this on SD_JOURNAL_ASSUME_IMMUTABLE, journalctl sets that on files with a live writer too. */
+        if (!journal_file_writable(f) && f->header->state == STATE_ONLINE)
+                return 0;
 
         uint64_t tail_object_offset = le64toh(f->header->tail_object_offset);
         if (truncated)
@@ -714,7 +734,6 @@ static int journal_file_verify_header(JournalFile *f) {
         if (journal_file_writable(f)) {
                 sd_id128_t machine_id;
                 uint8_t state;
-                int r;
 
                 r = sd_id128_get_machine(&machine_id);
                 if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) /* Gracefully handle the machine ID not being initialized yet */
@@ -4146,6 +4165,9 @@ int journal_file_open(
 
         assert(fd >= 0 || fname);
         assert((file_flags & ~_JOURNAL_FILE_FLAGS_ALL) == 0);
+        /* Assuming immutability makes sense only for read-only opens */
+        assert(!FLAGS_SET(file_flags, JOURNAL_ASSUME_IMMUTABLE) ||
+               (open_flags & O_ACCMODE_STRICT) == O_RDONLY);
         assert(mmap_cache);
         assert(ret);
 
@@ -4170,6 +4192,7 @@ int journal_file_open(
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
                 .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
+                .assume_immutable = FLAGS_SET(file_flags, JOURNAL_ASSUME_IMMUTABLE),
                 .newest_boot_id_prioq_idx = PRIOQ_IDX_NULL,
                 .last_direction = _DIRECTION_INVALID,
                 .tail_timestamp_ratelimit = { .interval = USEC_PER_SEC, .burst = 1 },

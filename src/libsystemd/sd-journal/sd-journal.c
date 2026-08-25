@@ -1677,7 +1677,10 @@ static int add_any_file(
                 goto error;
         }
 
-        r = journal_file_open(fd, path, O_RDONLY, 0, 0, 0, NULL, j->mmap, NULL, &f);
+        JournalFileFlags file_flags =
+                FLAGS_SET(j->flags, SD_JOURNAL_ASSUME_IMMUTABLE) ? JOURNAL_ASSUME_IMMUTABLE : 0;
+
+        r = journal_file_open(fd, path, O_RDONLY, file_flags, 0, 0, NULL, j->mmap, NULL, &f);
         if (r < 0) {
                 log_debug_errno(r, "Failed to open journal file %s: %m", path ?: "from fd");
                 goto error;

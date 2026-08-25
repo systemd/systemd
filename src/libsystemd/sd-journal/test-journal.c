@@ -5,6 +5,7 @@
 
 #include "argv-util.h"
 #include "chattr-util.h"
+#include "fd-util.h"
 #include "iovec-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
@@ -579,6 +580,67 @@ TEST(recover_truncated_hash_chain) {
                 test_recover_truncated_hash_chain_one(/* field= */ true, /* zeroed_tail= */ false);
                 test_recover_truncated_hash_chain_one(/* field= */ true, /* zeroed_tail= */ true);
         }
+}
+
+TEST(verify_header_online) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        dual_timestamp ts;
+        JournalFile *f;
+        le64_t tail_object_offset_le = 0, tail_entry_offset_le;
+        uint8_t state;
+        char t[] = "/var/tmp/journal-XXXXXX";
+
+        /* A live writer updates the tail offsets and counters of an append one at a time, so a reader
+         * racing it can load a mutually inconsistent snapshot of them, e.g. a tail_entry_offset past the
+         * tail_object_offset it loaded a moment earlier (#40053). A read-only open must tolerate that for
+         * a file marked online, and must keep rejecting it for a file that claims to be settled. */
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        dual_timestamp_now(&ts);
+
+        for (unsigned i = 0; i < 10; i++) {
+                struct iovec iovec = IOVEC_MAKE_STRING("LINE=x");
+                ts.realtime = i + 1;
+                ASSERT_OK_ZERO(journal_file_append_entry(
+                                f, &ts, /* boot_id= */ NULL, &iovec, 1,
+                                /* seqnum= */ NULL, /* seqnum_id= */ NULL,
+                                /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        }
+
+        (void) journal_file_offline_close(f);
+
+        /* Emulate the torn snapshot: point tail_entry_offset past tail_object_offset. */
+        ASSERT_OK_ERRNO(fd = open("test.journal", O_RDWR|O_CLOEXEC));
+        ASSERT_EQ(pread(fd, &tail_object_offset_le, sizeof(tail_object_offset_le),
+                        offsetof(Header, tail_object_offset)), 8);
+        tail_entry_offset_le = htole64(le64toh(tail_object_offset_le) + 16);
+        ASSERT_EQ(pwrite(fd, &tail_entry_offset_le, sizeof(tail_entry_offset_le),
+                         offsetof(Header, tail_entry_offset)), 8);
+
+        /* The file says it was brought offline cleanly, so the inconsistency is real: refuse. */
+        ASSERT_ERROR(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f), ENODATA);
+
+        /* The same header marked online is what a reader racing a live writer sees: accept. */
+        state = STATE_ONLINE;
+        ASSERT_EQ(pwrite(fd, &state, sizeof(state), offsetof(Header, state)), 1);
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        (void) journal_file_close(f);
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else
+                ASSERT_OK(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL));
 }
 
 static int intro(void) {
