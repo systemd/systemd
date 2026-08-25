@@ -56,6 +56,7 @@ struct DnsServiceQuerier {
                                                  behind us, so a wind-back only takes effect once an
                                                  expiry moved) */
         RateLimit goodbye_rescue_ratelimit;   /* bounds the §10.1 goodbye rescue queries */
+        bool initial_query_done;              /* only a querier's very first query may be cache-served */
         LIST_HEAD(DnssdDiscoveredService, dns_services);
         LIST_HEAD(DnsServiceBrowser, subscribers);
 };

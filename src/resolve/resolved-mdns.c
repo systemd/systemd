@@ -479,10 +479,15 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
                                 /* Collect the goodbye records here, where they are identified
                                  * precisely, for the rescue below: downstream the rewritten TTL
-                                 * is indistinguishable from a record published with TTL=1. */
-                                r = dns_answer_add_extend(&goodbyes, rr, 0, 0, NULL);
-                                if (r < 0)
-                                        return r;
+                                 * is indistinguishable from a record published with TTL=1. Best
+                                 * effort: the rescue is an optimization, and a failure (or having
+                                 * no browse queriers at all) must not fail packet processing — a
+                                 * negative return would disable the mDNS io source for good. */
+                                if (!hashmap_isempty(scope->manager->dns_service_queriers)) {
+                                        r = dns_answer_add_extend(&goodbyes, rr, 0, 0, NULL);
+                                        if (r < 0)
+                                                log_warning_errno(r, "Failed to collect goodbye record for the browse rescue, ignoring: %m");
+                                }
 
                                 /* Look at the cache 1 second later and remove stale entries.
                                  * This is particularly useful to keep service browsers updated on service removal,
