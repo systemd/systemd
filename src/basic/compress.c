@@ -164,6 +164,7 @@ static inline void BZ2_bzDecompressEnd_wrapper(bz_stream *s) {
 struct Compressor {
         Compression type;
         bool encoding;
+        bool finished;
         union {
 #if HAVE_XZ
                 lzma_stream xz;
@@ -1822,19 +1823,19 @@ int decompress_stream(
                 n = read(fdf, buf, COMPRESS_PIPE_BUFFER_SIZE);
                 if (n < 0)
                         return -errno;
-                if (n == 0)
-                        break;
 
                 total_in += n;
 
                 r = decompressor_push(c, buf, n, decompress_stream_write_callback, &userdata);
                 if (r < 0)
                         return r;
+
+                if (n == 0)
+                        break;
         }
 
-        if (total_in == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%s decompression failed: no data read",
-                                       compression_to_string(type));
+        /* Note, decompressor_push() already fails when fed no input at all. */
+        assert(total_in > 0);
 
         if (userdata.sparse) {
                 r = finalize_sparse(fdt);
@@ -1968,13 +1969,21 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
         assert(c);
         assert(callback);
 
+        /* This feeds `size` bytes of compressed data into `c`. Passing size == 0 has special meaning: it
+         * signals that no further input will be provided, and the function will attempt to finalize the
+         * stream, failing with -EBADMSG if the compressed data was truncated or has trailing garbage after
+         * the logical end of stream. */
+
         if (c->encoding)
                 return -EINVAL;
 
-        if (size == 0)
-                return 1;
+        if (c->finished) {
+                if (size > 0)
+                        return -EBADMSG; /* garbage data at the end */
+                return 0;
+        }
 
-        assert(data);
+        assert(data || size == 0);
 
 #if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
         _cleanup_free_ uint8_t *buffer = NULL;
@@ -1988,33 +1997,50 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
         switch (c->type) {
 
         case COMPRESSION_NONE:
-                r = callback(data, size, userdata);
-                if (r < 0)
-                        return r;
+                if (size == 0) {
+                        c->finished = true;
+                        return 0;
+                }
 
-                break;
+                return callback(data, size, userdata);
 
 #if HAVE_XZ
         case COMPRESSION_XZ:
                 c->xz.next_in = data;
                 c->xz.avail_in = size;
 
-                while (c->xz.avail_in > 0) {
+                for (;;) {
                         c->xz.next_out = buffer;
                         c->xz.avail_out = COMPRESS_PIPE_BUFFER_SIZE;
 
-                        lzma_ret lzr = sym_lzma_code(&c->xz, LZMA_RUN);
+                        lzma_ret lzr = sym_lzma_code(&c->xz, size == 0 ? LZMA_FINISH : LZMA_RUN);
                         if (!IN_SET(lzr, LZMA_OK, LZMA_STREAM_END))
                                 return -EBADMSG;
 
-                        if (c->xz.avail_out < COMPRESS_PIPE_BUFFER_SIZE) {
-                                r = callback(buffer, COMPRESS_PIPE_BUFFER_SIZE - c->xz.avail_out, userdata);
+                        assert(c->xz.avail_out <= COMPRESS_PIPE_BUFFER_SIZE);
+                        size_t produced = COMPRESS_PIPE_BUFFER_SIZE - c->xz.avail_out;
+
+                        if (produced > 0) {
+                                r = callback(buffer, produced, userdata);
                                 if (r < 0)
                                         return r;
                         }
-                }
 
-                break;
+                        if (lzr == LZMA_STREAM_END) {
+                                if (c->xz.avail_in > 0)
+                                        return -EBADMSG; /* garbage data at the end */
+
+                                c->finished = true;
+                                return 0;
+                        }
+
+                        if (c->xz.avail_in == 0 && c->xz.avail_out > 0) {
+                                if (size == 0)
+                                        return -EBADMSG; /* truncated */
+
+                                return 0; /* No progress possible with current input */
+                        }
+                }
 #endif
 
 #if HAVE_LZ4
@@ -2022,16 +2048,13 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
                 const uint8_t *src = data;
                 size_t src_remaining = size;
 
-                while (src_remaining > 0) {
+                for (;;) {
                         size_t produced = COMPRESS_PIPE_BUFFER_SIZE;
                         size_t consumed = src_remaining;
 
                         size_t rc = sym_LZ4F_decompress(c->d_lz4, buffer, &produced, src, &consumed, NULL);
                         if (sym_LZ4F_isError(rc))
                                 return -EBADMSG;
-
-                        if (consumed == 0 && produced == 0)
-                                break; /* No progress possible with current input */
 
                         src += consumed;
                         src_remaining -= consumed;
@@ -2041,9 +2064,22 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
                                 if (r < 0)
                                         return r;
                         }
-                }
 
-                break;
+                        if (rc == 0) {
+                                if (src_remaining > 0) /* garbage data at the end */
+                                        return -EBADMSG;
+
+                                c->finished = true;
+                                return 0;
+                        }
+
+                        if (src_remaining == 0 && produced < COMPRESS_PIPE_BUFFER_SIZE) {
+                                if (size == 0)
+                                        return -EBADMSG; /* truncated */
+
+                                return 0; /* No progress possible with current input */
+                        }
+                }
         }
 #endif
 
@@ -2054,7 +2090,7 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
                         .size = size,
                 };
 
-                while (input.pos < input.size) {
+                for (;;) {
                         ZSTD_outBuffer output = {
                                 .dst = buffer,
                                 .size = COMPRESS_PIPE_BUFFER_SIZE,
@@ -2069,9 +2105,22 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
                                 if (r < 0)
                                         return r;
                         }
-                }
 
-                break;
+                        if (res == 0) {
+                                if (input.pos < input.size)
+                                        return -EBADMSG; /* garbage data at the end */
+
+                                c->finished = true;
+                                return 0;
+                        }
+
+                        if (input.pos >= input.size && output.pos < COMPRESS_PIPE_BUFFER_SIZE) {
+                                if (size == 0)
+                                        return -EBADMSG; /* truncated */
+
+                                return 0; /* No progress possible with current input */
+                        }
+                }
         }
 #endif
 
@@ -2083,7 +2132,7 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
                 c->gzip.next_in = (void*) data;
                 c->gzip.avail_in = size;
 
-                while (c->gzip.avail_in > 0) {
+                for (;;) {
                         c->gzip.next_out = buffer;
                         c->gzip.avail_out = COMPRESS_PIPE_BUFFER_SIZE;
 
@@ -2091,17 +2140,30 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
                         if (!IN_SET(zr, Z_OK, Z_STREAM_END))
                                 return -EBADMSG;
 
-                        if (c->gzip.avail_out < COMPRESS_PIPE_BUFFER_SIZE) {
-                                r = callback(buffer, COMPRESS_PIPE_BUFFER_SIZE - c->gzip.avail_out, userdata);
+                        assert(c->gzip.avail_out <= COMPRESS_PIPE_BUFFER_SIZE);
+                        size_t produced = COMPRESS_PIPE_BUFFER_SIZE - c->gzip.avail_out;
+
+                        if (produced > 0) {
+                                r = callback(buffer, produced, userdata);
                                 if (r < 0)
                                         return r;
                         }
 
-                        if (zr == Z_STREAM_END)
-                                break;
-                }
+                        if (zr == Z_STREAM_END) {
+                                if (c->gzip.avail_in > 0)
+                                        return -EBADMSG; /* garbage data at the end */
 
-                break;
+                                c->finished = true;
+                                return 0;
+                        }
+
+                        if (c->gzip.avail_in == 0 && c->gzip.avail_out > 0) {
+                                if (size == 0)
+                                        return -EBADMSG; /* truncated */
+
+                                return 0; /* No progress possible with current input */
+                        }
+                }
 #endif
 
 #if HAVE_BZIP2
@@ -2112,7 +2174,7 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
                 c->bzip2.next_in = (char*) data;
                 c->bzip2.avail_in = size;
 
-                while (c->bzip2.avail_in > 0) {
+                for (;;) {
                         c->bzip2.next_out = (char*) buffer;
                         c->bzip2.avail_out = COMPRESS_PIPE_BUFFER_SIZE;
 
@@ -2120,24 +2182,35 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
                         if (!IN_SET(bzr, BZ_OK, BZ_STREAM_END))
                                 return -EBADMSG;
 
-                        if (c->bzip2.avail_out < COMPRESS_PIPE_BUFFER_SIZE) {
-                                r = callback(buffer, COMPRESS_PIPE_BUFFER_SIZE - c->bzip2.avail_out, userdata);
+                        assert(c->bzip2.avail_out <= COMPRESS_PIPE_BUFFER_SIZE);
+                        size_t produced = COMPRESS_PIPE_BUFFER_SIZE - c->bzip2.avail_out;
+
+                        if (produced > 0) {
+                                r = callback(buffer, produced, userdata);
                                 if (r < 0)
                                         return r;
                         }
 
-                        if (bzr == BZ_STREAM_END)
-                                break;
-                }
+                        if (bzr == BZ_STREAM_END) {
+                                if (c->bzip2.avail_in > 0)
+                                        return -EBADMSG; /* garbage data at the end */
 
-                break;
+                                c->finished = true;
+                                return 0;
+                        }
+
+                        if (c->bzip2.avail_in == 0 && c->bzip2.avail_out > 0) {
+                                if (size == 0)
+                                        return -EBADMSG; /* truncated */
+
+                                return 0; /* No progress possible with current input */
+                        }
+                }
 #endif
 
         default:
                 assert_not_reached();
         }
-
-        return 1;
 }
 
 int compressor_new(Compressor **ret, Compression type) {
