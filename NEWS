@@ -51,6 +51,12 @@ CHANGES WITH 262:
           rather, the symlink is maintained to ensure the socket is bound under
           the same conditions as before.
 
+        * DeviceTree overlay support in systemd-boot/stub now requires libfdt,
+          and is disabled when not provided. Note that the normal userspace static
+          library as already provided by all major distributions is enough, no
+          EFI-specific build is needed, and it will be autodiscovered at build
+          time like any other dependency.
+
         Changes in the system and service manager:
 
         * The manager now embeds a basic set of unit files (basic.target,
