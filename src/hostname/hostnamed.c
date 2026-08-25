@@ -46,6 +46,7 @@
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
+#include "verbs.h"
 #include "virt.h"
 #include "vsock-util.h"
 
@@ -2654,6 +2655,16 @@ static bool context_check_idle(void *userdata) {
                 hashmap_isempty(c->polkit_registry);
 }
 
+COMMAND(
+        "systemd-hostnamed\0",
+        "Manage the system hostname and related metadata.",
+        .man_pages = "systemd-hostnamed.service.8\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0",
+);
+
 static int run(int argc, char *argv[]) {
         _cleanup_(context_destroy) Context context = {
                 .hostname_source = _HOSTNAME_INVALID, /* appropriate value will be set later */
@@ -2664,9 +2675,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = service_parse_argv("systemd-hostnamed.service",
-                               "Manage the system hostname and related metadata.",
-                               BUS_IMPLEMENTATIONS(&manager_object,
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
                                /* runtime_scope= */ NULL,
                                argc, argv);
