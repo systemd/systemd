@@ -161,8 +161,9 @@ int vl_method_list_candidate_devices(
                 BLOCKDEV_LIST_SHOW_SYMLINKS|
                 BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|
                 BLOCKDEV_LIST_IGNORE_ZRAM|
-                BLOCKDEV_LIST_METADATA|
                 BLOCKDEV_LIST_IGNORE_READ_ONLY|
+                BLOCKDEV_LIST_METADATA|
+                BLOCKDEV_LIST_DISKSEQ|
                 (p.ignore_empty ? BLOCKDEV_LIST_IGNORE_EMPTY : 0)|
                 (p.ignore_root ? BLOCKDEV_LIST_IGNORE_ROOT : 0);
 
