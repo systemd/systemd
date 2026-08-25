@@ -72,6 +72,10 @@ The following exceptions apply:
  * the following files are licensed under **BSD-3-Clause** license:
    - src/boot/chid.c
    - src/boot/chid.h
+ * the wordlists used for hostname generation are under the **Apache License 2.0**:
+   - hostname-wordlist/adjectives
+   - hostname-wordlist/adverbs
+   - hostname-wordlist/nouns
  * Heebo fonts under docs/fonts/ are licensed under the **SIL Open Font License 1.1**,
  * any files under test/ without an explicit license we assume non-copyrightable
    (eg: computer-generated fuzzer data)
