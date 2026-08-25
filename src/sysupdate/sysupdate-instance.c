@@ -1,12 +1,41 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "alloc-util.h"
 #include "log.h"
 #include "sysupdate-instance.h"
+#include "sysupdate-resource.h"
 
 void instance_metadata_destroy(InstanceMetadata *m) {
         assert(m);
         free(m->version);
+}
+
+uint64_t instance_get_expected_size(const Instance *i) {
+        struct stat st;
+
+        assert(i);
+        assert(i->resource);
+        assert(i->path);
+
+        if (i->metadata.size != UINT64_MAX)
+                return i->metadata.size;
+
+        if (RESOURCE_IS_URL(i->resource->type))
+                return UINT64_MAX;
+
+        if (stat(i->path, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat local source '%s', skipping free space check: %m", i->path);
+                return UINT64_MAX;
+        }
+
+        if (!S_ISREG(st.st_mode))
+                return UINT64_MAX;
+
+        /* For compressed sources this is only a lower bound. Keep it local to this advisory check:
+         * InstanceMetadata.size is also used for partition sizing and means the uncompressed size there. */
+        return (uint64_t) st.st_size;
 }
 
 int instance_new(

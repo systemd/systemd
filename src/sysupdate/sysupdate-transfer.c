@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -15,6 +16,7 @@
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "gpt.h"
@@ -32,6 +34,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "specifier.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -806,6 +809,21 @@ static void transfer_remove_temporary(Transfer *t) {
         }
 }
 
+static Transfer *transfer_remove_partial(Transfer *t) {
+        int r;
+
+        if (!t || !t->temporary_partial_path)
+                return NULL;
+
+        r = rm_rf(t->temporary_partial_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
+        if (r < 0)
+                log_warning_errno(r, "Failed to remove partial resource instance '%s', ignoring: %m", t->temporary_partial_path);
+
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_remove_partial);
+
 static int transfer_instance_vacuum(
                 Transfer *t,
                 Instance *instance) {
@@ -1326,7 +1344,107 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
         return 0;
 }
 
+typedef struct TransferFreeSpaceCheck {
+        dev_t dev;
+        uint64_t required;
+        uint64_t free;
+        const char *path;
+} TransferFreeSpaceCheck;
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                transfer_free_space_check_hash_ops,
+                dev_t,
+                devt_hash_func,
+                devt_compare_func,
+                TransferFreeSpaceCheck,
+                free);
+
+int transfer_check_free_space(Transfer *const *transfers, Instance *const *instances, size_t n_transfers) {
+        _cleanup_hashmap_free_ Hashmap *checks = NULL;
+        TransferFreeSpaceCheck *check;
+
+        assert(transfers);
+        assert(instances);
+
+        for (size_t i = 0; i < n_transfers; i++) {
+                Transfer *t = transfers[i];
+                Instance *inst = instances[i];
+                _cleanup_close_ int parent_fd = -EBADF;
+                struct stat st;
+                uint64_t required;
+                uint64_t free_bytes;
+                int r;
+
+                assert(t);
+                assert(inst);
+
+                if (!RESOURCE_IS_FILESYSTEM(t->target.type) ||
+                    inst->resource == &t->target ||
+                    resource_find_instance(&t->target, inst->metadata.version))
+                        continue;
+
+                assert(t->final_path);
+
+                required = instance_get_expected_size(inst);
+                if (required == UINT64_MAX)
+                        continue;
+
+                parent_fd = open_parent(t->final_path, O_RDONLY|O_CLOEXEC|O_DIRECTORY, 0);
+                if (parent_fd < 0) {
+                        log_debug_errno(parent_fd, "Failed to open parent directory of '%s', skipping free space check: %m", t->final_path);
+                        continue;
+                }
+
+                if (fstat(parent_fd, &st) < 0) {
+                        log_debug_errno(errno, "Failed to stat parent directory of '%s', skipping free space check: %m", t->final_path);
+                        continue;
+                }
+
+                r = vfs_free_bytes(parent_fd, &free_bytes);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to determine free space for '%s', skipping free space check: %m", t->final_path);
+                        continue;
+                }
+
+                check = hashmap_get(checks, &st.st_dev);
+                if (!check) {
+                        check = new(TransferFreeSpaceCheck, 1);
+                        if (!check)
+                                return log_oom();
+
+                        *check = (TransferFreeSpaceCheck) {
+                                .dev = st.st_dev,
+                                .free = free_bytes,
+                                .path = t->final_path,
+                        };
+
+                        r = hashmap_ensure_put(&checks, &transfer_free_space_check_hash_ops, &check->dev, check);
+                        if (r < 0) {
+                                free(check);
+                                return r;
+                        }
+                }
+
+                if (check->required > UINT64_MAX - required)
+                        check->required = UINT64_MAX;
+                else
+                        check->required += required;
+        }
+
+        HASHMAP_FOREACH(check, checks)
+                if (check->free < check->required)
+                        log_warning_errno(
+                                        SYNTHETIC_ERRNO(ENOSPC),
+                                        "Not enough free space on the filesystem containing '%s' to acquire the update: need %s, have %s; proceeding anyway.",
+                                        check->path,
+                                        FORMAT_BYTES(check->required),
+                                        FORMAT_BYTES(check->free));
+
+        return 0;
+}
+
 int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
+        _cleanup_(transfer_remove_partialp) Transfer *partial = NULL;
         _cleanup_free_ char *digest = NULL;
         char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
         const char *where = NULL;
@@ -1347,6 +1465,9 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                 log_info("No need to acquire '%s', already installed.", i->path);
                 return 0;
         }
+
+        if (RESOURCE_IS_FILESYSTEM(t->target.type))
+                partial = t;
 
         if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
                 r = mkdir_parents(t->temporary_partial_path, 0755);
@@ -1662,6 +1783,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
          * which is done at the same place. */
 
         log_info("Successfully acquired '%s'.", i->path);
+        partial = NULL;
         return 0;
 }
 
