@@ -127,6 +127,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- ptybroker: maybe dlopen() libtsm and render terminal data locally for the
+  trackBuffer
+
+- ptybroker: implement UAPI.17 OSC sequences to get terminal size done right
+
 - sysupdate: run things in a loop always, to deal with stepping stones, and
   adding new transfer files. finish, when stable.
 
