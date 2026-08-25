@@ -112,6 +112,13 @@ check_first() {
     return 1
 }
 
+# Did any 'removed' event whose name matches $3 arrive in $1 after byte offset $2?
+removed_since() {
+    local file="${1:?}" off="${2:?}" needle="${3:?}"
+
+    tail -c "+$((off + 1))" "$file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep -e "$needle" >/dev/null
+}
+
 run_and_check_services() {
     local service_id="${1:?}"
     local check_func="${2:?}"
@@ -315,6 +322,131 @@ testcase_browse_ifindex_zero_no_flap() {
     echo testcase_end
 }
 
+testcase_browse_shared_querier() {
+    : "Concurrent subscribers of one service type share a querier and each receives updates"
+    resolvectl flush-caches
+
+    local out1 out2 out3 unit1 unit2 unit3 service_type params n1 n2 n3
+    service_type="_testService8._udp"
+    params="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+    out1="$(mktemp)"; out2="$(mktemp)"; out3="$(mktemp)"
+    unit1="varlinkctl-shared1-$SRANDOM.service"
+    unit2="varlinkctl-shared2-$SRANDOM.service"
+    unit3="varlinkctl-shared3-$SRANDOM.service"
+
+    # An EXIT trap, not RETURN: set -e aborts skip RETURN traps, and this subshell's EXIT trap
+    # fires however the testcase ends — the infinity browse units must never outlive it. Armed
+    # before anything can fail, so an early abort cleans up the files too.
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit1 $unit2 $unit3 2>/dev/null || :; rm -f $out1 $out2 $out3" EXIT
+
+    # Two concurrent subscriptions to the same question from the start. --timeout=infinity: both
+    # must survive the ~120s TTL expiry phase below despite going idle in between.
+    systemd-run --unit="$unit1" --service-type=exec -p StandardOutput="file:$out1" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params"
+    systemd-run --unit="$unit2" --service-type=exec -p StandardOutput="file:$out2" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params"
+
+    # Both subscribers must see all 40 services (20 per container, both families collapse onto
+    # family-tagged entries; count 'added' occurrences like the other testcases). The raw >=40
+    # count alone could be satisfied by a single container's 20 services on two families, so
+    # also require that BOTH containers appear in each stream -- the expiry phase below yanks
+    # CONTAINER_2 and would be doomed from the start if it was never discovered.
+    local both=0
+    for _ in {0..14}; do
+        n1="$( { grep -o '"updateFlag":"added"' "$out1" || :; } | wc -l)"
+        n2="$( { grep -o '"updateFlag":"added"' "$out2" || :; } | wc -l)"
+        if [[ "$n1" -ge 40 && "$n2" -ge 40 ]] &&
+           grep "on $CONTAINER_1" "$out1" >/dev/null && grep "on $CONTAINER_2" "$out1" >/dev/null &&
+           grep "on $CONTAINER_1" "$out2" >/dev/null && grep "on $CONTAINER_2" "$out2" >/dev/null; then
+            both=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$both" -ne 1 ]]; then
+        echo >&2 "Concurrent subscribers did not both discover both containers' services (n1=${n1:-0} n2=${n2:-0})"
+        cat "$out1" "$out2" >&2
+        return 1
+    fi
+
+    # A late joiner of the same question is served a snapshot of the querier state and must not
+    # need to wait for any wire traffic -- poll briefly only to absorb event-loop scheduling.
+    systemd-run --unit="$unit3" --service-type=exec -p StandardOutput="file:$out3" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params"
+    local snap=0
+    for _ in {0..9}; do
+        n3="$( { grep -o '"updateFlag":"added"' "$out3" || :; } | wc -l)"
+        if [[ "$n3" -ge 40 ]] &&
+           grep "on $CONTAINER_1" "$out3" >/dev/null && grep "on $CONTAINER_2" "$out3" >/dev/null; then
+            snap=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$snap" -ne 1 ]]; then
+        echo >&2 "Late joiner did not receive the full initial snapshot (n3=${n3:-0})"
+        cat "$out3" >&2
+        return 1
+    fi
+
+    # Detaching one subscriber must not affect the others: checkpoint the survivors' streams
+    # BEFORE the stop, hold a quiet window spanning several continuous-query revisits (as the
+    # no-flap testcase does), and assert no 'removed' reached them. All publishers are still up,
+    # so any hit here is detach-induced flap -- which would otherwise be indistinguishable from
+    # the expiry-driven removals asserted below.
+    local off1 off3
+    off1="$(wc -c <"$out1")"
+    off3="$(wc -c <"$out3")"
+
+    systemctl stop "$unit2"
+    sleep 12
+
+    if tail -c "+$((off1 + 1))" "$out1" | grep '"updateFlag":"removed"' >/dev/null; then
+        echo >&2 "Detaching a subscriber caused spurious 'removed' events for a surviving subscriber:"
+        tail -c "+$((off1 + 1))" "$out1" >&2
+        return 1
+    fi
+    if tail -c "+$((off3 + 1))" "$out3" | grep '"updateFlag":"removed"' >/dev/null; then
+        echo >&2 "Detaching a subscriber caused spurious 'removed' events for the late joiner:"
+        tail -c "+$((off3 + 1))" "$out3" >&2
+        return 1
+    fi
+
+    # Take the second container off the network abruptly. The assertion here is the fan-out:
+    # however the expired records get pruned (for a type the surviving publisher still answers,
+    # its refreshes can drive the pruning just as well as the querier's TTL-maintenance ladder
+    # -- testcase_mdns_remove_on_expiry is what pins down the ladder mechanism), every remaining
+    # subscriber must receive the resulting 'removed' events, late joiner included.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
+
+    local removed1=0 removed3=0
+    for _ in {0..99}; do
+        if [[ "$removed1" -eq 0 ]] && removed_since "${out1}" "${off1}" "on $CONTAINER_2"; then
+            removed1=1
+        fi
+        if [[ "$removed3" -eq 0 ]] && removed_since "${out3}" "${off3}" "on $CONTAINER_2"; then
+            removed3=1
+        fi
+        [[ "$removed1" -eq 1 && "$removed3" -eq 1 ]] && break
+        sleep 2
+    done
+
+    if [[ "$removed1" -ne 1 || "$removed3" -ne 1 ]]; then
+        echo >&2 "Expiry removals were not fanned out to all subscribers (removed1=$removed1 removed3=$removed3)"
+        cat "$out1" "$out3" >&2
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0 || :
+        return 1
+    fi
+
+    # Restore the second container for the remaining testcases.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        /usr/lib/systemd/systemd-networkd-wait-online --ipv4 --ipv6 --interface=host0 --operational-state=degraded --timeout=30
+
+    echo testcase_end
+}
+
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
@@ -331,6 +463,229 @@ testcase_second_unreachable() {
     for id in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
         run_and_check_services "$id" check_both
     done
+}
+
+testcase_mdns_remove_on_expiry() {
+    : "A service that vanishes without a goodbye must be removed when its records expire"
+
+    local out_file error_file unit_name service_type
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-expiry-$SRANDOM.service"
+    service_type="_testExpiry._udp"
+
+    # An EXIT trap, not RETURN: set -e aborts skip RETURN traps, and this subshell's EXIT trap
+    # fires however the testcase ends — the infinity browse unit must never outlive it. Armed
+    # before anything can fail, so an early abort cleans up the files too.
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file" EXIT
+
+    # Publish a canary service type from the second container ONLY. A type that
+    # both containers publish cannot discriminate a broken maintenance ladder:
+    # the surviving publisher keeps answering the browser's continuous PTR
+    # query, and each successful completion of that query also revisits the
+    # cache -- pruning expired records and emitting the very 'removed' event
+    # this test is about, ladder or no ladder. With no surviving publisher, no
+    # transaction completes successfully once the container is gone, so the
+    # removal below is reachable only through the ladder's terminal fire.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/expiry-canary.dnssd <<EOF
+[Service]
+Name=Expiry Canary on %H
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    # Reload rather than restart: it re-runs dnssd_load() to pick up the new
+    # file while leaving the runtime per-link mDNS switches from setup intact.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service
+
+    resolvectl flush-caches
+
+    # Note: --timeout=infinity, because this subscription must outlive the 120s record
+    # TTL: varlinkctl's default 45s method-call timeout would sever the connection --
+    # and with it the server-side browser and its maintenance ladder -- long before
+    # the expiry-driven removal that this test is about could be observed.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+
+    # Wait until the canary has been discovered.
+    local ok=0
+    for _ in {0..14}; do
+        if grep "on $CONTAINER_2" >/dev/null "$out_file"; then
+            ok=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered the expiry canary on $CONTAINER_2"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # Checkpoint the output: only 'removed' events produced AFTER the container
+    # goes away count, so a match is provably expiry-driven rather than some
+    # earlier transient churn.
+    local off
+    off="$(wc -c <"$out_file")"
+
+    # Yank the second container off the network *abruptly* (no goodbye). We do
+    # NOT flush caches here: with the canary's only publisher gone, removal must
+    # be driven purely by the browser's TTL-maintenance ladder re-confirming
+    # and then, at TTL expiry, pruning the now-unanswered records and emitting
+    # 'removed'.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
+
+    # Records use MDNS_DEFAULT_TTL (120s); the terminal fire lands at ~down+120s
+    # plus ladder jitter and event-loop slop, so poll generously (~200s).
+    local removed=0
+    for _ in {0..99}; do
+        if removed_since "${out_file}" "${off}" "on $CONTAINER_2"; then
+            removed=1
+            break
+        fi
+        sleep 2
+    done
+
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "$CONTAINER_2 services were not removed after their records expired"
+        cat "$out_file" "$error_file" >&2
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0 || :
+        return 1
+    fi
+
+    # Restore the second container for the remaining testcases and withdraw the
+    # canary again. Best-effort: the removal this testcase is about has already
+    # been asserted above, and the next testcase re-downs host0 and brings it
+    # back up with its own wait -- a transient hiccup here (say, wait-online
+    # hitting its cap on a loaded runner) must not fail a passed testcase.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0 || :
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        /usr/lib/systemd/systemd-networkd-wait-online --ipv4 --ipv6 --interface=host0 --operational-state=degraded --timeout=30 || :
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/expiry-canary.dnssd || :
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service || :
+
+    echo testcase_end
+}
+
+testcase_mdns_goodbye_shared_instance() {
+    : "A goodbye must not flap instances that a publisher still answers for"
+
+    local out_file error_file unit_name service_type container off
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-sharedbye-$SRANDOM.service"
+    service_type="_sharedBye._udp"
+
+    # An EXIT trap, not RETURN: set -e aborts skip RETURN traps, and this subshell's EXIT trap
+    # fires however the testcase ends — the infinity browse unit must never outlive it. Armed
+    # before anything can fail, so an early abort cleans up the files too.
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file" EXIT
+
+    # Publish the same instance from BOTH containers. The identical PTR records collapse onto a
+    # single cache entry at the subscriber, owned by whichever container announced last. The
+    # second container additionally publishes a lone instance of the same type, whose removal
+    # below is the control. The ids double as the bus object paths (which is why they must not
+    # contain characters the bus path encoding would escape).
+    for container in "$CONTAINER_1" "$CONTAINER_2"; do
+        systemd-run -M "$container" --wait --pipe -- tee /etc/systemd/dnssd/sharedbye.dnssd <<EOF
+[Service]
+Name=Shared Goodbye Canary
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    done
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/lonebye.dnssd <<EOF
+[Service]
+Name=Lone Goodbye Canary
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    # Reload rather than restart: it re-runs dnssd_load() to pick up the new files while
+    # leaving the runtime per-link mDNS switches from setup intact.
+    for container in "$CONTAINER_1" "$CONTAINER_2"; do
+        systemd-run -M "$container" --wait --pipe -- systemctl reload systemd-resolved.service
+    done
+    resolvectl flush-caches
+
+    # --timeout=infinity: the subscription idles between the events asserted below, longer than
+    # varlinkctl's default 45s method-call timeout.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+
+    # Wait until both instances are discovered.
+    local ok=0
+    for _ in {0..14}; do
+        if grep "Shared Goodbye Canary" >/dev/null "$out_file" &&
+           grep "Lone Goodbye Canary" >/dev/null "$out_file"; then
+            ok=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered both canary instances"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # Checkpoint the output: only events produced after the unregisters count.
+    off="$(wc -c <"$out_file")"
+
+    # The second container unregisters both canaries, so the shared instance's PTR is withdrawn
+    # on the wire while the first container still answers for it — whether resolved's goodbye
+    # covers the whole zone or exactly the unregistered service's records. The files are removed
+    # first, so a later reload cannot resurrect the unregistered instances.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/lonebye.dnssd /etc/systemd/dnssd/sharedbye.dnssd
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+        UnregisterService o /org/freedesktop/resolve1/dnssd/lonebye
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+        UnregisterService o /org/freedesktop/resolve1/dnssd/sharedbye
+
+    # The lone instance lost its only publisher, so its removal is driven by the goodbye's
+    # one-second grace — its arrival is the control that the goodbye went out and was honored.
+    local removed=0
+    for _ in {0..14}; do
+        if removed_since "${out_file}" "${off}" "Lone Goodbye Canary"; then
+            removed=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "The lone instance was not removed after its publisher's goodbye"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # The shared instance's PTR was withdrawn by the second container's goodbyes, but the first
+    # container still answers for it: the goodbye-triggered re-query must rescue it within the
+    # RFC 6762 section 10.1 one-second grace, so no 'removed' may have been emitted for it. The
+    # control above pins the window: the grace period that would have flapped it has demonstrably
+    # elapsed, so one settling second suffices. (A late 'added' for the other address family is
+    # benign, so only 'removed' events count here.)
+    sleep 1
+    if removed_since "${out_file}" "${off}" "Shared Goodbye Canary"; then
+        echo >&2 "A goodbye flapped the shared instance although another publisher still answers for it:"
+        tail -c "+$((off + 1))" "$out_file" >&2
+        return 1
+    fi
+
+    # Withdraw the canaries again. Best-effort: the behavior this testcase is about has already
+    # been asserted above.
+    for container in "$CONTAINER_1" "$CONTAINER_2"; do
+        systemd-run -M "$container" --wait --pipe -- rm /etc/systemd/dnssd/sharedbye.dnssd || :
+        systemd-run -M "$container" --wait --pipe -- systemctl reload systemd-resolved.service || :
+    done
+
+    echo testcase_end
 }
 
 : "Setup host & containers"
