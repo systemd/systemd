@@ -3264,6 +3264,17 @@ static int patch_sysctl(void) {
 
         flags = effective_clone_ns_flags();
 
+        if (arg_userns_mode != USER_NAMESPACE_NO &&
+            arg_private_network &&
+            !arg_network_namespace_path) {
+                /* Make unprivileged ping sockets available to all groups mapped into the container. Any
+                 * entries in arg_sysctl are applied below and thus take precedence. */
+                r = sysctl_writef("net/ipv4/ping_group_range", "0 " UID_FMT, arg_uid_range - 1);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               "Failed to write sysctl 'net.ipv4.ping_group_range': %m");
+        }
+
         STRV_FOREACH_PAIR(k, v, arg_sysctl) {
                 bool good = false;
 
