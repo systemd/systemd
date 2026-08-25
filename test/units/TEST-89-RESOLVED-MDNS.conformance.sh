@@ -1372,6 +1372,66 @@ ref_scenario_duplicate_question_suppression() {
     [[ "$queries" -le 1 ]] || { cat "$listen_log" >&2; return 1; }
 }
 
+ref_scenario_cross_host_question_suppression() {
+    : "A question another host keeps asking, with covering known answers, is not re-asked (RFC 6762 section 7.3)"
+    # Section 7.3 is a MAY: a host about to send a query that has just seen
+    # another host multicast the same question, with a known-answer section
+    # covering everything it would list itself, can treat that as its own
+    # question and stay silent. resolved implements no such suppression, so a
+    # fresh browse fires its full section 5.2 schedule regardless.
+    local out="$REF_TMPDIR/xhqs.browse" peer_log="$REF_TMPDIR/xhqs.peer"
+    local listen_log="$REF_TMPDIR/xhqs.listen" query_log="$REF_TMPDIR/xhqs.query"
+    local query_pid queries
+    # The peer answers its own question below rather than suppressing on the known answer it
+    # carries: the control has to hold whether or not resolved asks the question itself, and with
+    # suppression on nobody would answer once the suppression under test works.
+    ref_start_peer "$peer_log" "$REF_IF1_PEER" "$REF_IF1_PEER_ADDR" RefXhqs || return 2
+
+    # The peer itself asks the browse question once a second, QM, with a known
+    # answer carrying its own instance at the full TTL -- exactly the shape
+    # section 7.3 lets another querier treat as its own question. The witness
+    # question marks the peer's packets apart from resolved's own single-
+    # question queries in the capture below. Runs concurrently with the browse.
+    # Job control gives the background pipeline its own process group, so the trap can kill
+    # the python querier grandchild too — a plain kill would reap only the subshell and leave
+    # the peer multicasting into the next scenario's capture.
+    set -m
+    ref_query "$query_log" "$REF_SERVICE.local" \
+        --known-answer-ptr "RefXhqs.$REF_SERVICE.local" \
+        --witness-qname "$REF_SERVICE.local" --compress-witness \
+        --repeat 16 --interval 1 --duration 0 &
+    query_pid=$!
+    set +m
+    # shellcheck disable=SC2064
+    trap "trap - RETURN; kill -- -$query_pid 2>/dev/null || :; wait $query_pid 2>/dev/null || :" RETURN
+
+    sleep 1
+
+    ref_start_listener "$listen_log" 12 || return 2
+    ref_start_browse "$out" "$REF_IF1_INDEX" || return 2
+
+    # Positive control: the subscriber learns of the instance from the answers the peer gives to
+    # its own repeated question, so this holds even once resolved stays silent.
+    ref_wait_event "$out" added RefXhqs "$REF_IF1_INDEX" 10 || { cat "$out" "$peer_log" >&2; return 2; }
+
+    # As in the sibling scenario: without the marker the listener was deaf and the count
+    # below meaningless.
+    ref_marker_canary "$REF_TMPDIR/xhqs.marker" "$listen_log" || return 2
+
+    # Count the browse-question packets that did not come from the peer (the
+    # peer's carry the witness question): more than one means resolved kept
+    # asking a question the network was already asking for it.
+    # Every log line carries the peer's leading timestamp field, so packet headers are
+    # recognized by their second field, not by anchoring on line start.
+    queries="$(awk -v q="Q name=$REF_SERVICE.local qtype=12" -v witness="qtype=33" '
+        function flush_block() { if (blk != "" && index(blk, q) && !index(blk, witness)) n++; blk = "" }
+        $2 == "P" { flush_block(); blk = ($3 == "qr=0") ? $0 : ""; next }
+        { if (blk != "") blk = blk "\n" $0 }
+        END { flush_block(); print n + 0 }
+    ' "$listen_log")"
+    [[ "$queries" -le 1 ]] || { cat "$listen_log" >&2; return 1; }
+}
+
 ref_scenario_dual_stack_resolution() {
     : "A hostname query returns both address families, not just one (#25855)"
     local out="$REF_TMPDIR/dualstack.json" family
@@ -1553,6 +1613,10 @@ run_conformance_scorecard() {
         # traffic scales with the subscriber count (known since the browser
         # was introduced, see the TODO in commit 8458b7fb91ea).
         [duplicate_question_suppression]="TODO: one query engine per subscriber, see the TODO in commit 8458b7fb91ea"
+        # Section 7.3 duplicate question suppression proper -- across hosts --
+        # is not implemented at all: resolved never inspects other hosts'
+        # queries before sending its own.
+        [cross_host_question_suppression]="TODO, MAY (RFC 6762 section 7.3): a question another host keeps asking, with covering known answers, is re-asked anyway"
     )
     # Ordered by the requirement each one checks: RFC 6762 by section, then
     # RFC 6763, then the ones whose only basis is a report. The scenarios do
@@ -1578,6 +1642,7 @@ run_conformance_scorecard() {
         querier_known_answers               # 6762 section 7.1
         responder_known_answer_suppression  # 6762 section 7.1
         known_answer_continuation           # 6762 section 7.2
+        cross_host_question_suppression     # 6762 section 7.3
         conflict_rename                     # 6762 section 8.1
         publisher_probe_announce            # 6762 sections 8.1 and 8.3
         goodbye_then_reannounce             # 6762 section 8.3
