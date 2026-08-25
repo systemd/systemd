@@ -40,6 +40,7 @@ INTROSPECTABLE=(
     shutdown
     storagectl
     systemctl
+    systemd
     systemd-ac-power
     systemd-analyze
     systemd-ask-password
@@ -204,6 +205,12 @@ fi
 
 systemd-id128 --introspect-cli | jq -e \
     '.commands[0].verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
+
+# systemd is optionally a multicall binary that also provides systemd-executor
+if [[ "$(readlink "$(command -v systemd-executor)" 2>/dev/null)" == systemd ]]; then
+    systemd --introspect-cli | jq -e \
+        '[.commands[].names[0]] | sort == ["systemd", "systemd-executor"]'
+fi
 
 if command -v systemd-mount >/dev/null; then
     systemd-mount --introspect-cli | jq -e \
