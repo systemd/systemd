@@ -56,17 +56,24 @@ static int browse_service_update_append(
         if (rr->key->type != DNS_TYPE_PTR)
                 return 0;
 
+        /* A name that does not parse as a service instance is a per-record data problem (the
+         * records come off the multicast wire): skip the record like the no-type case below,
+         * rather than failing the whole batch over it. Only resource errors propagate. */
         r = dns_service_split(rr->ptr.name, &name, &type, &domain);
-        if (r < 0)
+        if (r == -ENOMEM)
                 return r;
+        if (r < 0)
+                return 0;
 
         if (!name) {
                 type = mfree(type);
                 domain = mfree(domain);
 
                 r = dns_service_split(dns_resource_key_name(rr->key), &name, &type, &domain);
-                if (r < 0)
+                if (r == -ENOMEM)
                         return r;
+                if (r < 0)
+                        return 0;
         }
 
         if (!type)
@@ -581,11 +588,15 @@ int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int ow
                 }
 
                 /* Deliver the same update to every subscriber of this querier. A failure to notify
-                 * one of them (e.g. mid-disconnect) must not keep the others from being served. */
+                 * one of them must not keep the others from being served — but the affected
+                 * subscriber cannot stay on a diff-only stream that just lost a batch: end its
+                 * subscription with an error, so it knows to resubscribe for a fresh snapshot. */
                 LIST_FOREACH(subscribers, sb, sq->subscribers) {
                         r = sd_varlink_notify(sb->link, vm);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to notify a browse subscriber via varlink, ignoring: %m");
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to notify a browse subscriber via varlink, dropping its subscription: %m");
+                                (void) sd_varlink_error_errno(sb->link, r);
+                        }
                 }
         }
 
@@ -685,13 +696,14 @@ int mdns_queriers_notify_goodbye(DnsScope *scope) {
         if (!scope)
                 return 0;
 
+        /* A goodbye-driven removal is a one-shot event: keep going when one querier's revisit
+         * fails, or every querier behind it in hash order would silently miss this round. */
         HASHMAP_FOREACH(sq, scope->manager->dns_service_queriers) {
                 r = mdns_querier_revisit_cache(sq, scope->family);
                 if (r < 0)
-                        return log_error_errno(
-                                        r,
-                                        "Failed to revisit cache for service querier with family %d: %m",
-                                        scope->family);
+                        log_warning_errno(r,
+                                          "Failed to revisit cache for service querier with family %d, ignoring: %m",
+                                          scope->family);
         }
 
         return 0;
@@ -764,16 +776,16 @@ int mdns_queriers_notify_unsolicited_updates(Manager *m, DnsAnswer *answer, int 
         HASHMAP_FOREACH(sq, m->dns_service_queriers) {
 
                 r = dns_answer_match_key(answer, sq->key, NULL);
-                if (r < 0)
-                        return log_error_errno(
-                                        r,
-                                        "Failed to match answer key with service querier's key: %m");
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to match answer key with service querier's key, ignoring: %m");
+                        continue;
+                }
                 if (r == 0)
                         continue;
 
                 r = mdns_querier_revisit_cache(sq, owner_family);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to revisit cache for service querier: %m");
+                        log_warning_errno(r, "Failed to revisit cache for service querier, ignoring: %m");
         }
 
         return 0;
