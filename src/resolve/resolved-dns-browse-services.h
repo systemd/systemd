@@ -52,11 +52,20 @@ struct DnsServiceQuerier {
                                                cleared by dns_query_free() */
         DnsRecordTTLState rr_ttl_state;       /* the ladder's rung: wound back to 80% whenever the list
                                                  changes or an instance is seen again, advanced only by
-                                                 mdns_querier_maintenance(), re-armed once per
+                                                 mdns_querier_run_maintenance(), re-armed once per
                                                  reconciliation (re-arming skips the rungs already
                                                  behind us, so a wind-back only takes effect once an
                                                  expiry moved) */
-        RateLimit goodbye_rescue_ratelimit;   /* bounds the §10.1 goodbye rescue queries */
+        usec_t last_wire_query_usec;          /* when this question last went to the network, from
+                                                 whichever of the four emitters sent it -- the
+                                                 ladder, the continuous schedule, the goodbye rescue
+                                                 or a joining subscriber's catch-up. The §5.2
+                                                 one-second floor is a property of the question, so
+                                                 each of them checks it before adding to the wire */
+        RateLimit goodbye_rescue_ratelimit;   /* caps a sustained §10.1 goodbye flood per querier */
+        bool initial_query_done;              /* whether the schedule's first query has gone out; only
+                                                 that one is cache-served on the schedule's behalf,
+                                                 a joining subscriber's catch-up asks separately */
         LIST_HEAD(DnssdDiscoveredService, dns_services);
         LIST_HEAD(DnsServiceBrowser, subscribers);
 };
@@ -70,16 +79,42 @@ struct DnsServiceBrowser {
 };
 
 DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb);
-void dns_remove_service(DnsServiceQuerier *sq, DnssdDiscoveredService *service);
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceQuerier, dns_service_querier);
-
-void dns_browse_services_purge(Manager *m, int family);
-void dns_browse_services_restart(Manager *m);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceBrowser *, dns_service_browser_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceQuerier *, dns_service_querier_unref);
 
+/* The interface the rest of resolved uses. What follows the marker further down is reconciliation
+ * internals, exposed for the unit test alone: reaching into those from elsewhere would rebuild the
+ * coupling this split exists to remove. */
+void dns_browse_services_purge(Manager *m, int family, int ifindex);
+void dns_browse_services_restart(Manager *m, int ifindex);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceBrowser *, dns_service_browser_free);
+
+int dns_subscribe_browse_service(
+                Manager *m,
+                sd_varlink *link,
+                const char *domain,
+                const char *type,
+                int ifindex,
+                uint64_t flags);
+void dns_unsubscribe_browse_service(Manager *m, sd_varlink *link);
+void dns_service_querier_forget_query(DnsServiceQuerier *sq, DnsQuery *q);
+bool mdns_queriers_exist(Manager *m);
+/* The goodbye-rescue budgets share one window, and the per-scope burst deliberately sits above the
+ * per-querier one: a handful of distinct browse questions on a link can each still be rescued,
+ * while one received packet cannot multiply into unbounded multicasts. Coupled here so neither
+ * moves without the other being seen. */
+#define MDNS_RESCUE_RATELIMIT_INTERVAL_USEC (5 * USEC_PER_MINUTE)
+#define MDNS_RESCUE_RATELIMIT_QUERIER_BURST 6U
+#define MDNS_RESCUE_RATELIMIT_SCOPE_BURST (2 * MDNS_RESCUE_RATELIMIT_QUERIER_BURST)
+
+void mdns_queriers_notify_unsolicited_updates(DnsScope *scope, DnsAnswer *answer, int owner_family);
+void mdns_queriers_notify_goodbye(DnsScope *scope);
+void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *goodbyes);
+
+/* Exposed for src/resolve/test-dns-browse-services.c only; not part of the interface above. */
+void dns_remove_service(DnsServiceQuerier *sq, DnssdDiscoveredService *service);
 int dns_service_match_and_update(
                 DnssdDiscoveredService *services,
                 DnsResourceRecord *rr,
@@ -97,16 +132,5 @@ int dns_add_new_service(
                 int owner_family,
                 int ifindex,
                 usec_t until);
-int mdns_querier_revisit_cache(DnsServiceQuerier *sq, int owner_family);
-int mdns_querier_maintenance(sd_event_source *s, uint64_t usec, void *userdata);
-int dns_subscribe_browse_service(
-                Manager *m,
-                sd_varlink *link,
-                const char *domain,
-                const char *type,
-                int ifindex,
-                uint64_t flags);
-void dns_unsubscribe_browse_service(Manager *m, sd_varlink *link);
-int mdns_queriers_notify_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family);
-int mdns_queriers_notify_goodbye(DnsScope *scope);
-void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *goodbyes);
+void mdns_querier_run_maintenance(DnsServiceQuerier *sq);
+bool mdns_goodbyes_hit_discovered(DnsServiceQuerier *sq, DnsAnswer *goodbyes, int ifindex);
