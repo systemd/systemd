@@ -125,6 +125,13 @@ check_first() {
     return 1
 }
 
+# Did any 'removed' event whose name matches $3 arrive in $1 after byte offset $2?
+removed_since() {
+    local file="${1:?}" off="${2:?}" needle="${3:?}"
+
+    tail -c "+$((off + 1))" "$file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep -e "$needle" >/dev/null
+}
+
 run_and_check_services() {
     local service_id="${1:?}"
     local check_func="${2:?}"
@@ -481,10 +488,10 @@ testcase_browse_shared_querier() {
 
     local removed1=0 removed3=0
     for _ in {0..99}; do
-        if [[ "$removed1" -eq 0 ]] && tail -c "+$((off1 + 1))" "$out1" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "on $CONTAINER_2" >/dev/null; then
+        if [[ "$removed1" -eq 0 ]] && removed_since "${out1}" "${off1}" "on $CONTAINER_2"; then
             removed1=1
         fi
-        if [[ "$removed3" -eq 0 ]] && tail -c "+$((off3 + 1))" "$out3" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "on $CONTAINER_2" >/dev/null; then
+        if [[ "$removed3" -eq 0 ]] && removed_since "${out3}" "${off3}" "on $CONTAINER_2"; then
             removed3=1
         fi
         [[ "$removed1" -eq 1 && "$removed3" -eq 1 ]] && break
@@ -602,7 +609,7 @@ EOF
     # plus ladder jitter and event-loop slop, so poll generously (~200s).
     local removed=0
     for _ in {0..99}; do
-        if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "on $CONTAINER_2" >/dev/null; then
+        if removed_since "${out_file}" "${off}" "on $CONTAINER_2"; then
             removed=1
             break
         fi
