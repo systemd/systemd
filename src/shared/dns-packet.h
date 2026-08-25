@@ -161,6 +161,7 @@ void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool trun
 
 DnsPacket *dns_packet_ref(DnsPacket *p);
 DnsPacket *dns_packet_unref(DnsPacket *p);
+void dns_packet_unref_array(DnsPacket **array, size_t n);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsPacket*, dns_packet_unref);
 
