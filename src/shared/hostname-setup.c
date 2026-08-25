@@ -305,6 +305,9 @@ static int hostname_open_wordlist(const char *file, FILE **ret) {
         assert(file);
         assert(ret);
 
+        /* NOTE: keep this in src/shared/ and do not use from libsystemd, as the default wordlist is
+         * licensed as Apache-2.0 which is not compatible with libsystemd's LGPL2.1 */
+
         /* Opens one of the numbered hostname word list files ("1", "2", "3", ...) for the '$' wildcards. */
         const char *override = secure_getenv("SYSTEMD_HOSTNAME_WORDLIST_PATH");
         r = search_and_fopen(
