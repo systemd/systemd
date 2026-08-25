@@ -90,6 +90,12 @@ typedef struct Manager {
         int mdns_ipv6_fd;
         sd_event_source *mdns_ipv4_event_source;
         sd_event_source *mdns_ipv6_event_source;
+        sd_event_source *mdns_goodbye_retransmit_event_source;
+        bool mdns_withdrawing;
+
+        /* Runtime withdrawals awaiting their RFC 6762 §8.3 one-second retransmission. */
+        DnsAnswer *mdns_pending_withdrawals;
+        sd_event_source *mdns_withdrawal_retransmit_event_source;
 
         /* DNS-SD */
         Hashmap *dnssd_registered_services;
@@ -191,6 +197,7 @@ int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_a
 LinkAddress* manager_find_link_address(Manager *m, int family, const union in_addr_union *in_addr);
 
 void manager_refresh_rrs(Manager *m);
+int manager_mdns_arm_withdrawal_retransmit(Manager *m);
 int manager_next_hostname(Manager *m);
 
 bool manager_packet_from_local_address(Manager *m, DnsPacket *p);
