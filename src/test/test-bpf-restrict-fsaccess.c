@@ -12,6 +12,10 @@
  *   test-bpf-restrict-fsaccess anon-mmap-exec      — Attempt anonymous PROT_READ|PROT_EXEC mmap
  *   test-bpf-restrict-fsaccess mprotect-exec PATH  — mmap PATH PROT_READ, then mprotect to PROT_EXEC
  *
+ * The probes exit with 0 if the operation was allowed (the bypass works), 1 if
+ * it was refused with the errno the mechanism under test produces, 2 if it
+ * could not be attempted and 3 if it was refused with an unexpected errno.
+ *
  * When "attach" is used, the BPF LSM program is loaded with initramfs_s_dev
  * set to the current rootfs s_dev, so the calling test script (running from
  * the rootfs) continues to work. The process holds all link FDs and blocks;
@@ -27,71 +31,142 @@
 #include "bpf-link.h"
 #include "bpf-restrict-fsaccess.h"
 #include "devnum-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "lsm-util.h"
 #include "string-util.h"
 #include "tests.h"
 
-/* ---- mmap/mprotect probe commands (no BPF dependency) ----
+/* ---- Probe commands (no BPF dependency) ----
  *
- * These exercise the mmap_file, file_mprotect, and anonymous-mmap LSM hooks.
- * The test script copies a file to tmpfs and passes its path here.
- * Returns 0 if the operation was allowed, negative errno if denied. */
+ * Each attempts one operation the hooks are supposed to deny. The exit codes
+ * let the test script tell a denial by the mechanism under test from a probe
+ * that could not run at all. */
+enum {
+        PROBE_ALLOWED      = 0, /* the operation succeeded, i.e. the bypass works */
+        PROBE_DENIED       = 1, /* refused with the errno the mechanism under test produces */
+        PROBE_ERROR        = 2, /* the operation could not be attempted */
+        PROBE_DENIED_OTHER = 3, /* refused, but with an unexpected errno (another LSM?) */
+};
 
-static int do_mmap_exec(const char *path) {
-        _cleanup_close_ int fd = -EBADF;
-        void *addr;
+/* Only the errno the mechanism under test produces counts as a denial. */
+static int probe_denied(int error, int expected) {
+        assert(error < 0);
 
-        fd = open(path, O_RDONLY | O_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", path);
+        if (error == expected)
+                return PROBE_DENIED;
 
-        addr = mmap(NULL, 4096, PROT_READ | PROT_EXEC, MAP_PRIVATE, fd, 0);
-        if (addr == MAP_FAILED)
-                return log_info_errno(errno, "PROT_EXEC mmap of %s denied: %m", path);
-
-        (void) munmap(addr, 4096);
-        log_info("PROT_EXEC mmap of %s succeeded", path);
-        return 0;
+        log_warning("Refused with unexpected error %s, expected %s.", STRERROR(error), STRERROR(expected));
+        return PROBE_DENIED_OTHER;
 }
 
-static int do_anon_mmap_exec(void) {
-        void *addr;
-
-        addr = mmap(NULL, 4096, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-        if (addr == MAP_FAILED)
-                return log_info_errno(errno, "Anonymous PROT_EXEC mmap denied: %m");
-
-        (void) munmap(addr, 4096);
-        log_info("Anonymous PROT_EXEC mmap succeeded");
-        return 0;
-}
-
-static int do_mprotect_exec(const char *path) {
+static int mmap_probe(const char *path, int prot, const char *what) {
         _cleanup_close_ int fd = -EBADF;
         void *addr;
         int r;
 
         fd = open(path, O_RDONLY | O_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", path);
+        if (fd < 0) {
+                log_error_errno(errno, "Failed to open %s: %m", path);
+                return PROBE_ERROR;
+        }
 
-        addr = mmap(NULL, 4096, PROT_READ, MAP_PRIVATE, fd, 0);
-        if (addr == MAP_FAILED)
-                return log_error_errno(errno, "PROT_READ mmap of %s failed: %m", path);
-
-        r = mprotect(addr, 4096, PROT_READ | PROT_EXEC);
-        if (r < 0)
-                r = -errno;
+        addr = mmap(NULL, 4096, prot, MAP_PRIVATE, fd, 0);
+        if (addr == MAP_FAILED) {
+                r = log_info_errno(errno, "%s of %s denied: %m", what, path);
+                return probe_denied(r, -EPERM);
+        }
 
         (void) munmap(addr, 4096);
+        log_info("%s of %s succeeded", what, path);
+        return PROBE_ALLOWED;
+}
 
-        if (r < 0)
-                return log_info_errno(r, "mprotect PROT_EXEC on %s denied: %m", path);
+/* Maps PATH with 'prot', then changes the protection to 'new_prot'. With 'poke' the mapping is written to
+ * first, so that the page is a private copy. */
+static int mprotect_probe(const char *path, int prot, bool poke, int new_prot, const char *what) {
+        _cleanup_close_ int fd = -EBADF;
+        void *addr;
+        int r;
 
-        log_info("mprotect PROT_EXEC on %s succeeded", path);
-        return 0;
+        fd = open(path, O_RDONLY | O_CLOEXEC);
+        if (fd < 0) {
+                log_error_errno(errno, "Failed to open %s: %m", path);
+                return PROBE_ERROR;
+        }
+
+        addr = mmap(NULL, 4096, prot, MAP_PRIVATE, fd, 0);
+        if (addr == MAP_FAILED) {
+                log_error_errno(errno, "Initial mmap of %s failed, cannot probe: %m", path);
+                return PROBE_ERROR;
+        }
+
+        if (poke)
+                *(volatile uint8_t*) addr = 0x90; /* trigger copy-on-write */
+
+        r = RET_NERRNO(mprotect(addr, 4096, new_prot));
+        (void) munmap(addr, 4096);
+
+        if (r < 0) {
+                log_info_errno(r, "%s on %s denied: %m", what, path);
+                return probe_denied(r, -EPERM);
+        }
+
+        log_info("%s on %s succeeded", what, path);
+        return PROBE_ALLOWED;
+}
+
+static int do_mmap_exec(const char *path) {
+        return mmap_probe(path, PROT_READ | PROT_EXEC, "PROT_EXEC mmap");
+}
+
+static int do_anon_mmap_exec(void) {
+        void *addr;
+        int r;
+
+        addr = mmap(NULL, 4096, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (addr == MAP_FAILED) {
+                r = log_info_errno(errno, "Anonymous PROT_EXEC mmap denied: %m");
+                return probe_denied(r, -EPERM);
+        }
+
+        (void) munmap(addr, 4096);
+        log_info("Anonymous PROT_EXEC mmap succeeded");
+        return PROBE_ALLOWED;
+}
+
+/* mmap PROT_READ, then add PROT_EXEC: denied for untrusted files, a positive control for trusted ones. */
+static int do_mprotect_exec(const char *path) {
+        return mprotect_probe(path, PROT_READ, /* poke= */ false, PROT_READ | PROT_EXEC, "mprotect PROT_EXEC");
+}
+
+static int usage(void) {
+        log_error("Usage: %s attach|check|mmap-exec PATH|anon-mmap-exec|mprotect-exec PATH",
+                  program_invocation_short_name);
+        /* Not EXIT_FAILURE, which is PROBE_DENIED. */
+        return PROBE_ERROR;
+}
+
+/* The probes need no BPF support. Returns the probe's exit code, or -ENOENT if the verb is not a probe. */
+static int dispatch_probe(int argc, char *argv[]) {
+        const char *verb = argv[1];
+
+        if (argc == 2) {
+                if (streq(verb, "anon-mmap-exec"))
+                        return do_anon_mmap_exec();
+                return -ENOENT;
+        }
+
+        if (argc != 3)
+                return -ENOENT;
+
+        if (streq(verb, "mmap-exec"))
+                return do_mmap_exec(argv[2]);
+        if (streq(verb, "mprotect-exec"))
+                return do_mprotect_exec(argv[2]);
+
+        return -ENOENT;
 }
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
@@ -192,47 +267,45 @@ static int do_check(void) {
 }
 
 int main(int argc, char *argv[]) {
+        int r;
+
         test_setup_logging(LOG_DEBUG);
 
-        if (argc < 2) {
-                log_error("Usage: %s attach|check|mmap-exec|anon-mmap-exec|mprotect-exec",
-                          program_invocation_short_name);
-                return EXIT_FAILURE;
-        }
+        if (argc < 2)
+                return usage();
 
         if (streq(argv[1], "attach"))
                 return do_attach() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
         if (streq(argv[1], "check"))
                 return do_check() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-        if (streq(argv[1], "mmap-exec") && argc == 3)
-                return do_mmap_exec(argv[2]) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-        if (streq(argv[1], "anon-mmap-exec"))
-                return do_anon_mmap_exec() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-        if (streq(argv[1], "mprotect-exec") && argc == 3)
-                return do_mprotect_exec(argv[2]) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
-        log_error("Usage: %s attach|check|mmap-exec PATH|anon-mmap-exec|mprotect-exec PATH",
-                  program_invocation_short_name);
-        return EXIT_FAILURE;
+        r = dispatch_probe(argc, argv);
+        if (r >= 0)
+                return r;
+
+        return usage();
 }
 
 #else /* ! BPF_FRAMEWORK || ! HAVE_LSM_INTEGRITY_TYPE */
 
 int main(int argc, char *argv[]) {
+        int r;
+
         test_setup_logging(LOG_DEBUG);
 
-        /* mmap/mprotect probes work without BPF */
-        if (argc >= 2) {
-                if (streq(argv[1], "mmap-exec") && argc == 3)
-                        return do_mmap_exec(argv[2]) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-                if (streq(argv[1], "anon-mmap-exec"))
-                        return do_anon_mmap_exec() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-                if (streq(argv[1], "mprotect-exec") && argc == 3)
-                        return do_mprotect_exec(argv[2]) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        if (argc < 2)
+                return usage();
+
+        if (streq(argv[1], "attach") || streq(argv[1], "check")) {
+                log_info("BPF framework not available, attach/check not supported");
+                return EXIT_TEST_SKIP;
         }
 
-        log_info("BPF framework not available, attach/check not supported");
-        return 77; /* skip */
+        r = dispatch_probe(argc, argv);
+        if (r >= 0)
+                return r;
+
+        return usage();
 }
 
 #endif
