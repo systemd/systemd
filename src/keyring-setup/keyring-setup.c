@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <dirent.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <sysexits.h>
 #include <unistd.h>
 
@@ -8,7 +10,9 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "chase.h"
 #include "conf-files.h"
+#include "creds-util.h"
 #include "crypto-util.h"
 #include "dlopen-note.h"
 #include "errno-util.h"
@@ -16,6 +20,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "hexdecoct.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "keyring-util.h"
 #include "log.h"
@@ -24,8 +29,11 @@
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "path-util.h"
+#include "recurse-dir.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "verbs.h"
 #include "voa-util.h"
 
@@ -48,6 +56,12 @@ COMMAND(
 #define KEYRING_PERM_SEALED (KEY_POS_SEARCH|KEY_USR_VIEW|KEY_USR_READ|KEY_USR_WRITE)
 
 #define CERTIFICATE_SIZE_MAX (1U*1024U*1024U)
+
+#define CREDENTIAL_PREFIX "keyring-setup."
+
+/* Cap the number of possible OSes in both the exact and bare form. 64 OSes is plenty and we can always
+ * increase. */
+#define CREDENTIAL_OS_MAX 64U
 
 typedef struct KeyringSpec {
         const char *name;
@@ -740,6 +754,174 @@ static int process_keyring(
         return k.data_error;
 }
 
+/* Credentials are the way to hand a certificate to an initrd without rebuilding it. Following the
+ * specification's advice for verifiers retrieved from elsewhere, they are placed into the ephemeral load
+ * path as artifact verifiers. Hence, masking, merging and everything else applies to them like to any
+ * other file. */
+static int materialize_credential(
+                int root_fd,
+                const char *cn,
+                const KeyringSpec *spec,
+                const char *name,
+                char **os) {
+
+        _cleanup_free_ char *contents = NULL, *fn = NULL, *path = NULL, *base = NULL;
+        _cleanup_close_ int dfd = -EBADF;
+        int r;
+
+        assert(root_fd >= 0);
+        assert(cn);
+        assert(spec);
+        assert(name);
+        assert(!strv_isempty(os));
+
+        fn = strjoin(name, VOA_X509_CERTIFICATE_SUFFIX);
+        if (!fn)
+                return log_oom();
+
+        /* The exact OS identifier suffices */
+        path = path_join(VOA_EPHEMERAL_LOAD_PATH, os[0], spec->role, spec->context, VOA_TECHNOLOGY_X509, fn);
+        if (!path)
+                return log_oom();
+
+        if (arg_dry_run) {
+                log_info("Would place credential '%s' at '%s'.", cn, path);
+                return 0;
+        }
+
+        size_t size;
+        r = read_credential(cn, (void**) &contents, &size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read credential '%s': %m", cn);
+
+        dfd = chase_and_open_parent_at(root_fd, root_fd, path, CHASE_MKDIR_0755|CHASE_SAFE, &base);
+        if (dfd < 0)
+                return log_error_errno(dfd, "Failed to create the directory of '%s': %m", path);
+
+        _cleanup_free_ char *tmp = NULL;
+        _cleanup_close_ int fd = open_tmpfile_linkable_at(dfd, base, O_WRONLY|O_CLOEXEC, &tmp);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to create '%s': %m", path);
+
+        CLEANUP_TMPFILE_AT(dfd, tmp);
+
+        r = loop_write(fd, contents, size);
+        if (r >= 0 && (size == 0 || contents[size - 1] != '\n'))
+                /* Terminate with a newline like a PEM file conventionally does */
+                r = loop_write(fd, "\n", 1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s': %m", path);
+
+        if (fchmod(fd, 0644) < 0)
+                return log_error_errno(errno, "Failed to set the mode of '%s': %m", path);
+
+        r = link_tmpfile_at(fd, dfd, tmp, base, LINK_TMPFILE_REPLACE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to link '%s' into place: %m", path);
+
+        tmp = mfree(tmp); /* disarm CLEANUP_TMPFILE_AT() */
+
+        log_debug("Placed credential '%s' at '%s'.", cn, path);
+        return 0;
+}
+
+static int materialize_credentials(int root_fd, char **os) {
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r, ret = 0;
+
+        assert(root_fd >= 0);
+
+        fd = open_credentials_dir();
+        if (fd == -ENXIO)
+                return 0;
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open credentials directory: %m");
+
+        if (strv_isempty(os)) {
+                log_warning("There is no OS identifier to place credentials under, ignoring them.");
+                return 0;
+        }
+
+        r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read credentials directory: %m");
+
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                const char *cn = (*i)->d_name, *e, *name = NULL;
+                const KeyringSpec *spec = NULL;
+
+                e = startswith(cn, CREDENTIAL_PREFIX);
+                if (!e || streq(e, "os"))
+                        continue;
+
+                /* keyring-setup.<keyring>.<name>, the keyring without its leading dot */
+                FOREACH_ELEMENT(s, keyring_specs) {
+                        name = startswith(e, s->name + 1);
+                        if (name && name[0] == '.') {
+                                spec = s;
+                                name++;
+                                break;
+                        }
+                }
+                if (!spec) {
+                        log_warning("Ignoring unrecognized credential '%s', expected "
+                                    CREDENTIAL_PREFIX "<keyring>.<name>.", cn);
+                        continue;
+                }
+                if (!voa_identifier_is_valid(name, /* allow_colon= */ false)) {
+                        log_warning("Ignoring credential '%s', the name must consist of lowercase letters, "
+                                    "digits, '.', '_' and '-'.", cn);
+                        continue;
+                }
+                if (!strv_isempty(arg_keyrings) && !strv_contains(arg_keyrings, spec->name)) {
+                        log_debug("Skipping credential '%s', keyring %s is not selected.", cn, spec->name);
+                        continue;
+                }
+
+                r = materialize_credential(root_fd, cn, spec, name, os);
+                RET_GATHER(ret, r);
+        }
+
+        return ret;
+}
+
+/* Returns > 0 if the credential exists */
+static int os_from_credential(char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        assert(ret);
+
+        r = read_credential(CREDENTIAL_PREFIX "os", (void**) &v, /* ret_size= */ NULL);
+        if (IN_SET(r, -ENXIO, -ENOENT))
+                return 0;
+        if (r < 0)
+                return log_warning_errno(r,
+                                         "Failed to read credential " CREDENTIAL_PREFIX "os, ignoring: %m");
+
+        l = strv_split(v, WHITESPACE);
+        if (!l)
+                return log_oom();
+        if (strv_isempty(l))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "Credential " CREDENTIAL_PREFIX "os is empty, ignoring.");
+        if (strv_length(l) > CREDENTIAL_OS_MAX)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "Credential " CREDENTIAL_PREFIX "os lists more than %u OS "
+                                         "identifiers, ignoring it.", CREDENTIAL_OS_MAX);
+
+        STRV_FOREACH(i, l)
+                if (!voa_os_is_valid(*i))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "Invalid OS identifier '%s' in credential "
+                                                 CREDENTIAL_PREFIX "os, ignoring it.", *i);
+
+        *ret = TAKE_PTR(l);
+        return 1;
+}
+
 static int parse_argv(int argc, char *argv[]) {
         int r;
 
@@ -823,13 +1005,23 @@ static int run(int argc, char *argv[]) {
         if (root_fd < 0)
                 return log_error_errno(errno, "Failed to open root directory: %m");
 
-        r = voa_os_identifiers(root_fd, &os);
+        r = os_from_credential(&os);
         if (r < 0)
-                ret = log_error_errno(r, "Failed to determine the OS identifier from os-release, "
-                                      "enrolling nothing: %m");
-        else if (r > 0)
-                log_warning("os-release contains characters the VOA specification does not permit, looking "
-                            "up the bare ID only.");
+                ret = EX_DATAERR; /* bad input, but os-release is still there */
+        if (r <= 0) {
+                r = voa_os_identifiers(root_fd, &os);
+                if (r < 0)
+                        ret = log_error_errno(r, "Failed to determine the OS identifier from os-release, "
+                                              "enrolling nothing: %m");
+                else if (r > 0)
+                        log_warning("os-release contains characters the VOA specification does not permit, "
+                                    "looking up the bare ID only. Pass the " CREDENTIAL_PREFIX "os "
+                                    "credential to specify identifiers explicitly.");
+        }
+
+        /* Sealing does not depend on it either */
+        r = materialize_credentials(root_fd, os);
+        RET_GATHER(ret, r);
 
         if (arg_dry_run) {
                 t = table_new("keyring", "context", "exists", "kernel unsealed", "keys", "sealed",
