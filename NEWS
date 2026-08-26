@@ -562,10 +562,12 @@ CHANGES WITH 262:
           snippets.
 
         * Many command line tools now expose machine-readable command metadata
-          via --introspect-cli, generated from declarative verb/option
+          via --introspect-cli as JSON, generated from declarative verb/option
           descriptions. This now covers systemctl and a broad set of systemd
-          utilities. Scripts that need command/option discovery should consume
-          this interface instead of parsing human --help output.
+          utilities. Scripts that need command/option discovery may consume
+          this interface instead of parsing human --help output. This feature
+          is experimental and the JSON schema may be subject to change in later
+          release until a future stabilization announcement.
 
         * OpenPGP verification of downloaded resources now accepts signing
           subkeys embedded in signatures when they are certified by a trusted
