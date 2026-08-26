@@ -312,8 +312,8 @@ int _verbs_get_help_table(
                 if (group_marker)
                         break;  /* End of group */
 
-                if (!verb->help)
-                        /* No help string — we do not show the verb */
+                if (FLAGS_SET(verb->flags, VERB_DEPRECATED) || !verb->help)
+                        /* Marked as deprecated or no help string — we do not show the verb */
                         continue;
 
                 r = verb_add_help_one(table, verb);
@@ -629,7 +629,8 @@ int _command_print_verb_help(
                         return r;
         }
 
-        r = print_wrapped(verb->footer, /* footer_ansi_seq= */ NULL);
+        r = print_wrapped(verb->footer,
+                          FLAGS_SET(verb->flags, VERB_DEPRECATED) ? ansi_highlight_red() : NULL);
         if (r < 0)
                 return r;
 
@@ -688,6 +689,9 @@ static int verb_build_json(
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         FLAGS_SET(verb->flags, VERB_DEFAULT),
                                         "isDefault", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        FLAGS_SET(verb->flags, VERB_DEPRECATED),
+                                        "isDeprecated", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         FLAGS_SET(verb->flags, VERB_ONLINE_ONLY),
                                         "isOnlineOnly", SD_JSON_BUILD_BOOLEAN(true)));
