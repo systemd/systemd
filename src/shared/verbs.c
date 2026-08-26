@@ -564,6 +564,72 @@ int _command_print_help_full(
         return 0;
 }
 
+int _command_print_verb_help(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                const char *name) {
+
+        int r;
+
+        assert(name);
+
+        const Verb *verb = ASSERT_PTR(_verbs_find_verb(verbs, verbs_end, name));
+
+        /* The owning command is described by the closest preceding VERB_COMMAND_MARKER entry. */
+        const Verb *cmdverb = verb;
+        while (!FLAGS_SET(cmdverb->flags, VERB_COMMAND_MARKER)) {
+                assert(cmdverb > verbs);
+                cmdverb--;
+        }
+        const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(cmdverb->data);
+
+        if (cmd->pager_flags)
+                pager_open(*cmd->pager_flags);
+
+        /* If argspec is empty, print one line with no argspec. Use " " as placeholder for the empty spec. */
+        NULSTR_FOREACH(spec, verb->argspec ?: " \0") {
+                bool some = !streq(spec, " ");
+                _cleanup_free_ char *line = strjoin(
+                                "[OPTION…] ", verb->verb,
+                                verb->option_namespace ? " [OPTION…]" : "",
+                                some ? " " : NULL,
+                                some ? spec : NULL);
+                if (!line)
+                        return log_oom();
+                help_cmdline(line);
+        };
+
+        if (verb->help) {
+                const char *s = strjoina(ansi_highlight(), ansi_add_italics()),
+                           *t = strjoina(verb->help, ".");
+
+                r = print_wrapped(t, s);
+                if (r < 0)
+                        return r;
+        }
+
+        if (verb->option_namespace) {
+                _cleanup_(table_unrefp) Table *table = NULL;
+                r = _option_parser_get_help_table_full(options, options_end, verb->option_namespace,
+                                                       /* group= */ NULL, &table);
+                if (r < 0)
+                        return r;
+
+                help_section("Options");
+                r = table_print_or_warn(table);
+                if (r < 0)
+                        return r;
+        }
+
+        r = print_man_links(cmd->man_pages);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print man page links: %m");
+
+        return 0;
+}
+
 static int verb_build_json(
                 const Verb *verb,
                 const Option options[],
