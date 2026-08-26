@@ -154,6 +154,115 @@
   </refsect1>
 
   <refsect1>
+    <title>Cloned Systems</title>
+
+    <para>When a system is installed by cloning a disk image or a virtual machine that already carries a
+    populated <filename>/etc/machine-id</filename>, every clone inherits the very same machine ID, which
+    defeats the uniqueness the ID is supposed to provide. The preferred way to avoid this is to not ship a
+    populated machine ID in the first place, i.e. to leave <filename>/etc/machine-id</filename> empty (or
+    missing) in the image, as described in "Initialization" above: each clone then acquires an ID of its own
+    on first boot. Note that this is only sufficient if the image carries no other source of the golden
+    image's identity either: a regular <filename>/var/lib/dbus/machine-id</filename> — the shape
+    <command>dbus-uuidgen</command> creates — and a baked-in <varname>system.machine_id</varname> credential
+    are both consulted first, and would hand every clone the same ID. Clear them, or make the D-Bus file a
+    symlink to <filename>/etc/machine-id</filename>.</para>
+
+    <para>If the image cannot be prepared that way, or if the clone has already been made, a new identity may
+    be assigned with the <option>--force</option> switch of
+    <citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    which replaces the current ID with a freshly generated random one. Ideally this is done offline, on the
+    mounted (but not booted) clone:</para>
+
+    <programlisting>systemd-machine-id-setup --force --root=/mnt/clone</programlisting>
+
+    <para><option>--image=</option> works the same way on a disk image. If the offline route is not
+    available, the running clone can be reprovisioned as well, but it has to be rebooted afterwards:</para>
+
+    <programlisting>systemd-machine-id-setup --force
+reboot</programlisting>
+
+    <para>The reboot is required in the online case only, because the machine ID is cached by every process
+    that has read it, including the service manager itself, hence a running system keeps using the old ID
+    until it is restarted. Stale copies of the old ID that would otherwise be handed back the next time the
+    machine ID is initialized — <filename>/run/machine-id</filename> and a regular
+    <filename>/var/lib/dbus/machine-id</filename> — are rewritten by <option>--force</option> itself, on a
+    best-effort basis: one that exists but cannot be written is reported as a warning without failing the
+    run, while one that is simply absent is not reported at all. A
+    <filename>/var/lib/dbus/machine-id</filename> that is a symlink to <filename>/etc/machine-id</filename>
+    is deliberately left alone, as it already resolves to the new ID.</para>
+
+    <para>If the clone's boot loader entries carry a <varname>systemd.machine_id=</varname> kernel command
+    line parameter with an explicit ID, it has to be dropped or updated as well. As described above such a
+    value takes precedence over <filename>/etc/machine-id</filename>, and the service manager writes it back
+    to that file on every boot, so the reboot mandated above would silently restore the old ID. A value of
+    <literal>firmware</literal> does not have that effect, as it leaves the file itself authoritative.
+    Online, <option>--force</option> refuses to run while a parameter carrying an explicit ID is set;
+    offline it cannot see the clone's command line, so this is on the operator.</para>
+
+    <para>Note that changing the machine ID discards or invalidates state that is keyed by it, and does not
+    rewrite identifiers already derived from it. Before proceeding, in particular consider the
+    following:</para>
+
+    <itemizedlist>
+      <listitem><para>The host key for encrypted credentials, i.e.
+      <filename>/var/lib/systemd/credential.secret</filename>, see
+      <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>, is
+      bound to the machine ID: the first read that sees a mismatching ID <emphasis>deletes</emphasis> the
+      file. Any data encrypted with it — for example via <command>systemd-creds encrypt</command> or
+      <varname>LoadCredentialEncrypted=</varname> — is then permanently undecryptable, and services relying
+      on such credentials fail. Note that re-encrypting beforehand does <emphasis>not</emphasis> help, as the
+      new ciphertext is bound to the very secret that is about to be discarded: decrypt anything worth
+      keeping to plaintext with <command>systemd-creds decrypt</command> <emphasis>before</emphasis> the
+      machine ID is changed, and encrypt it again once the new ID is in effect. Note that
+      <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry> takes
+      no <option>--root=</option>, so it always uses the host's secret and machine ID: in the offline
+      workflow above the decryption has to be done from inside the clone while it is still booted with the
+      old ID, i.e. before running <option>--force</option> against it.</para></listitem>
+
+      <listitem><para>The machine ID is measured into PCR 15 by
+      <citerefentry><refentrytitle>systemd-pcrextend</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      and <command>systemd-pcrlock</command>'s default policy set covers that PCR. Once it changes, LUKS
+      volumes enrolled against PCR 15 with
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      or bound to a pcrlock policy stop unlocking until they are re-enrolled or the policy is regenerated —
+      which for anything unlocked after <filename>systemd-pcrmachine.service</filename>, such as
+      <filename>/home/</filename>, has to be arranged before the reboot.</para></listitem>
+
+      <listitem><para>GPT auto-discovery of the <filename>/var/</filename> partition matches its partition
+      UUID against an HMAC keyed by the machine ID, see
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      Such a partition is no longer picked up until its partition UUID is recalculated from the
+      <emphasis>new</emphasis> ID and written into the partition table. Note that
+      <command>systemd-id128 var-partition-uuid</command> always keys the HMAC with the machine ID of the
+      system it runs on and takes no <option>--root=</option>, so in the offline workflow above it has to be
+      run from within the clone once it has booted, not on the host.</para></listitem>
+
+      <listitem><para>Persistent journal files live in a directory named after the machine ID, see
+      <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      so log data collected before the change stays behind in the old directory.</para></listitem>
+
+      <listitem><para>Unless <filename>/etc/kernel/entry-token</filename> pins it, the boot loader entry
+      token defaults to the machine ID, see the <option>--entry-token=</option> option of
+      <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      Boot entries and the kernel directory below the boot partition are then named after the old ID and are
+      orphaned by the change: they are no longer refreshed, and no longer removed when the corresponding
+      kernel is. Pinning the token in <filename>/etc/kernel/entry-token</filename> beforehand avoids
+      this.</para></listitem>
+
+      <listitem><para>Network identity is derived from the machine ID: the DHCP DUID defaults to the
+      DUID-EN type computed from it, and <varname>MACAddressPolicy=persistent</varname> mixes it into the
+      per-interface MAC address, as do stable-privacy IPv6 addresses. After the change the host therefore
+      presents a different DUID and different MAC addresses, losing DHCP leases and reservations; anything
+      keyed to them upstream — DHCP reservations, firewall rules, 802.1X allow-lists — needs updating
+      too.</para></listitem>
+
+      <listitem><para>Application-specific IDs obtained via
+      <citerefentry><refentrytitle>sd_id128_get_machine_app_specific</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      change along with the machine ID.</para></listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
     <title>Relation to OSF UUIDs</title>
 
     <para>Note that the machine ID historically is not an OSF UUID as defined by <ulink
