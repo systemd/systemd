@@ -37,4 +37,5 @@ disable systemd-boot-check-no-failures.service
 disable systemd-journal-gatewayd.*
 disable systemd-journal-remote.*
 disable systemd-journal-upload.*
+disable systemd-keyring-setup.service
 disable systemd-time-wait-sync.service
