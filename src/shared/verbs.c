@@ -550,7 +550,13 @@ int _command_print_help_full(
         return 0;
 }
 
-static int verb_build_json(const Verb *verb, sd_json_variant **ret) {
+static int verb_build_json(
+                const Verb *verb,
+                const Option options[],
+                const Option options_end[],
+                sd_json_variant **ret) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *opts = NULL;
         int r;
 
         assert(verb);
@@ -559,10 +565,19 @@ static int verb_build_json(const Verb *verb, sd_json_variant **ret) {
 
         /* Verbs are represented as command objects, as described in the CLI-Introspection
          * Specification (https://uapi-group.org/specifications/specs/cli_introspection/).
+         * In particular, a verb which declares an option namespace carries its own "options"
+         * array, just like the top-level command object.
          *
          * The "minArguments", "maxArguments", "isDefault", and "isOnlineOnly" fields
          * are extensions not (yet) covered by the specification. Note that the argument
          * counts include the verb itself. */
+
+        if (verb->option_namespace) {
+                r = options_build_json(options, options_end, verb->option_namespace,
+                                       /* option_groups= */ NULL, &opts);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_json_buildo(
                         ret,
@@ -570,6 +585,7 @@ static int verb_build_json(const Verb *verb, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!verb->help,
                                         "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(verb->help))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_VARIANT(opts)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         verb->min_args != VERB_ANY,
                                         "minArguments", SD_JSON_BUILD_UNSIGNED(verb->min_args)),
@@ -625,7 +641,7 @@ static int command_build_json(
                         continue;
 
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;
-                r = verb_build_json(verb, &o);
+                r = verb_build_json(verb, options, options_end, &o);
                 if (r < 0)
                         return r;
 
