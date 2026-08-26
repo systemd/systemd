@@ -1,0 +1,51 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Enroll Certificates into Kernel Keyrings
+Documentation=man:systemd-keyring-setup.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=sysinit.target shutdown.target
+# Verity devices are set up after veritysetup-pre.target, everything mounting images after local-fs-pre.target
+Before=local-fs-pre.target veritysetup-pre.target
+Wants=local-fs-pre.target veritysetup-pre.target
+Before=systemd-sysext-initrd.service systemd-confext-initrd.service systemd-mountfsd.service
+# A privileged container sharing the initial user namespace could otherwise provision the host's keyrings
+ConditionVirtualization=!container
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+SuccessExitStatus=DATAERR
+ExecStart={{LIBEXECDIR}}/systemd-keyring-setup
+# Loading dm_verity is the only privileged operation, the keyrings belong to root anyway
+CapabilityBoundingSet=CAP_SYS_MODULE
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service @module
+
+[Install]
+WantedBy=sysinit.target
