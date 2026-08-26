@@ -99,6 +99,9 @@ static const Verb introspect_verbs[] = {
           .argspec = "FORM1\0FORM2…\0", .help = "Alpha verb", .option_namespace = "test-verbs-alpha" },
         { .verb = "beta", .min_args = VERB_ANY, .max_args = VERB_ANY, .dispatch = noop_dispatcher,
           .help = "Beta verb" },
+        { .verb = "gamma", .flags = VERB_OPTION_REQUIRED,
+          .min_args = VERB_ANY, .max_args = VERB_ANY, .dispatch = noop_dispatcher,
+          .help = "Gamma verb" },
 };
 
 static const Option introspect_options[] = {
@@ -125,6 +128,9 @@ TEST(command_print_verb_help) {
         ASSERT_OK(_command_print_verb_help(introspect_verbs, introspect_verbs + ELEMENTSOF(introspect_verbs),
                                            introspect_options, introspect_options + ELEMENTSOF(introspect_options),
                                            "beta"));
+        ASSERT_OK(_command_print_verb_help(introspect_verbs, introspect_verbs + ELEMENTSOF(introspect_verbs),
+                                           introspect_options, introspect_options + ELEMENTSOF(introspect_options),
+                                           "gamma"));
         REENABLE_WARNING;
 }
 
