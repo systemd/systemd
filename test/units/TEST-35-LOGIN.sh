@@ -1035,5 +1035,6 @@ testcase_restart() {
 setup_test_user
 test_write_dropin
 run_testcases
+run_subtests
 
 touch /testok
