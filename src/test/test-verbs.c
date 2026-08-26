@@ -114,4 +114,13 @@ TEST(introspect_cli_verb_options) {
                                   SD_JSON_FORMAT_OFF));
 }
 
+TEST(command_print_verb_help) {
+        ASSERT_OK(_command_print_verb_help(introspect_verbs, introspect_verbs + ELEMENTSOF(introspect_verbs) - 1,
+                                           introspect_options, introspect_options + ELEMENTSOF(introspect_options) - 1,
+                                           "alpha"));
+        ASSERT_OK(_command_print_verb_help(introspect_verbs, introspect_verbs + ELEMENTSOF(introspect_verbs) - 1,
+                                           introspect_options, introspect_options + ELEMENTSOF(introspect_options) - 1,
+                                           "beta"));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
