@@ -99,7 +99,7 @@ static const Verb introspect_verbs[] = {
           .argspec = "ARG", .help = "Alpha verb", .option_namespace = "test-verbs-alpha" },
         { .verb = "beta", .min_args = VERB_ANY, .max_args = VERB_ANY, .dispatch = noop_dispatcher,
           .help = "Beta verb" },
-        { .verb = "gamma", .flags = VERB_OPTION_REQUIRED,
+        { .verb = "gamma", .flags = VERB_OPTION_REQUIRED | VERB_DEPRECATED,
           .min_args = VERB_ANY, .max_args = VERB_ANY, .dispatch = noop_dispatcher,
           .help = "Gamma verb", .footer = "Gamma footer" },
 };
