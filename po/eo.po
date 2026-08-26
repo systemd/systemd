@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-01 11:49+0200\n"
+"POT-Creation-Date: 2026-08-26 10:57+0100\n"
 "PO-Revision-Date: 2026-08-02 00:07+0000\n"
 "Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Esperanto <https://translate.fedoraproject.org/projects/"
@@ -159,7 +159,7 @@ msgstr ""
 "Aŭtentikigo estas postulata por administri subskribajn ŝlosilojn de "
 "hejmdosierujoj."
 
-#: src/home/pam_systemd_home.c:327
+#: src/home/pam_systemd_home.c:328
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -168,29 +168,29 @@ msgstr ""
 "La hejmo de uzanto %s estas nuntempe forestanta, bonvolu enŝovi la necesan "
 "stokadaparaton aŭ subtenan dosiersistemon."
 
-#: src/home/pam_systemd_home.c:332
+#: src/home/pam_systemd_home.c:333
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "Tro oftaj ensalutaj provoj por uzanto %s, provu denove poste."
 
-#: src/home/pam_systemd_home.c:344
+#: src/home/pam_systemd_home.c:345
 msgid "Password: "
 msgstr "Pasvorto: "
 
-#: src/home/pam_systemd_home.c:346
+#: src/home/pam_systemd_home.c:347
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "Pasvorto malĝusta aŭ ne sufiĉa por aŭtentikigi uzanton %s."
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:348
 msgid "Sorry, try again: "
 msgstr "Pardonu, provu denove: "
 
-#: src/home/pam_systemd_home.c:369
+#: src/home/pam_systemd_home.c:370
 msgid "Recovery key: "
 msgstr "Rekupera ŝlosilo: "
 
-#: src/home/pam_systemd_home.c:371
+#: src/home/pam_systemd_home.c:372
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -198,20 +198,20 @@ msgid ""
 msgstr ""
 "Pasvorto/rekupera ŝlosilo malĝusta aŭ ne sufiĉa por aŭtentikigi uzanton %s."
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:373
 msgid "Sorry, reenter recovery key: "
 msgstr "Pardonu, retajpu la rekuperan ŝlosilon: "
 
-#: src/home/pam_systemd_home.c:392
+#: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Sekureca ĵetono de uzanto %s ne enŝovita."
 
-#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
 msgid "Try again with password: "
 msgstr "Provu denove kun pasvorto: "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:396
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -220,26 +220,26 @@ msgstr ""
 "Pasvorto malĝusta aŭ ne sufiĉa, kaj la agordita sekureca ĵetono de uzanto %s "
 "ne enŝovita."
 
-#: src/home/pam_systemd_home.c:415
+#: src/home/pam_systemd_home.c:416
 msgid "Security token PIN: "
 msgstr "PIN de sekureca ĵetono: "
 
-#: src/home/pam_systemd_home.c:432
+#: src/home/pam_systemd_home.c:433
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Bonvolu fizike aŭtentikiĝi sur la sekureca ĵetono de uzanto %s."
 
-#: src/home/pam_systemd_home.c:443
+#: src/home/pam_systemd_home.c:444
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Bonvolu konfirmi ĉeeston sur la sekureca ĵetono de uzanto %s."
 
-#: src/home/pam_systemd_home.c:454
+#: src/home/pam_systemd_home.c:455
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Bonvolu konfirmi uzanton sur la sekureca ĵetono de uzanto %s."
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:464
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -247,78 +247,78 @@ msgstr ""
 "La PIN de la sekureca ĵetono estas ŝlosita, bonvolu malŝlosi ĝin unue. "
 "(Sugesto: Elpreno kaj reenŝovo povas sufiĉi.)"
 
-#: src/home/pam_systemd_home.c:471
+#: src/home/pam_systemd_home.c:472
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "PIN de sekureca ĵetono malĝusta por uzanto %s."
 
-#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
-#: src/home/pam_systemd_home.c:510
+#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
+#: src/home/pam_systemd_home.c:511
 msgid "Sorry, retry security token PIN: "
 msgstr "Pardonu, provu denove la PIN de la sekureca ĵetono: "
 
-#: src/home/pam_systemd_home.c:490
+#: src/home/pam_systemd_home.c:491
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "PIN de sekureca ĵetono de uzanto %s malĝusta (nur malmultaj provoj restas!)"
 
-#: src/home/pam_systemd_home.c:509
+#: src/home/pam_systemd_home.c:510
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "PIN de sekureca ĵetono de uzanto %s malĝusta (nur unu provo restas!)"
 
-#: src/home/pam_systemd_home.c:676
+#: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "La hejmo de uzanto %s estas nuntempe ne aktiva, bonvolu unue ensaluti loke."
 
-#: src/home/pam_systemd_home.c:678
+#: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "La hejmo de uzanto %s estas nuntempe ŝlosita, bonvolu unue malŝlosi loke."
 
-#: src/home/pam_systemd_home.c:712
+#: src/home/pam_systemd_home.c:713
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Tro multaj malsukcesaj ensalutaj provoj por uzanto %s, rifuzante."
 
-#: src/home/pam_systemd_home.c:1021
+#: src/home/pam_systemd_home.c:1015
 msgid "User record is blocked, prohibiting access."
 msgstr "Uzanta rekordo estas blokita, malpermesante aliron."
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1019
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Uzanta rekordo ankoraŭ ne estas valida, malpermesante aliron."
 
-#: src/home/pam_systemd_home.c:1029
+#: src/home/pam_systemd_home.c:1023
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Uzanta rekordo ne plu estas valida, malpermesante aliron."
 
-#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
+#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
 msgid "User record not valid, prohibiting access."
 msgstr "Uzanta rekordo ne valida, malpermesante aliron."
 
-#: src/home/pam_systemd_home.c:1044
+#: src/home/pam_systemd_home.c:1038
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Tro multaj ensalutoj, provu denove post %s."
 
-#: src/home/pam_systemd_home.c:1055
+#: src/home/pam_systemd_home.c:1049
 msgid "Password change required."
 msgstr "Pasvorta ŝanĝo estas postulata."
 
-#: src/home/pam_systemd_home.c:1059
+#: src/home/pam_systemd_home.c:1053
 msgid "Password expired, change required."
 msgstr "Pasvorto eksvalidiĝis, ŝanĝo estas postulata."
 
-#: src/home/pam_systemd_home.c:1065
+#: src/home/pam_systemd_home.c:1059
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Pasvorto eksvalidiĝis, sed ne eblas ŝanĝi, rifuzante ensalutadon."
 
-#: src/home/pam_systemd_home.c:1069
+#: src/home/pam_systemd_home.c:1063
 msgid "Password will expire soon, please change."
 msgstr "Pasvorto baldaŭ eksvalidiĝos, bonvolu ŝanĝi."
 
@@ -423,7 +423,8 @@ msgstr "Agordi sistemajn klavarajn agordojn"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr "Aŭtentikigo estas postulata por agordi la sistemajn klavarajn agordojn."
+msgstr ""
+"Aŭtentikigo estas postulata por agordi la sistemajn klavarajn agordojn."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
@@ -432,7 +433,8 @@ msgstr "Permesi al aplikaĵoj malhelpi sistemmalŝaltadon"
 #: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
-msgstr "Aŭtentikigo estas postulata por ke aplikaĵo malhelpu sistemmalŝaltadon."
+msgstr ""
+"Aŭtentikigo estas postulata por ke aplikaĵo malhelpu sistemmalŝaltadon."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
@@ -1106,7 +1108,8 @@ msgstr "Forigi aŭ modifi porteblan servobildon"
 #: src/portable/org.freedesktop.portable1.policy:35
 msgid ""
 "Authentication is required to delete or modify a portable service image."
-msgstr "Aŭtentikigo estas postulata por forigi aŭ modifi porteblan servobildon."
+msgstr ""
+"Aŭtentikigo estas postulata por forigi aŭ modifi porteblan servobildon."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
@@ -1260,7 +1263,8 @@ msgstr "Forigi malnovajn sistemajn ĝisdatigojn"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
-msgstr "Aŭtentikigo estas postulata por forigi malnovajn sistemajn ĝisdatigojn."
+msgstr ""
+"Aŭtentikigo estas postulata por forigi malnovajn sistemajn ĝisdatigojn."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
@@ -1336,7 +1340,7 @@ msgstr "Aŭtentikigo estas postulata por reŝargi '$(unit)'."
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Aŭtentikigo estas postulata por restartigi '$(unit)'."
 
-#: src/core/dbus-unit.c:568
+#: src/core/dbus-unit.c:594
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
@@ -1344,7 +1348,7 @@ msgstr ""
 "Aŭtentikigo estas postulata por sendi UNIKSAN signalon al la procezoj de '$"
 "(unit)'."
 
-#: src/core/dbus-unit.c:621
+#: src/core/dbus-unit.c:647
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1352,17 +1356,17 @@ msgstr ""
 "Aŭtentikigo estas postulata por sendi UNIKSAN signalon al la procezoj de "
 "subgrupo de '$(unit)'."
 
-#: src/core/dbus-unit.c:649
+#: src/core/dbus-unit.c:675
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Aŭtentikigo estas postulata por restarigi la \"malsukcesa\" staton de '$"
 "(unit)'."
 
-#: src/core/dbus-unit.c:679
+#: src/core/dbus-unit.c:705
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Aŭtentikigo estas postulata por agordi atributojn de '$(unit)'."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:802
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
@@ -1370,28 +1374,27 @@ msgstr ""
 "Aŭtentikigo estas postulata por forigi dosierojn kaj dosierujojn asociitajn "
 "kun '$(unit)'."
 
-#: src/core/dbus-unit.c:813
+#: src/core/dbus-unit.c:839
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
 "Aŭtentikigo estas postulata por frostigi aŭ degeli la procezojn de unuo '$"
 "(unit)'."
 
-#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
+#: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
 msgid "Please confirm presence on security token to unlock."
 msgstr "Bonvolu konfirmi ĉeeston sur la sekureca ĵetono por malŝlosi."
 
-#: src/shared/libfido2-util.c:516
+#: src/shared/libfido2-util.c:510
 msgid "Please verify user on security token to unlock."
 msgstr "Bonvolu konfirmi uzanton sur la sekureca ĵetono por malŝlosi."
 
-#: src/shared/libfido2-util.c:936
+#: src/shared/libfido2-util.c:944
 #, fuzzy, c-format
-#| msgid "Please enter security token PIN:"
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
 msgstr "Bonvolu enigi la PIN de la sekureca ĵetono:"
 
-#: src/shared/libfido2-util.c:948
+#: src/shared/libfido2-util.c:955
 msgid "Please enter security token PIN:"
 msgstr "Bonvolu enigi la PIN de la sekureca ĵetono:"

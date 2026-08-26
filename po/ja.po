@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-20 16:42+0900\n"
+"POT-Creation-Date: 2026-08-26 10:57+0100\n"
 "PO-Revision-Date: 2026-08-02 00:10+0000\n"
 "Last-Translator: Takuro Onoue <kusanaginoturugi@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
@@ -168,7 +168,8 @@ msgstr "パスワード： "
 #: src/home/pam_systemd_home.c:347
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr "ユーザー %s のパスワードが正しくないか、パスワードだけでは認証できません。"
+msgstr ""
+"ユーザー %s のパスワードが正しくないか、パスワードだけでは認証できません。"
 
 #: src/home/pam_systemd_home.c:348
 msgid "Sorry, try again: "
@@ -312,7 +313,8 @@ msgstr "パスワードの有効期限が切れたため、パスワードの更
 
 #: src/home/pam_systemd_home.c:1059
 msgid "Password is expired, but can't change, refusing login."
-msgstr "パスワードの有効期限が切れましたが、更新できないため、ログインを拒否します。"
+msgstr ""
+"パスワードの有効期限が切れましたが、更新できないため、ログインを拒否します。"
 
 #: src/home/pam_systemd_home.c:1063
 msgid "Password will expire soon, please change."
@@ -424,7 +426,8 @@ msgstr "アプリケーションがシステムのシャットダウンを阻害
 #: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
-msgstr "アプリケーションがシステムのシャットダウンを阻害するには認証が必要です。"
+msgstr ""
+"アプリケーションがシステムのシャットダウンを阻害するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
@@ -432,7 +435,8 @@ msgstr "アプリケーションがシステムのシャットダウンを遅延
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr "アプリケーションがシステムのシャットダウンを遅延させるには認証が必要です。"
+msgstr ""
+"アプリケーションがシステムのシャットダウンを遅延させるには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -458,7 +462,8 @@ msgstr "アプリケーションがシステムの自動的なサスペンドを
 msgid ""
 "Authentication is required for an application to inhibit automatic system "
 "suspend."
-msgstr "アプリケーションがシステムの自動的なサスペンドを阻害するには認証が必要です。"
+msgstr ""
+"アプリケーションがシステムの自動的なサスペンドを阻害するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
@@ -478,7 +483,8 @@ msgstr "アプリケーションがサスペンドキーによる動作を阻害
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
-msgstr "アプリケーションがサスペンドキーによる動作を阻害するには認証が必要です。"
+msgstr ""
+"アプリケーションがサスペンドキーによる動作を阻害するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
@@ -488,7 +494,8 @@ msgstr "アプリケーションがハイバネートキーによる動作を阻
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
-msgstr "アプリケーションがハイバネートキーによる動作を阻害するには認証が必要です。"
+msgstr ""
+"アプリケーションがハイバネートキーによる動作を阻害するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
@@ -516,7 +523,8 @@ msgstr "ログインしていないユーザーがプログラムを実行する
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr "ログインしていないユーザーがプログラムを実行するには明示的な要求が必要です。"
+msgstr ""
+"ログインしていないユーザーがプログラムを実行するには明示的な要求が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -558,7 +566,8 @@ msgstr "他のユーザーがログインしている状態でシステムの電
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
-msgstr "他のユーザーがログインしている状態でシステムの電源を切るには認証が必要です。"
+msgstr ""
+"他のユーザーがログインしている状態でシステムの電源を切るには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
@@ -569,8 +578,8 @@ msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
 msgstr ""
-"アプリケーションが使用されている状態でシステムの電源を切るには認証が必要です"
-"。"
+"アプリケーションが使用されている状態でシステムの電源を切るには認証が必要で"
+"す。"
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -588,7 +597,8 @@ msgstr "他のユーザーがログインしている状態でシステムを再
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
-msgstr "他のユーザーがログインしている状態でシステムを再起動するには認証が必要です。"
+msgstr ""
+"他のユーザーがログインしている状態でシステムを再起動するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
@@ -599,8 +609,8 @@ msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
 msgstr ""
-"アプリケーションが使用されている状態でシステムを再起動するには認証が必要です"
-"。"
+"アプリケーションが使用されている状態でシステムを再起動するには認証が必要で"
+"す。"
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -618,7 +628,8 @@ msgstr "他のユーザーがログインしている状態でシステムを停
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
-msgstr "他のユーザーがログインしている状態でシステムを停止するには認証が必要です。"
+msgstr ""
+"他のユーザーがログインしている状態でシステムを停止するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
@@ -628,7 +639,8 @@ msgstr "アプリケーションが使用されている状態でシステムを
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
-msgstr "アプリケーションが使用されている状態でシステムを停止するには認証が必要です。"
+msgstr ""
+"アプリケーションが使用されている状態でシステムを停止するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -738,7 +750,8 @@ msgstr "ブートローダーにメニューを起動するための項目を表
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
-msgstr "ブートローダーにメニューを起動するための項目を表示させるには認証が必要です。"
+msgstr ""
+"ブートローダーにメニューを起動するための項目を表示させるには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
@@ -860,8 +873,8 @@ msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
-"ローカルに存在する仮想マシンやコンテナのイメージを管理するには認証が必要です"
-"。"
+"ローカルに存在する仮想マシンやコンテナのイメージを管理するには認証が必要で"
+"す。"
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
@@ -872,8 +885,8 @@ msgid ""
 "Authentication is required to inspect local virtual machine and container "
 "images."
 msgstr ""
-"ローカルに存在する仮想マシンやコンテナのイメージを精査するには認証が必要です"
-"。"
+"ローカルに存在する仮想マシンやコンテナのイメージを精査するには認証が必要で"
+"す。"
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1185,7 +1198,8 @@ msgstr "特定のシステムバージョンをインストール"
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "特定のシステムバージョン（古い場合もあります）へ更新するには認証が必要です。"
+msgstr ""
+"特定のシステムバージョン（古い場合もあります）へ更新するには認証が必要です。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
@@ -1247,7 +1261,8 @@ msgstr "ハードウェア時刻をローカルタイムゾーンまたはUTCに
 msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
-msgstr "ハードウェア時刻をローカルタイムゾーンまたはUTCに設定するには認証が必要です。"
+msgstr ""
+"ハードウェア時刻をローカルタイムゾーンまたはUTCに設定するには認証が必要です。"
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
@@ -1285,7 +1300,8 @@ msgstr "'$(unit)'のプロセスにUNIXシグナルを送るには認証が必�
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "'$(unit)'のサブグループ内のプロセスにUNIXシグナルを送るには認証が必要です。"
+msgstr ""
+"'$(unit)'のサブグループ内のプロセスにUNIXシグナルを送るには認証が必要です。"
 
 #: src/core/dbus-unit.c:675
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -1299,7 +1315,8 @@ msgstr "'$(unit)'のプロパティを設定するには認証が必要です。
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
-msgstr "'$(unit)'に関連付けられたファイルやディレクトリの削除には認証が必要です。"
+msgstr ""
+"'$(unit)'に関連付けられたファイルやディレクトリの削除には認証が必要です。"
 
 #: src/core/dbus-unit.c:839
 msgid ""
