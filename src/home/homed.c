@@ -13,6 +13,17 @@
 #include "log.h"
 #include "main-func.h"
 #include "service-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-homed\0",
+        "Create, remove, change or inspect home areas.",
+        .man_pages = "systemd-homed.service.8\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0",
+);
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -25,9 +36,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = service_parse_argv("systemd-homed.service",
-                               "A service to create, remove, change or inspect home areas.",
-                               BUS_IMPLEMENTATIONS(&manager_object,
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
                                /* runtime_scope= */ NULL,
                                argc, argv);

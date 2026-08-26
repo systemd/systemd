@@ -3138,9 +3138,8 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
 VERB_FULL(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, /* dat= */ 0u, /* help= */ NULL);
 static int verb_help(int argc, char **argv, uintptr_t data, void *userdata) {
-        return command_print_help_full(
-                        arg_image_class == IMAGE_SYSEXT ? "systemd-sysext" : "systemd-confext",
-                        /* footer_ansi_seq= */ NULL);
+        return command_print_help_name(
+                        arg_image_class == IMAGE_SYSEXT ? "systemd-sysext" : "systemd-confext");
 }
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
@@ -3156,9 +3155,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help_full(
-                                        arg_image_class == IMAGE_SYSEXT ? "systemd-sysext" : "systemd-confext",
-                                        /* footer_ansi_seq= */ NULL);
+                        return verb_help(argc, argv, /* data= */ 0u, /* userdata= */ NULL);
 
                 OPTION_COMMON_VERSION:
                         return version();

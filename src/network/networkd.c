@@ -19,6 +19,17 @@
 #include "service-util.h"
 #include "strv.h"
 #include "user-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-networkd\0",
+        "Manage and configure network devices, create virtual network devices.",
+        .man_pages = "systemd-networkd.service.8\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0",
+);
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -31,9 +42,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = service_parse_argv("systemd-networkd.service",
-                               "Manage and configure network devices, create virtual network devices",
-                               BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
                                /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
