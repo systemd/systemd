@@ -14,8 +14,8 @@ Before=systemd-sysupdate-update.service
 
 [Service]
 Type=oneshot
-ExecStart=systemd-sysupdate enable-component --component-suggested
-ExecStart=systemd-sysupdate enable-feature --component-all --feature-suggested
+ExecStart={{LIBEXECDIR}}/systemd-sysupdate enable-component --component-suggested
+ExecStart={{LIBEXECDIR}}/systemd-sysupdate enable-feature --component-all --feature-suggested
 
 [Install]
 WantedBy=systemd-sysupdate-update.service
