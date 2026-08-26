@@ -679,6 +679,7 @@ def main() -> None:
         '--runtime-network=none',
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
         *args.mkosi_args,
+        *shlex.split(os.getenv('TEST_MKOSI_ARGS', '')),
         '--firmware', firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
         '--tpm', 'yes' if args.tpm else 'no',
