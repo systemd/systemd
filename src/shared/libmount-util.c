@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
+
 #include "libmount-util.h"
 #include "log.h"
 
@@ -7,6 +9,8 @@
 
 #include <stdio.h>
 
+#include "env-util.h"
+#include "errno-util.h"
 #include "fstab-util.h"
 #include "mountpoint-util.h"
 
@@ -41,6 +45,15 @@ DLSYM_PROTOTYPE(mnt_table_parse_mtab) = NULL;
 DLSYM_PROTOTYPE(mnt_table_parse_stream) = NULL;
 DLSYM_PROTOTYPE(mnt_table_parse_swaps) = NULL;
 DLSYM_PROTOTYPE(mnt_unref_monitor) = NULL;
+
+/* Since util-linux 2.41 */
+DLSYM_PROTOTYPE(mnt_fs_get_uniq_id) = NULL;
+DLSYM_PROTOTYPE(mnt_new_statmnt) = NULL;
+DLSYM_PROTOTYPE(mnt_statmnt_set_mask) = NULL;
+DLSYM_PROTOTYPE(mnt_table_fetch_listmount) = NULL;
+DLSYM_PROTOTYPE(mnt_table_listmount_set_id) = NULL;
+DLSYM_PROTOTYPE(mnt_table_refer_statmnt) = NULL;
+DLSYM_PROTOTYPE(mnt_unref_statmnt) = NULL;
 
 int libmount_parse_full(
                 const char *path,
@@ -90,6 +103,103 @@ int libmount_parse_fstab(
         struct libmnt_iter **ret_iter) {
 
         return libmount_parse_full(fstab_path(), NULL, MNT_ITER_FORWARD, ret_table, ret_iter);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_statmnt*, sym_mnt_unref_statmnt, mnt_unref_statmntp, NULL);
+
+int libmount_parse_kernel(
+                uint64_t mask,
+                int direction,
+                struct libmnt_table **ret_table,
+                struct libmnt_iter **ret_iter) {
+
+        /* Latched once we learn this process can never get a kernel-built table, because the
+         * kernel has no listmount()/statmount() or the runtime libmount is too old to use them.
+         * Neither can change while we are running, so later calls skip the dlopen and the probe
+         * syscall too. */
+        static bool unsupported = false;
+
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_(mnt_unref_statmntp) struct libmnt_statmnt *sm = NULL;
+        int r;
+
+        assert(mask != 0);
+        assert(IN_SET(direction, MNT_ITER_FORWARD, MNT_ITER_BACKWARD));
+        assert(ret_table);
+        assert(ret_iter);
+
+        if (unsupported)
+                return -EOPNOTSUPP;
+
+        /* An opt-out for tests and debugging: $SYSTEMD_LISTMOUNT=0 sends every caller down its
+         * mountinfo fallback, as on a kernel without listmount(). Read on each call rather than
+         * latched, so one process can exercise both backends. */
+        r = secure_getenv_bool("SYSTEMD_LISTMOUNT");
+        if (r == 0)
+                return -EOPNOTSUPP;
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_LISTMOUNT, ignoring: %m");
+
+        r = dlopen_libmount(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        /* Older libmount: no statmount() support to speak of. All six are checked before any is
+         * used, including the unref we only reach through the cleanup handler below. */
+        if (!sym_mnt_new_statmnt || !sym_mnt_unref_statmnt || !sym_mnt_statmnt_set_mask ||
+            !sym_mnt_table_refer_statmnt || !sym_mnt_table_listmount_set_id ||
+            !sym_mnt_table_fetch_listmount) {
+                unsupported = true;
+                return -EOPNOTSUPP;
+        }
+
+        /* libmount probes the syscall inside mnt_new_statmnt() and returns NULL with ENOSYS when
+         * the kernel cannot do it, which is a fall-back-to-mountinfo answer rather than an
+         * error. */
+        errno = 0;
+        sm = sym_mnt_new_statmnt();
+        if (!sm) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                        unsupported = true;
+                        return -EOPNOTSUPP;
+                }
+
+                return errno_or_else(ENOMEM);
+        }
+
+        table = sym_mnt_new_table();
+        iter = sym_mnt_new_iter(direction);
+        if (!table || !iter)
+                return -ENOMEM;
+
+        /* Propagation info is what makes reading /proc/self/mountinfo expensive: the kernel
+         * walks each mount's peer group to compute it. When those bits are absent from the
+         * mask, the kernel skips that walk. Callers pass only the fields they use. */
+        r = sym_mnt_statmnt_set_mask(sm, mask);
+        if (r < 0)
+                return r;
+
+        r = sym_mnt_table_refer_statmnt(table, sm);
+        if (r < 0)
+                return r;
+
+        r = sym_mnt_table_listmount_set_id(table, LSMT_ROOT);
+        if (r >= 0)
+                r = sym_mnt_table_fetch_listmount(table);
+        if (r < 0) {
+                /* libmount reports "this kernel cannot do it" as ENOSYS, which the caller must not
+                 * tell apart from an older libmount: both mean use /proc/self/mountinfo instead. */
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return r;
+
+                unsupported = true;
+                return -EOPNOTSUPP;
+        }
+
+        *ret_table = TAKE_PTR(table);
+        *ret_iter = TAKE_PTR(iter);
+        return 0;
 }
 
 int libmount_is_leaf(
@@ -145,10 +255,11 @@ int libmount_fs_id_matches_path(struct libmnt_fs *fs, const char *path) {
 int dlopen_libmount(int log_level) {
 #if HAVE_LIBMOUNT
         static void *libmount_dl = NULL;
+        int r;
 
         LIBMOUNT_NOTE(suggested);
 
-        return dlopen_many_sym_or_warn(
+        r = dlopen_many_sym_or_warn(
                         &libmount_dl,
                         "libmount.so.1",
                         log_level,
@@ -183,6 +294,24 @@ int dlopen_libmount(int log_level) {
                         DLSYM_ARG(mnt_table_parse_stream),
                         DLSYM_ARG(mnt_table_parse_swaps),
                         DLSYM_ARG(mnt_unref_monitor));
+        if (r < 0)
+                return r;
+
+        /* Available since util-linux 2.41; libmount_parse_kernel() checks for them and returns
+         * -EOPNOTSUPP when an older libmount left them NULL, and its callers then parse mountinfo
+         * instead. Resolved on every call on
+         * purpose: it is idempotent, and it guarantees the pointers are in place by the time any
+         * call returns, rather than only after the call that happened to load the library
+         * finishes. */
+        DLSYM_OPTIONAL(libmount_dl, mnt_fs_get_uniq_id);
+        DLSYM_OPTIONAL(libmount_dl, mnt_new_statmnt);
+        DLSYM_OPTIONAL(libmount_dl, mnt_statmnt_set_mask);
+        DLSYM_OPTIONAL(libmount_dl, mnt_table_fetch_listmount);
+        DLSYM_OPTIONAL(libmount_dl, mnt_table_listmount_set_id);
+        DLSYM_OPTIONAL(libmount_dl, mnt_table_refer_statmnt);
+        DLSYM_OPTIONAL(libmount_dl, mnt_unref_statmnt);
+
+        return r;
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libmount support is not compiled in.");
