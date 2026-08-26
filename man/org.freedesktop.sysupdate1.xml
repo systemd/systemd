@@ -20,6 +20,8 @@
     <refpurpose>The D-Bus interface of systemd-sysupdated</refpurpose>
   </refnamediv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Introduction</title>
 
