@@ -90,6 +90,35 @@ testcase_transient_symlink() {
     diff "$root/persist/etc/machine-id" "$root/run/machine-id"
 }
 
+testcase_force() {
+    local root old id
+
+    root="$(mktemp -d)"
+    trap "root_cleanup $root" RETURN
+    root_mock "$root"
+
+    # A valid ID gets replaced, and so does the "uninitialized" marker
+    old="$(systemd-machine-id-setup --print --root "$root")"
+    id="$(systemd-machine-id-setup --print --force --root "$root")"
+    [[ "$id" != "$old" ]]
+    diff <(echo "$id") "$root/etc/machine-id"
+
+    echo uninitialized >"$root/etc/machine-id"
+    id="$(systemd-machine-id-setup --print --force --root "$root")"
+    [[ "$id" != "uninitialized" ]]
+
+    # Refuse a read-only tree instead of falling back to a transient ID
+    mount -o remount,ro "$root"
+    mount -t tmpfs tmpfs "$root/run"
+    (! systemd-machine-id-setup --force --root "$root")
+    umount "$root/run"
+    mount -o remount,rw "$root"
+
+    # Offline images only
+    (! systemd-machine-id-setup --force)
+    (! systemd-machine-id-setup --force --commit --root "$root")
+}
+
 # Check if we correctly processed the invalid machine ID we set up in the respective
 # test.sh file
 systemctl --state=failed --no-legend --no-pager | tee /failed

@@ -196,6 +196,20 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                 }
         }
 
+        if (FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_NEW)) {
+                /* Don't look at the ID in place, and don't go through acquire_machine_id() either: on a
+                 * clone every source it consults would just hand back the ID we are replacing. */
+
+                if (!writable)
+                        return log_error_errno(SYNTHETIC_ERRNO(EROFS), "%s is not writable.", etc_machine_id);
+
+                r = sd_id128_randomize(&machine_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate randomized machine ID: %m");
+
+                log_info("Generating new machine ID from random generator.");
+        }
+
         /* A we got a valid machine ID argument, that's what counts */
         if (sd_id128_is_null(machine_id) || FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE)) {
 
