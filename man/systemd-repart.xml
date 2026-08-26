@@ -97,12 +97,14 @@
       <listitem><para>Partitions that shall be created are now allocated on the disk, taking the size
       constraints and weights declared in the configuration files into account. Free space is used within the
       limits set by size and padding requests. In addition, existing partitions that should be grown are
-      grown. New partitions are always appended to the end of the partition table, taking the first partition
-      table slot whose index is greater than the indexes of all existing partitions. Partitions are never
-      reordered and thus partition numbers remain stable. When partitions are created, they are placed in the
-      smallest area of free space that is large enough to satisfy the size and padding limits. This means
-      that partitions might have different order on disk than in the partition table. Note that this
-      allocation happens in memory only, the partition table on disk is not updated yet.</para></listitem>
+      grown. Newly created partitions are not assigned partition table slots before existing partitions of
+      the same type, so that the assignment of existing partitions to configuration files, which is done by
+      type and partition number order, is not changed again on subsequent invocations. If no unused slot is
+      available after the existing partitions of a type, the first unused slot is used as before. Partitions
+      are never reordered and thus partition numbers remain stable. When partitions are created, they are
+      placed in the smallest area of free space that is large enough to satisfy the size and padding limits.
+      This means that partitions might have different order on disk than in the partition table. Note that
+      this allocation happens in memory only, the partition table on disk is not updated yet.</para></listitem>
 
       <listitem><para>All existing partitions for which configuration files exist and which currently have no
       GPT partition label set will be assigned a label, either explicitly configured in the configuration or
