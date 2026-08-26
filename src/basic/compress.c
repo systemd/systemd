@@ -1700,10 +1700,6 @@ static int decompress_stream_write_callback(const void *data, size_t size, void 
 }
 
 static int decompressor_new(Decompressor **ret, Compression type) {
-#if HAVE_ZLIB || HAVE_BZIP2
-        int r;
-#endif
-
         assert(ret);
 
         _cleanup_(compressor_freep) Decompressor *c = new0(Decompressor, 1);
@@ -1743,16 +1739,14 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_ZLIB
         case COMPRESSION_GZIP:
-                r = sym_inflateInit2_(&c->gzip, /* windowBits= */ ZLIB_WBITS_GZIP, ZLIB_VERSION, (int) sizeof(c->gzip));
-                if (r != Z_OK)
+                if (sym_inflateInit2_(&c->gzip, /* windowBits= */ ZLIB_WBITS_GZIP, ZLIB_VERSION, (int) sizeof(c->gzip)) != Z_OK)
                         return -EIO;
                 break;
 #endif
 
 #if HAVE_BZIP2
         case COMPRESSION_BZIP2:
-                r = sym_BZ2_bzDecompressInit(&c->bzip2, /* verbosity= */ 0, /* small= */ 0);
-                if (r != BZ_OK)
+                if (sym_BZ2_bzDecompressInit(&c->bzip2, /* verbosity= */ 0, /* small= */ 0) != BZ_OK)
                         return -EIO;
                 break;
 #endif
