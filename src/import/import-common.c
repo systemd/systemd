@@ -32,7 +32,14 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         assert(tree_fd >= 0);
         assert(ret_pid);
 
+#if HAVE_ACL
+        /* On an Ubuntu CI environment that runs the dlopen test suite, libacl support is disabled. The test
+         * runner, test-dlopen-note.py, does not check HAVE_FOO, but only whether dlopen_foo() is called.
+         * Hence, it incorrectly concludes that libacl is used without the corresponding dlopen note being
+         * set. Let's add an ifdef here. */
         (void) dlopen_libacl(LOG_DEBUG);
+#endif
+
         r = dlopen_libarchive(LOG_DEBUG);
         if (r < 0)
                 return r;
