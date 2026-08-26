@@ -1,8 +1,8 @@
 #
 #	List of PCI IDs
 #
-#	Version: 2026.08.10
-#	Date:    2026-08-10 03:15:02
+#	Version: 2026.08.26
+#	Date:    2026-08-26 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -1035,6 +1035,17 @@
 		1028 200d  HBA355e Adapter Tampered
 # Tampered part
 		1028 200e  HBA350i MX Tampered
+	00f0  Fusion-MPT SAS/SATA SAS52xx
+		1000 5100  eHBA 9705-32i SAS/SATA Storage Adapter
+		1000 5101  eHBA 9705-16i SAS/SATA Storage Adapter
+		1000 5102  eHBA 9705-16e SAS/SATA Storage Adapter
+		1000 5103  eHBA 9705-48i SAS/SATA Storage Adapter
+	00f1  Fusion-MPT SAS/SATA SAS52xx
+		1000 5100  eHBA 9705-32i SAS/SATA Storage Adapter
+		1000 5101  eHBA 9705-16i SAS/SATA Storage Adapter
+		1000 5102  eHBA 9705-16e SAS/SATA Storage Adapter
+		1000 5103  eHBA 9705-48i SAS/SATA Storage Adapter
+	00f2  Fusion-MPT Switch SAS52xx
 	02b0  Virtual Endpoint on PCIe Switch
 		1d49 0001  ThinkSystem 1610-4P NVMe Switch Adapter
 		1d49 0002  ThinkSystem 810-4P NVMe Switch Adapter
@@ -4172,7 +4183,7 @@
 		148c 2427  RX 7800 XT [Hellhound / Red Devil]
 	7480  Navi 33 [Radeon RX 7600/7600 XT/7600M XT/7600S/7700S / PRO W7600]
 		1849 5313  RX 7600 Challenger OC
-	7481  Navi 33 [Radeon Graphics]
+	7481  Navi 33 [Steam Machine]
 	7483  Navi 33 [Radeon RX 7600M/7600M XT]
 	7487  Navi 33 [Radeon Graphics]
 	7489  Navi 33 [Radeon Pro W7500]
@@ -5777,6 +5788,8 @@
 	43f5  600 Series Chipset PCIe Switch Downstream Port
 	43f6  600 Series Chipset SATA Controller
 	43f7  600 Series Chipset USB 3.2 Controller
+	43f9  B665 Series Chipset USB 3.1 Controller
+	43fa  A620 Series Chipset USB 3.1 Controller
 	43fc  800 Series Chipset USB 3.x XHCI Controller
 	43fd  800 Series Chipset USB 3.x XHCI Controller
 	57a3  Matisse PCIe GPP Bridge
@@ -7408,12 +7421,12 @@
 	9108  Salina USB xHCI Host Controller
 	9121  Nextorage NEM-PA NVMe SSD for PlayStation
 104e  Oak Technology, Inc
-	0017  OTI-64017
+	0017  OTI-64017 [Eon]
 	0107  OTI-107 [Spitfire]
 	0109  Video Adapter
 	0111  OTI-64111 [Spitfire]
-	0217  OTI-64217
-	0317  OTI-64317
+	0217  OTI-64217 [Eon]
+	0317  OTI-64317 [Warp 5]
 104f  Co-time Computer Ltd
 1050  Winbond Electronics Corp
 	0000  NE2000
@@ -8015,6 +8028,7 @@
 		1077 02eb  QLE2782 Dual Port 32GFC PCIe Gen4 x8 Adapter with StorCryption
 		1077 02ef  QLE2880 Single Port 64GFC PCIe Gen4 x8 Adapter with StorCryption
 		1077 02f1  QLE2780 Single Port 32GFC PCIe Gen4 x8 Adapter with StorCryption
+	2299  SC2962I 128/64G Fibre Channel to PCIe Controller
 	2300  QLA2300 64-bit Fibre Channel Adapter
 	2312  ISP2312-based 2Gb Fibre Channel to PCI-X HBA
 		103c 0131  2Gb Fibre Channel - Single port [A7538A]
@@ -13939,6 +13953,7 @@
 		1028 06dc  Latitude E7470
 		1028 06e4  XPS 15 9550
 		1028 06e6  Latitude 11 5175 2-in-1
+		1028 0704  XPS 13 9350
 		1028 09be  Latitude 7410
 		1028 0b10  Precision 3571
 		1028 0c06  Precision 3580
@@ -17933,7 +17948,10 @@
 	2269  SM2269XT (DRAM-less) NVMe SSD Controller
 	2504  SM2504XT NVMe 2.0 SSD Controller (DRAM-less)
 	2508  SM2508 NVMe 2.0 SSD Controller
+# ADATA mSD
+	2708  SM2708 x2 NVMe SD Express SSD Controller (DRAM-less)
 	8366  SM8366 NVMe SSD Controller [MonTitan]
+	8388  SM8388 NVMe SSD Controller [MonTitan]
 1270  Olympus Optical Co., Ltd.
 1271  GW Instruments
 1272  Telematics International
@@ -22124,6 +22142,7 @@
 	43a1  BCM4360 802.11ac 2,4G Wireless Network Adapter
 	43a2  BCM4360 802.11ac 5G Wireless Network Adapter
 	43a3  BCM4350 802.11ac Wireless Network Adapter
+		1028 0021  Wireless 1820
 # Manufactured by Foxconn for Lenovo
 		17aa 075a  00JT494
 	43a9  BCM43217 802.11b/g/n
@@ -27116,6 +27135,7 @@
 1cb5  Focusrite Audio Engineering Ltd
 	0002  Clarett
 1cb8  Dawning Information Industry Co., Ltd.
+1cbd  novachips
 1cc1  ADATA Technology Co., Ltd.
 	1202  IM2P32A8 NVMe SSD (DRAM-less)
 	1602  LEGEND 900 NVMe SSD (DRAM-less)
@@ -27158,6 +27178,7 @@
 	641a  LEGEND 970 PRO NVMe SSD
 	642a  XPG GAMMIX S50 CORE NVMe SSD (DRAM-less)
 	646a  XPG MARS 980 BLADE NVMe SSD
+	647a  XPG MARS 980 PRO NVMe SSD
 	648a  LEGEND 860 NVMe SSD (DRAM-less)
 	64ba  LEGEND 900 PRO NVMe SSD
 	8201  XPG SX8200 Pro PCIe Gen3x4 M.2 2280 Solid State Drive
@@ -27738,7 +27759,7 @@
 	2267  NVMe PCIe SSD 220S/240S/MTE710T
 	2268  NVMe PCIe SSD 245S (DRAM-less)
 	2269  NVMe PCIe SSD 410S (DRAM-less)
-	2708  USD710S microSDXC EX SD7.1 Express (DRAM-less)
+	2708  USD710S microSDXC EX SD Express 7.1 (DRAM-less)
 	5766  NVMe PCIe SSD 110Q (DRAM-less)
 1d7c  Aerotech, Inc.
 # Fiber-optic HyperWire motion control bus from Aerotech.
@@ -28233,6 +28254,7 @@
 	2262  HP EX950 NVMe SSD
 	2263  HP EX900 NVMe SSD (DRAM-less)
 	2500  XCG 2500 Enterprise Gen 4 SSD
+	2682  AP923P Gen4 NVME SSD (DRAM-less)
 	4121  PCIe 4.0 SP406/416 NVMe SSD
 		1dee 0000  NVMe SSD SP416 800G 2.5" U.2
 		1dee 0001  NVMe SSD SP416 1.6T 2.5" U.2
@@ -28254,7 +28276,23 @@
 		1dee 0014  NVMe SSD SP506 15.36T 2.5" U.2
 	5216  KingSpec NX series NVMe SSD (DRAM-less)
 	5236  Acer Predator GM7000 NVMe SSD
-	7700  BIWIN NVMe SSD SP50Y/SP51Y
+	7700  BIWIN NVMe SSD SP5 series
+		1dee 0001  NVMe SSD SP51Y 3.2TB 2.5"U.2
+		1dee 0002  NVMe SSD SP51Y 6.4TB 2.5"U.2
+		1dee 0003  NVMe SSD SP51Y 12.8TB 2.5"U.2
+		1dee 0011  NVMe SSD SP50Y 3.84TB 2.5"U.2
+		1dee 0012  NVMe SSD SP50Y 7.68TB 2.5"U.2
+		1dee 0013  NVMe SSD SP50Y 15.36B 2.5"U.2
+		1dee 0101  NVMe SSD SP518 3.2TB 2.5"U.2
+		1dee 0102  NVMe SSD SP518 6.4TB 2.5"U.2
+		1dee 0103  NVMe SSD SP518 12.8TB 2.5"U.2
+		1dee 0111  NVMe SSD SP508 3.84TB 2.5"U.2
+		1dee 0112  NVMe SSD SP508 7.68TB 2.5"U.2
+		1dee 0113  NVMe SSD SP508 15.36B 2.5"U.2
+		1dee 0201  NVMe SSD SP5000 30.72TB 2.5"U.2
+		1dee 0202  NVMe SSD SP5000 61.44TB 2.5"U.2
+		1dee 1201  NVMe SSD SP5001 30.72TB 2.5"U.2
+		1dee 1202  NVMe SSD SP5001 61.44TB 2.5"U.2
 1def  Ampere Computing, LLC
 	e005  eMAG PCI Express Root Port 0
 	e006  eMAG PCI Express Root Port 1
@@ -29594,12 +29632,16 @@
 	3413  M18000 Family Virtual Function
 	3502  M18305 Family
 		1f0f 0001  S2055AS, 2x 25GbE, SFP28, PCIe 4.0 x8
-		1f0f 0002  S2025XS, 2x 10GbE, SFP+, PCIe 4.0 x8
+		1f0f 0002  S2025XS, 2x 10GbE, SFP+, PCIe 3.0 x8
+		1f0f 0003  S2045XS,  4x 10GbE, SFP+, PCIe 4.0 x8
 	3504  M18305 Family BASE-T
-		1f0f 0001  S2025XT, 2x 10GbE, Base-T, PCIe 4.0 x8
+		1f0f 0001  S2025XT, 2x 10GbE, Base-T, PCIe 3.0 x8
 		1f0f 0002  S2025XT, 2x 10GbE, BASE-T, PCIe 4.0 x4, Fan
 		1f0f 0003  S2045XT, 4x 10GbE, Base-T, PCIe 4.0 x8
 		1f0f 0004  S2045XT, 4x 10GbE, BASE-T, PCIe 4.0 x8, Fan
+	3506  M18305 Family OCP
+		1f0f 0001  S2055AS, 2x 25GbE, SFP28, PCIe 4.0 x8, OCP 3.0 
+		1f0f 0002  S2025AS, 2x 10GbE, SFP+, PCIe 3.0 x8, OCP 3.0 
 	350a  M18305 Family Virtual Function
 		1f0f 0001  M18305 Family Virtual Function
 	9088  D1055AS PCI Express Switch Downstream Port
@@ -29724,7 +29766,7 @@
 	1003  K2-Pro Family [FLEXFLOW-2200T MGMT Function]
 	1004  K2-Pro Family [FLEXFLOW-2200T DATA Offload Engine]
 	1005  CONFLUX-2200P NVMe Controller
-	1011  K3-T Family
+	1011  K3 Family
 		1dcf 0363  K3_F2_10G_PCIE 2*10GE Ethernet Adapter
 		1f47 0001  F31TX2S 2*10GE Ethernet Adapter
 		1f47 0002  F31TX4S 4*10GE Ethernet Adapter
@@ -29736,8 +29778,8 @@
 		1f47 0008  FLEXFLOW-3100T 4*10GE Ethernet Adapter
 		1f47 0009  F31TA2K 2*25GE Ethernet Adapter
 		1f47 000a  FLEXFLOW-3100T 4*25GE Ethernet Adapter
-	1012  K3-T Family [Virtual Function]
-	1013  K3-T Family [MGMT Function]
+	1012  K3 Family [Virtual Function]
+	1013  K3 Family [MGMT Function]
 	1105  CONFLUX-2200P NVMe Controller [Virtual Function]
 # Network Accelerating Card
 	2018  DPU Card
@@ -29908,6 +29950,11 @@
 	610a  TE4406 Series NVMe PCIe Gen4x4 SSD
 	610b  XE4406 Series NVMe PCIe Gen4x4 SSD
 	610c  TE3410 Series NVMe PCIe Gen3x4 SSD
+	610d  TE4403 Series NVMe PCIe Gen4x4 SSD
+	610e  TE5440 Series NVMe PCIe Gen5x4 SSD
+	610f  TE5441 Series NVMe PCIe Gen5x4 SSD
+	6110  TE5480 Series NVMe PCIe Gen5x4 SSD
+	6111  TE5481 Series NVMe PCIe Gen5x4 SSD
 1f9d  Axelera AI
 	0001  Europa AIPU
 	1100  Metis AIPU (rev 02)
@@ -30347,6 +30394,8 @@
 207d  HRDT
 	0610  2-port SATA 6 Gb/s RAID Controller
 		207d 0801  TrustRAID B260s 2-port SATA RAID Adapter
+	0611  JZ9234 SATA RAID Controller
+		207d 0803  B261s SATA RAID Adapter
 	0612  SATA BootRAID Controller
 208a  MICIUS Laboratory
 2090  Rivian Automotive
@@ -30471,6 +30520,9 @@
 	6600  NX6600U0 NVME SSD
 	7500  NX7500U0 NVME SSD
 	7600  NX7600U0 NVME SSD
+214d  Equalizer Technologies
+	0001  Xeetah Base Firmware
+	0002  Xeetah Development Platform
 21b4  Hunan Goke Microelectronics Co., Ltd
 21c3  21st Century Computer Corp.
 22b8  Flex-Logix Technologies
@@ -33996,12 +34048,14 @@
 		1028 06dc  Latitude E7470
 		1028 06e4  XPS 15 9550
 		1028 06e6  Latitude 11 5175 2-in-1
+		1028 0704  XPS 13 9350
 		1028 09be  Latitude 7410
 		103c 825b  OMEN-17-w001nv
 		17aa 225d  ThinkPad T480
 	1904  Xeon E3-1200 v5/E3-1500 v5/6th Gen Core Processor Host Bridge/DRAM Registers
 		1028 06dc  Latitude E7470
 		1028 06f3  Latitude 3570
+		1028 0704  XPS 13 9350
 		103c 8079  EliteBook 840 G3
 		17aa 2247  ThinkPad T570
 		17aa 382a  B51-80 Laptop
@@ -34047,6 +34101,7 @@
 	1921  HD Graphics 520
 	1923  HD Graphics 535
 	1926  Skylake-U GT3 [Iris Graphics 540]
+		1028 0704  XPS 13 9350
 	1927  Skylake-U GT3 [Iris Graphics 550]
 	192b  Iris Graphics 555
 	192d  Skylake-H GT3 [Iris Graphics P555]
@@ -36462,6 +36517,7 @@
 		e4bf cc47  CCG-RUMBA
 	282a  SATA Controller (RAID 0/1/5/10) In-box Compatible ID (Mobile RST)
 		1028 040b  Latitude E6510
+		1028 0704  XPS 13 9350
 		e4bf 50c1  PC1-GROOVE
 	282b  C740 Series (Emmitsburg) Chipsets SATA2 Controller (RAID) Alternate ID
 	282f  tSATA Controller [RAID Mode]
@@ -40363,20 +40419,25 @@
 		1028 06dc  Latitude E7470
 		1028 06e6  Latitude 11 5175 2-in-1
 		1028 06f3  Latitude 3570
+		1028 0704  XPS 13 9350
 		103c 8079  EliteBook 840 G3
 		17aa 225d  ThinkPad T480
 		17aa 382a  B51-80 Laptop
 	9d10  Sunrise Point-LP PCI Express Root Port #1
+		1028 0704  XPS 13 9350
 	9d11  Sunrise Point-LP PCI Express Root Port #2
 	9d12  Sunrise Point-LP PCI Express Root Port #3
 	9d13  Sunrise Point-LP PCI Express Root Port #4
 	9d14  Sunrise Point-LP PCI Express Root Port #5
+		1028 0704  XPS 13 9350
 		17aa 382a  B51-80 Laptop
 	9d15  Sunrise Point-LP PCI Express Root Port #6
+		1028 0704  XPS 13 9350
 		17aa 382a  B51-80 Laptop
 	9d16  Sunrise Point-LP PCI Express Root Port #7
 	9d17  Sunrise Point-LP PCI Express Root Port #8
 	9d18  Sunrise Point-LP PCI Express Root Port #9
+		1028 0704  XPS 13 9350
 		17aa 2247  ThinkPad T570
 		17aa 382a  B51-80 Laptop
 	9d19  Sunrise Point-LP PCI Express Root Port #10
@@ -40387,6 +40448,7 @@
 		1028 06dc  Latitude E7470
 		1028 06e6  Latitude 11 5175 2-in-1
 		1028 06f3  Latitude 3570
+		1028 0704  XPS 13 9350
 		103c 8079  EliteBook 840 G3
 		17aa 2247  ThinkPad T570
 		17aa 224f  ThinkPad X1 Carbon 5th Gen
@@ -40398,6 +40460,7 @@
 		1028 06dc  Latitude E7470
 		1028 06e6  Latitude 11 5175 2-in-1
 		1028 06f3  Latitude 3570
+		1028 0704  XPS 13 9350
 		103c 8079  EliteBook 840 G3
 		17aa 2247  ThinkPad T570
 		17aa 224f  ThinkPad X1 Carbon 5th Gen
@@ -40414,6 +40477,7 @@
 		1028 06dc  Latitude E7470
 		1028 06e6  Latitude 11 5175 2-in-1
 		1028 06f3  Latitude 3570
+		1028 0704  XPS 13 9350
 		103c 8079  EliteBook 840 G3
 		17aa 2247  ThinkPad T570
 		17aa 225d  ThinkPad T480
@@ -40424,6 +40488,7 @@
 		1028 06dc  Latitude E7470
 		1028 06e6  Latitude 11 5175 2-in-1
 		1028 06f3  Latitude 3570
+		1028 0704  XPS 13 9350
 		103c 8079  EliteBook 840 G3
 		17aa 2247  ThinkPad T570
 		17aa 224f  ThinkPad X1 Carbon 5th Gen
@@ -40441,6 +40506,7 @@
 		1028 06dc  Latitude E7470
 		1028 06e6  Latitude 11 5175 2-in-1
 		1028 06f3  Latitude 3570
+		1028 0704  XPS 13 9350
 		103c 8079  EliteBook 840 G3
 		17aa 2247  ThinkPad T570
 		17aa 224f  ThinkPad X1 Carbon 5th Gen
@@ -40458,6 +40524,7 @@
 	9d48  Sunrise Point-LP LPC Controller
 		1028 06dc  Latitude E7470
 		1028 06f3  Latitude 3570
+		1028 0704  XPS 13 9350
 		103c 8079  EliteBook 840 G3
 		17aa 2247  ThinkPad T570
 	9d4e  Sunrise Point LPC/eSPI Controller
@@ -40473,12 +40540,14 @@
 		1028 06d6  Latitude 7275 tablet
 		1028 06e6  Latitude 11 5175 2-in-1
 		1028 06f3  Latitude 3570
+		1028 0704  XPS 13 9350
 		103c 8079  EliteBook 840 G3
 		17aa 225d  ThinkPad T480
 		8086 9d60  100 Series PCH/Sunrise Point PCH I2C0 [Skylake/Kaby Lake LPSS I2C]
 	9d61  Sunrise Point-LP Serial IO I2C Controller #1
 		1028 06d6  Latitude 7275 tablet
 		1028 06e6  Latitude 11 5175 2-in-1
+		1028 0704  XPS 13 9350
 	9d62  Sunrise Point-LP Serial IO I2C Controller #2
 		1028 06d6  Latitude 7275 tablet
 		1028 06e6  Latitude 11 5175 2-in-1
@@ -40491,6 +40560,7 @@
 		1028 06dc  Latitude E7470
 		1028 06e6  Latitude 11 5175 2-in-1
 		1028 06f3  Latitude 3570
+		1028 0704  XPS 13 9350
 		103c 8079  EliteBook 840 G3
 		17aa 2247  ThinkPad T570
 		17aa 382a  B51-80 Laptop
@@ -41632,6 +41702,8 @@
 		4c52 1049  LRES1049PT Dual-port 1Gb Ethernet Network Adapter
 		4c52 3043  LRES3043PT Dual-port 1Gb Ethernet Server Adapter for OCP
 	8500  Ethernet Controller N20 Series for 25GbE
+		4c52 1470  LRES1470PF Dual-Port 25G Ethernet Network Adapter
+		4c52 2502  GQM2502E Dual-Port 25G Ethernet Network Adapter
 		8848 0800  Ethernet Network Adapter N20 for 25GbE SFP28
 		8848 8800  Ethernet Network Adapter N20 for RDMA 25GbE SFP28 2-port
 		8848 c800  Ethernet Network Adapter N20 for RDMA 25GbE SFP28 2-port OCP 3.0
