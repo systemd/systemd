@@ -175,13 +175,14 @@ static int verb_add_help_one(Table *table, const Verb *verb) {
         assert(table);
         assert(verb);
 
-        bool is_default = FLAGS_SET(verb->flags, VERB_DEFAULT);
         _cleanup_free_ char *cell = NULL;
         int r;
 
         /* The synopsis cell contains one line per entry in the argspec nulstr. An unset argspec is
          * equivalent to a single empty specification. */
         for (const char *spec = empty_to_null(verb->argspec);;) {
+                bool is_default = FLAGS_SET(verb->flags, VERB_DEFAULT);
+
                 /* We indent the option string by two spaces. We could set the minimum cell width and
                  * right-align for a similar result, but that'd be more work. This is only used for
                  * display. */
@@ -190,7 +191,8 @@ static int verb_add_help_one(Table *table, const Verb *verb) {
                                                  verb->verb,
                                                  spec ? " " : "",
                                                  strempty(spec),
-                                                 is_default ? "]" : "");
+                                                 is_default ? "]" : "",
+                                                 FLAGS_SET(verb->flags, VERB_OPTION_REQUIRED) ? " OPTION" : "");
                 if (!s)
                         return log_oom();
 
@@ -588,12 +590,16 @@ int _command_print_verb_help(
         if (cmd->pager_flags)
                 pager_open(*cmd->pager_flags);
 
+        const char *optionspec =
+                FLAGS_SET(verb->flags, VERB_OPTION_REQUIRED) ?
+                        " OPTION…" : verb->option_namespace ? " [OPTION…]" : "";
+
         /* If argspec is empty, print one line with no argspec. Use " " as placeholder for the empty spec. */
         NULSTR_FOREACH(spec, verb->argspec ?: " \0") {
                 bool some = !streq(spec, " ");
                 _cleanup_free_ char *line = strjoin(
                                 "[OPTION…] ", verb->verb,
-                                verb->option_namespace ? " [OPTION…]" : "",
+                                optionspec,
                                 some ? " " : NULL,
                                 some ? spec : NULL);
                 if (!line)
