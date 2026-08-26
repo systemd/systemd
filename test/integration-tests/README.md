@@ -120,6 +120,15 @@ rerun the test.
 `TEST_NO_KVM=1`: Disable qemu KVM auto-detection (may be necessary when you're
 trying to run the *vanilla* qemu and have both qemu and qemu-kvm installed)
 
+`TEST_MKOSI_ARGS=options`: Extra options (split like a shell command line)
+passed to the `mkosi` invocation that launches the test image, without
+affecting the image build. For example,
+`TEST_MKOSI_ARGS="--format=directory --output-dir=build/mkosi.output.dir"`
+boots the test container from a directory format output (which has to be built
+beforehand, into a separate output directory), allowing boot mode tests to run
+in environments that can't dissect disk images, such as unprivileged
+containers, where loop devices and udev are not available.
+
 `TEST_MATCH_SUBTEST=subtest`:  If the test makes use of `run_subtests` use this
 variable to provide a POSIX extended regex to run only subtests matching the
 expression.

@@ -665,6 +665,13 @@ def main() -> None:
             '''
         )
 
+    # Extra mkosi options for this invocation only. Restricted to options so a verb or a
+    # bare '--' can't derail the command line assembled around them.
+    test_mkosi_args = shlex.split(os.getenv('TEST_MKOSI_ARGS', ''))
+    for arg in test_mkosi_args:
+        if arg == '--' or not arg.startswith('-'):
+            sys.exit(f'TEST_MKOSI_ARGS must contain only mkosi options, got: {arg}')
+
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.mkosi_dir),
@@ -708,6 +715,7 @@ def main() -> None:
         ),
         '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
+        *test_mkosi_args,
         'vm' if vm else 'boot',
         *(
             [
