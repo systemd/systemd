@@ -220,3 +220,80 @@ int keyring_find_by_name(const char *name, uid_t owner, key_serial_t *ret) {
         *ret = found;
         return 0;
 }
+
+int keyring_list(key_serial_t keyring, key_serial_t **ret, size_t *ret_n) {
+        _cleanup_free_ void *p = NULL;
+        size_t n;
+        int r;
+
+        /* The payload of a keyring is the array of its direct members' serials */
+
+        r = keyring_read(keyring, &p, &n);
+        if (r < 0)
+                return r;
+        if (n % sizeof(key_serial_t) != 0)
+                return -EBADMSG;
+
+        if (ret)
+                *ret = TAKE_PTR(p);
+        if (ret_n)
+                *ret_n = n / sizeof(key_serial_t);
+        return 0;
+}
+
+/* KEYCTL_DESCRIBE needs only View permission, hence this works after the owner dropped SetAttr */
+int keyring_describe_full(key_serial_t serial, uint32_t *ret_perm, char **ret_description) {
+        _cleanup_free_ char *d = NULL, *type = NULL, *uid = NULL, *gid = NULL, *perm = NULL;
+        const char *p;
+        int r;
+
+        r = keyring_describe(serial, &d);
+        if (r < 0)
+                return r;
+
+        /* "type;uid;gid;perm;description" */
+        p = d;
+        r = extract_many_words(&p, ";", EXTRACT_RETAIN_ESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS,
+                               &type, &uid, &gid, &perm);
+        if (r < 0)
+                return r;
+        if (r < 4)
+                return -EBADMSG;
+
+        if (ret_perm) {
+                r = safe_atou32_full(perm, 16, ret_perm);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_description) {
+                r = strdup_to(ret_description, p);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int keyring_add_asymmetric(
+                key_serial_t keyring,
+                const char *description,
+                const struct iovec *der,
+                key_serial_t *ret) {
+
+        key_serial_t serial;
+
+        assert(der);
+        assert(der->iov_base || der->iov_len == 0);
+
+        /* With an empty description the kernel derives one from the certificate's subject and key
+         * identifier */
+
+        serial = add_key("asymmetric", strempty(description), der->iov_base, der->iov_len, keyring);
+        if (serial < 0)
+                return -errno;
+
+        if (ret)
+                *ret = serial;
+        return 0;
+}
