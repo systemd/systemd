@@ -74,6 +74,10 @@
     transient machined ID to disk, making it persistent. For details,
     see below.</para>
 
+    <para>The <option>--force</option> switch may be used to assign a completely new identity to a system
+    that already carries a valid machine ID, for example after cloning a disk image. For details, see
+    below.</para>
+
     <para>Use
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     to initialize the machine ID on mounted (but not booted) system
@@ -134,6 +138,40 @@
         early boot service.</para>
 
         <xi:include href="version-info.xml" xpointer="v227"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+        <listitem><para>Generate a new machine ID even if
+        <filename>/etc/machine-id</filename> already contains a valid one, replacing it. This is useful to
+        give a fresh identity to a system that was installed by cloning a disk image or a virtual machine,
+        where all clones would otherwise share the machine ID baked into the image.</para>
+
+        <para>Contrary to the regular operation described above, the new ID is always generated from the
+        random pool: none of the other sources are consulted, since on a cloned system they typically still
+        carry the very ID that is supposed to be replaced.</para>
+
+        <para>Since this switch is about assigning a <emphasis>persistent</emphasis> identity, it refuses to
+        operate if <filename>/etc/machine-id</filename> cannot be written to, rather than falling back to a
+        transient machine ID the way the regular operation does.</para>
+
+        <para>If <filename>/etc/machine-id</filename> contains the string <literal>uninitialized</literal> it
+        is left alone, even with this switch: that state carries no identity that could have been duplicated
+        by cloning, and doubles as the first boot marker, see
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Use
+        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        with its <option>--machine-id=</option> switch to provision an ID in that case.</para>
+
+        <para>Note that this only updates <filename>/etc/machine-id</filename>. Programs that already
+        obtained the machine ID — including the service manager itself — keep using the old one, hence the
+        system should be rebooted for the new ID to take effect. Also note that changing the machine ID
+        discards or invalidates state keyed by it, some of it irreversibly; see the "Cloned Systems" section
+        of <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        the full list, and review it before using this switch.</para>
+
+        <para>This switch may not be combined with <option>--commit</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
