@@ -49,15 +49,6 @@ CHANGES WITH 263 in spe:
         * For unprivileged clients, systemd-mountfsd shares Verity devices only
           between mounts of the same backing image file.
 
-        * dm-verity signatures of disk images are now only required if the
-          image policy allows "signed" but not "verity" for the partition,
-          such as RootImagePolicy=root=signed or the built-in policies for
-          untrusted images, for example in systemd-mountfsd. With the other
-          default policies, an image whose signature is missing, malformed or
-          can't be validated is set up with Verity alone. A signature is
-          valid if the kernel or a certificate in /etc/verity.d/ validates
-          it.
-
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
