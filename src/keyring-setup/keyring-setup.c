@@ -142,6 +142,40 @@ static void keyring_done(Keyring *k) {
         free(k->keys);
 }
 
+/* As the VOA specification requires, usage of each certificate is checked against its purpose. An artifact
+ * verifier whose extended key usage permits neither code signing nor any usage is not enrolled. A trust
+ * anchor that is not a CA certificate is merely warned about. A self-signed leaf certificate doubling as
+ * its own anchor is common. */
+static int check_usage(const char *path, X509 *x, VoaMode mode) {
+        uint32_t flags;
+
+        assert(path);
+        assert(x);
+
+        flags = sym_X509_get_extension_flags(x);
+        if (FLAGS_SET(flags, EXFLAG_INVALID))
+                return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
+                                         "'%s' carries an invalid X.509 extension, ignoring.", path);
+
+        if (mode == VOA_MODE_ARTIFACT_VERIFIER) {
+                if (FLAGS_SET(flags, EXFLAG_XKUSAGE) &&
+                    !(sym_X509_get_extended_key_usage(x) & (XKU_CODE_SIGN|XKU_ANYEKU)))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
+                                                 "'%s' is not a code signing certificate, ignoring.", path);
+                if (FLAGS_SET(flags, EXFLAG_KUSAGE) && !(sym_X509_get_key_usage(x) & KU_DIGITAL_SIGNATURE))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
+                                                 "'%s' does not permit digital signatures, ignoring.", path);
+        } else {
+                /* A trust anchor that is explicitly not a CA is common enough to only warn about */
+                if ((FLAGS_SET(flags, EXFLAG_BCONS) && !FLAGS_SET(flags, EXFLAG_CA)) ||
+                    (FLAGS_SET(flags, EXFLAG_KUSAGE) && !(sym_X509_get_key_usage(x) & KU_KEY_CERT_SIGN)))
+                        log_warning("'%s' is not a CA certificate, but placed among the trust anchors.",
+                                    path);
+        }
+
+        return 0;
+}
+
 /* The kernel describes a certificate as "<subject>: <hex>", with the subject key identifier or, lacking one,
  * the serial number as hex */
 static int certificate_key_id(X509 *x, char **ret) {
@@ -183,14 +217,14 @@ static int certificate_key_id(X509 *x, char **ret) {
         return 0;
 }
 
-static int load_certificate(Keyring *k, const ConfFile *f) {
+static int load_certificate(Keyring *k, const ConfFile *f, VoaMode mode) {
         _cleanup_(X509_freep) X509 *x = NULL;
         _cleanup_(iovec_done) struct iovec der = {};
         bool more = false;
         _cleanup_free_ char *text = NULL;
         const char *path;
         size_t size;
-        int r, n;
+        int n, r;
 
         assert(k);
         assert(f);
@@ -216,19 +250,19 @@ static int load_certificate(Keyring *k, const ConfFile *f) {
                                 "per file, CA certificates below trust-anchor-%s/.",
                                 path, k->spec->role);
 
-        /* The kernel takes DER */
-        n = sym_i2d_X509(x, NULL);
+        r = check_usage(path, x, mode);
+        if (r < 0)
+                return r;
+
+        _cleanup_(OPENSSL_freep) void *encoded = NULL;
+        n = sym_i2d_X509(x, (unsigned char**) &encoded);
         if (n <= 0)
                 return log_openssl_errors(LOG_WARNING, "Failed to encode '%s', ignoring", path);
 
-        der.iov_base = malloc(n);
+        der.iov_base = memdup(encoded, n);
         if (!der.iov_base)
                 return log_oom();
         der.iov_len = n;
-
-        unsigned char *p = der.iov_base;
-        if (sym_i2d_X509(x, &p) != n)
-                return log_openssl_errors(LOG_WARNING, "Failed to encode '%s', ignoring", path);
 
         /* Every copy of a verifier counts, but the same certificate is enrolled once */
         FOREACH_ARRAY(c, k->certificates, k->n_certificates)
@@ -286,7 +320,7 @@ static int collect_certificates(Keyring *k, int root_fd, char **os) {
                                                k->spec->name);
 
                 FOREACH_ARRAY(f, files, n_files) {
-                        r = load_certificate(k, *f);
+                        r = load_certificate(k, *f, mode);
                         if (r == -ENOMEM)
                                 return r;
                         if (r < 0)
