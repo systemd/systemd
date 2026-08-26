@@ -1,5 +1,12 @@
 systemd System and Service Manager
 
+CHANGES WITH 263 in spe:
+
+        Changes in systemd-logind:
+
+        * systemd-inhibit --mode=delay now defaults to --what=sleep:shutdown,
+          since logind does not accept delay locks for any other operation.
+
 CHANGES WITH 262 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
