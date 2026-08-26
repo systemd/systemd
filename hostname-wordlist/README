@@ -6,7 +6,7 @@ These files provide the word lists for the "$" wildcard understood by
 template is replaced by a word from the list file named "n", i.e. the first "$"
 uses the file "1", the second "2", and so on. A template such as:
 
-    $-$-$-???? ->  wildly-happy-octopus-92a9
+    $-$-$-???? ->  sunny-red-europa-92a9
 
 is expanded deterministically from the machine ID, so a given machine always
 gets the same name.
@@ -14,9 +14,9 @@ gets the same name.
 The numbered files are shipped as symlinks to the semantic lists, so the same
 words back both names:
 
-    1 -> adverbs
-    2 -> adjectives
-    3 -> nouns
+    1 -> weather
+    2 -> colors
+    3 -> worlds
 
 This keeps the lookup flexible (a deployment can add a "4", "5", … or repoint
 the symlinks) while the actual word lists keep meaningful names.
@@ -55,7 +55,13 @@ own length or that of its neighbours.
 Origin
 ------
 
-These are the "small" word lists taken from the petname project
-(https://github.com/dustinkirkland/petname), distributed under the Apache
-License 2.0. Distributions are encouraged to ship larger lists (petname also
-provides "medium" and "large") for a bigger name space.
+Compiled for systemd from common vocabulary and standardized names rather than
+imported from an existing word list.
+
+    weather  Everyday English weather adjectives
+    colors   Basic English color names
+    worlds   The planets, dwarf planets and classical moons of the solar system
+
+The lists are deliberately short: they are picked for being easy to recognize,
+read out over the phone and type from memory, while the '?' wildcards carry the
+entropy.
