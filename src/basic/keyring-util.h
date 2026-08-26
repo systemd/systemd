@@ -27,3 +27,12 @@ int proc_keys_entry_parse(const char *line, ProcKeysEntry *ret);
 bool proc_keys_entry_is_keyring(const ProcKeysEntry *e, const char *name);
 
 int keyring_find_by_name(const char *name, key_serial_t *ret);
+
+int keyring_list(key_serial_t keyring, key_serial_t **ret, size_t *ret_n);
+int keyring_count(key_serial_t keyring, size_t *ret);
+int keyring_perm(key_serial_t serial, uint32_t *ret);
+int keyring_description(key_serial_t serial, char **ret);
+
+int keyring_add_asymmetric(key_serial_t keyring, const char *description, const void *der, size_t size, key_serial_t *ret);
+int keyring_restrict(key_serial_t keyring, const char *type, const char *restriction);
+int keyring_set_perm(key_serial_t serial, uint32_t perm);

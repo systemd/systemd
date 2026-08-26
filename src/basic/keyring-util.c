@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -197,4 +198,113 @@ int keyring_find_by_name(const char *name, key_serial_t *ret) {
 
         *ret = found;
         return 0;
+}
+
+int keyring_list(key_serial_t keyring, key_serial_t **ret, size_t *ret_n) {
+        _cleanup_free_ void *p = NULL;
+        size_t n;
+        int r;
+
+        assert(ret);
+        assert(ret_n);
+
+        /* The payload of a keyring is the array of its direct members' serials */
+
+        r = keyring_read(keyring, &p, &n);
+        if (r < 0)
+                return r;
+        if (n % sizeof(key_serial_t) != 0)
+                return -EBADMSG;
+
+        *ret = TAKE_PTR(p);
+        *ret_n = n / sizeof(key_serial_t);
+        return 0;
+}
+
+int keyring_count(key_serial_t keyring, size_t *ret) {
+        _cleanup_free_ key_serial_t *l = NULL;
+        size_t n;
+        int r;
+
+        assert(ret);
+
+        r = keyring_list(keyring, &l, &n);
+        if (r < 0)
+                return r;
+
+        *ret = n;
+        return 0;
+}
+
+/* KEYCTL_DESCRIBE needs only View permission, hence this works after the owner dropped SetAttr */
+static int keyring_describe_parse(key_serial_t serial, uint32_t *ret_perm, char **ret_description) {
+        _cleanup_free_ char *d = NULL, *type = NULL, *uid = NULL, *gid = NULL, *perm = NULL;
+        const char *p;
+        int r;
+
+        r = keyring_describe(serial, &d);
+        if (r < 0)
+                return r;
+
+        /* "type;uid;gid;perm;description" */
+        p = d;
+        r = extract_many_words(&p, ";", EXTRACT_RETAIN_ESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS,
+                               &type, &uid, &gid, &perm);
+        if (r < 0)
+                return r;
+        if (r < 4)
+                return -EBADMSG;
+
+        if (ret_perm) {
+                r = safe_atou32_full(perm, 16, ret_perm);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_description) {
+                r = strdup_to(ret_description, p);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int keyring_perm(key_serial_t serial, uint32_t *ret) {
+        assert(ret);
+
+        return keyring_describe_parse(serial, ret, /* ret_description= */ NULL);
+}
+
+int keyring_description(key_serial_t serial, char **ret) {
+        assert(ret);
+
+        return keyring_describe_parse(serial, /* ret_perm= */ NULL, ret);
+}
+
+int keyring_add_asymmetric(key_serial_t keyring, const char *description, const void *der, size_t size, key_serial_t *ret) {
+        key_serial_t serial;
+
+        assert(der || size == 0);
+
+        /* With an empty description the kernel derives one from the certificate's subject and key identifier */
+
+        serial = add_key("asymmetric", strempty(description), der, size, keyring);
+        if (serial < 0)
+                return -errno;
+
+        if (ret)
+                *ret = serial;
+        return 0;
+}
+
+int keyring_restrict(key_serial_t keyring, const char *type, const char *restriction) {
+
+        /* Without a type the kernel installs a restriction that rejects every further link */
+
+        return RET_NERRNO(keyctl(KEYCTL_RESTRICT_KEYRING, keyring, (unsigned long) type, (unsigned long) restriction, 0));
+}
+
+int keyring_set_perm(key_serial_t serial, uint32_t perm) {
+        return RET_NERRNO(keyctl(KEYCTL_SETPERM, serial, perm, 0, 0));
 }
