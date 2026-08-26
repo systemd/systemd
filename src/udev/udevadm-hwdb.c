@@ -1,40 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
+#include "sd-json.h"
 
-#include "format-table.h"
-#include "help-util.h"
 #include "hwdb-util.h"
 #include "log.h"
 #include "options.h"
 #include "udevadm.h"
+#include "verbs.h"
 
 static const char *arg_test = NULL;
 static const char *arg_root = NULL;
 static const char *arg_hwdb_bin_dir = NULL;
 static bool arg_update = false;
 static bool arg_strict = false;
-
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevadm-hwdb", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("hwdb [OPTIONS]");
-        help_abstract("Update or query the hardware database.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nNOTE:\n"
-               "The sub-command 'hwdb' is deprecated, and is left for backwards compatibility.\n"
-               "Please use systemd-hwdb instead.\n");
-        return 0;
-}
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
@@ -48,7 +26,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("udevadm-hwdb"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_verb_help("hwdb");
 
                 OPTION('V', "version", NULL, "Show package version"):
                         return print_version();
@@ -74,6 +52,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION('r', "root", "PATH", "Alternative root path in the filesystem"):
                         arg_root = opts.arg;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         return 1;
