@@ -6,6 +6,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "iovec-util.h"
 #include "keyring-util.h"
 #include "log.h"
 #include "parse-util.h"
@@ -233,25 +234,14 @@ static int key_matches(key_serial_t serial, const char *name, uid_t owner) {
  *
  * Note that anybody may create a keyring with the same name so only only care about keyrings owned by the
  * specified user. UID_INVALID can be passed to match any. Returns -ENOKEY if there is none, -ENOTUNIQ if
- * there is more than one, -ERFKILL if /proc/keys is masked. */
-int keyring_find_by_name(const char *name, uid_t owner, key_serial_t *ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+ * there is more than one, -ERFKILL if /proc/keys is masked, -EBADMSG if not a single row could be parsed. */
+int keyring_find_by_name_from(FILE *f, const char *name, uid_t owner, key_serial_t *ret) {
         key_serial_t found = 0;
         size_t n_lines = 0, n_parsed = 0;
         int r;
 
+        assert(f);
         assert(name);
-
-        f = fopen("/proc/keys", "re");
-        if (!f)
-                return -errno;
-
-        /* Containers mask it with an empty regular file, which root can still read */
-        r = fd_is_fs_type(fileno(f), PROC_SUPER_MAGIC);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -ERFKILL;
 
         for (;;) {
                 _cleanup_(proc_keys_entry_done) ProcKeysEntry e = {};
@@ -304,5 +294,67 @@ int keyring_find_by_name(const char *name, uid_t owner, key_serial_t *ret) {
 
         if (ret)
                 *ret = found;
+        return 0;
+}
+
+int keyring_find_by_name(const char *name, uid_t owner, key_serial_t *ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(name);
+
+        f = fopen("/proc/keys", "re");
+        if (!f)
+                return -errno;
+
+        /* Containers mask it with an empty regular file, which root can still read */
+        r = fd_is_fs_type(fileno(f), PROC_SUPER_MAGIC);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ERFKILL;
+
+        return keyring_find_by_name_from(f, name, owner, ret);
+}
+
+/* KEYCTL_READ returns the serials of the keys linked into the keyring. Note that one entry per nested
+ * keyring is returned. IOW, if another keyring is linked to the keyring we're reading the serial of the
+ * keyring is returned. */
+int keyring_list(key_serial_t keyring, key_serial_t **ret, size_t *ret_n) {
+        _cleanup_free_ void *p = NULL;
+        size_t n;
+        int r;
+
+        r = keyring_read(keyring, &p, &n);
+        if (r < 0)
+                return r;
+        if (n % sizeof(key_serial_t) != 0)
+                return -EBADMSG;
+
+        if (ret)
+                *ret = TAKE_PTR(p);
+        if (ret_n)
+                *ret_n = n / sizeof(key_serial_t);
+        return 0;
+}
+
+int keyring_add_asymmetric(
+                key_serial_t keyring,
+                const char *description,
+                const struct iovec *der,
+                key_serial_t *ret) {
+
+        key_serial_t serial;
+
+        assert(iovec_is_set(der));
+
+        /* If the description is empty the kernel derives the description from the certificate's subject and
+         * key identifier */
+        serial = add_key("asymmetric", strempty(description), der->iov_base, der->iov_len, keyring);
+        if (serial < 0)
+                return -errno;
+
+        if (ret)
+                *ret = serial;
         return 0;
 }
