@@ -26,6 +26,8 @@
     <para><filename>/usr/lib/systemd/systemd-sysupdated</filename></para>
   </refsynopsisdiv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Description</title>
 
