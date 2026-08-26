@@ -192,6 +192,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--check-usage=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Whether to check the usage of each certificate against its purpose, as the
+        specification requires, since the kernel itself checks none: an artifact verifier whose extended
+        key usage permits neither code signing nor any usage is not enrolled, and a trust anchor that is
+        not a CA certificate is warned about. Defaults to yes, pass <literal>no</literal> to disable
+        it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--dry-run</option></term>
 
         <listitem><para>Show which certificates would be enrolled into which keyring, and the current state

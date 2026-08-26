@@ -53,6 +53,7 @@ static char **arg_os = NULL;
 static char **arg_contexts = NULL;
 static char **arg_keyrings = NULL;
 static SealMode arg_seal = SEAL_AUTO;
+static bool arg_check_usage = true;
 static bool arg_dry_run = false;
 static PagerFlags arg_pager_flags = 0;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
@@ -140,7 +141,33 @@ static const char* root_prefix(void) {
         return empty_or_root(arg_root) ? "" : arg_root;
 }
 
-static int load_certificate(Keyring *k, const ConfFile *f) {
+/* The specification requires the extended key usage of a verifier to match its purpose; the kernel
+ * checks no usage at all, hence a stray TLS certificate would become a valid signer. Returns
+ * -EKEYREJECTED for an artifact verifier of the wrong usage; trust anchors only get a warning, as a
+ * self-signed leaf certificate doubling as its own anchor is common. */
+static int check_usage(const char *path, X509 *x, VoaMode mode) {
+        uint32_t flags;
+
+        assert(path);
+        assert(x);
+
+        flags = sym_X509_get_extension_flags(x);
+
+        if (mode == VOA_MODE_ARTIFACT_VERIFIER) {
+                if (FLAGS_SET(flags, EXFLAG_XKUSAGE) &&
+                    !(sym_X509_get_extended_key_usage(x) & (XKU_CODE_SIGN|XKU_ANYEKU)))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
+                                                 "'%s%s' is not a code signing certificate, ignoring.",
+                                                 root_prefix(), path);
+        } else if ((FLAGS_SET(flags, EXFLAG_BCONS) && !FLAGS_SET(flags, EXFLAG_CA)) ||
+                   (FLAGS_SET(flags, EXFLAG_KUSAGE) && !(sym_X509_get_key_usage(x) & KU_KEY_CERT_SIGN)))
+                log_warning("'%s%s' is not a CA certificate, but placed among the trust anchors.",
+                            root_prefix(), path);
+
+        return 0;
+}
+
+static int load_certificate(Keyring *k, const ConfFile *f, VoaMode mode) {
         _cleanup_(X509_freep) X509 *x = NULL, *more = NULL;
         _cleanup_(BIO_freep) BIO *bio = NULL;
         _cleanup_(iovec_done) struct iovec der = {};
@@ -194,6 +221,12 @@ static int load_certificate(Keyring *k, const ConfFile *f) {
                 return log_openssl_errors(LOG_WARNING, "Failed to encode '%s%s', ignoring",
                                           root_prefix(), path);
 
+        if (arg_check_usage) {
+                r = check_usage(path, x, mode);
+                if (r < 0)
+                        return r;
+        }
+
         /* Every copy of a verifier counts, but the same certificate is enrolled once */
         FOREACH_ARRAY(c, k->certificates, k->n_certificates)
                 if (iovec_memcmp(&c->der, &der) == 0) {
@@ -245,7 +278,7 @@ static int collect_certificates(Keyring *k, int root_fd, char **os) {
                                                k->spec->name);
 
                 FOREACH_ARRAY(f, files, n_files) {
-                        r = load_certificate(k, *f);
+                        r = load_certificate(k, *f, mode);
                         if (r == -ENOMEM)
                                 return r;
                         if (r < 0)
@@ -702,6 +735,13 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_seal = seal_mode_from_string(opts.arg);
                         if (arg_seal < 0)
                                 return log_error_errno(arg_seal, "Invalid --seal= mode: '%s'", opts.arg);
+                        break;
+
+                OPTION_LONG("check-usage", "BOOL",
+                            "Check certificate usage against the VOA purpose (default: yes)"):
+                        r = parse_boolean_argument("--check-usage=", opts.arg, &arg_check_usage);
+                        if (r < 0)
+                                return r;
                         break;
 
                 OPTION_LONG("dry-run", NULL, "Only show what would be enrolled"):
