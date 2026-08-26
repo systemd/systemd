@@ -54,6 +54,7 @@ DLSYM_PROTOTYPE(ASN1_STRING_length) = NULL;
 DLSYM_PROTOTYPE(ASN1_STRING_new) = NULL;
 DLSYM_PROTOTYPE(ASN1_STRING_set) = NULL;
 DLSYM_PROTOTYPE(ASN1_STRING_set0) = NULL;
+DLSYM_PROTOTYPE(ASN1_STRING_type) = NULL;
 DLSYM_PROTOTYPE(ASN1_TIME_free) = NULL;
 DLSYM_PROTOTYPE(ASN1_TIME_set) = NULL;
 DLSYM_PROTOTYPE(ASN1_TYPE_new) = NULL;
@@ -295,8 +296,12 @@ DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_ip) = NULL;
 DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set_hostflags) = NULL;
 DLSYM_PROTOTYPE(X509_free) = NULL;
 DLSYM_PROTOTYPE(X509_get0_pubkey) = NULL;
-static DLSYM_PROTOTYPE(X509_get0_serialNumber) = NULL;
+DLSYM_PROTOTYPE(X509_get0_serialNumber) = NULL;
+DLSYM_PROTOTYPE(X509_get0_subject_key_id) = NULL;
+DLSYM_PROTOTYPE(X509_get_extended_key_usage) = NULL;
+DLSYM_PROTOTYPE(X509_get_extension_flags) = NULL;
 static DLSYM_PROTOTYPE(X509_get_issuer_name) = NULL;
+DLSYM_PROTOTYPE(X509_get_key_usage) = NULL;
 DLSYM_PROTOTYPE(X509_get_pubkey) = NULL;
 static DLSYM_PROTOTYPE(X509_get_signature_info) = NULL;
 DLSYM_PROTOTYPE(X509_get_subject_name) = NULL;
@@ -381,6 +386,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(ASN1_STRING_new),
                         DLSYM_ARG(ASN1_STRING_set),
                         DLSYM_ARG(ASN1_STRING_set0),
+                        DLSYM_ARG(ASN1_STRING_type),
                         DLSYM_ARG(ASN1_TIME_free),
                         DLSYM_ARG(ASN1_TIME_set),
                         DLSYM_ARG(ASN1_TYPE_new),
@@ -621,7 +627,11 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(X509_free),
                         DLSYM_ARG(X509_get0_pubkey),
                         DLSYM_ARG(X509_get0_serialNumber),
+                        DLSYM_ARG(X509_get0_subject_key_id),
+                        DLSYM_ARG(X509_get_extended_key_usage),
+                        DLSYM_ARG(X509_get_extension_flags),
                         DLSYM_ARG(X509_get_issuer_name),
+                        DLSYM_ARG(X509_get_key_usage),
                         DLSYM_ARG(X509_get_pubkey),
                         DLSYM_ARG(X509_get_signature_info),
                         DLSYM_ARG(X509_get_subject_name),
@@ -2599,6 +2609,43 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
                 return log_openssl_errors(LOG_DEBUG, "Unable to convert PEM certificate to DER format");
 
         sha256_direct(der, dersz, buffer);
+        return 0;
+}
+
+/* Parses the first CERTIFICATE block of a PEM blob, skipping anything before it, e.g. OpenSSL's "Bag
+ * Attributes". Tells via ret_more whether further certificates follow. */
+int openssl_load_x509_certificate_from_pem(const struct iovec *pem, X509 **ret, bool *ret_more) {
+        int r;
+
+        assert(pem);
+        assert(ret);
+
+        if (pem->iov_len == 0)
+                return -EBADMSG;
+        if (pem->iov_len > INT_MAX) /* BIO_new_mem_buf() takes an int */
+                return -E2BIG;
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        _cleanup_(BIO_freep) BIO *bio = sym_BIO_new_mem_buf(pem->iov_base, pem->iov_len);
+        if (!bio)
+                return -ENOMEM;
+
+        _cleanup_(X509_freep) X509 *x = sym_PEM_read_bio_X509(bio, /* x= */ NULL, /* cb= */ NULL,
+                                                              /* u= */ NULL);
+        if (!x)
+                return log_openssl_errors(LOG_DEBUG, "Failed to parse PEM certificate");
+
+        if (ret_more) {
+                _cleanup_(X509_freep) X509 *more = sym_PEM_read_bio_X509(bio, /* x= */ NULL, /* cb= */ NULL,
+                                                                         /* u= */ NULL);
+                *ret_more = !!more;
+                sym_ERR_clear_error();
+        }
+
+        *ret = TAKE_PTR(x);
         return 0;
 }
 
