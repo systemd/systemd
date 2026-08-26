@@ -52,6 +52,9 @@ The following exceptions apply:
    - src/basic/sparse-endian.h
    - tools/catalog-report.py
  * the following sources are licensed under the **CC0-1.0** license:
+   - hostname-wordlist/colors
+   - hostname-wordlist/weather
+   - hostname-wordlist/worlds
    - src/basic/siphash24.c
    - src/basic/siphash24.h
  * the following sources are licensed under the **MIT-0** license:
