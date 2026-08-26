@@ -154,7 +154,7 @@ CHANGES WITH 262:
           example: arm64.bti) to disambiguate mixed-architecture deployments.
 
         * Socket units' MessageQueueMessageSize= now accepts byte values with
-          the usual IEC suffixes (K, M, G, etc.).
+          the usual IEC prefixes (Ki, Mi, Gi, etc.).
 
         * Service units gained LUOSession= to have systemd create Live Update
           Orchestrator sessions and pass them through the file descriptor
