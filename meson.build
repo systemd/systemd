@@ -2712,7 +2712,6 @@ subdir('test')
 #####################################################################
 
 subdir('docs/var-log')
-subdir('hostname-wordlist')
 subdir('hwdb.d')
 subdir('man')
 subdir('modprobe.d')

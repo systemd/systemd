@@ -63,7 +63,8 @@
     <filename>/usr/local/lib/systemd/hostname-wordlist/</filename> and
     <filename>/usr/lib/systemd/hostname-wordlist/</filename> (the first directory providing a given list wins,
     lists are not merged); one word per line, with empty lines and lines starting with <literal>#</literal>
-    ignored.</para>
+    ignored. No word lists are installed by default: they must be provided by the distribution or the
+    administrator.</para>
 
     <para>The word for each token is derived deterministically from the machine ID and recomputed on every
     boot (the lists are not loaded wholesale: a word is chosen by hashing to a byte offset into the file).

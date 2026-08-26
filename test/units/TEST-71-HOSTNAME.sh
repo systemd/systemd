@@ -293,7 +293,7 @@ restore_wildcard_words() {
 
 testcase_wildcard_words() {
     # The n-th '$' token is substituted deterministically from the machine ID using the
-    # word list file named after its position (see hostname(5) and hostname-wordlist/README).
+    # word list file named after its position (see hostname(5)).
     SAVED=""
     [[ -f /etc/hostname ]] && SAVED="$(cat /etc/hostname)"
     [[ -d /etc/systemd/hostname-wordlist ]] && mv /etc/systemd/hostname-wordlist /tmp/hostname-wordlist.bak
