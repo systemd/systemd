@@ -3,6 +3,7 @@
 
 #include <sys/keyctl.h>         /* IWYU pragma: export */
 
+#include "errno-util.h"
 #include "forward.h"
 
 /* Like TAKE_PTR() but for key_serial_t, resetting them to -1 */
@@ -27,3 +28,62 @@ int proc_keys_entry_parse(const char *line, ProcKeysEntry *ret);
 bool proc_keys_entry_is_keyring(const ProcKeysEntry *e, const char *name);
 
 int keyring_find_by_name(const char *name, uid_t owner, key_serial_t *ret);
+
+int keyring_list(key_serial_t keyring, key_serial_t **ret, size_t *ret_n);
+
+int keyring_describe_full(key_serial_t serial, uint32_t *ret_perm, char **ret_description);
+static inline int keyring_perm(key_serial_t serial, uint32_t *ret) {
+        return keyring_describe_full(serial, ret, /* ret_description= */ NULL);
+}
+static inline int keyring_description(key_serial_t serial, char **ret) {
+        return keyring_describe_full(serial, /* ret_perm= */ NULL, ret);
+}
+
+int keyring_add_asymmetric(
+                key_serial_t keyring,
+                const char *description,
+                const struct iovec *der,
+                key_serial_t *ret);
+
+/* Both keyring_restrict() and keyring_set_perm() are complementary mechanisms to remove various ways to
+ * alter a keyring.
+ *
+ * A keyring with the kernel-default mask can still be emptied, revoked or invalidated by root. The
+ * permission mask can also still be changed.
+ *
+ * In order to meaningfully restrict a keyring both keyring_restrict() and keyring_set_perm() have to be
+ * combined and used in the right order. For keyrings such as .dm-verity and .bpf restricting the keyring
+ * activates them. By dropping the mask to KEY_POS_SEARCH|KEY_USR_VIEW removal and changing permissions are
+ * blocked.
+ *
+ * Because restrictions need SetAttr a keyring must be restricted first and then permission be removed. The
+ * other way around would make the keyring permanently unrestrictable. This can be seen as "keyring
+ * lockdown".
+ *
+ * Note that after keyring lockdown KEYCTL_RESTRICT_KEYRING fails with -EACCES rather than -EEXIST, add_key
+ * with -EACCES rather than -EPERM. The only thing that is left is the ability for the owner to search the
+ * keyrin. That ensures KEY_POS_SEARCH and thus signature verification is working. Leaving KEY_USR_VIEW keeps
+ * the keyring visible in /proc/keys and ensures that KEYCTL_DESCRIBE works. The latter is needed to figure
+ * out whether the keyring is locked down as the restriction state itself is invisible from userspace.
+ */
+
+/* To restrict a keyring SetAttr permissions are needed. If @type is NULL the kernel refuses every link with
+ * -EPERM. A keyring may only be restricted once. Another attempto to restrict it will fail with -EEXIST.
+ *  This also implies that setting a restriction is a one-way transition. */
+static inline int keyring_restrict(key_serial_t keyring, const char *type, const char *restriction) {
+        return RET_NERRNO(keyctl(KEYCTL_RESTRICT_KEYRING, keyring,
+                                 (unsigned long) type, (unsigned long) restriction, 0));
+}
+
+/* Every operation other than KEYCTL_LINK are based on permission checks:
+ *
+ * - KEYCTL_UNLINK and KEYCTL_CLEAR require Write
+ * - KEYCTL_REVOKE require Write or SetAttr
+ * - KEYCTL_INVALIDATE Search
+ * - KEYCTL_SETPERM/CHOWN/SET_TIMEOUT SetAttr
+ * - KEYCTL_READ Read
+ * - searches require Search
+ */
+static inline int keyring_set_perm(key_serial_t serial, uint32_t perm) {
+        return RET_NERRNO(keyctl(KEYCTL_SETPERM, serial, perm, 0, 0));
+}
