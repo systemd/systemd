@@ -34,7 +34,7 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         assert(ret_pid);
 
         (void) dlopen_libacl(LOG_DEBUG);
-        r = dlopen_libarchive(LOG_DEBUG);
+        r = dlopen_libarchive(LOG_ERR);
         if (r < 0)
                 return r;
 
@@ -108,7 +108,7 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
         assert(ret_pid);
 
         (void) dlopen_libacl(LOG_DEBUG);
-        r = dlopen_libarchive(LOG_DEBUG);
+        r = dlopen_libarchive(LOG_ERR);
         if (r < 0)
                 return r;
 
