@@ -5,7 +5,7 @@
 set -eux
 set -o pipefail
 
-SYSUPDATE=/usr/bin/systemd-sysupdate
+SYSUPDATE=/usr/lib/systemd/systemd-sysupdate
 SYSUPDATED=/lib/systemd/systemd-sysupdated
 UPDATECTL=""
 VARLINK_SOCKET=/run/systemd/io.systemd.SysUpdate
