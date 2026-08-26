@@ -1040,9 +1040,8 @@ static int decompress_blob_bzip2(
 
         _cleanup_(BZ2_bzDecompressEnd_wrapper) bz_stream s = {};
 
-        r = sym_BZ2_bzDecompressInit(&s, /* verbosity= */ 0, /* small= */ 0);
-        if (r != BZ_OK)
-                return -ENOMEM;
+        if (sym_BZ2_bzDecompressInit(&s, /* verbosity= */ 0, /* small= */ 0) != BZ_OK)
+                return -EIO;
 
         size_t space = MIN3(src_size * 2, dst_max ?: SIZE_MAX, (size_t) UINT_MAX);
         if (!greedy_realloc(dst, space, 1))
@@ -1477,9 +1476,8 @@ static int decompress_startswith_bzip2(
 
         _cleanup_(BZ2_bzDecompressEnd_wrapper) bz_stream s = {};
 
-        r = sym_BZ2_bzDecompressInit(&s, /* verbosity= */ 0, /* small= */ 0);
-        if (r != BZ_OK)
-                return -EBADMSG;
+        if (sym_BZ2_bzDecompressInit(&s, /* verbosity= */ 0, /* small= */ 0) != BZ_OK)
+                return -EIO;
 
         if (!(greedy_realloc(buffer, ALIGN_8(prefix_len + 1), 1)))
                 return -ENOMEM;
