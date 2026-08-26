@@ -508,20 +508,19 @@ TEST(decompress_stream_sparse) {
                                 zp_compressed[] = "/tmp/systemd-test.sparse-zero-compressed.XXXXXX",
                                 zp_decompressed[] = "/tmp/systemd-test.sparse-zero-decompressed.XXXXXX";
                         struct stat zst;
-                        uint64_t zsize;
-                        uint8_t zeros[65536] = {};
+                        uint64_t zsize, zsize_expected = 65536;
 
                         ASSERT_OK(zsrc = mkostemp_safe(zp_src));
-                        ASSERT_OK(loop_write(zsrc, zeros, sizeof(zeros)));
+                        ASSERT_OK_ERRNO(ftruncate(zsrc, zsize_expected));
                         ASSERT_EQ(lseek(zsrc, 0, SEEK_SET), (off_t) 0);
 
                         ASSERT_OK(zcompressed = mkostemp_safe(zp_compressed));
                         ASSERT_OK(compress_stream(c, zsrc, zcompressed, -1, &zsize));
-                        ASSERT_EQ(zsize, (uint64_t) sizeof(zeros));
+                        ASSERT_EQ(zsize, zsize_expected);
 
                         ASSERT_OK(zdecompressed = mkostemp_safe(zp_decompressed));
                         ASSERT_EQ(lseek(zcompressed, 0, SEEK_SET), (off_t) 0);
-                        ASSERT_OK_ZERO(decompress_stream(c, zcompressed, zdecompressed, sizeof(zeros)));
+                        ASSERT_OK_ZERO(decompress_stream(c, zcompressed, zdecompressed, zsize_expected));
 
                         compare_fd(zsrc, zdecompressed);
 
@@ -544,17 +543,17 @@ TEST(decompress_stream_sparse) {
                                 dp_compressed[] = "/tmp/systemd-test.sparse-end-compressed.XXXXXX",
                                 dp_decompressed[] = "/tmp/systemd-test.sparse-end-decompressed.XXXXXX";
                         uint64_t dsize;
-                        uint8_t zeros[65536] = {};
 
                         /* 64K zeros followed by 4K random data */
                         ASSERT_OK(dsrc = mkostemp_safe(dp_src));
-                        ASSERT_OK(loop_write(dsrc, zeros, sizeof(zeros)));
+                        ASSERT_OK_ERRNO(ftruncate(dsrc, 65536));
+                        ASSERT_OK_ERRNO(lseek(dsrc, 65536, SEEK_SET));
                         ASSERT_OK(loop_write(dsrc, data_block, sizeof(data_block)));
                         ASSERT_EQ(lseek(dsrc, 0, SEEK_SET), (off_t) 0);
 
                         ASSERT_OK(dcompressed = mkostemp_safe(dp_compressed));
                         ASSERT_OK(compress_stream(c, dsrc, dcompressed, -1, &dsize));
-                        ASSERT_EQ(dsize, (uint64_t)(sizeof(zeros) + sizeof(data_block)));
+                        ASSERT_EQ(dsize, (uint64_t) (65536 + sizeof(data_block)));
 
                         ASSERT_OK(ddecompressed = mkostemp_safe(dp_decompressed));
                         ASSERT_EQ(lseek(dcompressed, 0, SEEK_SET), (off_t) 0);
