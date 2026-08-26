@@ -107,6 +107,9 @@
     <varname>keyring-setup.os</varname> credential below allows to specify identifiers explicitly. Both
     directories are searched.</para>
 
+    <para>Usage of each certificate is checked against its purpose. Only verifiers with usage are enrolled.
+    A trust anchor that is not a CA certificate is merely warned about.</para>
+
     <para>The <literal>.dm-verity</literal> and <literal>.bpf</literal> keyrings are sealed empty by the
     kernel unless <option>dm_verity.keyring_unsealed=1</option> and
     <option>bpf.keyring_unsealed=1</option> are passed on the kernel command line. The kernel only
