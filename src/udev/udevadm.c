@@ -9,10 +9,13 @@
 #include "label-util.h"
 #include "main-func.h"
 #include "options.h"
+#include "pager.h"
 #include "udev-util.h"
 #include "udevadm.h"
 #include "udevd.h"
 #include "verbs.h"
+
+PagerFlags arg_pager_flags = 0;
 
 COMMAND(
         "udevadm\0",
@@ -20,6 +23,7 @@ COMMAND(
         .argspec = "COMMAND [COMMAND OPTION…]\0",
         .man_pages = "udevadm.8\0",
         .option_namespace = "udevadm",
+        .pager_flags = &arg_pager_flags,
 );
 
 /* All verbs are defined here, right after the COMMAND, so that they are attributed to it. Each
