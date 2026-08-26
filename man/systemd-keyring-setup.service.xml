@@ -127,6 +127,28 @@
   </refsect1>
 
   <refsect1>
+    <title>Credentials</title>
+
+    <para>Certificates may also be supplied as system credentials named
+    <varname>keyring-setup.dm-verity.<replaceable>NAME</replaceable></varname>,
+    <varname>keyring-setup.fs-verity.<replaceable>NAME</replaceable></varname> or
+    <varname>keyring-setup.bpf.<replaceable>NAME</replaceable></varname>, each holding one PEM encoded
+    certificate. <replaceable>NAME</replaceable> may consist of lowercase letters, digits,
+    <literal>.</literal>, <literal>_</literal> and <literal>-</literal>. Following the specification's
+    advice for verifiers retrieved from elsewhere, they are placed into the ephemeral load path as artifact
+    verifiers, i.e. as
+    <filename>/run/voa/<replaceable>OS</replaceable>/<replaceable>ROLE</replaceable>/default/x509/<replaceable>NAME</replaceable>-certificate.pem</filename>
+    before the hierarchy is searched, so that masking and merging apply to them like to any other file.
+    With <option>--dry-run</option> they are only reported and not placed, hence they do not appear among
+    the certificates shown. The credential
+    <varname>keyring-setup.os</varname> may hold a whitespace separated list of OS identifiers to look up
+    instead of the ones derived from <filename>os-release</filename>, e.g. for a generic initrd. Credentials
+    are the way to hand a certificate to an initrd without rebuilding it; they are as trustworthy as the
+    mechanism that delivered them. See
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
 
     <para>The following options are understood:</para>
