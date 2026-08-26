@@ -6,6 +6,7 @@
 #include "format-util.h"
 #include "keyring-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "tests.h"
 #include "user-util.h"
 
@@ -155,6 +156,83 @@ TEST(keyring_find_by_name) {
         (void) keyctl(KEYCTL_UNLINK, forgery, KEY_SPEC_THREAD_KEYRING, 0, 0);
         (void) keyctl(KEYCTL_UNLINK, victim, KEY_SPEC_THREAD_KEYRING, 0, 0);
         (void) keyctl(KEYCTL_UNLINK, other, KEY_SPEC_PROCESS_KEYRING, 0, 0);
+        (void) keyctl(KEYCTL_UNLINK, ring, KEY_SPEC_THREAD_KEYRING, 0, 0);
+}
+
+TEST(keyring_ops) {
+        _cleanup_free_ key_serial_t *l = NULL;
+        _cleanup_free_ char *desc = NULL, *ring_desc = NULL, *long_desc = NULL;
+        char long_name[128];
+        key_serial_t ring, key, other;
+        uint32_t perm;
+        size_t n;
+        int r;
+
+        /* A private keyring in the thread keyring suffices, no privileges needed */
+        ring = add_key("keyring", "test-keyring-util", NULL, 0, KEY_SPEC_THREAD_KEYRING);
+        if (ring < 0) {
+                log_tests_skipped_errno(errno, "Cannot create keyring");
+                return;
+        }
+
+        ASSERT_OK(keyring_list(ring, /* ret= */ NULL, &n));
+        ASSERT_EQ(n, 0u);
+
+        key = add_key("user", "test-key", "x", 1, ring);
+        ASSERT_OK_ERRNO(key);
+
+        ASSERT_OK(keyring_list(ring, &l, &n));
+        ASSERT_EQ(n, 1u);
+        ASSERT_EQ(l[0], key);
+
+        /* A keyring created via add_key() grants the possessor everything and the owner View */
+        ASSERT_OK(keyring_perm(ring, &perm));
+        ASSERT_EQ(perm, (uint32_t) (KEY_POS_ALL|KEY_USR_VIEW));
+        ASSERT_OK(keyring_description(ring, &ring_desc));
+        ASSERT_STREQ(ring_desc, "test-keyring-util");
+
+        /* The restriction of systemd-keyring-setup admits asymmetric keys signed by a member only, and
+         * cannot be replaced */
+        r = keyring_restrict(ring, "asymmetric", "key_or_keyring:0:chain");
+        if (IN_SET(r, -ENOKEY, -ENOENT)) {
+                log_tests_skipped_errno(r, "Kernel lacks asymmetric keys");
+                return;
+        }
+        ASSERT_OK(r);
+        ASSERT_ERROR(keyring_restrict(ring, "asymmetric", "key_or_keyring:0:chain"), EEXIST);
+        ASSERT_ERROR_ERRNO(add_key("user", "test-key-2", "y", 1, ring), EOPNOTSUPP);
+        ASSERT_OK(keyring_list(ring, /* ret= */ NULL, &n));
+        ASSERT_EQ(n, 1u);
+
+        /* The mask systemd-keyring-setup leaves behind: the possessor may search, the owner may look, list
+         * and add, but neither change the mask nor the restriction. A search descending from a possessed
+         * keyring still succeeds, which is how the kernel verifies signatures against a sealed keyring. */
+        ASSERT_OK(keyring_set_perm(ring, KEY_POS_SEARCH|KEY_USR_VIEW|KEY_USR_READ|KEY_USR_WRITE));
+        ASSERT_OK(keyring_perm(ring, &perm));
+        ASSERT_EQ(perm, (uint32_t) (KEY_POS_SEARCH|KEY_USR_VIEW|KEY_USR_READ|KEY_USR_WRITE));
+        ASSERT_ERROR(keyring_set_perm(ring, KEY_POS_ALL), EACCES);
+        ASSERT_ERROR(keyring_restrict(ring, "asymmetric", "key_or_keyring:0:chain"), EACCES);
+        ASSERT_ERROR_ERRNO(add_key("user", "test-key-3", "z", 1, ring), EOPNOTSUPP);
+        ASSERT_OK(keyring_list(ring, /* ret= */ NULL, &n));
+        ASSERT_EQ(n, 1u);
+        ASSERT_EQ(keyctl(KEYCTL_SEARCH, KEY_SPEC_THREAD_KEYRING, (unsigned long) "user",
+                         (unsigned long) "test-key", 0), (long) key);
+        ASSERT_OK(RET_NERRNO(keyctl(KEYCTL_UNLINK, key, ring, 0, 0)));
+        ASSERT_OK(keyring_list(ring, /* ret= */ NULL, &n));
+        ASSERT_EQ(n, 0u);
+
+        /* Descriptions of asymmetric keys are long, the describe buffer must grow */
+        memset(long_name, 'x', sizeof(long_name) - 1);
+        long_name[sizeof(long_name) - 1] = 0;
+        other = add_key("user", long_name, "x", 1, KEY_SPEC_THREAD_KEYRING);
+        ASSERT_OK_ERRNO(other);
+        ASSERT_OK(keyring_describe(other, &desc));
+        ASSERT_TRUE(startswith(desc, "user;"));
+        ASSERT_TRUE(endswith(desc, long_name));
+        ASSERT_OK(keyring_description(other, &long_desc));
+        ASSERT_STREQ(long_desc, long_name);
+
+        (void) keyctl(KEYCTL_UNLINK, other, KEY_SPEC_THREAD_KEYRING, 0, 0);
         (void) keyctl(KEYCTL_UNLINK, ring, KEY_SPEC_THREAD_KEYRING, 0, 0);
 }
 
