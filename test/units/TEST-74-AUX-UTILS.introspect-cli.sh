@@ -143,6 +143,7 @@ INTROSPECTABLE=(
     systemd-vmspawn
     systemd-vpick
     timedatectl
+    udevadm
     updatectl
     userdbctl
     v4l_id
@@ -206,6 +207,11 @@ fi
 
 systemd-id128 --introspect-cli | jq -e \
     '.commands[0].verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
+
+# udevadm's verbs carry their own options, reported recursively
+udevadm --introspect-cli | jq -e \
+    '.commands[] | select(.names[0] == "udevadm") | .verbs[] | select(.names[0] == "info") |
+        [.options[].names[-1]] | contains(["--query", "--json", "--no-pager"])'
 
 # systemd is optionally a multicall binary that also provides systemd-executor
 if [[ "$(readlink "$(command -v systemd-executor)" 2>/dev/null)" == systemd ]]; then
