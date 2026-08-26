@@ -17,6 +17,12 @@ at_exit() {
     rm -fv -- "$CORE_TEST_BIN" "$CORE_TEST_UNPRIV_BIN" "$MAKE_DUMP_SCRIPT"
 }
 
+maybe_reload_coredumpd() {
+    if systemctl -q is-active systemd-coredumpd.service; then
+        systemctl reload systemd-coredumpd.service
+    fi
+}
+
 (! systemd-detect-virt -cq)
 
 trap at_exit EXIT
@@ -25,8 +31,30 @@ trap at_exit EXIT
 journalctl --sync
 journalctl --rotate
 
+if /usr/lib/systemd/systemd-coredump --check-requirements && systemctl is-enabled systemd-coredumpd.service; then
+    systemctl is-active systemd-coredumpd.service
+fi
+
 # Check that we're the ones to receive coredumps
-sysctl kernel.core_pattern | grep systemd-coredump
+if systemctl -q is-active systemd-coredumpd.service; then
+    systemctl is-active systemd-coredump-register.service
+    [[ -e /run/sysctl.d/60-coredump.conf ]]
+    sysctl kernel.core_pattern | grep '@@/run/systemd/coredumpd/kernel'
+
+    systemctl stop systemd-coredumpd.service
+    (! systemctl is-active systemd-coredump-register.service)
+    [[ ! -e /run/sysctl.d/60-coredump.conf ]]
+    sysctl kernel.core_pattern | grep 'systemd-coredump'
+
+    systemctl start systemd-coredumpd.service
+    timeout 30 bash -xec 'until systemctl -q is-active systemd-coredump-register.service; do sleep 1; done'
+    [[ -e /run/sysctl.d/60-coredump.conf ]]
+    sysctl kernel.core_pattern | grep '@@/run/systemd/coredumpd/kernel'
+else
+    (! systemctl is-active systemd-coredump-register.service)
+    [[ ! -e /run/sysctl.d/60-coredump.conf ]]
+    sysctl kernel.core_pattern | grep 'systemd-coredump'
+fi
 
 # Prepare "fake" binaries for coredumps, so we can properly exercise
 # the matching stuff too
@@ -70,11 +98,13 @@ chmod +x "$MAKE_DUMP_SCRIPT"
 # with Storage=external as well
 mkdir -p /run/systemd/coredump.conf.d/
 printf '[Coredump]\nStorage=external' >/run/systemd/coredump.conf.d/99-external.conf
+maybe_reload_coredumpd
 "$MAKE_DUMP_SCRIPT" "$CORE_TEST_BIN" "SIGTRAP"
 "$MAKE_DUMP_SCRIPT" "$CORE_TEST_BIN" "SIGABRT"
-rm -fv /run/systemd/coredump.conf.d/99-external.conf
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
+rm -fv /run/systemd/coredump.conf.d/99-external.conf
+maybe_reload_coredumpd
 
 if cgroupfs_supports_user_xattrs; then
     # Make sure we can forward crashes back to containers
@@ -192,11 +222,13 @@ UNPRIV_CMD=(systemd-run --user --wait --pipe -M "testuser@.host" -E SYSTEMD_PAGE
 # with Storage=external as well
 mkdir -p /run/systemd/coredump.conf.d/
 printf '[Coredump]\nStorage=external' >/run/systemd/coredump.conf.d/99-external.conf
+maybe_reload_coredumpd
 "${UNPRIV_CMD[@]}" "$MAKE_DUMP_SCRIPT" "$CORE_TEST_UNPRIV_BIN" "SIGTRAP"
 "${UNPRIV_CMD[@]}" "$MAKE_DUMP_SCRIPT" "$CORE_TEST_UNPRIV_BIN" "SIGABRT"
-rm -fv /run/systemd/coredump.conf.d/99-external.conf
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_UNPRIV_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
+rm -fv /run/systemd/coredump.conf.d/99-external.conf
+maybe_reload_coredumpd
 
 # Sync and rotate journal again to make the coredump stored in an archived journal.
 journalctl --sync
@@ -317,6 +349,7 @@ EOF
 
     mkdir -p /run/systemd/coredump.conf.d/
     printf '[Coredump]\nEnterNamespace=no' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
+    maybe_reload_coredumpd
 
     unshare --pid --fork --mount-proc --mount --uts --ipc --net "$MAKE_STACKTRACE_DUMP" "test-stacktrace-not-symbolized"
     timeout 30 bash -c "until coredumpctl list -q --no-legend /tmp/test-stacktrace-not-symbolized; do sleep .2; done"
@@ -327,6 +360,7 @@ EOF
     (! grep -E "#[0-9]+ .* baz " /tmp/not-symbolized.log)
 
     printf '[Coredump]\nEnterNamespace=yes' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
+    maybe_reload_coredumpd
     unshare --pid --fork --mount-proc --mount --uts --ipc --net "$MAKE_STACKTRACE_DUMP" "test-stacktrace-symbolized"
     timeout 30 bash -c "until coredumpctl list -q --no-legend /tmp/test-stacktrace-symbolized; do sleep .2; done"
     coredumpctl info /tmp/test-stacktrace-symbolized | tee /tmp/symbolized.log
@@ -337,6 +371,7 @@ EOF
 
     test -d /usr/lib/debug/ && umount /usr/lib/debug/
     rm -f "$MAKE_STACKTRACE_DUMP" /run/systemd/coredump.conf.d/99-enter-namespace.conf /tmp/{not-,}symbolized.log
+    maybe_reload_coredumpd
 else
     echo "libdw doesn't not support setting sysroot, skipping EnterNamespace= test"
 fi
