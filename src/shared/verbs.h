@@ -162,10 +162,11 @@ int _command_print_help_full(
                 __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
                 __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
                 name, footer_ansi_seq)
-#define command_print_help() command_print_help_full(/* name= */ NULL, /* footer_ansi_seq= */ NULL)
+#define command_print_help_name(name) command_print_help_full(name, /* footer_ansi_seq= */ NULL)
+#define command_print_help() command_print_help_name(/* name= */ NULL)
 
 static inline int verb_help_auto(int argc, char **argv, uintptr_t data, void *userdata) {
-        return command_print_help_full((const char*) data, /* footer_ansi_seq= */ NULL);
+        return command_print_help_name((const char*) data);
 }
 
 /* Print a machine-readable description of the program's commands, verbs, and options in the format

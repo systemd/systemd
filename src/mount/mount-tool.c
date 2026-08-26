@@ -163,7 +163,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_GROUP("Common options"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help_full(cmd->names,  /* footer_ansi_seq= */ NULL);
+                        return command_print_help_name(cmd->names);
 
                 OPTION_COMMON_VERSION:
                         return version();
