@@ -317,6 +317,9 @@ CHANGES WITH 262 in spe:
           not be assigned multiple distinct values, and
           ConditionMachineTag=key=* matches any value assigned to key.
 
+        * systemd-inhibit --mode=delay now defaults to --what=sleep:shutdown,
+          since logind does not accept delay locks for any other operation.
+
         Changes in systemd-networkd:
 
         * The [Match] sections of .link, .network and .netdev files
