@@ -44,11 +44,12 @@ typedef struct _alignptr_ Verb {
         uintptr_t data;
         const char *argspec;           /* optional nulstr with specifications of positional args */
         const char *help;
+        const char *footer;            /* optional footer to print in --help */
         const char *option_namespace;  /* optional namespace with the verb's own options */
 } Verb;
 assert_cc(sizeof(Verb) % sizeof(void*) == 0);
 
-#define _VERB_DATA(d, v, ns, a, amin, amax, f, dat, h)                  \
+#define _VERB_DATA(d, v, ns, a, amin, amax, f, dat, h, ft)              \
         _section_("SYSTEMD_VERBS")                                      \
         _alignptr_                                                      \
         _used_                                                          \
@@ -64,31 +65,32 @@ assert_cc(sizeof(Verb) % sizeof(void*) == 0);
                 .data = dat,                                            \
                 .argspec = a,                                           \
                 .help = h,                                              \
+                .footer = ft,                                           \
                 .option_namespace = ns,                                 \
         }
 
 /* Forward-define function d. scope specifies the scope, e.g. static. ns declares the option
  * namespace with the verb's own options, which are then shown in the verb's help (see
  * command_print_verb_help()) and reported in the CLI introspection. */
-#define VERB_SCOPE_NS_FULL(scope, d, v, ns, a, amin, amax, f, dat, h)   \
+#define VERB_SCOPE_NS_FULL(scope, d, v, ns, a, amin, amax, f, dat, h, ft) \
         DISABLE_WARNING_REDUNDANT_DECLS                                 \
         scope int d(int, char**, uintptr_t, void*);                     \
         REENABLE_WARNING                                                \
-        _VERB_DATA(d, v, ns, a, amin, amax, f, dat, h)
+        _VERB_DATA(d, v, ns, a, amin, amax, f, dat, h, ft)
 /* The same as VERB_SCOPE_NS_FULL, but for verbs without options of their own. */
-#define VERB_SCOPE_FULL(scope, d, v, a, amin, amax, f, dat, h)          \
-        VERB_SCOPE_NS_FULL(scope, d, v, /* ns= */ NULL, a, amin, amax, f, dat, h)
+#define VERB_SCOPE_FULL(scope, d, v, a, amin, amax, f, dat, h, ft)      \
+        VERB_SCOPE_NS_FULL(scope, d, v, /* ns= */ NULL, a, amin, amax, f, dat, h, ft)
 /* The same as VERB_SCOPE_NS_FULL/VERB_SCOPE_FULL with scope hardwired to 'static'. */
-#define VERB_NS_FULL(d, v, ns, a, amin, amax, f, dat, h)                \
-        VERB_SCOPE_NS_FULL(static, d, v, ns, a, amin, amax, f, dat, h)
+#define VERB_NS_FULL(d, v, ns, a, amin, amax, f, dat, h, ft)            \
+        VERB_SCOPE_NS_FULL(static, d, v, ns, a, amin, amax, f, dat, h, ft)
 #define VERB_FULL(d, v, a, amin, amax, f, dat, h)                       \
-        VERB_SCOPE_FULL(static, d, v, a, amin, amax, f, dat, h)
+        VERB_SCOPE_FULL(static, d, v, a, amin, amax, f, dat, h, /* ft= */ NULL)
 
 /* The same as the macros above, but without the data argument. */
 #define VERB_SCOPE_NS(scope, d, v, ns, a, amin, amax, f, h)             \
-        VERB_SCOPE_NS_FULL(scope, d, v, ns, a, amin, amax, f, /* dat= */ 0, h)
+        VERB_SCOPE_NS_FULL(scope, d, v, ns, a, amin, amax, f, /* dat= */ 0, h, /* ft= */ NULL)
 #define VERB_SCOPE(scope, d, v, a, amin, amax, f, h)                    \
-        VERB_SCOPE_FULL(scope, d, v, a, amin, amax, f, /* dat= */ 0, h)
+        VERB_SCOPE_FULL(scope, d, v, a, amin, amax, f, /* dat= */ 0, h, /* ft= */ NULL)
 #define VERB_NS(d, v, ns, a, amin, amax, f, h)                          \
         VERB_SCOPE_NS(static, d, v, ns, a, amin, amax, f, h)
 #define VERB(d, v, a, amin, amax, f, h)                                 \
@@ -106,13 +108,15 @@ assert_cc(sizeof(Verb) % sizeof(void*) == 0);
  * The macro works as a separator between groups and must be between other VERB* stanzas. */
 #define VERB_GROUP(gr)                                                  \
         _VERB_DATA(/* d= */ NULL, /* v= */ gr, /* ns= */ NULL, /* a= */ NULL, \
-                   /* amin= */ 0, /* amax= */ 0, /* f= */ VERB_GROUP_MARKER, /* dat= */ 0, /* h= */ NULL)
+                   /* amin= */ 0, /* amax= */ 0, /* f= */ VERB_GROUP_MARKER, /* dat= */ 0, \
+                   /* h= */ NULL, /* ft= */ NULL)
 
-#define _COMMAND(u, ...)                                                \
+#define _COMMAND(u, ...)                                                          \
         static const CommandDescription UNIQ_T(description, u) = { __VA_ARGS__ }; \
-        _VERB_DATA(/* d= */ NULL, /* v= */ NULL, /* ns= */ NULL, /* a= */ NULL, \
-                   /* amin= */ 0, /* amax= */ 0, /* f= */ VERB_COMMAND_MARKER, \
-                   /* dat= */ (uintptr_t) &UNIQ_T(description, u), /* h= */ NULL)
+        _VERB_DATA(/* d= */ NULL, /* v= */ NULL, /* ns= */ NULL, /* a= */ NULL,   \
+                   /* amin= */ 0, /* amax= */ 0, /* f= */ VERB_COMMAND_MARKER,    \
+                   /* dat= */ (uintptr_t) &UNIQ_T(description, u),                \
+                   /* h= */ NULL, /* ft= */ NULL)
 #define COMMAND(...) _COMMAND(UNIQ, __VA_ARGS__)
 
 /* This is magically mapped to the beginning and end of the section */
