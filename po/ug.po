@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-01 11:49+0200\n"
+"POT-Creation-Date: 2026-08-26 10:57+0100\n"
 "PO-Revision-Date: 2026-08-02 00:15+0000\n"
 "Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Uyghur <https://translate.fedoraproject.org/projects/systemd/"
@@ -167,7 +167,7 @@ msgstr ""
 "باش مۇندەرىجىلەرنىڭ ئىمزا ئاچقۇچلىرىنى باشقۇرۇش ئۈچۈن دەلىللەش تەلەپ "
 "قىلىنىدۇ."
 
-#: src/home/pam_systemd_home.c:327
+#: src/home/pam_systemd_home.c:328
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -176,30 +176,30 @@ msgstr ""
 "%s ئىشلەتكۈچىنىڭ باش مۇندەرىجىسى ھازىر مەۋجۇت ئەمەس، زۆرۈر ساقلاش ئۈسكۈنىسى "
 "ياكى تۆۋەن قەۋەت ھۆججەت سىستېمىسىنى ئۇلاڭ."
 
-#: src/home/pam_systemd_home.c:332
+#: src/home/pam_systemd_home.c:333
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "%s ئىشلەتكۈچىنىڭ كىرىش سىنىقى بەك كۆپ قېتىم بولدى، كېيىن قايتا سىناپ بېقىڭ."
 
-#: src/home/pam_systemd_home.c:344
+#: src/home/pam_systemd_home.c:345
 msgid "Password: "
 msgstr "پارول: "
 
-#: src/home/pam_systemd_home.c:346
+#: src/home/pam_systemd_home.c:347
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "%s ئىشلەتكۈچىنىڭ پارولى خاتا ياكى دەلىللەش ئۈچۈن يېتەرلىك ئەمەس."
 
-#: src/home/pam_systemd_home.c:347
+#: src/home/pam_systemd_home.c:348
 msgid "Sorry, try again: "
 msgstr "كەچۈرۈڭ، قايتا سىناڭ: "
 
-#: src/home/pam_systemd_home.c:369
+#: src/home/pam_systemd_home.c:370
 msgid "Recovery key: "
 msgstr "ئەسلىگە كەلتۈرۈش ئاچقۇچى: "
 
-#: src/home/pam_systemd_home.c:371
+#: src/home/pam_systemd_home.c:372
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -208,20 +208,20 @@ msgstr ""
 "%s ئىشلەتكۈچىنىڭ پارول/ئەسلىگە كەلتۈرۈش ئاچقۇچى خاتا ياكى دەلىللەش ئۈچۈن "
 "يېتەرلىك ئەمەس."
 
-#: src/home/pam_systemd_home.c:372
+#: src/home/pam_systemd_home.c:373
 msgid "Sorry, reenter recovery key: "
 msgstr "كەچۈرۈڭ، ئەسلىگە كەلتۈرۈش ئاچقۇچىنى قايتا كىرگۈزۈڭ: "
 
-#: src/home/pam_systemd_home.c:392
+#: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "%s ئىشلەتكۈچىنىڭ بىخەتەرلىك توكىنى چېتىلمىغان."
 
-#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
 msgid "Try again with password: "
 msgstr "پارول بىلەن قايتا سىناڭ: "
 
-#: src/home/pam_systemd_home.c:395
+#: src/home/pam_systemd_home.c:396
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -230,30 +230,30 @@ msgstr ""
 "پارول خاتا ياكى يېتەرلىك ئەمەس، شۇنداقلا %s ئىشلەتكۈچىگە سەپلىگەن بىخەتەرلىك "
 "توكىنى چېتىلمىغان."
 
-#: src/home/pam_systemd_home.c:415
+#: src/home/pam_systemd_home.c:416
 msgid "Security token PIN: "
 msgstr "بىخەتەرلىك توكىنى PIN: "
 
-#: src/home/pam_systemd_home.c:432
+#: src/home/pam_systemd_home.c:433
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "ئىلتىماس، %s ئىشلەتكۈچىنىڭ بىخەتەرلىك توكىنىدا فىزىكىلىق دەلىللەشنى تاماملاڭ."
 
-#: src/home/pam_systemd_home.c:443
+#: src/home/pam_systemd_home.c:444
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 "ئىلتىماس، %s ئىشلەتكۈچىنىڭ بىخەتەرلىك توكىنىدا ھازىر ئىكەنلىكىڭىزنى جەزملەڭ."
 
-#: src/home/pam_systemd_home.c:454
+#: src/home/pam_systemd_home.c:455
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 "ئىلتىماس، %s ئىشلەتكۈچىنىڭ بىخەتەرلىك توكىنىدىكى ئىشلەتكۈچىنى تەكشۈرۈپ "
 "دەلىللەڭ."
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:464
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -261,84 +261,85 @@ msgstr ""
 "بىخەتەرلىك توكىنى PIN قۇلۇپلانغان، ئالدى بىلەن قۇلۇپنى ئېچىڭ. (ئەسكەرتىش: "
 "چېتىپ تۇرغاننى چىقىرىپ قايتا چېتىش كۇپايە بولۇشى مۇمكىن.)"
 
-#: src/home/pam_systemd_home.c:471
+#: src/home/pam_systemd_home.c:472
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "%s ئىشلەتكۈچىنىڭ بىخەتەرلىك توكىنى PIN خاتا."
 
-#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
-#: src/home/pam_systemd_home.c:510
+#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
+#: src/home/pam_systemd_home.c:511
 msgid "Sorry, retry security token PIN: "
 msgstr "كەچۈرۈڭ، بىخەتەرلىك توكىنى PIN نى قايتا سىناڭ: "
 
-#: src/home/pam_systemd_home.c:490
+#: src/home/pam_systemd_home.c:491
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "%s ئىشلەتكۈچىنىڭ بىخەتەرلىك توكىنى PIN خاتا (پەقەت بىر قانچەلا سىناق پۇرسىتى "
 "قالدى!)"
 
-#: src/home/pam_systemd_home.c:509
+#: src/home/pam_systemd_home.c:510
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "%s ئىشلەتكۈچىنىڭ بىخەتەرلىك توكىنى PIN خاتا (پەقەت بىرلا قېتىملىق سىناق "
 "پۇرسىتى قالدى!)"
 
-#: src/home/pam_systemd_home.c:676
+#: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "%s ئىشلەتكۈچىنىڭ باش مۇندەرىجىسى ھازىر ئاكتىپ ئەمەس، ئالدى بىلەن يەرلىك "
 "كىرىڭ."
 
-#: src/home/pam_systemd_home.c:678
+#: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "%s ئىشلەتكۈچىنىڭ باش مۇندەرىجىسى ھازىر قۇلۇپلانغان، ئالدى بىلەن يەرلىكتە "
 "قۇلۇپنى ئېچىڭ."
 
-#: src/home/pam_systemd_home.c:712
+#: src/home/pam_systemd_home.c:713
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "%s ئىشلەتكۈچىنىڭ مۇۋەپپەقىيەتسىز كىرىش سىنىقى بەك كۆپ بولدى، رەت قىلىندى."
 
-#: src/home/pam_systemd_home.c:1021
+#: src/home/pam_systemd_home.c:1015
 msgid "User record is blocked, prohibiting access."
 msgstr "ئىشلەتكۈچى خاتىرىسى توسۇلغان، زىيارەت چەكلەندى."
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1019
 msgid "User record is not valid yet, prohibiting access."
 msgstr "ئىشلەتكۈچى خاتىرىسى تېخى كۈچكە ئىگە ئەمەس، زىيارەت چەكلەندى."
 
-#: src/home/pam_systemd_home.c:1029
+#: src/home/pam_systemd_home.c:1023
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "ئىشلەتكۈچى خاتىرىسى ئەمدى كۈچكە ئىگە ئەمەس، زىيارەت چەكلەندى."
 
-#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
+#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
 msgid "User record not valid, prohibiting access."
 msgstr "ئىشلەتكۈچى خاتىرىسى كۈچكە ئىگە ئەمەس، زىيارەت چەكلەندى."
 
-#: src/home/pam_systemd_home.c:1044
+#: src/home/pam_systemd_home.c:1038
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "كىرىش قېتىملىرى بەك كۆپ، %s دىن كېيىن قايتا سىناڭ."
 
-#: src/home/pam_systemd_home.c:1055
+#: src/home/pam_systemd_home.c:1049
 msgid "Password change required."
 msgstr "پارولنى ئۆزگەرتىش زۆرۈر."
 
-#: src/home/pam_systemd_home.c:1059
+#: src/home/pam_systemd_home.c:1053
 msgid "Password expired, change required."
 msgstr "پارولنىڭ مۇددىتى توشتى، ئۆزگەرتىش زۆرۈر."
 
-#: src/home/pam_systemd_home.c:1065
+#: src/home/pam_systemd_home.c:1059
 msgid "Password is expired, but can't change, refusing login."
-msgstr "پارولنىڭ مۇددىتى توشقان، ئەمما ئۆزگەرتكىلى بولمايدۇ، كىرىش رەت قىلىندى."
+msgstr ""
+"پارولنىڭ مۇددىتى توشقان، ئەمما ئۆزگەرتكىلى بولمايدۇ، كىرىش رەت قىلىندى."
 
-#: src/home/pam_systemd_home.c:1069
+#: src/home/pam_systemd_home.c:1063
 msgid "Password will expire soon, please change."
 msgstr "پارولنىڭ مۇددىتى تېزلا توشىدۇ، ۋاقتىدا ئۆزگەرتىڭ."
 
@@ -519,7 +520,8 @@ msgstr ""
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
 msgstr ""
-"ئەپنىڭ سىستېمىنىڭ ئۇزۇن ئۇخلاش كۇنۇپكىسىنى بىر تەرەپ قىلىشىنى توسۇشىغا يول قوي"
+"ئەپنىڭ سىستېمىنىڭ ئۇزۇن ئۇخلاش كۇنۇپكىسىنى بىر تەرەپ قىلىشىنى توسۇشىغا يول "
+"قوي"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
@@ -727,7 +729,8 @@ msgstr "سىستېمىنى ئۇزۇن ئۇخلاشقا كىرگۈزۈش ئۈچۈ
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr "باشقا ئىشلەتكۈچىلەر تىزىملاتقان ھالەتتە سىستېمىنى ئۇزۇن ئۇخلاشقا كىرگۈز"
+msgstr ""
+"باشقا ئىشلەتكۈچىلەر تىزىملاتقان ھالەتتە سىستېمىنى ئۇزۇن ئۇخلاشقا كىرگۈز"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
@@ -870,7 +873,8 @@ msgstr "يەرلىك كونتېينېردا pseudo TTY غا ئېرىش"
 #: src/machine/org.freedesktop.machine1.policy:65
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr "يەرلىك كونتېينېردا pseudo TTY غا ئېرىشىش ئۈچۈن دەلىللەش تەلەپ قىلىنىدۇ."
+msgstr ""
+"يەرلىك كونتېينېردا pseudo TTY غا ئېرىشىش ئۈچۈن دەلىللەش تەلەپ قىلىنىدۇ."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
@@ -890,7 +894,8 @@ msgstr "يەرلىك مەۋھۇم ماشىنا ۋە كونتېينېرلارنى
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
-"يەرلىك مەۋھۇم ماشىنا ۋە كونتېينېرلارنى باشقۇرۇش ئۈچۈن دەلىللەش تەلەپ قىلىنىدۇ."
+"يەرلىك مەۋھۇم ماشىنا ۋە كونتېينېرلارنى باشقۇرۇش ئۈچۈن دەلىللەش تەلەپ "
+"قىلىنىدۇ."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
@@ -1087,16 +1092,16 @@ msgstr "تور ئۇلاش ئېغىزىنى قايتا سەپلەش ئۈچۈن د
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
 msgstr ""
-"systemd-networkd ئۈچۈن تۇراقلىق ساقلاش ئىشلەتكىلى بولىدىغان-بولمايدىغانلىقىنى "
-"بەلگىلە"
+"systemd-networkd ئۈچۈن تۇراقلىق ساقلاش ئىشلەتكىلى بولىدىغان-"
+"بولمايدىغانلىقىنى بەلگىلە"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
-"systemd-networkd ئۈچۈن تۇراقلىق ساقلاش ئىشلەتكىلى بولىدىغان-بولمايدىغانلىقىنى "
-"بەلگىلەش ئۈچۈن دەلىللەش تەلەپ قىلىنىدۇ."
+"systemd-networkd ئۈچۈن تۇراقلىق ساقلاش ئىشلەتكىلى بولىدىغان-"
+"بولمايدىغانلىقىنى بەلگىلەش ئۈچۈن دەلىللەش تەلەپ قىلىنىدۇ."
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
@@ -1357,7 +1362,7 @@ msgstr "'$(unit)' نى قايتا يۈكلەش ئۈچۈن دەلىللەش تە�
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)' نى قايتا قوزغىتىش ئۈچۈن دەلىللەش تەلەپ قىلىنىدۇ."
 
-#: src/core/dbus-unit.c:568
+#: src/core/dbus-unit.c:594
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
@@ -1365,7 +1370,7 @@ msgstr ""
 "UNIX سىگنالىنى '$(unit)' نىڭ جەريانلىرىغا ئەۋەتىش ئۈچۈن دەلىللەش تەلەپ "
 "قىلىنىدۇ."
 
-#: src/core/dbus-unit.c:621
+#: src/core/dbus-unit.c:647
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1373,16 +1378,17 @@ msgstr ""
 "UNIX سىگنالىنى '$(unit)' نىڭ تارماق گۇرۇپپا جەريانلىرىغا ئەۋەتىش ئۈچۈن "
 "دەلىللەش تەلەپ قىلىنىدۇ."
 
-#: src/core/dbus-unit.c:649
+#: src/core/dbus-unit.c:675
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "'$(unit)' نىڭ «مەغلۇپ» ھالىتىنى قايتا بەلگىلەش ئۈچۈن دەلىللەش تەلەپ قىلىنىدۇ."
 
-#: src/core/dbus-unit.c:679
+#: src/core/dbus-unit.c:705
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "'$(unit)' ئۈستىدىكى خاسلىقلارنى بەلگىلەش ئۈچۈن دەلىللەش تەلەپ قىلىنىدۇ."
+msgstr ""
+"'$(unit)' ئۈستىدىكى خاسلىقلارنى بەلگىلەش ئۈچۈن دەلىللەش تەلەپ قىلىنىدۇ."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:802
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
@@ -1390,28 +1396,28 @@ msgstr ""
 "'$(unit)' بىلەن مۇناسىۋەتلىك ھۆججەت ۋە مۇندەرىجىلەرنى ئۆچۈرۈش ئۈچۈن دەلىللەش "
 "تەلەپ قىلىنىدۇ."
 
-#: src/core/dbus-unit.c:813
+#: src/core/dbus-unit.c:839
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
 "'$(unit)' بىرىكىنىڭ جەريانلىرىنى توڭلىتىش ياكى ئېچىش ئۈچۈن دەلىللەش تەلەپ "
 "قىلىنىدۇ."
 
-#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
+#: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
 msgid "Please confirm presence on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:516
+#: src/shared/libfido2-util.c:510
 msgid "Please verify user on security token to unlock."
 msgstr ""
 
-#: src/shared/libfido2-util.c:936
+#: src/shared/libfido2-util.c:944
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
 msgstr ""
 
-#: src/shared/libfido2-util.c:948
+#: src/shared/libfido2-util.c:955
 msgid "Please enter security token PIN:"
 msgstr ""
 
