@@ -107,15 +107,15 @@
     <varname>keyring-setup.os</varname> credential below allows to specify identifiers explicitly. Both
     directories are searched.</para>
 
-    <para>The <literal>.dm-verity</literal> and <literal>.bpf</literal> keyrings are sealed empty by the kernel
-    unless <option>dm_verity.keyring_unsealed=1</option> respectively <option>bpf.keyring_unsealed=1</option>
-    is passed on the kernel command line, and the kernel only consults them once they hold at least one
-    key and have been sealed again. The <literal>.fs-verity</literal> keyring is never sealed by the kernel
-    and is consulted whenever it holds a key. The service therefore enrolls the certificates and seals each
-    keyring in one go, before the first verity volume is set up, and it seals every keyring it finds even if
-    no certificate was found for it, so that nothing running later in the boot can provision it instead.
-    Consequently at least the certificates that later ones chain to must be available where the service first
-    runs, i.e. in the initrd on systems that boot with one.</para>
+    <para>Usage of each certificate is checked against its purpose. Only verifiers with usage are enrolled.
+    A trust anchor that is not a CA certificate is merely warned about.</para>
+
+    <para>The <literal>.dm-verity</literal> and <literal>.bpf</literal> keyrings are sealed empty by the
+    kernel unless <option>dm_verity.keyring_unsealed=1</option> and
+    <option>bpf.keyring_unsealed=1</option> are passed on the kernel command line. The kernel only
+    uses them if they are sealed. The <literal>.fs-verity</literal> keyring is never sealed by the kernel
+    and is used as soon as it holds a key. The service enrolls the keys and seals the keyrings. Note that
+    it seals the keyrings even if no keys to enroll were found.</para>
 
     <para>After keys have been enrolled the tool seals the keyring. After sealing, only certificates signed
     by a key already enrolled can be added. The permission to change the keyring's permissions or the
