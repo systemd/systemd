@@ -136,6 +136,7 @@ simple_tests += files(
         'test-ip-protocol-list.c',
         'test-journal-importer.c',
         'test-kbd-util.c',
+        'test-keyring-util.c',
         'test-label.c',
         'test-limits-util.c',
         'test-list.c',
