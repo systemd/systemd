@@ -574,9 +574,13 @@ int _command_print_verb_help(
         if (cmd->pager_flags)
                 pager_open(*cmd->pager_flags);
 
+        const char *optionspec =
+                FLAGS_SET(verb->flags, VERB_OPTION_REQUIRED) ?
+                        " OPTION…" : verb->option_namespace ? " [OPTION…]" : "";
+
         _cleanup_free_ char *line = strjoin(
                         "[OPTION…] ", verb->verb,
-                        verb->option_namespace ? " [OPTION…]" : "",
+                        optionspec,
                         verb->argspec ? " " : "", strempty(verb->argspec));
         if (!line)
                 return log_oom();
