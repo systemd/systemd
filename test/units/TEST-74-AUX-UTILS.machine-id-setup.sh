@@ -36,6 +36,8 @@ testcase_sanity() {
 
     (! systemd-machine-id-setup "")
     (! systemd-machine-id-setup --foo)
+    # --commit and --force are mutually exclusive
+    (! systemd-machine-id-setup --commit --force)
 }
 
 testcase_invalid() {
@@ -49,6 +51,145 @@ testcase_invalid() {
     echo abc >>"$root/etc/machine-id"
     machine_id="$(systemd-machine-id-setup --print --root "$root")"
     diff <(echo "$machine_id") "$root/etc/machine-id"
+}
+
+testcase_force() {
+    local root first second third fourth
+
+    root="$(mktemp -d)"
+    trap "root_cleanup $root" RETURN
+    root_mock "$root"
+
+    # Initialize the machine ID the regular way
+    first="$(systemd-machine-id-setup --print --root "$root")"
+    assert_neq "$first" ""
+
+    # Without --force the existing ID is kept as-is
+    assert_eq "$(systemd-machine-id-setup --print --root "$root")" "$first"
+
+    # With --force a brand new ID is generated and written to disk, persistently:
+    # nothing may be left behind in /run, that's the transient code path
+    second="$(systemd-machine-id-setup --print --force --root "$root")"
+    assert_neq "$second" "$first"
+    diff <(echo "$second") "$root/etc/machine-id"
+    test ! -e "$root/run/machine-id"
+
+    # ... and it is stable again once --force is not passed anymore
+    assert_eq "$(systemd-machine-id-setup --print --root "$root")" "$second"
+
+    # Each --force invocation yields yet another ID
+    third="$(systemd-machine-id-setup --print --force --root "$root")"
+    assert_neq "$third" "$second"
+    diff <(echo "$third") "$root/etc/machine-id"
+    test ! -e "$root/run/machine-id"
+
+    # A /run/machine-id left over from an earlier transient boot (machine_id_commit() does not
+    # remove it) must not keep the replaced ID around, as it takes precedence on the next
+    # initialization
+    echo "$third" >"$root/run/machine-id"
+    fourth="$(systemd-machine-id-setup --print --force --root "$root")"
+    assert_neq "$fourth" "$third"
+    diff <(echo "$fourth") "$root/etc/machine-id"
+    diff <(echo "$fourth") "$root/run/machine-id"
+}
+
+testcase_force_readonly() {
+    local root first
+
+    root="$(mktemp -d)"
+    trap "root_cleanup $root" RETURN
+    root_mock "$root"
+
+    first="$(systemd-machine-id-setup --print --root "$root")"
+    assert_neq "$first" ""
+
+    mount -o remount,ro "$root"
+    mount -t tmpfs tmpfs "$root/run"
+
+    # --force is about assigning a *persistent* identity, hence it must fail instead of
+    # quietly falling back to a transient ID that is gone again on the next boot
+    (! systemd-machine-id-setup --print --force --root "$root")
+    test ! -e "$root/run/machine-id"
+
+    mount -o remount,rw "$root"
+
+    # ... and the ID that was in place is untouched
+    assert_eq "$(systemd-machine-id-setup --print --root "$root")" "$first"
+}
+
+testcase_force_transient() {
+    local root transient_id
+
+    root="$(mktemp -d)"
+    trap "root_cleanup $root" RETURN
+    root_mock "$root"
+
+    systemd-machine-id-setup --print --root "$root"
+    echo abc >>"$root/etc/machine-id"
+    mount -o remount,ro "$root"
+    mount -t tmpfs tmpfs "$root/run"
+
+    # Install a transient ID over /etc/machine-id, the way PID 1 does on a read-only /etc
+    transient_id="$(systemd-machine-id-setup --print --root "$root")"
+    assert_neq "$transient_id" ""
+
+    # --force must refuse rather than write through the overmount: that would clobber the ID
+    # the system is actively using while persisting nothing
+    (! systemd-machine-id-setup --print --force --root "$root")
+    diff <(echo "$transient_id") "$root/run/machine-id"
+}
+
+testcase_force_volatile_etc() {
+    # The "/etc/ is on a temporary file system" refusal only applies to the host, i.e. without
+    # --root=, so exercise it in a private mount namespace to keep the real /etc out of it
+    unshare --mount --propagation private bash -eux <<'EOF'
+tmp="$(mktemp -d)"
+mount -t tmpfs tmpfs "$tmp"
+systemd-id128 new >"$tmp/machine-id"
+mount --bind "$tmp" /etc
+
+# /etc/machine-id is a plain, writable file that is not a mount point here — it just isn't
+# persistent, so --force must refuse rather than write an ID that is gone on the next boot
+(! systemd-machine-id-setup --print --force)
+EOF
+}
+
+testcase_force_ignores_other_sources() {
+    local root dbus_id machine_id
+
+    root="$(mktemp -d)"
+    trap "root_cleanup $root" RETURN
+    root_mock "$root"
+
+    # Set up a D-Bus machine ID, which is normally picked up when /etc/machine-id is empty
+    dbus_id="$(systemd-id128 new)"
+    mkdir -p "$root/var/lib/dbus"
+    echo "$dbus_id" >"$root/var/lib/dbus/machine-id"
+
+    machine_id="$(systemd-machine-id-setup --print --root "$root")"
+    assert_eq "$machine_id" "$dbus_id"
+
+    # --force must not reuse it, as on a cloned system it would just carry over the old identity
+    machine_id="$(systemd-machine-id-setup --print --force --root "$root")"
+    assert_neq "$machine_id" "$dbus_id"
+    diff <(echo "$machine_id") "$root/etc/machine-id"
+}
+
+testcase_force_uninitialized() {
+    local root machine_id
+
+    root="$(mktemp -d)"
+    trap "root_cleanup $root" RETURN
+    root_mock "$root"
+
+    # An "uninitialized" marker doubles as the first boot flag and carries no identity that
+    # could have been duplicated by cloning, hence it is left alone — with --force as well
+    echo "uninitialized" >"$root/etc/machine-id"
+    assert_eq "$(systemd-machine-id-setup --print --root "$root")" "uninitialized"
+
+    machine_id="$(systemd-machine-id-setup --print --force --root "$root")"
+    assert_eq "$machine_id" "uninitialized"
+    diff <(echo "uninitialized") "$root/etc/machine-id"
 }
 
 testcase_transient() {

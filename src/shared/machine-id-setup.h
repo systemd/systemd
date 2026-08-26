@@ -8,6 +8,8 @@
 typedef enum MachineIdSetupFlags {
         MACHINE_ID_SETUP_FORCE_TRANSIENT = 1 << 0,
         MACHINE_ID_SETUP_FORCE_FIRMWARE  = 1 << 1,
+        MACHINE_ID_SETUP_FORCE_NEW       = 1 << 2, /* Discard any ID currently in place, and generate a
+                                                    * fresh random one. */
 } MachineIdSetupFlags;
 
 int machine_id_commit(const char *root);
