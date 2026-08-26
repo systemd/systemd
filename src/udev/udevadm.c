@@ -9,10 +9,13 @@
 #include "label-util.h"
 #include "main-func.h"
 #include "options.h"
+#include "pager.h"
 #include "udev-util.h"
 #include "udevadm.h"
 #include "udevd.h"
 #include "verbs.h"
+
+PagerFlags arg_pager_flags = 0;
 
 COMMAND(
         "udevadm\0",
@@ -20,6 +23,7 @@ COMMAND(
         .argspec = "COMMAND [COMMAND OPTION…]\0",
         .man_pages = "udevadm.8\0",
         .option_namespace = "udevadm",
+        .pager_flags = &arg_pager_flags,
 );
 
 /* All verbs are defined here, right after the COMMAND, so that they are attributed to it. Each
@@ -29,17 +33,17 @@ VERB_COMMON_HELP_AUTO_PROGRAM("udevadm");
 #define UDEVADM_VERB(fn, name, args, flags, help, footer)               \
         VERB_SCOPE_NS_FULL(, fn, name, "udevadm-" name, args, VERB_ANY, VERB_ANY, flags, /* dat= */ 0, help, footer)
 
-UDEVADM_VERB(verb_info_main,    "info",         "[DEVPATH|FILE]",   0,                    "Query sysfs or the udev database",  NULL);
-UDEVADM_VERB(verb_trigger_main, "trigger",      "DEVPATH",          0,                    "Request events from the kernel",    NULL);
-UDEVADM_VERB(verb_settle_main,  "settle",       NULL,               0,                    "Wait for pending udev events",      NULL);
-UDEVADM_VERB(verb_control_main, "control",      NULL,               VERB_OPTION_REQUIRED, "Control the udev daemon",           NULL);
-UDEVADM_VERB(verb_monitor_main, "monitor",      NULL,               0,                    "Listen to kernel and udev events",  NULL);
-UDEVADM_VERB(verb_test_main,    "test",         "DEVPATH",          0,                    "Test an event run",                 NULL);
-UDEVADM_VERB(verb_builtin_main, "test-builtin", "COMMAND DEVPATH",  0,                    "Test a built-in command",           NULL);
-UDEVADM_VERB(verb_verify_main,  "verify",       "[FILE…]",          0,                    "Verify udev rules files",           NULL);
-UDEVADM_VERB(verb_cat_main,     "cat",          "[FILE…]",          0,                    "Show udev rules files",             NULL);
-UDEVADM_VERB(verb_wait_main,    "wait",         "DEVICE [DEVICE…]", 0,                    "Wait for device or device symlink", NULL);
-UDEVADM_VERB(verb_lock_main,    "lock",         "COMMAND",          0,                    "Lock a block device",               NULL);
+UDEVADM_VERB(verb_info_main,    "info",         "[DEVPATH|FILE]",   0,                    "Query sysfs or the udev database",      NULL);
+UDEVADM_VERB(verb_trigger_main, "trigger",      "DEVPATH",          0,                    "Request events from the kernel",        NULL);
+UDEVADM_VERB(verb_settle_main,  "settle",       NULL,               0,                    "Wait for pending udev events",          NULL);
+UDEVADM_VERB(verb_control_main, "control",      NULL,               VERB_OPTION_REQUIRED, "Control the udev daemon",               NULL);
+UDEVADM_VERB(verb_monitor_main, "monitor",      NULL,               0,                    "Listen to kernel and udev events",      NULL);
+UDEVADM_VERB(verb_test_main,    "test",         "DEVPATH",          0,                    "Test an event run",                     NULL);
+UDEVADM_VERB(verb_builtin_main, "test-builtin", "COMMAND DEVPATH",  0,                    "Test a built-in command",               NULL);
+UDEVADM_VERB(verb_verify_main,  "verify",       "[FILE…]",          0,                    "Verify udev rules files",               NULL);
+UDEVADM_VERB(verb_cat_main,     "cat",          "[FILE…]",          0,                    "Show udev rules files",                 NULL);
+UDEVADM_VERB(verb_wait_main,    "wait",         "DEVICE [DEVICE…]", 0,                    "Wait for device or device symlink",     NULL);
+UDEVADM_VERB(verb_lock_main,    "lock",         "COMMAND",          0,                    "Lock a block device and run a command", NULL);
 UDEVADM_VERB(verb_hwdb_main,    "hwdb",         NULL,               VERB_DEPRECATED,      "Update or query the hardware database",
                                                                                           "Verb 'hwdb' is deprecated. Use systemd-hwdb instead.");
 
