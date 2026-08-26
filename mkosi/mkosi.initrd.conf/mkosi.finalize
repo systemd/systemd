@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+# The certificate mkosi installs for userspace verification, mirrored into the VOA hierarchy so that
+# systemd-keyring-setup enrolls it into the .dm-verity and .fs-verity keyrings while the initrd still can.
+if [ -f "$BUILDROOT/usr/lib/verity.d/mkosi.crt" ]; then
+    # shellcheck source=/dev/null
+    id=$(. "$BUILDROOT/usr/lib/os-release" && echo "$ID")
+    for context in dm-verity fs-verity; do
+        install -D -m 0644 "$BUILDROOT/usr/lib/verity.d/mkosi.crt" "$BUILDROOT/usr/share/voa/$id/kernel-keyring/$context/x509/mkosi-certificate.pem"
+    done
+    install -D -m 0644 "$SRCDIR/mkosi/keyring-setup-ca.crt" \
+        "$BUILDROOT/usr/share/voa/$id/trust-anchor-kernel-keyring/dm-verity/x509/ca-certificate.pem"
+fi
