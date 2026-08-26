@@ -679,6 +679,7 @@ def main() -> None:
         '--runtime-network=none',
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
         *args.mkosi_args,
+        *shlex.split(os.getenv('TEST_MKOSI_ARGS', '')),
         '--firmware', firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
         '--tpm', 'yes' if args.tpm else 'no',
@@ -706,7 +707,24 @@ def main() -> None:
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
         'vm' if vm else 'boot',
         *(
-            ['--', '--capability=CAP_BPF', f'--suppress-sync={"yes" if args.suppress_sync else "no"}', *vm_images_args, *coco_boot_args]
+            [
+                '--',
+                '--capability=CAP_BPF',
+                f'--suppress-sync={"yes" if args.suppress_sync else "no"}',
+                # The kernel only permits mounting a fresh proc or sysfs instance in a mount
+                # namespace owned by a non-initial user namespace if a fully visible mount of the
+                # same filesystem type already exists in that namespace (mount_too_revealing()).
+                # systemd-nspawn's pivoted root contains no such mount, so in boot mode inside an
+                # unprivileged container (e.g. a containerized CI runner) the inner child fails to
+                # mount /proc with EPERM. Carry a read-only bind of each into the container to
+                # satisfy the check. Elsewhere they are two harmless extra mounts under /run/host.
+                # /sys is bound non-recursively so locked overmounts (e.g. lxcfs) don't make the
+                # bind itself not fully visible.
+                '--bind-ro=/proc:/run/host/proc',
+                '--bind-ro=/sys:/run/host/sys:norbind',
+                *vm_images_args,
+                *coco_boot_args,
+            ]
             if not vm
             else []
         ),
