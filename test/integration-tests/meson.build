@@ -112,6 +112,7 @@ foreach dirname : [
         'TEST-93-CLONESETUP',
         'TEST-94-COCO',
         'TEST-95-DBUS-RECONNECT',
+        'TEST-96-KEYRING-SETUP',
 ]
         subdir(dirname)
 endforeach
