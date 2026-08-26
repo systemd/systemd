@@ -94,6 +94,64 @@ FUNCTION_TO_FEATURE = {
 }
 
 
+# Mapping from FDO dlopen feature name (as used in FUNCTION_TO_FEATURE values)
+# to the config.h HAVE_* macro that gates whether the feature is compiled in.
+FEATURE_TO_HAVE_MACRO = {
+    'bpf': 'HAVE_LIBBPF',
+    'bzip2': 'HAVE_BZIP2',
+    'cryptsetup': 'HAVE_LIBCRYPTSETUP',
+    'curl': 'HAVE_LIBCURL',
+    'dw': 'HAVE_ELFUTILS',
+    'elf': 'HAVE_ELFUTILS',
+    'fdisk': 'HAVE_LIBFDISK',
+    'gnutls': 'HAVE_GNUTLS',
+    'idn': 'HAVE_LIBIDN2',
+    'acl': 'HAVE_ACL',
+    'apparmor': 'HAVE_APPARMOR',
+    'archive': 'HAVE_LIBARCHIVE',
+    'audit': 'HAVE_AUDIT',
+    'blkid': 'HAVE_BLKID',
+    'crypt': 'HAVE_LIBCRYPT',
+    'libcrypto': 'HAVE_OPENSSL',
+    'fido2': 'HAVE_LIBFIDO2',
+    'kmod': 'HAVE_KMOD',
+    'mount': 'HAVE_LIBMOUNT',
+    'pam': 'HAVE_PAM',
+    'seccomp': 'HAVE_SECCOMP',
+    'selinux': 'HAVE_SELINUX',
+    'libssl': 'HAVE_OPENSSL',
+    'lz4': 'HAVE_LZ4',
+    'microhttpd': 'HAVE_MICROHTTPD',
+    'p11-kit': 'HAVE_P11KIT',
+    'passwdqc': 'HAVE_PASSWDQC',
+    'pcre2': 'HAVE_PCRE2',
+    'pwquality': 'HAVE_PWQUALITY',
+    'qrencode': 'HAVE_QRENCODE',
+    'tpm (esys)': 'HAVE_TPM2',
+    'tpm (mu)': 'HAVE_TPM2',
+    'tpm (rc)': 'HAVE_TPM2',
+    'tpm (tcti-device)': 'HAVE_TPM2',
+    'xkbcommon': 'HAVE_XKBCOMMON',
+    'lzma': 'HAVE_XZ',
+    'zlib': 'HAVE_ZLIB',
+    'zstd': 'HAVE_ZSTD',
+}
+
+
+def feature_is_enabled(feat: str, config_have: dict[str, int]) -> bool:
+    """Return whether `feat` is enabled according to config.h.
+
+    Features with no known HAVE_* mapping, or whose macro is not found in
+    config.h, are treated as enabled (fail open) so that we never silently
+    suppress a genuine missing/dead-metadata warning just because our
+    FEATURE_TO_HAVE_MACRO table is incomplete or wrong.
+    """
+    macro = FEATURE_TO_HAVE_MACRO.get(feat)
+    if macro is None or macro not in config_have:
+        return True
+    return config_have[macro] == 1
+
+
 def dlopen_function_append(name: str, function_names: set[str]) -> None:
     """Add a symbol to the set, expanding or dropping based on FUNCTION_FILTER."""
     function_names.update(FUNCTION_FILTER.get(name, [name]))
@@ -122,6 +180,32 @@ def dlopen_functions_parse(path: Path) -> set[str]:
         sys.exit(1)
 
     return function_names
+
+
+def config_h_parse(path: Path) -> dict[str, int]:
+    """Parse a Meson-generated config.h and extract integer (0/1) macros.
+
+    Only macros defined as a bare `0` or `1` are kept (this covers all
+    HAVE_* / ENABLE_* style feature toggles); string, path, and other
+    non-boolean defines are ignored.
+    """
+    have: dict[str, int] = {}
+    define_re = re.compile(r'^\s*#define\s+(\S+)\s+(\S+)\s*$')
+
+    try:
+        with path.open('r', encoding='utf-8') as f:
+            for line in f:
+                m = define_re.match(line)
+                if not m:
+                    continue
+                name, value = m.group(1), m.group(2)
+                if value in ('0', '1'):
+                    have[name] = int(value)
+    except Exception as e:
+        print(f"Failed to read '{path}': {e}", file=sys.stderr)
+        sys.exit(1)
+
+    return have
 
 
 def dlopen_note_get_feature(item: dict[str, Any]) -> str:
@@ -237,7 +321,10 @@ def main():
     parser = argparse.ArgumentParser(description='Compare dlopen symbols vs metadata notes.')
     parser.add_argument('--static', required=True, help='Path to statically linked binary')
     parser.add_argument('--shared', required=True, help='Path to shared library or dynamic binary')
+    parser.add_argument('--config', required=True, help='Path to Meson-generated config.h')
     args = parser.parse_args()
+
+    config_have = config_h_parse(Path(args.config))
 
     unknown_functions = set()
     features_by_func = set()
@@ -247,6 +334,15 @@ def main():
                 unknown_functions.add(name)
             else:
                 features_by_func.add(FUNCTION_TO_FEATURE[name])
+
+    # A dlopen note is only actually *required* for a feature that is both
+    # (a) called (survived in the static binary) and (b) enabled in this
+    # build's config.h. If HAVE_FOO is 0, dlopen_foo() showing up as called
+    # is not a reason to demand a note for foo.
+    features_required = {
+        feat for feat in features_by_func
+        if feature_is_enabled(feat, config_have)
+    }
 
     note_static = dlopen_note_parse(Path(args.static))
     note_shared = dlopen_note_parse(Path(args.shared))
@@ -272,8 +368,12 @@ def main():
             rc = 1
             continue
 
-        if check_function_symbol and feat not in features_by_func:
-            print(f'  💥 {feat} is set, but corresponding dlopen() is not called.')
+        if check_function_symbol and feat not in features_required:
+            if feat in features_by_func and not feature_is_enabled(feat, config_have):
+                macro = FEATURE_TO_HAVE_MACRO.get(feat, '?')
+                print(f'  💥 {feat} is set, but {macro} is 0 (feature disabled); note not required.')
+            else:
+                print(f'  💥 {feat} is set, but corresponding dlopen() is not called.')
             rc = 1
             continue
 
