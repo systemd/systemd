@@ -246,3 +246,9 @@ fi
 
 systemctl --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["halt", "poweroff", "reboot", "shutdown", "systemctl"]'
+
+if command -v udevadm >/dev/null; then
+    udevadm --introspect-cli | jq -e \
+        '.commands[] | select(.names[0] == "udevadm") | .verbs[] |
+              select(.names[0] == "hwdb") | .isDeprecated == true'
+fi

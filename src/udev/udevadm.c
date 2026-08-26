@@ -26,21 +26,22 @@ COMMAND(
  * subcommand parses its own options from the "udevadm-<verb>" namespace, see udevadm-*.c. */
 VERB_COMMON_HELP_AUTO_PROGRAM("udevadm");
 
-#define UDEVADM_VERB(fn, name, args, help)                              \
-        VERB_SCOPE_NS(, fn, name, "udevadm-" name, args, VERB_ANY, VERB_ANY, 0, help)
+#define UDEVADM_VERB(fn, name, args, flags, help, footer)               \
+        VERB_SCOPE_NS_FULL(, fn, name, "udevadm-" name, args, VERB_ANY, VERB_ANY, flags, /* dat= */ 0, help, footer)
 
-UDEVADM_VERB(verb_info_main,    "info",         "[DEVPATH|FILE]\0",   "Query sysfs or the udev database");
-UDEVADM_VERB(verb_trigger_main, "trigger",      "DEVPATH\0",          "Request events from the kernel");
-UDEVADM_VERB(verb_settle_main,  "settle",       NULL,                 "Wait for pending udev events");
-UDEVADM_VERB(verb_control_main, "control",      "OPTION\0",           "Control the udev daemon");
-UDEVADM_VERB(verb_monitor_main, "monitor",      NULL,                 "Listen to kernel and udev events");
-UDEVADM_VERB(verb_test_main,    "test",         "DEVPATH\0",          "Test an event run");
-UDEVADM_VERB(verb_builtin_main, "test-builtin", "COMMAND DEVPATH\0",  "Test a built-in command");
-UDEVADM_VERB(verb_verify_main,  "verify",       "[FILE…]\0",          "Verify udev rules files");
-UDEVADM_VERB(verb_cat_main,     "cat",          "[FILE…]\0",          "Show udev rules files");
-UDEVADM_VERB(verb_wait_main,    "wait",         "DEVICE [DEVICE…]\0", "Wait for device or device symlink");
-UDEVADM_VERB(verb_lock_main,    "lock",         "COMMAND\0",          "Lock a block device");
-UDEVADM_VERB(verb_hwdb_main,    "hwdb",         NULL,                 /* help= */ NULL); /* deprecated */
+UDEVADM_VERB(verb_info_main,    "info",         "[DEVPATH|FILE]\0",   0,                    "Query sysfs or the udev database",  NULL);
+UDEVADM_VERB(verb_trigger_main, "trigger",      "DEVPATH\0",          0,                    "Request events from the kernel",    NULL);
+UDEVADM_VERB(verb_settle_main,  "settle",       NULL,                 0,                    "Wait for pending udev events",      NULL);
+UDEVADM_VERB(verb_control_main, "control",      NULL,                 VERB_OPTION_REQUIRED, "Control the udev daemon",           NULL);
+UDEVADM_VERB(verb_monitor_main, "monitor",      NULL,                 0,                    "Listen to kernel and udev events",  NULL);
+UDEVADM_VERB(verb_test_main,    "test",         "DEVPATH\0",          0,                    "Test an event run",                 NULL);
+UDEVADM_VERB(verb_builtin_main, "test-builtin", "COMMAND DEVPATH\0",  0,                    "Test a built-in command",           NULL);
+UDEVADM_VERB(verb_verify_main,  "verify",       "[FILE…]\0",          0,                    "Verify udev rules files",           NULL);
+UDEVADM_VERB(verb_cat_main,     "cat",          "[FILE…]\0",          0,                    "Show udev rules files",             NULL);
+UDEVADM_VERB(verb_wait_main,    "wait",         "DEVICE [DEVICE…]\0", 0,                    "Wait for device or device symlink", NULL);
+UDEVADM_VERB(verb_lock_main,    "lock",         "COMMAND",            0,                    "Lock a block device",               NULL);
+UDEVADM_VERB(verb_hwdb_main,    "hwdb",         NULL,                 VERB_DEPRECATED,      "Update or query the hardware database",
+                                                                                            "Verb 'hwdb' is deprecated. Use systemd-hwdb instead.");
 
 VERB_NOARG(verb_version_main, "version", /* help= */ NULL);
 static int verb_version_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
