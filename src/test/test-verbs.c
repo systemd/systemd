@@ -101,7 +101,7 @@ static const Verb introspect_verbs[] = {
           .help = "Beta verb" },
         { .verb = "gamma", .flags = VERB_OPTION_REQUIRED,
           .min_args = VERB_ANY, .max_args = VERB_ANY, .dispatch = noop_dispatcher,
-          .help = "Gamma verb" },
+          .help = "Gamma verb", .footer = "Gamma footer" },
 };
 
 static const Option introspect_options[] = {
