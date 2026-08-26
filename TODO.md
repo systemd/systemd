@@ -2538,8 +2538,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   device to dissect. also support dissecting a regular file. useccase: include
   encrypted/verity root fs in UKI.
 
-- systemd-inhibit: make taking delay locks useful: support sending SIGINT or SIGTERM on PrepareForSleep()
-
 - **systemd-measure tool:**
   - pre-calculate PCR 12 (command line) + PCR 13 (sysext) the same way we can precalculate PCR 11
   - add --pcrpkey-auto as an alternative to --pcrpkey=, where it would just use
