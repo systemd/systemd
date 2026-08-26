@@ -21,6 +21,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -129,12 +130,172 @@ static int acquire_machine_id(const char *root, bool machine_id_from_firmware, s
         return 0;
 }
 
+static int force_new_check_persistent(int fd, const char *root, const char *etc_machine_id, bool writable) {
+        int r;
+
+        assert(fd >= 0);
+        assert(etc_machine_id);
+
+        /* We are supposed to *persistently* replace the identity of this system, hence refuse in all the
+         * cases where the ID we'd write would not actually stick. Note that being able to open the file
+         * O_RDWR is not sufficient for that, so inspect the same two properties machine_id_commit() does —
+         * being a mount point, and sitting on a temporary file system — except that it requires them while
+         * we refuse on them. */
+
+        /* A transient ID is currently overmounted: the fd we'd write to is the /run/machine-id the running
+         * system uses, so we'd clobber the ID in active use and persist nothing. This is the guard that
+         * catches the overmount, including the read-only one: opening it O_RDWR merely falls back to
+         * O_RDONLY, and we check this before looking at 'writable'. */
+        r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m",
+                                       etc_machine_id);
+        if (r > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                       "Refusing to generate a new machine ID: '%s' is a mount point, the "
+                                       "new ID would not be persisted. If this is a transient ID installed "
+                                       "at boot, use --commit first.", etc_machine_id);
+
+        if (!writable)
+                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                       "Refusing to generate a new machine ID: '%s' is not writable.",
+                                       etc_machine_id);
+
+        /* And if /etc/ itself sits on a temporary file system (systemd.volatile=yes, stateless setups) the
+         * new ID would silently be gone again after the reboot we tell people to perform. Only check this
+         * for the host: with --root=/--image= the caller explicitly picked the tree to operate on, and it
+         * is their business what it is backed by.
+         *
+         * Note this deliberately does not catch systemd.volatile=overlay: there /etc/ is on an overlayfs
+         * whose upper layer happens to be volatile, and an overlayfs /etc/ with a persistent upper layer
+         * is a perfectly fine place to write a machine ID to, so we cannot refuse on the file system type
+         * alone. */
+        if (!empty_or_root(root))
+                return 0;
+
+        /* A systemd.machine_id= on the kernel command line outranks /etc/machine-id: PID 1 writes its
+         * value back on every boot, so the reboot we tell people to perform would restore the old ID and
+         * undo the whole operation. Only knowable for the running system, hence checked here.
+         *
+         * The value matters, not just the presence: systemd.machine_id=firmware leaves arg_machine_id
+         * null, so PID 1 reads the file first and keeps whatever we put there, and a valueless
+         * systemd.machine_id is discarded outright. Only something parsing as a non-null ID outranks us. */
+        _cleanup_free_ char *cmdline_id = NULL;
+        r = proc_cmdline_get_key("systemd.machine_id", /* flags= */ 0, &cmdline_id);
+        if (r < 0)
+                log_debug_errno(r,
+                                "Failed to check for systemd.machine_id= on the kernel command line, "
+                                "ignoring: %m");
+        else if (r > 0 && id128_from_string_nonzero(cmdline_id, &(sd_id128_t) {}) >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                       "Refusing to generate a new machine ID: systemd.machine_id=%s is "
+                                       "set on the kernel command line and takes precedence, drop or "
+                                       "update it first.", cmdline_id);
+
+        r = fd_is_temporary_fs(fd);
+        if (r < 0)
+                return log_error_errno(r,
+                                       "Failed to determine whether '%s' is on a temporary file system: %m",
+                                       etc_machine_id);
+        if (r > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                       "Refusing to generate a new machine ID: '%s' is on a temporary "
+                                       "file system.", etc_machine_id);
+
+        return 0;
+}
+
+static void update_stale_machine_ids(const char *root, sd_id128_t machine_id, int etc_fd) {
+        int r;
+
+        /* Stale copies of the ID we just replaced are still lying around in the other places
+         * acquire_machine_id() consults, and would resurrect the very identity we are supposed to destroy
+         * the next time the machine ID is initialized: /run/machine-id survives a transient boot because
+         * machine_id_commit() does not remove it, and the D-Bus machine ID is persistent to begin with.
+         * Bring both in line with the new ID.
+         *
+         * Both are resolved confined to the target tree, refusing to follow symlinks and to touch anything
+         * that is not a regular file. For /var/lib/dbus/machine-id that is exactly what the read path in
+         * acquire_machine_id() does; for /run/machine-id the read path is a plain id128_read() that does
+         * follow symlinks, so we are stricter here — deliberately, as this is a write into a possibly
+         * untrusted tree.
+         *
+         * This is best-effort: failures are logged and ignored, the identity itself is already in place. */
+
+        FOREACH_STRING(stale, "/run/machine-id", "/var/lib/dbus/machine-id") {
+                _cleanup_close_ int stale_fd = -EBADF;
+                _cleanup_free_ char *stale_path = NULL;
+
+                /* Deliberately without O_TRUNC: we have to compare inodes before destroying anything,
+                 * so the truncation happens explicitly further down. */
+                stale_fd = chase_and_open(stale, root,
+                                          CHASE_PREFIX_ROOT|CHASE_NOFOLLOW|CHASE_MUST_BE_REGULAR,
+                                          O_WRONLY|O_CLOEXEC|O_NOCTTY,
+                                          &stale_path);
+                if (stale_fd < 0) {
+                        /* -ENOENT means there is nothing to update. -ELOOP is ambiguous: it is what we get
+                         * for the symlink we skip on purpose, but chase() also returns it when resolving
+                         * the intermediate components runs into a loop — so only stay quiet once we
+                         * confirmed the final component really is a symlink. Anything else means we could
+                         * not do what we promise — the file is there but we cannot write it — so say so
+                         * rather than hiding it. */
+                        bool is_symlink = stale_fd == -ELOOP &&
+                                chase(stale, root, CHASE_PREFIX_ROOT|CHASE_NOFOLLOW,
+                                      /* ret_path= */ NULL, /* ret_fd= */ NULL) >= 0;
+
+                        log_full_errno(stale_fd == -ENOENT || is_symlink ? LOG_DEBUG : LOG_WARNING, stale_fd,
+                                       "Not updating stale machine ID in '%s%s', ignoring: %m",
+                                       strempty(root), stale);
+                        continue;
+                }
+
+                /* Don't touch the file we just wrote: CHASE_NOFOLLOW rules out symlink aliasing but not
+                 * a hard link to /etc/machine-id, which does occur in the wild. Rewriting it would be a
+                 * no-op content-wise, but truncating would momentarily empty the primary file, and a
+                 * failure here is warning-only. */
+                r = inode_same_at(stale_fd, /* filea= */ NULL, etc_fd, /* fileb= */ NULL, AT_EMPTY_PATH);
+                if (r < 0)
+                        log_debug_errno(r,
+                                        "Failed to check whether '%s' is the file we just wrote, "
+                                        "assuming it is not: %m", stale_path);
+                else if (r > 0) {
+                        log_debug("Stale machine ID in '%s' is the file we just wrote, skipping.",
+                                  stale_path);
+                        continue;
+                }
+
+                if (ftruncate(stale_fd, 0) < 0) {
+                        log_warning_errno(errno, "Failed to truncate stale machine ID in '%s', ignoring: %m",
+                                          stale_path);
+                        continue;
+                }
+
+                /* Sync, like the /etc/machine-id write: the D-Bus copy is persistent, and we just
+                 * destroyed the old contents, so a crash in between must not leave it empty or stale. */
+                r = id128_write_fd(stale_fd, ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, machine_id);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update stale machine ID in '%s', ignoring: %m",
+                                          stale_path);
+                else
+                        log_debug("Updated stale machine ID in '%s'.", stale_path);
+        }
+}
+
 int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlags flags, sd_id128_t *ret) {
         _cleanup_free_ char *etc_machine_id = NULL, *run_machine_id = NULL;
         bool writable, write_run_machine_id = true;
         _cleanup_close_ int fd = -EBADF, run_fd = -EBADF;
         bool unlink_run_machine_id = false;
         int r;
+
+        /* FORCE_NEW makes up an ID of its own, so a caller-supplied one is contradictory, as is
+         * FORCE_FIRMWARE which asks for a specific other source; and it is about persisting that ID, which
+         * FORCE_TRANSIENT is the exact opposite of. None of the three is rejected anywhere else, and
+         * honouring them halfway would skip the persistence guards below or silently substitute a random ID
+         * for a firmware-provided one, so pin them down here. */
+        assert(!FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_NEW) || sd_id128_is_null(machine_id));
+        assert(!FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_NEW|MACHINE_ID_SETUP_FORCE_TRANSIENT));
+        assert(!FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_NEW|MACHINE_ID_SETUP_FORCE_FIRMWARE));
 
         WITH_UMASK(0000) {
                 _cleanup_close_ int inode_fd = -EBADF;
@@ -199,20 +360,51 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         /* A we got a valid machine ID argument, that's what counts */
         if (sd_id128_is_null(machine_id) || FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE)) {
 
-                /* Try to read any existing machine ID */
-                r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id);
-                if (r >= 0)
-                        goto finish;
+                /* FORCE_NEW is an override of the "there already is an ID and we'd normally keep it"
+                 * case, so it only applies when there actually is one. An empty or missing
+                 * /etc/machine-id is not an identity that could have been duplicated by cloning: falling
+                 * through to the regular path there keeps the credential, container and SMBIOS sources
+                 * working, and keeps a missing file a first boot rather than silently cancelling it. */
+                sd_id128_t existing;
+                int existing_r;
 
-                log_debug_errno(r, "Unable to read current machine ID, acquiring new one: %m");
+                /* Read what is in place once, and branch on it: reading twice would leave the second
+                 * read starting from wherever the first one stopped. */
+                existing_r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &existing);
 
-                /* Hmm, so, the id currently stored is not useful, then let's acquire one. */
-                r = acquire_machine_id(root, FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE), &machine_id);
-                if (r < 0)
-                        return r;
+                if (FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_NEW) && existing_r >= 0) {
+                        r = force_new_check_persistent(fd, root, etc_machine_id, writable);
+                        if (r < 0)
+                                return r;
 
-                write_run_machine_id = !r; /* acquire_machine_id() returns 1 in case we read this machine ID
-                                            * from /run/machine-id */
+                        /* The caller explicitly asked us to make up a new identity for this system. Hence
+                         * don't even look at the ID currently in place, and don't go through
+                         * acquire_machine_id() either: every single source it consults (/run/machine-id, the
+                         * D-Bus machine ID, the system.machine_id credential, the container/VM UUID) would
+                         * likely just hand us back the very ID we are supposed to replace. Go straight to
+                         * the random pool instead. */
+                        r = sd_id128_randomize(&machine_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
+
+                        log_info("Generating new machine ID from random generator.");
+                } else {
+                        if (existing_r >= 0) {
+                                machine_id = existing;
+                                goto finish;
+                        }
+
+                        log_debug_errno(existing_r,
+                                        "Unable to read current machine ID, acquiring new one: %m");
+
+                        /* Hmm, so, the id currently stored is not useful, then let's acquire one. */
+                        r = acquire_machine_id(root, FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE), &machine_id);
+                        if (r < 0)
+                                return r;
+
+                        write_run_machine_id = !r; /* acquire_machine_id() returns 1 in case we read this machine ID
+                                                    * from /run/machine-id */
+                }
         }
 
         if (writable) {
@@ -229,7 +421,8 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                 if (FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_TRANSIENT)) {
                         r = loop_write(fd, "uninitialized\n", SIZE_MAX);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to write uninitialized %s: %m", etc_machine_id);
+                                return log_error_errno(r, "Failed to write uninitialized %s: %m",
+                                                       etc_machine_id);
 
                         r = fsync_full(fd);
                         if (r < 0)
@@ -238,6 +431,9 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                         r = id128_write_fd(fd, ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, machine_id);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write %s: %m", etc_machine_id);
+
+                        if (FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_NEW))
+                                update_stale_machine_ids(root, machine_id, fd);
 
                         goto finish;
                 }
