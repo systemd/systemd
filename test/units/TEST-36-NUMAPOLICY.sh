@@ -14,8 +14,10 @@ at_exit() {
     if [[ $? -ne 0 ]]; then
         # We're exiting with a non-zero EC, let's dump test artifacts
         # for easier debugging
-        [[ -v straceLog && -f "$straceLog" ]] && cat "$straceLog"
-        [[ -v journalLog && -f "$journalLog" ]] && cat "$journalLog"
+        # Each dump is guarded so a missing file cannot become the trap's status: set -e is
+        # active here, and the exit status this trap reports on would be rewritten by it.
+        { [[ -v straceLog && -f "$straceLog" ]] && cat "$straceLog"; } || :
+        { [[ -v journalLog && -f "$journalLog" ]] && cat "$journalLog"; } || :
     fi
 }
 
@@ -115,14 +117,36 @@ pid1StartUnitWithStrace() {
 }
 
 pid1StartUnitWithJournal() {
+    # The capture is closed by the caller, after it has waited for the state it asserts on:
+    # systemctl start returns for a simple service as soon as the fork succeeds, so a stop here
+    # would close the window before the exec child has reached the NUMA step, and the artifact
+    # dumped by at_exit would not contain the lines that explain a failure.
     startJournalctl
     systemctl start "${1:?}"
-    sleep $sleepAfterStart
-    stopJournalctl
 }
 
 pid1StopUnit() {
     systemctl stop "${1:?}"
+}
+
+waitUnitMainExited() {
+    # Wait until PID1 has recorded the main process's exit, so ExecMainStatus holds the exec
+    # child's own result rather than the signal a later stop would deliver. "Started ..." is
+    # logged for a simple service as soon as the fork succeeds, which orders nothing.
+    # A failed read prints nothing, and an empty string must keep the loop waiting rather than
+    # read as "exited": -P prints 0 for a unit whose main process has not exited yet.
+    # shellcheck disable=SC2016 # $1 is expanded by the inner shell, which gets it as an argument
+    timeout 30 bash -xeuc 'until code=$(systemctl show "$1" -P ExecMainCode) && [[ -n "$code" && "$code" != 0 ]]; do sleep .5; done' bash "${1:?}"
+}
+
+waitUnitMainHandoff() {
+    # Wait until the exec child has reached the handoff timestamp, which systemd-executor sends
+    # right before execve(), after all of exec setup including the NUMA step. A child whose
+    # policy is rejected exits at that step instead and never sends it, so the property stays 0
+    # and the wait fails at the bound. A failed read prints nothing, and an empty string must
+    # keep the loop waiting, same as the 0 the property holds until the handoff arrives.
+    # shellcheck disable=SC2016 # $1 is expanded by the inner shell, which gets it as an argument
+    timeout 30 bash -xeuc 'until ts=$(systemctl show "$1" -P ExecMainHandoffTimestampMonotonic) && [[ "$ts" =~ ^[1-9] ]]; do sleep .5; done' bash "${1:?}"
 }
 
 systemctlCheckNUMAProperties() {
@@ -163,8 +187,9 @@ if ! checkNUMA; then
     echo "systemd-run NUMAPolicy=default && NUMAMask=0 check without NUMA support"
     runUnit='numa-systemd-run-test.service'
     startJournalctl
-    systemd-run -p NUMAPolicy=default -p NUMAMask=0 --unit "$runUnit" sleep 1000
-    sleep $sleepAfterStart
+    # Type=exec holds systemd-run until the service binary has been executed, which is after
+    # the exec setup that logs the message this subtest greps for.
+    systemd-run --service-type=exec -p NUMAPolicy=default -p NUMAMask=0 --unit "$runUnit" sleep 1000
     pid1StopUnit "$runUnit"
     stopJournalctl "$runUnit"
     grep "NUMA support not available, ignoring" "$journalLog"
@@ -265,8 +290,12 @@ else
     echo "Unit file NUMAPolicy support - Bind policy w/o mask"
     writeTestUnitNUMAPolicy "bind"
     pid1StartUnitWithJournal "$testUnit"
-    pid1StopUnit "$testUnit"
+    # Close the capture before failing a timed-out wait, so the at_exit dump shows this
+    # subtest's window rather than a stale one.
+    waitUnitMainExited "$testUnit" || { stopJournalctl "$testUnit"; false; }
+    stopJournalctl "$testUnit"
     [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]]
+    pid1StopUnit "$testUnit"
 
     echo "Unit file NUMAPolicy support - Bind policy w/ mask"
     writeTestUnitNUMAPolicy "bind" "0"
@@ -278,8 +307,9 @@ else
     echo "Unit file NUMAPolicy support - Interleave policy w/o mask"
     writeTestUnitNUMAPolicy "interleave"
     pid1StartUnitWithStrace "$testUnit"
-    pid1StopUnit "$testUnit"
+    waitUnitMainExited "$testUnit"
     [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]]
+    pid1StopUnit "$testUnit"
 
     echo "Unit file NUMAPolicy support - Interleave policy w/ mask"
     writeTestUnitNUMAPolicy "interleave" "0"
@@ -291,9 +321,16 @@ else
     echo "Unit file NUMAPolicy support - Preferred policy w/o mask"
     writeTestUnitNUMAPolicy "preferred"
     pid1StartUnitWithJournal "$testUnit"
+    # The handoff wait is the live check here: a preferred policy wrongly rejected for its empty
+    # mask dies at the NUMA step with EXIT_NUMA_POLICY, the handoff timestamp never arrives, and
+    # the wait times out. The two property reads then pin what the wait established: the unit is
+    # still running and no exit has been recorded.
+    waitUnitMainHandoff "$testUnit" || { stopJournalctl "$testUnit"; false; }
+    stopJournalctl "$testUnit"
     systemctlCheckNUMAProperties "$testUnit" "preferred"
+    [[ $(systemctl show "$testUnit" -P ActiveState) == "active" ]]
+    [[ $(systemctl show "$testUnit" -P ExecMainCode) == "0" ]]
     pid1StopUnit "$testUnit"
-    [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]] && { echo >&2 "unexpected pass"; exit 1; }
 
     echo "Unit file NUMAPolicy support - Preferred policy w/ mask"
     writeTestUnitNUMAPolicy "preferred" "0"
@@ -320,8 +357,9 @@ else
     echo "Unit file NUMAPolicy support - Preferred-many policy w/o mask"
     writeTestUnitNUMAPolicy "preferred-many"
     pid1StartUnitWithStrace "$testUnit"
-    pid1StopUnit "$testUnit"
+    waitUnitMainExited "$testUnit"
     [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]]
+    pid1StopUnit "$testUnit"
 
     echo "Unit file NUMAPolicy support - Preferred-many policy w/ mask"
     writeTestUnitNUMAPolicy "preferred-many" "0"
@@ -334,8 +372,9 @@ else
     echo "Unit file NUMAPolicy support - Weighted-interleave policy w/o mask"
     writeTestUnitNUMAPolicy "weighted-interleave"
     pid1StartUnitWithStrace "$testUnit"
-    pid1StopUnit "$testUnit"
+    waitUnitMainExited "$testUnit"
     [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]]
+    pid1StopUnit "$testUnit"
 
     echo "Unit file NUMAPolicy support - Weighted-interleave policy w/ mask"
     writeTestUnitNUMAPolicy "weighted-interleave" "0"
