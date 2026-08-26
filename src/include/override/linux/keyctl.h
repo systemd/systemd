@@ -44,3 +44,8 @@ typedef int32_t key_serial_t;
 #else
 static_assert(KEY_OTH_ALL == 0x0000003f, "");
 #endif
+
+/* TODO: drop once the headers we require carry it */
+#ifndef KEY_SPEC_BPF_KEYRING
+#  define KEY_SPEC_BPF_KEYRING -9 /* - key ID for the .bpf keyring */
+#endif
