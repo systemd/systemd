@@ -183,6 +183,28 @@ static inline int verb_help_auto(int argc, char **argv, uintptr_t data, void *us
         return command_print_help_name((const char*) data);
 }
 
+typedef enum CommandVerbHelpFlags {
+        COMMAND_VERB_HELP_NO_MAN_PAGES = 1 << 0,  /* Do not print the command's man page links */
+} CommandVerbHelpFlags;
+
+/* Print the help for a single verb: the synopsis, the one-line help as abstract, the options from
+ * the verb's option namespace (see VERB_SCOPE_NS*), and the man page links of the command the verb
+ * belongs to. The verb is attributed to the closest preceding COMMAND() in the verbs section, so:
+ * name must refer to an existing verb owned by such a command (asserted otherwise), verb names
+ * must be unique across the whole binary, commands with COMMAND_VERBS_SHARED are not
+ * disambiguated, and a declared option namespace must contain at least one non-hidden option. */
+int _command_print_verb_help(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                const char *name);
+#define command_print_verb_help(name)                                   \
+        _command_print_verb_help(                                       \
+                __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
+                __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
+                name)
+
 /* Print a machine-readable description of the program's commands, verbs, and options in the format
  * defined by the CLI-Introspection Specification. One command object is emitted for each
  * VERB_COMMAND() in the verb table, so multicall binaries are described in full. */

@@ -117,4 +117,15 @@ TEST(introspect_cli_verb_options) {
         REENABLE_WARNING;
 }
 
+TEST(command_print_verb_help) {
+        DISABLE_WARNING_STRINGOP_OVERREAD;
+        ASSERT_OK(_command_print_verb_help(introspect_verbs, introspect_verbs + ELEMENTSOF(introspect_verbs),
+                                           introspect_options, introspect_options + ELEMENTSOF(introspect_options),
+                                           "alpha"));
+        ASSERT_OK(_command_print_verb_help(introspect_verbs, introspect_verbs + ELEMENTSOF(introspect_verbs),
+                                           introspect_options, introspect_options + ELEMENTSOF(introspect_options),
+                                           "beta"));
+        REENABLE_WARNING;
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
