@@ -27,6 +27,7 @@
 #include "tmpfile-util.h"
 
 int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
+#if HAVE_LIBARCHIVE
         int r;
 
         assert(tree_fd >= 0);
@@ -93,9 +94,14 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         }
 
         return TAKE_FD(pipefd[1]);
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Failed to extract tar archive: libarchive support is not compiled in.");
+#endif
 }
 
 int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
+#if HAVE_LIBARCHIVE
         int r;
 
         assert(tree_fd >= 0);
@@ -164,6 +170,10 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
         }
 
         return TAKE_FD(pipefd[0]);
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Failed to create tar archive: libarchive support is not compiled in.");
+#endif
 }
 
 int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags) {
