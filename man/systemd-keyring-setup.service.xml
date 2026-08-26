@@ -127,7 +127,8 @@
     <literal>debian:13</literal> and <literal>debian</literal>. If <varname>ID=</varname> is not set,
     <literal>linux</literal> is used. If one of the other fields contains characters that are not permitted by
     the VOA specification, only the value of <varname>ID=</varname> is used. If <varname>ID=</varname> itself
-    contains such characters, no certificates are looked up.</para>
+    contains such characters, no certificates are looked up. The <varname>keyring-setup.os</varname> credential
+    may be used to specify the identifiers explicitly, see below.</para>
 
     <para>Note that the VOA specification requires different semantics than the usual logic for configuration
     files, where a file in a directory with higher priority replaces a file with the same name in a directory
@@ -149,6 +150,52 @@
     writable by anyone but their owner, and directories that are writable by anyone but their owner, are
     ignored. Once a directory owned by an unprivileged user has been entered, the lookup does not continue into
     files or directories owned by anyone else.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-keyring-setup</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>keyring-setup.dm-verity.<replaceable>NAME</replaceable></varname></term>
+        <term><varname>keyring-setup.fs-verity.<replaceable>NAME</replaceable></varname></term>
+        <term><varname>keyring-setup.bpf.<replaceable>NAME</replaceable></varname></term>
+
+        <listitem><para>A PEM-encoded X.509 certificate to enroll into the <literal>.dm-verity</literal>,
+        <literal>.fs-verity</literal> or <literal>.bpf</literal> keyring, respectively.
+        <replaceable>NAME</replaceable> may consist of lowercase letters, digits, <literal>.</literal>,
+        <literal>_</literal> and <literal>-</literal>. As suggested by the VOA specification for certificates
+        obtained from elsewhere, the certificate is not enrolled directly, but is first written to
+        <filename>/run/voa/<replaceable>OS</replaceable>/kernel-keyring/<replaceable>CONTEXT</replaceable>/x509/<replaceable>NAME</replaceable>-certificate.pem</filename>,
+        using the first OS identifier. Hence, masking and merging apply to it like to any other file in the
+        hierarchy. Only the certificate itself is written there, so that a private key included in the
+        credential is not made readable to other users. A credential that does not contain exactly one
+        certificate is ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>keyring-setup.os</varname></term>
+
+        <listitem><para>A whitespace-separated list of up to 64 OS identifiers to use instead of the ones
+        derived from <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        This is useful for generic initrds, whose <filename>os-release</filename> does not match the one of the
+        host. If the list is empty, too long or contains an invalid identifier, the credential is ignored and
+        the identifiers derived from <filename>os-release</filename> are used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>See
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for details about system credentials.</para>
   </refsect1>
 
   <refsect1>
@@ -182,7 +229,7 @@
     <title>Exit status</title>
 
     <para>On success, 0 is returned. This includes the cases where a keyring does not exist, or has been
-    provisioned by an earlier run already. If a certificate could not be used, for example
+    provisioned by an earlier run already. If a certificate or a credential could not be used, for example
     because it is malformed, or because it is not signed by a key in a keyring that has been sealed already, 65
     (<constant>EX_DATAERR</constant>) is returned. <filename>systemd-keyring-setup.service</filename> treats this
     exit status as success. On other failures, a different non-zero exit status is returned.</para>
@@ -235,6 +282,7 @@
       <member><citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>keyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
