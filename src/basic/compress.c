@@ -482,9 +482,9 @@ static int compress_blob_xz(
                 return r;
 
         if (level >= 0) {
-                r = sym_lzma_lzma_preset(&opt, (uint32_t) level);
-                if (r < 0)
-                        return r;
+                /* This returns bool, and true mean failure and the specified level is not supported. */
+                if (sym_lzma_lzma_preset(&opt, (uint32_t) level))
+                        return -EINVAL;
         }
 
         /* Returns < 0 if we couldn't compress the data or the
