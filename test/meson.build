@@ -301,7 +301,9 @@ if want_dlopen_tests
                 test(name,
                      test_dlopen_note_py,
                      env : test_env,
-                     args : ['--shared', exe_shared.full_path(), '--static', exe_static.full_path()],
+                     args : ['--shared', exe_shared.full_path(),
+                             '--static', exe_static.full_path(),
+                             '--config', config_h],
                      depends : [exe_shared, exe_static],
                      suite : 'dlopen')
         endforeach
@@ -316,7 +318,9 @@ if want_dlopen_tests
                 test('lib' + lib.name(),
                      test_dlopen_note_py,
                      env : test_env,
-                     args : ['--shared', lib.full_path(), '--static', lib_static.full_path()],
+                     args : ['--shared', lib.full_path(),
+                             '--static', lib_static.full_path(),
+                             '--config', config_h],
                      depends : [lib, lib_static],
                      suite : 'dlopen')
         endforeach
@@ -325,7 +329,9 @@ if want_dlopen_tests
                 test('lib' + lib.name(),
                      test_dlopen_note_py,
                      env : test_env,
-                     args : ['--shared', lib.full_path(), '--static', lib.full_path()],
+                     args : ['--shared', lib.full_path(),
+                             '--static', lib.full_path(),
+                             '--config', config_h],
                      depends : [lib],
                      suite : 'dlopen')
         endforeach
