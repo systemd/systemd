@@ -65,7 +65,7 @@ struct CoredumpContext {
         size_t auxv_size;  /* META_PROC_AUXV */
         char *thread_name; /* META_THREAD_NAME */
         bool got_pidfd;    /* META_ARGV_PIDFD */
-        bool got_code;     /* META_CODE */
+        int got_code;      /* META_CODE, tristate */
         bool same_pidns;
         bool forwarded;
         int input_fd;
@@ -79,6 +79,7 @@ struct CoredumpContext {
                 .uid = UID_INVALID,             \
                 .gid = GID_INVALID,             \
                 .tidref = PIDREF_NULL,          \
+                .got_code = -1,                 \
                 .mount_tree_fd = -EBADF,        \
                 .input_fd = -EBADF,             \
         }
@@ -89,3 +90,4 @@ bool coredump_context_is_journald(CoredumpContext *context);
 int coredump_context_build_iovw(CoredumpContext *context);
 int coredump_context_parse_iovw(CoredumpContext *context);
 int coredump_context_parse_from_argv(CoredumpContext *context, int argc, char **argv);
+int coredump_context_parse_from_peer(CoredumpContext *context);
