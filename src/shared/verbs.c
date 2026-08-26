@@ -629,6 +629,10 @@ int _command_print_verb_help(
                         return r;
         }
 
+        r = print_wrapped(verb->footer, /* footer_ansi_seq= */ NULL);
+        if (r < 0)
+                return r;
+
         r = print_man_links(cmd->man_pages);
         if (r < 0)
                 return log_error_errno(r, "Failed to print man page links: %m");
@@ -672,6 +676,9 @@ static int verb_build_json(
                                         !!verb->help,
                                         "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(verb->help))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_VARIANT(opts)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!verb->footer,
+                                        "postscript", SD_JSON_BUILD_STRV(STRV_MAKE(verb->footer))),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         verb->min_args != VERB_ANY,
                                         "minArguments", SD_JSON_BUILD_UNSIGNED(verb->min_args)),
