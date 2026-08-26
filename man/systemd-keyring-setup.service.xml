@@ -111,8 +111,8 @@
     <filename><replaceable>OS</replaceable>/kernel-keyring/<replaceable>CONTEXT</replaceable>/x509/<replaceable>NAME</replaceable>-certificate.pem</filename>,
     and trust anchors from
     <filename><replaceable>OS</replaceable>/trust-anchor-kernel-keyring/<replaceable>CONTEXT</replaceable>/x509/<replaceable>NAME</replaceable>-certificate.pem</filename>
-    below each load path. Both are enrolled into the same keyring. <replaceable>NAME</replaceable> may consist
-    of lowercase letters, digits,
+    below each load path. Both are enrolled into the same keyring, and only differ in how their usage is
+    checked, see below. <replaceable>NAME</replaceable> may consist of lowercase letters, digits,
     <literal>.</literal>, <literal>_</literal> and <literal>-</literal>, other files are ignored. Each file must
     contain a single PEM-encoded certificate. A file that contains more than one certificate is ignored as a
     whole. CA certificates should be placed in separate files among the trust anchors instead.</para>
@@ -150,6 +150,13 @@
     writable by anyone but their owner, and directories that are writable by anyone but their owner, are
     ignored. Once a directory owned by an unprivileged user has been entered, the lookup does not continue into
     files or directories owned by anyone else.</para>
+
+    <para>As required by the VOA specification, the usage of each certificate is checked against its purpose.
+    An artifact verifier is ignored if it has an extended key usage extension that permits neither code signing
+    nor any extended key usage, or a key usage extension that does not permit digital signatures. A trust anchor
+    that is not a CA certificate is enrolled nonetheless, since self-signed certificates that act as their own
+    trust anchor are common, but a message is logged about it. Certificates with invalid extensions are
+    ignored.</para>
   </refsect1>
 
   <refsect1>
