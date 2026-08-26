@@ -611,6 +611,10 @@ int _command_print_verb_help(
                         return r;
         }
 
+        r = print_wrapped(verb->footer, /* footer_ansi_seq= */ NULL);
+        if (r < 0)
+                return r;
+
         r = print_man_links(cmd->man_pages);
         if (r < 0)
                 return log_error_errno(r, "Failed to print man page links: %m");
