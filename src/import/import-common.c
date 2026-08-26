@@ -32,10 +32,17 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         assert(tree_fd >= 0);
         assert(ret_pid);
 
-        (void) dlopen_libacl(LOG_DEBUG);
-        r = dlopen_libarchive(LOG_DEBUG);
+        r = dlopen_libarchive(LOG_ERR);
         if (r < 0)
                 return r;
+
+        /* Add the #if guard here to suppress a test-dlopen-note.py failure. If libarchive support is
+         * disabled, dlopen_libarchive() above fails, so this code is never reached. However, without
+         * the #if guard, the dlopen_libacl symbol would still end up in the final executable, and the
+         * resulting missing dlopen note would trigger the test failure. */
+#if HAVE_LIBARCHIVE
+        (void) dlopen_libacl(LOG_DEBUG);
+#endif
 
         TarFlags flags =
                 (userns_fd >= 0 ? TAR_SQUASH_UIDS_ABOVE_64K : 0) |
@@ -101,10 +108,15 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
         assert(tree_fd >= 0);
         assert(ret_pid);
 
-        (void) dlopen_libacl(LOG_DEBUG);
-        r = dlopen_libarchive(LOG_DEBUG);
+        r = dlopen_libarchive(LOG_ERR);
         if (r < 0)
                 return r;
+
+        /* Add the #if guard here to suppress a test-dlopen-note.py failure. See the comment in
+         * import_fork_tar_x() above. */
+#if HAVE_LIBARCHIVE
+        (void) dlopen_libacl(LOG_DEBUG);
+#endif
 
         TarFlags flags =
                 (userns_fd >= 0 ? TAR_SQUASH_UIDS_ABOVE_64K : 0) |
