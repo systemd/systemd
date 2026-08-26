@@ -40,6 +40,8 @@
     <para><filename>systemd-sysupdate-update.service</filename></para>
   </refsynopsisdiv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Description</title>
 

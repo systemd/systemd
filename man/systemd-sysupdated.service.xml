@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-sysupdated.service" conditional='ENABLE_SYSUPDATED'>
+<refentry id="systemd-sysupdated.service" conditional='ENABLE_SYSUPDATED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-sysupdated.service</title>
@@ -25,6 +26,8 @@
     <para><filename>systemd-sysupdated.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-sysupdated</filename></para>
   </refsynopsisdiv>
+
+  <xi:include href="experimental.xml" xpointer="component" />
 
   <refsect1>
     <title>Description</title>
