@@ -493,8 +493,8 @@ static int compress_blob_xz(
         if (src_size < 80)
                 return -ENOBUFS;
 
-        ret = sym_lzma_stream_buffer_encode(filters, LZMA_CHECK_NONE, NULL,
-                                        src, src_size, dst, &out_pos, dst_alloc_size);
+        ret = sym_lzma_stream_buffer_encode(filters, LZMA_CHECK_NONE, /* allocator= */ NULL,
+                                            src, src_size, dst, &out_pos, dst_alloc_size);
         if (ret != LZMA_OK)
                 return -ENOBUFS;
 
