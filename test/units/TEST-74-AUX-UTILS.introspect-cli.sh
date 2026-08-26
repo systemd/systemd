@@ -214,6 +214,10 @@ udevadm --introspect-cli | jq -e \
     '.commands[] | select(.names[0] == "udevadm") | .verbs[] | select(.names[0] == "info") |
         [.options[].names[-1]] | contains(["--query", "--json", "--no-pager"])'
 
+udevadm --introspect-cli | jq -e \
+    '.commands[] | select(.names[0] == "udevadm") | .verbs[] |
+        select(.names[0] == "hwdb") | .isDeprecated == true'
+
 # systemd is optionally a multicall binary that also provides systemd-executor
 if [[ "$(readlink "$(command -v systemd-executor)" 2>/dev/null)" == systemd ]]; then
     systemd --introspect-cli | jq -e \
