@@ -147,15 +147,26 @@
 
     <para><function>sd_journal_open_files()</function> is similar to <function>sd_journal_open()</function> but takes a
     <constant>NULL</constant>-terminated list of file paths to open.  All files will be opened and interleaved
-    automatically. This call also takes a flags argument, but it must be passed as 0 as no flags are currently
-    understood for this call. Please note that in the case of a live journal, this function is only useful for
-    debugging, because individual journal files can be rotated at any moment, and the opening of specific files is
-    inherently racy.</para>
+    automatically. The only flag accepted by this call is <constant>SD_JOURNAL_ASSUME_IMMUTABLE</constant>, which
+    declares that the listed files will not change while they are in use. Please note that in the case of a live
+    journal, this function is only useful for debugging, because individual journal files can be rotated at any
+    moment, and the opening of specific files is inherently racy. When
+    <constant>SD_JOURNAL_ASSUME_IMMUTABLE</constant> is specified, empty journal files are skipped, as if they had not
+    been listed: journal files are created empty and acquire their header shortly after creation, hence an empty
+    journal file carries no data yet, and never will for a caller that treats it as immutable. Waiting for changes is
+    not available under the flag anyway: <function>sd_journal_get_fd()</function> and related calls fail with
+    <constant>-EUNATCH</constant>. A skipped file stays
+    out of the file set for the lifetime of the journal object, and if all listed files are skipped the call still
+    succeeds and returns a journal object without entries. Without the flag, an empty journal file makes the call fail
+    with <constant>-ENODATA</constant>.</para>
 
     <para><function>sd_journal_open_files_fd()</function> is similar to <function>sd_journal_open_files()</function>
     but takes an array of open file descriptors that must reference journal files, instead of an array of file system
-    paths. Pass the array of file descriptors as second argument, and the number of array entries in the third. The
-    flags parameter must be passed as 0.</para>
+    paths. Pass the array of file descriptors as second argument, and the number of array entries in the third. This
+    call accepts the same flags as <function>sd_journal_open_files()</function>, but never skips empty files, since a
+    skipped file descriptor would neither be taken over by the journal object nor reported back to the caller: a
+    zero-length file makes the call fail with <constant>-ENODATA</constant>, even when
+    <constant>SD_JOURNAL_ASSUME_IMMUTABLE</constant> is specified.</para>
 
     <para><varname>sd_journal</varname> objects cannot be used in the
     child after a fork. Functions which take a journal object as an
