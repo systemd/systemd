@@ -105,6 +105,10 @@
     searched. The <literal>kernel-keyring</literal> role and its contexts are defined by
     systemd.</para>
 
+    <para> As the VOA specification requires, usage of each certificate is checked against its purpose. An artifact
+    verifier whose extended key usage permits neither code signing nor any usage is not enrolled. A trust anchor that
+    is not a CA certificate is merely warned about.</para>
+
     <para>The <literal>.dm-verity</literal> and <literal>.bpf</literal> keyrings are sealed empty by the kernel
     unless <option>dm_verity.keyring_unsealed=1</option> respectively <option>bpf.keyring_unsealed=1</option>
     is passed on the kernel command line, and the kernel only consults them once they hold at least one
