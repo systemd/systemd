@@ -43,7 +43,7 @@ UDEVADM_VERB(verb_builtin_main, "test-builtin", "COMMAND DEVPATH",  0, "Test a b
 UDEVADM_VERB(verb_verify_main,  "verify",       "[FILE…]",          0, "Verify udev rules files", NULL);
 UDEVADM_VERB(verb_cat_main,     "cat",          "[FILE…]",          0, "Show udev rules files", NULL);
 UDEVADM_VERB(verb_wait_main,    "wait",         "DEVICE [DEVICE…]", 0, "Wait for device or device symlink", NULL);
-UDEVADM_VERB(verb_lock_main,    "lock",         "COMMAND",          0, "Lock a block device", NULL);
+UDEVADM_VERB(verb_lock_main,    "lock",         "COMMAND",          0, "Lock a block device and run a command", NULL);
 UDEVADM_VERB(verb_hwdb_main,    "hwdb",         NULL,               VERB_DEPRECATED, "Update or query the hardware database",
              "Verb 'hwdb' is deprecated. Use systemd-hwdb instead.");
 
