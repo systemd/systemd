@@ -24,6 +24,7 @@ ConditionVirtualization=!container
 Type=oneshot
 RemainAfterExit=yes
 SuccessExitStatus=DATAERR
+ImportCredential=keyring-setup.*
 ExecStart={{LIBEXECDIR}}/systemd-keyring-setup
 # Loading dm_verity is the only privileged operation, the keyrings belong to root anyway
 CapabilityBoundingSet=CAP_SYS_MODULE
@@ -43,6 +44,9 @@ RestrictAddressFamilies=AF_UNIX
 RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
+# The ephemeral load path credentials are placed into, kept for the consumers of the hierarchy
+RuntimeDirectory=voa
+RuntimeDirectoryPreserve=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service @module
