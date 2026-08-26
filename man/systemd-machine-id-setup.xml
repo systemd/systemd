@@ -37,10 +37,10 @@
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for more information about this file.</para>
 
-    <para>If the tool is invoked without the <option>--commit</option>
-    switch, <filename>/etc/machine-id</filename> is initialized with a
-    valid, new machine ID if it is missing or empty. The new machine
-    ID will be acquired in the following fashion:</para>
+    <para>If the tool is invoked without the <option>--commit</option> switch,
+    <filename>/etc/machine-id</filename> is initialized with a valid, new machine
+    ID if it is missing or empty. The new machine ID will be acquired in the
+    following fashion:</para>
 
     <orderedlist>
       <listitem><para>If a valid machine ID is stored in <filename>/run/machine-id</filename>, the machine ID
@@ -73,6 +73,14 @@
     <para>The <option>--commit</option> switch may be used to commit a
     transient machined ID to disk, making it persistent. For details,
     see below.</para>
+
+    <para>The <option>--force</option> switch adds to this: it may be used to assign a completely new
+    identity to a system that <emphasis>already carries</emphasis> a valid machine ID, for example after
+    cloning a disk image. A missing or empty <filename>/etc/machine-id</filename> is initialized as
+    described above either way, except that the first two sources of that list —
+    <filename>/run/machine-id</filename> and the D-Bus machine ID — are skipped: the former holds the
+    identity a booted clone is currently using, the latter the one baked into the image. The refusals
+    described below apply to those cases too. For details, see below.</para>
 
     <para>Use
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -134,6 +142,73 @@
         early boot service.</para>
 
         <xi:include href="version-info.xml" xpointer="v227"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+        <listitem><para>Generate a new machine ID even if
+        <filename>/etc/machine-id</filename> already contains a valid one, replacing it. This is useful to
+        give a fresh identity to a system that was installed by cloning a disk image or a virtual machine,
+        where all clones would otherwise share the machine ID baked into the image.</para>
+
+        <para>Contrary to the regular operation described above, the new ID is always generated from the
+        random pool: none of the other sources are consulted, since on a cloned system they typically still
+        carry the very ID that is supposed to be replaced. Those of them that are plain files inside the
+        target tree — <filename>/run/machine-id</filename> and
+        <filename>/var/lib/dbus/machine-id</filename> — are rewritten with the new ID, so that they cannot
+        hand the old one back later. Symlinks among them are left untouched. This is best-effort: a copy
+        that exists but cannot be written is reported as a warning and does not affect the exit status, so
+        check the output if it matters. A copy that is simply absent — for instance because the clone's
+        <filename>/var/</filename> is not mounted under <option>--root=</option> — is indistinguishable
+        from there being nothing to update and is not reported at all.</para>
+
+        <para>Since assigning a <emphasis>persistent</emphasis> identity is the point, the switch refuses to
+        operate whenever the new ID would not actually stick, rather than falling back to a transient machine
+        ID the way the regular operation does. This applies to every <option>--force</option> invocation,
+        including the empty or missing case: if <filename>/etc/machine-id</filename> cannot be written to, or
+        if it is a mount point, in which case the new ID would be written through the overmount instead of
+        being persisted (if a transient ID was installed over it at boot, use <option>--commit</option>
+        first; a container runtime bind-mounting the host's file into the tree lands here too).</para>
+
+        <para>Two further conditions are checked only when operating on the host, as they are not knowable
+        for a tree given with <option>--root=</option> or <option>--image=</option>. The switch refuses if
+        <varname>systemd.machine_id=</varname> on the kernel command line carries an ID that would take
+        precedence on the next boot (a value of <literal>firmware</literal>, or no value at all, does not,
+        and is accepted), and if <filename>/etc/machine-id</filename> itself resides on a temporary file
+        system such as <literal>tmpfs</literal> (note this follows the symlink, so a symlinked
+        <filename>/etc/machine-id</filename> is judged by its target). The latter cannot detect every
+        volatile setup: with <varname>systemd.volatile=overlay</varname> <filename>/etc/</filename> is an
+        <literal>overlayfs</literal> whose upper layer is volatile, which is indistinguishable from an
+        <literal>overlayfs</literal> with a persistent upper layer.</para>
+
+        <para>If <filename>/etc/machine-id</filename> contains the string <literal>uninitialized</literal> it
+        is left alone, even with this switch: that state carries no identity that could have been duplicated
+        by cloning, and doubles as the first boot marker, see
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>. To
+        assign an ID right away regardless, use
+        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        as <command>systemd-firstboot --root=… --force --setup-machine-id</command>, which generates a
+        random one, or <option>--machine-id=</option> to pick it yourself. Its own
+        <option>--force</option> is required because the file already exists; note that it also lifts the
+        <option>--root=</option>/<option>--image=</option> requirement that
+        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        documents for these switches, so the same command works on a running system.</para>
+
+        <para>Be aware that this writes <filename>/etc/machine-id</filename> directly: none of the checks
+        described here apply, and stale copies in <filename>/run/machine-id</filename> and
+        <filename>/var/lib/dbus/machine-id</filename> are left carrying whatever they held — on a clone,
+        that is the identity of the image it came from.</para>
+
+        <para>Note that this only updates the machine ID on disk. Programs that already obtained the
+        machine ID — including the service manager itself — keep using the old one, hence the system should
+        be rebooted for the new ID to take effect. Also note that changing the machine ID
+        discards or invalidates state keyed by it, some of it irreversibly; see the "Cloned Systems" section
+        of <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        the full list, and review it before using this switch.</para>
+
+        <para>This switch may not be combined with <option>--commit</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
