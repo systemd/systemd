@@ -454,6 +454,7 @@
 #include "verbs.h"
 #include "virt.h"
 #include "vlan-util.h"
+#include "voa-util.h"
 #include "volatile-util.h"
 #include "vpick.h"
 #include "vsock-util.h"
