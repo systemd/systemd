@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Mint the extension-less test certificates embedded in TEST-95-KEYRING-SETUP.unsealed.sh.
+"""Mint the extension-less test certificates embedded in TEST-96-KEYRING-SETUP.unsealed.sh.
 
 The subtests for the serial-number fallback of certificate_description_suffix() need certificates without
 a subjectKeyIdentifier extension. OpenSSL's x509 tool adds one to every certificate it signs, no
