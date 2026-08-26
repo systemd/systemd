@@ -1,8 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "extract-word.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "keyring-util.h"
 #include "log.h"
+#include "parse-util.h"
+#include "string-util.h"
+#include "user-util.h"
 
 int keyring_read(key_serial_t serial, void **ret, size_t *ret_size) {
         size_t bufsize = 100;
@@ -62,5 +68,133 @@ int keyring_describe(key_serial_t serial, char **ret) {
 
         *ret = TAKE_PTR(tuple);
 
+        return 0;
+}
+
+void proc_keys_entry_done(ProcKeysEntry *e) {
+        assert(e);
+
+        e->type = mfree(e->type);
+        e->description = mfree(e->description);
+}
+
+int proc_keys_entry_parse(const char *line, ProcKeysEntry *ret) {
+        _cleanup_(proc_keys_entry_done) ProcKeysEntry e = {};
+        _cleanup_free_ char *serial = NULL, *flags = NULL, *usage = NULL, *timeout = NULL, *perm = NULL,
+                *uid = NULL, *gid = NULL;
+        const char *p = line;
+        uint32_t u;
+        int r;
+
+        assert(line);
+        assert(ret);
+
+        /* "%08x %c%c%c%c%c%c%c %5d %4s %08x %5d %5d %-9.9s <description>" */
+
+        r = extract_many_words(&p, WHITESPACE, 0, &serial, &flags, &usage, &timeout, &perm, &uid, &gid, &e.type);
+        if (r < 0)
+                return r;
+        if (r < 8)
+                return -EBADMSG;
+
+        r = safe_atou32_full(serial, 16, &u);
+        if (r < 0)
+                return r;
+        if (u > INT32_MAX)
+                return -ERANGE;
+        e.serial = u;
+
+        if (strlen(flags) != sizeof(e.flags) - 1)
+                return -EBADMSG;
+        strcpy(e.flags, flags);
+
+        r = safe_atou32_full(perm, 16, &e.perm);
+        if (r < 0)
+                return r;
+
+        r = parse_uid(uid, &e.uid);
+        if (r < 0)
+                return r;
+
+        r = parse_gid(gid, &e.gid);
+        if (r < 0)
+                return r;
+
+        e.description = strdup(strempty(p));
+        if (!e.description)
+                return -ENOMEM;
+
+        *ret = TAKE_STRUCT(e);
+        return 0;
+}
+
+bool proc_keys_entry_is_keyring(const ProcKeysEntry *e, const char *name) {
+        const char *p;
+
+        assert(e);
+        assert(name);
+
+        if (!streq(e->type, "keyring"))
+                return false;
+
+        /* Revoked, dead or invalidated keyrings linger until the key GC runs */
+        if (strpbrk(e->flags, "RDi"))
+                return false;
+
+        /* Instantiated keyrings carry a ": <n>" or ": empty" suffix, see keyring_describe() in the kernel */
+        p = startswith(e->description, name);
+        if (!p)
+                return false;
+        p = startswith(p, ": ");
+        if (!p)
+                return false;
+
+        return streq(p, "empty") || in_charset(p, DIGITS);
+}
+
+int keyring_find_by_name(const char *name, key_serial_t *ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        key_serial_t found = 0;
+        int r;
+
+        assert(name);
+        assert(ret);
+
+        /* The kernel's own keyrings (.dm-verity, .fs-verity, …) are linked into no other keyring and
+         * their names are not published, hence /proc/keys is the only way to find them. */
+
+        f = fopen("/proc/keys", "re");
+        if (!f)
+                return -errno;
+
+        for (;;) {
+                _cleanup_(proc_keys_entry_done) ProcKeysEntry e = {};
+                _cleanup_free_ char *line = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = proc_keys_entry_parse(line, &e);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse /proc/keys line, ignoring: %s", line);
+                        continue;
+                }
+
+                if (!proc_keys_entry_is_keyring(&e, name))
+                        continue;
+
+                if (found > 0)
+                        return -ENOTUNIQ;
+
+                found = e.serial;
+        }
+
+        if (found <= 0)
+                return -ENOENT;
+
+        *ret = found;
         return 0;
 }
