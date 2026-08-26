@@ -33,6 +33,7 @@ typedef enum VerbFlags {
         VERB_OPTION_REQUIRED = 1 << 2,  /* The verb always requires an option to be present */
         VERB_COMMAND_MARKER  = 1 << 3,  /* Header entry with command description */
         VERB_GROUP_MARKER    = 1 << 4,  /* Fake verb entry to separate groups */
+        VERB_DEPRECATED      = 1 << 5,  /* The verb is deprecated and not listed in help. */
 } VerbFlags;
 
 /* Note: see the comment on struct Option in options.h for why _alignptr_ is required here. */
