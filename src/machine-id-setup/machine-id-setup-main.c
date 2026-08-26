@@ -22,6 +22,7 @@ static char *arg_root = NULL;
 static char *arg_image = NULL;
 static bool arg_commit = false;
 static bool arg_print = false;
+static bool arg_force = false;
 static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -54,6 +55,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("commit", NULL, "Commit transient ID"):
                         arg_commit = true;
+                        break;
+
+                OPTION_LONG("force", NULL, "Generate a new ID, even if one is already set"):
+                        arg_force = true;
                         break;
 
                 OPTION_GROUP("Options"): {}
@@ -90,6 +95,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+
+        if (arg_commit && arg_force)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --commit or --force, the combination of both is not supported.");
 
         return 1;
 }
@@ -148,13 +156,17 @@ static int run(int argc, char *argv[]) {
                 if (arg_print)
                         puts(SD_ID128_TO_STRING(id));
 
-        } else if (id128_get_machine(arg_root, NULL) == -ENOPKG) {
+        } else if (!arg_force && id128_get_machine(arg_root, NULL) == -ENOPKG) {
+                /* The ID is explicitly marked as "uninitialized", i.e. PID 1 is going to (or already did)
+                 * set up a transient one. Leave that alone, unless --force was given. */
                 if (arg_print)
                         puts("uninitialized");
         } else {
                 sd_id128_t id;
 
-                r = machine_id_setup(arg_root, SD_ID128_NULL, /* flags= */ 0, &id);
+                r = machine_id_setup(arg_root, SD_ID128_NULL,
+                                     arg_force ? MACHINE_ID_SETUP_FORCE_NEW : 0,
+                                     &id);
                 if (r < 0)
                         return r;
 

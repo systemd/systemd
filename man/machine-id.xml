@@ -154,6 +154,46 @@
   </refsect1>
 
   <refsect1>
+    <title>Cloned Systems</title>
+
+    <para>When a system is installed by cloning a disk image or a virtual machine that already carries a
+    populated <filename>/etc/machine-id</filename>, every clone inherits the very same machine ID, which
+    defeats the uniqueness the ID is supposed to provide. The preferred way to avoid this is to not ship a
+    populated machine ID in the first place, i.e. to leave <filename>/etc/machine-id</filename> empty (or
+    missing) in the image, as described in "Initialization" above: each clone then acquires an ID of its own
+    on first boot.</para>
+
+    <para>If the image cannot be prepared that way, or if the clone has already been made, a new identity may
+    be assigned with the <option>--force</option> switch of
+    <citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    which replaces the current ID with a freshly generated random one. Ideally this is done offline, on the
+    mounted (but not booted) clone:</para>
+
+    <programlisting>systemd-machine-id-setup --force --root=/mnt/clone</programlisting>
+
+    <para>The same works on a disk image via <option>--image=</option>. If the offline route is not
+    available, the running clone can be reprovisioned as well, but two additional steps are needed:</para>
+
+    <programlisting>systemd-machine-id-setup --force
+rm -f /var/lib/dbus/machine-id
+reboot</programlisting>
+
+    <para><filename>/var/lib/dbus/machine-id</filename> has to be removed separately if it is a regular file
+    rather than a symlink to <filename>/etc/machine-id</filename>, as it would otherwise keep the old ID
+    around and hand it back the next time the machine ID is initialized. The reboot is required because the
+    machine ID is cached by every process that has read it, including the service manager itself, hence a
+    running system keeps using the old ID until it is restarted.</para>
+
+    <para>Note that identifiers already derived from the old machine ID are not rewritten. In particular,
+    persistent journal files live in a directory named after the machine ID (see
+    <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>),
+    so log data collected before the change stays behind in the old directory, and application-specific IDs
+    obtained via
+    <citerefentry><refentrytitle>sd_id128_get_machine_app_specific</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    change along with the machine ID.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Relation to OSF UUIDs</title>
 
     <para>Note that the machine ID historically is not an OSF UUID as defined by <ulink
