@@ -525,6 +525,11 @@ units = [
         { 'file' : 'systemd-journald@.socket' },
         { 'file' : 'systemd-kexec.service' },
         {
+          'file' : 'systemd-keyring-setup.service.in',
+          'conditions' : ['HAVE_OPENSSL'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-localed.service.in',
           'conditions' : ['ENABLE_LOCALED'],
           'symlinks' : ['dbus-org.freedesktop.locale1.service'],
