@@ -27,4 +27,5 @@ ConditionVirtualization=!container
 Type=oneshot
 RemainAfterExit=yes
 SuccessExitStatus=DATAERR
+ImportCredential=keyring-setup.*
 ExecStart={{LIBEXECDIR}}/systemd-keyring-setup
