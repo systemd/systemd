@@ -21,7 +21,7 @@ use systemd_shared::recurse_dir::{self, RECURSE_DIR_IGNORE_DOT, RECURSE_DIR_SORT
 use systemd_shared::sys::COMMAND_EXPERIMENTAL;
 use systemd_shared::table::{Table, TABLE_ERSATZ_DASH};
 use systemd_shared::tmpfile::{LinkableTmpfile, LINK_TMPFILE_REPLACE};
-use systemd_shared::voa::{self, Lookup};
+use systemd_shared::voa::{self, Lookup, VoaMode};
 use systemd_shared::x509::{self, Der, X509};
 use systemd_shared::{creds, fd, json, sys};
 use systemd_shared::{libcrypto_note, libkmod_note, log_openssl_errors, table_log_add_error};
@@ -227,6 +227,50 @@ impl Keyring {
     }
 }
 
+/// As the VOA specification requires, usage of each certificate is checked against its purpose. An artifact
+/// verifier whose extended key usage permits neither code signing nor any usage is not enrolled. A trust
+/// anchor that is not a CA certificate is still enrolled and only logged about at notice level, since a
+/// self-signed leaf certificate doubling as its own anchor is common.
+fn check_usage(path: &CStr, x: &X509, mode: VoaMode) -> Result<()> {
+    let flags = x.extension_flags();
+    if flags & sys::EXFLAG_INVALID != 0 {
+        return Err(log_warning_errno!(
+            SYNTHETIC_ERRNO(EKEYREJECTED),
+            "'{}' carries an invalid X.509 extension, ignoring.",
+            display(path)
+        ));
+    }
+
+    if mode == voa::VOA_MODE_ARTIFACT_VERIFIER {
+        if flags & sys::EXFLAG_XKUSAGE != 0
+            && x.extended_key_usage() & (sys::XKU_CODE_SIGN | sys::XKU_ANYEKU) == 0
+        {
+            return Err(log_warning_errno!(
+                SYNTHETIC_ERRNO(EKEYREJECTED),
+                "'{}' is not a code signing certificate, ignoring.",
+                display(path)
+            ));
+        }
+        if flags & sys::EXFLAG_KUSAGE != 0 && x.key_usage() & sys::KU_DIGITAL_SIGNATURE == 0 {
+            return Err(log_warning_errno!(
+                SYNTHETIC_ERRNO(EKEYREJECTED),
+                "'{}' does not permit digital signatures, ignoring.",
+                display(path)
+            ));
+        }
+    } else if (flags & sys::EXFLAG_BCONS != 0 && flags & sys::EXFLAG_CA == 0)
+        || (flags & sys::EXFLAG_KUSAGE != 0 && x.key_usage() & sys::KU_KEY_CERT_SIGN == 0)
+    {
+        // A trust anchor that is explicitly not a CA is common enough to only log a notice about
+        log_notice!(
+            "'{}' is not a CA certificate, but placed among the trust anchors.",
+            display(path)
+        );
+    }
+
+    Ok(())
+}
+
 /// The kernel describes a certificate as "<subject>: <hex>", with the subject key identifier or, lacking one,
 /// the serial number as hex. Returns the ": <hex>" part, separator included.
 fn certificate_description_suffix(x: &X509) -> Result<OwnedCStr> {
@@ -265,7 +309,7 @@ impl core::fmt::Display for Hex<'_> {
 }
 
 /// Returns true if the certificate was added, false if the same certificate was found before.
-fn load_certificate(k: &mut Keyring, f: &ConfFile) -> Result<bool> {
+fn load_certificate(k: &mut Keyring, f: &ConfFile, mode: VoaMode) -> Result<bool> {
     let path = f.original_path();
 
     let text = f
@@ -302,7 +346,8 @@ fn load_certificate(k: &mut Keyring, f: &ConfFile) -> Result<bool> {
         ));
     }
 
-    // The kernel takes DER
+    check_usage(path, &x, mode)?;
+
     let Some(der) = x.to_der() else {
         return Err(log_openssl_errors!(
             LOG_WARNING,
@@ -370,7 +415,7 @@ fn collect_certificates(k: &mut Keyring, root: BorrowedFd<'_>, os: &Strv) -> Res
         })?;
 
         for f in files.iter() {
-            match load_certificate(k, f) {
+            match load_certificate(k, f, mode) {
                 Err(e @ Errno::ENOMEM) => return Err(e),
                 Err(_) => k.data_error = true,
                 Ok(_) => {}
