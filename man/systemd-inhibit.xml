@@ -107,6 +107,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--signal=</option></term>
+
+        <listitem><para>Takes a signal name (such as <constant>SIGTERM</constant>, with or without the
+        <literal>SIG</literal> prefix) or a signal number. When the inhibited operation is about to be
+        executed, the signal is sent to the invoked command. As soon as the command exits the inhibitor lock
+        is released and the operation proceeds.</para>
+
+        <para>This option may only be used together with <option>--mode=delay</option>. If the operation is
+        executed repeatedly (for example a suspend followed by a later shutdown) the signal is sent again
+        each time while the command remains running.</para>
+
+        <para>The command should complete its work faster than the maximum delay time configured with
+        <varname>InhibitDelayMaxSec=</varname> in
+        <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, as
+        after that time the operation will continue regardless.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--list</option></term>
 
         <listitem><para>Lists all active inhibition locks instead of acquiring one. It can be filtered using
@@ -140,6 +160,15 @@
     <citerefentry project='man-pages'><refentrytitle>wodim</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
     and inhibits system sleeping, shutdown and idle while
     doing so.</para>
+
+    <programlisting>$ systemd-inhibit --what=sleep --mode=delay --signal=SIGTERM \
+      aria2c --save-session=downloads.session --input-file=downloads.txt</programlisting>
+
+    <para>This downloads the URLs listed in <filename>downloads.txt</filename>, and sends
+    <constant>SIGTERM</constant> to <command>aria2c</command> when the system is about to go to sleep.
+    The command saves unfinished downloads to <filename>downloads.session</filename> and exits, allowing
+    the system to suspend, subject to the maximum inhibitor delay. The downloads can be resumed later
+    with <command>aria2c --input-file=downloads.session</command>.</para>
   </refsect1>
 
   <xi:include href="common-variables.xml" />
