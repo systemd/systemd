@@ -40,7 +40,8 @@ UDEVADM_VERB(verb_verify_main,  "verify",       "[FILE…]\0",          0,      
 UDEVADM_VERB(verb_cat_main,     "cat",          "[FILE…]\0",          0,                    "Show udev rules files",             NULL);
 UDEVADM_VERB(verb_wait_main,    "wait",         "DEVICE [DEVICE…]\0", 0,                    "Wait for device or device symlink", NULL);
 UDEVADM_VERB(verb_lock_main,    "lock",         "COMMAND",            0,                    "Lock a block device",               NULL);
-UDEVADM_VERB(verb_hwdb_main,    "hwdb",         NULL,                 0,                    /* help= */ NULL,                    NULL); /* deprecated */
+UDEVADM_VERB(verb_hwdb_main,    "hwdb",         NULL,                 VERB_DEPRECATED,      "Update or query the hardware database",
+                                                                                            "Verb 'hwdb' is deprecated. Use systemd-hwdb instead.");
 
 VERB_NOARG(verb_version_main, "version", /* help= */ NULL);
 static int verb_version_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
