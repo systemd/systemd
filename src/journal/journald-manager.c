@@ -1695,6 +1695,8 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
+        m->exit = true;
+
         log_received_signal(LOG_INFO, si);
 
         (void) sd_event_source_set_enabled(es, SD_EVENT_OFF); /* Make sure this handler is called at most once */
