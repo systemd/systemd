@@ -10,18 +10,20 @@ use core::ffi::{c_int, CStr};
 use core::ptr;
 use core::sync::atomic::Ordering;
 
-use systemd_shared::chase;
+use systemd_shared::chase::{self, CHASE_MAX_MODE, CHASE_MKDIR_0755, CHASE_SAFE};
 use systemd_shared::conf_files::ConfFile;
 use systemd_shared::cstr::{self, display};
 use systemd_shared::fileio::{self, READ_FULL_FILE_FAIL_WHEN_LARGER, READ_FULL_FILE_VERIFY_REGULAR};
 use systemd_shared::keyring::{self, KeySerial};
 use systemd_shared::kmod::Kmod;
 use systemd_shared::prelude::*;
+use systemd_shared::recurse_dir::{self, RECURSE_DIR_IGNORE_DOT, RECURSE_DIR_SORT};
 use systemd_shared::sys::COMMAND_EXPERIMENTAL;
 use systemd_shared::table::{Table, TABLE_ERSATZ_DASH};
+use systemd_shared::tmpfile::{LinkableTmpfile, LINK_TMPFILE_REPLACE};
 use systemd_shared::voa::{self, Lookup};
 use systemd_shared::x509::{self, Der, X509};
-use systemd_shared::{fd, json, sys};
+use systemd_shared::{creds, fd, json, sys};
 use systemd_shared::{libcrypto_note, libkmod_note, log_openssl_errors, table_log_add_error};
 
 static ARG_PAGER_FLAGS: AtomicPagerFlags = AtomicPagerFlags::new(0);
@@ -42,6 +44,12 @@ const KEYRING_PERM_SEALED: u32 =
     sys::KEY_POS_SEARCH | sys::KEY_USR_VIEW | sys::KEY_USR_READ | sys::KEY_USR_WRITE;
 
 const CERTIFICATE_SIZE_MAX: usize = 1024 * 1024;
+
+const CREDENTIAL_PREFIX: &str = "keyring-setup.";
+
+/// Cap the number of possible OSes in both the exact and bare form. 64 OSes is plenty and we can always
+/// increase.
+const CREDENTIAL_OS_MAX: usize = 64;
 
 struct KeyringSpec {
     name: &'static CStr,
@@ -834,6 +842,187 @@ fn process_keyring(
     Ok(k.data_error)
 }
 
+/// Credentials are the way to hand a certificate to an initrd without rebuilding it. Following the
+/// specification's advice for verifiers retrieved from elsewhere, they are placed into the ephemeral load path
+/// as artifact verifiers. Hence, masking, merging and everything else applies to them like to any other file.
+/// Returns false if the credential is not a single certificate.
+fn materialize_credential(
+    root: BorrowedFd<'_>,
+    creds: BorrowedFd<'_>,
+    cn: &CStr,
+    spec: &KeyringSpec,
+    name: &CStr,
+    os: &Strv,
+    dry_run: bool,
+) -> Result<bool> {
+    // The exact OS identifier suffices
+    let os = os.iter().next().ok_or(Errno::EINVAL)?;
+    let path = cstr::try_format(format_args!(
+        "{}/{}/{}/{}/{}/{}{}",
+        display(voa::VOA_EPHEMERAL_LOAD_PATH),
+        display(os),
+        display(spec.role),
+        display(spec.context),
+        display(voa::VOA_TECHNOLOGY_X509),
+        display(name),
+        display(voa::VOA_X509_CERTIFICATE_SUFFIX)
+    ))
+    .map_err(|_| log_oom!())?;
+
+    if dry_run {
+        log_info!("Would place credential '{}' at '{path}'.", display(cn));
+        return Ok(true);
+    }
+
+    let contents = creds::read_credential_at(creds, cn)
+        .map_err(|e| log_error_errno!(e, "Failed to read credential '{}': {e}", display(cn)))?;
+
+    // Only the certificate goes into the world-readable hierarchy, not a private key that came along
+    let x = match X509::from_pem(&contents) {
+        Ok((x, false)) => x,
+        Ok((_, true)) => {
+            log_warning!(
+                "Credential '{}' contains more than one certificate, ignoring.",
+                display(cn)
+            );
+            return Ok(false);
+        }
+        Err(Errno::ENOMEM) => return Err(log_oom!()),
+        Err(e) => {
+            log_warning_errno!(e, "Failed to parse credential '{}', ignoring: {e}", display(cn));
+            return Ok(false);
+        }
+    };
+    let pem = x
+        .to_pem()
+        .map_err(|e| log_error_errno!(e, "Failed to encode credential '{}': {e}", display(cn)))?;
+
+    let (dir, base) =
+        chase::chase_and_open_parent_at(root, root, &path, CHASE_MKDIR_0755 | CHASE_SAFE | CHASE_MAX_MODE)
+            .map_err(|e| log_error_errno!(e, "Failed to create the directory of '{path}': {e}"))?;
+
+    let tmp = LinkableTmpfile::open_at(dir.as_fd(), &base, (sys::O_WRONLY | sys::O_CLOEXEC) as c_int)
+        .map_err(|e| log_error_errno!(e, "Failed to create '{path}': {e}"))?;
+
+    fd::loop_write(tmp.fd(), pem.as_cstr().to_bytes())
+        .map_err(|e| log_error_errno!(e, "Failed to write '{path}': {e}"))?;
+
+    fd::fchmod(tmp.fd(), 0o644)
+        .map_err(|e| log_error_errno!(e, "Failed to set the mode of '{path}': {e}"))?;
+
+    tmp.link(&base, LINK_TMPFILE_REPLACE)
+        .map_err(|e| log_error_errno!(e, "Failed to link '{path}' into place: {e}"))?;
+
+    log_debug!("Placed credential '{}' at '{path}'.", display(cn));
+    Ok(true)
+}
+
+/// Returns true if a credential could not be used.
+fn materialize_credentials(
+    root: BorrowedFd<'_>,
+    creds_dir: Result<BorrowedFd<'_>>,
+    os: &Strv,
+    args: &Args,
+) -> Result<bool> {
+    let creds_dir = match creds_dir {
+        Ok(fd) => fd,
+        Err(Errno::ENXIO) => return Ok(false),
+        Err(e) => return Err(log_error_errno!(e, "Failed to open credentials directory: {e}")),
+    };
+
+    if os.is_empty() {
+        log_warning!("There is no OS identifier to place credentials under, ignoring them.");
+        return Ok(false);
+    }
+
+    let de = recurse_dir::readdir_all(creds_dir, RECURSE_DIR_SORT | RECURSE_DIR_IGNORE_DOT)
+        .map_err(|e| log_error_errno!(e, "Failed to read credentials directory: {e}"))?;
+
+    let mut ret = None;
+    let mut data_error = false;
+    for cn in de.names() {
+        let Some(e) = cstr::strip_prefix(cn, CREDENTIAL_PREFIX.as_bytes()) else {
+            continue;
+        };
+        if e == c"os" {
+            continue;
+        }
+
+        // keyring-setup.<keyring>.<name>, the keyring without its leading dot
+        let found = KEYRING_SPECS.iter().find_map(|s| {
+            let name = cstr::strip_prefix(e, s.name.to_bytes().strip_prefix(b".")?)?;
+            Some((s, cstr::strip_prefix(name, b".")?))
+        });
+        let Some((spec, name)) = found else {
+            log_warning!(
+                "Ignoring unrecognized credential '{}', expected {CREDENTIAL_PREFIX}<keyring>.<name>.",
+                display(cn)
+            );
+            continue;
+        };
+        if !voa::identifier_is_valid(name, false) {
+            log_warning!(
+                "Ignoring credential '{}', the name must consist of lowercase letters, digits, '.', '_' and '-'.",
+                display(cn)
+            );
+            continue;
+        }
+        if !args.selected(spec) {
+            log_debug!(
+                "Skipping credential '{}', keyring {} is not selected.",
+                display(cn),
+                display(spec.name)
+            );
+            continue;
+        }
+
+        match materialize_credential(root, creds_dir, cn, spec, name, os, args.dry_run) {
+            Ok(placed) => data_error |= !placed,
+            Err(e) => gather(&mut ret, Err(e)),
+        }
+    }
+
+    ret.map_or(Ok(data_error), Err)
+}
+
+/// Returns the identifiers if the credential exists.
+fn os_from_credential(creds_dir: Result<BorrowedFd<'_>>) -> Result<Option<Strv>> {
+    let v = match creds_dir.and_then(|d| creds::read_credential_string_at(d, c"keyring-setup.os")) {
+        Ok(v) => v,
+        Err(Errno::ENXIO | Errno::ENOENT) => return Ok(None),
+        Err(e) => {
+            return Err(log_warning_errno!(
+                e,
+                "Failed to read credential {CREDENTIAL_PREFIX}os, ignoring: {e}"
+            ));
+        }
+    };
+
+    let l = Strv::split(v.as_cstr(), sys::WHITESPACE, sys::EXTRACT_RETAIN_ESCAPE).map_err(|_| log_oom!())?;
+    if l.is_empty() {
+        return Err(log_warning_errno!(
+            SYNTHETIC_ERRNO(EINVAL),
+            "Credential {CREDENTIAL_PREFIX}os is empty, ignoring."
+        ));
+    }
+    if l.len() > CREDENTIAL_OS_MAX {
+        return Err(log_warning_errno!(
+            SYNTHETIC_ERRNO(EINVAL),
+            "Credential {CREDENTIAL_PREFIX}os lists more than {CREDENTIAL_OS_MAX} OS identifiers, ignoring it."
+        ));
+    }
+
+    if let Some(i) = l.iter().find(|i| !voa::os_is_valid(i)) {
+        return Err(log_warning_errno!(
+            SYNTHETIC_ERRNO(EINVAL),
+            "Invalid OS identifier '{}' in credential {CREDENTIAL_PREFIX}os, ignoring it.",
+            display(i)
+        ));
+    }
+
+    Ok(Some(l))
+}
+
 fn parse_argv(opts: &mut OptionParser<'_>, args: &mut Args) -> Result<c_int> {
     foreach_option! { opts,
         OPTION_COMMON_HELP => return command_print_help!(),
@@ -903,23 +1092,43 @@ fn run(argv: Argv<'_>) -> Result<c_int> {
 
     let mut outcome = Outcome::Success;
 
-    let os = match voa::os_identifiers(root.as_fd()) {
-        Ok((l, bare)) => {
-            if bare {
-                log_warning!(
-                    "os-release contains characters the VOA specification does not permit, looking up the bare ID only."
-                );
+    // Its users treat its absence differently
+    let creds = creds::open_credentials_dir_at(root.as_fd());
+    let creds_dir = creds.as_ref().map(OwnedFd::as_fd).map_err(|&e| e);
+
+    let os = match os_from_credential(creds_dir) {
+        Ok(Some(l)) => l,
+        r => {
+            if r.is_err() {
+                // Bad input, but os-release is still there
+                outcome.data_error();
             }
-            l
-        }
-        Err(e) => {
-            outcome.fail(log_error_errno!(
-                e,
-                "Failed to determine the OS identifier from os-release, enrolling nothing: {e}"
-            ));
-            Strv::new()
+            match voa::os_identifiers(root.as_fd()) {
+                Ok((l, bare)) => {
+                    if bare {
+                        log_warning!(
+                            "os-release contains characters the VOA specification does not permit, looking up the bare ID only. Pass the {CREDENTIAL_PREFIX}os credential to specify identifiers explicitly."
+                        );
+                    }
+                    l
+                }
+                Err(e) => {
+                    outcome.fail(log_error_errno!(
+                        e,
+                        "Failed to determine the OS identifier from os-release, enrolling nothing: {e}"
+                    ));
+                    Strv::new()
+                }
+            }
         }
     };
+
+    // Sealing does not depend on it either
+    match materialize_credentials(root.as_fd(), creds_dir, &os, &args) {
+        Ok(true) => outcome.data_error(),
+        Ok(false) => {}
+        Err(e) => outcome.fail(e),
+    }
 
     let mut t = if args.dry_run {
         let mut t = Table::new(&[
