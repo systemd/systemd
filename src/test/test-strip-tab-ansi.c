@@ -24,14 +24,35 @@ TEST(strip_tab_ansi) {
         ASSERT_STREQ(p, "Hello world!");
         free(p);
 
+        /* Aborted sequences and complete ones are dropped (note that "\x1B[H" below is
+         * a complete CSI sequence, hence "Hello" loses its first character) */
         assert_se(p = strdup("\x1B[\x1B[\t\x1B[" ANSI_HIGHLIGHT "\x1B[" "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
-        ASSERT_STREQ(p, "\x1B[\x1B[        \x1B[\x1B[Hello world!");
+        ASSERT_STREQ(p, "        ello world!");
         free(p);
 
+        /* "\x1B[w" is a complete CSI sequence, too */
         assert_se(p = strdup("\x1B[waldo"));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
-        ASSERT_STREQ(p, "\x1B[waldo");
+        ASSERT_STREQ(p, "aldo");
+        free(p);
+
+        /* Non-SGR CSI sequences are dropped as well */
+        assert_se(p = strdup("foo\x1B[2Jbar\x1B[?25lbaz"));
+        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        ASSERT_STREQ(p, "foobarbaz");
+        free(p);
+
+        /* A carriage return followed by a (dropped) sequence is not trailing, and hence kept … */
+        assert_se(p = strdup("y\r\x1B[m"));
+        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        ASSERT_STREQ(p, "y\r");
+        free(p);
+
+        /* … also if an aborted sequence was encountered earlier */
+        assert_se(p = strdup("\x1BZy\r\x1B[m"));
+        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        ASSERT_STREQ(p, "Zy\r");
         free(p);
 
         assert_se(p = strdup("\r\rwaldo"));
@@ -58,14 +79,17 @@ TEST(strip_tab_ansi) {
         ASSERT_STREQ(p, "something i am a fabulous link something-else");
         p = mfree(p);
 
-        /* Truncate the formatted string in the middle of an ANSI sequence (in which case we shouldn't touch the
-         * incomplete sequence) */
+        /* Truncate the formatted string in the middle of an ANSI sequence */
         z = strstr(q, "fstab");
         if (z) {
                 *z = 0;
-                assert_se(qq = strdup(q));
+                _cleanup_free_ char *d = ASSERT_PTR(strdup(z+5));
+
                 assert_se(strip_tab_ansi(&q, NULL, NULL));
-                ASSERT_STREQ(q, qq);
+                assert_se(strip_tab_ansi(&d, NULL, NULL));
+
+                ASSERT_STREQ(q, "something ");
+                ASSERT_STREQ(d, "\\i am a fabulous link something-else");
         }
 
         /* Test that both kinds of ST are recognized after OSC */
