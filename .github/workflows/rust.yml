@@ -1,0 +1,77 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+name: Rust
+on:
+  pull_request:
+    paths:
+      - '**/meson.build'
+      - '**/meson_options.txt'
+      - '**/*.rs'
+      - 'src/rust/**'
+      - 'tools/bindgen-probe.h'
+      - 'tools/fix-rust-rpath.py'
+      - 'mkosi/**'
+      - '.github/workflows/rust.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.name }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Rust, newest toolchain
+            distribution: fedora
+            release: rawhide
+            meson: ""
+          - name: Rust, oldest supported toolchain
+            # Debian 13 ships exactly the floors: rustc 1.85.0, bindgen 0.71.1. Its meson is 1.7.0, so the
+            # oldest meson the Rust bits accept comes from PyPI.
+            distribution: debian
+            release: trixie
+            meson: "1.8.0"
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - uses: systemd/mkosi@f7762b71437227922a367bb89597843c77494ef9
+
+      - name: Build tools tree
+        run: |
+          tee mkosi/mkosi.local.conf <<EOF
+          [Build]
+          ToolsTreeDistribution=${{ matrix.distribution }}
+          ToolsTreeRelease=${{ matrix.release }}
+          EOF
+
+          mkosi -f box -- true
+
+      - name: Install meson ${{ matrix.meson }}
+        if: matrix.meson != ''
+        run: mkosi box -- python3 -m pip install --break-system-packages "meson==${{ matrix.meson }}"
+
+      - name: Configure meson
+        run: mkosi box -- meson setup --werror --fatal-meson-warnings -Drust=enabled -Dtests=unsafe build
+
+      - name: Build
+        run: mkosi box -- meson compile -C build
+
+      - name: Run the Rust tests
+        run: mkosi box -- meson test -C build --suite rust --print-errorlogs --no-stdsplit --quiet
+
+      - name: Run rustfmt, the bindings header check and test-link-abi
+        run: mkosi box -- meson test -C build --suite dist --print-errorlogs --no-stdsplit --quiet
+
+      - name: Run clippy
+        run: mkosi box -- ninja -C build clippy
