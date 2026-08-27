@@ -109,6 +109,7 @@ static const Option introspect_options[] = {
         { 2, .short_code = 'x', .long_code = "example", .metavar = "ARG", .help = "An example option" },
 };
 
+#if !(__GNUC__ < 14)
 TEST(introspect_cli_verb_options) {
         /* Gcc doesn't like introspect_verbs + ELEMENTSOF(introspect_verbs) and
          * introspect_options + ELEMENTSOF(introspect_options) being passes as param.
@@ -133,5 +134,6 @@ TEST(command_print_verb_help) {
                                            "gamma"));
         REENABLE_WARNING;
 }
+#endif
 
 DEFINE_TEST_MAIN(LOG_INFO);
