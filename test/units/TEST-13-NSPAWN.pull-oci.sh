@@ -130,6 +130,15 @@ run0 -u testuser importctl list-images --user | grep ocicombo >/dev/null
 
 ls -alR /home/testuser/.local/state/machines/ocicombo.mstack
 
+if command -v systemd-vmspawn >/dev/null 2>&1; then
+    if run0 -u testuser env SYSTEMD_LOG_TARGET=console systemd-vmspawn -M ocicombo &>/var/tmp/pull-oci-test/vmspawn.log; then
+        echo "systemd-vmspawn unexpectedly accepted .mstack image"
+        exit 1
+    fi
+    cat /var/tmp/pull-oci-test/vmspawn.log
+    grep "not supported by systemd-vmspawn" /var/tmp/pull-oci-test/vmspawn.log >/dev/null
+fi
+
 run0 -u testuser systemd-nspawn -q --pipe -M ocicombo /sbin/init | grep luftikus >/dev/null
 
 run0 -u testuser --pipe systemd-run -q --unit=fimpel --user -p PrivateUsers=managed -p RootMStack=/home/testuser/.local/state/machines/ocicombo.mstack --pipe /sbin/init | grep luftikus >/dev/null

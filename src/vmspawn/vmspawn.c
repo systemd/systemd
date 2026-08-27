@@ -4083,6 +4083,11 @@ static int determine_names(void) {
                                 r = free_and_strdup(&arg_image, i->path);
                         else if (IN_SET(i->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME))
                                 r = free_and_strdup(&arg_directory, i->path);
+                        else if (i->type == IMAGE_MSTACK)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Machine image '%s' has type '%s', "
+                                                       "which is not supported by systemd-vmspawn.",
+                                                       arg_machine, image_type_to_string(i->type));
                         else
                                 assert_not_reached();
                         if (r < 0)
