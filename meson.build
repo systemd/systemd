@@ -1944,6 +1944,10 @@ simple_fuzzers = []
 catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
+rust_executables = [] # programs written in Rust, see the loop over them below
+rust_executable_targets = []
+rust_executables_by_name = {}
+rust_sources = []
 executables_by_name = {}
 exported_by_name = {}
 fuzzer_exes = []
@@ -2818,6 +2822,104 @@ foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyut
                 mkosi_depends += [executables_by_name[executable]]
         endif
 endforeach
+
+#####################################################################
+
+# Programs written in Rust are declared like the C ones, but with .rs sources:
+#
+#         rust_executables += [
+#                 {
+#                         'sources' : files('foo.rs'),
+#                         'install_dir' : libexecdir,
+#                 },
+#         ]
+#
+# The first source is the crate root, the others are only tracked for rebuilds. 'conditions', 'public' and
+# 'type' work like for the C programs: public programs get the --help and --version checks, names starting
+# with 'test-' are registered as unit tests (unless the type is 'manual') and installed with the C ones
+# when -Dinstall-tests is on. There are no .standalone variants: Rust programs always link libsystemd-shared
+# dynamically. They do take part in test-link-abi, so std::process and whatever else would drag in symbols
+# newer than the glibc baseline is off limits (see docs/CODING_STYLE.md).
+
+if have_rust
+        rust_executable_template = {
+                'link_with' : [libsystemd_shared_rs],
+                'install' : true,
+                'install_rpath' : pkglibdir,
+                # meson keeps rustc's own library directory in the runpath of Rust programs that link a shared
+                # library (it is only needed for Rust dylibs, which we do not use) and cannot grow a runpath
+                # when installing. Add a build-only entry that is at least as long as the installed runpath, so
+                # that install always succeeds, and let fix-rust-rpath.py drop the leftover entry afterwards.
+                # Both become no-ops once meson stops adding the directory.
+                'build_rpath' : meson.project_build_root() / pkglibdir.strip('/'),
+                # Unwinding cannot cross the C frames of an event loop anyway, and it is what makes
+                # -Db_lto=true builds small. A panic logs at LOG_CRIT (see program.rs) and aborts.
+                'rust_args' : ['-C', 'panic=abort'],
+                'build_by_default' : true,
+        }
+
+        foreach dict : rust_executables
+                name = dict.get('name', '')
+                if name == ''
+                        name = fs.stem(dict.get('sources')[0])
+                endif
+                is_test = name.startswith('test-')
+
+                build = true
+                foreach cond : dict.get('conditions', [])
+                        if conf.get(cond) != 1
+                                build = false
+                                break
+                        endif
+                endforeach
+                if not build
+                        continue
+                endif
+
+                kwargs = rust_executable_template
+                foreach key, val : dict
+                        if key in ['name', 'sources', 'conditions', 'public', 'suite', 'timeout', 'type']
+                                continue
+                        endif
+                        kwargs += { key : val }
+                endforeach
+
+                if is_test
+                        kwargs += {
+                                'install' : install_tests,
+                                'install_dir' : unittestsdir,
+                                'build_by_default' : want_tests != 'false',
+                        }
+                endif
+
+                exe = executable(name, dict.get('sources'), kwargs : kwargs)
+                rust_executable_targets += exe
+                rust_executables_by_name += { name : exe }
+                rust_sources += dict.get('sources')
+                if dict.get('public', false)
+                        public_programs += exe
+                endif
+
+                type = dict.get('type', '')
+                if is_test and want_tests != 'false' and type != 'manual' and (type != 'unsafe' or want_tests == 'unsafe')
+                        test(name, exe,
+                             env : test_env,
+                             timeout : dict.get('timeout', 30),
+                             suite : dict.get('suite', 'rust'))
+                endif
+                if kwargs.get('install')
+                        meson.add_install_script(python, fix_rust_rpath_py, pkglibdir,
+                                                 kwargs.get('install_dir', bindir) / name)
+                endif
+        endforeach
+
+        if want_tests != 'false' and rustfmt.found() and rust_sources.length() > 0
+                test('rustfmt',
+                     rustfmt,
+                     args : ['--check', '--edition', '2021', rust_sources],
+                     suite : 'dist')
+        endif
+endif
 
 if mkosi.found()
         custom_target(
