@@ -113,7 +113,7 @@ static int progress_bytes(uint64_t nbytes, uint64_t bps, void *userdata) {
         return 0;
 }
 
-VERB(verb_import_fs, "run", "DIRECTORY [NAME]", 2, 3, 0,
+VERB(verb_import_fs, "run", "DIRECTORY [NAME]\0", 2, 3, 0,
      "Import a directory");
 static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(rm_rf_subvolume_and_freep) char *temp_path = NULL;

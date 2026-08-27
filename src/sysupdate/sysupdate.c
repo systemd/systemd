@@ -1942,7 +1942,7 @@ static int verify_polkit(Context *context, sd_varlink *link, const char *action,
                         &s->polkit_registry);
 }
 
-VERB(verb_list, "list", "[VERSION]", VERB_ANY, 2, VERB_DEFAULT,
+VERB(verb_list, "list", "[VERSION]\0", VERB_ANY, 2, VERB_DEFAULT,
      "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_done) Context context = CONTEXT_NULL;
@@ -2019,7 +2019,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 }
 
-VERB(verb_features, "features", "[FEATURE]", VERB_ANY, 2, 0,
+VERB(verb_features, "features", "[FEATURE]\0", VERB_ANY, 2, 0,
      "Show optional features");
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_done) Context context = CONTEXT_NULL;
@@ -2312,9 +2312,9 @@ static int context_enable_feature(
         return ret;
 }
 
-VERB(verb_enable_feature, "enable-feature", "FEATURE…", 1, VERB_ANY, 0,
+VERB(verb_enable_feature, "enable-feature", "FEATURE…\0", 1, VERB_ANY, 0,
      "Enable optional feature");
-VERB(verb_enable_feature, "disable-feature", "FEATURE…", 1, VERB_ANY, 0,
+VERB(verb_enable_feature, "disable-feature", "FEATURE…\0", 1, VERB_ANY, 0,
      "Disable optional feature");
 static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *userdata) {
         bool enable = streq(argv[0], "enable-feature");
@@ -2759,7 +2759,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         }
 }
 
-VERB(verb_update, "update", "[VERSION]", VERB_ANY, 2, 0,
+VERB(verb_update, "update", "[VERSION]\0", VERB_ANY, 2, 0,
      "Install new version now");
 static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         UpdateActionFlags flags = UPDATE_ACTION_INSTALL;
@@ -2770,7 +2770,7 @@ static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return verb_update_impl(argc, argv, flags);
 }
 
-VERB(verb_acquire, "acquire", "[VERSION]", VERB_ANY, 2, 0,
+VERB(verb_acquire, "acquire", "[VERSION]\0", VERB_ANY, 2, 0,
      "Acquire (download) new version now");
 static int verb_acquire(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return verb_update_impl(argc, argv, UPDATE_ACTION_ACQUIRE);
@@ -3163,9 +3163,9 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
                         SD_JSON_BUILD_PAIR_VARIANT("targets", l));
 }
 
-VERB(verb_enable_component, "enable-component", "COMPONENT…", 1, VERB_ANY, 0,
+VERB(verb_enable_component, "enable-component", "COMPONENT…\0", 1, VERB_ANY, 0,
      "Enable component");
-VERB(verb_enable_component, "disable-component", "COMPONENT…", 1, VERB_ANY, 0,
+VERB(verb_enable_component, "disable-component", "COMPONENT…\0", 1, VERB_ANY, 0,
      "Disable component");
 static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *userdata) {
         bool enable = streq(argv[0], "enable-component");

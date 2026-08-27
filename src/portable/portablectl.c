@@ -474,7 +474,7 @@ static bool image_metadata_error_is_no_match(const sd_bus_error *error) {
         return sd_bus_error_has_name(error, BUS_ERROR_NO_MATCHING_UNIT_FILES);
 }
 
-VERB(verb_inspect_image, "inspect", "NAME|PATH [PREFIX…]", 2, VERB_ANY, 0,
+VERB(verb_inspect_image, "inspect", "NAME|PATH [PREFIX…]\0", 2, VERB_ANY, 0,
      "Show details of specified portable service image");
 static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -1283,13 +1283,13 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         return 0;
 }
 
-VERB(verb_attach_image, "attach", "NAME|PATH [PREFIX…]", 2, VERB_ANY, 0,
+VERB(verb_attach_image, "attach", "NAME|PATH [PREFIX…]\0", 2, VERB_ANY, 0,
      "Attach the specified portable service image");
 static int verb_attach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "AttachImage" : "AttachImageWithExtensions");
 }
 
-VERB(verb_detach_image, "detach", "NAME|PATH [PREFIX…]", 2, VERB_ANY, 0,
+VERB(verb_detach_image, "detach", "NAME|PATH [PREFIX…]\0", 2, VERB_ANY, 0,
      "Detach the specified portable service image");
 static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
@@ -1345,13 +1345,13 @@ static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
-VERB(verb_reattach_image, "reattach", "NAME|PATH [PREFIX…]", 2, VERB_ANY, 0,
+VERB(verb_reattach_image, "reattach", "NAME|PATH [PREFIX…]\0", 2, VERB_ANY, 0,
      "Reattach the specified portable service image");
 static int verb_reattach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "ReattachImage" : "ReattachImageWithExtensions");
 }
 
-VERB(verb_is_image_attached, "is-attached", "NAME|PATH", 2, 2, 0,
+VERB(verb_is_image_attached, "is-attached", "NAME|PATH\0", 2, 2, 0,
      "Query if portable service image is attached");
 static int verb_is_image_attached(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
@@ -1403,7 +1403,7 @@ static int verb_is_image_attached(int argc, char *argv[], uintptr_t _data, void 
         return streq(state, "detached");
 }
 
-VERB(verb_read_only_image, "read-only", "NAME|PATH [BOOL]", 2, 3, 0,
+VERB(verb_read_only_image, "read-only", "NAME|PATH [BOOL]\0", 2, 3, 0,
      "Mark or unmark portable service image read-only");
 static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1434,7 +1434,7 @@ static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *u
         return 0;
 }
 
-VERB(verb_remove_image, "remove", "NAME|PATH…", 2, VERB_ANY, 0,
+VERB(verb_remove_image, "remove", "NAME|PATH…\0", 2, VERB_ANY, 0,
      "Remove a portable service image");
 static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1472,7 +1472,7 @@ static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
-VERB(verb_set_limit, "set-limit", "[NAME|PATH] LIMIT", 2, 3, 0,
+VERB(verb_set_limit, "set-limit", "[NAME|PATH] LIMIT\0", 2, 3, 0,
      "Set image or pool size limit (disk quota)");
 static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

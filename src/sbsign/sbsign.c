@@ -365,7 +365,7 @@ static int pkcs7_add_digest_attribute(PKCS7 *p7, BIO *data, PKCS7_SIGNER_INFO *s
         return 0;
 }
 
-VERB(verb_sign, "sign", "EXEFILE", 2, 2, 0,
+VERB(verb_sign, "sign", "EXEFILE\0", 2, 2, 0,
      "Sign the given binary for EFI Secure Boot");
 static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;

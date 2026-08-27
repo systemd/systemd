@@ -4,13 +4,12 @@
 
 #include "sd-device.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "device-enumerator-private.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "id128-util.h"
 #include "options.h"
 #include "set.h"
@@ -20,6 +19,7 @@
 #include "time-util.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
+#include "verbs.h"
 #include "virt.h"
 
 typedef enum {
@@ -321,25 +321,6 @@ static int setup_matches(sd_device_enumerator *e) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevadm-trigger", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("trigger [OPTIONS] DEVPATH");
-        help_abstract("Request events from the kernel.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("udevadm", "8");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         int r;
 
@@ -354,7 +335,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("udevadm-trigger"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_verb_help("trigger");
 
                 OPTION('V', "version", NULL, "Show package version"):
                         return print_version();
@@ -483,6 +464,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_oom();
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         r = strv_extend_strv(&arg_devices, option_parser_get_args(&opts), /* filter_duplicates= */ false);
