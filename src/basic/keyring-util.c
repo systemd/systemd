@@ -46,7 +46,7 @@ int keyring_describe(key_serial_t serial, char **ret) {
                 if (!tuple)
                         return log_oom_debug();
 
-                c = keyctl(KEYCTL_DESCRIBE, serial, (unsigned long) tuple, c, 0);
+                c = keyctl(KEYCTL_DESCRIBE, serial, (unsigned long) tuple, sz, 0);
                 if (c < 0)
                         return log_debug_errno(errno, "Failed to describe key id %d: %m", serial);
 
