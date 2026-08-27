@@ -130,6 +130,7 @@ if want_tests != 'false'
         foreach _, exe : executables_by_name
                 link_abi_targets += exe
         endforeach
+        link_abi_targets += rust_executable_targets
 
         if conf.get('BUILD_MODE_DEVELOPER') == 1
                 test('test-link-abi',
