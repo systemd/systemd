@@ -153,6 +153,8 @@ systemd_shared_sources = files(
         'tests.rs',
 )
 
+systemd_shared_rust_sources = systemd_shared_sources + files('systemd_shared_sys.rs')
+
 libsystemd_shared_rs = static_library(
         'systemd_shared',
         systemd_shared_sources,
