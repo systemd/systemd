@@ -141,6 +141,7 @@ endif
 systemd_shared_sources = files(
         'lib.rs',
         'alloc.rs',
+        'command.rs',
         'cstr.rs',
         'errno.rs',
         'fd.rs',
