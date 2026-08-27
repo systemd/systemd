@@ -156,6 +156,7 @@ int manager_serialize(
         (void) serialize_item(f, "pretimeout-watchdog-governor-overridden", m->watchdog_pretimeout_governor_overridden);
 
         (void) serialize_item(f, "previous-objective", manager_objective_to_string(m->objective));
+        (void) serialize_item(f, "previous-system-state", manager_state_to_string(m->previous_system_state));
         (void) serialize_item_format(f, "soft-reboots-count", "%u", m->soft_reboots_count);
         (void) serialize_item_format(f, "kexecs-count", "%u", m->kexecs_count);
         (void) serialize_item_format(f, "fd-store-upstream-next-index", "%" PRIu64, m->fd_store_upstream_next_index);
@@ -812,6 +813,14 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse previous objective '%s', ignoring.", val);
                         else
                                 m->previous_objective = objective;
+                } else if ((val = startswith(l, "previous-system-state="))) {
+                        ManagerState state;
+
+                        state = manager_state_from_string(val);
+                        if (state < 0)
+                                log_notice("Failed to parse previous system state '%s', ignoring.", val);
+                        else
+                                m->previous_system_state = state;
 
                 } else {
                         ManagerTimestamp q;

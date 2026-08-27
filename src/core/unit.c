@@ -2778,6 +2778,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         /* Keep track of failed units */
         (void) manager_update_failed_units(m, u, ns == UNIT_FAILED);
 
+        if (os != ns)
+                manager_queue_system_state_refresh_for_unit(u);
+
         /* Make sure the cgroup and state files are always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                 SET_FLAG(u->markers,
