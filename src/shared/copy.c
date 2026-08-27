@@ -459,6 +459,46 @@ int copy_bytes_full(
         return max_bytes <= 0; /* return 0 if we hit EOF earlier than the size limit */
 }
 
+/* Whether *ts already satisfies the clamp. timespec_load() reports both pre-1970 and overflowing
+ * timestamps as USEC_INFINITY, and the former is earlier than any clamp */
+static bool timespec_within(const struct timespec *ts, usec_t ts_clamp) {
+        assert(ts);
+
+        return ts->tv_sec < 0 || timespec_load(ts) <= ts_clamp;
+}
+
+/* See ts_clamp in copy.h. */
+static void clamp_inode_times(const struct stat *st, usec_t ts_clamp, struct timespec ret[static 2]) {
+        assert(st);
+        assert(ret);
+
+        ret[0] = timespec_within(&st->st_atim, ts_clamp) ? st->st_atim : *TIMESPEC_STORE(ts_clamp);
+        ret[1] = timespec_within(&st->st_mtim, ts_clamp) ? st->st_mtim : *TIMESPEC_STORE(ts_clamp);
+}
+
+/* Put *st's clamped times on the inode referred to by fdt */
+static int clamp_futimens(int fdt, const struct stat *st, usec_t ts_clamp) {
+        struct timespec times[2];
+
+        assert(fdt >= 0);
+        assert(st);
+
+        clamp_inode_times(st, ts_clamp, times);
+        return RET_NERRNO(futimens(fdt, times));
+}
+
+/* Same for (dt, to) */
+static int clamp_utimensat(int dt, const char *to, const struct stat *st, usec_t ts_clamp) {
+        struct timespec times[2];
+
+        assert(dt >= 0 || dt == AT_FDCWD);
+        assert(to);
+        assert(st);
+
+        clamp_inode_times(st, ts_clamp, times);
+        return RET_NERRNO(utimensat(dt, to, times, AT_SYMLINK_NOFOLLOW));
+}
+
 static int fd_copy_symlink(
                 int df,
                 const char *from,
@@ -467,7 +507,8 @@ static int fd_copy_symlink(
                 const char *to,
                 uid_t override_uid,
                 gid_t override_gid,
-                CopyFlags copy_flags) {
+                CopyFlags copy_flags,
+                usec_t ts_clamp) {
 
         _cleanup_free_ char *target = NULL;
         int r;
@@ -506,7 +547,8 @@ static int fd_copy_symlink(
                 r = -errno;
 
         (void) copy_xattr(df, from, dt, to, copy_flags);
-        (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
+
+        (void) clamp_utimensat(dt, to, st, ts_clamp);
         return r;
 }
 
@@ -798,6 +840,7 @@ static int fd_copy_tree_generic(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                usec_t ts_clamp,
                 Hashmap *denylist,
                 Hashmap *subvolumes,
                 HardlinkContext *hardlink_context,
@@ -815,6 +858,7 @@ static int fd_copy_regular(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                usec_t ts_clamp,
                 HardlinkContext *hardlink_context,
                 copy_progress_bytes_t progress,
                 void *userdata) {
@@ -862,7 +906,7 @@ static int fd_copy_regular(
         if (fchmod(fdt, st->st_mode & 07777) < 0)
                 r = -errno;
 
-        (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
+        (void) clamp_futimens(fdt, st, ts_clamp);
         (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
 
         if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
@@ -910,6 +954,7 @@ static int fd_copy_fifo(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                usec_t ts_clamp,
                 HardlinkContext *hardlink_context) {
         int r;
 
@@ -948,7 +993,7 @@ static int fd_copy_fifo(
         if (fchmodat(dt, to, st->st_mode & 07777, AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
-        (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
+        (void) clamp_utimensat(dt, to, st, ts_clamp);
 
         (void) memorize_hardlink(hardlink_context, st, dt, to);
         return r;
@@ -963,6 +1008,7 @@ static int fd_copy_node(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                usec_t ts_clamp,
                 HardlinkContext *hardlink_context) {
         int r;
 
@@ -1001,7 +1047,7 @@ static int fd_copy_node(
         if (fchmodat(dt, to, st->st_mode & 07777, AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
-        (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
+        (void) clamp_utimensat(dt, to, st, ts_clamp);
 
         (void) memorize_hardlink(hardlink_context, st, dt, to);
         return r;
@@ -1018,6 +1064,7 @@ static int fd_copy_directory(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                usec_t ts_clamp,
                 Hashmap *denylist,
                 Hashmap *subvolumes,
                 HardlinkContext *hardlink_context,
@@ -1169,7 +1216,7 @@ static int fd_copy_directory(
 
                 r = fd_copy_tree_generic(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device,
                                          depth_left-1, override_uid, override_gid, copy_flags & ~COPY_LOCK_BSD,
-                                         denylist, subvolumes, hardlink_context, child_display_path, progress_path,
+                                         ts_clamp, denylist, subvolumes, hardlink_context, child_display_path, progress_path,
                                          progress_bytes, userdata);
 
                 /* Propagate SIGINT/SIGTERM, ENOSPC, and fs-verity fails up instantly */
@@ -1193,7 +1240,8 @@ finish:
                 /* Run hardlink context cleanup now because it potentially changes timestamps */
                 hardlink_context_destroy(&our_hardlink_context);
                 (void) copy_xattr(dirfd(d), NULL, fdt, NULL, copy_flags);
-                (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
+
+                (void) clamp_futimens(fdt, st, ts_clamp);
         } else if (FLAGS_SET(copy_flags, COPY_RESTORE_DIRECTORY_TIMESTAMPS)) {
                 /* Run hardlink context cleanup now because it potentially changes timestamps */
                 hardlink_context_destroy(&our_hardlink_context);
@@ -1221,6 +1269,7 @@ static int fd_copy_leaf(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                usec_t ts_clamp,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_bytes_t progress_bytes,
@@ -1228,13 +1277,13 @@ static int fd_copy_leaf(
         int r;
 
         if (S_ISREG(st->st_mode))
-                r = fd_copy_regular(df, from, st, dt, to, override_uid, override_gid, copy_flags, hardlink_context, progress_bytes, userdata);
+                r = fd_copy_regular(df, from, st, dt, to, override_uid, override_gid, copy_flags, ts_clamp, hardlink_context, progress_bytes, userdata);
         else if (S_ISLNK(st->st_mode))
-                r = fd_copy_symlink(df, from, st, dt, to, override_uid, override_gid, copy_flags);
+                r = fd_copy_symlink(df, from, st, dt, to, override_uid, override_gid, copy_flags, ts_clamp);
         else if (S_ISFIFO(st->st_mode))
-                r = fd_copy_fifo(df, from, st, dt, to, override_uid, override_gid, copy_flags, hardlink_context);
+                r = fd_copy_fifo(df, from, st, dt, to, override_uid, override_gid, copy_flags, ts_clamp, hardlink_context);
         else if (S_ISBLK(st->st_mode) || S_ISCHR(st->st_mode) || S_ISSOCK(st->st_mode))
-                r = fd_copy_node(df, from, st, dt, to, override_uid, override_gid, copy_flags, hardlink_context);
+                r = fd_copy_node(df, from, st, dt, to, override_uid, override_gid, copy_flags, ts_clamp, hardlink_context);
         else
                 r = -EOPNOTSUPP;
 
@@ -1252,6 +1301,7 @@ static int fd_copy_tree_generic(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                usec_t ts_clamp,
                 Hashmap *denylist,
                 Hashmap *subvolumes,
                 HardlinkContext *hardlink_context,
@@ -1266,7 +1316,7 @@ static int fd_copy_tree_generic(
 
         if (S_ISDIR(st->st_mode))
                 return fd_copy_directory(df, from, st, dt, to, original_device, depth_left-1, override_uid,
-                                         override_gid, copy_flags, denylist, subvolumes, hardlink_context,
+                                         override_gid, copy_flags, ts_clamp, denylist, subvolumes, hardlink_context,
                                          display_path, progress_path, progress_bytes, userdata);
 
         /* Only if we are copying a directory we are fine if the target dir is referenced by fd only */
@@ -1280,14 +1330,14 @@ static int fd_copy_tree_generic(
         } else if (t == DENY_CONTENTS)
                 log_debug("%s is configured to have its contents excluded, but is not a directory", from ?: "file to copy");
 
-        r = fd_copy_leaf(df, from, st, dt, to, override_uid, override_gid, copy_flags, hardlink_context, display_path, progress_bytes, userdata);
+        r = fd_copy_leaf(df, from, st, dt, to, override_uid, override_gid, copy_flags, ts_clamp, hardlink_context, display_path, progress_bytes, userdata);
         /* We just tried to copy a leaf node of the tree. If it failed because the node already exists *and* the COPY_REPLACE flag has been provided, we should unlink the node and re-copy. */
         if (r == -EEXIST && (copy_flags & COPY_REPLACE)) {
                 /* This codepath is us trying to address an error to copy, if the unlink fails, lets just return the original error. */
                 if (unlinkat(dt, to, 0) < 0)
                         return r;
 
-                r = fd_copy_leaf(df, from, st, dt, to, override_uid, override_gid, copy_flags, hardlink_context, display_path, progress_bytes, userdata);
+                r = fd_copy_leaf(df, from, st, dt, to, override_uid, override_gid, copy_flags, ts_clamp, hardlink_context, display_path, progress_bytes, userdata);
         }
 
         return r;
@@ -1301,6 +1351,7 @@ int copy_tree_at_full(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                usec_t ts_clamp,
                 Hashmap *denylist,
                 Hashmap *subvolumes,
                 copy_progress_path_t progress_path,
@@ -1316,7 +1367,7 @@ int copy_tree_at_full(
                 return -errno;
 
         r = fd_copy_tree_generic(fdf, from, &st, fdt, to, st.st_dev, COPY_DEPTH_MAX, override_uid,
-                                 override_gid, copy_flags, denylist, subvolumes, NULL, NULL, progress_path,
+                                 override_gid, copy_flags, ts_clamp, denylist, subvolumes, NULL, NULL, progress_path,
                                  progress_bytes, userdata);
         if (r < 0)
                 return r;
@@ -1388,6 +1439,7 @@ int copy_directory_at_full(
                         override_uid,
                         override_gid,
                         copy_flags,
+                        /* ts_clamp= */ USEC_INFINITY,
                         /* denylist= */ NULL,
                         /* subvolumes= */ NULL,
                         /* hardlink_context= */ NULL,
@@ -1639,8 +1691,9 @@ fail:
         return r;
 }
 
-int copy_times(int fdf, int fdt, CopyFlags flags) {
+int copy_times_full(int fdf, int fdt, CopyFlags flags, usec_t ts_clamp) {
         struct stat st;
+        int r;
 
         assert(fdf >= 0);
         assert(fdt >= 0);
@@ -1648,14 +1701,15 @@ int copy_times(int fdf, int fdt, CopyFlags flags) {
         if (fstat(fdf, &st) < 0)
                 return -errno;
 
-        if (futimens(fdt, (struct timespec[2]) { st.st_atim, st.st_mtim }) < 0)
-                return -errno;
+        r = clamp_futimens(fdt, &st, ts_clamp);
+        if (r < 0)
+                return r;
 
         if (FLAGS_SET(flags, COPY_CRTIME)) {
                 usec_t crtime;
 
                 if (fd_getcrtime(fdf, &crtime) >= 0)
-                        (void) fd_setcrtime(fdt, crtime);
+                        (void) fd_setcrtime(fdt, MIN(crtime, ts_clamp));
         }
 
         return 0;

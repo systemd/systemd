@@ -81,12 +81,15 @@ static inline int copy_file_atomic(const char *from, const char *to, mode_t mode
         return copy_file_atomic_full(from, to, mode, 0, 0, copy_flags, NULL, NULL);
 }
 
-int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Hashmap *subvolumes, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+/* ts_clamp: upper bound for the time stamps of created inodes. $SOURCE_DATE_EPOCH semantic, see
+ * https://reproducible-builds.org/specs/source-date-epoch/. USEC_INFINITY clamps nothing, i.e. keeps
+ * the source's own time stamps. */
+int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, usec_t ts_clamp, Hashmap *denylist, Hashmap *subvolumes, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
 static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Hashmap *subvolumes) {
-        return copy_tree_at_full(fdf, from, fdt, to, override_uid, override_gid, copy_flags, denylist, subvolumes, NULL, NULL, NULL);
+        return copy_tree_at_full(fdf, from, fdt, to, override_uid, override_gid, copy_flags, USEC_INFINITY, denylist, subvolumes, NULL, NULL, NULL);
 }
 static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Hashmap *subvolumes) {
-        return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, denylist, subvolumes, NULL, NULL, NULL);
+        return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, USEC_INFINITY, denylist, subvolumes, NULL, NULL, NULL);
 }
 
 int copy_directory_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
@@ -99,7 +102,11 @@ static inline int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags cop
         return copy_bytes_full(fdf, fdt, max_bytes, copy_flags, NULL, NULL, NULL, NULL);
 }
 
-int copy_times(int fdf, int fdt, CopyFlags flags);
+/* See ts_clamp above. Covers atime, mtime, and with COPY_CRTIME the birth time. */
+int copy_times_full(int fdf, int fdt, CopyFlags flags, usec_t ts_clamp);
+static inline int copy_times(int fdf, int fdt, CopyFlags flags) {
+        return copy_times_full(fdf, fdt, flags, USEC_INFINITY);
+}
 int copy_access(int fdf, int fdt);
 int copy_owner(int fdf, int fdt);
 int copy_rights_with_fallback(int fdf, int fdt, const char *patht);
