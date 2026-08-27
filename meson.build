@@ -2077,6 +2077,12 @@ subdir('src/libsystemd')
 subdir('src/shared')
 subdir('src/libudev')
 
+# The Rust bits need meson 1.4.0, the project floor is older. meson checks feature versions against the
+# version compared here instead of the floor, for everything subdir() evaluates.
+if meson.version().version_compare('>= 1.4.0')
+        subdir('src/rust/systemd-shared')
+endif
+
 libsystemd = shared_library(
         'systemd',
         version : libsystemd_version,
