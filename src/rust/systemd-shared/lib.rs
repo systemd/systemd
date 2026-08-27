@@ -45,7 +45,9 @@ pub mod json;
 pub mod log;
 mod panic;
 pub mod prelude;
+pub mod program;
 pub mod stdio;
 pub mod strv;
+pub mod tests;
 
 pub use errno::{check, from_result, Errno, Result};
