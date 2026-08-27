@@ -1351,7 +1351,7 @@ static int manager_run(Manager *m) {
 COMMAND(
         "systemd-logind\0",
         "Manage user logins and devices and privileged operations.",
-        .man_pages = "systemd-logind.service.8\0",
+        .man_pages = "systemd-logind.service(8)\0",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"

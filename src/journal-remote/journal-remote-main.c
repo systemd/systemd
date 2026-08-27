@@ -88,7 +88,7 @@ COMMAND(
         "Write external journal events to journal files.",
         .argspec = "[{FILE|-}…]\0",
         .footer = "Note: file descriptors from sd_listen_fds() will be consumed, too.",
-        .man_pages = "systemd-journal-remote.service.8\0",
+        .man_pages = "systemd-journal-remote.service(8)\0",
 );
 
 static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX] = {

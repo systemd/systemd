@@ -20,7 +20,7 @@ COMMAND(
         "Halt the system.",
         .footer = "This is a compatibility interface, please use the more powerful "
                   "'systemctl halt' command instead.",
-        .man_pages = "halt.8\0",
+        .man_pages = "halt(8)\0",
         .option_namespace = "halt",
 );
 
@@ -29,7 +29,7 @@ COMMAND(
         "Power off the system.",
         .footer = "This is a compatibility interface, please use the more powerful "
                   "'systemctl poweroff' command instead.",
-        .man_pages = "poweroff.8\0",
+        .man_pages = "poweroff(8)\0",
         .option_namespace = "halt",
 );
 
@@ -39,7 +39,7 @@ COMMAND(
         .argspec = "[ARG]\0",
         .footer = "This is a compatibility interface, please use the more powerful "
                   "'systemctl reboot' command instead.",
-        .man_pages = "reboot.8\0",
+        .man_pages = "reboot(8)\0",
         .option_namespace = "halt",
 );
 

@@ -19,7 +19,7 @@ static enum {
 COMMAND(
         "systemd-ac-power\0",
         "Report whether we are connected to an external power source.",
-        .man_pages = "systemd-ac-power.1\0",
+        .man_pages = "systemd-ac-power(1)\0",
 );
 
 static int parse_argv(int argc, char *argv[]) {

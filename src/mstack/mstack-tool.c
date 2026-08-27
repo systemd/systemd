@@ -49,7 +49,7 @@ COMMAND(
                 "WHAT\0"
                 "--mount WHAT WHERE\0"
                 "--umount WHERE\0",
-        .man_pages = "systemd-mstack.1\0",
+        .man_pages = "systemd-mstack(1)\0",
         .option_namespace = "systemd-mstack",
         .pager_flags = &arg_pager_flags,
 );
@@ -191,7 +191,7 @@ static int parse_argv(int argc, char *argv[]) {
 COMMAND(
         "mount.mstack\0",
         "External helper for mount.8 to mount mount stacks.",
-        .man_pages = "systemd-mstack.1\0",
+        .man_pages = "systemd-mstack(1)\0",
         .option_namespace = "mount.mstack",
 );
 

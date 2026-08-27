@@ -17,7 +17,7 @@ static PagerFlags arg_pager_flags = 0;
 COMMAND(
         "oomctl\0",
         "Manage or inspect the userspace OOM killer.",
-        .man_pages = "oomctl.1\0",
+        .man_pages = "oomctl(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

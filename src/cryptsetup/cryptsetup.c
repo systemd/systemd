@@ -145,7 +145,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_fixate_volume_key, freep);
 COMMAND(
         "systemd-cryptsetup\0",
         "Attach or detach an encrypted block device.",
-        .man_pages = "systemd-cryptsetup.8\0",
+        .man_pages = "systemd-cryptsetup(8)\0",
 );
 
 static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {

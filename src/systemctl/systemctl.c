@@ -114,7 +114,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_kill_subgroup, freep);
 COMMAND(
         "systemctl\0",
         "Query or send control commands to the system manager.",
-        .man_pages = "systemctl.1\0",
+        .man_pages = "systemctl(1)\0",
         .option_namespace = "systemctl",
         .pager_flags = &arg_pager_flags,
 );

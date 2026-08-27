@@ -31,7 +31,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 COMMAND(
         "systemd-machine-id-setup\0",
         "Initialize /etc/machine-id from a random source.",
-        .man_pages = "systemd-machine-id-setup.1\0",
+        .man_pages = "systemd-machine-id-setup(1)\0",
 );
 
 static int parse_argv(int argc, char *argv[]) {

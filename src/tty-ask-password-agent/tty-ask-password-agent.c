@@ -61,7 +61,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_device, freep);
 COMMAND(
         "systemd-tty-ask-password-agent\0",
         "Process system password requests.",
-        .man_pages = "systemd-tty-ask-password-agent.1\0",
+        .man_pages = "systemd-tty-ask-password-agent(1)\0",
 );
 
 static int send_passwords(const char *socket_name, char **passwords) {

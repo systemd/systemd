@@ -28,7 +28,7 @@ COMMAND(
         .argspec =
                 "[DEVICE [OFFSET]]\0"
                 "--clear\0",
-        .man_pages = "systemd-hibernate-resume.8\0",
+        .man_pages = "systemd-hibernate-resume(8)\0",
 );
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {

@@ -47,7 +47,7 @@ COMMAND(
         "systemd-vpick\0",
         "Pick entry from versioned directory.",
         .argspec = "PATH…\0",
-        .man_pages = "systemd-vpick.1\0",
+        .man_pages = "systemd-vpick(1)\0",
 );
 
 static const char *print_table[_PRINT_MAX] = {

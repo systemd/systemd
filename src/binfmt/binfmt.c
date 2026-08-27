@@ -30,7 +30,7 @@ COMMAND(
         "systemd-binfmt\0",
         "Register binary formats with the kernel.",
         .argspec = "[CONFIGURATION FILE…]\0",
-        .man_pages = "systemd-binfmt.service.8\0",
+        .man_pages = "systemd-binfmt.service(8)\0",
         .pager_flags = &arg_pager_flags,
 );
 

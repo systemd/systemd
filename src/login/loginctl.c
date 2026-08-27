@@ -58,7 +58,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 COMMAND(
         "loginctl\0",
         "Send control commands to or query the login manager.",
-        .man_pages = "loginctl.1\0",
+        .man_pages = "loginctl(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 
