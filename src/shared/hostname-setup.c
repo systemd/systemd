@@ -263,7 +263,7 @@ int hostname_setup(bool really) {
                 if (enoent)
                         log_info("No hostname configured, using default hostname.");
 
-                hn = get_default_hostname();
+                hn = get_default_hostname_or_fallback();
                 if (!hn)
                         return log_oom();
 
@@ -518,27 +518,41 @@ int hostname_substitute_wildcards(const char *name, char **ret) {
         return 0;
 }
 
-char* get_default_hostname(void) {
+int get_default_hostname(char **ret) {
         int r;
+
+        assert(ret);
 
         _cleanup_free_ char *h = get_default_hostname_raw();
         if (!h)
-                return NULL;
+                return -ENOMEM;
 
         _cleanup_free_ char *substituted = NULL;
         r = hostname_substitute_wildcards(h, &substituted);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to substitute wildcards in hostname, falling back to built-in name: %m");
-                return strdup(FALLBACK_HOSTNAME);
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to substitute wildcards in hostname '%s': %m", h);
 
         /* Each token expands to a whole word, so the concrete name may exceed the length limit. */
-        if (!hostname_is_valid(substituted, VALID_HOSTNAME_TRAILING_DOT)) {
-                log_debug("Substituted hostname '%s' is invalid, falling back to built-in name.", substituted);
+        if (!hostname_is_valid(substituted, VALID_HOSTNAME_TRAILING_DOT))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Substituted hostname '%s' is invalid.", substituted);
+
+        *ret = TAKE_PTR(substituted);
+        return 0;
+}
+
+char* get_default_hostname_or_fallback(void) {
+        _cleanup_free_ char *h = NULL;
+
+        int r = get_default_hostname(&h);
+        if (r == -ENOMEM)
+                return NULL;
+        if (r < 0) {
+                log_debug_errno(r, "Falling back to built-in hostname: %m");
                 return strdup(FALLBACK_HOSTNAME);
         }
 
-        return TAKE_PTR(substituted);
+        return TAKE_PTR(h);
 }
 
 int gethostname_full(GetHostnameFlags flags, char **ret) {
@@ -558,7 +572,7 @@ int gethostname_full(GetHostnameFlags flags, char **ret) {
                 if (!FLAGS_SET(flags, GET_HOSTNAME_FALLBACK_DEFAULT))
                         return -ENXIO;
 
-                s = fallback = get_default_hostname();
+                s = fallback = get_default_hostname_or_fallback();
                 if (!s)
                         return -ENOMEM;
 
