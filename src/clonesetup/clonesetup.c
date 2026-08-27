@@ -103,7 +103,7 @@ static int clone_device(
         return 0;
 }
 
-VERB(verb_add, "add", "NAME SOURCE DEST METADATA [OPTIONS]", 5, 6, 0, "Create a dm-clone device");
+VERB(verb_add, "add", "NAME SOURCE DEST METADATA [OPTIONS]\0", 5, 6, 0, "Create a dm-clone device");
 
 /* Arguments: systemd-clonesetup add NAME SOURCE DEST METADATA [OPTIONS] */
 static int verb_add(int argc, char *argv[], uintptr_t data, void *userdata) {
@@ -126,7 +126,7 @@ static int verb_add(int argc, char *argv[], uintptr_t data, void *userdata) {
         return clone_device(name, src, dst, meta, options);
 }
 
-VERB(verb_remove, "remove", "NAME", 2, 2, 0, "Remove a dm-clone device");
+VERB(verb_remove, "remove", "NAME\0", 2, 2, 0, "Remove a dm-clone device");
 
 static int verb_remove(int argc, char *argv[], uintptr_t data, void *userdata) {
         const char *name = ASSERT_PTR(argv[1]);

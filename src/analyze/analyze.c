@@ -213,19 +213,19 @@ VERB_SCOPE(, verb_time, "time", NULL, VERB_ANY, 1, VERB_DEFAULT,
            "Print time required to boot the machine");
 VERB_SCOPE(, verb_blame, "blame", NULL, VERB_ANY, 1, 0,
            "Print list of running units ordered by time to init");
-VERB_SCOPE(, verb_critical_chain, "critical-chain", "[UNIT...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_critical_chain, "critical-chain", "[UNIT...]\0", VERB_ANY, VERB_ANY, 0,
            "Print a tree of the time critical chain of units");
 
 VERB_GROUP("Dependency Analysis");
 VERB_SCOPE(, verb_plot, "plot", NULL, VERB_ANY, 1, 0,
            "Output SVG graphic showing service initialization");
-VERB_SCOPE(, verb_dot, "dot", "[UNIT...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_dot, "dot", "[UNIT...]\0", VERB_ANY, VERB_ANY, 0,
            "Output dependency graph in dot(1) format");
-VERB_SCOPE(, verb_dump, "dump", "[PATTERN...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_dump, "dump", "[PATTERN...]\0", VERB_ANY, VERB_ANY, 0,
            "Output state serialization of service manager");
 
 VERB_GROUP("Configuration Files and Search Paths");
-VERB_SCOPE(, verb_cat_config, "cat-config", "NAME|PATH...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_cat_config, "cat-config", "NAME|PATH...\0", 2, VERB_ANY, 0,
            "Show configuration file and drop-ins");
 VERB_SCOPE(, verb_unit_files, "unit-files", NULL, VERB_ANY, VERB_ANY, 0,
            "List files and symlinks for units");
@@ -233,57 +233,57 @@ VERB_SCOPE(, verb_unit_paths, "unit-paths", NULL, 1, 1, 0,
            "List load directories for units");
 
 VERB_GROUP("Enumerate OS Concepts");
-VERB_SCOPE(, verb_exit_status, "exit-status", "[STATUS...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_exit_status, "exit-status", "[STATUS...]\0", VERB_ANY, VERB_ANY, 0,
            "List exit status definitions");
-VERB_SCOPE(, verb_capabilities, "capability", "[CAP...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_capabilities, "capability", "[CAP...]\0", VERB_ANY, VERB_ANY, 0,
            "List capability definitions");
-VERB_SCOPE(, verb_syscall_filters, "syscall-filter", "[NAME...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_syscall_filters, "syscall-filter", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
            "List syscalls in seccomp filters");
-VERB_SCOPE(, verb_filesystems, "filesystems", "[NAME...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_filesystems, "filesystems", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
            "List known filesystems");
-VERB_SCOPE(, verb_architectures, "architectures", "[NAME...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_architectures, "architectures", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
            "List known architectures");
 VERB_SCOPE(, verb_smbios11, "smbios11", NULL, VERB_ANY, 1, 0,
            "List strings passed via SMBIOS Type #11");
 VERB_SCOPE(, verb_chid, "chid", NULL, VERB_ANY, VERB_ANY, 0,
            "List local CHIDs");
-VERB(verb_transient_settings, "transient-settings", "TYPE...", 2, VERB_ANY, 0,
+VERB(verb_transient_settings, "transient-settings", "TYPE...\0", 2, VERB_ANY, 0,
      "List transient settings for unit TYPE");
 
 VERB_GROUP("Expression Evaluation");
-VERB_SCOPE(, verb_condition, "condition", "CONDITION...", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_condition, "condition", "CONDITION...\0", VERB_ANY, VERB_ANY, 0,
            "Evaluate conditions and asserts");
-VERB_SCOPE(, verb_compare_versions, "compare-versions", "V1 [OP] V2", 3, 4, 0,
+VERB_SCOPE(, verb_compare_versions, "compare-versions", "V1 [OP] V2\0", 3, 4, 0,
            "Compare two version strings");
-VERB_SCOPE(, verb_image_policy, "image-policy", "POLICY...", 2, 2, 0,
+VERB_SCOPE(, verb_image_policy, "image-policy", "POLICY...\0", 2, 2, 0,
            "Analyze image policy string");
 
 VERB_GROUP("Clock & Time");
-VERB_SCOPE(, verb_calendar, "calendar", "SPEC...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_calendar, "calendar", "SPEC...\0", 2, VERB_ANY, 0,
            "Validate repetitive calendar time events");
-VERB_SCOPE(, verb_timestamp, "timestamp", "TIMESTAMP...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_timestamp, "timestamp", "TIMESTAMP...\0", 2, VERB_ANY, 0,
            "Validate a timestamp");
-VERB_SCOPE(, verb_timespan, "timespan", "SPAN...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_timespan, "timespan", "SPAN...\0", 2, VERB_ANY, 0,
            "Validate a time span");
 
 VERB_GROUP("Unit & Service Analysis");
-VERB_SCOPE(, verb_verify, "verify", "FILE...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_verify, "verify", "FILE...\0", 2, VERB_ANY, 0,
            "Check unit files for correctness");
-VERB_SCOPE(, verb_security, "security", "[UNIT...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_security, "security", "[UNIT...]\0", VERB_ANY, VERB_ANY, 0,
            "Analyze security of unit");
-VERB_SCOPE(, verb_fdstore, "fdstore", "SERVICE...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_fdstore, "fdstore", "SERVICE...\0", 2, VERB_ANY, 0,
            "Show file descriptor store contents of service");
-VERB_SCOPE(, verb_malloc, "malloc", "[D-BUS SERVICE...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_malloc, "malloc", "[D-BUS SERVICE...]\0", VERB_ANY, VERB_ANY, 0,
            "Dump malloc stats of a D-Bus service");
-VERB_SCOPE(, verb_unit_gdb, "unit-gdb", "SERVICE", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_unit_gdb, "unit-gdb", "SERVICE\0", 2, VERB_ANY, 0,
            "Attach a debugger to the given running service");
-VERB_SCOPE(, verb_unit_shell, "unit-shell", "SERVICE [COMMAND ...]", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_unit_shell, "unit-shell", "SERVICE [COMMAND ...]\0", 2, VERB_ANY, 0,
            "Run command on the namespace of the service");
 
 VERB_GROUP("Executable Analysis");
-VERB_SCOPE(, verb_elf_inspection, "inspect-elf", "FILE...", 2, VERB_ANY, 0,
+VERB_SCOPE(, verb_elf_inspection, "inspect-elf", "FILE...\0", 2, VERB_ANY, 0,
            "Parse and print ELF package metadata");
-VERB_SCOPE(, verb_dlopen_metadata, "dlopen-metadata", "FILE", 2, 2, 0,
+VERB_SCOPE(, verb_dlopen_metadata, "dlopen-metadata", "FILE\0", 2, 2, 0,
            "Parse and print ELF dlopen metadata");
 
 VERB_GROUP("TPM Operations");
@@ -291,11 +291,11 @@ VERB_SCOPE(, verb_has_tpm2, "has-tpm2", NULL, VERB_ANY, 1, 0,
            "Report whether TPM2 support is available");
 VERB_SCOPE(, verb_identify_tpm2, "identify-tpm2", NULL, VERB_ANY, 1, 0,
            "Show TPM2 vendor information");
-VERB_SCOPE(, verb_pcrs, "pcrs", "[PCR...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_pcrs, "pcrs", "[PCR...]\0", VERB_ANY, VERB_ANY, 0,
            "Show TPM2 PCRs and their names");
-VERB_SCOPE(, verb_nvpcrs, "nvpcrs", "[NVPCR...]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_nvpcrs, "nvpcrs", "[NVPCR...]\0", VERB_ANY, VERB_ANY, 0,
            "Show additional TPM2 PCRs stored in NV indexes");
-VERB_SCOPE(, verb_srk, "srk", "[>FILE]", VERB_ANY, 1, 0,
+VERB_SCOPE(, verb_srk, "srk", "[>FILE]\0", VERB_ANY, 1, 0,
            "Write TPM2 SRK (to FILE)");
 
 /* The following are deprecated and not shown in --help. */

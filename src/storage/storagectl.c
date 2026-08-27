@@ -140,7 +140,7 @@ static int on_list_reply(
         return 0;
 }
 
-VERB(verb_list_volumes, "volumes", "GLOB", /* min_args= */ VERB_ANY, /* max_args= */ 2, VERB_DEFAULT, "List storage volumes");
+VERB(verb_list_volumes, "volumes", "GLOB\0", /* min_args= */ VERB_ANY, /* max_args= */ 2, VERB_DEFAULT, "List storage volumes");
 static int verb_list_volumes(int argc, char *argv[], uintptr_t data, void *userdata) {
         int r;
 
@@ -245,7 +245,7 @@ static int on_list_templates_reply(
         return 0;
 }
 
-VERB(verb_templates, "templates", "GLOB", /* min_args= */ VERB_ANY, /* max_args= */ 2, /* flags= */ 0, "List storage volume templates");
+VERB(verb_templates, "templates", "GLOB\0", /* min_args= */ VERB_ANY, /* max_args= */ 2, /* flags= */ 0, "List storage volume templates");
 static int verb_templates(int argc, char *argv[], uintptr_t data, void *userdata) {
         int r;
 

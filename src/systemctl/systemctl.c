@@ -911,128 +911,128 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[], int log_level_shift, c
 
 VERB_GROUP("Unit Commands");
 
-VERB_SCOPE(, verb_list_units,        "list-units",       "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_list_units,        "list-units",       "[PATTERN…]\0", VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY,
            "List units currently in memory");
-VERB_SCOPE(, verb_list_automounts,   "list-automounts",  "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_list_automounts,   "list-automounts",  "[PATTERN…]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "List automount units currently in memory, ordered by path");
-VERB_SCOPE(, verb_list_paths,        "list-paths",       "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_list_paths,        "list-paths",       "[PATTERN…]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "List path units currently in memory, ordered by path");
-VERB_SCOPE(, verb_list_sockets,      "list-sockets",     "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_list_sockets,      "list-sockets",     "[PATTERN…]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "List socket units currently in memory, ordered by address");
-VERB_SCOPE(, verb_list_timers,       "list-timers",      "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_list_timers,       "list-timers",      "[PATTERN…]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "List timer units currently in memory, ordered by next elapse");
-VERB_SCOPE(, verb_is_active,         "is-active",        "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_is_active,         "is-active",        "PATTERN…\0",   2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Check whether units are active");
-VERB_SCOPE(, verb_is_failed,         "is-failed",        "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_is_failed,         "is-failed",        "[PATTERN…]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Check whether units are failed or system is in degraded state");
-VERB_SCOPE(, verb_show,              "status",           "[PATTERN…|PID…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_show,              "status",           "[PATTERN…|PID…]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Show runtime status of one or more units");
-VERB_SCOPE(, verb_show,              "show",             "[PATTERN…|JOB…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_show,              "show",             "[PATTERN…|JOB…]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Show properties of one or more units/jobs or the manager");
-VERB_SCOPE(, verb_cat,               "cat",              "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_cat,               "cat",              "PATTERN…\0",   2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Show files and drop-ins of specified units");
-VERB_SCOPE(, verb_show,              "help",             "PATTERN…|PID…", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_show,              "help",             "PATTERN…|PID…\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Show manual for one or more units");
-VERB_SCOPE(, verb_list_dependencies, "list-dependencies", "[UNIT…]",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_list_dependencies, "list-dependencies", "[UNIT…]\0",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Recursively show units which are required or wanted by the units "
            "or by which those units are required or wanted");
-VERB_SCOPE(, verb_start,             "start",            "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_start,             "start",            "UNIT…\0",      2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Start (activate) one or more units");
-VERB_SCOPE(, verb_start,             "stop",             "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_start,             "stop",             "UNIT…\0",      2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Stop (deactivate) one or more units");
-VERB_SCOPE(, verb_start,             "reload",           "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_start,             "reload",           "UNIT…\0",      2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Reload one or more units");
-VERB_SCOPE(, verb_start,             "restart",          "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_start,             "restart",          "UNIT…\0",      2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Start or restart one or more units");
-VERB_SCOPE(, verb_start,             "try-restart",      "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_start,             "try-restart",      "UNIT…\0",      2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Restart one or more units if active");
 VERB_SCOPE(, verb_start,             "enqueue-marked",   NULL,         1,        1,        VERB_ONLINE_ONLY,
            "Enqueue jobs for all marked units");
-VERB_SCOPE(, verb_start,             "reload-or-restart", "UNIT…",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_start,             "reload-or-restart", "UNIT…\0",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Reload one or more units if possible, otherwise start or restart");
-VERB_SCOPE(, verb_start,             "try-reload-or-restart", "UNIT…", 2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_start,             "try-reload-or-restart", "UNIT…\0", 2,        VERB_ANY, VERB_ONLINE_ONLY,
            "If active, reload one or more units, if supported, otherwise restart");
-VERB_SCOPE(, verb_start,             "isolate",          "UNIT",       2,        2,        VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_start,             "isolate",          "UNIT\0",       2,        2,        VERB_ONLINE_ONLY,
            "Start one unit and stop all others");
-VERB_SCOPE(, verb_kill,              "kill",             "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_kill,              "kill",             "UNIT…\0",      2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Send signal to processes of a unit");
-VERB_SCOPE(, verb_clean_or_freeze,   "clean",            "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_clean_or_freeze,   "clean",            "UNIT…\0",      2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Clean runtime, cache, state, logs or configuration of unit");
-VERB_SCOPE(, verb_clean_or_freeze,   "freeze",           "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_clean_or_freeze,   "freeze",           "PATTERN…\0",   2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Freeze execution of unit processes");
-VERB_SCOPE(, verb_clean_or_freeze,   "thaw",             "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_clean_or_freeze,   "thaw",             "PATTERN…\0",   2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Resume execution of a frozen unit");
-VERB_SCOPE(, verb_set_property,      "set-property",     "UNIT PROPERTY=VALUE…", 3, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_set_property,      "set-property",     "UNIT PROPERTY=VALUE…\0", 3, VERB_ANY, VERB_ONLINE_ONLY,
            "Sets one or more properties of a unit");
-VERB_SCOPE(, verb_bind,              "bind",             "UNIT PATH [PATH]",     3, 4, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_bind,              "bind",             "UNIT PATH [PATH]\0",     3, 4, VERB_ONLINE_ONLY,
            "Bind-mount a path from the host into a unit's namespace");
-VERB_SCOPE(, verb_mount_image,       "mount-image",      "UNIT PATH [PATH [OPTS]]", 4, 5, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_mount_image,       "mount-image",      "UNIT PATH [PATH [OPTS]]\0", 4, 5, VERB_ONLINE_ONLY,
            "Mount an image from the host into a unit's namespace");
-VERB_SCOPE(, verb_service_log_setting, "service-log-level", "SERVICE [LEVEL]",   2, 3, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_service_log_setting, "service-log-level", "SERVICE [LEVEL]\0",   2, 3, VERB_ONLINE_ONLY,
            "Get/set logging threshold for service");
-VERB_SCOPE(, verb_service_log_setting, "service-log-target", "SERVICE [TARGET]", 2, 3, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_service_log_setting, "service-log-target", "SERVICE [TARGET]\0", 2, 3, VERB_ONLINE_ONLY,
            "Get/set logging target for service");
-VERB_SCOPE(, verb_reset_failed,      "reset-failed",     "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_reset_failed,      "reset-failed",     "[PATTERN…]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Reset failed state for all, one, or more units");
-VERB_SCOPE(, verb_whoami,            "whoami",           "[PID…]",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_whoami,            "whoami",           "[PID…]\0",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Return unit caller or specified PIDs are part of");
 
 VERB_GROUP("Unit File Commands");
 
-VERB_SCOPE(, verb_list_unit_files,   "list-unit-files",  "[PATTERN…]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_list_unit_files,   "list-unit-files",  "[PATTERN…]\0", VERB_ANY, VERB_ANY, 0,
            "List installed unit files");
-VERB_SCOPE(, verb_enable,            "enable",           "[UNIT…|PATH…]", 2,     VERB_ANY, 0,
+VERB_SCOPE(, verb_enable,            "enable",           "[UNIT…|PATH…]\0", 2,     VERB_ANY, 0,
            "Enable one or more unit files");
-VERB_SCOPE(, verb_enable,            "disable",          "UNIT…",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_enable,            "disable",          "UNIT…\0",      2,        VERB_ANY, 0,
            "Disable one or more unit files");
-VERB_SCOPE(, verb_enable,            "reenable",         "UNIT…",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_enable,            "reenable",         "UNIT…\0",      2,        VERB_ANY, 0,
            "Reenable one or more unit files");
-VERB_SCOPE(, verb_enable,            "preset",           "UNIT…",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_enable,            "preset",           "UNIT…\0",      2,        VERB_ANY, 0,
            "Enable/disable one or more unit files based on preset configuration");
 VERB_SCOPE(, verb_preset_all,        "preset-all",       NULL,         VERB_ANY, 1,        0,
            "Enable/disable all unit files based on preset configuration");
-VERB_SCOPE(, verb_is_enabled,        "is-enabled",       "UNIT…",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_is_enabled,        "is-enabled",       "UNIT…\0",      2,        VERB_ANY, 0,
            "Check whether unit files are enabled");
-VERB_SCOPE(, verb_enable,            "mask",             "UNIT…",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_enable,            "mask",             "UNIT…\0",      2,        VERB_ANY, 0,
            "Mask one or more units");
-VERB_SCOPE(, verb_enable,            "unmask",           "UNIT…",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_enable,            "unmask",           "UNIT…\0",      2,        VERB_ANY, 0,
            "Unmask one or more units");
-VERB_SCOPE(, verb_enable,            "link",             "PATH…",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_enable,            "link",             "PATH…\0",      2,        VERB_ANY, 0,
            "Link one or more units files into the search path");
-VERB_SCOPE(, verb_enable,            "revert",           "UNIT…",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_enable,            "revert",           "UNIT…\0",      2,        VERB_ANY, 0,
            "Revert one or more unit files to vendor version");
-VERB_SCOPE(, verb_add_dependency,    "add-wants",        "TARGET UNIT…", 3,      VERB_ANY, 0,
+VERB_SCOPE(, verb_add_dependency,    "add-wants",        "TARGET UNIT…\0", 3,      VERB_ANY, 0,
            "Add 'Wants' dependency for the target on specified one or more units");
-VERB_SCOPE(, verb_add_dependency,    "add-requires",     "TARGET UNIT…", 3,      VERB_ANY, 0,
+VERB_SCOPE(, verb_add_dependency,    "add-requires",     "TARGET UNIT…\0", 3,      VERB_ANY, 0,
            "Add 'Requires' dependency for the target on specified one or more units");
-VERB_SCOPE(, verb_edit,              "edit",             "UNIT…",      2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_edit,              "edit",             "UNIT…\0",      2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Edit one or more unit files");
 VERB_SCOPE(, verb_get_default,       "get-default",      NULL,         VERB_ANY, 1,        0,
            "Get the name of the default target");
-VERB_SCOPE(, verb_set_default,       "set-default",      "TARGET",     2,        2,        0,
+VERB_SCOPE(, verb_set_default,       "set-default",      "TARGET\0",     2,        2,        0,
            "Set the default target");
 
 VERB_GROUP("Machine Commands");
 
-VERB_SCOPE(, verb_list_machines,     "list-machines",    "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_list_machines,     "list-machines",    "[PATTERN…]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "List local containers and host");
 
 VERB_GROUP("Job Commands");
 
-VERB_SCOPE(, verb_list_jobs,         "list-jobs",        "[PATTERN…]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_list_jobs,         "list-jobs",        "[PATTERN…]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "List jobs");
-VERB_SCOPE(, verb_cancel,            "cancel",           "[JOB…]",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_cancel,            "cancel",           "[JOB…]\0",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Cancel all, one, or more jobs");
 
 VERB_GROUP("Environment Commands");
 
 VERB_SCOPE(, verb_show_environment,  "show-environment", NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
            "Dump environment");
-VERB_SCOPE(, verb_set_environment,   "set-environment",  "VARIABLE=VALUE…", 2,   VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_set_environment,   "set-environment",  "VARIABLE=VALUE…\0", 2,   VERB_ANY, VERB_ONLINE_ONLY,
            "Set one or more environment variables");
-VERB_SCOPE(, verb_set_environment,   "unset-environment", "VARIABLE…", 2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_set_environment,   "unset-environment", "VARIABLE…\0", 2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Unset one or more environment variables");
-VERB_SCOPE(, verb_import_environment, "import-environment", "VARIABLE…", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_import_environment, "import-environment", "VARIABLE…\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Import all or some environment variables");
 
 VERB_GROUP("Manager State Commands");
@@ -1041,11 +1041,11 @@ VERB_SCOPE(, verb_daemon_reload,     "daemon-reload",    NULL,         1,       
            "Reload systemd manager configuration");
 VERB_SCOPE(, verb_daemon_reload,     "daemon-reexec",    NULL,         1,        1,        VERB_ONLINE_ONLY,
            "Reexecute systemd manager");
-VERB_SCOPE(, verb_log_setting,       "log-level",        "[LEVEL]",    VERB_ANY, 2,        VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_log_setting,       "log-level",        "[LEVEL]\0",    VERB_ANY, 2,        VERB_ONLINE_ONLY,
            "Get/set logging threshold for manager");
-VERB_SCOPE(, verb_log_setting,       "log-target",       "[TARGET]",   VERB_ANY, 2,        VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_log_setting,       "log-target",       "[TARGET]\0",   VERB_ANY, 2,        VERB_ONLINE_ONLY,
            "Get/set logging target for manager");
-VERB_SCOPE(, verb_service_watchdogs, "service-watchdogs", "[BOOL]",    VERB_ANY, 2,        VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_service_watchdogs, "service-watchdogs", "[BOOL]\0",    VERB_ANY, 2,        VERB_ONLINE_ONLY,
            "Get/set service watchdog state");
 
 VERB_GROUP("System Commands");
@@ -1068,9 +1068,9 @@ VERB_SCOPE(, verb_start_system_special, "kexec",         NULL,         VERB_ANY,
            "Shut down and reboot the system with kexec");
 VERB_SCOPE(, verb_start_system_special, "soft-reboot",   NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
            "Shut down and reboot userspace");
-VERB_SCOPE(, verb_start_special,     "exit",             "[EXIT_CODE]", VERB_ANY, 2,       VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_start_special,     "exit",             "[EXIT_CODE]\0", VERB_ANY, 2,       VERB_ONLINE_ONLY,
            "Request user instance or container exit");
-VERB_SCOPE(, verb_switch_root,       "switch-root",      "[ROOT [INIT]]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_switch_root,       "switch-root",      "[ROOT [INIT]]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Change to a different root file system");
 VERB_SCOPE(, verb_start_system_special, "sleep",         NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
            "Put the system to sleep (through one of the operations below)");

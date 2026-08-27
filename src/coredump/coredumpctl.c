@@ -214,15 +214,15 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         return 1;
 }
 
-VERB_SCOPE(, verb_dump_list, "list", "[MATCHES…]", VERB_ANY, VERB_ANY, VERB_DEFAULT,
+VERB_SCOPE(, verb_dump_list, "list", "[MATCHES…]\0", VERB_ANY, VERB_ANY, VERB_DEFAULT,
            "List available coredumps");
-VERB_SCOPE(, verb_dump_list, "info", "[MATCHES…]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_dump_list, "info", "[MATCHES…]\0", VERB_ANY, VERB_ANY, 0,
            "Show detailed information about one or more coredumps");
-VERB_SCOPE(, verb_dump_core, "dump", "[MATCHES…]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_dump_core, "dump", "[MATCHES…]\0", VERB_ANY, VERB_ANY, 0,
            "Print first matching coredump to stdout");
-VERB_SCOPE(, verb_run_debug, "debug", "[MATCHES…]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_run_debug, "debug", "[MATCHES…]\0", VERB_ANY, VERB_ANY, 0,
            "Start a debugger for the first matching coredump");
-VERB_SCOPE(, verb_run_debug, "gdb", "[MATCHES…]", VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_run_debug, "gdb", "[MATCHES…]\0", VERB_ANY, VERB_ANY, 0,
            /* help= */ NULL);
 
 static int check_units_active(void) {

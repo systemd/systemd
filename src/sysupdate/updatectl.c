@@ -651,7 +651,7 @@ static int describe(sd_bus *bus, const char *target_path, const char *version) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
-VERB(verb_list, "list", "[TARGET[@VERSION]]", VERB_ANY, 2, VERB_DEFAULT|VERB_ONLINE_ONLY,
+VERB(verb_list, "list", "[TARGET[@VERSION]]\0", VERB_ANY, 2, VERB_DEFAULT|VERB_ONLINE_ONLY,
      "List available targets and versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -764,7 +764,7 @@ static int check_finished(sd_bus_message *reply, void *userdata, sd_bus_error *r
         return 0;
 }
 
-VERB(verb_check, "check", "[TARGET...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB(verb_check, "check", "[TARGET...]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
      "Check for updates");
 static int verb_check(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1306,7 +1306,7 @@ static int do_update(sd_bus *bus, char **targets) {
         return did_anything ? 1 : 0;
 }
 
-VERB(verb_update, "update", "[TARGET[@VERSION]...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB(verb_update, "update", "[TARGET[@VERSION]...]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
      "Install updates");
 static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1361,7 +1361,7 @@ static int do_vacuum(sd_bus *bus, const char *target, const char *path) {
         return count + disabled > 0 ? 1 : 0;
 }
 
-VERB(verb_vacuum, "vacuum", "[TARGET...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB(verb_vacuum, "vacuum", "[TARGET...]\0", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
      "Clean up old updates");
 static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1507,7 +1507,7 @@ static int list_features(sd_bus *bus) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
-VERB(verb_features, "features", "[FEATURE]", VERB_ANY, 2, VERB_ONLINE_ONLY,
+VERB(verb_features, "features", "[FEATURE]\0", VERB_ANY, 2, VERB_ONLINE_ONLY,
      "List and inspect optional features on host OS");
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1558,9 +1558,9 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, false);
 }
 
-VERB(verb_enable, "enable", "FEATURE...", 2, VERB_ANY, VERB_ONLINE_ONLY,
+VERB(verb_enable, "enable", "FEATURE...\0", 2, VERB_ANY, VERB_ONLINE_ONLY,
      "Enable optional feature on host OS");
-VERB(verb_enable, "disable", "FEATURE...", 2, VERB_ANY, VERB_ONLINE_ONLY,
+VERB(verb_enable, "disable", "FEATURE...\0", 2, VERB_ANY, VERB_ONLINE_ONLY,
      "Disable optional feature on host OS");
 static int verb_enable(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);

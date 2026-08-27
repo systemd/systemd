@@ -710,42 +710,42 @@ static int verb_set_hostname(int argc, char *argv[], uintptr_t _data, void *user
         return ret;
 }
 
-VERB(verb_get_or_set_hostname, "hostname", "[NAME]", VERB_ANY, 2, 0, "Get/set system hostname");
-VERB(verb_get_or_set_hostname, "set-hostname", "NAME", 2, 2, 0, NULL); /* obsolete */
+VERB(verb_get_or_set_hostname, "hostname", "[NAME]\0", VERB_ANY, 2, 0, "Get/set system hostname");
+VERB(verb_get_or_set_hostname, "set-hostname", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_hostname(int argc, char *argv[], uintptr_t data, void *userdata) {
         return argc == 1 ? get_hostname_based_on_flag(userdata) :
                            verb_set_hostname(argc, argv, data, userdata);
 }
 
-VERB(verb_get_or_set_icon_name, "icon-name", "[NAME]", VERB_ANY, 2, 0, "Get/set icon name for host");
-VERB(verb_get_or_set_icon_name, "set-icon-name", "NAME", 2, 2, 0, NULL); /* obsolete */
+VERB(verb_get_or_set_icon_name, "icon-name", "[NAME]\0", VERB_ANY, 2, 0, "Get/set icon name for host");
+VERB(verb_get_or_set_icon_name, "set-icon-name", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_icon_name(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return argc == 1 ? get_one_name(userdata, "IconName", NULL) :
                            set_simple_string(userdata, "icon", "SetIconName", argv[1]);
 }
 
-VERB(verb_get_or_set_chassis, "chassis", "[NAME]", VERB_ANY, 2, 0, "Get/set chassis type for host");
-VERB(verb_get_or_set_chassis, "set-chassis", "NAME", 2, 2, 0, NULL); /* obsolete */
+VERB(verb_get_or_set_chassis, "chassis", "[NAME]\0", VERB_ANY, 2, 0, "Get/set chassis type for host");
+VERB(verb_get_or_set_chassis, "set-chassis", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_chassis(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return argc == 1 ? get_one_name(userdata, "Chassis", NULL) :
                            set_simple_string(userdata, "chassis", "SetChassis", argv[1]);
 }
 
-VERB(verb_get_or_set_deployment, "deployment", "[NAME]", VERB_ANY, 2, 0, "Get/set deployment environment for host");
-VERB(verb_get_or_set_deployment, "set-deployment", "NAME", 2, 2, 0, NULL); /* obsolete */
+VERB(verb_get_or_set_deployment, "deployment", "[NAME]\0", VERB_ANY, 2, 0, "Get/set deployment environment for host");
+VERB(verb_get_or_set_deployment, "set-deployment", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_deployment(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return argc == 1 ? get_one_name(userdata, "Deployment", NULL) :
                            set_simple_string(userdata, "deployment", "SetDeployment", argv[1]);
 }
 
-VERB(verb_get_or_set_location, "location", "[NAME]", VERB_ANY, 2, 0, "Get/set location for host");
-VERB(verb_get_or_set_location, "set-location", "NAME", 2, 2, 0, NULL); /* obsolete */
+VERB(verb_get_or_set_location, "location", "[NAME]\0", VERB_ANY, 2, 0, "Get/set location for host");
+VERB(verb_get_or_set_location, "set-location", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_location(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return argc == 1 ? get_one_name(userdata, "Location", NULL) :
                            set_simple_string(userdata, "location", "SetLocation", argv[1]);
 }
 
-VERB(verb_get_or_set_tags, "tags", "[TAG …]", VERB_ANY, VERB_ANY, 0, "Get/set machine tags for host");
+VERB(verb_get_or_set_tags, "tags", "[TAG …]\0", VERB_ANY, VERB_ANY, 0, "Get/set machine tags for host");
 static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);

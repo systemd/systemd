@@ -4733,7 +4733,7 @@ static int verb_unlock_secureboot_authority(int argc, char *argv[], uintptr_t _d
         return unlink_pcrlock(PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
 }
 
-VERB(verb_lock_gpt, "lock-gpt", "[DISK]", VERB_ANY, 2, 0,
+VERB(verb_lock_gpt, "lock-gpt", "[DISK]\0", VERB_ANY, 2, 0,
      "Generate a .pcrlock file from GPT header");
 static int verb_lock_gpt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *record = NULL;
@@ -4912,7 +4912,7 @@ static int acquire_pe_fd(const char *path) {
         return acquire_stdin_pe_fd();
 }
 
-VERB(verb_lock_pe, "lock-pe", "[BINARY]", VERB_ANY, 2, 0,
+VERB(verb_lock_pe, "lock-pe", "[BINARY]\0", VERB_ANY, 2, 0,
      "Generate a .pcrlock file from PE binary");
 static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
@@ -4982,7 +4982,7 @@ static void section_hashes_array_done(SectionHashArray *array) {
                 free((*array)[i]);
 }
 
-VERB(verb_lock_uki, "lock-uki", "[UKI]", VERB_ANY, 2, 0,
+VERB(verb_lock_uki, "lock-uki", "[UKI]\0", VERB_ANY, 2, 0,
      "Generate a .pcrlock file from UKI PE binary");
 static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *pe_digests = NULL;
@@ -5136,7 +5136,7 @@ static int pcrlock_file_system_path(const char *normalized_path, char **ret) {
         return 0;
 }
 
-VERB(verb_lock_file_system, "lock-file-system", "[PATH]", VERB_ANY, 2, 0,
+VERB(verb_lock_file_system, "lock-file-system", "[PATH]\0", VERB_ANY, 2, 0,
      "Generate a .pcrlock file from current root fs + /var/");
 static int verb_lock_file_system(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char* paths[3] = {};
@@ -5191,7 +5191,7 @@ static int verb_lock_file_system(int argc, char *argv[], uintptr_t _data, void *
         return 0;
 }
 
-VERB(verb_unlock_file_system, "unlock-file-system", "[PATH]", VERB_ANY, 2, 0,
+VERB(verb_unlock_file_system, "unlock-file-system", "[PATH]\0", VERB_ANY, 2, 0,
      "Remove .pcrlock file for root fs + /var/");
 static int verb_unlock_file_system(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char* paths[3] = {};
@@ -5223,7 +5223,7 @@ static int verb_unlock_file_system(int argc, char *argv[], uintptr_t _data, void
         return 0;
 }
 
-VERB(verb_lock_kernel_cmdline, "lock-kernel-cmdline", "[FILE]", VERB_ANY, 2, 0,
+VERB(verb_lock_kernel_cmdline, "lock-kernel-cmdline", "[FILE]\0", VERB_ANY, 2, 0,
      "Generate a .pcrlock file from kernel command line");
 static int verb_lock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL, *array = NULL;
@@ -5268,7 +5268,7 @@ static int verb_unlock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, v
         return unlink_pcrlock(PCRLOCK_KERNEL_CMDLINE_PATH);
 }
 
-VERB(verb_lock_kernel_initrd, "lock-kernel-initrd", "FILE", VERB_ANY, 2, 0,
+VERB(verb_lock_kernel_initrd, "lock-kernel-initrd", "FILE\0", VERB_ANY, 2, 0,
      "Generate a .pcrlock file from an initrd file");
 static int verb_lock_kernel_initrd(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
@@ -5299,7 +5299,7 @@ static int verb_unlock_kernel_initrd(int argc, char *argv[], uintptr_t _data, vo
         return unlink_pcrlock(PCRLOCK_KERNEL_INITRD_PATH);
 }
 
-VERB(verb_lock_raw, "lock-raw", "[FILE]", VERB_ANY, 2, 0,
+VERB(verb_lock_raw, "lock-raw", "[FILE]\0", VERB_ANY, 2, 0,
      "Generate a .pcrlock file from raw data");
 static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
