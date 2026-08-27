@@ -1002,7 +1002,7 @@ int generator_write_veritysetup_unit_section(FILE *f, const char *source) {
                  * device is detached via an ioctl carrying a udev cookie that blocks in dm_udev_wait() until
                  * udev releases it (95-dm-notify.rules). Stopping before udevd keeps it around to service the
                  * cookie; otherwise during soft-reboot/shutdown udevd may exit first and the detach hangs. */
-                "After=veritysetup-pre.target systemd-udevd-kernel.socket systemd-udevd.service\n"
+                "After=veritysetup-pre.target systemd-udevd-kernel.socket systemd-udevd.service systemd-keyring-setup.service\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n");
 

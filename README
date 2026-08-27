@@ -175,6 +175,11 @@ REQUIREMENTS:
           CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG_PLATFORM_KEYRING
           CONFIG_IMA_ARCH_POLICY
           CONFIG_INTEGRITY_MACHINE_KEYRING
+        Required to verify signed Verity images and fs-verity files using
+        certificates enrolled by systemd-keyring-setup (kernel ≥ 7.0 for the
+        .dm-verity keyring):
+          CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG
+          CONFIG_FS_VERITY_BUILTIN_SIGNATURES
 
         Required for reading credentials from SMBIOS:
           CONFIG_DMI

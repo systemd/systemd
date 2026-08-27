@@ -57,20 +57,31 @@ if [[ "$val" != "Y" && "$val" != "1" ]]; then
     exit 77
 fi
 
-# Provision the .dm-verity keyring. Empty description lets the kernel derive
-# one from the X.509 subject so machine_supports_verity_keyring finds the CN.
-keyid=$(openssl x509 -in /usr/share/mkosi.crt -outform DER |
-            keyctl padd asymmetric '' %:.dm-verity 2>/dev/null) || keyid=""
-if [[ -z "$keyid" ]]; then
-    echo ".dm-verity keyring not provisionable (kernel < v7.0?), skipping"
-    exit 77
+# systemd-keyring-setup.service provisions the keyring at boot and locks it
+# down (permission mask 08010000), after which nothing can be added anymore and
+# the certificate must already be in place. Provision by hand only otherwise.
+if grep -E '^[0-9a-f]+ [^ ]+ +[0-9]+ +[^ ]+ +08010000 +[0-9]+ +[0-9]+ +keyring +\.dm-verity: [0-9]+$' /proc/keys >/dev/null; then
+    if openssl x509 -in /usr/share/mkosi.crt -outform DER | keyctl padd asymmetric '' %:.dm-verity 2>/dev/null; then
+        echo "ERROR: locked down .dm-verity keyring accepted a key" >&2
+        exit 1
+    fi
+    echo ".dm-verity keyring already provisioned and locked down at boot"
+else
+    # Empty description lets the kernel derive one from the X.509 subject so
+    # machine_supports_verity_keyring finds the CN.
+    keyid=$(openssl x509 -in /usr/share/mkosi.crt -outform DER |
+                keyctl padd asymmetric '' %:.dm-verity 2>/dev/null) || keyid=""
+    if [[ -z "$keyid" ]]; then
+        echo ".dm-verity keyring not provisionable (kernel < v7.0?), skipping"
+        exit 77
+    fi
+    if ! keyctl restrict_keyring %:.dm-verity; then
+        keyctl unlink "$keyid" %:.dm-verity 2>/dev/null || true
+        echo "ERROR: keyctl restrict_keyring failed" >&2
+        exit 1
+    fi
+    echo "Provisioned .dm-verity keyring with mkosi.crt"
 fi
-if ! keyctl restrict_keyring %:.dm-verity; then
-    keyctl unlink "$keyid" %:.dm-verity 2>/dev/null || true
-    echo "ERROR: keyctl restrict_keyring failed" >&2
-    exit 1
-fi
-echo "Provisioned .dm-verity keyring with mkosi.crt"
 
 at_exit() {
     set +e
