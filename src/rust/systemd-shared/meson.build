@@ -137,7 +137,28 @@ libsystemd_shared_sys = static_library(
         dependencies : [shared_link_dep],
         build_by_default : false)
 
+############################################################
+
+# systemd_shared: what Rust code is supposed to use.
+systemd_shared_sources = files(
+        'lib.rs',
+        'alloc.rs',
+        'cstr.rs',
+        'errno.rs',
+        'log.rs',
+        'panic.rs',
+        'prelude.rs',
+        'stdio.rs',
+)
+
 # The parent registers the tests, a subproject with tests of its own breaks meson test --setup= for setups
 # only the parent defines.
 bindings_h = files('bindings.h')
 check_bindings_header_py = files('check-bindings-header.py')
+
+libsystemd_shared_rs = static_library(
+        'systemd_shared',
+        systemd_shared_sources,
+        rust_abi : 'rust',
+        link_with : [libsystemd_shared_sys],
+        build_by_default : false)
