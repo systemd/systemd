@@ -1022,6 +1022,89 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   on Linux. Note that `NAME_MAX` does not include space for a trailing `NUL`,
   but `PATH_MAX` does. UNIX FTW!
 
+## Rust
+
+- Rust is only used for new leaf components, i.e. programs that nothing else
+  in the tree depends on. Existing C code is not ported to Rust for now, and
+  `libsystemd-shared`, `libsystemd`, the NSS and PAM modules and everything
+  else other components depend on stay C.
+
+- Rust code is built with meson only. cargo is not used.
+
+- Only the `core`, `alloc` and `libc` crates are permitted. `std` and any
+  other crate are not, hence all Rust code is `#![no_std]`. Everything else
+  comes from the in-tree `systemd_shared` crate.
+
+- Rust code only interfaces with the rest of systemd through C linkage.
+  Programs link `libsystemd-shared-<nnn>.so` dynamically and load optional
+  libraries with its `dlopen_*()` helpers, like the C programs do. Rust
+  libraries are linked statically into the programs using them, Rust shared
+  libraries are not built.
+
+- Format Rust code with `rustfmt`, using the `rustfmt.toml` in the root of the
+  repository. It uses rustfmt's defaults, except for the line length used in
+  the rest of the tree (so yes, 4ch indent). Rust code must also be clean under
+  `clippy`, with the lint set that `meson.build` passes to every Rust target and
+  the settings in `.clippy.toml`. The rustfmt check runs as part of the unit
+  tests.
+
+- Programs are `#![no_std]` and `#![no_main]`. Declare the main function with
+  `define_main!()`, so that the program gets `main_prepare()` and
+  `main_finalize()` like the C programs do. Declare the command line with
+  `verbs!` and `foreach_option!`, the equivalents of `COMMAND()`, `VERB()` and
+  `OPTION()`. The tables end up in the same linker sections, and the C code
+  parses the command line, dispatches the verbs and prints `--help` from them.
+  A program written in Rust must not look or behave any different from one
+  written in C. `test/test-cli-parity.sh` checks this for a pair of programs
+  that declare the same command.
+
+- Programs written in Rust talk to the rest of systemd through the
+  `systemd_shared` crate. If something is missing there, add it there, in the
+  idiomatic form: owned types with `Drop` for what C frees explicitly (`Ref<T>`
+  for the refcounted `sd_*` objects, `OwnedCStr` and `Strv` for allocated
+  strings), `Result<T, Errno>` with `Errno::EINVAL` and friends for the
+  negative errno convention, closures for callbacks, and the `log_*!` macros
+  for logging. Raw calls into `systemd_shared::sys` in a program are a sign
+  that the crate is missing a wrapper.
+
+- Names mirror the C names, with Rust casing and without repeating the
+  namespace, e.g. `Strv::split()` for `strv_split_full()` and
+  `Event::add_time_relative()` for `sd_event_add_time_relative()`.
+
+- Keep `unsafe` blocks as small as possible. Every `unsafe` block needs a
+  `// SAFETY:` comment explaining why the operation is sound, and every
+  `unsafe fn` a `# Safety` section describing what the caller must uphold.
+  clippy enforces both.
+
+- Callbacks handed to C are closures, passed through the wrappers in
+  `systemd_shared`. Raw `extern "C"` functions only exist inside
+  `systemd_shared`. A callback must not panic, since unwinding out of an
+  `extern "C"` function aborts the program.
+
+- File descriptors are `BorrowedFd` and `OwnedFd`, not `c_int`.
+
+- Avoid pointless copies. Borrow strings as `&CStr` for as long as their owner
+  lives instead of copying them, e.g. option arguments, which point into `argv`
+  like in C. Build new strings with `cstr::try_format()`, which allocates
+  exactly once.
+
+- Error handling follows the same rules as in C: propagate errors with `?` and
+  log them where they are handled. Where C code would do
+  `return log_error_errno(r, "...")`, Rust code does
+  `return Err(log_error_errno!(e, "..."))`. Use `unwrap()` and `expect()` only
+  in tests and for conditions that cannot fail.
+
+- Prefer `#[expect(lint)]` over `#[allow(lint)]`, so that a suppression that is
+  no longer needed is reported.
+
+- Allocation failure must never panic or abort the program. Like the kernel's
+  Rust code, Rust code in systemd does not use the `alloc` crate, whose
+  collections abort when memory runs out. Use `Box` and `Vec` from
+  `systemd_shared` instead: everything that allocates returns a `Result`, with
+  an `AllocError` that converts into `-ENOMEM`. There is no global allocator, so
+  a program that uses `alloc` regardless does not link.
+
+
 ## Committing to git
 
 - Commit message subject lines should be prefixed with an appropriate component

@@ -258,6 +258,7 @@ REQUIREMENTS:
         python-lxml (optional, required to build the indices)
         pyelftools (optional, required for systemd-boot)
         meson >= 0.62.0
+              >= 1.8.0 is required to build programs written in Rust
         ninja
         gcc >= 8.4
             >= 13.1.0 is required to build BPF program by using GCC
@@ -265,6 +266,8 @@ REQUIREMENTS:
         awk, sed, grep, and similar tools
         clang, llvm >= 10 (optional, required to build BPF programs)
                     >= 13 (optional, required to build the entire project)
+        rustc >= 1.85 (optional, required to build programs written in Rust)
+        bindgen >= 0.71.1 (optional, required to build programs written in Rust)
 
         During runtime, you need the following additional
         dependencies:

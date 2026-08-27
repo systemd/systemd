@@ -12,6 +12,15 @@ CHANGES WITH 263 in spe:
           MAC policy adjustments might be necessary. In particular, it is
           expected that the SELinux policy needs to be updated.
 
+        * systemd may now optionally be built with support for programs
+          written in Rust. This is controlled by the new -Drust= meson
+          option, which requires rustc >= 1.85, bindgen >= 0.71.1 and meson
+          >= 1.8.0. Like other optional features, it defaults to "auto".
+          Hence, builds that use --auto-features=enabled now need these tools
+          to be installed, or have to pass -Drust=disabled explicitly. The
+          same applies to cross builds, where Rust support is not available
+          yet.
+
         Changes in systemd-networkd:
 
         * As mentioned above, systemd-networkd and networkctl have been merged
