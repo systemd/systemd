@@ -175,6 +175,7 @@ static int monitor_broker_pty(const char *name, int *ret_monitor_fd, char ***ret
                         &output_fd,
                         SD_JSON_BUILD_PAIR_STRING("name", name),
                         SD_JSON_BUILD_PAIR_UNSIGNED("trackBufferLines", MAX(5U, lines() / 2U)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("osc2811", true), /* The PTY forwarder implements the emulator side */
                         SD_JSON_BUILD_PAIR_VARIANT("terminalSettings", ts),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
         if (r < 0)
