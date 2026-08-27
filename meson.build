@@ -2052,7 +2052,7 @@ if have_rust
                         'libc=' + get_option('libc'),
                         'tests=' + (want_tests != 'false').to_string(),
                 ])
-        libsystemd_shared_sys = systemd_shared_rust.get_variable('libsystemd_shared_sys')
+        libsystemd_shared_rs = systemd_shared_rust.get_variable('libsystemd_shared_rs')
 endif
 
 libsystemd = shared_library(

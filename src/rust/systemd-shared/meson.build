@@ -128,6 +128,31 @@ libsystemd_shared_sys = static_library(
 
 ############################################################
 
+# systemd_shared: what Rust code is supposed to use.
+systemd_shared_sources = files(
+        'lib.rs',
+        'command.rs',
+        'cstr.rs',
+        'errno.rs',
+        'event.rs',
+        'fd.rs',
+        'json.rs',
+        'log.rs',
+        'prelude.rs',
+        'program.rs',
+        'refcount.rs',
+        'strv.rs',
+)
+
+libsystemd_shared_rs = static_library(
+        'systemd_shared',
+        systemd_shared_sources,
+        rust_abi : 'rust',
+        link_with : [libsystemd_shared_sys],
+        build_by_default : false)
+
+############################################################
+
 if get_option('tests')
         test('check-bindings-header',
              python3,
