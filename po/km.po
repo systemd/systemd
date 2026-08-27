@@ -1,6 +1,7 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
 # This file is distributed under the same license as the systemd package.
+#
 # kanitha chim <kchim@redhat.com>, 2025, 2026.
 msgid ""
 msgstr ""

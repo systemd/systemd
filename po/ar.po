@@ -1,6 +1,7 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
 # This file is distributed under the same license as the systemd package.
+#
 # joo es <johndevand@tutanota.com>, 2025.
 # joo es <jonnyse@users.noreply.translate.fedoraproject.org>, 2025, 2026.
 msgid ""
