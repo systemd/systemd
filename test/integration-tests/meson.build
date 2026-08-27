@@ -15,6 +15,7 @@ integration_test_template = {
         'enabled' : true,
         'configuration' : {
                 'memory-accounting' : 'no',
+                'type' : 'oneshot',
                 'command' : '/usr/lib/systemd/tests/testdata/units/%N.sh',
                 'wants' : 'multi-user.target user@4711.service',
                 'after' : 'user@4711.service',
@@ -111,6 +112,7 @@ foreach dirname : [
         'TEST-92-TPM2-SWTPM',
         'TEST-93-CLONESETUP',
         'TEST-94-COCO',
+        'TEST-95-SYSTEM-STATE',
 ]
         subdir(dirname)
 endforeach
