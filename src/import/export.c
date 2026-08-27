@@ -49,7 +49,7 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-VERB(verb_export_tar, "tar", "NAME [FILE]", 2, 3, 0,
+VERB(verb_export_tar, "tar", "NAME [FILE]\0", 2, 3, 0,
      "Export a TAR image");
 static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(tar_export_unrefp) TarExport *export = NULL;
@@ -132,7 +132,7 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-VERB(verb_export_raw, "raw", "NAME [FILE]", 2, 3, 0,
+VERB(verb_export_raw, "raw", "NAME [FILE]\0", 2, 3, 0,
      "Export a RAW image");
 static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(raw_export_unrefp) RawExport *export = NULL;

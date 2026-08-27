@@ -47,17 +47,17 @@ static int help(void) {
 
 VERB_COMMON_HELP(help);
 
-VERB_SCOPE(, verb_info_main,    "info",         "[DEVPATH|FILE]",       VERB_ANY, VERB_ANY, 0, "Query sysfs or the udev database");
-VERB_SCOPE(, verb_trigger_main, "trigger",      "DEVPATH",              VERB_ANY, VERB_ANY, 0, "Request events from the kernel");
+VERB_SCOPE(, verb_info_main,    "info",         "[DEVPATH|FILE]\0",       VERB_ANY, VERB_ANY, 0, "Query sysfs or the udev database");
+VERB_SCOPE(, verb_trigger_main, "trigger",      "DEVPATH\0",              VERB_ANY, VERB_ANY, 0, "Request events from the kernel");
 VERB_SCOPE(, verb_settle_main,  "settle",       NULL,                   VERB_ANY, VERB_ANY, 0, "Wait for pending udev events");
-VERB_SCOPE(, verb_control_main, "control",      "OPTION",               VERB_ANY, VERB_ANY, 0, "Control the udev daemon");
+VERB_SCOPE(, verb_control_main, "control",      "OPTION\0",               VERB_ANY, VERB_ANY, 0, "Control the udev daemon");
 VERB_SCOPE(, verb_monitor_main, "monitor",      NULL,                   VERB_ANY, VERB_ANY, 0, "Listen to kernel and udev events");
-VERB_SCOPE(, verb_test_main,    "test",         "DEVPATH",              VERB_ANY, VERB_ANY, 0, "Test an event run");
-VERB_SCOPE(, verb_builtin_main, "test-builtin", "COMMAND DEVPATH",      VERB_ANY, VERB_ANY, 0, "Test a built-in command");
-VERB_SCOPE(, verb_verify_main,  "verify",       "[FILE…]",              VERB_ANY, VERB_ANY, 0, "Verify udev rules files");
-VERB_SCOPE(, verb_cat_main,     "cat",          "[FILE…]",              VERB_ANY, VERB_ANY, 0, "Show udev rules files");
-VERB_SCOPE(, verb_wait_main,    "wait",         "DEVICE [DEVICE…]",     VERB_ANY, VERB_ANY, 0, "Wait for device or device symlink");
-VERB_SCOPE(, verb_lock_main,    "lock",         "[OPTIONS…] COMMAND",   VERB_ANY, VERB_ANY, 0, "Lock a block device");
+VERB_SCOPE(, verb_test_main,    "test",         "DEVPATH\0",              VERB_ANY, VERB_ANY, 0, "Test an event run");
+VERB_SCOPE(, verb_builtin_main, "test-builtin", "COMMAND DEVPATH\0",      VERB_ANY, VERB_ANY, 0, "Test a built-in command");
+VERB_SCOPE(, verb_verify_main,  "verify",       "[FILE…]\0",              VERB_ANY, VERB_ANY, 0, "Verify udev rules files");
+VERB_SCOPE(, verb_cat_main,     "cat",          "[FILE…]\0",              VERB_ANY, VERB_ANY, 0, "Show udev rules files");
+VERB_SCOPE(, verb_wait_main,    "wait",         "DEVICE [DEVICE…]\0",     VERB_ANY, VERB_ANY, 0, "Wait for device or device symlink");
+VERB_SCOPE(, verb_lock_main,    "lock",         "[OPTIONS…] COMMAND\0",   VERB_ANY, VERB_ANY, 0, "Lock a block device");
 VERB_SCOPE(, verb_hwdb_main,    "hwdb",         NULL,                   VERB_ANY, VERB_ANY, 0, /* help= */ NULL); /* deprecated */
 
 VERB_NOARG(verb_version_main, "version", /* help= */ NULL);

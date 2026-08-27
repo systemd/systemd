@@ -176,40 +176,54 @@ static int verb_add_help_one(Table *table, const Verb *verb) {
         assert(verb);
 
         bool is_default = FLAGS_SET(verb->flags, VERB_DEFAULT);
+        _cleanup_free_ char *cell = NULL;
         int r;
 
-        /* We indent the option string by two spaces. We could set the minimum cell width and
-         * right-align for a similar result, but that'd be more work. This is only used for
-         * display. */
-        _cleanup_free_ char *s = strjoin("  ",
-                                         is_default ? "[" : "",
-                                         verb->verb,
-                                         verb->argspec ? " " : "",
-                                         strempty(verb->argspec),
-                                         is_default ? "]" : "");
-        if (!s)
-                return log_oom();
+        /* The synopsis cell contains one line per entry in the argspec nulstr. An unset argspec is
+         * equivalent to a single empty specification. */
+        for (const char *spec = empty_to_null(verb->argspec);;) {
+                /* We indent the option string by two spaces. We could set the minimum cell width and
+                 * right-align for a similar result, but that'd be more work. This is only used for
+                 * display. */
+                _cleanup_free_ char *s = strjoin("  ",
+                                                 is_default ? "[" : "",
+                                                 verb->verb,
+                                                 spec ? " " : "",
+                                                 strempty(spec),
+                                                 is_default ? "]" : "");
+                if (!s)
+                        return log_oom();
 
-        const char *ss = NULL;
-        if (columns() < VERB_SYNOPSIS_WIDTH_SANE * 4) {
-                /* If the synopsis is very wide, try to split it up. But do this only if the terminal
-                 * is not very wide. If it _is_ wide, the broken up synopsis would look silly. */
-                const char *p = find_point_to_break(s, VERB_SYNOPSIS_WIDTH_SANE), *p2 = NULL;
-                if (p) {
-                        const char *s1 = strndupa_safe(s, p - s), *s2 = NULL;
+                const char *ss = NULL;
+                if (columns() < VERB_SYNOPSIS_WIDTH_SANE * 4) {
+                        /* If the synopsis is very wide, try to split it up. But do this only if the terminal
+                         * is not very wide. If it _is_ wide, the broken up synopsis would look silly. */
+                        const char *p = find_point_to_break(s, VERB_SYNOPSIS_WIDTH_SANE), *p2 = NULL;
+                        if (p) {
+                                const char *s1 = strndupa_safe(s, p - s), *s2 = NULL;
 
-                        p2 = find_point_to_break(p, VERB_SYNOPSIS_WIDTH_SANE - 4); /* we indent by two spaces more */
-                        if (p2)
-                                s2 = strndupa_safe(p, p2 - p);
+                                p2 = find_point_to_break(p, VERB_SYNOPSIS_WIDTH_SANE - 4); /* we indent by two spaces more */
+                                if (p2)
+                                        s2 = strndupa_safe(p, p2 - p);
 
-                        if (s2)
-                                ss = strjoina(s1, "\n    ", s2, "\n    ", p2);
-                        else
-                                ss = strjoina(s1, "\n    ", p);
+                                if (s2)
+                                        ss = strjoina(s1, "\n    ", s2, "\n    ", p2);
+                                else
+                                        ss = strjoina(s1, "\n    ", p);
+                        }
                 }
+
+                if (!strextend_with_separator(&cell, "\n", ss ?: s))
+                        return log_oom();
+
+                if (!spec)
+                        break;
+                spec += strlen(spec) + 1;  /* Advance to the next entry in the nulstr */
+                if (isempty(spec))
+                        break;
         }
 
-        r = table_add_cell(table, NULL, TABLE_STRING, ss ?: s);
+        r = table_add_cell(table, NULL, TABLE_STRING, cell);
         if (r < 0)
                 return table_log_add_error(r);
 
