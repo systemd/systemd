@@ -2104,6 +2104,7 @@ if have_rust
         if meson.version().version_compare('>= 1.4.0')
                 subdir('src/rust/systemd-shared')
         endif
+        rust_sources += systemd_shared_rust_sources
 endif
 
 libsystemd = shared_library(
