@@ -151,8 +151,10 @@ systemd_shared_sources = files(
         'log.rs',
         'panic.rs',
         'prelude.rs',
+        'program.rs',
         'stdio.rs',
         'strv.rs',
+        'tests.rs',
 )
 
 libsystemd_shared_rs = static_library(
