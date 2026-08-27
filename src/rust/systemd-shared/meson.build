@@ -145,9 +145,11 @@ systemd_shared_sources = files(
         'alloc.rs',
         'cstr.rs',
         'errno.rs',
+        'event.rs',
         'log.rs',
         'panic.rs',
         'prelude.rs',
+        'refcount.rs',
         'stdio.rs',
 )
 
