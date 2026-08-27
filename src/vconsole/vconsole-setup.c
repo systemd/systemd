@@ -23,6 +23,8 @@
 #include "locale-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "parse-util.h"
+#include "percent-util.h"
 #include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -38,7 +40,13 @@ typedef struct Context {
         char *font;
         char *font_map;
         char *font_unimap;
+        int font_scale; /* in percent, negative values mean unset. */
 } Context;
+
+#define CONTEXT_NULL                            \
+        (Context) {                             \
+                .font_scale = -1,               \
+        }
 
 static void context_done(Context *c) {
         assert(c);
@@ -71,10 +79,30 @@ static void context_merge_config(
         context_merge(dst, src, src_compat, font);
         context_merge(dst, src, src_compat, font_map);
         context_merge(dst, src, src_compat, font_unimap);
+
+        if (src->font_scale >= 0)
+                dst->font_scale = src->font_scale;
+}
+
+static int parse_font_scale(const char *s) {
+        assert(s);
+
+        /* This returns the font scaling in percent. */
+
+        unsigned u;
+        if (safe_atou(s, &u) >= 0) {
+                /* Here, we use INT_MAX, as parse_percent_unbounded() is bounded by INT_MAX. */
+                if (u > INT_MAX / 100)
+                        return -ERANGE;
+
+                return u * 100;
+        }
+
+        return parse_percent_unbounded(s);
 }
 
 static int context_read_efi(Context *c) {
-        _cleanup_(context_done) Context v = {};
+        _cleanup_(context_done) Context v = CONTEXT_NULL;
         int r;
 
         assert(c);
@@ -92,7 +120,8 @@ static int context_read_efi(Context *c) {
 }
 
 static int context_read_creds(Context *c) {
-        _cleanup_(context_done) Context v = {};
+        _cleanup_(context_done) Context v = CONTEXT_NULL;
+        _cleanup_free_ char *font_scale = NULL;
         int r;
 
         assert(c);
@@ -102,16 +131,26 @@ static int context_read_creds(Context *c) {
                         "vconsole.keymap_toggle", &v.keymap_toggle,
                         "vconsole.font",          &v.font,
                         "vconsole.font_map",      &v.font_map,
-                        "vconsole.font_unimap",   &v.font_unimap);
+                        "vconsole.font_unimap",   &v.font_unimap,
+                        "vconsole.font_scale",    &font_scale);
         if (r < 0)
                 log_warning_errno(r, "Failed to import credentials, ignoring: %m");
+
+        if (font_scale) {
+                r = parse_font_scale(font_scale);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse vconsole.font_scale credential, ignoring: %m");
+                else
+                        v.font_scale = r;
+        }
 
         context_merge_config(c, &v, NULL);
         return 0;
 }
 
 static int context_read_env(Context *c) {
-        _cleanup_(context_done) Context v = {};
+        _cleanup_(context_done) Context v = CONTEXT_NULL;
+        _cleanup_free_ char *font_scale = NULL;
         int r;
 
         assert(c);
@@ -122,11 +161,20 @@ static int context_read_env(Context *c) {
                         "KEYMAP_TOGGLE", &v.keymap_toggle,
                         "FONT",          &v.font,
                         "FONT_MAP",      &v.font_map,
-                        "FONT_UNIMAP",   &v.font_unimap);
+                        "FONT_UNIMAP",   &v.font_unimap,
+                        "FONT_SCALE",    &font_scale);
         if (r < 0) {
                 if (r != -ENOENT)
                         log_warning_errno(r, "Failed to read /etc/vconsole.conf, ignoring: %m");
                 return r;
+        }
+
+        if (font_scale) {
+                r = parse_font_scale(font_scale);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse FONT_SCALE= in /etc/vconsole.conf, ignoring: %m");
+                else
+                        v.font_scale = r;
         }
 
         context_merge_config(c, &v, NULL);
@@ -134,7 +182,8 @@ static int context_read_env(Context *c) {
 }
 
 static int context_read_proc_cmdline(Context *c) {
-        _cleanup_(context_done) Context v = {}, w = {};
+        _cleanup_(context_done) Context v = CONTEXT_NULL, w = CONTEXT_NULL;
+        _cleanup_free_ char *font_scale = NULL;
         int r;
 
         assert(c);
@@ -146,6 +195,7 @@ static int context_read_proc_cmdline(Context *c) {
                         "vconsole.font",          &v.font,
                         "vconsole.font_map",      &v.font_map,
                         "vconsole.font_unimap",   &v.font_unimap,
+                        "vconsole.font_scale",    &font_scale,
                         /* compatibility with obsolete multiple-dot scheme */
                         "vconsole.keymap.toggle", &w.keymap_toggle,
                         "vconsole.font.map",      &w.font_map,
@@ -154,6 +204,14 @@ static int context_read_proc_cmdline(Context *c) {
                 if (r != -ENOENT)
                         log_warning_errno(r, "Failed to read /proc/cmdline, ignoring: %m");
                 return r;
+        }
+
+        if (font_scale) {
+                r = parse_font_scale(font_scale);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse vconsole.font_scale from /proc/cmdline, ignoring: %m");
+                else
+                        v.font_scale = r;
         }
 
         context_merge_config(c, &v, &w);
@@ -354,7 +412,7 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
 }
 
 static int font_load_and_wait(int fd, const char *vc, Context *c) {
-        const char* args[9];
+        const char* args[10];
         unsigned i = 0;
         int r;
 
@@ -366,8 +424,16 @@ static int font_load_and_wait(int fd, const char *vc, Context *c) {
                 *font_map = empty_to_null(c->font_map),
                 *font_unimap = empty_to_null(c->font_unimap);
 
+        int font_scale = 100; /* Defaults to 100%, no scaling. */
+        if (c->font_scale >= 0) {
+                /* Clamp to the closest value that setfont supports, Currently, only 100% and 200% are supported. */
+                font_scale = c->font_scale < 150 ? 100 : 200;
+                if (font_scale != c->font_scale)
+                        log_debug("Font scale %i%% is requested, clamped to %i%%", c->font_scale, font_scale);
+        }
+
         /* Any part can be set independently */
-        if (!font && !font_map && !font_unimap)
+        if (!font && !font_map && !font_unimap && font_scale != 200)
                 return 0;
 
         if (access(KBD_SETFONT, X_OK) < 0) {
@@ -391,6 +457,8 @@ static int font_load_and_wait(int fd, const char *vc, Context *c) {
         args[i++] = KBD_SETFONT;
         args[i++] = "-C";
         args[i++] = vc;
+        if (font_scale == 200)
+                args[i++] = "-d";
         if (font_map) {
                 args[i++] = "-m";
                 args[i++] = font_map;
@@ -653,7 +721,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
 }
 
 static int run(int argc, char **argv) {
-        _cleanup_(context_done) Context c = {};
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
         _cleanup_free_ char *vc = NULL;
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         bool utf8;

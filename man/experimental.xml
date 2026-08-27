@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!DOCTYPE refsect1 PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+-->
+
+<refsect1>
+  <title/>
+
+  <!-- for individual section(s) of a manpage -->
+  <para id="singular">This option is experimental and subject to change at any given moment without notice.
+  It will be stabilized and given a backward-compatibility guarantee in a future release.</para>
+
+  <para id="plural">These options are experimental and subject to change at any given moment without notice.
+  They will be stabilized and given a backward-compatibility guarantee in a future release.</para>
+
+  <!-- for a whole manpage -->
+  <refsect1 id="component"><title>Experimental</title>
+    <para>This component is experimental and subject to change at any given moment without notice.
+    It will be stabilized and given a backward-compatibility guarantee in a future release.</para>
+  </refsect1>
+</refsect1>

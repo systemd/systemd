@@ -3171,16 +3171,31 @@ static int verb_revert_link(int argc, char *argv[], uintptr_t _data, void *userd
 VERB(verb_log_level, "log-level", "[LEVEL]", VERB_ANY, 2, 0,
      "Get/set logging threshold for systemd-resolved");
 static int verb_log_level(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        r = acquire_bus(&bus);
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve");
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to connect to /run/systemd/resolve/io.systemd.Resolve: %m");
 
-        assert(IN_SET(argc, 1, 2));
+        if (argc == 1) {
+                /* Show current log level */
+                _cleanup_free_ char *level_str = NULL;
+                r = varlink_get_log_level_string(vl, &level_str);
+                if (r < 0)
+                        return r;
 
-        return verb_log_control_common(bus, "org.freedesktop.resolve1", argv[0], argc == 2 ? argv[1] : NULL);
+                puts(level_str);
+
+        } else if (argc == 2) {
+                /* Set new log level */
+                r = varlink_set_log_level_string(vl, argv[1]);
+                if (r < 0)
+                        return r;
+        } else
+                assert_not_reached();
+
+        return 0;
 }
 
 static int parse_protocol(const char *arg) {
@@ -3231,7 +3246,7 @@ static void help_dns_classes(void) {
         DUMP_STRING_TABLE(dns_class, int, _DNS_CLASS_MAX);
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("resolvectl");
+VERB_COMMON_HELP_AUTO_PROGRAM_HIDDEN("resolvectl");
 
 COMMAND(
         "systemd-resolve\0",
@@ -3500,7 +3515,7 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_NAMESPACE("resolvectl"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("resolvectl");
+                        return command_print_help_name("resolvectl");
 
                 OPTION_COMMON_VERSION:
                         return version();

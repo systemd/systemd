@@ -17,6 +17,7 @@ executables += [
                         'qcow2-util.c',
                 ),
                 'dependencies' : [
+                        libacl_cflags,
                         libarchive_cflags,
                         libselinux_cflags,
                 ],

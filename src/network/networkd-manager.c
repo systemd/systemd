@@ -515,6 +515,8 @@ static int manager_stop(Manager *manager, ManagerState state) {
                 assert_not_reached();
         }
 
+        (void) sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
+
         manager->state = state;
 
         Link *link;
@@ -1272,6 +1274,9 @@ int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink, boo
 
         assert(m);
         assert(!message || !varlink); /* D-Bus and Varlink callers are mutually exclusive */
+
+        if (m->state != MANAGER_RUNNING)
+                return -ESHUTDOWN; /* Refuse reloading if we are stopping or restarting. */
 
         log_debug("Reloading...");
         (void) notify_reloading();

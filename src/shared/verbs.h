@@ -8,6 +8,11 @@
 
 typedef enum CommandFlags {
         COMMAND_HELP_SEPARATE = 1 << 0,  /* Do not synchronize the width between verbs and options */
+        COMMAND_VERBS_SHARED  = 1 << 1,  /* We have a group of COMMANDs with this flag set, and then
+                                          * the VERB definitions below. The commands share the same
+                                          * set of actual VERB definitions. This is useful for programs
+                                          * which are registered under multiple names, but each one
+                                          * behaves very similarly. */
 } CommandFlags;
 
 typedef struct CommandDescription {
@@ -16,7 +21,8 @@ typedef struct CommandDescription {
         const char *argspec;           /* optional specification of positional args in synopsis */
         const char *footer;            /* optional footer to print right above man page links */
         const char *man_pages;         /* nulstr with man page names */
-        const char *option_namespace;  /* to be used when the options are in a namespace */
+        const char *option_namespace;  /* optional option namespace for this command */
+        const char *option_groups;     /* optional nulstr with option groups for this command */
         const PagerFlags *pager_flags; /* optional pointer to the runtime pager flags variable */
         CommandFlags flags;
 } CommandDescription;
@@ -102,7 +108,13 @@ bool running_in_chroot_or_offline(void);
 
 bool should_bypass(const char *env_prefix);
 
-const Verb* verbs_find_verb(const char *name, const Verb verbs[], const Verb verbs_end[]);
+const Verb* _verbs_find_command(const Verb verbs[], const Verb verbs_end[], const char *name, const CommandDescription **ret_cmd);
+#define verbs_find_command(name, ret_cmd)                               \
+        _verbs_find_command(__start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, name, ret_cmd)
+
+const Verb* _verbs_find_verb(const Verb verbs[], const Verb verbs_end[], const char *name);
+#define verbs_find_verb(name) \
+        _verbs_find_verb(__start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, name)
 
 int _dispatch_verb(char **args, const Verb verbs[], const Verb verbs_end[], void *userdata);
 #define dispatch_verb(args, userdata) \
@@ -131,26 +143,30 @@ int _verbs_get_help_table(
         VERB(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, NULL);     \
         _VERB_COMMON_HELP_IMPL(impl)
 
-#define VERB_COMMON_HELP_AUTO(program)                                  \
-        VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, (uintptr_t) program, "Show this help")
+#define VERB_COMMON_HELP_AUTO_FULL(program, help)                       \
+        VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, /* dat= */ (uintptr_t) program, /* help= */ help)
+#define VERB_COMMON_HELP_AUTO_PROGRAM(program) VERB_COMMON_HELP_AUTO_FULL(program, "Show this help")
+#define VERB_COMMON_HELP_AUTO_PROGRAM_HIDDEN(program) VERB_COMMON_HELP_AUTO_FULL(program, /* help= */ NULL)
+#define VERB_COMMON_HELP_AUTO() VERB_COMMON_HELP_AUTO_PROGRAM(/* program= */ NULL)
+#define VERB_COMMON_HELP_AUTO_HIDDEN() VERB_COMMON_HELP_AUTO_PROGRAM_HIDDEN(/* program= */ NULL)
 
-#define VERB_COMMON_HELP_AUTO_HIDDEN(program)                           \
-        VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, (uintptr_t) program, NULL)
-
-int _command_print_help(
+int _command_print_help_full(
                 const Verb verbs[],
                 const Verb verbs_end[],
                 const Option options[],
                 const Option options_end[],
-                const char *name);
-#define command_print_help(name)                                        \
-        _command_print_help(                                            \
+                const char *name,
+                const char *footer_ansi_seq);
+#define command_print_help_full(name, footer_ansi_seq)                  \
+        _command_print_help_full(                                       \
                 __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
                 __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
-                name)
+                name, footer_ansi_seq)
+#define command_print_help_name(name) command_print_help_full(name, /* footer_ansi_seq= */ NULL)
+#define command_print_help() command_print_help_name(/* name= */ NULL)
 
 static inline int verb_help_auto(int argc, char **argv, uintptr_t data, void *userdata) {
-        return command_print_help((const char*) ASSERT_PTR(data));
+        return command_print_help_name((const char*) data);
 }
 
 /* Print a machine-readable description of the program's commands, verbs, and options in the format

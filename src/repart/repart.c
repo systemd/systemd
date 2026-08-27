@@ -1766,16 +1766,42 @@ static int context_grow_partitions(Context *context) {
         return 0;
 }
 
-static uint64_t find_first_unused_partno(Context *context) {
+static uint64_t find_unused_partno(Context *context, const Partition *partition) {
         uint64_t partno = 0;
+        size_t nents;
 
         assert(context);
+        assert(partition);
 
+        /* Keep new partitions after existing partitions of the same type, as those are matched
+         * to definitions in partition number order. */
+        LIST_FOREACH(partitions, p, context->partitions)
+                if (PARTITION_EXISTS(p) && p->partno != UINT64_MAX &&
+                    sd_id128_equal(p->type.uuid, partition->type.uuid))
+                        partno = MAX(partno, p->partno + 1);
+
+        nents = sym_fdisk_get_npartitions(context->fdisk_context);
+
+        /* Prefer a free slot after all existing partitions of the same type. */
+        for (; partno < nents; partno++) {
+                bool found = false;
+                LIST_FOREACH(partitions, p, context->partitions)
+                        if (p->partno != UINT64_MAX && p->partno == partno) {
+                                found = true;
+                                break;
+                        }
+                if (!found)
+                        return partno;
+        }
+
+        /* Fall back to the first unused slot if there is no such slot. */
         for (partno = 0;; partno++) {
                 bool found = false;
                 LIST_FOREACH(partitions, p, context->partitions)
-                        if (p->partno != UINT64_MAX && p->partno == partno)
+                        if (p->partno != UINT64_MAX && p->partno == partno) {
                                 found = true;
+                                break;
+                        }
                 if (!found)
                         break;
         }
@@ -1811,7 +1837,7 @@ static void context_place_partitions(Context *context) {
                                 continue;
 
                         p->offset = start;
-                        p->partno = find_first_unused_partno(context);
+                        p->partno = find_unused_partno(context, p);
 
                         assert(left >= p->new_size);
                         start += p->new_size;
@@ -10189,7 +10215,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Options"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-repart");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

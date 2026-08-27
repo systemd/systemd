@@ -1547,6 +1547,7 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.ResolveRecord",        vl_method_resolve_record,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",          varlink_method_get_log_level,
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment,
                         "io.systemd.Resolve.BrowseServices",       vl_method_browse_services,
                         "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration);

@@ -559,7 +559,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-nspawn");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -3263,6 +3263,16 @@ static int patch_sysctl(void) {
         int r;
 
         flags = effective_clone_ns_flags();
+
+        if (FLAGS_SET(flags, CLONE_NEWUSER|CLONE_NEWNET) && !arg_network_namespace_path) {
+                /* Follow the system-wide default from sysctl.d/50-default.conf, but clamp it to the
+                 * groups mapped into the container's user namespace. */
+                r = sysctl_writef("net/ipv4/ping_group_range", "0 " GID_FMT,
+                                 MIN(arg_uid_range - 1, (gid_t) INT32_MAX));
+                if (r < 0)
+                        log_warning_errno(r,
+                                          "Failed to set sysctl 'net.ipv4.ping_group_range', ignoring: %m");
+        }
 
         STRV_FOREACH_PAIR(k, v, arg_sysctl) {
                 bool good = false;

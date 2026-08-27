@@ -4,6 +4,8 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "ansi-color.h"
 #include "argv-util.h"
 #include "boot-entry.h"
@@ -22,7 +24,6 @@
 #include "find-esp.h"
 #include "format-table.h"
 #include "fs-util.h"
-#include "help-util.h"
 #include "id128-util.h"
 #include "image-policy.h"
 #include "kernel-config.h"
@@ -30,7 +31,6 @@
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "recurse-dir.h"
@@ -63,6 +63,17 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
+
+COMMAND(
+        "kernel-install\0",
+        "Add and remove kernel and initrd images to and from the boot partition.",
+        .footer = "This program may also be invoked as 'installkernel':\n"
+                  "  installkernel [OPTION…] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
+                  "(The optional arguments are passed by kernel build system, but ignored.)",
+        .man_pages = "kernel-install.8\0",
+        .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_HELP_SEPARATE,  /* the verb table is very wide */
+);
 
 typedef enum Action {
         ACTION_ADD,
@@ -1599,44 +1610,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        /* Note: column widths are not synced, because the verbs table is very wide. */
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("Add and remove kernel and initrd images to and from the boot partition.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\n"
-               "This program may also be invoked as 'installkernel':\n"
-               "  installkernel [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
-               "(The optional arguments are passed by kernel build system, but ignored.)\n");
-
-        help_man_page_reference("kernel-install", "8");
-
-        return 0;
-}
-
-VERB_COMMON_HELP(help);
+VERB_COMMON_HELP_AUTO_PROGRAM("kernel-install");
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
@@ -1650,7 +1624,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help_name("kernel-install");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1735,6 +1709,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_image && arg_root)
@@ -1744,6 +1721,17 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         *remaining_args = option_parser_get_args(&opts);
         return 1;
 }
+
+/* Definition for the compat interface to populate introspection data.
+ * Keep below the VERB definitions for the main command. */
+COMMAND(
+        "installkernel\0",
+        "Add and remove kernel and initrd images to and from the boot partition.",
+        .argspec = "VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\0",
+        .footer = "This is a compat interface intended only to be called from kernel Makefiles.",
+        .man_pages = "kernel-install.8\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int run(int argc, char* argv[]) {
         int r;

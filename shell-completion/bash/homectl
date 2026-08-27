@@ -62,6 +62,8 @@ _homectl() {
                         --language
                         --ssh-authorized-keys
                         --pkcs11-token-uri
+                        --recovery-key
+                        --recovery-key-file
                         --locked
                         --not-before
                         --not-after
@@ -126,7 +128,7 @@ _homectl() {
             --machine|-M)
                 comps=$( __get_machines )
                 ;;
-            --identity|--image-path|--avatar|--login-background)
+            --identity|--image-path|--avatar|--login-background|--recovery-key-file)
                 comps=$(compgen -A file -- "$cur" )
                 compopt -o filenames
                 ;;
@@ -136,7 +138,7 @@ _homectl() {
             --export-format)
                 comps='full stripped minimal'
                 ;;
-            --locked|--enforce-password-policy|--password-change-now|--luks-discard|--luks-offline-discard|--nosuid|--nodev|--noexec|--kill-processes|--auto-login)
+            --locked|--recovery-key|--enforce-password-policy|--password-change-now|--luks-discard|--luks-offline-discard|--nosuid|--nodev|--noexec|--kill-processes|--auto-login)
                 comps='yes no'
                 ;;
             -d|--home-dir|--skel|-b|--blob)

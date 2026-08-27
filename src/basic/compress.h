@@ -52,8 +52,8 @@ int compressor_new(Compressor **ret, Compression type);
 int compressor_start(Compressor *c, const void *data, size_t size, void **buffer, size_t *buffer_size, size_t *buffer_allocated);
 int compressor_finish(Compressor *c, void **buffer, size_t *buffer_size, size_t *buffer_allocated);
 
-int decompressor_detect(Decompressor **ret, const void *data, size_t size);
-int decompressor_force_off(Decompressor **ret);
+int decompressor_detect(Decompressor **decompressor, const void *data, size_t size);
+int decompressor_force_off(Decompressor **decompressor);
 int decompressor_push(Decompressor *c, const void *data, size_t size, DecompressorCallback callback, void *userdata);
 
 Compression compressor_type(const Compressor *c);
@@ -101,6 +101,12 @@ int dlopen_lz4(int log_level) _dlopen_loader_;
 int dlopen_zstd(int log_level) _dlopen_loader_;
 int dlopen_zlib(int log_level) _dlopen_loader_;
 int dlopen_bzip2(int log_level) _dlopen_loader_;
+
+int dlopen_compress(Compression c, int log_level);
+int dlopen_compress_journal(Compression c, int log_level);
+static inline int dlopen_compress_default(int log_level) {
+        return dlopen_compress_journal(DEFAULT_COMPRESSION, log_level);
+}
 
 static inline const char* default_compression_extension(void) {
         return compression_extension_to_string(DEFAULT_COMPRESSION) ?: "";

@@ -3,17 +3,16 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "argv-util.h"
 #include "build.h"
 #include "bus-print-properties.h"
 #include "bus-util.h"
 #include "capsule-util.h"
 #include "extract-word.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "image-policy.h"
 #include "install.h"
-#include "options.h"
 #include "output-mode.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -112,58 +111,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_drop_in, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kill_subgroup, freep);
 
-static int systemctl_help(void) {
-        static const char *const vgroups[] = {
-                "Unit Commands",
-                "Unit File Commands",
-                "Machine Commands",
-                "Job Commands",
-                "Environment Commands",
-                "Manager State Commands",
-                "System Commands",
-        };
-
-        Table *vtables[ELEMENTSOF(vgroups)] = {};
-        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
-        _cleanup_(table_unrefp) Table *options_table = NULL;
-        int r;
-
-        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
-                r = verbs_get_help_table_group(vgroups[i], &vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        r = option_parser_get_help_table_ns("systemctl", &options_table);
-        if (r < 0)
-                return r;
-
-        assert_cc(ELEMENTSOF(vtables) == 7);
-        (void) table_sync_column_widths(0, options_table,
-                                        vtables[0], vtables[1], vtables[2], vtables[3],
-                                        vtables[4], vtables[5], vtables[6]);
-
-        pager_open(arg_pager_flags);
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("Query or send control commands to the system manager.");
-
-        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
-                help_section(vgroups[i]);
-                r = table_print_or_warn(vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_section("Options");
-        r = table_print_or_warn(options_table);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemctl", "1");
-
-        return 0;
-}
+COMMAND(
+        "systemctl\0",
+        "Query or send control commands to the system manager.",
+        .man_pages = "systemctl.1\0",
+        .option_namespace = "systemctl",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int parse_property_argument(const char *value, char ***properties) {
         int r;
@@ -397,7 +351,7 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
                 OPTION_NAMESPACE("systemctl"): {}
 
                 OPTION_COMMON_HELP:
-                        return systemctl_help();
+                        return command_print_help_name("systemctl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -880,6 +834,9 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
                                    "      %s [OPTIONS…] COMMAND -- -.%s …",
                                    program_invocation_name, opts.arg ?: "mount");
                         return -EINVAL;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         /* If we are in --user mode, there's no point in talking to PolicyKit or the infra to query system
@@ -1136,8 +1093,7 @@ VERB_SCOPE(, verb_start,             "condrestart",      NULL, 2,      VERB_ANY,
 VERB_SCOPE(, verb_is_active,         "check",            NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* deprecated alias of is-active */
 
 int systemctl_main(char **args) {
-        assert((uintptr_t) __start_SYSTEMD_VERBS % sizeof(void*) == 0);
-        const Verb *verb = verbs_find_verb(args[0], __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS);
+        const Verb *verb = verbs_find_verb(args[0]);
 
         if (verb && (verb->flags & VERB_ONLINE_ONLY) && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

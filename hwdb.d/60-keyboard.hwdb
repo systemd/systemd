@@ -254,6 +254,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-51:pvr*
  KEYBOARD_KEY_66=micmute                                # Microphone mute button
  KEYBOARD_KEY_f5=prog1                                  # NitroSense button
 
+# Nitro ANV15-52
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-52:pvr*
+ KEYBOARD_KEY_f5=prog1                                  # NitroSense button
+
 ###########################################################
 # Alienware
 ###########################################################
@@ -714,6 +718,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPSpectrex360Convertible13*:*
 # ENVY x360 13
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible13*:*
  KEYBOARD_KEY_82=micmute                                # Microphone mute button
+ KEYBOARD_KEY_d7=unknown                                # EC emits e057 on every lid open
 
 # Spectre x360 16 2022
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*HP[sS][pP][eE][cC][tT][rR][eE]*x3602-in-1*:*
@@ -1160,6 +1165,11 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn21SQ*:pvrThinkBook142-in-1G5IAU:*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
+
+# Lenovo ThinkBook 16p G5 IRX
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21N5*:pvrThinkBook16pG5IRX:*
+ KEYBOARD_KEY_a1=!calc
+ KEYBOARD_KEY_d7=unknown                                # Fn+F4 mic mute, also emitted by "Ideapad extra buttons", ignore
 
 evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
  KEYBOARD_KEY_62=unknown                                # Touchpad on, also emitted by "Ideapad extra buttons", ignore
