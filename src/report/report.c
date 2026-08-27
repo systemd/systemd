@@ -650,13 +650,13 @@ static int context_collect_metrics(Context *context) {
         return 1;
 }
 
-VERB_FULL(verb_metrics, "metrics", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_LIST_METRICS,
+VERB_FULL(verb_metrics, "metrics", "[MATCH…]\0", VERB_ANY, VERB_ANY, 0, ACTION_LIST_METRICS,
           "Acquire list of metrics and their values");
-VERB_FULL(verb_metrics, "describe", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_DESCRIBE_METRICS,
+VERB_FULL(verb_metrics, "describe", "[MATCH…]\0", VERB_ANY, VERB_ANY, 0, ACTION_DESCRIBE_METRICS,
           "Describe available metrics");
-VERB_FULL(verb_metrics, "generate", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_GENERATE,
+VERB_FULL(verb_metrics, "generate", "[MATCH…]\0", VERB_ANY, VERB_ANY, 0, ACTION_GENERATE,
           "Build a report with metrics");
-VERB_FULL(verb_metrics, "upload", "[MATCH…]", VERB_ANY, VERB_ANY, 0, ACTION_UPLOAD,
+VERB_FULL(verb_metrics, "upload", "[MATCH…]\0", VERB_ANY, VERB_ANY, 0, ACTION_UPLOAD,
           "Upload a report with metrics");
 static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) {
         Action action = data;

@@ -1281,7 +1281,7 @@ static int do_add(
         return context_execute(c);
 }
 
-VERB(verb_add, "add", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]", 1, VERB_ANY, 0,
+VERB(verb_add, "add", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]\0", 1, VERB_ANY, 0,
      "Add a kernel and initrd images to the boot partition");
 static int verb_add(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char *version, *kernel;
@@ -1394,7 +1394,7 @@ static int run_as_installkernel(char **args) {
         return verb_add(3, STRV_MAKE("add", args[0], args[1]), /* data= */ 0, /* userdata= */ NULL);
 }
 
-VERB(verb_remove, "remove", "KERNEL-VERSION", 2, VERB_ANY, 0,
+VERB(verb_remove, "remove", "KERNEL-VERSION\0", 2, VERB_ANY, 0,
      "Remove a kernel from the boot partition");
 static int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
@@ -1432,7 +1432,7 @@ static int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return context_execute(&c);
 }
 
-VERB(verb_inspect, "inspect", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]", 1, VERB_ANY, VERB_DEFAULT,
+VERB(verb_inspect, "inspect", "[[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]\0", 1, VERB_ANY, VERB_DEFAULT,
      "Print details about the installation");
 static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
