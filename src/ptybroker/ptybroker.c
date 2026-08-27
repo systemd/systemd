@@ -381,6 +381,7 @@ typedef struct AcquirePtyParameters {
         int lightweight;
         bool monitor;
         bool hang_up_on_disconnect;
+        bool osc2811;
         sd_json_variant *terminal_settings; /* no reference */
 } AcquirePtyParameters;
 
@@ -452,6 +453,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 { "lightweight",        SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,           voffsetof(p, lightweight),           0                 },
                 { "monitor",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, monitor),               0                 },
                 { "hangUpOnDisconnect", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, hang_up_on_disconnect), 0                 },
+                { "osc2811",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, osc2811),               0                 },
                 { "terminalSettings",   SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref,      voffsetof(p, terminal_settings),     0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
@@ -493,6 +495,9 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 if (!FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
                         return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, NULL);
         }
+
+        if (p.osc2811 && !p.monitor)
+                return sd_varlink_error_invalid_parameter_name(link, "osc2811");
 
         if (p.backend_type != BACKEND_SHELL) {
                 if (p.user)
@@ -777,7 +782,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (p.monitor) {
                 assert(pty->frontend_fd >= 0);
 
-                r = pseudo_tty_monitor_new(link, &monitor);
+                r = pseudo_tty_monitor_new(link, p.osc2811, &monitor);
                 if (r < 0)
                         return r;
 
@@ -880,6 +885,7 @@ typedef struct EnrollPtyParameters {
         char *backend_path;
         bool monitor;
         bool hang_up_on_disconnect;
+        bool osc2811;
         sd_json_variant *terminal_settings; /* no reference */
 } EnrollPtyParameters;
 
@@ -913,6 +919,7 @@ static int vl_method_enroll_pty(sd_varlink *link, sd_json_variant *parameters, s
                 { "tag",                    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        voffsetof(p, tag),                   0                 },
                 { "monitor",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       voffsetof(p, monitor),               0                 },
                 { "hangUpOnDisconnect",     SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       voffsetof(p, hang_up_on_disconnect), 0                 },
+                { "osc2811",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       voffsetof(p, osc2811),               0                 },
                 { "terminalSettings",       SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, voffsetof(p, terminal_settings),     0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
@@ -927,6 +934,9 @@ static int vl_method_enroll_pty(sd_varlink *link, sd_json_variant *parameters, s
          * be a no-op since the caller already holds it. */
         if (p.frontend_type == FRONTEND_TAKE)
                 return sd_varlink_error_invalid_parameter_name(link, "frontendType");
+
+        if (p.osc2811 && !p.monitor)
+                return sd_varlink_error_invalid_parameter_name(link, "osc2811");
 
         if (p.monitor && !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, NULL);
@@ -1058,7 +1068,7 @@ static int vl_method_enroll_pty(sd_varlink *link, sd_json_variant *parameters, s
         if (p.monitor) {
                 assert(pty->frontend_fd >= 0);
 
-                r = pseudo_tty_monitor_new(link, &monitor);
+                r = pseudo_tty_monitor_new(link, p.osc2811, &monitor);
                 if (r < 0)
                         return r;
 
@@ -1117,6 +1127,7 @@ static int vl_method_monitor_pty(sd_varlink *link, sd_json_variant *parameters, 
                 const char *name;
                 size_t track_buffer_lines;
                 bool hang_up_on_disconnect;
+                bool osc2811;
                 sd_json_variant *terminal_settings; /* no reference */
         } p = {};
 
@@ -1124,6 +1135,7 @@ static int vl_method_monitor_pty(sd_varlink *link, sd_json_variant *parameters, 
                 { "name",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  voffsetof(p, name),                  SD_JSON_MANDATORY },
                 { "trackBufferLines",   _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_size,             voffsetof(p, track_buffer_lines),    0                 },
                 { "hangUpOnDisconnect", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       voffsetof(p, hang_up_on_disconnect), 0                 },
+                { "osc2811",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       voffsetof(p, osc2811),               0                 },
                 { "terminalSettings",   SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, voffsetof(p, terminal_settings),     0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
@@ -1178,7 +1190,7 @@ static int vl_method_monitor_pty(sd_varlink *link, sd_json_variant *parameters, 
                 return r;
 
         _cleanup_(pseudo_tty_monitor_freep) PseudoTTYMonitor *monitor = NULL;
-        r = pseudo_tty_monitor_new(link, &monitor);
+        r = pseudo_tty_monitor_new(link, p.osc2811, &monitor);
         if (r < 0)
                 return r;
 
