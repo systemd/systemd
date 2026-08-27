@@ -112,7 +112,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_label_context, mac_label_context_freep);
 COMMAND(
         "systemd-firstboot\0",
         "Configure basic settings of the system.",
-        .man_pages = "systemd-firstboot.1\0",
+        .man_pages = "systemd-firstboot(1)\0",
 );
 
 static bool welcome_done = false;

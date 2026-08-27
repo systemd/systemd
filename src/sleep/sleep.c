@@ -48,7 +48,7 @@
 COMMAND(
         "systemd-sleep\0",
         "Suspend the system, hibernate the system, or both.",
-        .man_pages = "systemd-suspend.service.8\0",
+        .man_pages = "systemd-suspend.service(8)\0",
 );
 
 #if ENABLE_EFI

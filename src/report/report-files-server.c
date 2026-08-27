@@ -14,7 +14,7 @@
 COMMAND(
         "systemd-report-files\0",
         "Report the contents of files as system report metrics.",
-        .man_pages = "systemd-report-files@.service.8\0",
+        .man_pages = "systemd-report-files@.service(8)\0",
 );
 
 static int vl_server(void) {

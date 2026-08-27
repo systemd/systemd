@@ -33,7 +33,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_serialization, fclosep);
 COMMAND(
         "systemd-executor\0",
         "Sandbox and execute processes.",
-        .man_pages = "systemd.1\0",
+        .man_pages = "systemd(1)\0",
         .option_namespace = "systemd-executor",
 );
 

@@ -27,7 +27,7 @@
 COMMAND(
         "systemd-storage-block\0",
         "Expose local block devices as storage volumes.",
-        .man_pages = "systemd-storage-block.8\0",
+        .man_pages = "systemd-storage-block(8)\0",
 );
 
 static int block_device_pick_name(

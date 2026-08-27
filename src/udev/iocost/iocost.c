@@ -23,7 +23,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_target_solution, freep);
 COMMAND(
         "iocost\0",
         "Set up iocost model and qos solutions for block devices.",
-        .man_pages = "iocost.conf.5\0",
+        .man_pages = "iocost.conf(5)\0",
 );
 
 static int parse_config(void) {

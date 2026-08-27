@@ -81,7 +81,7 @@ COMMAND(
         "systemd-journal-upload\0",
         "Upload journal events to a remote server.",
         .argspec = "[-u URL] [{FILE|-}…]\0",
-        .man_pages = "systemd-journal-upload.service.8\0",
+        .man_pages = "systemd-journal-upload.service(8)\0",
 );
 
 static void close_fd_input(Uploader *u);

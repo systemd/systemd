@@ -30,7 +30,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_path, strv_freep);
 COMMAND(
         "systemd-bless-boot\0",
         "Mark the boot process as good or bad.",
-        .man_pages = "systemd-bless-boot.service.8\0",
+        .man_pages = "systemd-bless-boot.service(8)\0",
 );
 
 typedef enum Status {

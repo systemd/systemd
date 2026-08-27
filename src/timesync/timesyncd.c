@@ -126,7 +126,7 @@ static int load_clock_timestamp(void) {
 COMMAND(
         "systemd-timesyncd\0",
         "Synchronize the system clock across the network.",
-        .man_pages = "systemd-timesyncd.service.8\0",
+        .man_pages = "systemd-timesyncd.service(8)\0",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"

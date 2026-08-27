@@ -24,7 +24,7 @@
 COMMAND(
         "systemd-resolved\0",
         "Provide name resolution with caching using DNS, mDNS, LLMNR.",
-        .man_pages = "systemd-resolved.service.8\0",
+        .man_pages = "systemd-resolved.service(8)\0",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"
