@@ -39,7 +39,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
 COMMAND(
         "systemd-keyutil\0",
         "Perform various operations on private keys and certificates.",
-        .man_pages = "systemd-keyutil.1\0",
+        .man_pages = "systemd-keyutil(1)\0",
 );
 
 VERB_COMMON_HELP_AUTO_HIDDEN();

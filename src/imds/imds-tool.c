@@ -55,7 +55,7 @@ COMMAND(
         "systemd-imds\0",
         "IMDS data acquisition.",
         .argspec = "[KEY]\0",
-        .man_pages = "systemd-imds.1\0",
+        .man_pages = "systemd-imds(1)\0",
 );
 
 static int parse_argv(int argc, char *argv[]) {

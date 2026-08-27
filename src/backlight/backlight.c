@@ -26,7 +26,7 @@ COMMAND(
         "systemd-backlight\0",
         "Save and restore backlight brightness at shutdown and boot.",
         .argspec = "COMMAND [backlight|leds]:DEVICE\0",
-        .man_pages = "systemd-backlight.8\0",
+        .man_pages = "systemd-backlight(8)\0",
 );
 
 static int has_multiple_graphics_cards(void) {

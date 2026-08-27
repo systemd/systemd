@@ -347,7 +347,7 @@ static bool check_idle(void *userdata) {
 COMMAND(
         "systemd-machined\0",
         "Manage registrations of local VMs and containers.",
-        .man_pages = "systemd-machined.service.8\0",
+        .man_pages = "systemd-machined.service(8)\0",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"

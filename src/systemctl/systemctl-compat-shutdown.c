@@ -19,7 +19,7 @@ COMMAND(
         .argspec = "[TIME] [WALL…]\0",
         .footer = "This is a compatibility interface, please use the more powerful 'systemctl halt', "
                   "'systemctl poweroff', 'systemctl reboot' commands instead.",
-        .man_pages = "shutdown.8\0",
+        .man_pages = "shutdown(8)\0",
         .option_namespace = "shutdown",
 );
 

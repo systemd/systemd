@@ -40,7 +40,7 @@ COMMAND(
         "systemd-ask-password\0",
         "Query the user for a passphrase, via the TTY or a UI agent.",
         .argspec = "MESSAGE\0",
-        .man_pages = "systemd-ask-password.1\0",
+        .man_pages = "systemd-ask-password(1)\0",
 );
 
 static int parse_argv(int argc, char *argv[]) {

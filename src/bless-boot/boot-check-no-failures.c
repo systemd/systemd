@@ -12,7 +12,7 @@
 COMMAND(
         "systemd-boot-check-no-failures\0",
         "Verify system operational state.",
-        .man_pages = "systemd-boot-check-no-failures.service.8\0",
+        .man_pages = "systemd-boot-check-no-failures.service(8)\0",
 );
 
 static int parse_argv(int argc, char *argv[]) {

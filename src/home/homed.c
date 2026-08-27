@@ -18,7 +18,7 @@
 COMMAND(
         "systemd-homed\0",
         "Create, remove, change or inspect home areas.",
-        .man_pages = "systemd-homed.service.8\0",
+        .man_pages = "systemd-homed.service(8)\0",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"

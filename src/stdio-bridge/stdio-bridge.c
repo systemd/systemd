@@ -26,7 +26,7 @@ static bool arg_quiet = false;
 COMMAND(
         "systemd-stdio-bridge\0",
         "Forward messages between a pipe or socket and a D-Bus bus.",
-        .man_pages = "systemd-stdio-bridge.1\0",
+        .man_pages = "systemd-stdio-bridge(1)\0",
 );
 
 static int parse_argv(int argc, char *argv[]) {

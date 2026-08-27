@@ -631,7 +631,7 @@ static bool context_check_idle(void *userdata) {
 COMMAND(
         "systemd-localed\0",
         "Manage system locale settings and key mappings.",
-        .man_pages = "systemd-localed.service.8\0",
+        .man_pages = "systemd-localed.service(8)\0",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"

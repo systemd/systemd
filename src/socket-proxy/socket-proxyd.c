@@ -56,7 +56,7 @@ COMMAND(
                 "HOST:PORT\0"
                 "SOCKET\0",
         .footer = "See systemd.time(7) for the --exit-idle-time= time span format.",
-        .man_pages = "systemd-socket-proxyd.8\0",
+        .man_pages = "systemd-socket-proxyd(8)\0",
 );
 
 typedef struct Context {

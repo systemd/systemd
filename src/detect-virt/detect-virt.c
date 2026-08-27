@@ -24,7 +24,7 @@ static enum {
 COMMAND(
         "systemd-detect-virt\0",
         "Detect execution in a virtualized environment.",
-        .man_pages = "systemd-detect-virt.1\0",
+        .man_pages = "systemd-detect-virt(1)\0",
 );
 
 static int parse_argv(int argc, char *argv[]) {
