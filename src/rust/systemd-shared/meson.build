@@ -125,3 +125,16 @@ libsystemd_shared_sys = static_library(
         link_with : [libsystemd_shared_sys_wrappers],
         dependencies : [shared_link_dep],
         build_by_default : false)
+
+############################################################
+
+if get_option('tests')
+        test('check-bindings-header',
+             python3,
+             args : [files('check-bindings-header.py'),
+                     files('bindings.h'),
+                     meson.global_source_root() / 'src/basic',
+                     meson.global_source_root() / 'src/shared',
+                     meson.global_source_root() / 'src/systemd'],
+             suite : 'dist')
+endif
