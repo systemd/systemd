@@ -136,3 +136,24 @@ if want_tests != 'false'
                      meson.project_source_root() / 'src/systemd'],
              suite : 'dist')
 endif
+
+############################################################
+
+# systemd_shared: what Rust code is supposed to use.
+systemd_shared_sources = files(
+        'lib.rs',
+        'alloc.rs',
+        'cstr.rs',
+        'errno.rs',
+        'log.rs',
+        'panic.rs',
+        'prelude.rs',
+        'stdio.rs',
+)
+
+libsystemd_shared_rs = static_library(
+        'systemd_shared',
+        systemd_shared_sources,
+        rust_abi : 'rust',
+        link_with : [libsystemd_shared_sys],
+        build_by_default : false)
