@@ -129,6 +129,7 @@ static int manager_dispatch_pidref_transport_fd(sd_event_source *source, int fd,
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
 static int manager_dispatch_sigchld(sd_event_source *source, void *userdata);
+static int manager_dispatch_system_state(sd_event_source *source, void *userdata);
 static int manager_dispatch_timezone_change(sd_event_source *source, const struct inotify_event *event, void *userdata);
 static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
@@ -970,6 +971,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .executor_fd = -EBADF,
 
                 .restrict_fsaccess_bss_map_fd = -EBADF,
+                .previous_system_state = _MANAGER_STATE_INVALID,
         };
 
         FOREACH_ELEMENT(fd, m->restrict_fsaccess_link_fds)
@@ -1018,6 +1020,17 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
+
+        r = sd_event_add_defer(m->event, &m->system_state_event_source, manager_dispatch_system_state, m);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_enabled(m->system_state_event_source, SD_EVENT_OFF);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(m->system_state_event_source, "manager-system-state");
+        manager_queue_system_state_refresh(m);
 
         r = manager_setup_run_queue(m);
         if (r < 0)
@@ -1777,6 +1790,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->timezone_change_event_source);
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->run_queue_event_source);
+        sd_event_source_unref(m->system_state_event_source);
         sd_event_source_unref(m->user_lookup_event_source);
         sd_event_source_unref(m->handoff_timestamp_event_source);
         sd_event_source_unref(m->pidref_event_source);
@@ -4051,7 +4065,10 @@ void manager_reset_failed(Manager *m) {
         HASHMAP_FOREACH(u, m->units)
                 unit_reset_failed(u);
 
+        bool had_cycles = !set_isempty(m->transactions_with_cycle);
         m->transactions_with_cycle = set_free(m->transactions_with_cycle);
+        if (had_cycles)
+                manager_queue_system_state_refresh(m);
 }
 
 bool manager_unit_inactive_or_pending(Manager *m, const char *name) {
@@ -4283,6 +4300,8 @@ void manager_check_finished(Manager *m) {
         manager_set_first_boot(m, false);
 
         dual_timestamp_now(m->timestamps + MANAGER_TIMESTAMP_FINISH);
+
+        manager_queue_system_state_refresh(m);
 
         manager_notify_finished(m);
 
@@ -4974,8 +4993,12 @@ int manager_update_failed_units(Manager *m, Unit *u, bool failed) {
         } else
                 (void) set_remove(m->failed_units, u);
 
-        if (set_size(m->failed_units) != size)
-                bus_manager_send_change_signal(m);
+        if (set_size(m->failed_units) != size) {
+                bus_manager_send_change_signal(m, STRV_MAKE("NFailedUnits"));
+
+                if (size == 0 || set_isempty(m->failed_units))
+                        manager_queue_system_state_refresh(m);
+        }
 
         return 0;
 }
@@ -5016,6 +5039,55 @@ ManagerState manager_state(Manager *m) {
                 return MANAGER_DEGRADED;
 
         return MANAGER_RUNNING;
+}
+
+static int manager_dispatch_system_state(sd_event_source *source, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        ManagerState state;
+
+        assert(source);
+
+        state = manager_state(m);
+        if (m->previous_system_state == _MANAGER_STATE_INVALID) {
+                /* Establish the initial baseline without emitting a change signal. */
+                m->previous_system_state = state;
+                return 0;
+        }
+
+        if (m->previous_system_state == state)
+                return 0;
+
+        m->previous_system_state = state;
+        bus_manager_send_change_signal(m, STRV_MAKE("SystemState"));
+
+        return 0;
+}
+
+void manager_queue_system_state_refresh(Manager *m) {
+        int r;
+
+        assert(m);
+        assert(m->system_state_event_source);
+
+        r = sd_event_source_set_enabled(m->system_state_event_source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                log_warning_errno(r, "Failed to queue system state refresh, ignoring: %m");
+}
+
+void manager_queue_system_state_refresh_for_unit(Unit *u) {
+        assert(u);
+        assert(u->manager);
+
+        if (unit_has_name(u, SPECIAL_BASIC_TARGET) || unit_has_name(u, SPECIAL_SHUTDOWN_TARGET)) {
+                manager_queue_system_state_refresh(u->manager);
+                return;
+        }
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
+        if (unit_has_name(u, SPECIAL_RESCUE_TARGET) || unit_has_name(u, SPECIAL_EMERGENCY_TARGET))
+                manager_queue_system_state_refresh(u->manager);
 }
 
 static void manager_unref_uid_internal(
