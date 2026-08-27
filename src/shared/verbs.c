@@ -270,7 +270,7 @@ const Verb* _verbs_find_command(
         return NULL;
 }
 
-int _verbs_get_help_table(
+static int verbs_get_help_table(
                 const Verb verbs[],
                 const Verb verbs_end[],
                 const char *group,
@@ -292,13 +292,8 @@ int _verbs_get_help_table(
 
         const Verb *verb;
         for (verb = verbs; verb < verbs_end; verb++) {
-                /* Binaries with one or more VERB_COMMAND entries call this function
-                 * through print_verb_option_help() which provides a verbs slice that
-                 * starts after the VERB_COMMAND entry.
-                 *
-                 * In unconverted binaries, this function is called directly. */
-                // TODO: make this function static after everything has been converted.
-
+                /* This function is called through print_verb_option_help(), which provides a verbs
+                 * slice that starts after the VERB_COMMAND entry. */
                 if (FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
                         break;
 
@@ -364,7 +359,7 @@ static int print_verb_option_help(
                 const char *group = FLAGS_SET(verb->flags, VERB_GROUP_MARKER) ? verb->verb : NULL;
 
                 _cleanup_(table_unrefp) Table *table = NULL;
-                r = _verbs_get_help_table(verb, verbs_end, group, &table);
+                r = verbs_get_help_table(verb, verbs_end, group, &table);
                 if (r < 0)
                         return r;
 
