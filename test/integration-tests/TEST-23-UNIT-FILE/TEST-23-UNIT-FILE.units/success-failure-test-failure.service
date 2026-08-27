@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 [Service]
 Type=notify
 ExecStart=bash -c "echo failure >>/tmp/success-failure-test-result && systemd-notify --ready && sleep infinity"

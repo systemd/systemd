@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
 # We don't use mkosi.extra because /usr/sbin could be a symlink and cp doesn't handle that properly until

@@ -1,4 +1,4 @@
----
+# SPDX-License-Identifier: LGPL-2.1-or-later
 # https://github.com/redhat-plumbers-in-action/differential-shellcheck#readme
 
 name: Differential ShellCheck
