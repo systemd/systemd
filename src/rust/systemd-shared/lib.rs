@@ -26,9 +26,11 @@ pub use systemd_shared_sys as sys;
 pub mod alloc;
 pub mod cstr;
 pub mod errno;
+pub mod event;
 pub mod log;
 mod panic;
 pub mod prelude;
+pub mod refcount;
 pub mod stdio;
 
 pub use errno::{check, from_result, Errno, Result};
