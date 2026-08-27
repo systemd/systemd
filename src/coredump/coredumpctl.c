@@ -63,7 +63,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 COMMAND(
         "coredumpctl\0",
         "List or retrieve coredumps from the journal.",
-        .man_pages = "coredumpctl.1\0",
+        .man_pages = "coredumpctl(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

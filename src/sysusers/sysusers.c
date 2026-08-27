@@ -118,7 +118,7 @@ COMMAND(
         "systemd-sysusers\0",
         "Create system user and group accounts.",
         .argspec = "[CONFIGURATION FILE…]\0",
-        .man_pages = "systemd-sysusers.service.8\0",
+        .man_pages = "systemd-sysusers.service(8)\0",
         .pager_flags = &arg_pager_flags,
 );
 

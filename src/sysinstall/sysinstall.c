@@ -74,7 +74,7 @@ COMMAND(
         "systemd-sysinstall\0",
         "Install the OS to another block device.",
         .argspec = "[DEVICE]\0",
-        .man_pages = "systemd-sysinstall.8\0",
+        .man_pages = "systemd-sysinstall(8)\0",
 );
 
 typedef enum ProgressPhase {

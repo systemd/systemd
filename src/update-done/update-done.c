@@ -26,7 +26,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 COMMAND(
         "systemd-update-done\0",
         "Mark /etc/ and /var/ as fully updated.",
-        .man_pages = "systemd-update-done.8\0",
+        .man_pages = "systemd-update-done(8)\0",
 );
 
 static int save_timestamp(const char *dir, struct timespec *ts) {

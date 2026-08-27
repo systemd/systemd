@@ -146,7 +146,7 @@ COMMAND(
         "journalctl\0",
         "Query the journal.",
         .argspec = "[MATCH…]\0",
-        .man_pages = "journalctl.1\0",
+        .man_pages = "journalctl(1)\0",
         .option_namespace = "journalctl",
         .pager_flags = &arg_pager_flags,
 );

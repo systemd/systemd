@@ -71,7 +71,7 @@ COMMAND(
         "systemd-delta\0",
         "Find overridden configuration files.",
         .argspec = "[SUFFIX…]\0",
-        .man_pages = "systemd-delta.1\0",
+        .man_pages = "systemd-delta(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

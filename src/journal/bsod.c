@@ -33,7 +33,7 @@ COMMAND(
         "systemd-bsod\0",
         "Filter the journal to fetch the first message from the current boot with an emergency "
         "log level and display it as a string and a QR code.",
-        .man_pages = "systemd-bsod.8\0",
+        .man_pages = "systemd-bsod(8)\0",
 );
 
 static int acquire_first_emergency_log_message(char **ret) {

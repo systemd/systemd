@@ -143,7 +143,7 @@ static bool check_idle(void *userdata) {
 COMMAND(
         "systemd-portabled\0",
         "Manage registrations of portable images.",
-        .man_pages = "systemd-portabled.service.8\0",
+        .man_pages = "systemd-portabled.service(8)\0",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"

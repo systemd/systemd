@@ -139,7 +139,7 @@ COMMAND(
                "--discover\0"
                "--validate IMAGE\0"
                "--shift IMAGE UIDBASE\0",
-        .man_pages = "systemd-dissect.1\0",
+        .man_pages = "systemd-dissect(1)\0",
         .option_namespace = "systemd-dissect",
         .pager_flags = &arg_pager_flags,
 );
@@ -715,7 +715,7 @@ static int parse_argv(int argc, char *argv[]) {
 COMMAND(
         "mount.ddi\0",
         "External helper for mount.8 to mount Discoverable Disk Images (DDIs).",
-        .man_pages = "systemd-dissect.1\0",
+        .man_pages = "systemd-dissect(1)\0",
         .option_namespace = "mount.ddi",
 );
 

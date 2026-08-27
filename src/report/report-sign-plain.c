@@ -30,7 +30,7 @@
 COMMAND(
         "systemd-report-sign-plain\0",
         "Sign system reports with a local software key.",
-        .man_pages = "systemd-report-sign-plain@.service.8\0",
+        .man_pages = "systemd-report-sign-plain@.service(8)\0",
 );
 
 #define REPORT_SIGN_PLAIN_DIR         "/var/lib/systemd/report.sign.plain"

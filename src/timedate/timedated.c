@@ -1171,7 +1171,7 @@ static bool context_check_idle(void *userdata) {
 COMMAND(
         "systemd-timedated\0",
         "Manage the system clock and timezone and NTP enablement.",
-        .man_pages = "systemd-timedated.service.8\0",
+        .man_pages = "systemd-timedated.service(8)\0",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"

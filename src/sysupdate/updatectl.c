@@ -41,7 +41,7 @@ static const char *arg_host = NULL;
 COMMAND(
         "updatectl\0",
         "Manage system updates.",
-        .man_pages = "updatectl.1\0",
+        .man_pages = "updatectl(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

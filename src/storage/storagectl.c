@@ -48,7 +48,7 @@ static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 COMMAND(
         "storagectl\0",
         "Enumerate storage volumes and providers.",
-        .man_pages = "storagectl.1\0",
+        .man_pages = "storagectl(1)\0",
         .option_namespace = "storagectl",
         .pager_flags = &arg_pager_flags,
 );
@@ -372,7 +372,7 @@ static int verb_providers(int argc, char *argv[], uintptr_t data, void *userdata
 COMMAND(
         "mount.storage\0",
         "External helper for mount.8 to expose storage volumes.",
-        .man_pages = "storagectl.1\0",
+        .man_pages = "storagectl(1)\0",
         .option_namespace = "mount.storage",
         .pager_flags = &arg_pager_flags,
 );

@@ -40,7 +40,7 @@ COMMAND(
         "systemd-modules-load\0",
         "Load statically configured kernel modules.",
         .argspec = "[CONFIGURATION FILE…]\0",
-        .man_pages = "systemd-modules-load.service.8\0",
+        .man_pages = "systemd-modules-load.service(8)\0",
 );
 
 static int modules_list_append_suffix(OrderedSet **module_set, char *modp) {

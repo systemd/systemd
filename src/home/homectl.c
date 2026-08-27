@@ -185,7 +185,7 @@ static int acquire_bus(sd_bus **bus) {
 COMMAND(
         "homectl\0",
         "Create, manipulate or inspect home directories.",
-        .man_pages = "homectl.1\0",
+        .man_pages = "homectl(1)\0",
         .pager_flags = &arg_pager_flags,
         .flags = COMMAND_HELP_SEPARATE,  /* the option table is very wide */
 );

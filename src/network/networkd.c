@@ -24,7 +24,7 @@
 COMMAND(
         "systemd-networkd\0",
         "Manage and configure network devices, create virtual network devices.",
-        .man_pages = "systemd-networkd.service.8\0",
+        .man_pages = "systemd-networkd.service(8)\0",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"
