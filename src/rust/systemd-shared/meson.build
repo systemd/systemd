@@ -147,6 +147,7 @@ systemd_shared_sources = files(
         'errno.rs',
         'event.rs',
         'fd.rs',
+        'json.rs',
         'log.rs',
         'panic.rs',
         'prelude.rs',

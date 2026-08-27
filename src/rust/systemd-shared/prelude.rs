@@ -8,6 +8,7 @@ pub use crate::cstr::OwnedCStr;
 pub use crate::errno::{check, from_result, Errno, Result};
 pub use crate::event::{Event, EventSource};
 pub use crate::fd::{BorrowedFd, OwnedFd};
+pub use crate::json::JsonVariant;
 pub use crate::log::{
     LOG_ALERT, LOG_CRIT, LOG_DEBUG, LOG_EMERG, LOG_ERR, LOG_INFO, LOG_NOTICE, LOG_WARNING,
 };
