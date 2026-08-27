@@ -365,6 +365,10 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
             print(f'Wrote coverage report for {name} to {output}', file=sys.stderr)
 
 
+def in_userns() -> bool:
+    return Path('/proc/self/uid_map').read_text().split() != ['0', '0', '4294967295']
+
+
 def coco_host_type() -> Optional[str]:
     try:
         if Path('/sys/module/kvm_intel/parameters/tdx').read_text().strip() == 'Y':
@@ -661,6 +665,13 @@ def main() -> None:
             '''
         )
 
+    # Extra mkosi options for this invocation only. Restricted to options so a verb or a
+    # bare '--' can't derail the command line assembled around them.
+    test_mkosi_args = shlex.split(os.getenv('TEST_MKOSI_ARGS', ''))
+    for arg in test_mkosi_args:
+        if arg == '--' or not arg.startswith('-'):
+            sys.exit(f'TEST_MKOSI_ARGS must contain only mkosi options, got: {arg}')
+
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.mkosi_dir),
@@ -704,9 +715,29 @@ def main() -> None:
         ),
         '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
+        *test_mkosi_args,
         'vm' if vm else 'boot',
         *(
-            ['--', '--capability=CAP_BPF', f'--suppress-sync={"yes" if args.suppress_sync else "no"}', *vm_images_args, *coco_boot_args]
+            [
+                '--',
+                '--capability=CAP_BPF',
+                f'--suppress-sync={"yes" if args.suppress_sync else "no"}',
+                # In a non-initial user namespace the kernel only allows mounting a fresh proc or
+                # sysfs if the mount namespace already contains a fully visible mount of the same
+                # filesystem type (mount_too_revealing()), which nspawn's pivoted root doesn't.
+                # Satisfy the check with read-only binds, but only when actually confined, as
+                # they expose the outer proc and sysfs to the container. Bind non-recursively:
+                # carried-along submounts (e.g. lxcfs overmounts of container runtimes) would
+                # spoil full visibility wherever they end up locked, and --bind-ro wouldn't make
+                # them read-only either.
+                *(
+                    ['--bind-ro=/proc:/work/proc:norbind', '--bind-ro=/sys:/work/sys:norbind']
+                    if in_userns()
+                    else []
+                ),
+                *vm_images_args,
+                *coco_boot_args,
+            ]
             if not vm
             else []
         ),
