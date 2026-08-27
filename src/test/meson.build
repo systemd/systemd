@@ -750,3 +750,13 @@ if static_libudev != 'false'
                 },
         ]
 endif
+
+############################################################
+
+if have_rust
+        rust_executables += [
+                {
+                        'sources' : files('test-rust-shared.rs'),
+                },
+        ]
+endif
