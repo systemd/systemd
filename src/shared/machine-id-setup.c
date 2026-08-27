@@ -199,20 +199,44 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         /* A we got a valid machine ID argument, that's what counts */
         if (sd_id128_is_null(machine_id) || FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE)) {
 
-                /* Try to read any existing machine ID */
-                r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id);
-                if (r >= 0)
-                        goto finish;
+                if (FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_NEW)) {
+                        /* We are supposed to *persistently* replace the identity of this system. If we
+                         * cannot write to /etc/machine-id there is nothing useful we can do: falling back to
+                         * the transient /run/machine-id path below would clobber the ID the running system
+                         * is currently using, and would be gone again on the next boot anyway. Hence refuse
+                         * explicitly instead of silently degrading. */
+                        if (!writable)
+                                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                                       "Refusing to generate a new machine ID: '%s' is not writable.",
+                                                       etc_machine_id);
 
-                log_debug_errno(r, "Unable to read current machine ID, acquiring new one: %m");
+                        /* The caller explicitly asked us to make up a new identity for this system. Hence
+                         * don't even look at the ID currently in place, and don't go through
+                         * acquire_machine_id() either: every single source it consults (/run/machine-id, the
+                         * D-Bus machine ID, the system.machine_id credential, the container/VM UUID) would
+                         * likely just hand us back the very ID we are supposed to replace. Go straight to
+                         * the random pool instead. */
+                        r = sd_id128_randomize(&machine_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
 
-                /* Hmm, so, the id currently stored is not useful, then let's acquire one. */
-                r = acquire_machine_id(root, FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE), &machine_id);
-                if (r < 0)
-                        return r;
+                        log_info("Generating new machine ID from random generator.");
+                } else {
+                        /* Try to read any existing machine ID */
+                        r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id);
+                        if (r >= 0)
+                                goto finish;
 
-                write_run_machine_id = !r; /* acquire_machine_id() returns 1 in case we read this machine ID
-                                            * from /run/machine-id */
+                        log_debug_errno(r, "Unable to read current machine ID, acquiring new one: %m");
+
+                        /* Hmm, so, the id currently stored is not useful, then let's acquire one. */
+                        r = acquire_machine_id(root, FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE), &machine_id);
+                        if (r < 0)
+                                return r;
+
+                        write_run_machine_id = !r; /* acquire_machine_id() returns 1 in case we read this machine ID
+                                                    * from /run/machine-id */
+                }
         }
 
         if (writable) {
