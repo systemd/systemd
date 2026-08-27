@@ -4079,12 +4079,23 @@ static int determine_names(void) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
 
-                        if (IN_SET(i->type, IMAGE_RAW, IMAGE_BLOCK))
+                        switch (i->type) {
+                        case IMAGE_RAW:
+                        case IMAGE_BLOCK:
                                 r = free_and_strdup(&arg_image, i->path);
-                        else if (IN_SET(i->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME))
+                                break;
+
+                        case IMAGE_DIRECTORY:
+                        case IMAGE_SUBVOLUME:
                                 r = free_and_strdup(&arg_directory, i->path);
-                        else
-                                assert_not_reached();
+                                break;
+
+                        default:
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Image '%s' at '%s' has unsupported type '%s'. "
+                                                       "Please use 'systemd-nspawn -M %s' instead.",
+                                                       arg_machine, i->path, image_type_to_string(i->type), arg_machine);
+                        }
                         if (r < 0)
                                 return log_oom();
                 } else {
