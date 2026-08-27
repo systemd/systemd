@@ -68,6 +68,7 @@ REQUIREMENTS:
            still function, but upstream support and testing are limited.
 
         Linux kernel ≥ 5.15 for MPOL_PREFERRED_MANY NUMA policy
+        Linux kernel ≥ 7.0 for the .dm-verity keyring systemd-keyring-setup provisions
                      ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
@@ -175,6 +176,10 @@ REQUIREMENTS:
           CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG_PLATFORM_KEYRING
           CONFIG_IMA_ARCH_POLICY
           CONFIG_INTEGRITY_MACHINE_KEYRING
+        Required to verify signed Verity images and fs-verity files using
+        certificates enrolled by systemd-keyring-setup:
+          CONFIG_KEYS
+          CONFIG_FS_VERITY_BUILTIN_SIGNATURES
 
         Required for reading credentials from SMBIOS:
           CONFIG_DMI
