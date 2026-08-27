@@ -26,6 +26,7 @@ pub mod alloc;
 pub mod cstr;
 pub mod errno;
 pub mod fd;
+pub mod json;
 pub mod log;
 mod panic;
 pub mod prelude;
