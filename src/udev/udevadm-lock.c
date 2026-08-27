@@ -4,14 +4,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "blockdev-util.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "fdset.h"
-#include "format-table.h"
 #include "glyph-util.h"
 #include "hash-funcs.h"
-#include "help-util.h"
 #include "lock-util.h"
 #include "options.h"
 #include "path-util.h"
@@ -23,6 +23,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "udevadm.h"
+#include "verbs.h"
 
 static usec_t arg_timeout_usec = USEC_INFINITY;
 static char **arg_devices = NULL;
@@ -33,26 +34,6 @@ static bool arg_print = false;
 STATIC_DESTRUCTOR_REGISTER(arg_devices, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_backing, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cmdline, strv_freep);
-
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevadm-lock", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("lock [OPTIONS...] COMMAND");
-        help_cmdline("lock [OPTIONS...] --print");
-        help_abstract("Lock a block device and run a command.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("udevadm", "8");
-        return 0;
-}
 
 static int parse_argv(int argc, char *argv[]) {
         int r;
@@ -68,7 +49,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("udevadm-lock"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_verb_help("lock");
 
                 OPTION('V', "version", NULL, "Show package version"):
                         return print_version();
@@ -97,9 +78,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse --timeout= parameter: %s", opts.arg);
                         break;
 
-                OPTION('p', "print", NULL, "Only show which block device the lock would be taken on"):
+                OPTION('p', "print", NULL, "Only show which device would be locked, without running the command"):
                         arg_print = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

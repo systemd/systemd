@@ -702,9 +702,9 @@ static int show_machine_properties(sd_bus *bus, const char *path, bool *new_line
         return r;
 }
 
-VERB(verb_show_machine, "status", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_show_machine, "status", "NAME…\0", 2, VERB_ANY, 0,
      "Show VM/container details");
-VERB(verb_show_machine, "show", "[NAME…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_machine, "show", "[NAME…]\0", VERB_ANY, VERB_ANY, 0,
      "Show properties of one or more VMs/containers");
 static int verb_show_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -782,7 +782,7 @@ static int image_exists(sd_bus *bus, const char *name) {
         return 1;
 }
 
-VERB(verb_start_machine, "start", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_start_machine, "start", "NAME…\0", 2, VERB_ANY, 0,
      "Start container as a service");
 static int verb_start_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -951,7 +951,7 @@ static int on_machine_removed(sd_bus_message *m, void *userdata, sd_bus_error *r
         return 0;
 }
 
-VERB(verb_login_machine, "login", "[NAME]", VERB_ANY, 2, 0,
+VERB(verb_login_machine, "login", "[NAME]\0", VERB_ANY, 2, 0,
      "Get a login prompt in a container or on the local host");
 static int verb_login_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -1004,7 +1004,7 @@ static int verb_login_machine(int argc, char *argv[], uintptr_t _data, void *use
         return process_forward(event, slot, master, PTY_FORWARD_IGNORE_VHANGUP, machine);
 }
 
-VERB(verb_shell_machine, "shell", "[[USER@]NAME [COMMAND…]]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_shell_machine, "shell", "[[USER@]NAME [COMMAND…]]\0", VERB_ANY, VERB_ANY, 0,
      "Invoke a shell (or other command) in a container or on the local host");
 static int verb_shell_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
@@ -1096,9 +1096,9 @@ static int verb_shell_machine(int argc, char *argv[], uintptr_t _data, void *use
 
 static int verb_poweroff_machine(int argc, char *argv[], uintptr_t data, void *userdata);
 
-VERB(verb_enable_machine, "enable", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_enable_machine, "enable", "NAME…\0", 2, VERB_ANY, 0,
      "Enable automatic container start at boot");
-VERB(verb_enable_machine, "disable", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_enable_machine, "disable", "NAME…\0", 2, VERB_ANY, 0,
      "Disable automatic container start at boot");
 static int verb_enable_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
@@ -1267,9 +1267,9 @@ static int verb_machine_control_one(const char *machine_name, const char *method
         return 0;
 }
 
-VERB(verb_poweroff_machine, "poweroff", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_poweroff_machine, "poweroff", "NAME…\0", 2, VERB_ANY, 0,
      "Power off one or more machines");
-VERB(verb_poweroff_machine, "stop", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_poweroff_machine, "stop", "NAME…\0", 2, VERB_ANY, 0,
      /* help= */ NULL); /* Convenience alias */
 static int verb_poweroff_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1296,9 +1296,9 @@ static int verb_poweroff_machine(int argc, char *argv[], uintptr_t data, void *u
         return 0;
 }
 
-VERB(verb_reboot_machine, "reboot", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_reboot_machine, "reboot", "NAME…\0", 2, VERB_ANY, 0,
      "Reboot one or more machines");
-VERB(verb_reboot_machine, "restart", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_reboot_machine, "restart", "NAME…\0", 2, VERB_ANY, 0,
      /* help= */ NULL); /* Convenience alias */
 static int verb_reboot_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1338,19 +1338,19 @@ static int verb_vm_control(int argc, char *argv[], const char *method) {
         return 0;
 }
 
-VERB(verb_pause, "pause", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_pause, "pause", "NAME…\0", 2, VERB_ANY, 0,
      "Pause one or more machines");
 static int verb_pause(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return verb_vm_control(argc, argv, "io.systemd.MachineInstance.Pause");
 }
 
-VERB(verb_resume, "resume", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_resume, "resume", "NAME…\0", 2, VERB_ANY, 0,
      "Resume one or more paused machines");
 static int verb_resume(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return verb_vm_control(argc, argv, "io.systemd.MachineInstance.Resume");
 }
 
-VERB(verb_terminate_machine, "terminate", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_terminate_machine, "terminate", "NAME…\0", 2, VERB_ANY, 0,
      "Terminate one or more machines");
 static int verb_terminate_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1376,7 +1376,7 @@ static int verb_terminate_machine(int argc, char *argv[], uintptr_t _data, void 
         return 0;
 }
 
-VERB(verb_kill_machine, "kill", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_kill_machine, "kill", "NAME…\0", 2, VERB_ANY, 0,
      "Send signal to processes of a machine");
 static int verb_kill_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1410,9 +1410,9 @@ static const char* select_copy_method(bool copy_from, bool force) {
                 return copy_from ? "CopyFromMachine" : "CopyToMachine";
 }
 
-VERB(verb_copy_files, "copy-to", "NAME PATH [PATH]", 3, 4, 0,
+VERB(verb_copy_files, "copy-to", "NAME PATH [PATH]\0", 3, 4, 0,
      "Copy files from the host to a container");
-VERB(verb_copy_files, "copy-from", "NAME PATH [PATH]", 3, 4, 0,
+VERB(verb_copy_files, "copy-from", "NAME PATH [PATH]\0", 3, 4, 0,
      "Copy files from a container to the host");
 static int verb_copy_files(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1469,7 +1469,7 @@ static int verb_copy_files(int argc, char *argv[], uintptr_t _data, void *userda
         return 0;
 }
 
-VERB(verb_bind_mount, "bind", "NAME PATH [PATH]", 3, 4, 0,
+VERB(verb_bind_mount, "bind", "NAME PATH [PATH]\0", 3, 4, 0,
      "Bind mount a path from the host into a container");
 static int verb_bind_mount(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1808,9 +1808,9 @@ static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) 
         return r;
 }
 
-VERB(verb_show_image, "image-status", "[NAME…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_image, "image-status", "[NAME…]\0", VERB_ANY, VERB_ANY, 0,
      "Show image details");
-VERB(verb_show_image, "show-image", "[NAME…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_image, "show-image", "[NAME…]\0", VERB_ANY, VERB_ANY, 0,
      "Show properties of image");
 static int verb_show_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1896,7 +1896,7 @@ static int get_settings_path(const char *name, char **ret_path) {
         return -ENOENT;
 }
 
-VERB(verb_edit_settings, "edit", "NAME|FILE…", 2, VERB_ANY, 0,
+VERB(verb_edit_settings, "edit", "NAME|FILE…\0", 2, VERB_ANY, 0,
      "Edit settings of one or more VMs/containers");
 static int verb_edit_settings(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(edit_file_context_done) EditFileContext context = {};
@@ -1968,7 +1968,7 @@ static int verb_edit_settings(int argc, char *argv[], uintptr_t _data, void *use
         return do_edit_files_and_install(&context);
 }
 
-VERB(verb_cat_settings, "cat", "NAME|FILE…", 2, VERB_ANY, 0,
+VERB(verb_cat_settings, "cat", "NAME|FILE…\0", 2, VERB_ANY, 0,
      "Show settings of one or more VMs/containers");
 static int verb_cat_settings(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r = 0;
@@ -2021,7 +2021,7 @@ static int verb_cat_settings(int argc, char *argv[], uintptr_t _data, void *user
         return r;
 }
 
-VERB(verb_clone_image, "clone", "NAME NAME", 3, 3, 0,
+VERB(verb_clone_image, "clone", "NAME NAME\0", 3, 3, 0,
      "Clone an image");
 static int verb_clone_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2047,7 +2047,7 @@ static int verb_clone_image(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
-VERB(verb_rename_image, "rename", "NAME NAME", 3, 3, 0,
+VERB(verb_rename_image, "rename", "NAME NAME\0", 3, 3, 0,
      "Rename an image");
 static int verb_rename_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2069,7 +2069,7 @@ static int verb_rename_image(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
-VERB(verb_read_only_image, "read-only", "NAME [BOOL]", 2, 3, 0,
+VERB(verb_read_only_image, "read-only", "NAME [BOOL]\0", 2, 3, 0,
      "Mark or unmark image read-only");
 static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2093,7 +2093,7 @@ static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *u
         return 0;
 }
 
-VERB(verb_remove_image, "remove", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_remove_image, "remove", "NAME…\0", 2, VERB_ANY, 0,
      "Remove an image");
 static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -2122,7 +2122,7 @@ static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
-VERB(verb_set_limit, "set-limit", "[NAME] BYTES", 2, 3, 0,
+VERB(verb_set_limit, "set-limit", "[NAME] BYTES\0", 2, 3, 0,
      "Set image or pool size limit (disk quota)");
 static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2210,7 +2210,7 @@ static int verb_clean_images(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
-VERB(verb_bind_volume, "bind-volume", "MACHINE PROVIDER:VOLUME[:…]", 3, 3, 0,
+VERB(verb_bind_volume, "bind-volume", "MACHINE PROVIDER:VOLUME[:…]\0", 3, 3, 0,
      "Attach a volume to a running machine");
 static int verb_bind_volume(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
@@ -2282,7 +2282,7 @@ static int verb_bind_volume(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
-VERB(verb_unbind_volume, "unbind-volume", "MACHINE PROVIDER:VOLUME", 3, 3, 0,
+VERB(verb_unbind_volume, "unbind-volume", "MACHINE PROVIDER:VOLUME\0", 3, 3, 0,
      "Detach a volume from a running machine");
 static int verb_unbind_volume(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;

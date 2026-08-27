@@ -930,9 +930,9 @@ static int get_bus_path_by_id(
         return strdup_to(ret, path);
 }
 
-VERB(verb_show_session, "session-status", "[ID…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_session, "session-status", "[ID…]\0", VERB_ANY, VERB_ANY, 0,
      "Show session status");
-VERB(verb_show_session, "show-session", "[ID…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_session, "show-session", "[ID…]\0", VERB_ANY, VERB_ANY, 0,
      "Show properties of sessions or the manager");
 static int verb_show_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -980,11 +980,11 @@ static int verb_show_session(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
-VERB(verb_activate, "activate", "[ID]", VERB_ANY, 2, 0,
+VERB(verb_activate, "activate", "[ID]\0", VERB_ANY, 2, 0,
      "Activate a session");
-VERB(verb_activate, "lock-session", "[ID…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_activate, "lock-session", "[ID…]\0", VERB_ANY, VERB_ANY, 0,
      "Screen lock one or more sessions");
-VERB(verb_activate, "unlock-session", "[ID…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_activate, "unlock-session", "[ID…]\0", VERB_ANY, VERB_ANY, 0,
      "Screen unlock one or more sessions");
 static int verb_activate(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1053,10 +1053,10 @@ static int verb_lock_sessions(int argc, char *argv[], uintptr_t _data, void *use
 }
 
 /* The implementation is above, but we put this here to preserve the logical order in --help. */
-VERB(verb_activate, "terminate-session", "ID…", 2, VERB_ANY, 0,
+VERB(verb_activate, "terminate-session", "ID…\0", 2, VERB_ANY, 0,
      "Terminate one or more sessions");
 
-VERB(verb_kill_session, "kill-session", "ID…", 2, VERB_ANY, 0,
+VERB(verb_kill_session, "kill-session", "ID…\0", 2, VERB_ANY, 0,
      "Send signal to processes of a session");
 static int verb_kill_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1163,9 +1163,9 @@ static int verb_list_users(int argc, char *argv[], uintptr_t _data, void *userda
         return list_table_print(table, "users");
 }
 
-VERB(verb_show_user, "user-status", "[USER…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_user, "user-status", "[USER…]\0", VERB_ANY, VERB_ANY, 0,
      "Show user status");
-VERB(verb_show_user, "show-user", "[USER…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_user, "show-user", "[USER…]\0", VERB_ANY, VERB_ANY, 0,
      "Show properties of users or the manager");
 static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1218,9 +1218,9 @@ static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdat
         return 0;
 }
 
-VERB(verb_enable_linger, "enable-linger", "[USER…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_enable_linger, "enable-linger", "[USER…]\0", VERB_ANY, VERB_ANY, 0,
      "Enable linger state of one or more users");
-VERB(verb_enable_linger, "disable-linger", "[USER…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_enable_linger, "disable-linger", "[USER…]\0", VERB_ANY, VERB_ANY, 0,
      "Disable linger state of one or more users");
 static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1270,7 +1270,7 @@ static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *use
         return 0;
 }
 
-VERB(verb_terminate_user, "terminate-user", "USER…", 2, VERB_ANY, 0,
+VERB(verb_terminate_user, "terminate-user", "USER…\0", 2, VERB_ANY, 0,
      "Terminate all sessions of one or more users");
 static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1300,7 +1300,7 @@ static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *us
         return 0;
 }
 
-VERB(verb_kill_user, "kill-user", "USER…", 2, VERB_ANY, 0,
+VERB(verb_kill_user, "kill-user", "USER…\0", 2, VERB_ANY, 0,
      "Send signal to processes of a user");
 static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1385,9 +1385,9 @@ static int verb_list_seats(int argc, char *argv[], uintptr_t _data, void *userda
         return list_table_print(table, "seats");
 }
 
-VERB(verb_show_seat, "seat-status", "[NAME…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_seat, "seat-status", "[NAME…]\0", VERB_ANY, VERB_ANY, 0,
      "Show seat status");
-VERB(verb_show_seat, "show-seat", "[NAME…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_show_seat, "show-seat", "[NAME…]\0", VERB_ANY, VERB_ANY, 0,
      "Show properties of seats or the manager");
 static int verb_show_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1435,7 +1435,7 @@ static int verb_show_seat(int argc, char *argv[], uintptr_t _data, void *userdat
         return 0;
 }
 
-VERB(verb_attach, "attach", "NAME DEVICE…", 3, VERB_ANY, 0,
+VERB(verb_attach, "attach", "NAME DEVICE…\0", 3, VERB_ANY, 0,
      "Attach one or more devices to a seat");
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1478,7 +1478,7 @@ static int verb_flush_devices(int argc, char *argv[], uintptr_t _data, void *use
         return 0;
 }
 
-VERB(verb_terminate_seat, "terminate-seat", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_terminate_seat, "terminate-seat", "NAME…\0", 2, VERB_ANY, 0,
      "Terminate all sessions on one or more seats");
 static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

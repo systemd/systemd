@@ -136,6 +136,7 @@ INTROSPECTABLE=(
     systemd-tpm2-clear
     systemd-tpm2-setup
     systemd-tty-ask-password-agent
+    systemd-udevd
     systemd-umount
     systemd-update-done
     systemd-validatefs
@@ -143,6 +144,7 @@ INTROSPECTABLE=(
     systemd-vmspawn
     systemd-vpick
     timedatectl
+    udevadm
     updatectl
     userdbctl
     v4l_id
@@ -206,6 +208,31 @@ fi
 
 systemd-id128 --introspect-cli | jq -e \
     '.commands[0].verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
+
+# udevadm's verbs carry their own options, reported recursively
+udevadm --introspect-cli | jq -e \
+    '.commands[] | select(.names[0] == "udevadm") | .verbs[] | select(.names[0] == "info") |
+        [.options[].names[-1]] | contains(["--query", "--json", "--no-pager"])'
+
+udevadm --introspect-cli | jq -e \
+                              '.commands[] | select(.names[0] == "udevadm") | .verbs[] |
+              select(.names[0] == "hwdb") | .isDeprecated == true'
+
+# udevadm is also systemd-udevd
+udevadm --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["systemd-udevd", "udevadm"]'
+
+# The systemd-udevd command must own no verbs: the help-verb check in the loop above relies on
+# this to never run 'systemd-udevd help', which would start the daemon.
+udevadm --introspect-cli | jq -e \
+    '.commands[] | select(.names[0] == "systemd-udevd") | (.verbs // []) == []'
+
+# Each subcommand's help and introspection must work
+for v in cat control hwdb info lock monitor settle test test-builtin trigger verify wait; do
+    udevadm "$v" --help >/dev/null
+    udevadm "$v" --introspect-cli | jq -e \
+        '.mediaType == "application/vnd.io.systemd.cli-introspection-0"'
+done
 
 # systemd is optionally a multicall binary that also provides systemd-executor
 if [[ "$(readlink "$(command -v systemd-executor)" 2>/dev/null)" == systemd ]]; then
