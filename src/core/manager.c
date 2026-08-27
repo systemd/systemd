@@ -129,6 +129,7 @@ static int manager_dispatch_pidref_transport_fd(sd_event_source *source, int fd,
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
 static int manager_dispatch_sigchld(sd_event_source *source, void *userdata);
+static int manager_dispatch_system_state(sd_event_source *source, void *userdata);
 static int manager_dispatch_timezone_change(sd_event_source *source, const struct inotify_event *event, void *userdata);
 static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
@@ -970,6 +971,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .executor_fd = -EBADF,
 
                 .restrict_fsaccess_bss_map_fd = -EBADF,
+                .previous_system_state = _MANAGER_STATE_INVALID,
         };
 
         FOREACH_ELEMENT(fd, m->restrict_fsaccess_link_fds)
@@ -1016,6 +1018,11 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 return r;
 
         r = sd_event_default(&m->event);
+        if (r < 0)
+                return r;
+
+        /* SystemState is derived from multiple sources, so check it once after each event-loop iteration. */
+        r = sd_event_add_post(m->event, /* ret= */ NULL, manager_dispatch_system_state, m);
         if (r < 0)
                 return r;
 
@@ -4975,7 +4982,7 @@ int manager_update_failed_units(Manager *m, Unit *u, bool failed) {
                 (void) set_remove(m->failed_units, u);
 
         if (set_size(m->failed_units) != size)
-                bus_manager_send_change_signal(m);
+                bus_manager_send_change_signal_strv(m, STRV_MAKE("NFailedUnits"));
 
         return 0;
 }
@@ -5016,6 +5023,28 @@ ManagerState manager_state(Manager *m) {
                 return MANAGER_DEGRADED;
 
         return MANAGER_RUNNING;
+}
+
+static int manager_dispatch_system_state(sd_event_source *source, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        ManagerState state;
+
+        assert(source);
+
+        state = manager_state(m);
+        if (m->previous_system_state == _MANAGER_STATE_INVALID) {
+                /* Establish the initial baseline without emitting a change signal. */
+                m->previous_system_state = state;
+                return 0;
+        }
+
+        if (m->previous_system_state == state)
+                return 0;
+
+        m->previous_system_state = state;
+        bus_manager_send_change_signal_strv(m, STRV_MAKE("SystemState"));
+
+        return 0;
 }
 
 static void manager_unref_uid_internal(
