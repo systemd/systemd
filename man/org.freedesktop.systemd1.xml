@@ -479,7 +479,6 @@ node /org/freedesktop/systemd1 {
       readwrite b ServiceWatchdogs = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ControlGroup = '...';
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s SystemState = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly y ExitCode = ...;

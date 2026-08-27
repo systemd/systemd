@@ -9,7 +9,7 @@ After=basic.target network.target @after@
 ExecStartPre=rm -f /failed /testok
 ExecStart=@command@
 ExecStartPost=/usr/lib/systemd/tests/testdata/units/post.sh
-Type=oneshot
+Type=@type@
 MemoryAccounting=@memory-accounting@
 Environment=SYSTEMD_PAGER= SYSTEMD_NSS_LOG_LEVEL=info @env@
 UnsetEnvironment=JOURNAL_STREAM
