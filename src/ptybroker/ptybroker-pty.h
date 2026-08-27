@@ -106,5 +106,7 @@ int pseudo_tty_vhangup(PseudoTTY *pty);
 
 void pseudo_tty_fail_acquire(PseudoTTY *pty, const char *error_id, sd_json_variant *parameters);
 
+int pseudo_tty_sync_winsize(PseudoTTY *pty);
+
 DECLARE_STRING_TABLE_LOOKUP(frontend_type, FrontendType);
 DECLARE_STRING_TABLE_LOOKUP(backend_type, BackendType);
