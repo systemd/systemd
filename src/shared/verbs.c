@@ -649,7 +649,7 @@ static int command_build_json(
                                         "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->abstract))),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!cmd->footer,
-                                        "footer", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->footer))),
+                                        "postscript", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->footer))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_VARIANT(opts)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!cmds, "verbs", SD_JSON_BUILD_VARIANT(cmds)));
         if (r < 0)
