@@ -890,11 +890,11 @@ units = [
           'conditions' : ['ENABLE_SYSINSTALL'],
         },
         {
-          'file' : 'systemd-sysupdate-auto-enable.service',
+          'file' : 'systemd-sysupdate-auto-enable.service.in',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {
-          'file' : 'systemd-sysupdate-reboot.service',
+          'file' : 'systemd-sysupdate-reboot.service.in',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {
@@ -902,12 +902,12 @@ units = [
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {
-          'file' : 'systemd-sysupdate-update.service',
+          'file' : 'systemd-sysupdate-update.service.in',
           'conditions' : ['ENABLE_SYSUPDATE'],
           'symlinks' : ['systemd-sysupdate.service'],  # compatibility after rename
         },
         {
-          'file' : 'systemd-sysupdate@.service',
+          'file' : 'systemd-sysupdate@.service.in',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {

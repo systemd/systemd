@@ -104,6 +104,12 @@ CHANGES WITH 262:
           so the filters were silently ignored. Scripts relying on filtered
           field lists should be adjusted to query entries explicitly.
 
+        * The systemd-sysupdate binary has been moved back from bindir to
+          libexecdir, as more breaking changes are forthcoming and it is thus
+          again marked as experimental. It will be stabilized in a future
+          release. The libexecdir path is the backwards compatible way to call
+          it.
+
         Changes in the system and service manager:
 
         * The manager now embeds a basic set of unit files (basic.target,
