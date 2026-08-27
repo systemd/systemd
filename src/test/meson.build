@@ -168,6 +168,7 @@ simple_tests += files(
         'test-ordered-set.c',
         'test-os-util.c',
         'test-osc-context.c',
+        'test-osc-winsize.c',
         'test-parse-argument.c',
         'test-parse-helpers.c',
         'test-parse-util.c',
