@@ -42,7 +42,11 @@ static int address_compare(const struct local_address *a, const struct local_add
         if (r != 0)
                 return r;
 
-        return memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(a->family));
+        r = memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(a->family));
+        if (r != 0)
+                return r;
+
+        return memcmp(&a->prefsrc, &b->prefsrc, FAMILY_ADDRESS_SIZE(a->family));
 }
 
 bool has_local_address(const struct local_address *addresses, size_t n_addresses, const struct local_address *needle) {
