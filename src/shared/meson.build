@@ -160,6 +160,7 @@ shared_sources = files(
         'open-file.c',
         'options.c',
         'osc-context.c',
+        'osc-winsize.c',
         'output-mode.c',
         'pager.c',
         'pam-util.c',
