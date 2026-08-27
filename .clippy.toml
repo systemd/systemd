@@ -2,3 +2,7 @@
 
 msrv = "1.85"
 check-private-items = true
+
+[[disallowed-methods]]
+path = "systemd_shared_sys::abort"
+reason = "panic!() instead, the panic handler logs where and why before aborting"
