@@ -4,8 +4,9 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "chattr-util.h"
-#include "format-table.h"
 #include "iovec-util.h"
 #include "journal-file-util.h"
 #include "log.h"
@@ -18,6 +19,12 @@
 #include "tests.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "test-journal-append\0",
+        "Append entries to journal files and check corruption handling.",
+);
 
 static int journal_append_message(JournalFile *mj, const char *message) {
         struct iovec iovec;
@@ -157,24 +164,8 @@ static int run(int argc, char *argv[]) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                OPTION_COMMON_HELP: {
-                        _cleanup_(table_unrefp) Table *options = NULL;
-
-                        r = option_parser_get_help_table(&options);
-                        if (r < 0)
-                                return r;
-
-                        printf("Syntax:\n"
-                               "  %s [OPTION...]\n"
-                               "\nOptions:\n",
-                               program_invocation_short_name);
-
-                        r = table_print_or_warn(options);
-                        if (r < 0)
-                                return r;
-
-                        return 0;
-                }
+                OPTION_COMMON_HELP:
+                        return command_print_help();
 
                 OPTION_LONG("start-offset", "OFFSET",
                             "Offset at which to start corrupting the journal "
@@ -221,6 +212,9 @@ static int run(int argc, char *argv[]) {
 
                         run_one = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (run_one)

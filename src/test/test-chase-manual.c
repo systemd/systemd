@@ -1,36 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "chase.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
 #include "options.h"
 #include "strv.h"
 #include "tests.h"
+#include "verbs.h"
 
 static const char *arg_root = NULL;
 static int arg_flags = 0;
 static bool arg_open = false;
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] path...\n"
-               "\nExercise chase() function on specified paths.\n\n",
-               program_invocation_short_name);
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
+COMMAND(
+        "test-chase-manual\0",
+        "Exercise chase() function on specified paths.",
+        .argspec = "PATH…\0",
+);
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -43,7 +32,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION_LONG("root", "PATH", "Operate below specified root directory"):
                         arg_root = opts.arg;
@@ -64,6 +53,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG_DATA("warn",           NULL, CHASE_WARN,           "Emit a warning on error"):
                         arg_flags |= opts.opt->data;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
