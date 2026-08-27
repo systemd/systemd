@@ -4,6 +4,7 @@
 # and sets the following variables and one common function:
 # - $MKOSI_CFLAGS
 # - $MKOSI_LDFLAGS
+# - $MKOSI_RUSTFLAGS
 # - $MKOSI_MESON_OPTIONS
 
 MKOSI_CFLAGS="-O0 -g"
@@ -15,6 +16,12 @@ fi
 MKOSI_LDFLAGS=""
 if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
     MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(realpath "$(clang --print-runtime-dir)")"
+fi
+
+# rustc links through clang as well and has to pick the same shared sanitizer runtime as the C code.
+MKOSI_RUSTFLAGS=""
+if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
+    MKOSI_RUSTFLAGS="-Clink-arg=-shared-libasan -Clink-arg=-Wl,-rpath=$(realpath "$(clang --print-runtime-dir)")"
 fi
 
 MKOSI_MESON_OPTIONS="-D mode=developer -D vcs-tag=${VCS_TAG:-true} -D b_sanitize=${SANITIZERS:-none} -Dtime-epoch=1744207869"
