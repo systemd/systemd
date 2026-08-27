@@ -13,9 +13,9 @@ int _service_parse_argv(
 
 /* The service is expected to define a COMMAND() with .option_namespace = "service" and the option
  * groups matching the features it supports: "Options" always, "Bus introspection" iff bus_objects
- * is passed, "Runtime scope" iff runtime_scope is passed. The macro captures the calling binary's
- * verb section, where that COMMAND is found, while the options are defined in
- * service_parse_argv_full() itself. */
+ * is passed, "Runtime scope" iff runtime_scope is passed. The macro inserts the calling binary's
+ * verb section, where that COMMAND is found, while the options are defined in _service_parse_argv().
+ */
 #define service_parse_argv(bus_objects, runtime_scope, argc, argv)      \
         _service_parse_argv(                                            \
                         __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,    \
