@@ -152,9 +152,11 @@ systemd_shared_sources = files(
         'log.rs',
         'panic.rs',
         'prelude.rs',
+        'program.rs',
         'refcount.rs',
         'stdio.rs',
         'strv.rs',
+        'tests.rs',
 )
 
 # The parent registers the tests, a subproject with tests of its own breaks meson test --setup= for setups
