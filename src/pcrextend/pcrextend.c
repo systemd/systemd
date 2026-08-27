@@ -52,7 +52,7 @@ COMMAND(
                 "--machine-id\0"
                 "--product-id\0"
                 "--login=UID|USER\0",
-        .man_pages = "systemd-pcrextend.8\0",
+        .man_pages = "systemd-pcrextend(8)\0",
 );
 
 #define EXTENSION_STRING_SAFE_LIMIT 1024

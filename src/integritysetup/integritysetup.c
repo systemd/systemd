@@ -44,7 +44,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(dm_integrity_algorithm, IntegrityAl
 COMMAND(
         "systemd-integritysetup\0",
         "Attach or detach an integrity protected block device.",
-        .man_pages = "systemd-integritysetup@.service.8\0",
+        .man_pages = "systemd-integritysetup@.service(8)\0",
 );
 
 static int load_key_file(

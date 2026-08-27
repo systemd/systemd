@@ -17,7 +17,7 @@ static bool arg_strict = false;
 COMMAND(
         "systemd-hwdb\0",
         "Update or query the hardware database.",
-        .man_pages = "systemd-hwdb.8\0",
+        .man_pages = "systemd-hwdb(8)\0",
 );
 
 VERB(verb_query, "query", "MODALIAS", 2, 2, 0,

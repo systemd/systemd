@@ -62,7 +62,7 @@ COMMAND(
                 "[VARIABLE=VALUE…]\0"
                 "--exec [VARIABLE=VALUE…] ; -- CMDLINE…\0"
                 "--fork -- CMDLINE…\0",
-        .man_pages = "systemd-notify.1\0",
+        .man_pages = "systemd-notify(1)\0",
 );
 
 static int get_manager_pid(PidRef *ret) {

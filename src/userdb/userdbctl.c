@@ -73,7 +73,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_from_file, sd_json_variant_unrefp);
 COMMAND(
         "userdbctl\0",
         "Show user and group information.",
-        .man_pages = "userdbctl.1\0",
+        .man_pages = "userdbctl(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

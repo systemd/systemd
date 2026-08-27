@@ -119,7 +119,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
 COMMAND(
         "machinectl\0",
         "Send control commands to or query the virtual machine and container registration manager.",
-        .man_pages = "machinectl.1\0",
+        .man_pages = "machinectl(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

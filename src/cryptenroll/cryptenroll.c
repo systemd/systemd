@@ -122,7 +122,7 @@ COMMAND(
         "systemd-cryptenroll\0",
         "Enroll a security token or authentication credential to a LUKS volume.",
         .argspec = "[BLOCK-DEVICE]\0",
-        .man_pages = "systemd-cryptenroll.1\0",
+        .man_pages = "systemd-cryptenroll(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

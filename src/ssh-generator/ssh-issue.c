@@ -28,7 +28,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_issue_path, freep);
 COMMAND(
         "systemd-ssh-issue\0",
         "Create or remove the /run/issue.d/ file announcing the SSH VSOCK address.",
-        .man_pages = "systemd-ssh-issue.1\0",
+        .man_pages = "systemd-ssh-issue(1)\0",
 );
 
 static int acquire_cid(unsigned *ret_cid) {

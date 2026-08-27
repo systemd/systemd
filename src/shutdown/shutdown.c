@@ -66,7 +66,7 @@ COMMAND(
         "systemd-shutdown\0",
         "Execute the final phase of system shutdown.",
         .argspec = "reboot|poweroff|halt|kexec|exit\0",
-        .man_pages = "systemd-shutdown.8\0",
+        .man_pages = "systemd-shutdown(8)\0",
 );
 
 static int parse_argv(int argc, char *argv[]) {

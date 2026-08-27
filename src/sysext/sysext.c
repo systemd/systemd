@@ -134,14 +134,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 COMMAND(
         "systemd-sysext\0",
         "Merge system extension images into /usr/ and /opt/.",
-        .man_pages = "systemd-sysext.8\0",
+        .man_pages = "systemd-sysext(8)\0",
         .flags = COMMAND_VERBS_SHARED,
         .pager_flags = &arg_pager_flags,
 );
 COMMAND(
         "systemd-confext\0",
         "Merge configuration extension images into /etc/.",
-        .man_pages = "systemd-confext.8\0",
+        .man_pages = "systemd-confext(8)\0",
         .flags = COMMAND_VERBS_SHARED,
         .pager_flags = &arg_pager_flags,
 );

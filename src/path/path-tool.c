@@ -24,7 +24,7 @@ COMMAND(
         "systemd-path\0",
         "Show system and user paths.",
         .argspec = "[NAME…]\0",
-        .man_pages = "systemd-path.1\0",
+        .man_pages = "systemd-path(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

@@ -40,7 +40,7 @@ COMMAND(
         "Listen on sockets and launch child on connection.",
         .argspec = "COMMAND…\0",
         .footer = "Note: file descriptors from sd_listen_fds() will be passed through.",
-        .man_pages = "systemd-socket-activate.1\0",
+        .man_pages = "systemd-socket-activate(1)\0",
 );
 
 static int add_epoll(int epoll_fd, int fd) {

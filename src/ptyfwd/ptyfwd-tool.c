@@ -31,7 +31,7 @@ COMMAND(
         "systemd-pty-forward\0",
         "Run command with a custom terminal background color or title.",
         .argspec = "COMMAND…\0",
-        .man_pages = "systemd-pty-forward.1\0",
+        .man_pages = "systemd-pty-forward(1)\0",
 );
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {

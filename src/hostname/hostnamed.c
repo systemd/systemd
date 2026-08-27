@@ -2666,7 +2666,7 @@ static bool context_check_idle(void *userdata) {
 COMMAND(
         "systemd-hostnamed\0",
         "Manage the system hostname and related metadata.",
-        .man_pages = "systemd-hostnamed.service.8\0",
+        .man_pages = "systemd-hostnamed.service(8)\0",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"
