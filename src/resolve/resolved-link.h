@@ -7,6 +7,7 @@
 #include "list.h"
 #include "network-util.h"
 #include "resolve-util.h"
+#include "resolve-varlink-util.h"
 #include "resolved-forward.h"
 
 #define LINK_SEARCH_DOMAINS_MAX 1024
@@ -121,3 +122,6 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove);
 bool link_negative_trust_anchor_lookup(Link *l, const char *name);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
+
+int link_set_dns_servers(Link *l, struct in_addr_full **dns, size_t n_dns, ResolveConfigSource source);
+int link_set_search_domains(Link *l, DomainParameters *domains, size_t n_domains, ResolveConfigSource source);
