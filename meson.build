@@ -2089,6 +2089,17 @@ if have_rust
                         'libc=' + get_option('libc'),
                 ])
         libsystemd_shared_sys = systemd_shared_rust.get_variable('libsystemd_shared_sys')
+
+        if want_tests != 'false'
+                test('check-bindings-header',
+                     python,
+                     args : [systemd_shared_rust.get_variable('check_bindings_header_py'),
+                             systemd_shared_rust.get_variable('bindings_h'),
+                             meson.project_source_root() / 'src/basic',
+                             meson.project_source_root() / 'src/shared',
+                             meson.project_source_root() / 'src/systemd'],
+                     suite : 'dist')
+        endif
 endif
 
 libsystemd = shared_library(
