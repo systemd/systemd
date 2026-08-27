@@ -218,6 +218,10 @@ udevadm --introspect-cli | jq -e \
     '.commands[] | select(.names[0] == "udevadm") | .verbs[] |
         select(.names[0] == "hwdb") | .isDeprecated == true'
 
+# udevadm print has multiple argspecs. Check that we print them.
+udevadm lock -h | grep -E '^> udevadm .* lock .* COMMAND$'
+udevadm lock -h | grep -E '^> udevadm .* lock .* --print$'
+
 # systemd is optionally a multicall binary that also provides systemd-executor
 if [[ "$(readlink "$(command -v systemd-executor)" 2>/dev/null)" == systemd ]]; then
     systemd --introspect-cli | jq -e \
