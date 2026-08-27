@@ -254,6 +254,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-51:pvr*
  KEYBOARD_KEY_66=micmute                                # Microphone mute button
  KEYBOARD_KEY_f5=prog1                                  # NitroSense button
 
+# Nitro ANV15-52
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-52:pvr*
+ KEYBOARD_KEY_f5=prog1                                  # NitroSense button
+
 ###########################################################
 # Alienware
 ###########################################################
