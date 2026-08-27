@@ -199,20 +199,70 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         /* A we got a valid machine ID argument, that's what counts */
         if (sd_id128_is_null(machine_id) || FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE)) {
 
-                /* Try to read any existing machine ID */
-                r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id);
-                if (r >= 0)
-                        goto finish;
+                if (FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_NEW)) {
+                        /* We are supposed to *persistently* replace the identity of this system, hence
+                         * refuse in all the cases where the ID we'd write would not actually stick. Note
+                         * that being able to open the file O_RDWR is not sufficient for that, so check the
+                         * same things machine_id_commit() looks at. */
 
-                log_debug_errno(r, "Unable to read current machine ID, acquiring new one: %m");
+                        /* A transient ID is currently overmounted: the fd we'd write to is the
+                         * /run/machine-id the running system uses, so we'd clobber the ID in active use and
+                         * persist nothing. (If the overmount is read-only we won't even get here, but that
+                         * remount is best-effort.) */
+                        r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m", etc_machine_id);
+                        if (r > 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                                       "Refusing to generate a new machine ID: '%s' is a transient mount, commit it first.",
+                                                       etc_machine_id);
 
-                /* Hmm, so, the id currently stored is not useful, then let's acquire one. */
-                r = acquire_machine_id(root, FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE), &machine_id);
-                if (r < 0)
-                        return r;
+                        if (!writable)
+                                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                                       "Refusing to generate a new machine ID: '%s' is not writable.",
+                                                       etc_machine_id);
 
-                write_run_machine_id = !r; /* acquire_machine_id() returns 1 in case we read this machine ID
-                                            * from /run/machine-id */
+                        /* And if /etc/ itself is volatile (systemd.volatile=, stateless setups) the new ID
+                         * would silently be gone again after the reboot we tell people to perform. Only
+                         * check this for the host: with --root=/--image= the caller explicitly picked the
+                         * tree to operate on, and it is their business what it is backed by. */
+                        if (empty_or_root(root)) {
+                                r = fd_is_temporary_fs(fd);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to determine whether '%s' is on a temporary file system: %m", etc_machine_id);
+                                if (r > 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                                               "Refusing to generate a new machine ID: '%s' is on a temporary file system.",
+                                                               etc_machine_id);
+                        }
+
+                        /* The caller explicitly asked us to make up a new identity for this system. Hence
+                         * don't even look at the ID currently in place, and don't go through
+                         * acquire_machine_id() either: every single source it consults (/run/machine-id, the
+                         * D-Bus machine ID, the system.machine_id credential, the container/VM UUID) would
+                         * likely just hand us back the very ID we are supposed to replace. Go straight to
+                         * the random pool instead. */
+                        r = sd_id128_randomize(&machine_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
+
+                        log_info("Generating new machine ID from random generator.");
+                } else {
+                        /* Try to read any existing machine ID */
+                        r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id);
+                        if (r >= 0)
+                                goto finish;
+
+                        log_debug_errno(r, "Unable to read current machine ID, acquiring new one: %m");
+
+                        /* Hmm, so, the id currently stored is not useful, then let's acquire one. */
+                        r = acquire_machine_id(root, FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_FIRMWARE), &machine_id);
+                        if (r < 0)
+                                return r;
+
+                        write_run_machine_id = !r; /* acquire_machine_id() returns 1 in case we read this machine ID
+                                                    * from /run/machine-id */
+                }
         }
 
         if (writable) {
