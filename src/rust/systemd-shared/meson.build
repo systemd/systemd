@@ -166,6 +166,7 @@ systemd_shared_sources = files(
 # only the parent defines.
 bindings_h = files('bindings.h')
 check_bindings_header_py = files('check-bindings-header.py')
+systemd_shared_rust_sources = systemd_shared_sources + files('systemd_shared_sys.rs')
 
 libsystemd_shared_rs = static_library(
         'systemd_shared',
