@@ -27,6 +27,7 @@ export CXX_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)"
 export CFLAGS="\$CFLAGS $MKOSI_CFLAGS $CFLAGS"
 export CXXFLAGS="\$CXXFLAGS $MKOSI_CFLAGS $CFLAGS"
 export LDFLAGS="\$LDFLAGS $MKOSI_LDFLAGS $LDFLAGS"
+export RUSTFLAGS="\$RUSTFLAGS $MKOSI_RUSTFLAGS $RUSTFLAGS"
 OPTIONS=(
     docs
     !libtool

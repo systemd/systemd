@@ -63,6 +63,7 @@ env \
     CFLAGS="$MKOSI_CFLAGS $CFLAGS" \
     CXXFLAGS="$MKOSI_CFLAGS $CFLAGS" \
     LDFLAGS="$MKOSI_LDFLAGS $LDFLAGS" \
+    RUSTFLAGS="$MKOSI_RUSTFLAGS $RUSTFLAGS" \
     REPODEST="$BUILDDIR" \
     _systemd_upstream=1 \
     _meson_extra_configure_options="$MKOSI_MESON_OPTIONS $MESON_OPTIONS" \
