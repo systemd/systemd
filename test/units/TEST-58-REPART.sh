@@ -2756,6 +2756,62 @@ EOF
     cmp "$imgs/test1.img" "$imgs/test2.img"
 }
 
+testcase_vfat_reproducibility() {
+    local defs imgs output offset listing
+
+    # The FAT timestamps come from mtools, which repart hands $SOURCE_DATE_EPOCH; online mode
+    # mounts the filesystem instead.
+    if [[ "$OFFLINE" != "yes" ]]; then
+        echo "Skipping vfat reproducibility test in online mode."
+        return 0
+    fi
+
+    if ! command -v mdir >/dev/null; then
+        echo "Skipping vfat reproducibility test, mtools is not installed."
+        return 0
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    tee "$defs/esp.conf" <<EOF
+[Partition]
+Type=esp
+Format=vfat
+CopyFiles=/:/
+EOF
+
+    mkdir -p "$imgs/tree/EFI/Linux"
+    echo uki >"$imgs/tree/EFI/Linux/uki.efi"
+
+    # pin down mtimes to 2023-11-14 22:13:20 UTC
+    output=$(env SOURCE_DATE_EPOCH=1700000000 \
+        systemd-repart \
+        --offline="$OFFLINE" \
+        --definitions="$defs" \
+        --empty=create \
+        --size=auto \
+        --seed="$seed" \
+        --dry-run=no \
+        --root="$imgs/tree" \
+        --json=pretty \
+        "$imgs/test.img")
+
+    offset=$(jq -r '.[0].offset' <<<"$output")
+    listing=$(env MTOOLS_SKIP_CHECK=1 TZ=UTC mdir -/ -i "$imgs/test.img@@$offset" ::/)
+    echo "$listing"
+
+    # Every dated entry has the above epoch mtime: the EFI entry in the root, "." and ".." plus one
+    # child in each of the two directories. The volume label's timestamp is mkfs.fat's and is
+    # not listed here; it needs a dosfstools with SOURCE_DATE_EPOCH support
+    # (https://github.com/dosfstools/dosfstools/commit/8da7bc93315c, release > 4.2); that's also
+    # why the image is *not* fully reproducible yet
+    assert_eq "$(grep -cE '[0-9]{4}-[0-9]{2}-[0-9]{2}' <<<"$listing")" 7
+    assert_eq "$(grep -cE '2023-11-14 +22:13' <<<"$listing")" 7
+}
+
 testcase_luks2_keyhash() {
     local defs imgs output root
 

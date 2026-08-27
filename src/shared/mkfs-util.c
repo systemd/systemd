@@ -206,8 +206,17 @@ static int mcopy_flush_files(
         if (!dest)
                 return log_oom();
 
-        argv = strv_new(mcopy_bin, "-p", "-Q", "-m", "-i", node);
+        argv = strv_new(mcopy_bin, "-p", "-Q");
         if (!argv)
+                return log_oom();
+
+        /* -m copies the sources' own mtimes into the FAT, which breaks $SOURCE_DATE_EPOCH. When
+         * that is set, let mtools derive every timestamp from the epoch instead, like for the
+         * directories mmd creates below. */
+        if (!getenv("SOURCE_DATE_EPOCH") && strv_extend(&argv, "-m") < 0)
+                return log_oom();
+
+        if (strv_extend_many(&argv, "-i", node) < 0)
                 return log_oom();
 
         STRV_FOREACH(p, batch)
