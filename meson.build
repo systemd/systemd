@@ -2088,7 +2088,7 @@ if have_rust
                         'rust-target=' + rust_msrv,
                         'libc=' + get_option('libc'),
                 ])
-        libsystemd_shared_sys = systemd_shared_rust.get_variable('libsystemd_shared_sys')
+        libsystemd_shared_rs = systemd_shared_rust.get_variable('libsystemd_shared_rs')
 
         if want_tests != 'false'
                 test('check-bindings-header',
