@@ -98,6 +98,15 @@ CHANGES WITH 263 in spe:
           systemd-sysupdate. The Credential= match in .network, .netdev, and
           .link files is unchanged.
 
+        * systemd may now optionally be built with support for programs
+          written in Rust. This is controlled by the new -Drust= meson
+          option, which requires rustc >= 1.85, bindgen >= 0.71.1 and meson
+          >= 1.4.0. It defaults to "auto", which uses the toolchain when it
+          is found and is not affected by --auto-features=enabled, so that
+          builds without a Rust toolchain keep working. -Drust=enabled fails
+          the build when the toolchain is missing, and in cross builds, where
+          Rust support is not available yet.
+
         Changes in systemd-udevd:
 
         * systemd-udevd now uses fanotify rather than inotify to watch device
