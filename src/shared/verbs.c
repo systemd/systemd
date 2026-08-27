@@ -617,9 +617,14 @@ int _command_print_verb_help(
         }
 
         if (verb->option_namespace) {
+                const Option *optns = options_find_namespace(options, options_end, verb->option_namespace);
+                if (!optns)
+                        return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                               "Option namespace %s not found.", verb->option_namespace);
+
                 _cleanup_(table_unrefp) Table *table = NULL;
-                r = _option_parser_get_help_table_full(options, options_end, verb->option_namespace,
-                                                       /* group= */ NULL, &table);
+                const char *group;
+                r = options_get_help_table_group(optns, options_end, /* option_groups= */ NULL, &table, &group);
                 if (r < 0)
                         return r;
 
