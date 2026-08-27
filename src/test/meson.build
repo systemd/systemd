@@ -776,3 +776,13 @@ if static_libudev != 'false'
                 },
         ]
 endif
+
+############################################################
+
+if have_rust
+        executables += [
+                rust_test_template + {
+                        'sources' : files('test-rust-shared.rs'),
+                },
+        ]
+endif
