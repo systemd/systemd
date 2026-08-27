@@ -1,0 +1,247 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-keyring-setup.service" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-keyring-setup.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-keyring-setup.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-keyring-setup.service</refname>
+    <refname>systemd-keyring-setup</refname>
+    <refpurpose>Enroll certificates into the kernel's trust keyrings at boot</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-keyring-setup.service</filename></para>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-keyring-setup</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat">KEYRING</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-keyring-setup.service</filename> is an early boot service that populates the
+    kernel's dedicated trust keyrings with X.509 certificates found in the <ulink
+    url="https://uapi-group.org/specifications/specs/file_hierarchy_for_the_verification_of_os_artifacts/">File
+    Hierarchy for the Verification of OS Artifacts</ulink> (VOA), and then seals the keyrings so that the
+    set of trusted certificates cannot be changed anymore for the lifetime of the kernel. This allows the
+    kernel to authenticate signatures with keys shipped by the OS vendor or configured by the administrator,
+    without rebuilding the kernel or enrolling keys into the firmware.</para>
+
+    <para>The following keyrings are provisioned, each from a VOA <emphasis>role</emphasis> of the same trust
+    domain:</para>
+
+    <table>
+      <title>Keyrings and VOA roles</title>
+      <tgroup cols="3">
+        <colspec colname="keyring"/>
+        <colspec colname="role"/>
+        <colspec colname="use"/>
+        <thead>
+          <row>
+            <entry>Keyring</entry>
+            <entry>VOA role</entry>
+            <entry>Consumer</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><literal>.dm-verity</literal></entry>
+            <entry><literal>image</literal></entry>
+            <entry>Signatures on the root hash of dm-verity volumes, such as those of Discoverable Disk
+            Images set up by
+            <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+            <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+            or the <varname>RootImage=</varname> setting of services</entry>
+          </row>
+          <row>
+            <entry><literal>.fs-verity</literal></entry>
+            <entry><literal>fs-verity</literal></entry>
+            <entry>Built-in signatures of fs-verity protected files</entry>
+          </row>
+          <row>
+            <entry><literal>.bpf</literal></entry>
+            <entry><literal>bpf</literal></entry>
+            <entry>Signatures of BPF programs</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>For each keyring the certificates below
+    <filename>/etc/voa/</filename>, <filename>/run/voa/</filename>, <filename>/usr/local/share/voa/</filename>
+    and <filename>/usr/share/voa/</filename> are looked up as
+    <filename><replaceable>OS</replaceable>/<replaceable>ROLE</replaceable>/default/x509/*-certificate.pem</filename>
+    and
+    <filename><replaceable>OS</replaceable>/trust-anchor-<replaceable>ROLE</replaceable>/default/x509/*-certificate.pem</filename>.
+    Both artifact verifiers and trust anchors end up in the same keyring, as the kernel validates certificate
+    chains itself. Every copy of a certificate in every load path counts, and a certificate whose file name
+    is masked via a symlink to <filename>/dev/null</filename> in any load path is ignored in all of them.
+    Only the first certificate of a file is used. Symlinks are followed, as long as the target lies inside
+    the hierarchy and carries the same file name. The <replaceable>OS</replaceable> identifiers looked up
+    are derived
+    from
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>: the
+    exact identifier composed of the <varname>ID=</varname>, <varname>VERSION_ID=</varname>,
+    <varname>VARIANT_ID=</varname>, <varname>IMAGE_ID=</varname> and <varname>IMAGE_VERSION=</varname>
+    fields, and the bare <varname>ID=</varname>. Both directories are searched. The <literal>fs-verity</literal>
+    and <literal>bpf</literal> roles are defined by systemd, the <literal>image</literal> role by the
+    specification.</para>
+
+    <para>As the specification requires, and since the kernel itself checks none, the usage of each
+    certificate is checked against its purpose: an artifact verifier whose extended key usage permits
+    neither code signing nor any usage is not enrolled, and a trust anchor that is not a CA certificate is
+    warned about.</para>
+
+    <para>The <literal>.dm-verity</literal> and <literal>.bpf</literal> keyrings are sealed empty by the kernel
+    unless <option>dm_verity.keyring_unsealed=1</option> respectively <option>bpf.keyring_unsealed=1</option>
+    is passed on the kernel command line, and the kernel only consults them once they hold at least one
+    key and have been sealed again. The <literal>.fs-verity</literal> keyring is never sealed by the kernel
+    and is consulted whenever it holds a key. The service therefore enrolls the certificates and seals each
+    keyring in one go, before the first verity volume is set up, and it seals every keyring it finds even if
+    no certificate was found for it, so that nothing running later in the boot can provision it instead.
+    Consequently the certificates must be available where the service first runs, i.e. in the initrd on
+    systems that boot with one.</para>
+
+    <para>Sealing a keyring stops further keys from being added, but not from being removed. Hence the
+    service also drops all permissions on the keyring afterwards, except for the search permission the
+    kernel itself uses and the owner's view permission. This makes the enrolled set immutable for the
+    lifetime of the kernel, even for the root user, who may still see the keyring and its keys in
+    <filename>/proc/keys</filename>, but neither list, change nor unlock it. This is also how a later boot
+    stage — the host system after the initrd, or the next boot of a soft-rebooted kernel — recognizes that
+    the keyring was provisioned already.</para>
+
+    <para>The service runs in the initrd and in the host system, and the initrd is where provisioning is
+    expected to happen: the root file system may itself be a signed dm-verity volume, and the keyring must
+    be complete before it is set up. Consequently the initrd has to carry the certificates, the
+    <literal>dm-verity</literal> kernel module, and this service. On the host system the service finds the
+    keyrings sealed and locked down, and does nothing.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para>Certificates may also be supplied as system credentials named
+    <varname>keyring-setup.dm-verity.<replaceable>NAME</replaceable></varname>,
+    <varname>keyring-setup.fs-verity.<replaceable>NAME</replaceable></varname> or
+    <varname>keyring-setup.bpf.<replaceable>NAME</replaceable></varname>, each holding one PEM encoded
+    certificate. <replaceable>NAME</replaceable> may consist of lowercase letters, digits,
+    <literal>.</literal>, <literal>_</literal> and <literal>-</literal>. Following the specification's
+    advice for verifiers retrieved from elsewhere, they are placed into the ephemeral load path as artifact
+    verifiers, i.e. as
+    <filename>/run/voa/<replaceable>OS</replaceable>/<replaceable>ROLE</replaceable>/default/x509/<replaceable>NAME</replaceable>-certificate.pem</filename>
+    before the hierarchy is searched, so that masking and merging apply to them like to any other file.
+    With <option>--dry-run</option> they are only reported and not placed, hence they do not appear among
+    the certificates shown. The credential
+    <varname>keyring-setup.os</varname> may hold a whitespace separated list of OS identifiers to look up
+    instead of the ones derived from <filename>os-release</filename>, e.g. for a generic initrd. Credentials
+    are the way to hand a certificate to an initrd without rebuilding it; they are as trustworthy as the
+    mechanism that delivered them. See
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--dry-run</option></term>
+
+        <listitem><para>Show which certificates would be enrolled into which keyring, and the current state
+        of the keyrings, without changing anything. Note that whether a keyring is sealed cannot be
+        determined without changing it, only whether it was locked down, and that the number of keys in a
+        locked down keyring is only shown by <filename>/proc/keys</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager"/>
+      <xi:include href="standard-options.xml" xpointer="json"/>
+      <xi:include href="standard-options.xml" xpointer="help"/>
+      <xi:include href="standard-options.xml" xpointer="version"/>
+    </variablelist>
+
+    <para>If one or more <replaceable>KEYRING</replaceable> names are passed, only those keyrings are
+    processed.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned. This includes the cases where a keyring does not exist, was sealed by
+    the kernel at boot, or was provisioned by an earlier boot stage already. If a configured certificate
+    could not be enrolled because of its contents, <constant>EX_DATAERR</constant> (65) is returned, which
+    the service unit accepts as success. If the kernel refused an operation, 1 is returned. Enrollment failures never prevent the keyring from being
+    sealed: an unsealed keyring is not consulted by the kernel, an unlocked one may be emptied by anyone,
+    and a sealed subset of the configured certificates is preferable to either.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>dm_verity.keyring_unsealed=</varname></term>
+        <term><varname>bpf.keyring_unsealed=</varname></term>
+
+        <listitem><para>Kernel parameters leaving the respective keyring open for provisioning at boot.
+        Without them the kernel seals the keyring empty and nothing can be enrolled. Note that
+        <varname>bpf.keyring_unsealed=1</varname> also makes the kernel refuse caller-supplied keyrings for
+        the verification of BPF program signatures for the whole boot, whether or not provisioning
+        succeeded. See the kernel documentation for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Security Considerations</title>
+
+    <para>The trust the kernel puts into the enrolled certificates is only as strong as the trust in the
+    files they were read from. Provisioning from the initrd of a signed Unified Kernel Image is the intended
+    deployment. Provisioning on the host system after the initrd, or on systems without an initrd, happens
+    after other privileged code had the opportunity to add keys to the still open keyrings.</para>
+
+    <para>Until the keyring is sealed and locked down, any privileged process may add keys to it or
+    remove keys from it, and a certificate with the same subject and key identifier as an enrolled one
+    replaces it. Privileged containers sharing the initial user namespace are no exception. Once locked
+    down, keys cannot be added or removed anymore until the next boot: a compromised certificate is revoked
+    by masking it in the VOA hierarchy and rebooting. Note that a soft reboot does not reset the keyrings.
+    A modular <literal>dm-verity</literal> however takes the <literal>.dm-verity</literal> keyring with it
+    when it is unloaded, and reloading the module creates a new keyring that can be provisioned again, so
+    the lockdown only lasts as long as the module stays loaded. The service warns about this; building
+    <literal>dm-verity</literal> into the kernel avoids it.</para>
+
+    <para>Certificate validity periods are not enforced by the kernel. Signatures continue to be verified
+    against the kernel's revocation list.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>keyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
