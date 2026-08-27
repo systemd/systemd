@@ -100,5 +100,7 @@ int pseudo_tty_track_buffer_to_json(PseudoTTY *pty, size_t n_lines, sd_json_vari
 
 int pseudo_tty_vhangup(PseudoTTY *pty);
 
+int pseudo_tty_sync_winsize(PseudoTTY *pty);
+
 DECLARE_STRING_TABLE_LOOKUP(frontend_type, FrontendType);
 DECLARE_STRING_TABLE_LOOKUP(backend_type, BackendType);

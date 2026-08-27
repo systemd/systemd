@@ -161,6 +161,8 @@ static int pseudo_tty_write(PseudoTTY *pty) {
 }
 
 static int pseudo_tty_read(PseudoTTY *pty) {
+        int r;
+
         assert(pty);
         assert(pty->frontend_fd >= 0);
 
@@ -180,12 +182,9 @@ static int pseudo_tty_read(PseudoTTY *pty) {
          * more than the smallest consumer's headroom, so that BUFFER_MAX stays a hard cap for every buffer. */
         size_t add = MIN(left, (size_t) LONG_LINE_MAX);
 
-        /* Now extend the buffers according to our determination */
+        /* Now extend the buffer according to our determination */
         if (!greedy_realloc(&pty->frontend_read_buffer.iov_base, pty->frontend_read_buffer.iov_len + add, 1))
                 return log_oom();
-        LIST_FOREACH(monitors, monitor, pty->monitors)
-                if (!greedy_realloc(&monitor->buffer.iov_base, monitor->buffer.iov_len + add, 1))
-                        return log_oom();
 
         /* And then read into our scan buffer first */
         void *p = (uint8_t*) pty->frontend_read_buffer.iov_base + pty->frontend_read_buffer.iov_len;
@@ -209,11 +208,44 @@ static int pseudo_tty_read(PseudoTTY *pty) {
 
         /* Copy the data we received to all monitors */
         LIST_FOREACH(monitors, m, pty->monitors) {
-                memcpy((uint8_t*) m->buffer.iov_base + m->buffer.iov_len, p, n);
-                m->buffer.iov_len += n;
+                r = pseudo_tty_monitor_enqueue_output(m, p, n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enqueue pseudo TTY output for monitor: %m");
         }
 
         return 1;
+}
+
+int pseudo_tty_sync_winsize(PseudoTTY *pty) {
+        assert(pty);
+
+        /* Determines the minimum terminal dimensions of all monitors that track their dimensions via OSC
+         * 2811, and propagates them to the pty. */
+
+        if (pty->frontend_fd < 0)
+                return 0;
+
+        unsigned columns = 0, lines = 0;
+        LIST_FOREACH(monitors, m, pty->monitors) {
+                if (!m->osc_winsize)
+                        continue;
+
+                if (m->columns > 0)
+                        columns = columns > 0 ? MIN(columns, m->columns) : m->columns;
+                if (m->lines > 0)
+                        lines = lines > 0 ? MIN(lines, m->lines) : m->lines;
+        }
+
+        if (columns == 0 || lines == 0) /* No monitor reported dimensions so far, leave things as they are */
+                return 0;
+
+        if (pty->terminal_settings.columns == columns && pty->terminal_settings.lines == lines)
+                return 0;
+
+        pty->terminal_settings.columns = columns;
+        pty->terminal_settings.lines = lines;
+
+        return terminal_settings_sync_size_fd(&pty->terminal_settings, pty->frontend_fd, pty->backend_path);
 }
 
 int pseudo_tty_set_events(PseudoTTY *pty) {
