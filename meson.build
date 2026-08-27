@@ -5,6 +5,7 @@ project('systemd', 'c',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu17',
+                'rust_std=2021',
                 'prefix=/usr',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
@@ -361,6 +362,126 @@ if add_languages('cpp', native : false, required : fuzzer_build)
         cxx_cmd = ' '.join(cxx.cmd_array())
 else
         cxx_cmd = ''
+endif
+
+#####################################################################
+
+rust_feature = get_option('rust')
+# The oldest rustc we support. Also handed to bindgen, so that the generated bindings never require a
+# newer compiler than the hand-written code does.
+rust_msrv = '1.85'
+bindgen_min_version = '0.71.1'
+have_rust = false
+
+if rust_feature.allowed()
+        # The rust module's bindgen() integration is used by the src/rust/systemd-shared subproject, which
+        # requires this meson version on its own.
+        if meson.version().version_compare('< 1.8.0')
+                if rust_feature.enabled()
+                        error('Rust support requires meson >= 1.8.0, found @0@'.format(meson.version()))
+                endif
+                message('Rust support requires meson >= 1.8.0, disabling')
+        elif meson.is_cross_build()
+                if rust_feature.enabled()
+                        error('Rust support is not available when cross-compiling yet')
+                endif
+                message('Rust support is not available when cross-compiling yet, disabling')
+        else
+                have_rust = add_languages('rust', native : false, required : rust_feature)
+        endif
+endif
+
+if have_rust
+        rustc = meson.get_compiler('rust')
+        if rustc.version().version_compare('< ' + rust_msrv)
+                if rust_feature.enabled()
+                        error('rustc >= @0@ is required, found @1@'.format(rust_msrv, rustc.version()))
+                endif
+                message('rustc >= @0@ is required, found @1@, disabling Rust support'.format(rust_msrv, rustc.version()))
+                have_rust = false
+        endif
+endif
+
+if have_rust
+        bindgen = find_program('bindgen', required : rust_feature, version : '>= ' + bindgen_min_version)
+        have_rust = bindgen.found()
+
+        # 0.72.0 generates bindings that do not compile, 0.72.1 fixed that.
+        if have_rust and bindgen.version() == '0.72.0'
+                if rust_feature.enabled()
+                        error('bindgen 0.72.0 is known to be broken, use 0.71.1 or >= 0.72.1')
+                endif
+                message('bindgen 0.72.0 is known to be broken, disabling Rust support')
+                have_rust = false
+        endif
+endif
+
+if have_rust
+        # bindgen parses C with libclang, which it loads at run time, so find_program() proves nothing about
+        # it. Run it once over a header that reports the libclang version and contains the construct bindgen
+        # < 0.72.1 mishandles with libclang >= 22 (https://github.com/rust-lang/rust-bindgen/pull/3278).
+        bindgen_probe = run_command(bindgen, files('tools/bindgen-probe.h'), '--formatter', 'none', check : false)
+        libclang_version = ''
+        if bindgen_probe.returncode() == 0
+                foreach line : bindgen_probe.stderr().split('\n')
+                        if line.contains('clang version ')
+                                libclang_version = line.split('clang version ')[1].split(' ')[0]
+                        endif
+                endforeach
+        endif
+
+        if libclang_version == ''
+                if rust_feature.enabled()
+                        error('bindgen cannot generate bindings, is libclang installed?\n' + bindgen_probe.stderr())
+                endif
+                message('bindgen cannot generate bindings, disabling Rust support')
+                have_rust = false
+        elif libclang_version.version_compare('>= 22') and bindgen.version().version_compare('< 0.72.1') and not bindgen_probe.stdout().contains('pub foo')
+                if rust_feature.enabled()
+                        error('bindgen @0@ does not work with libclang @1@, use bindgen >= 0.72.1'.format(bindgen.version(), libclang_version))
+                endif
+                message('bindgen @0@ does not work with libclang @1@, disabling Rust support'.format(bindgen.version(), libclang_version))
+                have_rust = false
+        endif
+endif
+
+if have_rust
+        rustfmt = find_program('rustfmt', required : false)
+
+        # Applies to everything written in Rust, including the subproject, hence global. Warnings are errors
+        # only under --werror, like for C.
+        rust_args = [
+                '-D', 'non_ascii_idents',
+                '-D', 'unsafe_op_in_unsafe_fn',
+                '-W', 'missing_docs',
+                '-W', 'rust_2018_idioms',
+                '-W', 'unreachable_pub',
+                '-W', 'clippy::undocumented_unsafe_blocks',
+                '-W', 'clippy::unnecessary_safety_comment',
+                '-W', 'clippy::unnecessary_safety_doc',
+                '-W', 'clippy::ptr_as_ptr',
+                '-W', 'clippy::ptr_cast_constness',
+                '-W', 'clippy::ref_as_ptr',
+                '-W', 'clippy::as_ptr_cast_mut',
+                '-W', 'clippy::cast_lossless',
+                '-W', 'clippy::dbg_macro',
+                '-W', 'rustdoc::missing_crate_level_docs',
+                # rustc's default depends on the optimization level. C code in systemd checks its arithmetic
+                # where it matters, Rust code does not get to wrap silently either.
+                '-C', 'overflow-checks=yes',
+        ]
+        # meson passes source paths relative to the build directory, which is what file!() and hence
+        # CODE_FILE= in the journal would show. Strip the prefix like PROJECT_FILE does for C. This also
+        # makes the paths in the debug info relative to the source root (--remap-path-scope=macro would
+        # limit it to file!(), but rustdoc does not accept that flag on stable).
+        rust_args += ['--remap-path-prefix=' + relative_source_path + '/=']
+        add_global_arguments(rust_args, language : 'rust')
+
+        summary({
+                'rustc'    : rustc.version(),
+                'bindgen'  : bindgen.version(),
+                'libclang' : libclang_version,
+        }, section : 'Rust')
 endif
 
 if want_libfuzzer
@@ -3088,6 +3209,7 @@ foreach tuple : [
         ['binfmt'],
         ['bootloader'],
         ['bpf-framework',          conf.get('BPF_FRAMEWORK') == 1],
+        ['rust',                   have_rust],
         ['coredump'],
         ['efi'],
         ['environment.d'],
