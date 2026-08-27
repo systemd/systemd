@@ -261,13 +261,13 @@ static int query_solutions_for_path(const char *path) {
         return 0;
 }
 
-VERB(verb_query, "query", "PATH", 2, 2, 0,
+VERB(verb_query, "query", "PATH\0", 2, 2, 0,
      "Query the known solution for the device");
 static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return query_solutions_for_path(ASSERT_PTR(argv[1]));
 }
 
-VERB(verb_apply, "apply", "PATH [SOLUTION]", 2, 3, 0,
+VERB(verb_apply, "apply", "PATH [SOLUTION]\0", 2, 3, 0,
      "Apply solution for the device if found, do nothing otherwise");
 static int verb_apply(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return apply_solution_for_path(

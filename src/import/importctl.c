@@ -268,7 +268,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         return -r;
 }
 
-VERB(verb_pull_tar, "pull-tar", "URL [NAME]", 2, 3, 0, "Download a TAR container image");
+VERB(verb_pull_tar, "pull-tar", "URL [NAME]\0", 2, 3, 0, "Download a TAR container image");
 static int verb_pull_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
@@ -342,7 +342,7 @@ static int verb_pull_tar(int argc, char *argv[], uintptr_t _data, void *userdata
         return transfer_image_common(bus, m);
 }
 
-VERB(verb_pull_raw, "pull-raw", "URL [NAME]", 2, 3, 0, "Download a RAW container or VM image");
+VERB(verb_pull_raw, "pull-raw", "URL [NAME]\0", 2, 3, 0, "Download a RAW container or VM image");
 static int verb_pull_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
@@ -416,7 +416,7 @@ static int verb_pull_raw(int argc, char *argv[], uintptr_t _data, void *userdata
         return transfer_image_common(bus, m);
 }
 
-VERB(verb_pull_oci, "pull-oci", "REF [NAME]", 2, 3, 0, "Download an OCI container image");
+VERB(verb_pull_oci, "pull-oci", "REF [NAME]\0", 2, 3, 0, "Download an OCI container image");
 static int verb_pull_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL;
@@ -472,7 +472,7 @@ static int verb_pull_oci(int argc, char *argv[], uintptr_t _data, void *userdata
         return transfer_image_common(bus, m);
 }
 
-VERB(verb_import_tar, "import-tar", "FILE [NAME]", 2, 3, 0, "Import a local TAR container image");
+VERB(verb_import_tar, "import-tar", "FILE [NAME]\0", 2, 3, 0, "Import a local TAR container image");
 static int verb_import_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
@@ -552,7 +552,7 @@ static int verb_import_tar(int argc, char *argv[], uintptr_t _data, void *userda
         return transfer_image_common(bus, m);
 }
 
-VERB(verb_import_raw, "import-raw", "FILE [NAME]", 2, 3, 0, "Import a local RAW container or VM image");
+VERB(verb_import_raw, "import-raw", "FILE [NAME]\0", 2, 3, 0, "Import a local RAW container or VM image");
 static int verb_import_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
@@ -632,7 +632,7 @@ static int verb_import_raw(int argc, char *argv[], uintptr_t _data, void *userda
         return transfer_image_common(bus, m);
 }
 
-VERB(verb_import_fs, "import-fs", "DIRECTORY [NAME]", 2, 3, 0, "Import a local directory container image");
+VERB(verb_import_fs, "import-fs", "DIRECTORY [NAME]\0", 2, 3, 0, "Import a local directory container image");
 static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *local = NULL, *path = NULL;
@@ -720,7 +720,7 @@ static void determine_compression_from_filename(const char *p) {
                 arg_format = "zstd";
 }
 
-VERB(verb_export_tar, "export-tar", "NAME [FILE]", 2, 3, 0, "Export a TAR container image locally");
+VERB(verb_export_tar, "export-tar", "NAME [FILE]\0", 2, 3, 0, "Export a TAR container image locally");
 static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -780,7 +780,7 @@ static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userda
         return transfer_image_common(bus, m);
 }
 
-VERB(verb_export_raw, "export-raw", "NAME [FILE]", 2, 3, 0, "Export a RAW container or VM image locally");
+VERB(verb_export_raw, "export-raw", "NAME [FILE]\0", 2, 3, 0, "Export a RAW container or VM image locally");
 static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -945,7 +945,7 @@ static int verb_list_transfers(int argc, char *argv[], uintptr_t _data, void *us
         return 0;
 }
 
-VERB(verb_cancel_transfer, "cancel-transfer", "[ID...]", 2, VERB_ANY, 0, "Cancel a transfer");
+VERB(verb_cancel_transfer, "cancel-transfer", "[ID...]\0", 2, VERB_ANY, 0, "Cancel a transfer");
 static int verb_cancel_transfer(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);

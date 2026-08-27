@@ -11,8 +11,6 @@
 
 #include "alloc-util.h"
 #include "device-private.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "options.h"
 #include "parse-argument.h"
@@ -24,6 +22,7 @@
 #include "udev-rules.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
+#include "verbs.h"
 
 static sd_device_action_t arg_action = SD_DEVICE_ADD;
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
@@ -33,25 +32,6 @@ static bool arg_verbose = false;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_extra_rules_dir, strv_freep);
-
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevadm-test", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("test [OPTIONS] DEVPATH");
-        help_abstract("Test an event run.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("udevadm", "8");
-        return 0;
-}
 
 static int parse_argv(int argc, char *argv[]) {
         int r;
@@ -67,7 +47,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("udevadm-test"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_verb_help("test");
 
                 OPTION('V', "version", NULL, "Show package version"):
                         return print_version();
@@ -106,6 +86,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r <= 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         char **args = option_parser_get_args(&opts);
