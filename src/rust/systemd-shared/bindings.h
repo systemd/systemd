@@ -2,10 +2,10 @@
 #pragma once
 
 /* Aggregator header consumed by bindgen to generate the systemd_shared_sys crate. Every header of src/basic/
- * and src/shared/ and every sd-*.h header of src/systemd/, public or not, is listed here. Same-named
- * headers exist in src/basic/ and src/shared/ (btrfs-util.h, dlopen-note.h, forward.h, label-util.h, mkdir.h,
- * tmpfile-util.h): the src/shared/ one is found first and includes its src/basic/ namesake, so both are
- * bound. */
+ * and src/shared/ and every sd-*.h header of src/systemd/, public or not, is listed here;
+ * check-bindings-header.py keeps the lists complete. Same-named headers exist in src/basic/ and src/shared/
+ * (btrfs-util.h, dlopen-note.h, forward.h, label-util.h, mkdir.h, tmpfile-util.h): the src/shared/ one is
+ * found first and includes its src/basic/ namesake, so both are bound. */
 
 /* The libc and kernel surface systemd code sees. Most of it arrives through the headers below, these add
  * what they do not pull in. */
