@@ -9,6 +9,7 @@
 #include "iovec-util.h"
 #include "journal-file-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "mmap-cache.h"
 #include "options.h"
 #include "parse-util.h"
@@ -141,7 +142,7 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         uint64_t start_offset = UINT64_MAX;
         uint64_t iterations = 100;
         uint64_t iteration_step = 1;
@@ -236,7 +237,9 @@ int main(int argc, char *argv[]) {
 
                 r = journal_corrupt_and_append(offset, corrupt_step);
                 if (r < 0)
-                        return EXIT_FAILURE;
+                        return r;
+                if (r == EXIT_TEST_SKIP)
+                        return r;
                 if (r > 0)
                         /* Reached the end of the journal file */
                         break;
@@ -244,3 +247,5 @@ int main(int argc, char *argv[]) {
 
         return EXIT_SUCCESS;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
