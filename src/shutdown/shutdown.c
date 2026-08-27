@@ -620,6 +620,7 @@ static int run(int argc, char *argv[]) {
          * data. */
         watchdog_close(/* disarm= */ false);
         watchdog_free_device();
+        log_info("Closed watchdog as a last-resort system reset option.");
 
         const char *arguments[] = {
                 NULL, /* Filled in by execute_directories(), when needed */
