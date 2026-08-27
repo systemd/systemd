@@ -136,6 +136,69 @@ TEST(hostname_substitute_wildcards_words) {
         ASSERT_OK(unsetenv("SYSTEMD_HOSTNAME_WORDLIST_PATH"));
 }
 
+TEST(hostname_setup_rederive_default) {
+        int r;
+
+        /* hostname_setup() only re-derives the hostname if it is the default we recorded ourselves
+         * earlier. Check that we do so in that case, and leave the hostname alone in every other. */
+
+        if (geteuid() != 0)
+                return (void) log_tests_skipped("Not privileged");
+
+        r = sd_id128_get_machine(NULL);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_tests_skipped_errno(r, "skipping re-derive hostname tests, no machine ID defined");
+
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        ASSERT_OK(mkdtemp_malloc("/tmp/hostname-hint.XXXXXX", &d));
+
+        _cleanup_free_ char *hint = ASSERT_PTR(path_join(d, "default-hostname"));
+        ASSERT_OK(setenv("SYSTEMD_RUN_DEFAULT_HOSTNAME_PATH", hint, /* overwrite= */ true));
+        ASSERT_OK(setenv("SYSTEMD_DEFAULT_HOSTNAME", "test-????", /* overwrite= */ true));
+        ASSERT_OK(setenv("SYSTEMD_PROC_CMDLINE", "", /* overwrite= */ true));
+
+        /* We apply the hostname for real, so do it in a UTS namespace of our own. */
+        r = ASSERT_OK(pidref_safe_fork("(test-rederive)", FORK_LOG|FORK_WAIT|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
+        if (r == 0) {
+                _cleanup_free_ char *h = NULL;
+
+                ASSERT_OK_ERRNO(unshare(CLONE_NEWUTS));
+
+                /* No hint at all: the hostname is not ours, leave it alone. */
+                ASSERT_OK(sethostname_idempotent("no-hint"));
+                ASSERT_OK(hostname_setup(/* really= */ true));
+                ASSERT_NOT_NULL(h = gethostname_malloc());
+                ASSERT_STREQ(h, "no-hint");
+                h = mfree(h);
+
+                /* Hint holds some other name: somebody else set the current one, leave it alone. */
+                ASSERT_OK(write_string_file(hint, "some-other-name", WRITE_STRING_FILE_CREATE));
+                ASSERT_OK(sethostname_idempotent("stale-hint"));
+                ASSERT_OK(hostname_setup(/* really= */ true));
+                ASSERT_NOT_NULL(h = gethostname_malloc());
+                ASSERT_STREQ(h, "stale-hint");
+                h = mfree(h);
+
+                /* Hint matches the current hostname: it is the default we set earlier, re-derive it. */
+                ASSERT_OK(sethostname_idempotent("ours-dead"));
+                ASSERT_OK(write_string_file(hint, "ours-dead", WRITE_STRING_FILE_CREATE));
+                ASSERT_OK(hostname_setup(/* really= */ true));
+                ASSERT_NOT_NULL(h = gethostname_malloc());
+                ASSERT_EQ(fnmatch("test-????", h, /* flags= */ 0), 0);
+
+                /* ... and the hint is updated to the name we just applied. */
+                _cleanup_free_ char *recorded = NULL;
+                ASSERT_OK(read_one_line_file(hint, &recorded));
+                ASSERT_STREQ(recorded, h);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(unsetenv("SYSTEMD_PROC_CMDLINE"));
+        ASSERT_OK(unsetenv("SYSTEMD_DEFAULT_HOSTNAME"));
+        ASSERT_OK(unsetenv("SYSTEMD_RUN_DEFAULT_HOSTNAME_PATH"));
+}
+
 TEST(hostname_setup_cmdline_wildcards) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
         int r;
@@ -183,9 +246,9 @@ TEST(default_hostname) {
                 exit(EXIT_FAILURE);
         }
 
-        _cleanup_free_ char *n = get_default_hostname();
+        _cleanup_free_ char *n = get_default_hostname_or_fallback();
         ASSERT_NOT_NULL(n);
-        log_info("get_default_hostname: \"%s\"", n);
+        log_info("get_default_hostname_or_fallback: \"%s\"", n);
         ASSERT_TRUE(hostname_is_valid(n, /* flags= */ 0));
 
         _cleanup_free_ char *m = get_default_hostname_raw();
@@ -259,4 +322,13 @@ TEST(pidref_gethostname_full) {
         ASSERT_STREQ(s, original_short);
 }
 
-DEFINE_TEST_MAIN(LOG_DEBUG);
+static int intro(void) {
+        /* hostname_setup() consults /etc/hostname before falling back to the default hostname, so point it
+         * at a path that does not exist: otherwise which branch these tests take depends on whether the host
+         * running them happens to have that file. */
+        ASSERT_OK(setenv("SYSTEMD_ETC_HOSTNAME", "/tmp/test-hostname-setup-no-such-file", /* overwrite= */ true));
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
