@@ -266,6 +266,10 @@ typedef struct Manager {
         /* IDs of transactions that once encountered ordering cycle */
         Set *transactions_with_cycle;
 
+        /* Cached system state used to detect changes */
+        ManagerState previous_system_state;
+        sd_event_source *system_state_event_source;
+
         sd_event_source *run_queue_event_source;
 
         char *notify_socket;
