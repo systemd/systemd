@@ -23,7 +23,22 @@
 
 pub use systemd_shared_sys as sys;
 
+/// Asserts at compile time that a Rust mirror of a C struct has its size, alignment and field offsets, with
+/// `ours = theirs` where a field is named differently.
+macro_rules! assert_layout {
+    ($ours:ty, $c:ty, $($field:ident),+ $(,)?) => {
+        crate::assert_layout!($ours, $c, $($field = $field),+);
+    };
+    ($ours:ty, $c:ty, $($field:ident = $c_field:ident),+ $(,)?) => {
+        const _: () = assert!(::core::mem::size_of::<$ours>() == ::core::mem::size_of::<$c>());
+        const _: () = assert!(::core::mem::align_of::<$ours>() == ::core::mem::align_of::<$c>());
+        $(const _: () = assert!(::core::mem::offset_of!($ours, $field) == ::core::mem::offset_of!($c, $c_field));)+
+    };
+}
+pub(crate) use assert_layout;
+
 pub mod alloc;
+pub mod command;
 pub mod cstr;
 pub mod errno;
 pub mod event;
