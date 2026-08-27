@@ -93,6 +93,7 @@
     "rfkill": ["*rfkill*"],
     "rpm": ["src/rpm/*"],
     "run": ["src/run/*", "man/systemd-run*"],
+    "rust": ["src/rust/*", "*.rs"],
     "sd-boot/sd-stub/bootctl": [
       "src/boot/*",
       "src/bootctl/*",
