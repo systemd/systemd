@@ -28,6 +28,7 @@ pub mod cstr;
 pub mod errno;
 pub mod event;
 pub mod fd;
+pub mod json;
 pub mod log;
 mod panic;
 pub mod prelude;
