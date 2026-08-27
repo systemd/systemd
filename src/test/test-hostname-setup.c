@@ -183,9 +183,9 @@ TEST(default_hostname) {
                 exit(EXIT_FAILURE);
         }
 
-        _cleanup_free_ char *n = get_default_hostname();
+        _cleanup_free_ char *n = get_default_hostname_or_fallback();
         ASSERT_NOT_NULL(n);
-        log_info("get_default_hostname: \"%s\"", n);
+        log_info("get_default_hostname_or_fallback: \"%s\"", n);
         ASSERT_TRUE(hostname_is_valid(n, /* flags= */ 0));
 
         _cleanup_free_ char *m = get_default_hostname_raw();
