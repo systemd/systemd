@@ -136,3 +136,8 @@ libsystemd_shared_sys = static_library(
         link_with : [libsystemd_shared_sys_wrappers],
         dependencies : [shared_link_dep],
         build_by_default : false)
+
+# The parent registers the tests, a subproject with tests of its own breaks meson test --setup= for setups
+# only the parent defines.
+bindings_h = files('bindings.h')
+check_bindings_header_py = files('check-bindings-header.py')
