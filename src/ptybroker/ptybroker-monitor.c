@@ -3,14 +3,21 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "ansi-seq.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "iovec-util.h"
 #include "log.h"
+#include "osc-winsize.h"
 #include "ptybroker.h"
 #include "ptybroker-monitor.h"
 #include "ptybroker-pty.h"
+
+/* Upper bound on how much of an incomplete ANSI sequence we may hold back on the input stream, in order to
+ * filter out OSC 2811 replies. The parser aborts sequences that grow beyond ANSI_SEQ_STRING_MAX (which are
+ * then passed through unscathed), hence held back data never exceeds that plus a few bytes of framing. */
+#define INPUT_HOLD_MAX (ANSI_SEQ_STRING_MAX + 8U)
 
 PseudoTTYMonitor* pseudo_tty_monitor_free(PseudoTTYMonitor *monitor) {
         if (!monitor)
@@ -19,6 +26,16 @@ PseudoTTYMonitor* pseudo_tty_monitor_free(PseudoTTYMonitor *monitor) {
         if (monitor->pty) {
                 LIST_REMOVE(monitors, monitor->pty->monitors, monitor);
                 monitor->pty->n_monitors--;
+
+                /* This monitor's dimensions no longer constrain the pty, re-determine the minimum */
+                if (monitor->osc_winsize)
+                        (void) pseudo_tty_sync_winsize(monitor->pty);
+
+                /* Nor does its buffer space constrain the pty's readability anymore: refresh the pty's I/O
+                 * event mask, so that a pty stalled by this monitor gets going again (unless the pty is on
+                 * its way out anyway, in which case there's no point). */
+                if (!monitor->pty->in_free_queue)
+                        (void) pseudo_tty_set_events(monitor->pty);
         }
 
         sd_event_source_disable_unref(monitor->io_event_source);
@@ -31,6 +48,10 @@ PseudoTTYMonitor* pseudo_tty_monitor_free(PseudoTTYMonitor *monitor) {
         }
 
         iovec_done(&monitor->buffer);
+        iovec_done(&monitor->input_hold);
+
+        ansi_seq_parser_done(&monitor->output_parser);
+        ansi_seq_parser_done(&monitor->input_parser);
 
         return mfree(monitor);
 }
@@ -95,24 +116,102 @@ int pseudo_tty_monitor_push_pending(PseudoTTYMonitor *monitor) {
                 iovec_inc(&v, 1);
         }
 
-        return pseudo_tty_monitor_push_output(monitor, v.iov_base, v.iov_len);
+        /* NB: this goes through the same path as regular pty output, so that the sequence boundary tracking
+         * sees every byte that is sent to the monitor, in particular if the pending line ends in the middle
+         * of a sequence. */
+        return pseudo_tty_monitor_enqueue_output(monitor, v.iov_base, v.iov_len);
+}
+
+static int pseudo_tty_monitor_flush_subscribe(PseudoTTYMonitor *monitor) {
+        int r;
+
+        assert(monitor);
+
+        /* Appends a pending OSC 2811 subscribe sequence to the monitor's output buffer, but only at a safe
+         * position, i.e. never in the middle of an ANSI sequence that is part of the regular stream. */
+
+        if (!monitor->subscribe_pending)
+                return 0;
+
+        if (monitor->output_parser.state != ANSI_SEQ_STATE_GROUND)
+                return 0;
+
+        _cleanup_free_ char *seq = NULL;
+        r = osc_winsize_format(OSC_WINSIZE_SUBSCRIBE, monitor->columns, monitor->lines, &seq);
+        if (r < 0)
+                return r;
+
+        r = pseudo_tty_monitor_push_output(monitor, seq, SIZE_MAX);
+        if (r < 0)
+                return r;
+
+        monitor->subscribe_pending = false;
+        return 1;
+}
+
+static int pseudo_tty_monitor_request_winsize(PseudoTTYMonitor *monitor) {
+        assert(monitor);
+
+        /* (Re-)subscribes to dimension changes of the monitor's terminal, declaring the dimensions we
+         * currently believe are in effect (or 0×0 if we don't know yet, forcing an immediate reply). */
+
+        if (!monitor->osc_winsize)
+                return 0;
+
+        monitor->subscribe_pending = true;
+        return pseudo_tty_monitor_flush_subscribe(monitor);
+}
+
+int pseudo_tty_monitor_enqueue_output(PseudoTTYMonitor *monitor, const void *data, size_t n) {
+        int r;
+
+        assert(monitor);
+        assert(data || n == 0);
+
+        /* Appends pty output data to the monitor's output buffer. If OSC 2811 handling is enabled, also
+         * tracks ANSI sequence boundaries, so that we can insert our own sequences at safe positions. */
+
+        if (!monitor->osc_winsize)
+                return pseudo_tty_monitor_push_output(monitor, data, n);
+
+        const char *q = data;
+        FOREACH_ARRAY(c, q, n) {
+                r = pseudo_tty_monitor_push_output(monitor, c, 1);
+                if (r < 0)
+                        return r;
+
+                (void) ansi_seq_parser_feed_harder(&monitor->output_parser, *c);
+
+                r = pseudo_tty_monitor_flush_subscribe(monitor);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int pseudo_tty_monitor_read(PseudoTTYMonitor *monitor, int fd) {
+        int r;
+
         assert(monitor);
         assert(fd >= 0);
 
-        if (monitor->pty->frontend_write_buffer.iov_len >= BUFFER_MAX)
+        struct iovec *fwb = &monitor->pty->frontend_write_buffer;
+
+        if (fwb->iov_len >= BUFFER_MAX)
                 return 0;
 
-        size_t left = BUFFER_MAX - monitor->pty->frontend_write_buffer.iov_len;
-        size_t add = MIN(left, LONG_LINE_MAX);
+        size_t left = BUFFER_MAX - fwb->iov_len,
+               add = MIN(left, LONG_LINE_MAX),
+               offset = fwb->iov_len,
+               hold = monitor->input_hold.iov_len; /* Non-zero only if OSC 2811 handling is on */
 
-        if (!greedy_realloc(&monitor->pty->frontend_write_buffer.iov_base, monitor->pty->frontend_write_buffer.iov_len + add, 1))
+        if (!greedy_realloc(&fwb->iov_base, offset + hold + add, 1))
                 return log_oom();
 
-        void *p = (uint8_t*) monitor->pty->frontend_write_buffer.iov_base + monitor->pty->frontend_write_buffer.iov_len;
-        ssize_t n = read(fd, p, add);
+        /* Read directly into the pty's frontend write buffer, leaving room for any incomplete sequence
+         * bytes we held back last time */
+        ssize_t n = read(fd, (uint8_t*) fwb->iov_base + offset + hold, add);
         if (n < 0) {
                 if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
@@ -124,7 +223,103 @@ static int pseudo_tty_monitor_read(PseudoTTYMonitor *monitor, int fd) {
                 return log_debug_errno(SYNTHETIC_ERRNO(ECONNRESET), "Monitor disconnected.");
 
         assert((size_t) n <= add);
-        monitor->pty->frontend_write_buffer.iov_len += n;
+
+        /* Reinsert the held back bytes right before the data we just read */
+        if (hold > 0) {
+                memcpy((uint8_t*) fwb->iov_base + offset, monitor->input_hold.iov_base, hold);
+                monitor->input_hold.iov_len = 0;
+        }
+
+        fwb->iov_len = offset + hold + n;
+
+        if (!monitor->osc_winsize)
+                return 1;
+
+        /* Now scan the data we just read for ANSI sequences, so that OSC 2811 reply sequences can be picked
+         * out of the stream and consumed. The held back bytes have been fed to the parser last time already,
+         * hence start with the new data; if we are in the middle of a sequence it begins where the held back
+         * bytes were reinserted. */
+        size_t begin = hold > 0 ? offset : SIZE_MAX;
+
+        for (size_t i = offset + hold, inc = 1; i < fwb->iov_len; i += inc, inc = 1) {
+                char c = ((const char*) fwb->iov_base)[i];
+
+                r = ansi_seq_parser_feed(&monitor->input_parser, c);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process data from monitor socket: %m");
+
+                switch (r) {
+
+                case ANSI_SEQ_EVENT_TEXT:
+                        break;
+
+                case ANSI_SEQ_EVENT_SEQUENCE:
+                        if (begin == SIZE_MAX)
+                                begin = i;
+                        break;
+
+                case ANSI_SEQ_EVENT_END: {
+                        assert(begin != SIZE_MAX);
+
+                        const char *seq = ansi_seq_parser_string(&monitor->input_parser);
+                        OscWinsize ws;
+
+                        if (seq && monitor->input_parser.introducer == ']' &&
+                            osc_winsize_parse(seq, &ws) > 0 &&
+                            ws.type == OSC_WINSIZE_REPORT) { /* Ignore (i.e. pass through) reflected requests, as per spec */
+
+                                /* An OSC 2811 reply: excise it from the buffer, and update our dimension data */
+                                memmove((uint8_t*) fwb->iov_base + begin,
+                                        (uint8_t*) fwb->iov_base + i + 1,
+                                        fwb->iov_len - i - 1);
+                                fwb->iov_len -= i + 1 - begin;
+                                i = begin - 1; /* Continue right after the excised sequence (NB: the loop increments i again) */
+
+                                monitor->columns = ws.columns;
+                                monitor->lines = ws.lines;
+
+                                r = pseudo_tty_sync_winsize(monitor->pty);
+                                if (r < 0)
+                                        return r;
+
+                                /* Immediately resubscribe, declaring what we just learnt */
+                                r = pseudo_tty_monitor_request_winsize(monitor);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        begin = SIZE_MAX;
+                        break;
+                }
+
+                case ANSI_SEQ_EVENT_ABORT:
+                        /* Not a valid sequence after all: leave it in the stream as it is, and process the
+                         * current character again */
+                        begin = SIZE_MAX;
+                        inc = 0;
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        /* If the buffer ends in the middle of a sequence, hold the incomplete sequence back, so that it
+         * does not hit the pty before we know whether to excise it. Note that the parser gives up on
+         * sequences that grow beyond ANSI_SEQ_STRING_MAX, hence the held back data is bounded. */
+        if (begin != SIZE_MAX) {
+                size_t tail = fwb->iov_len - begin;
+
+                assert(tail <= INPUT_HOLD_MAX);
+
+                if (!greedy_realloc(&monitor->input_hold.iov_base, tail, 1))
+                        return log_oom();
+
+                memcpy(monitor->input_hold.iov_base, (uint8_t*) fwb->iov_base + begin, tail);
+                monitor->input_hold.iov_len = tail;
+
+                fwb->iov_len = begin;
+        }
 
         return 1;
 }
@@ -234,6 +429,13 @@ static int on_upgrade(sd_varlink *vl, int _input_fd, int _output_fd, void *userd
 
         TAKE_FD(input_fd); /* ownership is now passed */
 
+        /* Query the monitor for its terminal dimensions, and subscribe to changes */
+        r = pseudo_tty_monitor_request_winsize(monitor);
+        if (r < 0) {
+                log_error_errno(r, "Failed to enqueue terminal dimension subscription: %m");
+                goto fail;
+        }
+
         r = pseudo_tty_monitor_set_events(monitor);
         if (r < 0)
                 goto fail;
@@ -245,7 +447,7 @@ fail:
         return r;
 }
 
-int pseudo_tty_monitor_new(sd_varlink *link, PseudoTTYMonitor **ret) {
+int pseudo_tty_monitor_new(sd_varlink *link, bool osc_winsize, PseudoTTYMonitor **ret) {
         int r;
 
         assert(link);
@@ -257,6 +459,8 @@ int pseudo_tty_monitor_new(sd_varlink *link, PseudoTTYMonitor **ret) {
 
         *monitor = (PseudoTTYMonitor) {
                 .link = sd_varlink_ref(link),
+                .osc_winsize = osc_winsize,
+                .input_parser.capture = osc_winsize,
         };
 
         r = sd_varlink_bind_upgrade(link, on_upgrade);
@@ -281,6 +485,7 @@ void pseudo_tty_monitor_link(PseudoTTYMonitor *monitor, PseudoTTY *pty) {
 size_t pseudo_tty_monitor_space(PseudoTTYMonitor *monitor) {
         assert(monitor);
 
-        assert(monitor->buffer.iov_len <= BUFFER_MAX);
-        return BUFFER_MAX - monitor->buffer.iov_len;
+        /* NB: insertion of OSC 2811 sequences may push the buffer slightly beyond BUFFER_MAX, hence be
+         * lenient here and saturate. */
+        return LESS_BY((size_t) BUFFER_MAX, monitor->buffer.iov_len);
 }
