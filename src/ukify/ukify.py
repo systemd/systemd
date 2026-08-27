@@ -1369,7 +1369,8 @@ def make_uki(opts: UkifyConfig) -> None:
                 print(f'{linux} is not a valid PE file and cannot be decompressed either', file=sys.stderr)
             else:
                 print(f'{linux} is compressed and cannot be loaded by UEFI, decompressing', file=sys.stderr)
-                linux = Path(tempfile.NamedTemporaryFile(prefix='linux-decompressed').name)
+                linux_decompressed = tempfile.NamedTemporaryFile(prefix='linux-decompressed')
+                linux = Path(linux_decompressed.name)
                 linux.write_bytes(decompressed)
 
     if linux and sign_args_present:
