@@ -2,12 +2,12 @@
 
 #include <stdio.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "conf-files.h"
 #include "errno-util.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "options.h"
 #include "parse-argument.h"
@@ -15,6 +15,7 @@
 #include "udev-rules.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
+#include "verbs.h"
 
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
 static char *arg_root = NULL;
@@ -22,25 +23,6 @@ static bool arg_summary = true;
 static bool arg_style = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
-
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevadm-verify", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("verify [OPTIONS] [FILE...]");
-        help_abstract("Verify udev rules files.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("udevadm", "8");
-        return 0;
-}
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
@@ -57,7 +39,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_NAMESPACE("udevadm-verify"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_verb_help("verify");
 
                 OPTION('V', "version", NULL, "Show package version"):
                         return print_version();
@@ -81,6 +63,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("no-style", NULL, "Ignore style issues"):
                         arg_style = false;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *remaining_args = option_parser_get_args(&opts);
