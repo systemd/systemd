@@ -266,6 +266,9 @@ typedef struct Manager {
         /* IDs of transactions that once encountered ordering cycle */
         Set *transactions_with_cycle;
 
+        /* Cached system state used to detect changes */
+        ManagerState previous_system_state;
+
         sd_event_source *run_queue_event_source;
 
         char *notify_socket;
@@ -546,6 +549,7 @@ typedef struct Manager {
 
         /* Original ambient capabilities when we were initialized */
         uint64_t saved_ambient_set;
+
 } Manager;
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
