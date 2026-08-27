@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "escape.h"
+#include "install-file.h"
 #include "log.h"
 #include "memory-util.h"
 #include "mkfs-util.h"
@@ -17,6 +18,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "utf8.h"
 
 int mkfs_exists(const char *fstype) {
@@ -150,6 +152,26 @@ static int mangle_fat_label(const char *s, char **ret) {
         return 0;
 }
 
+/* $SOURCE_DATE_EPOCH in seconds as *we* read it, or NULL if we have none. The tools we call parse the
+ * variable themselves, so without this they would act on values we reject (unparsable, overflowing),
+ * read differently (octal 017), or that secure_getenv() declines to look at under AT_SECURE. */
+static int source_date_epoch_seconds(char **ret) {
+        usec_t epoch;
+
+        assert(ret);
+
+        epoch = parse_source_date_epoch();
+        if (epoch == USEC_INFINITY) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (asprintf(ret, USEC_FMT, epoch / USEC_PER_SEC) < 0)
+                return -ENOMEM;
+
+        return 1;
+}
+
 static int mtools_exec(char *const *argv, ForkFlags extra_fork_flags) {
         int r;
 
@@ -159,6 +181,16 @@ static int mtools_exec(char *const *argv, ForkFlags extra_fork_flags) {
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *j = quote_command_line(argv, SHELL_ESCAPE_EMPTY);
                 log_debug("Invoking mtools command: %s", strna(j));
+        }
+
+        _cleanup_free_ char *seconds = NULL, *source_date_epoch = NULL;
+        r = source_date_epoch_seconds(&seconds);
+        if (r < 0)
+                return log_oom();
+        if (seconds) {
+                source_date_epoch = strjoin("SOURCE_DATE_EPOCH=", seconds);
+                if (!source_date_epoch)
+                        return log_oom();
         }
 
         r = pidref_safe_fork(
@@ -174,7 +206,7 @@ static int mtools_exec(char *const *argv, ForkFlags extra_fork_flags) {
                 execve(argv[0], argv,
                        STRV_MAKE("MTOOLS_SKIP_CHECK=1",
                                  "TZ=UTC",
-                                 strv_find_prefix(environ, "SOURCE_DATE_EPOCH=")));
+                                 source_date_epoch));
 
                 log_full_errno(FLAGS_SET(extra_fork_flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG, errno, "Failed to execute %s: %m", argv[0]);
                 _exit(EXIT_FAILURE);
@@ -430,8 +462,11 @@ int make_filesystem(
                  * 0 value handling, where $E2FSPROGS_FAKE_TIME=0 is ignored and the current time is used,
                  * but $SOURCE_DATE_EPOCH=0 sets 1970-01-01 as the timestamp. */
                 if (!secure_getenv("E2FSPROGS_FAKE_TIME")) { /* honor $E2FSPROGS_FAKE_TIME if already set */
-                        const char *e = secure_getenv("SOURCE_DATE_EPOCH");
-                        if (e && strv_extend_strv(&env, STRV_MAKE("E2FSPROGS_FAKE_TIME", e), /* filter_duplicates= */ false) < 0)
+                        _cleanup_free_ char *seconds = NULL;
+
+                        if (source_date_epoch_seconds(&seconds) < 0)
+                                return log_oom();
+                        if (seconds && strv_extend_strv(&env, STRV_MAKE("E2FSPROGS_FAKE_TIME", seconds), /* filter_duplicates= */ false) < 0)
                                 return log_oom();
                 }
 
@@ -650,6 +685,10 @@ int make_filesystem(
                         fork_flags |= FORK_NEW_MOUNTNS;
         }
 
+        _cleanup_free_ char *source_date_epoch = NULL;
+        if (source_date_epoch_seconds(&source_date_epoch) < 0)
+                return log_oom();
+
         log_info("Formatting %s as %s", node, fstype);
 
         if (DEBUG_LOGGING) {
@@ -674,6 +713,13 @@ int make_filesystem(
                                 log_error_errno(errno, "Failed to set %s=%s environment variable: %m", *k, *v);
                                 _exit(EXIT_FAILURE);
                         }
+
+                /* Same as in mtools_exec(): the mkfs tool gets our reading of the variable, or none. */
+                if (source_date_epoch ? setenv("SOURCE_DATE_EPOCH", source_date_epoch, /* replace= */ true) < 0
+                                      : unsetenv("SOURCE_DATE_EPOCH") < 0) {
+                        log_error_errno(errno, "Failed to adjust $SOURCE_DATE_EPOCH: %m");
+                        _exit(EXIT_FAILURE);
+                }
 
                 /* mkfs.btrfs refuses to operate on block devices with mounted partitions, even if operating
                  * on unformatted free space, so let's trick it and other mkfs tools into thinking no
