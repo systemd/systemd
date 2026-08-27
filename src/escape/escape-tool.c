@@ -31,7 +31,7 @@ COMMAND(
         "systemd-escape\0",
         "Escape strings for usage in systemd unit names.",
         .argspec = "STRING…\0" "--stdin\0",
-        .man_pages = "systemd-escape.1\0",
+        .man_pages = "systemd-escape(1)\0",
 );
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {

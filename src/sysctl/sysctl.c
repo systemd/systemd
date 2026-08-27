@@ -44,7 +44,7 @@ COMMAND(
         "systemd-sysctl\0",
         "Apply kernel sysctl settings.",
         .argspec = "[CONFIGURATION FILE…]\0",
-        .man_pages = "systemd-sysctl.service.8\0",
+        .man_pages = "systemd-sysctl.service(8)\0",
         .pager_flags = &arg_pager_flags,
 );
 

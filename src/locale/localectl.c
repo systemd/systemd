@@ -40,7 +40,7 @@ static bool arg_full = false;
 COMMAND(
         "localectl\0",
         "Query or change system locale and keyboard settings.",
-        .man_pages = "localectl.1\0",
+        .man_pages = "localectl(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

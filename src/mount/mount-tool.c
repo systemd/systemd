@@ -97,7 +97,7 @@ COMMAND(
         .option_groups =
                 "Common options\0"
                 "Mount options\0",
-        .man_pages = "systemd-mount.1\0",
+        .man_pages = "systemd-mount(1)\0",
         .flags = COMMAND_VERBS_SHARED,
         .pager_flags = &arg_pager_flags,
 );
@@ -108,7 +108,7 @@ COMMAND(
                 "WHAT|WHERE…\0",
         .option_groups =
                 "Common options\0",
-        .man_pages = "systemd-mount.1\0",
+        .man_pages = "systemd-mount(1)\0",
         .flags = COMMAND_VERBS_SHARED,
         .pager_flags = &arg_pager_flags,
 );

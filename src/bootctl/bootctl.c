@@ -110,7 +110,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_extras, strv_freep);
 COMMAND(
         "bootctl\0",
         "Control EFI firmware boot settings and manage boot loader.",
-        .man_pages = "bootctl.1\0",
+        .man_pages = "bootctl(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

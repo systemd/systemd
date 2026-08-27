@@ -1042,7 +1042,7 @@ static int redirect_telinit(char *argv[], char **args) {
 COMMAND(
         "systemd\0",
         "Start and monitor system and user services.",
-        .man_pages = "systemd.1\0",
+        .man_pages = "systemd(1)\0",
         .option_namespace = "systemd",
         .pager_flags = &arg_pager_flags,
 );
