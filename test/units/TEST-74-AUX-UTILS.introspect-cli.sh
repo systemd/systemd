@@ -153,8 +153,8 @@ for i in "${INTROSPECTABLE[@]}"; do
     command -v "$i" >/dev/null || continue
 
     help="$($i --help)"
-    grep -E '^See the [^[:space:]]+\([[:alnum:]]+\) for details\.$' <<<"$help" >/dev/null
-    ! grep -E '^See the [^[:space:]]+\.[[:alnum:]]+ for details\.$' <<<"$help" >/dev/null
+    grep -E '^See the [^[:space:]]+\([[:alnum:]]+\) man page for details\.$' <<<"$help" >/dev/null
+    grep -E '^See the [^[:space:]]+\.[[:alnum:]]+ man page for details\.$' <<<"$help" >/dev/null && exit 1
 
     $i --introspect-cli | jq -e \
         '.mediaType == "application/vnd.io.systemd.cli-introspection-0"'
