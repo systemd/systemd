@@ -86,3 +86,25 @@ impl fmt::Debug for JsonVariant {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn roundtrip() {
+        let v = JsonVariant::new_string(c"hello").unwrap();
+        assert_eq!(v.format(0).unwrap().as_cstr(), c"\"hello\"");
+
+        let i = JsonVariant::new_integer(-42).unwrap();
+        assert_eq!(i.format(0).unwrap().as_cstr(), c"-42");
+        assert_eq!(format!("{i:?}"), "JsonVariant(-42)");
+
+        let p = JsonVariant::parse(c"{\"a\": [1, 2]}", 0).unwrap();
+        assert_eq!(p.format(0).unwrap().as_cstr(), c"{\"a\":[1,2]}");
+        let p2 = p.clone();
+        assert_eq!(p.as_ptr(), p2.as_ptr());
+
+        assert_eq!(JsonVariant::parse(c"{", 0).unwrap_err(), Errno::EINVAL);
+    }
+}

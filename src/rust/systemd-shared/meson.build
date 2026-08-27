@@ -154,6 +154,14 @@ libsystemd_shared_rs = static_library(
 ############################################################
 
 if get_option('tests')
+        rust.test('test-systemd-shared', libsystemd_shared_rs,
+                  suite : 'rust',
+                  timeout : 30)
+
+        rust.doctest('doctest-systemd-shared', libsystemd_shared_rs,
+                     suite : 'rust',
+                     timeout : 120)
+
         test('check-bindings-header',
              python3,
              args : [files('check-bindings-header.py'),
@@ -162,4 +170,11 @@ if get_option('tests')
                      meson.global_source_root() / 'src/shared',
                      meson.global_source_root() / 'src/systemd'],
              suite : 'dist')
+
+        if rustfmt.found()
+                test('rustfmt-systemd-shared',
+                     rustfmt,
+                     args : ['--check', '--edition', '2021', systemd_shared_sources, files('systemd_shared_sys.rs')],
+                     suite : 'dist')
+        endif
 endif

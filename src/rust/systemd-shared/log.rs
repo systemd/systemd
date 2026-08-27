@@ -172,3 +172,53 @@ macro_rules! log_oom {
         )
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Errno;
+
+    #[test]
+    fn errno_macros_evaluate_to_the_errno() {
+        let e: Errno = log_debug_errno!(sys::ENOENT as c_int, "not there: {}", "x");
+        assert_eq!(e, Errno::ENOENT);
+
+        let e2 = log_debug_errno!(e, "again");
+        assert_eq!(e2, e);
+
+        let e3 = log_debug_errno!(std::io::Error::from(Errno::EBUSY), "io::Error converts too");
+        assert_eq!(e3, Errno::EBUSY);
+
+        // log_oom!() logs at LOG_ERR, keep it out of the test output.
+        let old = set_max_level(LOG_CRIT as c_int);
+        assert_eq!(log_oom!(), Errno::ENOMEM);
+        set_max_level(old);
+    }
+
+    #[test]
+    fn plain_macros_are_unit() {
+        let _: () = log_debug!("hello {}", 42);
+    }
+
+    #[test]
+    fn long_and_odd_messages_do_not_panic() {
+        log_debug!("{}", "x".repeat(3 * LINE_MAX));
+        log_debug!("a\0b");
+        log_debug!("");
+    }
+
+    #[test]
+    fn buffer_truncates_like_vsnprintf() {
+        let mut b = Buffer {
+            bytes: [0; LINE_MAX],
+            len: 0,
+        };
+        write!(b, "{}", "y".repeat(LINE_MAX + 10)).unwrap();
+        assert_eq!(b.len, LINE_MAX - 1);
+        b.bytes[b.len] = 0;
+        assert_eq!(
+            CStr::from_bytes_until_nul(&b.bytes).unwrap().to_bytes().len(),
+            LINE_MAX - 1
+        );
+    }
+}

@@ -101,3 +101,38 @@ impl Drop for Strv {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty() {
+        let v = Strv::new();
+        assert!(v.is_empty());
+        assert_eq!(v.len(), 0);
+        assert_eq!(v.iter().count(), 0);
+        assert_eq!(v.join(c",").unwrap().as_cstr(), c"");
+    }
+
+    #[test]
+    fn split_join_push() {
+        let mut v = Strv::split(c"one two  three", c" ", sys::EXTRACT_RELAX).unwrap();
+        assert_eq!(v.len(), 3);
+        assert!(!v.is_empty());
+        assert_eq!(
+            v.iter().map(|s| s.to_str().unwrap()).collect::<Vec<_>>(),
+            ["one", "two", "three"]
+        );
+        assert_eq!(v.join(c",").unwrap().as_cstr(), c"one,two,three");
+
+        v.push(c"four").unwrap();
+        assert_eq!(v.len(), 4);
+        assert_eq!(v.join(c" ").unwrap().as_cstr(), c"one two three four");
+
+        let raw = v.into_raw();
+        // SAFETY: we own the array again.
+        let v = unsafe { Strv::from_raw(raw) };
+        assert_eq!(v.len(), 4);
+    }
+}

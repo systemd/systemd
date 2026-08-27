@@ -310,3 +310,52 @@ pub fn from_result(f: impl FnOnce() -> Result<c_int>) -> c_int {
         Err(e) => e.negative(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_maps_sign() {
+        assert_eq!(check(0), Ok(0));
+        assert_eq!(check(7), Ok(7));
+        assert_eq!(check(-(sys::ENOENT as c_int)), Err(Errno::ENOENT));
+    }
+
+    #[test]
+    fn errno_is_always_positive() {
+        let e = Errno::from_code(-(sys::EINVAL as c_int));
+        assert_eq!(e, Errno::EINVAL);
+        assert_eq!(e.code(), sys::EINVAL as c_int);
+        assert_eq!(e.negative(), -(sys::EINVAL as c_int));
+        assert_eq!(Errno::from(sys::EINVAL as c_int), e);
+        assert_eq!(std::io::Error::from(e).raw_os_error(), Some(sys::EINVAL as c_int));
+        assert_eq!(Errno::from(std::io::Error::from(Errno::EBADF)), Errno::EBADF);
+        assert_eq!(core::mem::size_of::<Result<()>>(), core::mem::size_of::<c_int>());
+    }
+
+    #[test]
+    fn conversions() {
+        assert_eq!(Errno::from(u8::try_from(300).unwrap_err()), Errno::ERANGE);
+        let invalid = std::hint::black_box([0xffu8]);
+        assert_eq!(
+            Errno::from(core::str::from_utf8(&invalid).unwrap_err()),
+            Errno::EINVAL
+        );
+        assert_eq!(
+            Errno::from(std::ffi::CString::new("a\0b").unwrap_err()),
+            Errno::EINVAL
+        );
+        assert_eq!(from_result(|| Ok(5)), 5);
+        assert_eq!(from_result(|| Err(Errno::EAGAIN)), Errno::EAGAIN.negative());
+    }
+
+    #[test]
+    fn names_and_messages() {
+        assert_eq!(Errno::ENOENT.name(), Some(c"ENOENT"));
+        assert_eq!(Errno::from_code(-100_000).name(), None);
+        assert_eq!(Errno::ENOENT.to_string(), "No such file or directory");
+        assert_eq!(format!("{:?}", Errno::EBADF), "Errno(EBADF)");
+        assert_eq!(format!("{:?}", Errno::from_code(100_000)), "Errno(100000)");
+    }
+}

@@ -201,3 +201,55 @@ unsafe extern "C" fn drop_userdata<F: TimeHandler>(userdata: *mut c_void) {
     // when the source is freed.
     drop(unsafe { Box::from_raw(userdata.cast::<F>()) });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    #[test]
+    fn timer_exits_loop() {
+        let e = Event::new().unwrap();
+        let fired = Rc::new(Cell::new(0));
+        let counter = Rc::clone(&fired);
+        let source = e
+            .add_time_relative(
+                sys::CLOCK_MONOTONIC as sys::clockid_t,
+                1000,
+                0,
+                move |source, _usec| {
+                    counter.set(counter.get() + 1);
+                    source.event().exit(7)
+                },
+            )
+            .unwrap();
+        assert_eq!(e.run_loop().unwrap(), 7);
+        assert_eq!(fired.get(), 1);
+
+        // The closure holds a clone of the counter until the source is freed.
+        assert_eq!(Rc::strong_count(&fired), 2);
+        drop(source);
+        drop(e);
+        assert_eq!(Rc::strong_count(&fired), 1);
+    }
+
+    #[test]
+    fn handler_errors_reach_the_loop() {
+        let e = Event::new().unwrap();
+        let source = e
+            .add_time_relative(sys::CLOCK_MONOTONIC as sys::clockid_t, 0, 0, |_source, _usec| {
+                Err(Errno::EIO)
+            })
+            .unwrap();
+        source.set_exit_on_failure(true).unwrap();
+        assert_eq!(e.run_loop(), Err(Errno::EIO));
+    }
+
+    #[test]
+    fn events_are_shared_references() {
+        let e = Event::new().unwrap();
+        let e2 = e.clone();
+        assert_eq!(e.as_ptr(), e2.as_ptr());
+    }
+}

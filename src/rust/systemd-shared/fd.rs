@@ -26,3 +26,15 @@ pub fn get_path(fd: BorrowedFd<'_>) -> Result<OwnedCStr> {
     // SAFETY: we own p.
     unsafe { OwnedCStr::from_raw(p) }.ok_or(Errno::ENOMEM)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::fd::AsFd;
+
+    #[test]
+    fn path_of_root() {
+        let root = std::fs::File::open("/").unwrap();
+        assert_eq!(get_path(root.as_fd()).unwrap().as_cstr(), c"/");
+    }
+}

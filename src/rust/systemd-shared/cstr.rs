@@ -62,3 +62,28 @@ impl fmt::Debug for OwnedCStr {
         fmt::Debug::fmt(self.as_cstr(), f)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::ptr;
+
+    #[test]
+    fn null_is_none() {
+        // SAFETY: NULL is explicitly allowed.
+        assert!(unsafe { OwnedCStr::from_raw(ptr::null_mut()) }.is_none());
+    }
+
+    #[test]
+    fn owns_and_releases() {
+        // SAFETY: strdup() returns a malloc()ed string we own.
+        let s = unsafe { OwnedCStr::from_raw(sys::strdup(c"hello".as_ptr())) }.unwrap();
+        assert_eq!(s.as_cstr(), c"hello");
+        assert_eq!(s.to_string(), "hello");
+        assert_eq!(format!("{s:?}"), "\"hello\"");
+
+        let raw = s.into_raw();
+        // SAFETY: we took the pointer back, so we free it.
+        unsafe { sys::free(raw.cast::<c_void>()) };
+    }
+}
