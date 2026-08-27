@@ -1765,7 +1765,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                 return log_oom();
 
         for (;;) {
-                if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto)
+                if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto) {
                         r = attach_luks2_by_pkcs11_via_plugin(
                                         cd,
                                         name,
@@ -1773,7 +1773,18 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                         until,
                                         "cryptsetup.pkcs11-pin",
                                         flags);
-                else {
+                        if (r >= 0)
+                                return 0;
+                        /* EAGAIN means: token enrolled, but not currently present */
+                        if (r == -ENOENT) /* nothing enrolled, or the enrolled key object could not be
+                                           * found on the token: nothing to wait for, fall back right away */
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "No PKCS#11 metadata enrolled in LUKS2 header, or referenced key not found on token, falling back to traditional unlocking.");
+                        if (r != -EAGAIN) {
+                                log_notice_errno(r, "PKCS#11 operation failed, falling back to traditional unlocking: %m");
+                                return -EAGAIN; /* Mangle error code: let's make any form of PKCS#11 failure non-fatal. */
+                        }
+                } else {
                         r = decrypt_pkcs11_key(
                                         name,
                                         friendly,
@@ -1786,10 +1797,12 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                         &decrypted_key, &decrypted_key_size);
                         if (r >= 0)
                                 break;
-                }
 
-                if (r != -EAGAIN) /* EAGAIN means: token not found */
-                        return r;
+                        if (r != -EAGAIN) { /* EAGAIN means: token not found */
+                                log_notice_errno(r, "PKCS#11 operation failed, falling back to traditional unlocking: %m");
+                                return -EAGAIN; /* Mangle error code: let's make any form of PKCS#11 failure non-fatal. */
+                        }
+                }
 
                 if (!monitor) {
                         /* We didn't find the token. In this case, watch for it via udev. Let's
