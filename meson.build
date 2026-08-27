@@ -647,12 +647,8 @@ if get_option('libc') == 'musl' and host_machine.cpu_family() == 'x86'
         possible_cc_flags += '-mstackrealign'
 endif
 
-add_project_arguments(
-        cc.get_supported_arguments(
-                basic_disabled_warnings,
-                possible_common_cc_flags
-        ),
-        language : 'c')
+common_c_args = cc.get_supported_arguments(basic_disabled_warnings, possible_common_cc_flags)
+add_project_arguments(common_c_args, language : 'c')
 
 add_project_link_arguments(
         cc.get_supported_link_arguments(possible_common_link_flags),
