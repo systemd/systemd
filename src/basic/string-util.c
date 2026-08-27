@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "ansi-seq.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "glyph-util.h"
@@ -14,7 +15,6 @@
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "utf8.h"
 
 char* first_word(const char *s, const char *word) {
@@ -701,16 +701,32 @@ static void advance_offsets(
                 shift[1] += size;
 }
 
+static void retract_offsets(
+                size_t begin,
+                size_t end,
+                size_t offsets[2], /* note: we can't use [static 2] here, since this may be NULL */
+                size_t shift[static 2]) {
+
+        /* The input range [begin, end) was dropped from the output: offsets past it move back by its
+         * length, offsets inside it collapse onto its beginning. The shift is tracked in unsigned modular
+         * arithmetic, which is fine as the sum of all shifts applied to an offset is never negative: at most
+         * as many bytes can be dropped before an offset as there are bytes before it. */
+
+        if (!offsets)
+                return;
+
+        assert(shift);
+        assert(begin <= end);
+
+        for (size_t k = 0; k < 2; k++)
+                if (offsets[k] > begin)
+                        shift[k] -= MIN(offsets[k], end) - begin;
+}
+
 char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
-        const char *begin = NULL;
-        enum {
-                STATE_OTHER,
-                STATE_ESCAPE,
-                STATE_CSI,
-                STATE_OSC,
-                STATE_OSC_CLOSING,
-        } state = STATE_OTHER;
+        _cleanup_(ansi_seq_parser_done) AnsiSeqParser parser = {};
         _cleanup_(memstream_done) MemStream m = {};
+        const char *begin = NULL;
         size_t isz, shift[2] = {}, n_carriage_returns = 0;
         FILE *f;
 
@@ -721,16 +737,14 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         /* This does three things:
          *
          * 1. Replaces TABs by 8 spaces
-         * 2. Strips ANSI color sequences (a subset of CSI), i.e. ESC '[' … 'm' sequences
-         * 3. Strips ANSI operating system sequences (OSC), i.e. ESC ']' … ST sequences
-         * 4. Strip trailing \r characters (since they would "move the cursor", but have no
+         * 2. Strips ANSI sequences (CSI, OSC and all other escape sequences)
+         * 3. Strips trailing \r characters (since they would "move the cursor", but have no
          *    other effect).
          *
-         * Everything else will be left as it is. In particular other ANSI sequences are left as they are, as
-         * are any other special characters. Truncated ANSI sequences are left-as is too. This call is
-         * supposed to suppress the most basic formatting noise, but nothing else.
-         *
-         * Why care for OSC sequences? Well, to undo what terminal_urlify() and friends generate. */
+         * Any other special characters are left as they are. Invalid or truncated ANSI sequences are
+         * dropped, too: when stripping ANSI sequences it's better to strip too much than too little. This
+         * call is supposed to suppress formatting noise (including what terminal_urlify() and friends
+         * generate), but nothing else. */
 
         isz = _isz ? *_isz : strlen(*ibuf);
 
@@ -740,28 +754,39 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         if (!f)
                 return NULL;
 
-        for (const char *i = *ibuf; i < *ibuf + isz + 1; i++) {
+        for (const char *i = *ibuf; i < *ibuf + isz; i++) {
+                int e;
 
-                bool eot = i >= *ibuf + isz;
-
-                switch (state) {
-
-                case STATE_OTHER:
-                        if (eot)
+                for (;;) {
+                        e = ansi_seq_parser_feed(&parser, *i);
+                        if (e < 0)
+                                return NULL;
+                        if (e != ANSI_SEQ_EVENT_ABORT)
                                 break;
 
+                        /* Eat up bogus sequences. The aborted sequence is over (and dropped, up to but
+                         * excluding the current character, which is fed again), hence forget about it, so
+                         * that the next sequence flushes pending carriage returns again. */
+                        if (begin) {
+                                retract_offsets(begin - *ibuf, i - *ibuf, highlight, shift);
+                                begin = NULL;
+                        }
+                }
+
+                switch (e) {
+
+                case ANSI_SEQ_EVENT_TEXT:
                         if (*i == '\r') {
                                 n_carriage_returns++;
-                                break;
-                        } else if (*i == '\n')
+                                continue;
+                        }
+                        if (*i == '\n')
                                 /* Ignore carriage returns before new line */
                                 n_carriage_returns = 0;
                         for (; n_carriage_returns > 0; n_carriage_returns--)
                                 fputc('\r', f);
 
-                        if (*i == '\x1B')
-                                state = STATE_ESCAPE;
-                        else if (*i == '\t') {
+                        if (*i == '\t') {
                                 fputs("        ", f);
                                 advance_offsets(i - *ibuf, highlight, shift, 7);
                         } else
@@ -769,74 +794,31 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
                         break;
 
-                case STATE_ESCAPE:
-                        assert(n_carriage_returns == 0);
+                case ANSI_SEQ_EVENT_SEQUENCE:
+                        if (!begin) { /* This starts a new sequence, flush any pending carriage returns first */
+                                for (; n_carriage_returns > 0; n_carriage_returns--)
+                                        fputc('\r', f);
 
-                        if (eot) {
-                                fputc('\x1B', f);
-                                advance_offsets(i - *ibuf, highlight, shift, 1);
-                                break;
-                        } else if (*i == '[') { /* ANSI CSI */
-                                state = STATE_CSI;
-                                begin = i + 1;
-                        } else if (*i == ']') { /* ANSI OSC */
-                                state = STATE_OSC;
-                                begin = i + 1;
-                        } else {
-                                fputc('\x1B', f);
-                                fputc(*i, f);
-                                advance_offsets(i - *ibuf, highlight, shift, 1);
-                                state = STATE_OTHER;
+                                begin = i;
                         }
-
                         break;
 
-                case STATE_CSI:
-                        assert(n_carriage_returns == 0);
-
-                        if (eot || !strchr(DIGITS ";:m", *i)) { /* EOT or invalid chars in sequence */
-                                fputc('\x1B', f);
-                                fputc('[', f);
-                                advance_offsets(i - *ibuf, highlight, shift, 2);
-                                state = STATE_OTHER;
-                                i = begin-1;
-                        } else if (*i == 'm')
-                                state = STATE_OTHER;
-
+                case ANSI_SEQ_EVENT_END:
+                        /* A complete sequence, drop it (the current character is its last one) */
+                        assert(begin);
+                        retract_offsets(begin - *ibuf, i + 1 - *ibuf, highlight, shift);
+                        begin = NULL;
                         break;
 
-                case STATE_OSC:
-                        assert(n_carriage_returns == 0);
-
-                        /* There are three kinds of OSC terminators: \x07, \x1b\x5c or \x9c. We only support
-                         * the first two, because the last one is a valid UTF-8 codepoint and hence creates
-                         * an ambiguity (many Terminal emulators refuse to support it as well). */
-                        if (eot || (!IN_SET(*i, '\x07', '\x1b') && !osc_char_is_valid(*i))) { /* EOT or invalid chars in sequence */
-                                fputc('\x1B', f);
-                                fputc(']', f);
-                                advance_offsets(i - *ibuf, highlight, shift, 2);
-                                state = STATE_OTHER;
-                                i = begin-1;
-                        } else if (*i == '\x07') /* Single character ST */
-                                state = STATE_OTHER;
-                        else if (*i == '\x1B')
-                                state = STATE_OSC_CLOSING;
-
-                        break;
-
-                case STATE_OSC_CLOSING:
-                        if (eot || *i != '\x5c') { /* EOT or incomplete two-byte ST in sequence */
-                                fputc('\x1B', f);
-                                fputc(']', f);
-                                advance_offsets(i - *ibuf, highlight, shift, 2);
-                                state = STATE_OTHER;
-                                i = begin-1;
-                        } else if (*i == '\x5c')
-                                state = STATE_OTHER;
-
-                        break;
+                default:
+                        assert_not_reached();
                 }
         }
+
+        /* If the input ends in the middle of a sequence the truncated sequence is dropped as well, hence
+         * the offsets need to account for it, too. */
+        if (begin)
+                retract_offsets(begin - *ibuf, isz, highlight, shift);
 
         char *obuf;
         if (memstream_finalize(&m, &obuf, _isz) < 0)
