@@ -26,6 +26,31 @@ CHANGES WITH 263 in spe:
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.
 
+        Changes in systemd-keyring-setup:
+
+        * A new service systemd-keyring-setup.service has been added that
+          enrolls X.509 certificates into the kernel's .dm-verity, .fs-verity
+          and .bpf keyrings early during boot, and seals the keyrings
+          afterwards. The certificates are read from the File Hierarchy for
+          the Verification of OS Artifacts (VOA), i.e. from /etc/voa/,
+          /run/voa/, /usr/local/share/voa/ and /usr/share/voa/, or may be
+          passed in as keyring-setup.* system credentials. This allows the
+          kernel to verify signed dm-verity volumes, fs-verity files and BPF
+          programs with certificates provided by the OS vendor or the local
+          administrator, without rebuilding the kernel or enrolling keys into
+          the firmware. Note that the kernel seals the .dm-verity and .bpf
+          keyrings while they are still empty, unless
+          dm_verity.keyring_unsealed=1 or bpf.keyring_unsealed=1 is specified
+          on the kernel command line, respectively. The service is not enabled
+          by default, and is considered experimental for now. See
+          systemd-keyring-setup.service(8) and
+          https://uapi-group.org/specifications/specs/file_hierarchy_for_the_verification_of_os_artifacts/
+          for details.
+
+          systemd-keyring-setup is the first systemd component written in
+          Rust, and is hence only built if Rust support is enabled with the
+          new -Drust= build option.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
