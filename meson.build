@@ -1990,6 +1990,7 @@ simple_fuzzers = []
 catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
+rust_sources = []
 executables_by_name = {}
 exported_by_name = {}
 fuzzer_exes = []
@@ -2258,6 +2259,35 @@ test_additional_kwargs = {
         'link_depends' : runtest_env,
 }
 
+if have_rust
+        # Programs written in Rust go into executables like the C ones, the 'rust' key tells them apart. The
+        # crate root comes first. No .standalone variants, they always link libsystemd-shared dynamically.
+        rust_executable_template = {
+                'rust' : true,
+                'include_directories' : [],
+                'link_with' : [libsystemd_shared_rs],
+                'install_rpath' : pkglibdir,
+                'install' : 'yes',
+                'build_by_default' : true,
+                # meson keeps rustc's own library directory in the runpath of Rust programs that link a shared
+                # library (it is only needed for Rust dylibs, which we do not use) and cannot grow a runpath
+                # when installing. Add a build-only entry that is at least as long as the installed runpath, so
+                # that install always succeeds, and let fix-rust-rpath.py drop the leftover entry afterwards.
+                # Both become no-ops once meson stops adding the directory.
+                'build_rpath' : meson.project_build_root() / pkglibdir.strip('/'),
+                # Nothing from the crates is exported. The linker exports what a DSO in the link also defines,
+                # and a stub of the crates would then preempt it for the libraries a program loads.
+                'link_args' : ['-Wl,--exclude-libs,ALL'],
+        }
+
+        rust_test_template = rust_executable_template + {
+                'build_by_default' : want_tests != 'false',
+                'install' : install_tests ? 'yes' : 'no',
+                'install_dir' : unittestsdir,
+                'suite' : 'rust',
+        }
+endif
+
 fuzz_template = executable_template + {
         'build_by_default' : want_fuzz_tests,
         'install' : 'no',
@@ -2476,6 +2506,7 @@ foreach dict : executables
 
         is_test = name.startswith('test-')
         is_fuzz = name.startswith('fuzz-')
+        is_rust = dict.get('rust', false)
 
         build = true
         foreach cond : dict.get('conditions', [])
@@ -2515,19 +2546,21 @@ foreach dict : executables
                 if key in ['name', 'dbus', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs', 'link_args_static', 'symlinks']
+                           'bpf_programs', 'link_args_static', 'symlinks', 'rust']
                         continue
                 endif
 
                 kwargs += { key : val }
         endforeach
 
-        foreach key, val : executable_additional_kwargs
-                kwargs += { key : [ kwargs.get(key, []), val ]}
-        endforeach
+        if not is_rust
+                foreach key, val : executable_additional_kwargs
+                        kwargs += { key : [ kwargs.get(key, []), val ]}
+                endforeach
+        endif
 
         include_directories = dict['include_directories']
-        if not is_test and exe_sources.length() > 0
+        if not is_test and not is_rust and exe_sources.length() > 0
                 include_directories += fs.parent(exe_sources[0])
         endif
 
@@ -2540,6 +2573,9 @@ foreach dict : executables
         if is_test
                 kwargs += { 'install_dir' : kwargs.get('install_dir') / dict.get('type', '') }
                 foreach key, val : test_additional_kwargs
+                        if is_rust and key == 'c_args'
+                                continue
+                        endif
                         kwargs += { key : [ kwargs.get(key, []), val ] }
                 endforeach
         endif
@@ -2560,7 +2596,7 @@ foreach dict : executables
         install = dict.get('install')
         build_by_default = dict.get('build_by_default')
         install_standalone = false
-        if not (is_test or is_fuzz)
+        if not (is_test or is_fuzz or is_rust)
                 foreach pattern : standalone_binaries
                         if name.contains(pattern)
                                 install_standalone = true
@@ -2574,7 +2610,7 @@ foreach dict : executables
                 build_by_default_shared = build_by_default
                 build_by_default_static = build_by_default and (install_standalone or want_dlopen_tests)
         elif install == 'static'
-                if is_test or is_fuzz
+                if is_test or is_fuzz or is_rust
                         error('Install mode "@0@" is not supported for test or fuzzer target "@1@"'.format(install, name))
                 endif
                 name_shared = name + '.shared'
@@ -2598,7 +2634,15 @@ foreach dict : executables
         )
 
         executables_by_name += { name_shared : exe }
-        sources += exe_sources
+        if is_rust
+                rust_sources += exe_sources
+                if install_shared
+                        meson.add_install_script(python, fix_rust_rpath_py, pkglibdir,
+                                                 kwargs.get('install_dir', bindir) / name)
+                endif
+        else
+                sources += exe_sources
+        endif
 
         if 'export' in dict
                 exported_by_name += {
@@ -2618,7 +2662,7 @@ foreach dict : executables
                 endif
         endif
 
-        if not is_test and not is_fuzz
+        if not is_test and not is_fuzz and not is_rust
                 link_with_static = []
                 foreach obj : kwargs.get('link_with', [])
                         if obj.full_path() == libshared.full_path()
@@ -2945,6 +2989,15 @@ foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyut
                 mkosi_depends += [executables_by_name[executable]]
         endif
 endforeach
+
+#####################################################################
+
+if have_rust and want_tests != 'false' and rustfmt.found() and rust_sources.length() > 0
+        test('rustfmt',
+             rustfmt,
+             args : ['--check', '--edition', '2021', rust_sources],
+             suite : 'dist')
+endif
 
 if mkosi.found()
         custom_target(
