@@ -12,6 +12,7 @@ project('systemd', 'c',
                 'warning_level=2',
         ],
         meson_version : '>= 0.62.0',
+        subproject_dir : 'src/rust',
 )
 
 add_test_setup(
@@ -2030,6 +2031,30 @@ subdir('src/libsystemd')
 subdir('src/shared')
 subdir('src/libudev')
 
+if have_rust
+        # Everything Rust code needs to use libsystemd-shared, handed to the src/rust/systemd-shared
+        # subproject. The comment at the top of its meson.build explains why it is a subproject.
+        meson.override_dependency(
+                'systemd-shared-internal',
+                declare_dependency(
+                        link_with : libshared,
+                        include_directories : includes,
+                        dependencies : [libshared_deps, userspace]))
+        # The project arguments do not cross into the subproject; the C it compiles gets them this way.
+        meson.override_dependency(
+                'systemd-common-c-args',
+                declare_dependency(compile_args : common_c_args))
+
+        systemd_shared_rust = subproject(
+                'systemd-shared',
+                default_options : [
+                        'rust-target=' + rust_msrv,
+                        'libc=' + get_option('libc'),
+                        'tests=' + (want_tests != 'false').to_string(),
+                ])
+        libsystemd_shared_sys = systemd_shared_rust.get_variable('libsystemd_shared_sys')
+endif
+
 libsystemd = shared_library(
         'systemd',
         version : libsystemd_version,
@@ -2906,7 +2931,8 @@ if git.found()
         all_files = run_command(
                 env, '-u', 'GIT_WORK_TREE',
                 git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
-                     'ls-files', ':/*.[ch]', ':/*.cc',
+                     # files() may not reach into the subproject directory
+                     'ls-files', ':/*.[ch]', ':/*.cc', ':(exclude,top)src/rust',
                 check : false)
         if all_files.returncode() == 0
                 existing_files = []

@@ -23,6 +23,7 @@ __pycache__/
 /TAGS
 /ID
 /build*
+/src/rust/.wraplock
 /install-tree
 /mkosi/mkosi.crt
 /mkosi/mkosi.key
