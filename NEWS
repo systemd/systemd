@@ -569,6 +569,22 @@ CHANGES WITH 262 in spe:
 
         Changes in various tools:
 
+        * A new service systemd-keyring-setup.service enrolls X.509
+          certificates from the VOA hierarchy (/etc/voa/, /run/voa/,
+          /usr/local/share/voa/, /usr/share/voa/, see
+          https://uapi-group.org/specifications/specs/file_hierarchy_for_the_verification_of_os_artifacts/)
+          into the kernel's .dm-verity, .fs-verity and .bpf keyrings early at
+          boot, and seals the keyrings afterwards. This allows the kernel to
+          verify signed dm-verity volumes, fs-verity files and BPF programs
+          with vendor or administrator provided certificates, without
+          rebuilding the kernel or enrolling keys into the firmware. The
+          certificates may also be supplied as keyring-setup.* system
+          credentials. The .dm-verity and .bpf keyrings need the kernel
+          command line options dm_verity.keyring_unsealed=1 respectively
+          bpf.keyring_unsealed=1 to be provisionable, and are sealed empty
+          otherwise. The service is not enabled by default. See
+          systemd-keyring-setup.service(8) for details.
+
         * Tools that create or modify files in offline roots/images now use the
           SELinux policy from the target tree, and strip the alternate-root
           prefix for label lookups. This fixes labels written by
