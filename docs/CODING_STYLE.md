@@ -997,6 +997,48 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   on Linux. Note that `NAME_MAX` does not include space for a trailing `NUL`,
   but `PATH_MAX` does. UNIX FTW!
 
+## Rust
+
+- Rust code is formatted with `rustfmt` using the `rustfmt.toml` in the root of the repository (rustfmt's
+  defaults except for the line length the tree already uses, so yes, 4ch indent), and must be clean under
+  `clippy` with the lint set `meson.build` passes to every Rust target and the settings in `.clippy.toml`.
+  The `rustfmt` check runs as part of the unit tests.
+
+- Only the Rust standard library is used. No external crates.
+
+- Programs are `#![no_main]` and declare their main function with `define_main!()`, so that they get
+  `main_prepare()` and `main_finalize()` like the C programs do, and their command line with `verbs!` and
+  `foreach_option!`, which are `COMMAND()`, `VERB()` and `OPTION()`: the tables land in the same linker
+  sections and the C code parses, dispatches and prints `--help` from them. A program written in Rust must not
+  look or behave any different from one written in C, and `test/test-cli-parity.sh` checks that on a twin pair.
+
+- Programs written in Rust talk to the rest of systemd through the `systemd_shared` crate. Anything that is
+  missing there is added there, in the idiomatic form: owned types with `Drop` for what C frees explicitly
+  (`Ref<T>` for the refcounted `sd_*` objects, `OwnedCStr` and `Strv` for allocated strings),
+  `Result<T, Errno>` with `Errno::EINVAL` and friends for the negative-errno convention, closures for
+  callbacks, and the `log_*!` macros for logging. Raw calls into `systemd_shared::sys` in a program are a
+  sign that the crate is missing a wrapper.
+
+- Names mirror the C names with Rust casing and without repeating the namespace: `Strv::split()` for
+  `strv_split_full()`, `Event::add_time_relative()` for `sd_event_add_time_relative()`.
+
+- `unsafe` blocks are as small as possible and every one carries a `// SAFETY:` comment explaining why the
+  operation is sound; `unsafe fn`s say what the caller must uphold in a `# Safety` section. Both are enforced
+  by clippy. Callbacks handed to C are closures through the wrappers; raw `extern "C"` functions exist only
+  inside `systemd_shared`. A callback must not panic, unwinding out of an `extern "C"` function aborts.
+
+- File descriptors are `BorrowedFd`/`OwnedFd`, not `c_int`.
+
+- Error handling follows the C rules: propagate with `?`, log where the error is handled, and return
+  `Err(log_error_errno!(e, "..."))` where C code would `return log_error_errno(r, "...")`. `unwrap()` and
+  `expect()` are for tests and for conditions that cannot fail. `#[expect(lint)]` is preferred over
+  `#[allow(lint)]`, so that a suppression that is no longer needed is reported.
+
+- `std::process` is off limits (the glibc baseline, see HACKING.md), and the standard library aborts on
+  allocation failure. Keep both in mind when deciding what to write in Rust.
+
+- Rust code lives in programs. `libsystemd-shared`, `libsystemd` and the NSS and PAM modules stay C.
+
 ## Committing to git
 
 - Commit message subject lines should be prefixed with an appropriate component
