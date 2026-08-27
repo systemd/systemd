@@ -70,7 +70,7 @@ COMMAND(
         .footer = "This program may also be invoked as 'installkernel':\n"
                   "  installkernel [OPTION…] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
                   "(The optional arguments are passed by kernel build system, but ignored.)",
-        .man_pages = "kernel-install.8\0",
+        .man_pages = "kernel-install(8)\0",
         .pager_flags = &arg_pager_flags,
         .flags = COMMAND_HELP_SEPARATE,  /* the verb table is very wide */
 );
@@ -1729,7 +1729,7 @@ COMMAND(
         "Add and remove kernel and initrd images to and from the boot partition.",
         .argspec = "VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\0",
         .footer = "This is a compat interface intended only to be called from kernel Makefiles.",
-        .man_pages = "kernel-install.8\0",
+        .man_pages = "kernel-install(8)\0",
         .pager_flags = &arg_pager_flags,
 );
 

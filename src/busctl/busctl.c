@@ -78,7 +78,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 COMMAND(
         "busctl\0",
         "Introspect the D-Bus IPC bus.",
-        .man_pages = "busctl.1\0",
+        .man_pages = "busctl(1)\0",
         .pager_flags = &arg_pager_flags,
         .flags = COMMAND_HELP_SEPARATE,  /* the verb table is very wide */
 );

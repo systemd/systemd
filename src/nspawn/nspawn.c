@@ -322,7 +322,7 @@ COMMAND(
         "systemd-nspawn\0",
         "Spawn a command or OS in a lightweight container.",
         .argspec = "[PATH] [ARGUMENTS…]\0",
-        .man_pages = "systemd-nspawn.1\0",
+        .man_pages = "systemd-nspawn(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

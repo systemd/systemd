@@ -254,7 +254,7 @@ COMMAND(
         "systemd-tmpfiles\0",
         "Create, delete, and clean up files and directories.",
         .argspec = "[CONFIGURATION FILE…]\0",
-        .man_pages = "systemd-tmpfiles.8\0",
+        .man_pages = "systemd-tmpfiles(8)\0",
         .pager_flags = &arg_pager_flags,
 );
 

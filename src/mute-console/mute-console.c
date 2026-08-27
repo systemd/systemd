@@ -30,7 +30,7 @@ static bool arg_varlink = false;
 COMMAND(
         "systemd-mute-console\0",
         "Mute status output to the console.",
-        .man_pages = "systemd-mute-console.1\0",
+        .man_pages = "systemd-mute-console(1)\0",
 );
 
 static int parse_argv(int argc, char *argv[]) {

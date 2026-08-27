@@ -58,7 +58,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_extra_headers, strv_freep);
 COMMAND(
         "systemd-report\0",
         "Acquire metrics from local sources.",
-        .man_pages = "systemd-report.1\0",
+        .man_pages = "systemd-report(1)\0",
         .pager_flags = &arg_pager_flags,
 );
 

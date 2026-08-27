@@ -152,7 +152,9 @@ INTROSPECTABLE=(
 for i in "${INTROSPECTABLE[@]}"; do
     command -v "$i" >/dev/null || continue
 
-    $i --help >/dev/null
+    help="$($i --help)"
+    grep -E '^See the [^[:space:]]+\([[:alnum:]]+\) for details\.$' <<<"$help" >/dev/null
+    ! grep -E '^See the [^[:space:]]+\.[[:alnum:]]+ for details\.$' <<<"$help" >/dev/null
 
     $i --introspect-cli | jq -e \
         '.mediaType == "application/vnd.io.systemd.cli-introspection-0"'
