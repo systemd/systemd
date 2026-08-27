@@ -103,6 +103,7 @@ int pty_broker_acquire_pty(
                         SD_JSON_BUILD_PAIR_STRING("frontendType", frontend_type),
                         SD_JSON_BUILD_PAIR_STRING("backendType", "take"),
                         SD_JSON_BUILD_PAIR_BOOLEAN("monitor", true),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("osc2811", true), /* The PTY forwarder implements the emulator side */
                         SD_JSON_BUILD_PAIR_CONDITION(!!name, "name", SD_JSON_BUILD_STRING(name)),
                         SD_JSON_BUILD_PAIR_VARIANT("terminalSettings", ts),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", allow_interactive_auth));
@@ -219,6 +220,7 @@ int pty_broker_enroll_pty(
                         SD_JSON_BUILD_PAIR_INTEGER("frontendFileDescriptor", fd_idx),
                         SD_JSON_BUILD_PAIR_STRING("frontendType", frontend_type),
                         SD_JSON_BUILD_PAIR_BOOLEAN("monitor", true),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("osc2811", true), /* The PTY forwarder implements the emulator side */
                         SD_JSON_BUILD_PAIR_CONDITION(!!name, "name", SD_JSON_BUILD_STRING(name)),
                         SD_JSON_BUILD_PAIR_VARIANT("terminalSettings", ts),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", allow_interactive_auth));
