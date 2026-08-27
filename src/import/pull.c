@@ -123,7 +123,7 @@ static void on_tar_finished(TarPull *pull, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-VERB(verb_tar, "tar", "URL [NAME]", 2, 3, 0, "Download a TAR image");
+VERB(verb_tar, "tar", "URL [NAME]\0", 2, 3, 0, "Download a TAR image");
 static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -194,7 +194,7 @@ static void on_raw_finished(RawPull *pull, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-VERB(verb_raw, "raw", "URL [NAME]", 2, 3, 0, "Download a RAW image");
+VERB(verb_raw, "raw", "URL [NAME]\0", 2, 3, 0, "Download a RAW image");
 static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -264,7 +264,7 @@ static void on_oci_finished(OciPull *pull, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-VERB(verb_oci, "oci", "REF [NAME]", 2, 3, 0, "Download an OCI image");
+VERB(verb_oci, "oci", "REF [NAME]\0", 2, 3, 0, "Download an OCI image");
 static int verb_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 

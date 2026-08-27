@@ -175,41 +175,57 @@ static int verb_add_help_one(Table *table, const Verb *verb) {
         assert(table);
         assert(verb);
 
-        bool is_default = FLAGS_SET(verb->flags, VERB_DEFAULT);
+        _cleanup_free_ char *cell = NULL;
         int r;
 
-        /* We indent the option string by two spaces. We could set the minimum cell width and
-         * right-align for a similar result, but that'd be more work. This is only used for
-         * display. */
-        _cleanup_free_ char *s = strjoin("  ",
-                                         is_default ? "[" : "",
-                                         verb->verb,
-                                         verb->argspec ? " " : "",
-                                         strempty(verb->argspec),
-                                         is_default ? "]" : "");
-        if (!s)
-                return log_oom();
+        /* The synopsis cell contains one line per entry in the argspec nulstr. An unset argspec is
+         * equivalent to a single empty specification. */
+        for (const char *spec = empty_to_null(verb->argspec);;) {
+                bool is_default = FLAGS_SET(verb->flags, VERB_DEFAULT);
 
-        const char *ss = NULL;
-        if (columns() < VERB_SYNOPSIS_WIDTH_SANE * 4) {
-                /* If the synopsis is very wide, try to split it up. But do this only if the terminal
-                 * is not very wide. If it _is_ wide, the broken up synopsis would look silly. */
-                const char *p = find_point_to_break(s, VERB_SYNOPSIS_WIDTH_SANE), *p2 = NULL;
-                if (p) {
-                        const char *s1 = strndupa_safe(s, p - s), *s2 = NULL;
+                /* We indent the option string by two spaces. We could set the minimum cell width and
+                 * right-align for a similar result, but that'd be more work. This is only used for
+                 * display. */
+                _cleanup_free_ char *s = strjoin("  ",
+                                                 is_default ? "[" : "",
+                                                 verb->verb,
+                                                 spec ? " " : "",
+                                                 strempty(spec),
+                                                 is_default ? "]" : "",
+                                                 FLAGS_SET(verb->flags, VERB_OPTION_REQUIRED) ? " OPTION" : "");
+                if (!s)
+                        return log_oom();
 
-                        p2 = find_point_to_break(p, VERB_SYNOPSIS_WIDTH_SANE - 4); /* we indent by two spaces more */
-                        if (p2)
-                                s2 = strndupa_safe(p, p2 - p);
+                const char *ss = NULL;
+                if (columns() < VERB_SYNOPSIS_WIDTH_SANE * 4) {
+                        /* If the synopsis is very wide, try to split it up. But do this only if the terminal
+                         * is not very wide. If it _is_ wide, the broken up synopsis would look silly. */
+                        const char *p = find_point_to_break(s, VERB_SYNOPSIS_WIDTH_SANE), *p2 = NULL;
+                        if (p) {
+                                const char *s1 = strndupa_safe(s, p - s), *s2 = NULL;
 
-                        if (s2)
-                                ss = strjoina(s1, "\n    ", s2, "\n    ", p2);
-                        else
-                                ss = strjoina(s1, "\n    ", p);
+                                p2 = find_point_to_break(p, VERB_SYNOPSIS_WIDTH_SANE - 4); /* we indent by two spaces more */
+                                if (p2)
+                                        s2 = strndupa_safe(p, p2 - p);
+
+                                if (s2)
+                                        ss = strjoina(s1, "\n    ", s2, "\n    ", p2);
+                                else
+                                        ss = strjoina(s1, "\n    ", p);
+                        }
                 }
+
+                if (!strextend_with_separator(&cell, "\n", ss ?: s))
+                        return log_oom();
+
+                if (!spec)
+                        break;
+                spec += strlen(spec) + 1;  /* Advance to the next entry in the nulstr */
+                if (isempty(spec))
+                        break;
         }
 
-        r = table_add_cell(table, NULL, TABLE_STRING, ss ?: s);
+        r = table_add_cell(table, NULL, TABLE_STRING, cell);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -296,8 +312,8 @@ int _verbs_get_help_table(
                 if (group_marker)
                         break;  /* End of group */
 
-                if (!verb->help)
-                        /* No help string — we do not show the verb */
+                if (FLAGS_SET(verb->flags, VERB_DEPRECATED) || !verb->help)
+                        /* Marked as deprecated or no help string — we do not show the verb */
                         continue;
 
                 r = verb_add_help_one(table, verb);
@@ -550,7 +566,88 @@ int _command_print_help_full(
         return 0;
 }
 
-static int verb_build_json(const Verb *verb, sd_json_variant **ret) {
+int _command_print_verb_help(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                const char *name) {
+
+        int r;
+
+        assert(name);
+
+        const Verb *verb = ASSERT_PTR(_verbs_find_verb(verbs, verbs_end, name));
+
+        /* The owning command is described by the closest preceding VERB_COMMAND_MARKER entry. */
+        const Verb *cmdverb = verb;
+        while (!FLAGS_SET(cmdverb->flags, VERB_COMMAND_MARKER)) {
+                assert(cmdverb > verbs);
+                cmdverb--;
+        }
+        const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(cmdverb->data);
+
+        if (cmd->pager_flags)
+                pager_open(*cmd->pager_flags);
+
+        const char *optionspec =
+                FLAGS_SET(verb->flags, VERB_OPTION_REQUIRED) ?
+                        " OPTION…" : verb->option_namespace ? " [OPTION…]" : "";
+
+        /* If argspec is empty, print one line with no argspec. Use " " as placeholder for the empty spec. */
+        NULSTR_FOREACH(spec, verb->argspec ?: " \0") {
+                bool some = !streq(spec, " ");
+                _cleanup_free_ char *line = strjoin(
+                                "[OPTION…] ", verb->verb,
+                                optionspec,
+                                some ? " " : NULL,
+                                some ? spec : NULL);
+                if (!line)
+                        return log_oom();
+                help_cmdline(line);
+        };
+
+        if (verb->help) {
+                const char *s = strjoina(ansi_highlight(), ansi_add_italics()),
+                           *t = strjoina(verb->help, ".");
+
+                r = print_wrapped(t, s);
+                if (r < 0)
+                        return r;
+        }
+
+        if (verb->option_namespace) {
+                _cleanup_(table_unrefp) Table *table = NULL;
+                r = _option_parser_get_help_table_full(options, options_end, verb->option_namespace,
+                                                       /* group= */ NULL, &table);
+                if (r < 0)
+                        return r;
+
+                help_section("Options");
+                r = table_print_or_warn(table);
+                if (r < 0)
+                        return r;
+        }
+
+        r = print_wrapped(verb->footer,
+                          FLAGS_SET(verb->flags, VERB_DEPRECATED) ? ansi_highlight_red() : NULL);
+        if (r < 0)
+                return r;
+
+        r = print_man_links(cmd->man_pages);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print man page links: %m");
+
+        return 0;
+}
+
+static int verb_build_json(
+                const Verb *verb,
+                const Option options[],
+                const Option options_end[],
+                sd_json_variant **ret) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *opts = NULL;
         int r;
 
         assert(verb);
@@ -559,10 +656,19 @@ static int verb_build_json(const Verb *verb, sd_json_variant **ret) {
 
         /* Verbs are represented as command objects, as described in the CLI-Introspection
          * Specification (https://uapi-group.org/specifications/specs/cli_introspection/).
+         * In particular, a verb which declares an option namespace carries its own "options"
+         * array, just like the top-level command object.
          *
          * The "minArguments", "maxArguments", "isDefault", and "isOnlineOnly" fields
          * are extensions not (yet) covered by the specification. Note that the argument
          * counts include the verb itself. */
+
+        if (verb->option_namespace) {
+                r = options_build_json(options, options_end, verb->option_namespace,
+                                       /* option_groups= */ NULL, &opts);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_json_buildo(
                         ret,
@@ -570,6 +676,10 @@ static int verb_build_json(const Verb *verb, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!verb->help,
                                         "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(verb->help))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_VARIANT(opts)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!verb->footer,
+                                        "postscript", SD_JSON_BUILD_STRV(STRV_MAKE(verb->footer))),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         verb->min_args != VERB_ANY,
                                         "minArguments", SD_JSON_BUILD_UNSIGNED(verb->min_args)),
@@ -579,6 +689,9 @@ static int verb_build_json(const Verb *verb, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         FLAGS_SET(verb->flags, VERB_DEFAULT),
                                         "isDefault", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        FLAGS_SET(verb->flags, VERB_DEPRECATED),
+                                        "isDeprecated", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         FLAGS_SET(verb->flags, VERB_ONLINE_ONLY),
                                         "isOnlineOnly", SD_JSON_BUILD_BOOLEAN(true)));
@@ -625,7 +738,7 @@ static int command_build_json(
                         continue;
 
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;
-                r = verb_build_json(verb, &o);
+                r = verb_build_json(verb, options, options_end, &o);
                 if (r < 0)
                         return r;
 
@@ -649,7 +762,7 @@ static int command_build_json(
                                         "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->abstract))),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!cmd->footer,
-                                        "footer", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->footer))),
+                                        "postscript", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->footer))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_VARIANT(opts)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!cmds, "verbs", SD_JSON_BUILD_VARIANT(cmds)));
         if (r < 0)

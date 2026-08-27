@@ -175,7 +175,7 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
                               arg_mode == ID128_PRINT_ID128 ? TABLE_ID128 : TABLE_UUID, uuid);
 }
 
-VERB(verb_show, "show", "[NAME|UUID]", VERB_ANY, VERB_ANY, 0, "Print one or more UUIDs");
+VERB(verb_show, "show", "[NAME|UUID]\0", VERB_ANY, VERB_ANY, 0, "Print one or more UUIDs");
 static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;

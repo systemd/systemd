@@ -143,7 +143,7 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-VERB(verb_tar, "tar", "FILE [NAME]", 2, 3, 0, "Import a TAR image");
+VERB(verb_tar, "tar", "FILE [NAME]\0", 2, 3, 0, "Import a TAR image");
 static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(tar_import_unrefp) TarImport *import = NULL;
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
@@ -213,7 +213,7 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-VERB(verb_raw, "raw", "FILE [NAME]", 2, 3, 0, "Import a RAW image");
+VERB(verb_raw, "raw", "FILE [NAME]\0", 2, 3, 0, "Import a RAW image");
 static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(raw_import_unrefp) RawImport *import = NULL;
         _cleanup_free_ char *ll = NULL, *normalized = NULL;

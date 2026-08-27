@@ -302,7 +302,7 @@ VERB_GROUP("Generic EFI Firmware/Boot Loader Commands");
 VERB_SCOPE(, verb_status, "status", NULL, VERB_ANY, 1, VERB_DEFAULT,
            "Show status of installed boot loader and EFI variables");
 
-VERB_SCOPE(, verb_reboot_to_firmware, "reboot-to-firmware", "[BOOL]", VERB_ANY, 2, 0,
+VERB_SCOPE(, verb_reboot_to_firmware, "reboot-to-firmware", "[BOOL]\0", VERB_ANY, 2, 0,
            "Query or set reboot-to-firmware EFI flag");
 
 VERB_GROUP("Boot Loader Specification Commands");
@@ -310,10 +310,10 @@ VERB_GROUP("Boot Loader Specification Commands");
 VERB_SCOPE_NOARG(, verb_list, "list",
            "List boot loader entries");
 
-VERB_SCOPE(, verb_unlink, "unlink", "ID", VERB_ANY, 2, 0,
+VERB_SCOPE(, verb_unlink, "unlink", "ID\0", VERB_ANY, 2, 0,
            "Remove boot loader entry");
 
-VERB_SCOPE(, verb_link, "link", "KERNEL", 2, 2, 0,
+VERB_SCOPE(, verb_link, "link", "KERNEL\0", 2, 2, 0,
            "Create boot loader entry for specified kernel");
 
 VERB_SCOPE_NOARG(, verb_link_auto, "link-auto",
@@ -324,22 +324,22 @@ VERB_SCOPE_NOARG(, verb_cleanup, "cleanup",
 
 VERB_GROUP("Boot Loader Interface Commands");
 
-VERB_SCOPE(, verb_set_efivar, "set-default", "ID", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-default", "ID\0", 2, 2, 0,
            "Set default boot loader entry");
 
-VERB_SCOPE(, verb_set_efivar, "set-oneshot", "ID", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-oneshot", "ID\0", 2, 2, 0,
            "Set default boot loader entry, for next boot only");
 
-VERB_SCOPE(, verb_set_efivar, "set-sysfail", "ID", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-sysfail", "ID\0", 2, 2, 0,
            "Set boot loader entry used in case of a system failure");
 
-VERB_SCOPE(, verb_set_efivar, "set-timeout", "SECONDS", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-timeout", "SECONDS\0", 2, 2, 0,
            "Set the menu timeout");
 
-VERB_SCOPE(, verb_set_efivar, "set-timeout-oneshot", "SECONDS", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-timeout-oneshot", "SECONDS\0", 2, 2, 0,
            "Set the menu timeout for the next boot only");
 
-VERB_SCOPE(, verb_set_efivar, "set-preferred", "ID", 2, 2, 0,
+VERB_SCOPE(, verb_set_efivar, "set-preferred", "ID\0", 2, 2, 0,
            /* help= */ NULL);
 
 VERB_GROUP("systemd-boot Commands");
@@ -361,10 +361,10 @@ VERB_SCOPE_NOARG(, verb_random_seed, "random-seed",
 
 VERB_GROUP("Kernel Image Commands");
 
-VERB_SCOPE(, verb_kernel_identify, "kernel-identify", "KERNEL-IMAGE", 2, 2, 0,
+VERB_SCOPE(, verb_kernel_identify, "kernel-identify", "KERNEL-IMAGE\0", 2, 2, 0,
            "Identify kernel image type");
 
-VERB_SCOPE(, verb_kernel_inspect, "kernel-inspect", "KERNEL-IMAGE", 2, 2, 0,
+VERB_SCOPE(, verb_kernel_inspect, "kernel-inspect", "KERNEL-IMAGE\0", 2, 2, 0,
            "Prints details about the kernel image");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {

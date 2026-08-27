@@ -45,39 +45,39 @@ COMMAND(
         .pager_flags = &arg_pager_flags,
 );
 
-VERB_SCOPE(, verb_list_links,                 "list",               "[PATTERN...]",  VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_list_links,                 "list",               "[PATTERN...]\0",  VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY,
            "List links");
-VERB_SCOPE(, verb_link_status,                "status",             "[PATTERN...]",  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_link_status,                "status",             "[PATTERN...]\0",  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Show link status");
-VERB_SCOPE(, verb_dhcp_lease,                 "dhcp-lease",         "INTERFACE [CODE[:FORMAT]...]", 2, VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_dhcp_lease,                 "dhcp-lease",         "INTERFACE [CODE[:FORMAT]...]\0", 2, VERB_ANY, VERB_ONLINE_ONLY,
            "Show DHCP lease");
-VERB_SCOPE(, verb_link_lldp_status,           "lldp",               "[PATTERN...]",  VERB_ANY, VERB_ANY, 0,
+VERB_SCOPE(, verb_link_lldp_status,           "lldp",               "[PATTERN...]\0",  VERB_ANY, VERB_ANY, 0,
            "Show LLDP neighbors");
 VERB_SCOPE(, verb_list_address_labels,        "label",              NULL,            1,        1,        0,
            "Show current address label entries in the kernel");
-VERB_SCOPE(, verb_link_delete,                "delete",             "DEVICES...",    2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_link_delete,                "delete",             "DEVICES...\0",    2,        VERB_ANY, 0,
            "Delete virtual netdevs");
-VERB_SCOPE(, verb_link_varlink_simple_method, "up",                 "DEVICES...",    2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_link_varlink_simple_method, "up",                 "DEVICES...\0",    2,        VERB_ANY, 0,
            "Bring devices up");
-VERB_SCOPE(, verb_link_varlink_simple_method, "down",               "DEVICES...",    2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_link_varlink_simple_method, "down",               "DEVICES...\0",    2,        VERB_ANY, 0,
            "Bring devices down");
-VERB_SCOPE(, verb_link_varlink_simple_method, "renew",              "DEVICES...",    2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_link_varlink_simple_method, "renew",              "DEVICES...\0",    2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Renew dynamic configurations");
-VERB_SCOPE(, verb_link_varlink_simple_method, "forcerenew",         "DEVICES...",    2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_link_varlink_simple_method, "forcerenew",         "DEVICES...\0",    2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Trigger DHCP reconfiguration of all connected clients");
-VERB_SCOPE(, verb_link_varlink_simple_method, "reconfigure",        "DEVICES...",    2,        VERB_ANY, VERB_ONLINE_ONLY,
+VERB_SCOPE(, verb_link_varlink_simple_method, "reconfigure",        "DEVICES...\0",    2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Reconfigure interfaces");
 VERB_SCOPE(, verb_reload,                     "reload",             NULL,            1,        1,        VERB_ONLINE_ONLY,
            "Reload .network and .netdev files");
-VERB_SCOPE(, verb_edit,                       "edit",               "FILES|DEVICES...",   2,   VERB_ANY, 0,
+VERB_SCOPE(, verb_edit,                       "edit",               "FILES|DEVICES...\0",   2,   VERB_ANY, 0,
            "Edit network configuration files");
-VERB_SCOPE(, verb_cat,                        "cat",                "[FILES|DEVICES...]", 1,   VERB_ANY, 0,
+VERB_SCOPE(, verb_cat,                        "cat",                "[FILES|DEVICES...]\0", 1,   VERB_ANY, 0,
            "Show network configuration files");
-VERB_SCOPE(, verb_mask,                       "mask",               "FILES...",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_mask,                       "mask",               "FILES...\0",      2,        VERB_ANY, 0,
            "Mask network configuration files");
-VERB_SCOPE(, verb_unmask,                     "unmask",             "FILES...",      2,        VERB_ANY, 0,
+VERB_SCOPE(, verb_unmask,                     "unmask",             "FILES...\0",      2,        VERB_ANY, 0,
            "Unmask network configuration files");
-VERB_SCOPE(, verb_persistent_storage,         "persistent-storage", "BOOL",          2,        2,        0,
+VERB_SCOPE(, verb_persistent_storage,         "persistent-storage", "BOOL\0",          2,        2,        0,
            "Notify systemd-networkd if persistent storage is ready");
 
 VERB_COMMON_HELP_AUTO_HIDDEN();
