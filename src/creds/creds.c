@@ -473,7 +473,7 @@ static int write_blob(FILE *f, const void *data, size_t size) {
         return 0;
 }
 
-VERB(verb_cat, "cat", "CREDENTIAL...", 2, VERB_ANY, 0,
+VERB(verb_cat, "cat", "CREDENTIAL...\0", 2, VERB_ANY, 0,
      "Show contents of specified credentials");
 static int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         usec_t timestamp;
@@ -561,7 +561,7 @@ static int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return ret;
 }
 
-VERB(verb_encrypt, "encrypt", "INPUT OUTPUT", 3, 3, 0,
+VERB(verb_encrypt, "encrypt", "INPUT OUTPUT\0", 3, 3, 0,
      "Encrypt plaintext credential file and write to ciphertext credential file");
 static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(iovec_done_erase) struct iovec plaintext = {}, output = {};
@@ -671,7 +671,7 @@ static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
         return EXIT_SUCCESS;
 }
 
-VERB(verb_decrypt, "decrypt", "INPUT [OUTPUT]", 2, 3, 0,
+VERB(verb_decrypt, "decrypt", "INPUT [OUTPUT]\0", 2, 3, 0,
      "Decrypt ciphertext credential file and write to plaintext credential file");
 static int verb_decrypt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(iovec_done_erase) struct iovec input = {}, plaintext = {};

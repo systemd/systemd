@@ -96,7 +96,7 @@ static const CommandDescription introspect_command = {
 static const Verb introspect_verbs[] = {
         { .flags = VERB_COMMAND_MARKER, .data = (uintptr_t) &introspect_command },
         { .verb = "alpha", .min_args = VERB_ANY, .max_args = VERB_ANY, .dispatch = noop_dispatcher,
-          .argspec = "ARG", .help = "Alpha verb", .option_namespace = "test-verbs-alpha" },
+          .argspec = "FORM1\0FORM2…\0", .help = "Alpha verb", .option_namespace = "test-verbs-alpha" },
         { .verb = "beta", .min_args = VERB_ANY, .max_args = VERB_ANY, .dispatch = noop_dispatcher,
           .help = "Beta verb" },
 };
