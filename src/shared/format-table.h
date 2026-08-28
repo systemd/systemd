@@ -144,8 +144,6 @@ int table_set_reverse(Table *t, size_t column, bool b);
 int table_hide_column_from_display_internal(Table *t, ...);
 #define table_hide_column_from_display(t, ...) table_hide_column_from_display_internal(t, __VA_ARGS__, SIZE_MAX)
 
-int table_data_requested_width(Table *table, size_t column, size_t *ret);
-
 int table_set_column_width(Table *t, size_t column, size_t width);
 int table_sync_all_column_widths(size_t column, Table **a);
 

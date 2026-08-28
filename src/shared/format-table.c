@@ -2172,7 +2172,7 @@ static const char* table_data_rgap_underline(const TableData *d) {
         return NULL;
 }
 
-int table_data_requested_width(Table *table, size_t column, size_t *ret) {
+static int table_data_requested_width(Table *table, size_t column, size_t *ret) {
         size_t width = 0;
         int r;
 
