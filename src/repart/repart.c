@@ -6981,7 +6981,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 timespec_store(&tspec, ts);
 
                                 if (futimens(pfd, (const struct timespec[2]) { TIMESPEC_OMIT, tspec }) < 0)
-                                        return -errno;
+                                        return log_error_errno(errno, "Failed to set timestamp of '%s': %m", dn);
                         }
                 }
         }
