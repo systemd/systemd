@@ -516,86 +516,6 @@ const Option* options_find_namespace(
         return NULL; /* not found :/ */
 }
 
-int _option_parser_get_help_table_full(
-                const Option options[],
-                const Option options_end[],
-                const char *namespace,
-                const char *group,
-                Table **ret) {
-        int r;
-
-        // TODO: drop this function and all its wrappers
-
-        assert(ret);
-
-        _cleanup_(table_unrefp) Table *table = table_new("names", "help");
-        if (!table)
-                return log_oom();
-
-        bool in_ns = namespace == NULL;  /* Are we currently in the section of the array that forms namespace
-                                          * <namespace>? The first part is the default unnamed namespace, so
-                                          * if the namespace was not specified, we are in it. */
-
-        bool in_group = group == NULL;  /* Are we currently in the section of the array that forms group
-                                         * <group>? The first part is the default group, so if the group was
-                                         * not specified, we are in it. */
-
-        const Option *opt;
-        for (opt = options; opt < options_end; opt++) {
-                bool ns_marker = FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER);
-                if (!in_ns) {
-                        in_ns = ns_marker && streq(namespace, opt->long_code);
-                        continue;
-                }
-                if (ns_marker)
-                        break;  /* End of namespace */
-
-                bool group_marker = FLAGS_SET(opt->flags, OPTION_GROUP_MARKER);
-                if (!in_group) {
-                        in_group = group_marker && streq(group, opt->long_code);
-                        continue;
-                }
-                if (group_marker)
-                        break;  /* End of group */
-
-                if (!opt->help)
-                        /* No help string — we do not show the option */
-                        continue;
-
-                _cleanup_free_ char *s = option_get_synopsis(opt, " ", /* show_metavar= */ true);
-                if (!s)
-                        return log_oom();
-
-                /* We indent the option string by two spaces. We could set the minimum cell width and
-                 * right-align for a similar result, but that'd be more work. This is only used for
-                 * display. */
-                bool shift_left = opt->short_code != 0 || FLAGS_SET(opt->flags, OPTION_HELP_ENTRY_VERBATIM);
-                const char *prefix = shift_left ? "  " : "     ";
-                _cleanup_free_ char *t = strjoin(prefix, s);
-                if (!t)
-                        return log_oom();
-
-                r = table_add_many(table, TABLE_STRING, t);
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                _cleanup_strv_free_ char **split = strv_split(opt->help, /* separators= */ NULL);
-                if (!split)
-                        return log_oom();
-
-                r = table_add_many(table, TABLE_STRV_WRAPPED, split);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        assert(!table_isempty(table));  /* The namespace or group were not found. Something is off. */
-
-        table_set_header(table, false);
-        *ret = TAKE_PTR(table);
-        assert(opt - options < INT_MAX);
-        return opt - options;
-}
-
 int options_get_help_table_group(
                 const Option options[],
                 const Option options_end[],
@@ -605,7 +525,6 @@ int options_get_help_table_group(
         int r;
 
         assert(ret);
-        assert(ret_group);
 
         _cleanup_(table_unrefp) Table *table = NULL;
 
@@ -674,7 +593,8 @@ int options_get_help_table_group(
         }
 
         *ret = TAKE_PTR(table);
-        *ret_group = group;
+        if (ret_group)
+                *ret_group = group;
 
         assert(opt - options < INT_MAX);
         return opt - options;
