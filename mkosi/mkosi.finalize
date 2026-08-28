@@ -16,3 +16,11 @@ fi
 
 # Used to sign artifacts verified by kernel platform keyring
 cp "$SRCDIR/mkosi/mkosi.crt" "$SRCDIR/mkosi/mkosi.key" "$BUILDROOT/usr/share/"
+
+# The same certificate in the VOA hierarchy, for systemd-keyring-setup to enroll into the .dm-verity and
+# .fs-verity keyrings
+# shellcheck source=/dev/null
+id=$(. "$BUILDROOT/usr/lib/os-release" && echo "$ID")
+for role in image fs-verity; do
+    install -D -m 0644 "$SRCDIR/mkosi/mkosi.crt" "$BUILDROOT/usr/share/voa/$id/$role/default/x509/mkosi-certificate.pem"
+done
