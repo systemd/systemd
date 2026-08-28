@@ -3,6 +3,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "conf-files.h"
 #include "log.h"
 #include "options.h"
@@ -36,8 +37,8 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_COMMON_HELP:
                         return command_print_verb_help("cat");
 
-                OPTION_COMMON_VERSION_WITH_HIDDEN_V:
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION_LONG("root", "PATH",
                             "Operate on an alternate filesystem root"):

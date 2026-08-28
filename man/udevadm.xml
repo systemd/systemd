@@ -103,13 +103,8 @@
         </listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>-V</option></term>
-        <term><option>--version</option></term>
-        <xi:include href="standard-options.xml" xpointer="version-text" />
-      </varlistentry>
-
       <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version-V" />
     </variablelist>
 
     <refsect2>

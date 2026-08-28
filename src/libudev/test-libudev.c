@@ -5,6 +5,7 @@
 
 #include "sd-json.h"
 
+#include "build.h"
 #include "devnum-util.h"
 #include "fd-util.h"
 #include "libudev-list-internal.h"
@@ -15,7 +16,6 @@
 #include "string-util.h"
 #include "tests.h"
 #include "verbs.h"
-#include "version.h"
 
 static bool arg_monitor = false;
 
@@ -426,9 +426,8 @@ static int parse_args(int argc, char *argv[], const char **syspath, const char *
                 OPTION_COMMON_HELP:
                         return command_print_help();
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        printf("%s\n", GIT_VERSION);
-                        return 0;
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('p', "syspath", "PATH", "Syspath to test"):
                         *syspath = opts.arg;

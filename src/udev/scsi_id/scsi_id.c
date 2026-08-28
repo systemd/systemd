@@ -225,7 +225,8 @@ static int set_options(int argc, char **argv, char *maj_min_dev) {
                 OPTION_COMMON_HELP:
                         return command_print_help();
 
-                OPTION_COMMON_VERSION_WITH_HIDDEN_V:
+                OPTION_COMMON_VERSION: {}
+                OPTION_SHORT('V', NULL, /* help= */ NULL): /* -V is accepted but not documented. */
                         return version();
 
                 OPTION('d', "device", "PATH", "Device node for SG_IO commands"):
