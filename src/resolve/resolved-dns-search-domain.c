@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "resolve-util.h"
 #include "resolved-dns-delegate.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-link.h"
