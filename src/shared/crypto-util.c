@@ -255,7 +255,7 @@ DLSYM_PROTOTYPE(PEM_read_PUBKEY) = NULL;
 DLSYM_PROTOTYPE(PEM_read_PrivateKey) = NULL;
 DLSYM_PROTOTYPE(PEM_read_X509) = NULL;
 static DLSYM_PROTOTYPE(PEM_read_bio_PrivateKey) = NULL;
-static DLSYM_PROTOTYPE(PEM_read_bio_X509) = NULL;
+DLSYM_PROTOTYPE(PEM_read_bio_X509) = NULL;
 DLSYM_PROTOTYPE(PEM_write) = NULL;
 DLSYM_PROTOTYPE(PEM_write_PUBKEY) = NULL;
 DLSYM_PROTOTYPE(PEM_write_PrivateKey) = NULL;
@@ -295,8 +295,12 @@ DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_ip) = NULL;
 DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set_hostflags) = NULL;
 DLSYM_PROTOTYPE(X509_free) = NULL;
 DLSYM_PROTOTYPE(X509_get0_pubkey) = NULL;
-static DLSYM_PROTOTYPE(X509_get0_serialNumber) = NULL;
+DLSYM_PROTOTYPE(X509_get0_serialNumber) = NULL;
+DLSYM_PROTOTYPE(X509_get0_subject_key_id) = NULL;
+DLSYM_PROTOTYPE(X509_get_extended_key_usage) = NULL;
+DLSYM_PROTOTYPE(X509_get_extension_flags) = NULL;
 static DLSYM_PROTOTYPE(X509_get_issuer_name) = NULL;
+DLSYM_PROTOTYPE(X509_get_key_usage) = NULL;
 DLSYM_PROTOTYPE(X509_get_pubkey) = NULL;
 static DLSYM_PROTOTYPE(X509_get_signature_info) = NULL;
 DLSYM_PROTOTYPE(X509_get_subject_name) = NULL;
@@ -621,7 +625,11 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(X509_free),
                         DLSYM_ARG(X509_get0_pubkey),
                         DLSYM_ARG(X509_get0_serialNumber),
+                        DLSYM_ARG(X509_get0_subject_key_id),
+                        DLSYM_ARG(X509_get_extended_key_usage),
+                        DLSYM_ARG(X509_get_extension_flags),
                         DLSYM_ARG(X509_get_issuer_name),
+                        DLSYM_ARG(X509_get_key_usage),
                         DLSYM_ARG(X509_get_pubkey),
                         DLSYM_ARG(X509_get_signature_info),
                         DLSYM_ARG(X509_get_subject_name),
