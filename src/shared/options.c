@@ -525,7 +525,6 @@ int options_get_help_table_group(
         int r;
 
         assert(ret);
-        assert(ret_group);
 
         _cleanup_(table_unrefp) Table *table = NULL;
 
@@ -594,7 +593,8 @@ int options_get_help_table_group(
         }
 
         *ret = TAKE_PTR(table);
-        *ret_group = group;
+        if (ret_group)
+                *ret_group = group;
 
         assert(opt - options < INT_MAX);
         return opt - options;

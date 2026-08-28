@@ -641,11 +641,16 @@ int _command_print_verb_help(
                                                "Option namespace %s not found.", verb->option_namespace);
 
                 _cleanup_(table_unrefp) Table *table = NULL;
-                const char *group;
-                r = options_get_help_table_group(optns, options_end, /* option_groups= */ NULL, &table, &group);
+                r = options_get_help_table_group(
+                                optns, options_end,
+                                /* option_groups= */ NULL,
+                                &table,
+                                /* ret_group= */ NULL);
                 if (r < 0)
                         return r;
 
+                /* Note: we assume that only one option group is used for a verb. If this ever
+                 * stops being true, the code here would need to be adjusted to loop over groups. */
                 help_section("Options");
                 r = table_print_or_warn(table);
                 if (r < 0)
