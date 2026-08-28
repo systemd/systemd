@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <stdio.h>
-
 #include "sd-json.h"
 
 #include "argv-util.h"
+#include "build.h"
 #include "dlopen-note.h"
 #include "label-util.h"
 #include "main-func.h"
@@ -49,7 +48,7 @@ UDEVADM_VERB(verb_hwdb_main,    "hwdb",         NULL,                 VERB_DEPRE
 
 VERB_NOARG(verb_version_main, "version", /* help= */ NULL);
 static int verb_version_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return print_version();
+        return version_only();
 }
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
@@ -67,8 +66,8 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_COMMON_HELP:
                         return command_print_help_name("udevadm");
 
-                OPTION_COMMON_VERSION_WITH_HIDDEN_V:
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('d', "debug", NULL, "Enable debug logging"):
                         log_set_max_level(LOG_DEBUG);
@@ -80,12 +79,6 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
         *remaining_args = option_parser_get_args(&opts);
         return 1; /* work to do */
-}
-
-int print_version(void) {
-        /* Dracut relies on the version being a single integer */
-        puts(PROJECT_VERSION_STR);
-        return 0;
 }
 
 static int run(int argc, char *argv[]) {

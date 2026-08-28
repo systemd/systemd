@@ -7,6 +7,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "device-enumerator-private.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -337,8 +338,8 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_HELP:
                         return command_print_verb_help("trigger");
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('v', "verbose", NULL, "Print the list of devices while running"):
                         arg_verbose = true;

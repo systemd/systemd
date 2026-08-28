@@ -6,6 +6,7 @@
 #include "sd-event.h"
 #include "sd-json.h"
 
+#include "build.h"
 #include "device-monitor-private.h"
 #include "device-util.h"
 #include "event-util.h"
@@ -314,8 +315,8 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_HELP:
                         return command_print_verb_help("wait");
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('t', "timeout", "SEC", "Maximum time to wait for the device"):
                         r = parse_sec(opts.arg, &arg_timeout_usec);

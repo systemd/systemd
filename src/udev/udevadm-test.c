@@ -10,6 +10,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "device-private.h"
 #include "log.h"
 #include "options.h"
@@ -49,8 +50,8 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_HELP:
                         return command_print_verb_help("test");
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('a', "action", "ACTION|help", "Set action string"):
                         r = parse_device_action(opts.arg, &arg_action);

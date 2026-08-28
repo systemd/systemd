@@ -280,3 +280,9 @@ int version(void) {
                b ?: systemd_features);
         return 0;
 }
+
+int version_only(void) {
+        /* Used by udev. Dracut relies on the version being a single integer */
+        puts(PROJECT_VERSION_STR);
+        return 0;
+}

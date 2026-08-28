@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "build.h"
 #include "conf-files.h"
 #include "errno-util.h"
 #include "log.h"
@@ -41,8 +42,8 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_COMMON_HELP:
                         return command_print_verb_help("verify");
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION_COMMON_RESOLVE_NAMES:
                         r = parse_resolve_name_timing(opts.arg, &arg_resolve_name_timing);
