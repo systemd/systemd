@@ -3,9 +3,10 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "devnum-util.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "libudev-list-internal.h"
 #include "log.h"
 #include "main-func.h"
@@ -13,6 +14,7 @@
 #include "options.h"
 #include "string-util.h"
 #include "tests.h"
+#include "verbs.h"
 #include "version.h"
 
 static bool arg_monitor = false;
@@ -405,22 +407,10 @@ static void test_list(void) {
         assert_se(!udev_list_entry_get_by_name(e, "ccc"));
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...]\n\n", program_invocation_short_name);
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
+COMMAND(
+        "test-libudev\0",
+        "Test libudev functions.",
+);
 
 static int parse_args(int argc, char *argv[], const char **syspath, const char **subsystem) {
         assert(argc >= 0);
@@ -434,7 +424,7 @@ static int parse_args(int argc, char *argv[], const char **syspath, const char *
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help();
 
                 OPTION('V', "version", NULL, "Show package version"):
                         printf("%s\n", GIT_VERSION);
@@ -455,6 +445,9 @@ static int parse_args(int argc, char *argv[], const char **syspath, const char *
                 OPTION('m', "monitor", NULL, "Run monitor test"):
                         arg_monitor = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         return 1;

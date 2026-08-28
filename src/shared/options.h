@@ -99,10 +99,6 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
         /* This option is internal-only for now and not shown in --help */ \
         OPTION_LONG("introspect-cli", NULL, /* help= */ NULL)
 
-/* For programs which do not do option parsing, but check the argv array directly. */
-#define OPTION_COMMON_INTROSPECT_CLI_ENTRY                              \
-        _OPTION_ENTRY(__COUNTER__, /* fl= */ 0, /* sc= */ 0, "introspect-cli", /* mv= */ NULL, /* d= */ 0u, /* h= */ NULL)
-
 #define OPTION_COMMON_NO_PAGER                                          \
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
 
@@ -280,21 +276,6 @@ const Option* options_find_namespace(
                 const Option options[],
                 const Option options_end[],
                 const char *namespace);
-
-int _option_parser_get_help_table_full(
-                const Option options[],
-                const Option options_end[],
-                const char *namespace,
-                const char *group,
-                Table **ret);
-#define option_parser_get_help_table_full(namespace, group, ret)        \
-        _option_parser_get_help_table_full(__start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS, namespace, group, ret)
-#define option_parser_get_help_table_ns(ns, ret)                        \
-        option_parser_get_help_table_full(ns, /* group= */ NULL, ret)
-#define option_parser_get_help_table_group(group, ret)                  \
-        option_parser_get_help_table_full(/* namespace= */ NULL, group, ret)
-#define option_parser_get_help_table(ret)                               \
-        option_parser_get_help_table_group(/* group= */ NULL, ret)
 
 int options_get_help_table_group(
                 const Option options[],

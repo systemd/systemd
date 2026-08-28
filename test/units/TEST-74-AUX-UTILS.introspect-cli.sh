@@ -111,6 +111,7 @@ INTROSPECTABLE=(
     systemd-report-cgroup
     systemd-report-files
     systemd-report-sign-plain
+    systemd-report-sign-tpm2
     systemd-report-sign-tsm
     systemd-resolved
     systemd-run
