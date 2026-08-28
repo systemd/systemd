@@ -804,6 +804,36 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SOURCE_DATE_EPOCH</varname></term>
+
+        <listitem><para>Takes a UNIX timestamp in seconds. Clamps access and modification times written
+        into the image. See the
+        <ulink url="https://reproducible-builds.org/specs/source-date-epoch/">reproducible builds
+        specification</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Byte-for-byte reproducible images require <option>--offline=yes</option> mode. Populating a file
+    system through the kernel writes metadata that cannot be corrected from userspace afterwards.</para>
+
+    <para><varname>Format=</varname><literal>vfat</literal> images have additional noise: the
+    directory entry of the volume label is written with a wallclock timestamp by
+    <citerefentry project='man-pages'><refentrytitle>mkfs.fat</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    with dosfstools versions up to and including 4.2. A later release or a backport of the
+    <ulink url="https://github.com/dosfstools/dosfstools/commit/8da7bc93315c">upstream fix</ulink>
+    sets it to <varname>$SOURCE_DATE_EPOCH</varname>.</para>
+
+    <para>Offline and online mode also write <literal>vfat</literal> short names differently, so images
+    built in both ways never match each other.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Exit status</title>
 
     <para>On success, 0 is returned, and a non-zero failure code otherwise.</para>
