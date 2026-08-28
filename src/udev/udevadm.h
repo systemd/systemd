@@ -17,5 +17,3 @@ int verb_builtin_main(int argc, char *argv[], uintptr_t _data, void *userdata);
 int verb_verify_main(int argc, char *argv[], uintptr_t _data, void *userdata);
 int verb_wait_main(int argc, char *argv[], uintptr_t _data, void *userdata);
 int verb_lock_main(int argc, char *argv[], uintptr_t _data, void *userdata);
-
-int print_version(void);

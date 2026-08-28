@@ -5,6 +5,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -115,8 +116,8 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_HELP:
                         return command_print_verb_help("monitor");
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('e', "environment", NULL, /* help= */ NULL): {} /* hidden alias for -p */
                 OPTION('p', "property", NULL, "Print the event properties"):

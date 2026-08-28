@@ -786,7 +786,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 OPTION_COMMON_HELP:
                         return command_print_help_name("run0");
 
-                OPTION('V', "version", NULL, "Show package version"):
+                OPTION_COMMON_VERSION_WITH_V:
                         return version();
 
                 OPTION_COMMON_NO_ASK_PASSWORD:

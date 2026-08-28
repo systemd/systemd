@@ -2,6 +2,7 @@
 
 #include "sd-json.h"
 
+#include "build.h"
 #include "hwdb-util.h"
 #include "log.h"
 #include "options.h"
@@ -28,8 +29,8 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_HELP:
                         return command_print_verb_help("hwdb");
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('u', "update", NULL, "Update the hardware database"):
                         arg_update = true;
