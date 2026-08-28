@@ -1390,8 +1390,8 @@ int copy_directory_at_full(
                         copy_flags,
                         /* denylist= */ NULL,
                         /* subvolumes= */ NULL,
-                        /* progress_path= */ NULL,
-                        /* progress_bytes= */ NULL,
+                        /* hardlink_context= */ NULL,
+                        /* display_path= */ NULL,
                         progress_path,
                         progress_bytes,
                         userdata);
