@@ -4,7 +4,6 @@
 
 #include "device-private.h"
 #include "device-util.h"
-#include "help-util.h"
 #include "log.h"
 #include "options.h"
 #include "udev-builtin.h"

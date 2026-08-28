@@ -6,11 +6,11 @@
 #include "env-util.h"
 #include "extract-word.h"
 #include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "nulstr-util.h"
 #include "options.h"
 #include "pager.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
@@ -270,7 +270,7 @@ const Verb* _verbs_find_command(
         return NULL;
 }
 
-int _verbs_get_help_table(
+static int verbs_get_help_table(
                 const Verb verbs[],
                 const Verb verbs_end[],
                 const char *group,
@@ -292,13 +292,8 @@ int _verbs_get_help_table(
 
         const Verb *verb;
         for (verb = verbs; verb < verbs_end; verb++) {
-                /* Binaries with one or more VERB_COMMAND entries call this function
-                 * through print_verb_option_help() which provides a verbs slice that
-                 * starts after the VERB_COMMAND entry.
-                 *
-                 * In unconverted binaries, this function is called directly. */
-                // TODO: make this function static after everything has been converted.
-
+                /* This function is called through print_verb_option_help(), which provides a verbs
+                 * slice that starts after the VERB_COMMAND entry. */
                 if (FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
                         break;
 
@@ -364,7 +359,7 @@ static int print_verb_option_help(
                 const char *group = FLAGS_SET(verb->flags, VERB_GROUP_MARKER) ? verb->verb : NULL;
 
                 _cleanup_(table_unrefp) Table *table = NULL;
-                r = _verbs_get_help_table(verb, verbs_end, group, &table);
+                r = verbs_get_help_table(verb, verbs_end, group, &table);
                 if (r < 0)
                         return r;
 
@@ -518,6 +513,29 @@ static const Verb* verbs_find_cmd_verbs(const Verb *cmdverb, const Verb verbs_en
         return actual;
 }
 
+static void help_cmdline(const char *arguments) {
+        assert(arguments);
+
+        const char *progname =
+                empty_to_null(last_path_component(secure_getenv("SYSTEMD_INVOKED_AS")))
+                ?: program_invocation_short_name;
+
+        printf("%s>%s %s %s\n",
+               ansi_grey(),
+               ansi_normal(),
+               progname,
+               arguments);
+}
+
+void help_section(const char *title) {
+        assert(title);
+
+        printf("\n%s%s:%s\n",
+               ansi_underline(),
+               title,
+               ansi_normal());
+}
+
 int _command_print_help_full(
                 const Verb verbs[],
                 const Verb verbs_end[],
@@ -617,9 +635,14 @@ int _command_print_verb_help(
         }
 
         if (verb->option_namespace) {
+                const Option *optns = options_find_namespace(options, options_end, verb->option_namespace);
+                if (!optns)
+                        return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                               "Option namespace %s not found.", verb->option_namespace);
+
                 _cleanup_(table_unrefp) Table *table = NULL;
-                r = _option_parser_get_help_table_full(options, options_end, verb->option_namespace,
-                                                       /* group= */ NULL, &table);
+                const char *group;
+                r = options_get_help_table_group(optns, options_end, /* option_groups= */ NULL, &table, &group);
                 if (r < 0)
                         return r;
 

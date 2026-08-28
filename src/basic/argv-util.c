@@ -28,7 +28,7 @@ void save_argc_argv(int argc, char **argv) {
 }
 
 bool invoked_as(char *argv[], const char *token) {
-        const char *progname = secure_getenv("SYSTEMD_INVOKED_AS");
+        const char *progname = empty_to_null(secure_getenv("SYSTEMD_INVOKED_AS"));
 
         if (!progname && argv)
                 progname = argv[0];
