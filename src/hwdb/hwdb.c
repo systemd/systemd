@@ -20,7 +20,7 @@ COMMAND(
         .man_pages = "systemd-hwdb(8)\0",
 );
 
-VERB(verb_query, "query", "MODALIAS", 2, 2, 0,
+VERB(verb_query, "query", "MODALIAS\0", 2, 2, 0,
      "Query database and print result");
 static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return hwdb_query(argv[1], arg_root);

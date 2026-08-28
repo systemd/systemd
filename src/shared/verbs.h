@@ -18,7 +18,7 @@ typedef enum CommandFlags {
 typedef struct CommandDescription {
         const char *names;             /* nulstr with the main command name and potentially aliases */
         const char *abstract;          /* concrete abstract */
-        const char *argspec;           /* optional specification of positional args in synopsis */
+        const char *argspec;           /* optional nulstr with specifications of positional args */
         const char *footer;            /* optional footer to print right above man page links */
         const char *man_pages;         /* nulstr with man page names */
         const char *option_namespace;  /* optional option namespace for this command */
@@ -28,10 +28,12 @@ typedef struct CommandDescription {
 } CommandDescription;
 
 typedef enum VerbFlags {
-        VERB_DEFAULT        = 1 << 0,  /* The verb to run if no verb is specified */
-        VERB_ONLINE_ONLY    = 1 << 1,  /* Just do nothing when running in chroot or offline */
-        VERB_COMMAND_MARKER = 1 << 2,  /* Header entry with command description */
-        VERB_GROUP_MARKER   = 1 << 3,  /* Fake verb entry to separate groups */
+        VERB_DEFAULT         = 1 << 0,  /* The verb to run if no verb is specified */
+        VERB_ONLINE_ONLY     = 1 << 1,  /* Just do nothing when running in chroot or offline */
+        VERB_OPTION_REQUIRED = 1 << 2,  /* The verb always requires an option to be present */
+        VERB_COMMAND_MARKER  = 1 << 3,  /* Header entry with command description */
+        VERB_GROUP_MARKER    = 1 << 4,  /* Fake verb entry to separate groups */
+        VERB_DEPRECATED      = 1 << 5,  /* The verb is deprecated and not listed in help. */
 } VerbFlags;
 
 /* Note: see the comment on struct Option in options.h for why _alignptr_ is required here. */
@@ -41,12 +43,14 @@ typedef struct _alignptr_ Verb {
         VerbFlags flags;
         int (* const dispatch)(int argc, char *argv[], uintptr_t data, void *userdata);
         uintptr_t data;
-        const char *argspec;
+        const char *argspec;           /* optional nulstr with specifications of positional args */
         const char *help;
+        const char *footer;            /* optional footer to print in --help */
+        const char *option_namespace;  /* optional namespace with the verb's own options */
 } Verb;
 assert_cc(sizeof(Verb) % sizeof(void*) == 0);
 
-#define _VERB_DATA(d, v, a, amin, amax, f, dat, h)                      \
+#define _VERB_DATA(d, v, ns, a, amin, amax, f, dat, h, ft)              \
         _section_("SYSTEMD_VERBS")                                      \
         _alignptr_                                                      \
         _used_                                                          \
@@ -62,21 +66,34 @@ assert_cc(sizeof(Verb) % sizeof(void*) == 0);
                 .data = dat,                                            \
                 .argspec = a,                                           \
                 .help = h,                                              \
+                .footer = ft,                                           \
+                .option_namespace = ns,                                 \
         }
 
-/* Forward-define function d. scope specifies the scope, e.g. static. */
-#define VERB_SCOPE_FULL(scope, d, v, a, amin, amax, f, dat, h)          \
+/* Forward-define function d. scope specifies the scope, e.g. static. ns declares the option
+ * namespace with the verb's own options, which are then shown in the verb's help (see
+ * command_print_verb_help()) and reported in the CLI introspection. */
+#define VERB_SCOPE_NS_FULL(scope, d, v, ns, a, amin, amax, f, dat, h, ft) \
         DISABLE_WARNING_REDUNDANT_DECLS                                 \
         scope int d(int, char**, uintptr_t, void*);                     \
         REENABLE_WARNING                                                \
-        _VERB_DATA(d, v, a, amin, amax, f, dat, h)
-/* The same as VERB_SCOPE_FULL with scope hardwired to 'static'. */
+        _VERB_DATA(d, v, ns, a, amin, amax, f, dat, h, ft)
+/* The same as VERB_SCOPE_NS_FULL, but for verbs without options of their own. */
+#define VERB_SCOPE_FULL(scope, d, v, a, amin, amax, f, dat, h, ft)      \
+        VERB_SCOPE_NS_FULL(scope, d, v, /* ns= */ NULL, a, amin, amax, f, dat, h, ft)
+/* The same as VERB_SCOPE_NS_FULL/VERB_SCOPE_FULL with scope hardwired to 'static'. */
+#define VERB_NS_FULL(d, v, ns, a, amin, amax, f, dat, h, ft)            \
+        VERB_SCOPE_NS_FULL(static, d, v, ns, a, amin, amax, f, dat, h, ft)
 #define VERB_FULL(d, v, a, amin, amax, f, dat, h)                       \
-        VERB_SCOPE_FULL(static, d, v, a, amin, amax, f, dat, h)
+        VERB_SCOPE_FULL(static, d, v, a, amin, amax, f, dat, h, /* ft= */ NULL)
 
-/* The same as VERB_SCOPE_FULL/VERB_FULL, but without the data argument. */
+/* The same as the macros above, but without the data argument. */
+#define VERB_SCOPE_NS(scope, d, v, ns, a, amin, amax, f, h)             \
+        VERB_SCOPE_NS_FULL(scope, d, v, ns, a, amin, amax, f, /* dat= */ 0, h, /* ft= */ NULL)
 #define VERB_SCOPE(scope, d, v, a, amin, amax, f, h)                    \
-        VERB_SCOPE_FULL(scope, d, v, a, amin, amax, f, /* dat= */ 0, h)
+        VERB_SCOPE_FULL(scope, d, v, a, amin, amax, f, /* dat= */ 0, h, /* ft= */ NULL)
+#define VERB_NS(d, v, ns, a, amin, amax, f, h)                          \
+        VERB_SCOPE_NS(static, d, v, ns, a, amin, amax, f, h)
 #define VERB(d, v, a, amin, amax, f, h)                                 \
         VERB_SCOPE(static, d, v, a, amin, amax, f, h)
 
@@ -91,13 +108,16 @@ assert_cc(sizeof(Verb) % sizeof(void*) == 0);
 /* Magic entry in the table (which will not be returned) that designates the start of the group <gr>.
  * The macro works as a separator between groups and must be between other VERB* stanzas. */
 #define VERB_GROUP(gr)                                                  \
-        _VERB_DATA(/* d= */ NULL, /* v= */ gr, /* a= */ NULL, /* amin= */ 0, /* amax= */ 0, \
-                  /* f= */ VERB_GROUP_MARKER, /* dat= */ 0, /* h= */ NULL)
+        _VERB_DATA(/* d= */ NULL, /* v= */ gr, /* ns= */ NULL, /* a= */ NULL, \
+                   /* amin= */ 0, /* amax= */ 0, /* f= */ VERB_GROUP_MARKER, /* dat= */ 0, \
+                   /* h= */ NULL, /* ft= */ NULL)
 
-#define _COMMAND(u, ...)                                                \
+#define _COMMAND(u, ...)                                                          \
         static const CommandDescription UNIQ_T(description, u) = { __VA_ARGS__ }; \
-        _VERB_DATA(/* d= */ NULL, /* v= */ NULL, /* a= */ NULL, /* amin= */ 0, /* amax= */ 0, \
-                   /* f= */ VERB_COMMAND_MARKER, /* dat= */ (uintptr_t) &UNIQ_T(description, u), /* h= */ NULL)
+        _VERB_DATA(/* d= */ NULL, /* v= */ NULL, /* ns= */ NULL, /* a= */ NULL,   \
+                   /* amin= */ 0, /* amax= */ 0, /* f= */ VERB_COMMAND_MARKER,    \
+                   /* dat= */ (uintptr_t) &UNIQ_T(description, u),                \
+                   /* h= */ NULL, /* ft= */ NULL)
 #define COMMAND(...) _COMMAND(UNIQ, __VA_ARGS__)
 
 /* This is magically mapped to the beginning and end of the section */
@@ -168,6 +188,24 @@ int _command_print_help_full(
 static inline int verb_help_auto(int argc, char **argv, uintptr_t data, void *userdata) {
         return command_print_help_name((const char*) data);
 }
+
+/* Print the help for a single verb: the synopsis, the one-line help as abstract, the options from
+ * the verb's option namespace (see VERB_SCOPE_NS*), and the man page links of the command the verb
+ * belongs to. The verb is attributed to the closest preceding COMMAND() in the verbs section, so:
+ * name must refer to an existing verb owned by such a command (asserted otherwise), verb names
+ * must be unique across the whole binary, commands with COMMAND_VERBS_SHARED are not
+ * disambiguated, and a declared option namespace must contain at least one non-hidden option. */
+int _command_print_verb_help(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                const char *name);
+#define command_print_verb_help(name)                                   \
+        _command_print_verb_help(                                       \
+                __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
+                __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
+                name)
 
 /* Print a machine-readable description of the program's commands, verbs, and options in the format
  * defined by the CLI-Introspection Specification. One command object is emitted for each

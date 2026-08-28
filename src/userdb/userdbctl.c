@@ -418,7 +418,7 @@ static int table_add_uid_map(
         return n_added;
 }
 
-VERB(verb_display_user, "user", "[USER…]", VERB_ANY, VERB_ANY, VERB_DEFAULT,
+VERB(verb_display_user, "user", "[USER…]\0", VERB_ANY, VERB_ANY, VERB_DEFAULT,
      "Inspect user");
 static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -763,7 +763,7 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
         return 2;
 }
 
-VERB(verb_display_group, "group", "[GROUP…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_display_group, "group", "[GROUP…]\0", VERB_ANY, VERB_ANY, 0,
      "Inspect group");
 static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -966,9 +966,9 @@ static int show_membership(const char *user, const char *group, Table *table) {
         return 0;
 }
 
-VERB(verb_display_memberships, "users-in-group", "[GROUP…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_display_memberships, "users-in-group", "[GROUP…]\0", VERB_ANY, VERB_ANY, 0,
      "Show users that are members of specified groups");
-VERB(verb_display_memberships, "groups-of-user", "[USER…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_display_memberships, "groups-of-user", "[USER…]\0", VERB_ANY, VERB_ANY, 0,
      "Show groups the specified users are members of");
 static int verb_display_memberships(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -1131,7 +1131,7 @@ static int verb_display_services(int argc, char *argv[], uintptr_t _data, void *
         return 0;
 }
 
-VERB(verb_ssh_authorized_keys, "ssh-authorized-keys", "USER", 2, VERB_ANY, 0,
+VERB(verb_ssh_authorized_keys, "ssh-authorized-keys", "USER\0", 2, VERB_ANY, 0,
      "Show SSH authorized keys for user");
 static int verb_ssh_authorized_keys(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;

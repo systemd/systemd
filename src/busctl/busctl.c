@@ -547,7 +547,7 @@ static int tree_one(sd_bus *bus, const char *service) {
         return r;
 }
 
-VERB(verb_tree, "tree", "[SERVICE…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_tree, "tree", "[SERVICE…]\0", VERB_ANY, VERB_ANY, 0,
      "Show object tree of service");
 static int verb_tree(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1008,7 +1008,7 @@ static int members_flags_to_string(const Member *m, char **ret) {
         return 0;
 }
 
-VERB(verb_introspect, "introspect", "SERVICE OBJECT [INTERFACE]", 3, 4, 0,
+VERB(verb_introspect, "introspect", "SERVICE OBJECT [INTERFACE]\0", 3, 4, 0,
      "Introspect an object");
 static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const XMLIntrospectOps ops = {
@@ -1391,13 +1391,13 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         }
 }
 
-VERB(verb_monitor, "monitor", "[SERVICE…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_monitor, "monitor", "[SERVICE…]\0", VERB_ANY, VERB_ANY, 0,
      "Show bus traffic");
 static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return monitor(argc, argv, sd_json_format_enabled(arg_json_format_flags) ? message_json : message_dump);
 }
 
-VERB(verb_capture, "capture", "[SERVICE…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_capture, "capture", "[SERVICE…]\0", VERB_ANY, VERB_ANY, 0,
      "Capture bus traffic as pcap");
 static int verb_capture(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *osname = NULL;
@@ -1426,7 +1426,7 @@ static int verb_capture(int argc, char *argv[], uintptr_t _data, void *userdata)
         return r;
 }
 
-VERB(verb_status, "status", "[SERVICE]", VERB_ANY, 2, 0,
+VERB(verb_status, "status", "[SERVICE]\0", VERB_ANY, 2, 0,
      "Show bus service, process, or bus owner credentials");
 static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1798,7 +1798,7 @@ static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
         return 0;
 }
 
-VERB(verb_call, "call", "SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT…]]", 5, VERB_ANY, 0,
+VERB(verb_call, "call", "SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT…]]\0", 5, VERB_ANY, 0,
      "Call a method");
 static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1867,7 +1867,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return bus_message_dump(reply, /* flags= */ 0);
 }
 
-VERB(verb_emit, "emit", "OBJECT INTERFACE SIGNAL [SIGNATURE [ARGUMENT…]]", 4, VERB_ANY, 0,
+VERB(verb_emit, "emit", "OBJECT INTERFACE SIGNAL [SIGNATURE [ARGUMENT…]]\0", 4, VERB_ANY, 0,
      "Emit a signal");
 static int verb_emit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1914,7 +1914,7 @@ static int verb_emit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-VERB(verb_get_property, "get-property", "SERVICE OBJECT INTERFACE PROPERTY…", 5, VERB_ANY, 0,
+VERB(verb_get_property, "get-property", "SERVICE OBJECT INTERFACE PROPERTY…\0", 5, VERB_ANY, 0,
      "Get property value");
 static int verb_get_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1974,7 +1974,7 @@ static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_
         return 0;
 }
 
-VERB(verb_wait, "wait", "[SERVICE] OBJECT INTERFACE SIGNAL", 4, 5, 0,
+VERB(verb_wait, "wait", "[SERVICE] OBJECT INTERFACE SIGNAL\0", 4, 5, 0,
      "Wait for a signal");
 static int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2024,7 +2024,7 @@ static int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return sd_event_loop(e);
 }
 
-VERB(verb_set_property, "set-property", "SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT…", 6, VERB_ANY, 0,
+VERB(verb_set_property, "set-property", "SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT…\0", 6, VERB_ANY, 0,
      "Set property value");
 static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;

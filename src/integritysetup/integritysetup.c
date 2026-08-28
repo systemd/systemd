@@ -82,7 +82,7 @@ static const char *integrity_algorithm_select(const void *key_file_buf) {
         return dm_integrity_algorithm_to_string(a);
 }
 
-VERB(verb_attach, "attach", "VOLUME DEVICE [HMAC_KEY_FILE|-] [OPTIONS]", 3, 5, 0,
+VERB(verb_attach, "attach", "VOLUME DEVICE [HMAC_KEY_FILE|-] [OPTIONS]\0", 3, 5, 0,
      "Attach an integrity protected block device");
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
@@ -151,7 +151,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
-VERB(verb_detach, "detach", "VOLUME", 2, 2, 0,
+VERB(verb_detach, "detach", "VOLUME\0", 2, 2, 0,
      "Detach an integrity protected block device");
 static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;

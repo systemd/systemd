@@ -2,21 +2,21 @@
 
 #include "sd-device.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "options.h"
 #include "set.h"
 #include "static-destruct.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "udevadm.h"
+#include "verbs.h"
 #include "virt.h"
 
 static bool arg_show_property = false;
@@ -99,25 +99,6 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevadm-monitor", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("monitor [OPTIONS]");
-        help_abstract("Listen to kernel and udev events.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("udevadm", "8");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         int r;
 
@@ -132,7 +113,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("udevadm-monitor"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_verb_help("monitor");
 
                 OPTION('V', "version", NULL, "Show package version"):
                         return print_version();
@@ -182,6 +163,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_oom();
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (!arg_print_kernel && !arg_print_udev) {

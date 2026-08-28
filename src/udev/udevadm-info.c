@@ -19,9 +19,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "glyph-util.h"
-#include "help-util.h"
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -34,6 +32,7 @@
 #include "udev-util.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
+#include "verbs.h"
 
 typedef enum ActionType {
         ACTION_QUERY,
@@ -60,7 +59,6 @@ static bool arg_export = false;
 static bool arg_value = false;
 static const char *arg_export_prefix = NULL;
 static usec_t arg_wait_for_initialization_timeout = 0;
-static PagerFlags arg_pager_flags = 0;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static ActionType arg_action_type = ACTION_QUERY;
 static QueryType arg_query = QUERY_ALL;
@@ -806,25 +804,6 @@ static int query_device(QueryType query, sd_device* device) {
         }
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevadm-info", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("info [OPTIONS] [DEVPATH|FILE]");
-        help_abstract("Query sysfs or the udev database.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("udevadm", "8");
-        return 0;
-}
-
 static int draw_tree(
                 sd_device *parent,
                 sd_device *const array[], size_t n,
@@ -996,7 +975,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("udevadm-info"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_verb_help("info");
 
                 OPTION('V', "version", NULL, "Show package version"):
                         return print_version();
@@ -1179,6 +1158,9 @@ static int parse_argv(int argc, char *argv[]) {
                             "Query devices that are not initialized yet"):
                         arg_initialized_match = MATCH_INITIALIZED_NO;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         r = strv_extend_strv(&arg_devices, option_parser_get_args(&opts), /* filter_duplicates= */ false);

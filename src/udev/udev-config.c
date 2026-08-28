@@ -2,14 +2,14 @@
 
 #include <stdlib.h>
 
+#include "sd-json.h"
+
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "daemon-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "limits-util.h"
 #include "options.h"
 #include "parse-util.h"
@@ -25,6 +25,7 @@
 #include "udev-rules.h"
 #include "udev-util.h"
 #include "udev-worker.h"
+#include "verbs.h"
 #include "version.h"
 
 #define WORKER_NUM_MAX UINT64_C(2048)
@@ -149,26 +150,15 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("udevd", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...]");
-        help_abstract("Rule-based manager for device events and files.");
-
-        help_section("Options");
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-udevd.service", "8");
-        return 0;
-}
+/* systemd-udevd is the same binary as udevadm. This COMMAND intentionally owns no verbs: all of
+ * udevadm's verbs are defined in udevadm.c right after its own COMMAND, so that they are attributed
+ * to it. */
+COMMAND(
+        "systemd-udevd\0",
+        "Rule-based manager for device events and files.",
+        .man_pages = "systemd-udevd.service(8)\0",
+        .option_namespace = "udevd",
+);
 
 static int parse_argv(int argc, char *argv[], UdevConfig *config) {
         int r;
@@ -185,7 +175,7 @@ static int parse_argv(int argc, char *argv[], UdevConfig *config) {
                 OPTION_NAMESPACE("udevd"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help_name("systemd-udevd");
 
                 OPTION('V', "version", NULL, "Show package version"):
                         printf("%s\n", GIT_VERSION);
@@ -234,6 +224,9 @@ static int parse_argv(int argc, char *argv[], UdevConfig *config) {
                         else
                                 config->timeout_signal = r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         return 1;

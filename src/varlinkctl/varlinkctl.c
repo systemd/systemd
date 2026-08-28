@@ -295,8 +295,8 @@ COMMAND(
         .pager_flags = &arg_pager_flags,
 );
 
-VERB(verb_info, "info", "ADDRESS", 2, 2, 0, "Show service information");
-VERB(verb_info, "list-interfaces", "ADDRESS", 2, 2, 0, "List interfaces implemented by service");
+VERB(verb_info, "info", "ADDRESS\0", 2, 2, 0, "Show service information");
+VERB(verb_info, "list-interfaces", "ADDRESS\0", 2, 2, 0, "List interfaces implemented by service");
 static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         const char *url;
@@ -390,8 +390,8 @@ typedef struct GetInterfaceDescriptionData {
         const char *description;
 } GetInterfaceDescriptionData;
 
-VERB(verb_introspect, "introspect", "ADDRESS [INTERFACE…]", 2, VERB_ANY, 0, "Show interface definition");
-VERB(verb_introspect, "list-methods", "ADDRESS [INTERFACE…]", 2, VERB_ANY, 0,
+VERB(verb_introspect, "introspect", "ADDRESS [INTERFACE…]\0", 2, VERB_ANY, 0, "Show interface definition");
+VERB(verb_introspect, "list-methods", "ADDRESS [INTERFACE…]\0", 2, VERB_ANY, 0,
      "List methods implemented by services or specific interfaces");
 static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
@@ -709,7 +709,7 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
         return 0;
 }
 
-VERB(verb_call, "call", "ADDRESS METHOD [PARAMS]", 3, VERB_ANY, 0, "Invoke method");
+VERB(verb_call, "call", "ADDRESS METHOD [PARAMS]\0", 3, VERB_ANY, 0, "Invoke method");
 static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
@@ -983,7 +983,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-VERB(verb_validate_idl, "validate-idl", "[FILE]", 1, 2, 0, "Validate interface description");
+VERB(verb_validate_idl, "validate-idl", "[FILE]\0", 1, 2, 0, "Validate interface description");
 static int verb_validate_idl(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
         _cleanup_free_ char *text = NULL;
@@ -1386,7 +1386,7 @@ static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, s
         return 0;
 }
 
-VERB(verb_serve, "serve", "METHOD CMDLINE…", 3, VERB_ANY, 0, "Serve a command via varlink protocol upgrade");
+VERB(verb_serve, "serve", "METHOD CMDLINE…\0", 3, VERB_ANY, 0, "Serve a command via varlink protocol upgrade");
 static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;

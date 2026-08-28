@@ -711,7 +711,7 @@ static int inspect_home(sd_bus *bus, const char *name) {
         return 0;
 }
 
-VERB(verb_inspect_homes, "inspect", "USER…", VERB_ANY, VERB_ANY, 0,
+VERB(verb_inspect_homes, "inspect", "USER…\0", VERB_ANY, VERB_ANY, 0,
      "Inspect a home area");
 static int verb_inspect_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1459,7 +1459,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
         return 0;
 }
 
-VERB(verb_create_home, "create", "USER", VERB_ANY, 2, 0,
+VERB(verb_create_home, "create", "USER\0", VERB_ANY, 2, 0,
      "Create a home area");
 static int verb_create_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
@@ -1641,7 +1641,7 @@ static int home_record_reset_human_interaction_permission(UserRecord *hr) {
         return 0;
 }
 
-VERB(verb_update_home, "update", "USER", VERB_ANY, 2, 0,
+VERB(verb_update_home, "update", "USER\0", VERB_ANY, 2, 0,
      "Update a home area");
 static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1824,7 +1824,7 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
-VERB(verb_passwd_home, "passwd", "USER", VERB_ANY, 2, 0,
+VERB(verb_passwd_home, "passwd", "USER\0", VERB_ANY, 2, 0,
      "Change password of a home area");
 static int verb_passwd_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *old_secret = NULL, *new_secret = NULL;
@@ -1943,7 +1943,7 @@ static int parse_disk_size(const char *t, uint64_t *ret) {
         return 0;
 }
 
-VERB(verb_resize_home, "resize", "USER SIZE", 2, 3, 0,
+VERB(verb_resize_home, "resize", "USER SIZE\0", 2, 3, 0,
      "Resize a home area");
 static int verb_resize_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2007,7 +2007,7 @@ static int verb_resize_home(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
-VERB(verb_remove_home, "remove", "USER…", 2, VERB_ANY, 0,
+VERB(verb_remove_home, "remove", "USER…\0", 2, VERB_ANY, 0,
      "Remove a home area");
 static int verb_remove_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2043,7 +2043,7 @@ static int verb_remove_home(int argc, char *argv[], uintptr_t _data, void *userd
 }
 
 VERB_GROUP("Advanced User Manipulation Commands");
-VERB(verb_activate_home, "activate", "USER…", 2, VERB_ANY, 0,
+VERB(verb_activate_home, "activate", "USER…\0", 2, VERB_ANY, 0,
      "Activate a home area");
 static int verb_activate_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2093,7 +2093,7 @@ static int verb_activate_home(int argc, char *argv[], uintptr_t _data, void *use
         return ret;
 }
 
-VERB(verb_deactivate_home, "deactivate", "USER…", 2, VERB_ANY, 0,
+VERB(verb_deactivate_home, "deactivate", "USER…\0", 2, VERB_ANY, 0,
      "Deactivate a home area");
 static int verb_deactivate_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2168,7 +2168,7 @@ static int verb_deactivate_all_homes(int argc, char *argv[], uintptr_t _data, vo
         return 0;
 }
 
-VERB(verb_with_home, "with", "USER [COMMAND…]", 2, VERB_ANY, 0,
+VERB(verb_with_home, "with", "USER [COMMAND…]\0", 2, VERB_ANY, 0,
      "Run shell or command with access to a home area");
 static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2327,7 +2327,7 @@ static int authenticate_home(sd_bus *bus, const char *name) {
         }
 }
 
-VERB(verb_authenticate_homes, "authenticate", "USER…", VERB_ANY, VERB_ANY, 0,
+VERB(verb_authenticate_homes, "authenticate", "USER…\0", VERB_ANY, VERB_ANY, 0,
      "Authenticate a home area");
 static int verb_authenticate_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2355,7 +2355,7 @@ static int verb_authenticate_homes(int argc, char *argv[], uintptr_t _data, void
 }
 
 VERB_GROUP("User Migration Commands");
-VERB(verb_adopt_home, "adopt", "PATH…", VERB_ANY, VERB_ANY, 0,
+VERB(verb_adopt_home, "adopt", "PATH…\0", VERB_ANY, VERB_ANY, 0,
      "Add an existing home area on this system");
 static int verb_adopt_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r, ret = 0;
@@ -2439,7 +2439,7 @@ static int register_home_one(sd_bus *bus, FILE *f, const char *path) {
         return register_home_common(bus, v);
 }
 
-VERB(verb_register_home, "register", "PATH…", VERB_ANY, VERB_ANY, 0,
+VERB(verb_register_home, "register", "PATH…\0", VERB_ANY, VERB_ANY, 0,
      "Register a user record locally");
 static int verb_register_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
@@ -2472,7 +2472,7 @@ static int verb_register_home(int argc, char *argv[], uintptr_t _data, void *use
         return r;
 }
 
-VERB(verb_unregister_home, "unregister", "USER…", 2, VERB_ANY, 0,
+VERB(verb_unregister_home, "unregister", "USER…\0", 2, VERB_ANY, 0,
      "Unregister a user record locally");
 static int verb_unregister_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
@@ -2597,7 +2597,7 @@ static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void 
         return 0;
 }
 
-VERB(verb_get_signing_key, "get-signing-key", "[NAME…]", VERB_ANY, VERB_ANY, 0,
+VERB(verb_get_signing_key, "get-signing-key", "[NAME…]\0", VERB_ANY, VERB_ANY, 0,
      "Get a named home signing key");
 static int verb_get_signing_key(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
@@ -2655,7 +2655,7 @@ static int add_signing_key_one(sd_bus *bus, const char *fn, FILE *key) {
         return 0;
 }
 
-VERB(verb_add_signing_key, "add-signing-key", "FILE…", VERB_ANY, VERB_ANY, 0,
+VERB(verb_add_signing_key, "add-signing-key", "FILE…\0", VERB_ANY, VERB_ANY, 0,
      "Add home signing key");
 static int verb_add_signing_key(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
@@ -2764,7 +2764,7 @@ static int remove_signing_key_one(sd_bus *bus, const char *fn) {
         return 0;
 }
 
-VERB(verb_remove_signing_key, "remove-signing-key", "NAME…", 2, VERB_ANY, 0,
+VERB(verb_remove_signing_key, "remove-signing-key", "NAME…\0", 2, VERB_ANY, 0,
      "Remove home signing key");
 static int verb_remove_signing_key(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
@@ -2782,7 +2782,7 @@ static int verb_remove_signing_key(int argc, char *argv[], uintptr_t _data, void
 }
 
 VERB_GROUP("Lock/Unlock Commands");
-VERB(verb_lock_home, "lock", "USER…", 2, VERB_ANY, 0,
+VERB(verb_lock_home, "lock", "USER…\0", 2, VERB_ANY, 0,
      "Temporarily lock an active home area");
 static int verb_lock_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2815,7 +2815,7 @@ static int verb_lock_home(int argc, char *argv[], uintptr_t _data, void *userdat
         return ret;
 }
 
-VERB(verb_unlock_home, "unlock", "USER…", 2, VERB_ANY, 0,
+VERB(verb_unlock_home, "unlock", "USER…\0", 2, VERB_ANY, 0,
      "Unlock a temporarily locked home area");
 static int verb_unlock_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;

@@ -237,7 +237,7 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-VERB(verb_set_time, "set-time", "TIME", 2, 2, 0, "Set system time");
+VERB(verb_set_time, "set-time", "TIME\0", 2, 2, 0, "Set system time");
 static int verb_set_time(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -263,7 +263,7 @@ static int verb_set_time(int argc, char *argv[], uintptr_t _data, void *userdata
         return 0;
 }
 
-VERB(verb_set_timezone, "set-timezone", "ZONE", 2, 2, 0, "Set system time zone");
+VERB(verb_set_timezone, "set-timezone", "ZONE\0", 2, 2, 0, "Set system time zone");
 static int verb_set_timezone(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -301,7 +301,7 @@ static int verb_list_timezones(int argc, char *argv[], uintptr_t _data, void *us
         return 0;
 }
 
-VERB(verb_set_local_rtc, "set-local-rtc", "BOOL", 2, 2, 0, "Control whether RTC is in local time");
+VERB(verb_set_local_rtc, "set-local-rtc", "BOOL\0", 2, 2, 0, "Control whether RTC is in local time");
 static int verb_set_local_rtc(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -333,7 +333,7 @@ static int verb_set_local_rtc(int argc, char *argv[], uintptr_t _data, void *use
         return 0;
 }
 
-VERB(verb_set_ntp, "set-ntp", "BOOL", 2, 2, 0, "Enable or disable network time synchronization");
+VERB(verb_set_ntp, "set-ntp", "BOOL\0", 2, 2, 0, "Enable or disable network time synchronization");
 static int verb_set_ntp(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -847,7 +847,7 @@ static int parse_ifindex_bus(sd_bus *bus, const char *str) {
         return i;
 }
 
-VERB(verb_ntp_servers, "ntp-servers", "INTERFACE SERVER…", 3, VERB_ANY, 0,
+VERB(verb_ntp_servers, "ntp-servers", "INTERFACE SERVER…\0", 3, VERB_ANY, 0,
      "Set the interface specific NTP servers");
 static int verb_ntp_servers(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -880,7 +880,7 @@ static int verb_ntp_servers(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
-VERB(verb_revert, "revert", "INTERFACE", 2, 2, 0, "Revert the interface specific NTP servers");
+VERB(verb_revert, "revert", "INTERFACE\0", 2, 2, 0, "Revert the interface specific NTP servers");
 static int verb_revert(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
