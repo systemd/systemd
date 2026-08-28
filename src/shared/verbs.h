@@ -140,6 +140,8 @@ int _dispatch_verb(char **args, const Verb verbs[], const Verb verbs_end[], void
 #define dispatch_verb(args, userdata) \
         _dispatch_verb(args, __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, userdata)
 
+void help_section(const char *title);
+
 #define VERB_COMMON_HELP_AUTO_FULL(program, help)                       \
         VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, /* dat= */ (uintptr_t) program, /* help= */ help)
 #define VERB_COMMON_HELP_AUTO_PROGRAM(program) VERB_COMMON_HELP_AUTO_FULL(program, "Show this help")

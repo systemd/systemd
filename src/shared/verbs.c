@@ -6,11 +6,11 @@
 #include "env-util.h"
 #include "extract-word.h"
 #include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "nulstr-util.h"
 #include "options.h"
 #include "pager.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
@@ -511,6 +511,29 @@ static const Verb* verbs_find_cmd_verbs(const Verb *cmdverb, const Verb verbs_en
                                  COMMAND_VERBS_SHARED))
                         actual++;
         return actual;
+}
+
+static void help_cmdline(const char *arguments) {
+        const char *progname =
+                last_path_component(secure_getenv("SYSTEMD_INVOKED_AS"))
+                ?: program_invocation_short_name;
+
+        assert(arguments);
+
+        printf("%s>%s %s %s\n",
+               ansi_grey(),
+               ansi_normal(),
+               progname,
+               arguments);
+}
+
+void help_section(const char *title) {
+        assert(title);
+
+        printf("\n%s%s:%s\n",
+               ansi_underline(),
+               title,
+               ansi_normal());
 }
 
 int _command_print_help_full(
