@@ -26,6 +26,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "xattr-util.h"
 
@@ -796,6 +797,64 @@ TEST_RET(copy_with_verity) {
         ASSERT_ERROR(copy_tree_at(badsrc, ".", baddst, ".", UID_INVALID, GID_INVALID, COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, NULL, NULL), ESOCKTNOSUPPORT);
 
         return 0;
+}
+
+static void test_copy_times_one(
+                const struct timespec source[static 2],
+                usec_t ts_clamp,
+                const struct timespec expect[static 2]) {
+        _cleanup_(unlink_tempfilep) char in_fn[] = "/tmp/test-copy-times-in-XXXXXX";
+        _cleanup_(unlink_tempfilep) char out_fn[] = "/tmp/test-copy-times-out-XXXXXX";
+        _cleanup_close_ int in_fd = -EBADF, out_fd = -EBADF;
+        struct stat st;
+
+        in_fd = mkostemp_safe(in_fn);
+        assert_se(in_fd >= 0);
+        out_fd = mkostemp_safe(out_fn);
+        assert_se(out_fd >= 0);
+
+        assert_se(futimens(in_fd, source) >= 0);
+
+        ASSERT_OK(copy_times_full(in_fd, out_fd, /* flags= */ 0, ts_clamp));
+
+        assert_se(fstat(out_fd, &st) >= 0);
+        ASSERT_EQ(st.st_atim.tv_sec, expect[0].tv_sec);
+        ASSERT_EQ(st.st_atim.tv_nsec, expect[0].tv_nsec);
+        ASSERT_EQ(st.st_mtim.tv_sec, expect[1].tv_sec);
+        ASSERT_EQ(st.st_mtim.tv_nsec, expect[1].tv_nsec);
+}
+
+#define TIMESPEC_PAIR(a, m) ((const struct timespec[2]) { { .tv_sec = (a) }, { .tv_sec = (m) } })
+
+TEST(copy_times_clamp) {
+        const time_t before = 1600000000, epoch = 1700000000, after = 1750000000;
+        const usec_t clamp = epoch * USEC_PER_SEC;
+
+        /* Older than the clamp: kept. */
+        test_copy_times_one(TIMESPEC_PAIR(before, before), clamp, TIMESPEC_PAIR(before, before));
+
+        /* Newer: pulled back onto the clamp. */
+        test_copy_times_one(TIMESPEC_PAIR(after, after), clamp, TIMESPEC_PAIR(epoch, epoch));
+
+        /* Exactly on it: kept, the clamp is an inclusive upper bound. The comparison runs at microsecond
+         * resolution, so a nanosecond past the clamp still counts as "on it". */
+        test_copy_times_one(
+                        (const struct timespec[2]) { { .tv_sec = epoch, .tv_nsec = 1 },
+                                                     { .tv_sec = epoch, .tv_nsec = 1 } },
+                        clamp,
+                        (const struct timespec[2]) { { .tv_sec = epoch, .tv_nsec = 1 },
+                                                     { .tv_sec = epoch, .tv_nsec = 1 } });
+
+        /* atime and mtime are decided independently: a file that was merely read after the epoch
+         * loses its atime and keeps its mtime. */
+        test_copy_times_one(TIMESPEC_PAIR(after, before), clamp, TIMESPEC_PAIR(epoch, before));
+        test_copy_times_one(TIMESPEC_PAIR(before, after), clamp, TIMESPEC_PAIR(before, epoch));
+
+        /* Before 1970: older than any epoch, so kept rather than pushed forward. */
+        test_copy_times_one(TIMESPEC_PAIR(-1, -1), clamp, TIMESPEC_PAIR(-1, -1));
+
+        /* No clamp requested: the source's own timestamps. */
+        test_copy_times_one(TIMESPEC_PAIR(after, after), USEC_INFINITY, TIMESPEC_PAIR(after, after));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
