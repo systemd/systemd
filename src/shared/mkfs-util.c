@@ -671,14 +671,14 @@ int make_filesystem(
 
                 STRV_FOREACH_PAIR(k, v, env)
                         if (setenv(*k, *v, /* replace= */ true) < 0) {
-                                log_error_errno(r, "Failed to set %s=%s environment variable: %m", *k, *v);
+                                log_error_errno(errno, "Failed to set %s=%s environment variable: %m", *k, *v);
                                 _exit(EXIT_FAILURE);
                         }
 
                 /* mkfs.btrfs refuses to operate on block devices with mounted partitions, even if operating
                  * on unformatted free space, so let's trick it and other mkfs tools into thinking no
                  * partitions are mounted. See https://github.com/kdave/btrfs-progs/issues/640 for more
-                 ° information. */
+                 * information. */
                  if (fork_flags & FORK_NEW_MOUNTNS)
                         (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/null", "/proc/self/mounts", NULL, MS_BIND, NULL);
 
