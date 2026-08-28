@@ -514,11 +514,11 @@ static const Verb* verbs_find_cmd_verbs(const Verb *cmdverb, const Verb verbs_en
 }
 
 static void help_cmdline(const char *arguments) {
-        const char *progname =
-                last_path_component(secure_getenv("SYSTEMD_INVOKED_AS"))
-                ?: program_invocation_short_name;
-
         assert(arguments);
+
+        const char *progname =
+                empty_to_null(last_path_component(secure_getenv("SYSTEMD_INVOKED_AS")))
+                ?: program_invocation_short_name;
 
         printf("%s>%s %s %s\n",
                ansi_grey(),
