@@ -1159,9 +1159,11 @@ int config_parse_dhcp_request_options(
                         continue;
                 }
 
-                if (i < 1 || i >= UINT8_MAX) {
+                uint32_t option_max = ltype == AF_INET ? UINT8_MAX - 1 : UINT16_MAX;
+                if (i < 1 || i > option_max) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "DHCP request option is invalid, valid range is 1-254, ignoring assignment: %s", n);
+                                   "DHCP request option is invalid, valid range is 1-%"PRIu32", ignoring assignment: %s",
+                                   option_max, n);
                         continue;
                 }
 
