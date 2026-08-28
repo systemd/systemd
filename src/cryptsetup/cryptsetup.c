@@ -2484,7 +2484,7 @@ static int discover_key(const char *key_file, const char *volume, TokenType toke
         return r;
 }
 
-VERB(verb_attach, "attach", "VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]", 3, 5, 0,
+VERB(verb_attach, "attach", "VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]\0", 3, 5, 0,
      "Attach an encrypted block device");
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
@@ -2731,7 +2731,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
-VERB(verb_detach, "detach", "VOLUME", 2, 2, 0,
+VERB(verb_detach, "detach", "VOLUME\0", 2, 2, 0,
      "Detach an encrypted block device");
 static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;

@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
+#include "options.h"
 #include "strv.h"
 #include "tests.h"
 #include "verbs.h"
@@ -9,7 +12,7 @@ static int noop_dispatcher(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 #define test_dispatch_one(argv, verbs, expected) \
-        assert_se(_dispatch_verb(argv, verbs, verbs + ELEMENTSOF(verbs) - 1, NULL) == expected);
+        ASSERT_EQ(_dispatch_verb(argv, verbs, verbs + ELEMENTSOF(verbs) - 1, NULL), expected);
 
 TEST(verbs) {
         static const Verb verbs[] = {
@@ -82,6 +85,48 @@ TEST(verbs_no_default_many) {
         test_dispatch_one(STRV_MAKE("helpp"), verbs, -EINVAL);
         test_dispatch_one(STRV_MAKE("hgrejgoraoiosafso"), verbs, -EINVAL);
         test_dispatch_one(STRV_MAKE("Specials"), verbs, -EINVAL);
+}
+
+static const CommandDescription introspect_command = {
+        .names = "test-verbs\0",
+        .abstract = "Test the verb machinery.",
+        .man_pages = "systemd(1)\0",
+};
+
+static const Verb introspect_verbs[] = {
+        { .flags = VERB_COMMAND_MARKER, .data = (uintptr_t) &introspect_command },
+        { .verb = "alpha", .min_args = VERB_ANY, .max_args = VERB_ANY, .dispatch = noop_dispatcher,
+          .argspec = "FORM1\0FORM2…\0", .help = "Alpha verb", .option_namespace = "test-verbs-alpha" },
+        { .verb = "beta", .min_args = VERB_ANY, .max_args = VERB_ANY, .dispatch = noop_dispatcher,
+          .help = "Beta verb" },
+        { .verb = "gamma", .flags = VERB_OPTION_REQUIRED | VERB_DEPRECATED,
+          .min_args = VERB_ANY, .max_args = VERB_ANY, .dispatch = noop_dispatcher,
+          .help = "Gamma verb", .footer = "Gamma footer" },
+        {}
+};
+
+static const Option introspect_options[] = {
+        { 1, .long_code = "test-verbs-alpha", .flags = OPTION_NAMESPACE_MARKER },
+        { 2, .short_code = 'x', .long_code = "example", .metavar = "ARG", .help = "An example option" },
+        {}
+};
+
+TEST(introspect_cli_verb_options) {
+        ASSERT_OK(_introspect_cli(introspect_verbs, introspect_verbs + ELEMENTSOF(introspect_verbs) - 1,
+                                  introspect_options, introspect_options + ELEMENTSOF(introspect_options) - 1,
+                                  SD_JSON_FORMAT_OFF));
+}
+
+TEST(command_print_verb_help) {
+        ASSERT_OK(_command_print_verb_help(introspect_verbs, introspect_verbs + ELEMENTSOF(introspect_verbs) - 1,
+                                           introspect_options, introspect_options + ELEMENTSOF(introspect_options) - 1,
+                                           "alpha"));
+        ASSERT_OK(_command_print_verb_help(introspect_verbs, introspect_verbs + ELEMENTSOF(introspect_verbs) - 1,
+                                           introspect_options, introspect_options + ELEMENTSOF(introspect_options) - 1,
+                                           "beta"));
+        ASSERT_OK(_command_print_verb_help(introspect_verbs, introspect_verbs + ELEMENTSOF(introspect_verbs) - 1,
+                                           introspect_options, introspect_options + ELEMENTSOF(introspect_options) - 1,
+                                           "gamma"));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

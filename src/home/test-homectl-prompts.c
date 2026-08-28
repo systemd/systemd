@@ -37,7 +37,7 @@ static int help(void) {
         return table_print_or_warn(options);
 }
 
-VERB(verb_groups, "groups", "[USER]", VERB_ANY, 2, 0, "Select groups");
+VERB(verb_groups, "groups", "[USER]\0", VERB_ANY, 2, 0, "Select groups");
 static int verb_groups(int argc, char *argv[], uintptr_t _data, void *userdata) {
         assert(argv);
 
@@ -55,7 +55,7 @@ static int verb_groups(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
-VERB(verb_shell, "shell", "[USER]", VERB_ANY, 2, 0, "Select shell");
+VERB(verb_shell, "shell", "[USER]\0", VERB_ANY, 2, 0, "Select shell");
 static int verb_shell(int argc, char *argv[], uintptr_t _data, void *userdata) {
         assert(argv);
 

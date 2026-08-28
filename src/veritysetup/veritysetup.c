@@ -303,7 +303,7 @@ COMMAND(
         .man_pages = "systemd-veritysetup@.service(8)\0",
 );
 
-VERB(verb_attach, "attach", "VOLUME DATADEVICE HASHDEVICE ROOTHASH [OPTIONS]", 5, 6, 0,
+VERB(verb_attach, "attach", "VOLUME DATADEVICE HASHDEVICE ROOTHASH [OPTIONS]\0", 5, 6, 0,
      "Attach a verity-protected block device");
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
@@ -441,7 +441,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
-VERB(verb_detach, "detach", "VOLUME", 2, 2, 0,
+VERB(verb_detach, "detach", "VOLUME\0", 2, 2, 0,
      "Detach a verity-protected block device");
 static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;

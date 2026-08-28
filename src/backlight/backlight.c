@@ -530,7 +530,7 @@ static int device_new_from_arg(const char *s, sd_device **ret) {
         return 1; /* Found. */
 }
 
-VERB(verb_load, "load", "[backlight|leds]:DEVICE", 2, 2, VERB_ONLINE_ONLY,
+VERB(verb_load, "load", "[backlight|leds]:DEVICE\0", 2, 2, VERB_ONLINE_ONLY,
      "Set brightness to be the previously saved value");
 static int verb_load(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
@@ -582,7 +582,7 @@ static int verb_load(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-VERB(verb_save, "save", "[backlight|leds]:DEVICE", 2, 2, VERB_ONLINE_ONLY,
+VERB(verb_save, "save", "[backlight|leds]:DEVICE\0", 2, 2, VERB_ONLINE_ONLY,
      "Save current brightness");
 static int verb_save(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
