@@ -4,6 +4,7 @@
 
 #include "sd-json.h"
 
+#include "build.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "daemon-util.h"
@@ -26,7 +27,6 @@
 #include "udev-util.h"
 #include "udev-worker.h"
 #include "verbs.h"
-#include "version.h"
 
 #define WORKER_NUM_MAX UINT64_C(2048)
 
@@ -177,9 +177,8 @@ static int parse_argv(int argc, char *argv[], UdevConfig *config) {
                 OPTION_COMMON_HELP:
                         return command_print_help_name("systemd-udevd");
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        printf("%s\n", GIT_VERSION);
-                        return 0;
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('d', "daemon", NULL, "Detach and run in the background"):
                         arg_daemonize = true;

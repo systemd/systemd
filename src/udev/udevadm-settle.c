@@ -13,6 +13,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-util.h"
 #include "options.h"
 #include "path-util.h"
@@ -45,8 +46,8 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_HELP:
                         return command_print_verb_help("settle");
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('t', "timeout", "SEC", "Maximum time to wait for events"):
                         r = parse_sec(opts.arg, &arg_timeout_usec);
