@@ -1521,6 +1521,14 @@ bool dns_scope_network_good(DnsScope *s) {
         return manager_routable(s->manager);
 }
 
+DnsScope* dns_scope_next_mdns(DnsScope *s) {
+        LIST_FOREACH(scopes, i, s)
+                if (i->protocol == DNS_PROTOCOL_MDNS)
+                        return i;
+
+        return NULL;
+}
+
 int dns_scope_ifindex(DnsScope *s) {
         assert(s);
 

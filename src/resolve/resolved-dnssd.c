@@ -132,8 +132,6 @@ static int dnssd_registered_service_collect_withdraw_rrs(DnssdRegisteredService 
  * least twice, and the shutdown path already does so. Best effort by design: failures are logged,
  * the records are going away either way, and peers then age them out over their TTL. */
 static void dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
-        DnsScope *scope;
-        Link *l;
         int r;
 
         assert(m);
@@ -143,17 +141,13 @@ static void dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
 
         bool pending = false;
 
-        HASHMAP_FOREACH(l, m->links)
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope) {
-                        if (!scope)
-                                continue;
+        FOREACH_MDNS_SCOPE(scope, m) {
+                r = dns_scope_withdraw_rrs(scope, answer);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to withdraw mDNS records, ignoring: %m");
 
-                        r = dns_scope_withdraw_rrs(scope, answer);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to withdraw mDNS records, ignoring: %m");
-
-                        pending = pending || !dns_answer_isempty(scope->pending_withdrawals);
-                }
+                pending = pending || !dns_answer_isempty(scope->pending_withdrawals);
+        }
 
         if (pending)
                 manager_mdns_arm_withdrawal_retransmit(m);
@@ -212,25 +206,19 @@ static int dnssd_withdraw_filtered(Manager *m, DnsAnswer *candidates, DnssdRegis
  * resolved would keep answering and re-announcing for a service that no longer exists. */
 static void dnssd_registered_service_remove_from_zones(DnssdRegisteredService *s) {
         DnsResourceRecord *ptr;
-        DnsScope *scope;
-        Link *l;
 
         assert(s);
         assert(s->manager);
 
-        HASHMAP_FOREACH(l, s->manager->links)
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope) {
-                        if (!scope)
-                                continue;
+        FOREACH_MDNS_SCOPE(scope, s->manager) {
+                FOREACH_ARGUMENT(ptr, s->ptr_rr, s->sub_ptr_rr, s->srv_rr)
+                        if (ptr)
+                                dns_zone_remove_rr(&scope->zone, ptr);
 
-                        FOREACH_ARGUMENT(ptr, s->ptr_rr, s->sub_ptr_rr, s->srv_rr)
-                                if (ptr)
-                                        dns_zone_remove_rr(&scope->zone, ptr);
-
-                        LIST_FOREACH(items, txt_data, s->txt_data_items)
-                                if (txt_data->rr)
-                                        dns_zone_remove_rr(&scope->zone, txt_data->rr);
-                }
+                LIST_FOREACH(items, txt_data, s->txt_data_items)
+                        if (txt_data->rr)
+                                dns_zone_remove_rr(&scope->zone, txt_data->rr);
+        }
 }
 
 int dnssd_registered_service_withdraw(DnssdRegisteredService *s) {

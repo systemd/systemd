@@ -727,8 +727,6 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 }
 
 static bool manager_mdns_goodbyes_needed(Manager *m) {
-        Link *l;
-
         assert(m);
 
         /* Goodbyes are about withdrawing published DNS-SD services. The mDNS zone of every enabled
@@ -740,21 +738,14 @@ static bool manager_mdns_goodbyes_needed(Manager *m) {
         if (hashmap_isempty(m->dnssd_registered_services))
                 return false;
 
-        HASHMAP_FOREACH(l, m->links) {
-                DnsScope *scope;
-
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope)
-                        if (dns_scope_goodbye_has_content(scope))
-                                return true;
-        }
+        FOREACH_MDNS_SCOPE(scope, m)
+                if (dns_scope_goodbye_has_content(scope))
+                        return true;
 
         return false;
 }
 
 static void manager_send_mdns_goodbyes(Manager *m) {
-        DnsScope *scope;
-        Link *l;
-
         assert(m);
 
         /* The event loop keeps serving during the goodbye grace second, and several paths would
@@ -768,9 +759,8 @@ static void manager_send_mdns_goodbyes(Manager *m) {
         /* Send mDNS goodbye packets (RFC 6762 §10.1, records with TTL=0) for our published DNS-SD
          * services, so peers drop them immediately instead of waiting out the TTL. */
         log_debug("Sending mDNS goodbye announcements for published services.");
-        HASHMAP_FOREACH(l, m->links)
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope)
-                        (void) dns_scope_announce(scope, /* goodbye= */ true);
+        FOREACH_MDNS_SCOPE(scope, m)
+                (void) dns_scope_announce(scope, /* goodbye= */ true);
 }
 
 static int on_mdns_goodbye_retransmit(sd_event_source *s, usec_t usec, void *userdata) {
@@ -784,8 +774,6 @@ static int on_mdns_goodbye_retransmit(sd_event_source *s, usec_t usec, void *use
  * zone filtering of the first transmission is preserved — and clear the queues. The records were
  * already removed from the zones, so this re-emits the saved per-scope answers as-is. */
 static void manager_flush_pending_withdrawals(Manager *m) {
-        DnsScope *scope;
-        Link *l;
         int r;
 
         assert(m);
@@ -793,21 +781,17 @@ static void manager_flush_pending_withdrawals(Manager *m) {
         m->mdns_withdrawal_retransmit_event_source =
                 sd_event_source_disable_unref(m->mdns_withdrawal_retransmit_event_source);
 
-        HASHMAP_FOREACH(l, m->links)
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope) {
-                        _cleanup_(dns_answer_unrefp) DnsAnswer *pending = NULL;
+        FOREACH_MDNS_SCOPE(scope, m) {
+                _cleanup_(dns_answer_unrefp) DnsAnswer *pending = NULL;
 
-                        if (!scope)
-                                continue;
+                pending = TAKE_PTR(scope->pending_withdrawals);
+                if (dns_answer_isempty(pending))
+                        continue;
 
-                        pending = TAKE_PTR(scope->pending_withdrawals);
-                        if (dns_answer_isempty(pending))
-                                continue;
-
-                        r = dns_scope_emit_announcement(scope, pending);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to retransmit mDNS withdrawal, ignoring: %m");
-                }
+                r = dns_scope_emit_announcement(scope, pending);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to retransmit mDNS withdrawal, ignoring: %m");
+        }
 }
 
 static int on_mdns_withdrawal_retransmit(sd_event_source *s, usec_t usec, void *userdata) {
