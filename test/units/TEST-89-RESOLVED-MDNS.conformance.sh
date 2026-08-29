@@ -661,6 +661,60 @@ ref_scenario_query_backoff() {
     return 2
 }
 
+ref_scenario_ttl_reconfirmation() {
+    : "A record whose publisher keeps answering is re-confirmed before its TTL lapses (RFC 6762 section 5.2)"
+    local out="$REF_TMPDIR/reconfirm.browse" peer_log="$REF_TMPDIR/reconfirm.peer"
+    local listen_log="$REF_TMPDIR/reconfirm.listen"
+
+    local browse_start="$EPOCHSECONDS"
+    ref_start_browse "$out" "$REF_IF1_INDEX" || return 2
+    # A 30s TTL against the browse question's own doubling: those queries fall at roughly
+    # 1, 3, 7, 15 and 31 seconds, and every answer re-puts the record with a fresh TTL, so
+    # the browse schedule alone carries it through the early window. Past 31s the doubling
+    # outruns the TTL -- the next browse query is due at ~63s while the record from the 31s
+    # answer lapses at ~61s -- and from there only the per-record ladder of section 5.2
+    # (80/85/90/95% of the record's lifetime, the first rung ~24s after the last refresh)
+    # keeps the instance listed. So the verdict needs the wire, not just the absence of a
+    # removal: the capture below straddles the gap between the 31s and 63s browse slots,
+    # where a query for the browsed name can only be the ladder's.
+    ref_start_peer "$peer_log" "$REF_IF1_PEER" "$REF_IF1_PEER_ADDR" RefReconfirm --ttl 30 || return 2
+    ref_wait_event "$out" added RefReconfirm "$REF_IF1_INDEX" 30 || { cat "$out" "$peer_log" >&2; return 2; }
+
+    # Let the browse schedule play out its early refreshes, then capture the inter-slot gap.
+    # Anchored to browse start, not to when the added event was noticed: detection lag would
+    # otherwise slide the window onto the ~63s browse slot, and an ordinary browse re-query
+    # would satisfy the ladder assertion below.
+    local elapsed=$((EPOCHSECONDS - browse_start))
+    [[ "$elapsed" -lt 34 ]] && sleep $((34 - elapsed))
+    ref_start_listener "$listen_log" 24 || return 2
+    # The gap only means "ladder territory" if the capture actually sits inside it: on a
+    # runner slow enough that discovery or the listener start pushed past the anchor, the
+    # window would slide onto the ~63s browse slot and an ordinary re-query would satisfy
+    # the grep below. That is an environment problem, not a verdict.
+    elapsed=$((EPOCHSECONDS - browse_start))
+    if [[ "$elapsed" -gt 37 ]]; then
+        echo >&2 "ttl_reconfirmation capture missed its anchor (${elapsed}s after browse start)"
+        return 2
+    fi
+    ref_marker_canary "$REF_TMPDIR/reconfirm.marker" "$listen_log" || return 2
+
+    # The silence on the event stream is only meaningful if everything survived the window: a
+    # dead browse unit (or a crashed and restarted resolved, which drops the varlink
+    # connection) appends nothing, and a dead or mute publisher turns a missing removal into
+    # a false verdict about the ladder, in either direction.
+    systemctl --quiet is-active "${REF_BROWSE_UNITS[-1]}" || { cat "$out" "$peer_log" >&2; return 2; }
+    ref_publisher_survived "$REF_LAST_PEER_PID" "$peer_log" || return 2
+
+    # The ladder had to put the question on the wire in the captured gap...
+    grep "Q name=$REF_SERVICE.local qtype=12" >/dev/null "$listen_log" ||
+        { cat "$listen_log" "$out" >&2; return 1; }
+    # ...and the instance had to stay listed throughout.
+    if [[ "$(ref_count_events "$out" removed RefReconfirm "$REF_IF1_INDEX")" -ne 0 ]]; then
+        cat "$out" "$peer_log" >&2
+        return 1
+    fi
+}
+
 ref_scenario_responder_unicast_qu() {
     : "QU questions on recently multicast records are answered via unicast (RFC 6762 section 5.4)"
     local qm_log="$REF_TMPDIR/qm.query" qu_log="$REF_TMPDIR/qu.query"
@@ -1679,6 +1733,7 @@ run_conformance_scorecard() {
         expiry_no_goodbye                   # 6762 section 5.2
         expiry_no_goodbye_plain_flags       # 6762 section 5.2
         query_backoff                       # 6762 section 5.2
+        ttl_reconfirmation                  # 6762 section 5.2
         responder_unicast_qu                # 6762 section 5.4
         responder_qu_refresh                # 6762 section 5.4
         shared_record_response_delay        # 6762 section 6
