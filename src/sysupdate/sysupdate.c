@@ -94,6 +94,7 @@ COMMAND(
                 .sync = true,                                     \
                 .instances_max = UINT64_MAX,                      \
                 .verify = -1,                                     \
+                .offline = true,                                  \
                 .cleanup = -1,                                    \
                 .installdb_fd = -EBADF,                           \
                 .target_identifier.class = _TARGET_CLASS_INVALID, \
@@ -1235,6 +1236,7 @@ static bool image_type_can_sysupdate(ImageType image_type) {
         return IN_SET(image_type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME, IMAGE_RAW, IMAGE_BLOCK);
 }
 
+/* Assumes validation of the image has already been done */
 static int context_load_paths_from_image(Context *context, Image *image) {
         assert(context);
         assert(image);
@@ -1260,6 +1262,19 @@ static int context_load_paths_from_image(Context *context, Image *image) {
         }
 }
 
+/* Assumes validation of the component has already been done */
+static int context_load_paths_from_component(Context *context, const char *component_name) {
+        assert(context);
+        assert(component_name);
+
+        assert(!context->component);
+
+        context->component = strdup(component_name);
+        if (!context->component)
+                return log_oom();
+        return 0;
+}
+
 static void target_identifier_hash_func(const TargetIdentifier *t, struct siphash *state) {
         assert(t);
 
@@ -1280,9 +1295,135 @@ static int target_identifier_compare_func(const TargetIdentifier *x, const Targe
         return strcmp(x->name, y->name);
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_identifier_hash_ops,
-                                              TargetIdentifier, target_identifier_hash_func, target_identifier_compare_func,
-                                              TargetIdentifier, target_identifier_free);
+/* This is basically a presentational struct to collect together all the data for the
+ * user-visible Target type in varlink/D-Bus. The data comes from Transfers and UpdateSets. */
+typedef struct Target {
+        TargetIdentifier identifier;
+
+        char *current_version;
+        bool current_version_is_pending;
+        char **all_versions;
+        char **appstream_urls;
+} Target;
+
+static void target_done(Target *t) {
+        assert(t);
+
+        target_identifier_done(&t->identifier);
+        t->current_version = mfree(t->current_version);
+        t->all_versions = strv_free(t->all_versions);
+        t->appstream_urls = strv_free(t->appstream_urls);
+}
+
+static Target *target_free(Target *t) {
+        if (!t)
+                return NULL;
+
+        target_done(t);
+        return mfree(t);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Target*, target_free);
+
+static int target_new(TargetClass class, const char *name, Target **ret) {
+        _cleanup_(target_freep) Target *t = NULL;
+
+        assert(name);
+        assert(ret);
+
+        t = new(Target, 1);
+        if (!t)
+                return -ENOMEM;
+
+        *t = (Target) {
+                .identifier = {
+                        .class = class,
+                        .name = strdup(name),
+                },
+        };
+
+        if (!t->identifier.name)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(t);
+        return 0;
+}
+
+static void target_hash_func(const Target *t, struct siphash *state) {
+        assert(t);
+
+        target_identifier_hash_func(&t->identifier, state);
+}
+
+static int target_compare_func(const Target *x, const Target *y) {
+        assert(x);
+        assert(y);
+
+        return target_identifier_compare_func(&x->identifier, &y->identifier);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_hash_ops,
+                                              Target, target_hash_func, target_compare_func,
+                                              Target, target_free);
+
+/* Needs context_load_online() to have been called on `context`, or context_load_offline()
+ * plus context_discover_update_sets(). */
+static int context_build_target(Context *context, TargetClass class, const char *name, Target **ret) {
+        _cleanup_(target_freep) Target *t = NULL;
+        _cleanup_strv_free_ char **versions = NULL, **appstream_urls = NULL;
+        const char *current = NULL;
+        bool current_is_pending = false;
+        int r;
+
+        assert(context);
+        assert(class >= 0);
+        assert(name);
+
+        FOREACH_ARRAY(update_set, context->update_sets, context->n_update_sets) {
+                UpdateSet *us = *update_set;
+
+                if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
+                    FLAGS_SET(us->flags, UPDATE_NEWEST)) {
+                        current = us->version;
+                        current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
+                }
+
+                r = strv_extend(&versions, us->version);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = target_new(class, name, &t);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return r;
+
+        if (current) {
+                t->current_version = strdup(current);
+                if (!t->current_version)
+                        return log_oom();
+        }
+
+        t->current_version_is_pending = current_is_pending;
+        t->all_versions = TAKE_PTR(versions);
+
+        FOREACH_ARRAY(tr, context->transfers, context->n_transfers)
+                STRV_FOREACH(appstream_url, (*tr)->appstream) {
+                        /* Avoid duplicates */
+                        if (strv_contains(appstream_urls, *appstream_url))
+                                continue;
+
+                        r = strv_extend(&appstream_urls, *appstream_url);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        t->appstream_urls = TAKE_PTR(appstream_urls);
+
+        *ret = TAKE_PTR(t);
+        return 0;
+}
 
 static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, Set **targets) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
@@ -1294,7 +1435,7 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
                 return r;
 
         HASHMAP_FOREACH(image, images) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
                 bool have = false;
                 _cleanup_(context_done) Context image_context = CONTEXT_NULL;
 
@@ -1307,6 +1448,8 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
                 r = context_load_paths_from_image(&image_context, image);
                 if (r < 0)
                         return r;
+
+                image_context.offline = true;
 
                 /* Load the components in a separate Context specific to the given Image before
                  * committing to loading that state to the main Context. */
@@ -1325,11 +1468,15 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
                         continue;
                 }
 
-                r = target_identifier_new(class, image->name, &t);
+                r = context_discover_update_sets(&image_context);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                r = context_build_target(&image_context, class, image->name, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
@@ -1349,25 +1496,45 @@ static int context_enumerate_components(Context *context, Set **targets) {
                 return r;
 
         if (have_default_component) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
 
-                r = target_identifier_new(TARGET_HOST, "host", &t);
+                r = context_build_target(context, TARGET_HOST, "host", &t);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
 
         STRV_FOREACH(component, component_names) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
+                _cleanup_(context_done) Context component_context = CONTEXT_NULL;
 
-                r = target_identifier_new(TARGET_COMPONENT, *component, &t);
+                r = context_load_paths_from_component(&component_context, *component);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                component_context.offline = true;
+
+                /* Load the component in a separate Context specific to its sysupdate.$component.d
+                 * directory. */
+                r = context_load_offline(
+                                &component_context,
+                                PROCESS_IMAGE_READ_ONLY,
+                                /* read_definitions_flags= */ 0);
+                if (r < 0)
+                        return r;
+
+                r = context_discover_update_sets(&component_context);
+                if (r < 0)
+                        return r;
+
+                r = context_build_target(&component_context, TARGET_COMPONENT, *component, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
@@ -1439,6 +1606,8 @@ static int context_load_paths_from_target(Context *context) {
                         r = context_load_paths_from_image(&image_context, image);
                         if (r < 0)
                                 return r;
+
+                        image_context.offline = true;
 
                         /* Load the components in a separate Context specific to the given Image before
                          * committing to loading that state to the main Context. */
@@ -1946,7 +2115,6 @@ VERB(verb_list, "list", "[VERSION]\0", VERB_ANY, 2, VERB_DEFAULT,
      "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_done) Context context = CONTEXT_NULL;
-        _cleanup_strv_free_ char **appstream_urls = NULL;
         const char *version;
         int r;
 
@@ -1976,38 +2144,18 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return context_show_table(&context);
         else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-                _cleanup_strv_free_ char **versions = NULL;
-                const char *current = NULL;
-                bool current_is_pending = false;
+                _cleanup_(target_freep) Target *target = NULL;
 
-                FOREACH_ARRAY(update_set, context.update_sets, context.n_update_sets) {
-                        UpdateSet *us = *update_set;
+                /* We’re just using this to get the versions and appstream URLs, so the class
+                 * and name don’t matter, which means we can avoid trying to rebuild them from
+                 * the command line context. Arbitrarily choose the host. */
+                r = context_build_target(&context, TARGET_HOST, "host", &target);
+                if (r < 0)
+                        return r;
 
-                        if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
-                            FLAGS_SET(us->flags, UPDATE_NEWEST)) {
-                                current = us->version;
-                                current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
-                        }
-
-                        r = strv_extend(&versions, us->version);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                FOREACH_ARRAY(tr, context.transfers, context.n_transfers)
-                        STRV_FOREACH(appstream_url, (*tr)->appstream) {
-                                /* Avoid duplicates */
-                                if (strv_contains(appstream_urls, *appstream_url))
-                                        continue;
-
-                                r = strv_extend(&appstream_urls, *appstream_url);
-                                if (r < 0)
-                                        return log_oom();
-                        }
-
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING(current_is_pending ? "current+pending" : "current", current),
-                                          SD_JSON_BUILD_PAIR_STRV("all", versions),
-                                          SD_JSON_BUILD_PAIR_STRV("appstreamUrls", appstream_urls));
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING(target->current_version_is_pending ? "current+pending" : "current", target->current_version),
+                                          SD_JSON_BUILD_PAIR_STRV("all", target->all_versions),
+                                          SD_JSON_BUILD_PAIR_STRV("appstreamUrls", target->appstream_urls));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -2404,7 +2552,6 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
 static int feature_to_json(Context *context, const Feature *f, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_strv_free_ char **transfers = NULL;
-        const char *documentation_strv[2] = { NULL, };
         int r;
 
         assert(context);
@@ -2416,15 +2563,15 @@ static int feature_to_json(Context *context, const Feature *f, sd_json_variant *
                 return r;
 
         /* FIXME: Long term we’d like to support an array of documentation, but currently the D-Bus interface
-         * doesn’t support that and neither do the internals of sysupdate. So just expose 0 or 1 URLs for now. */
-        documentation_strv[0] = f->documentation;
+         * doesn’t support that and neither do the internals of sysupdate. So just expose 0 or 1 URLs for now.
+         * Same for appstream URLs. */
 
         r = sd_json_variant_merge_objectbo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("id", f->id),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("description", f->description),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", (char **) documentation_strv),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("appstream", f->appstream),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", STRV_MAKE(f->documentation)),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("appstreamUrls", STRV_MAKE(f->appstream)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("isEnabled", f->enabled),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("transfers", transfers));
         if (r < 0)
@@ -3130,25 +3277,33 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
 
+        r = context_discover_update_sets(&context);
+        if (r < 0)
+                return r;
+
         r = context_enumerate_targets(&context, &targets);
         if (r < 0)
                 return r;
 
         /* Sort to ensure consistent ordering */
         size_t n;
-        _cleanup_free_ TargetIdentifier **sorted = NULL;
+        _cleanup_free_ Target **sorted = NULL;
         r = set_dump_sorted(targets, (void***) &sorted, &n);
         if (r < 0)
                 return log_oom();
 
         FOREACH_ARRAY(p, sorted, n) {
-                TargetIdentifier *target_identifier = *p;
-                const char *name = (target_identifier->class != TARGET_HOST) ? target_identifier->name : NULL;
+                Target *target = *p;
+                const char *name = (target->identifier.class != TARGET_HOST) ? target->identifier.name : NULL;
 
                 r = sd_json_variant_append_arraybo(&l,
                                 SD_JSON_BUILD_PAIR_OBJECT("id",
-                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target_identifier->class)),
-                                                SD_JSON_BUILD_PAIR_STRING("name", name)));
+                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target->identifier.class)),
+                                                SD_JSON_BUILD_PAIR_STRING("name", name)),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("currentVersion", target->current_version),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("currentVersionIsPending", target->current_version_is_pending),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("allVersions", target->all_versions),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("appstreamUrls", target->appstream_urls));
                 if (r < 0)
                         return r;
         }
