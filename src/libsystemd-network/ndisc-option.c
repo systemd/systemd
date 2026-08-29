@@ -1275,8 +1275,10 @@ int ndisc_option_add_encrypted_dns_internal(
         assert(options);
 
         sd_ndisc_option *p = ndisc_option_new(SD_NDISC_OPTION_ENCRYPTED_DNS, offset);
-        if (!p)
+        if (!p) {
+                sd_dns_resolver_unref(new_res);
                 return -ENOMEM;
+        }
 
         p->encrypted_dns = (sd_ndisc_dnr) {
                 .resolver = res,
