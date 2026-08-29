@@ -1299,10 +1299,8 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
         scope->conflict_event_source = sd_event_source_disable_unref(scope->conflict_event_source);
 
         /* Once the shutdown goodbyes went out, conflicted records must not be re-published: the
-         * withdrawal is to stand, and we are gone before any conflict resolution could conclude.
-         * This concerns mDNS alone — LLMNR records are not withdrawn by the goodbyes, so its
-         * conflict handling keeps running to the end. */
-        if (scope->protocol == DNS_PROTOCOL_MDNS && scope->manager->mdns_withdrawing)
+         * withdrawal is to stand, and we are gone before any conflict resolution could conclude. */
+        if (dns_scope_mdns_withdrawing(scope))
                 return 0;
 
         for (;;) {
@@ -1377,9 +1375,8 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
         /* On the way out, once the mDNS goodbyes went out, the withdrawal is to stand: do not react
          * to conflicting claims by re-verifying our records — that would flip them to probing and
          * multicast probe queries carrying the very records just withdrawn, and we are gone before
-         * any verification could conclude anyway. This concerns mDNS alone — LLMNR records are not
-         * withdrawn by the goodbyes, so its conflict handling keeps running to the end. */
-        if (scope->protocol == DNS_PROTOCOL_MDNS && scope->manager->mdns_withdrawing)
+         * any verification could conclude anyway. */
+        if (dns_scope_mdns_withdrawing(scope))
                 return;
 
         if (DNS_PACKET_RRCOUNT(p) <= 0)
@@ -1506,6 +1503,16 @@ bool dns_scope_name_wants_search_domain(DnsScope *s, const char *name) {
         return true;
 }
 
+/* Whether this scope's records have already been withdrawn by the shutdown goodbyes, so that nothing
+ * may put them back on the wire. mDNS only: LLMNR records are not withdrawn by the goodbyes, so its
+ * conflict handling and re-verification keep running to the end. */
+bool dns_scope_mdns_withdrawing(DnsScope *scope) {
+        assert(scope);
+        assert(scope->manager);
+
+        return scope->protocol == DNS_PROTOCOL_MDNS && scope->manager->mdns_withdrawing;
+}
+
 bool dns_scope_network_good(DnsScope *s) {
         /* Checks whether the network is in good state for lookups on this scope. For mDNS/LLMNR/Classic DNS scopes
          * bound to links this is easy, as they don't even exist if the link isn't in a suitable state. For the global
@@ -1519,6 +1526,14 @@ bool dns_scope_network_good(DnsScope *s) {
                 return true;
 
         return manager_routable(s->manager);
+}
+
+DnsScope* dns_scope_next_mdns(DnsScope *s) {
+        LIST_FOREACH(scopes, i, s)
+                if (i->protocol == DNS_PROTOCOL_MDNS)
+                        return i;
+
+        return NULL;
 }
 
 int dns_scope_ifindex(DnsScope *s) {
@@ -1637,8 +1652,7 @@ static bool dns_zone_item_wants_announce(DnsZoneItem *i, bool goodbye, bool excl
 bool dns_scope_goodbye_has_content(DnsScope *scope) {
         DnsZoneItem *z;
 
-        if (!scope)
-                return false;
+        assert(scope);
 
         HASHMAP_FOREACH(z, scope->zone.by_key)
                 LIST_FOREACH(by_key, i, z)
