@@ -333,7 +333,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                  * re-populate the caches the goodbyes just cleaned. The host's own records are
                  * not withdrawn and are still answered: a peer probing for our host name has to
                  * see it defended (RFC 6762 section 8.1). */
-                if (s->manager->mdns_withdrawing) {
+                if (dns_scope_mdns_withdrawing(s)) {
                         _cleanup_(dns_answer_unrefp) DnsAnswer *kept = NULL;
 
                         DNS_ANSWER_FOREACH_ITEM(item, answer) {
