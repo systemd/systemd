@@ -517,8 +517,8 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
          * withdrawn above all the same: that part is local and silent, the loser's deferral of RFC
          * 6762 section 8.2, and skipping it would leave a record we just lost answerable — still
          * probing, or established once its probe runs out — for the rest of the second. mDNS
-         * only, like the gates above: LLMNR records are not withdrawn by the goodbyes. */
-        if (i->scope->protocol == DNS_PROTOCOL_MDNS && i->scope->manager->mdns_withdrawing)
+         * only, per the helper: LLMNR records are not withdrawn by the goodbyes. */
+        if (dns_scope_mdns_withdrawing(i->scope))
                 return;
 
         (void) dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));

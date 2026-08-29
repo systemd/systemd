@@ -335,7 +335,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                  * host's own records are not withdrawn, so those are still answered -- a peer
                  * probing for our host name in this window has to see it defended (RFC 6762
                  * section 8.1), and it still resolves for everyone else meanwhile. */
-                if (s->manager->mdns_withdrawing) {
+                if (dns_scope_mdns_withdrawing(s)) {
                         _cleanup_(dns_answer_unrefp) DnsAnswer *kept = NULL;
 
                         DNS_ANSWER_FOREACH_ITEM(item, answer) {
