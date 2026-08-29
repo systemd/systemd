@@ -379,7 +379,7 @@
 
       <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="version-V" />
 
       <varlistentry id='no-pager'>
         <term><option>--no-pager</option></term>

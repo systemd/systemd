@@ -6,6 +6,7 @@
 
 #include "sd-json.h"
 
+#include "build.h"
 #include "blockdev-util.h"
 #include "device-util.h"
 #include "fd-util.h"
@@ -51,8 +52,8 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_HELP:
                         return command_print_verb_help("lock");
 
-                OPTION('V', "version", NULL, "Show package version"):
-                        return print_version();
+                OPTION_COMMON_VERSION_WITH_V:
+                        return version_only();
 
                 OPTION('d', "device", "DEVICE", "Block device to lock"): {} /* fall through */
                 OPTION('b', "backing", "FILE", "File whose backing block device to lock"): {

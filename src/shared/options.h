@@ -95,6 +95,10 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
 #define OPTION_COMMON_VERSION                                           \
         OPTION_LONG("version", NULL, "Show package version")
 
+/* A form used in udev, udevadm, and run0. */
+#define OPTION_COMMON_VERSION_WITH_V                                    \
+        OPTION('V', "version", NULL, "Show package version")
+
 #define OPTION_COMMON_INTROSPECT_CLI                                    \
         /* This option is internal-only for now and not shown in --help */ \
         OPTION_LONG("introspect-cli", NULL, /* help= */ NULL)
@@ -176,11 +180,6 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
                     "Specify how to interpret the certificate from --certificate=. " \
                     "Allows the certificate to be loaded from an OpenSSL provider " \
                     "(file, provider:PROVIDER)")
-
-/* A form used in udev code for compatibility. -V is accepted but not documented. */
-#define OPTION_COMMON_VERSION_WITH_HIDDEN_V                             \
-        OPTION_COMMON_VERSION: {}                                       \
-        OPTION_SHORT('V', NULL, /* help= */ NULL)
 
 #define OPTION_COMMON_RESOLVE_NAMES                                     \
         OPTION('N', "resolve-names", "MODE",                            \
