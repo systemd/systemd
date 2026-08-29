@@ -124,11 +124,57 @@ check_first() {
     return 1
 }
 
-# Did any 'removed' event whose name matches $3 arrive in $1 after byte offset $2?
+# Did any 'removed' event whose name matches $3 arrive in $1 after byte offset $2? The needle
+# defaults to matching any name, for the callers that mean "any removal at all".
 removed_since() {
-    local file="${1:?}" off="${2:?}" needle="${3:?}"
+    local file="${1:?}" off="${2:?}" needle="${3:-.}"
 
     tail -c "+$((off + 1))" "$file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep -e "$needle" >/dev/null
+}
+
+# How many 'added' events has $1 seen? The counterpart of removed_since() for the other half of the
+# event vocabulary.
+added_count() {
+    { grep -o '"updateFlag":"added"' "${1:?}" || :; } | wc -l
+}
+
+# Bring up a service-less dummy link with mDNS on, so a second (empty) mDNS scope exists for the
+# ifindex=0 reconciliation to combine. The caller arms its own EXIT trap first -- the units and
+# files to clean up differ per testcase, and the trap's link removal is harmless before the link
+# exists. A previously interrupted run may have leaked the fixed-name link: RETURN traps do not fire
+# when set -e aborts a function mid-flight, so clear it first to keep re-runs self-healing rather
+# than tripping over EEXIST.
+mdns_dummy_link_up() {
+    local dummy="${1:?}" addr="${2:?}"
+
+    ip link del "$dummy" 2>/dev/null || :
+    ip link add "$dummy" type dummy
+    ip link set "$dummy" up multicast on
+    ip address add "$addr" dev "$dummy"
+    resolvectl mdns "$dummy" yes
+    [[ "$(resolvectl mdns "$dummy")" =~ :\ yes$ ]]
+    sleep 2  # let resolved create the scope before we start browsing
+}
+
+# resolvectl only reads back the *configured* mDNS support; whether resolved actually built a scope
+# for the link additionally depends on link_relevant() (carrier, multicast, operational state). A
+# testcase that turns a scope off to observe the teardown asserts nothing if the scope never
+# existed, so require resolved's own trace of having created it. Needs debug logging.
+assert_mdns_scope_exists() {
+    local dummy="${1:?}" since="${2:?}"
+    local i
+
+    for ((i = 0; i < 15; i++)); do
+        if { journalctl -u systemd-resolved.service --since "$since" || :; } |
+               grep "New scope on link $dummy" >/dev/null; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    echo >&2 "resolved never created an mDNS scope for $dummy; the teardown below would assert nothing"
+    journalctl -u systemd-resolved.service --since "$since" >&2 || :
+    return 1
 }
 
 run_and_check_services() {
@@ -264,12 +310,14 @@ testcase_browse_ifindex_zero_no_flap() {
     : "ifindex=0 browse must not emit spurious 'removed' events while publishers stay up"
     resolvectl flush-caches
 
-    local out_file unit_name service_type added removed
+    local out_file unit_name service_type added removed since orig_level
     local dummy="ravc-noflap"
 
     out_file="$(mktemp)"
     unit_name="varlinkctl-noflap-$SRANDOM.service"
     service_type="_testService5._udp"
+    orig_level="$(resolvectl log-level)"
+    since="$(date '+%Y-%m-%d %H:%M:%S')"
 
     # The flap only manifests when the browser reconciles >=2 same-family mDNS
     # scopes: the pre-fix code diffed the browser's global service list against
@@ -277,24 +325,19 @@ testcase_browse_ifindex_zero_no_flap() {
     # one scope. The host normally has only the container bridge as an mDNS
     # interface, so add a service-less dummy link with mDNS enabled to guarantee a
     # second (empty) scope that the ifindex=0 reconciliation must combine. This
-    # must succeed -- without the second scope the testcase asserts nothing.
-    # A previously interrupted run may have leaked the fixed-name link: RETURN traps
-    # do not fire when set -e aborts a function mid-flight, so clear it first to keep
-    # re-runs self-healing instead of tripping over EEXIST here.
-    ip link del "$dummy" 2>/dev/null || :
-    ip link add "$dummy" type dummy
+    # must succeed -- without the second scope the testcase asserts nothing, which is what
+    # assert_mdns_scope_exists() below establishes rather than assuming.
     # Arm the cleanup before anything else can fail, so neither the fixed-name
     # link nor the output file leaks into later testcases: run_testcases runs
     # each testcase in its own subshell, whose EXIT trap fires however the
     # testcase ends. The browse unit may not exist yet, hence the best-effort
     # stop.
     # shellcheck disable=SC2064
-    trap "systemctl stop $unit_name 2>/dev/null || :; ip link del $dummy 2>/dev/null || :; rm -f $out_file" EXIT
-    ip link set "$dummy" up multicast on
-    ip address add 169.254.171.171/16 dev "$dummy"
-    resolvectl mdns "$dummy" yes
-    [[ "$(resolvectl mdns "$dummy")" =~ :\ yes$ ]]
-    sleep 2  # let resolved create the scope before we start browsing
+    trap "resolvectl log-level $orig_level || :; systemctl stop $unit_name 2>/dev/null || :; ip link del $dummy 2>/dev/null || :; rm -f $out_file" EXIT
+
+    resolvectl log-level debug
+    mdns_dummy_link_up "$dummy" 169.254.171.171/16
+    assert_mdns_scope_exists "$dummy" "$since"
 
     # Long-running browse across *all* interfaces (ifindex=0). With the
     # combined-answer reconciliation there must be no 'removed' event as long as
@@ -309,7 +352,7 @@ testcase_browse_ifindex_zero_no_flap() {
     # discovered. Count occurrences, not lines: varlinkctl --more emits compact
     # JSON-SEQ and one notify batches many entries onto a single line.
     for _ in {0..14}; do
-        added="$( { grep -o '"updateFlag":"added"' "$out_file" || :; } | wc -l)"
+        added="$(added_count "$out_file")"
         [[ "$added" -ge 40 ]] && break
         sleep 2
     done
@@ -338,7 +381,7 @@ testcase_browse_shared_querier() {
     : "Concurrent subscribers of one service type share a querier and each receives updates"
     resolvectl flush-caches
 
-    local out1 out2 out3 unit1 unit2 unit3 service_type params n1 n2 n3 since joins orig_level
+    local out1 out2 out3 unit1 unit2 unit3 service_type params n1 n2 n3 since joins orig_level ok
     service_type="_testService8._udp"
     params="$(browse_params "$service_type" "${BRIDGE_INDEX:?}")"
     out1="$(mktemp)"
@@ -376,8 +419,8 @@ testcase_browse_shared_querier() {
     # CONTAINER_2 and would be doomed from the start if it was never discovered.
     local both=0
     for _ in {0..14}; do
-        n1="$( { grep -o '"updateFlag":"added"' "$out1" || :; } | wc -l)"
-        n2="$( { grep -o '"updateFlag":"added"' "$out2" || :; } | wc -l)"
+        n1="$(added_count "$out1")"
+        n2="$(added_count "$out2")"
         if [[ "$n1" -ge 40 && "$n2" -ge 40 ]] &&
            grep "on $CONTAINER_1" "$out1" >/dev/null && grep "on $CONTAINER_2" "$out1" >/dev/null &&
            grep "on $CONTAINER_1" "$out2" >/dev/null && grep "on $CONTAINER_2" "$out2" >/dev/null; then
@@ -415,7 +458,7 @@ testcase_browse_shared_querier() {
         varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params"
     local snap=0
     for _ in {0..9}; do
-        n3="$( { grep -o '"updateFlag":"added"' "$out3" || :; } | wc -l)"
+        n3="$(added_count "$out3")"
         if [[ "$n3" -ge 40 ]] &&
            grep "on $CONTAINER_1" "$out3" >/dev/null && grep "on $CONTAINER_2" "$out3" >/dev/null; then
             snap=1
@@ -478,12 +521,107 @@ testcase_browse_shared_querier() {
         return 1
     fi
 
-    # Restore the second container for the remaining testcases. Best effort: everything this
-    # testcase asserts has been asserted by now, and a transient hiccup here — wait-online hitting
-    # its cap on a loaded runner — must not fail a passed testcase.
-    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0 || :
-    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
-        /usr/lib/systemd/systemd-networkd-wait-online --ipv4 --ipv6 --interface=host0 --operational-state=degraded --timeout=30 || :
+    # Restore the second container for the remaining testcases, and insist on it: run_testcases()
+    # runs testcase_browse_unrelated_scope_teardown straight after this one, and that testcase
+    # requires all 40 services inside a 30s gate with no reachability precondition of its own. A
+    # restore that quietly failed here would surface there instead, reported against the
+    # scope-teardown logic. Retried rather than one-shot, so a loaded runner missing wait-online's
+    # cap once does not fail a testcase that has already asserted everything it set out to.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0
+    ok=0
+    for _ in {0..2}; do
+        if systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+               /usr/lib/systemd/systemd-networkd-wait-online --ipv4 --ipv6 --interface=host0 --operational-state=degraded --timeout=30; then
+            ok=1
+            break
+        fi
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Could not restore $CONTAINER_2's network; later testcases would fail against it"
+        return 1
+    fi
+
+    echo testcase_end
+}
+
+testcase_browse_unrelated_scope_teardown() {
+    : "Losing one link's mDNS scope must not withdraw services discovered on another link"
+    resolvectl flush-caches
+
+    local out0 outb unit0 unitb service_type off0 offb params0 paramsb since orig_level
+    local dummy="ravc-scoped"
+
+    out0="$(mktemp)"
+    outb="$(mktemp)"
+    unit0="varlinkctl-scoped0-$SRANDOM.service"
+    unitb="varlinkctl-scopedb-$SRANDOM.service"
+    service_type="_testService9._udp"
+    params0="$(browse_params "$service_type" "0")"
+    paramsb="$(browse_params "$service_type" "${BRIDGE_INDEX:?}")"
+    orig_level="$(resolvectl log-level)"
+    since="$(date '+%Y-%m-%d %H:%M:%S')"
+
+    # A second mDNS link whose scope is torn down mid-subscription; the services under test live on
+    # the bridge, never here. A previous interrupted run may have leaked the fixed-name link.
+    # shellcheck disable=SC2064
+    trap "resolvectl log-level $orig_level || :; systemctl stop $unit0 $unitb 2>/dev/null || :; ip link del $dummy 2>/dev/null || :; rm -f $out0 $outb" EXIT
+
+    resolvectl log-level debug
+    mdns_dummy_link_up "$dummy" 169.254.172.172/16
+    assert_mdns_scope_exists "$dummy" "$since"
+
+    # Two live subscriptions: one across all interfaces, one pinned to the bridge. The purge that
+    # the teardown below triggers is scoped to the vanishing link, so the pinned one is skipped
+    # outright while the ifindex=0 one reconciles against the scopes that remain.
+    systemd-run --unit="$unit0" --service-type=exec -p StandardOutput="file:$out0" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params0"
+    systemd-run --unit="$unitb" --service-type=exec -p StandardOutput="file:$outb" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$paramsb"
+
+    local ready=0 n0 nb
+    for _ in {0..14}; do
+        n0="$(added_count "$out0")"
+        nb="$(added_count "$outb")"
+        if [[ "$n0" -ge 40 && "$nb" -ge 40 ]]; then
+            ready=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ready" -ne 1 ]]; then
+        echo >&2 "Both subscribers did not discover the services (n0=${n0:-0} nb=${nb:-0})"
+        cat "$out0" "$outb" >&2
+        return 1
+    fi
+
+    # Checkpoint, then take the unrelated link's mDNS scope away.
+    off0="$(wc -c <"$out0")"
+    offb="$(wc -c <"$outb")"
+    resolvectl mdns "$dummy" no
+    [[ "$(resolvectl mdns "$dummy")" =~ :\ no$ ]]
+
+    # The scope teardown purges the browse subscriptions. Give it the same settling window the
+    # other no-flap negatives use, and anchor on a positive fact first: the services still resolve.
+    sleep 2
+    local ok=0
+    for _ in {0..14}; do
+        if resolvectl service "Test Service 180 on $CONTAINER_1" "$service_type" local >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Services stopped resolving after an unrelated link's mDNS scope went away"
+        return 1
+    fi
+
+    if removed_since "$out0" "$off0" || removed_since "$outb" "$offb"; then
+        echo >&2 "Tearing down an unrelated link's mDNS scope withdrew services from the browse:"
+        tail -c "+$((off0 + 1))" "$out0" >&2
+        tail -c "+$((offb + 1))" "$outb" >&2
+        return 1
+    fi
 
     echo testcase_end
 }
