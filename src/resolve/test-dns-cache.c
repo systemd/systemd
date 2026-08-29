@@ -1100,7 +1100,7 @@ TEST(dns_cache_lookup_mdns_multiple_unshared_responses_are_not_cached) {
 }
 
 /* ================================================================
- * dns_cache_prune(), dns_cache_expiry_in_one_second()
+ * dns_cache_prune(), dns_cache_next_expiry()
  * ================================================================ */
 
 TEST(dns_cache_prune) {
@@ -1118,23 +1118,30 @@ TEST(dns_cache_prune) {
         answer_add_a(&put_args, key, 0x7f01a8cc, 3, DNS_ANSWER_CACHEABLE);
         dns_resource_key_unref(key);
 
+        usec_t t0 = now(CLOCK_BOOTTIME);
         cache_put(&cache, &put_args);
 
         dns_cache_prune(&cache);
         ASSERT_EQ(dns_cache_size(&cache), 2u);
-        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+        /* The earliest expiry is the TTL=1 item's, not the TTL=3 one's. */
+        usec_t until = dns_cache_next_expiry(&cache);
+        ASSERT_GE(until, usec_add(t0, USEC_PER_SEC));
+        ASSERT_LE(until, usec_add(t0, 2 * USEC_PER_SEC));
 
         sleep(2);
 
         dns_cache_prune(&cache);
         ASSERT_EQ(dns_cache_size(&cache), 1u);
-        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+        /* The TTL=3 item is the earliest now. */
+        until = dns_cache_next_expiry(&cache);
+        ASSERT_GE(until, usec_add(t0, 3 * USEC_PER_SEC));
+        ASSERT_LE(until, usec_add(t0, 4 * USEC_PER_SEC));
 
         sleep(2);
 
         dns_cache_prune(&cache);
         ASSERT_TRUE(dns_cache_is_empty(&cache));
-        ASSERT_FALSE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+        ASSERT_EQ(dns_cache_next_expiry(&cache), USEC_INFINITY);
 }
 
 /* The tests below pin where an entry's expiry lands by probing dns_cache_expiry_in_one_second() with
