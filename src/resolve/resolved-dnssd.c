@@ -64,6 +64,10 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
 
         dnssd_txtdata_free_all(service->txt_data_items);
 
+        /* Safe from inside the track's own handler: bus_track_dispatch() holds a reference of its
+         * own across the call. */
+        sd_bus_track_unref(service->bus_track);
+
         free(service->path);
         free(service->id);
         free(service->type);
