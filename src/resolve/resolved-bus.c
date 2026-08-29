@@ -2075,6 +2075,10 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
+        /* Hand the tracker to the service: it is what notices the registering client going away, and
+         * it has to outlive this call for that. */
+        service->bus_track = TAKE_PTR(bus_track);
+
         service = NULL;
 
         manager_refresh_rrs(m);
