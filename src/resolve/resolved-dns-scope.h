@@ -51,6 +51,10 @@ typedef struct DnsScope {
 
         sd_event_source *announce_event_source;
 
+        /* Runtime withdrawals emitted on this scope, awaiting their RFC 6762 §8.3 one-second
+         * retransmission. */
+        DnsAnswer *pending_withdrawals;
+
         sd_event_source *mdns_goodbye_event_source;
 
         RateLimit ratelimit;
@@ -111,8 +115,23 @@ bool dns_scope_name_wants_search_domain(DnsScope *s, const char *name);
 bool dns_scope_network_good(DnsScope *s);
 
 int dns_scope_ifindex(DnsScope *s);
+
+/* The first mDNS scope at or after 's' in the manager's scope list, NULL if there is none. */
+DnsScope* dns_scope_next_mdns(DnsScope *s);
+
+/* Walk every mDNS scope the manager has. The manager's scope list already holds both families of
+ * every link, so this replaces walking the links and spelling out the two scope fields — which also
+ * meant every caller had to skip the ones a link does not have. Not safe against the body freeing
+ * the scope it was handed. */
+#define FOREACH_MDNS_SCOPE(scope, m)                                    \
+        for (DnsScope *scope = dns_scope_next_mdns((m)->dns_scopes);    \
+             scope;                                                     \
+             scope = dns_scope_next_mdns(scope->scopes_next))
 const char* dns_scope_ifname(DnsScope *s);
 
+int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer);
+bool dns_scope_goodbye_has_content(DnsScope *scope);
+int dns_scope_withdraw_rrs(DnsScope *scope, DnsAnswer *candidates);
 int dns_scope_announce(DnsScope *scope, bool goodbye);
 
 int dns_scope_add_dnssd_registered_services(DnsScope *scope);

@@ -1891,10 +1891,15 @@ static int bus_method_reset_server_features(sd_bus_message *message, void *userd
 
 static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata) {
         DnssdRegisteredService *s = ASSERT_PTR(userdata);
+        int r;
 
         assert(t);
 
-        log_debug("Client of active request vanished, destroying DNS-SD service.");
+        log_debug("Client of active request vanished, withdrawing DNS-SD service.");
+
+        r = dnssd_registered_service_withdraw(s);
+        if (r < 0)
+                log_warning_errno(r, "Failed to withdraw DNS-SD service '%s', ignoring: %m", s->id);
         dnssd_registered_service_free(s);
 
         return 0;
