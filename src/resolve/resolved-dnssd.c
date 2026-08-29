@@ -19,7 +19,6 @@
 #include "resolved-dns-scope.h"
 #include "resolved-dns-zone.h"
 #include "resolved-dnssd.h"
-#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "set.h"
@@ -149,9 +148,6 @@ static int dnssd_registered_service_collect_withdraw_rrs(DnssdRegisteredService 
  * behind and zone removal regardless, and retransmit once a second later (RFC 6762 section 8.3).
  * Best effort: failures are logged, the records are going away either way. */
 static void dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
-        DnsScope *scope;
-        Link *l;
-
         assert(m);
 
         if (dns_answer_isempty(answer))
@@ -161,17 +157,13 @@ static void dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
 
         bool queued = false;
 
-        HASHMAP_FOREACH(l, m->links)
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope) {
-                        if (!scope)
-                                continue;
-
-                        /* Arm only for what this call queued: arming defers a pending deadline, so a
-                         * withdrawal that put nothing on the wire must not push an unrelated batch's
-                         * retransmission out. */
-                        if (dns_scope_withdraw_rrs(scope, answer))
-                                queued = true;
-                }
+        FOREACH_MDNS_SCOPE(scope, m->dns_scopes) {
+                /* Arm only for what this call queued: arming defers a pending deadline, so a
+                 * withdrawal that put nothing on the wire must not push an unrelated batch's
+                 * retransmission out. */
+                if (dns_scope_withdraw_rrs(scope, answer))
+                        queued = true;
+        }
 
         if (queued)
                 manager_arm_mdns_withdrawal_retransmit(m);
@@ -234,9 +226,8 @@ int dnssd_withdraw_filtered(Manager *m, DnsAnswer *candidates, const DnssdRegist
                  * puts back what is still registered. */
                 if (!except)
                         DNS_ANSWER_FOREACH_ITEM(item, candidates)
-                                LIST_FOREACH(scopes, scope, m->dns_scopes)
-                                        if (scope->protocol == DNS_PROTOCOL_MDNS)
-                                                dns_zone_remove_rr(&scope->zone, item->rr);
+                                FOREACH_MDNS_SCOPE(scope, m->dns_scopes)
+                                        dns_zone_remove_rr(&scope->zone, item->rr);
                 return r;
         }
 
@@ -249,9 +240,8 @@ int dnssd_withdraw_filtered(Manager *m, DnsAnswer *candidates, const DnssdRegist
                 if (r < 0) {
                         /* No goodbye for this one then, but it still leaves the zones: nothing
                          * else takes a record the reload dropped out of them. */
-                        LIST_FOREACH(scopes, scope, m->dns_scopes)
-                                if (scope->protocol == DNS_PROTOCOL_MDNS)
-                                        dns_zone_remove_rr(&scope->zone, item->rr);
+                        FOREACH_MDNS_SCOPE(scope, m->dns_scopes)
+                                dns_zone_remove_rr(&scope->zone, item->rr);
                         RET_GATHER(ret, r);
                 }
         }
@@ -282,37 +272,25 @@ static bool dnssd_type_published_elsewhere(Manager *m, const DnssdRegisteredServ
 /* Best-effort fallback: whatever else fails, the service's records must leave the zones — or
  * resolved would keep answering and re-announcing for a service that no longer exists. */
 static void dnssd_registered_service_remove_from_zones(DnssdRegisteredService *s) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *enumeration_rr = NULL;
         DnsResourceRecord *rr;
-        DnsScope *scope;
-        Link *l;
 
         assert(s);
         assert(s->manager);
 
-        HASHMAP_FOREACH(l, s->manager->links)
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope) {
-                        if (!scope)
-                                continue;
+        /* The type's enumeration PTR goes too once this was the last instance of the type, or
+         * the zone would keep answering type enumerations with a type nothing serves. Building
+         * it allocates, the very thing that may have just failed, so it stays best effort;
+         * dns_zone_remove_rr() skips a NULL. */
+        if (!dnssd_type_published_elsewhere(s->manager, s))
+                (void) dnssd_registered_service_enumeration_ptr_new(s, &enumeration_rr);
 
-                        FOREACH_ARGUMENT(rr, s->ptr_rr, s->sub_ptr_rr, s->srv_rr)
-                                dns_zone_remove_rr(&scope->zone, rr);
+        FOREACH_MDNS_SCOPE(scope, s->manager->dns_scopes) {
+                FOREACH_ARGUMENT(rr, s->ptr_rr, s->sub_ptr_rr, s->srv_rr, enumeration_rr)
+                        dns_zone_remove_rr(&scope->zone, rr);
 
-                        LIST_FOREACH(items, txt_data, s->txt_data_items)
-                                dns_zone_remove_rr(&scope->zone, txt_data->rr);
-                }
-
-        /* And the type's enumeration PTR (RFC 6763 § 9) once this was the last instance of the type,
-         * or the zone would keep answering type enumerations with a type nothing serves. Building it
-         * takes an allocation -- the very thing that may have just failed -- so this stays best
-         * effort like the rest of the fallback. */
-        if (!dnssd_type_published_elsewhere(s->manager, s)) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *enumeration_rr = NULL;
-
-                if (dnssd_registered_service_enumeration_ptr_new(s, &enumeration_rr) >= 0)
-                        HASHMAP_FOREACH(l, s->manager->links)
-                                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope)
-                                        if (scope)
-                                                dns_zone_remove_rr(&scope->zone, enumeration_rr);
+                LIST_FOREACH(items, txt_data, s->txt_data_items)
+                        dns_zone_remove_rr(&scope->zone, txt_data->rr);
         }
 }
 
