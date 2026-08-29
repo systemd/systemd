@@ -16,12 +16,14 @@
 #include "main-func.h"
 #include "mount-util.h"
 #include "parse-argument.h"
+#include "string-util.h"
 #include "verbs.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
 static bool arg_commit = false;
 static bool arg_print = false;
+static bool arg_force = false;
 static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -80,6 +82,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_print = true;
                         break;
 
+                OPTION_LONG("force", NULL, "Generate a new ID, even if one is already set"):
+                        arg_force = true;
+                        break;
+
                 OPTION_COMMON_INTROSPECT_CLI:
                         return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
@@ -90,6 +96,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+
+        if (arg_commit && arg_force)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --commit or --force, the combination of both is not supported.");
 
         return 1;
 }
@@ -110,6 +119,17 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        _cleanup_free_ char *user_root_option = NULL;
+
+        /* Remember what the caller actually passed: arg_root is overwritten with the private mount below
+         * when --image= is used, and that path is gone once we exit, so it must not end up in hints. */
+        if (arg_image)
+                user_root_option = strjoin(" --image=", arg_image);
+        else if (arg_root)
+                user_root_option = strjoin(" --root=", arg_root);
+        if ((arg_image || arg_root) && !user_root_option)
+                return log_oom();
 
         if (arg_image) {
                 assert(!arg_root);
@@ -149,12 +169,25 @@ static int run(int argc, char *argv[]) {
                         puts(SD_ID128_TO_STRING(id));
 
         } else if (id128_get_machine(arg_root, NULL) == -ENOPKG) {
+                /* The ID is explicitly marked as "uninitialized", which carries no identity that could have
+                 * been duplicated by cloning, and doubles as the first boot marker. Leave it alone, even
+                 * with --force: overriding it here would silently cancel first boot initialization. Say so,
+                 * so that --force is not silently a no-op. */
+                /* Repeat whatever --root=/--image= the caller gave us, so that the hint cannot be
+                 * copy-pasted into reprovisioning the host by accident. */
+                if (arg_force)
+                        log_notice("Machine ID is marked 'uninitialized', which doubles as the first boot marker, leaving it as it is. "
+                                   "Use 'systemd-firstboot --force%s --setup-machine-id' to assign a random ID right away.",
+                                   strempty(user_root_option));
+
                 if (arg_print)
                         puts("uninitialized");
         } else {
                 sd_id128_t id;
 
-                r = machine_id_setup(arg_root, SD_ID128_NULL, /* flags= */ 0, &id);
+                r = machine_id_setup(arg_root, SD_ID128_NULL,
+                                     arg_force ? MACHINE_ID_SETUP_FORCE_NEW : 0,
+                                     &id);
                 if (r < 0)
                         return r;
 
