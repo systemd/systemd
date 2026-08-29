@@ -762,6 +762,44 @@ set -e
 [[ $rc -ne 134 ]]
 grep -F "Manifest hash at line 1 decoded to 31 bytes" "$WORKDIR/malformed-manifest/check-new.log" >/dev/null
 
+# Check that a version with some pending resources and some missing resources is
+# treated as incomplete, rather than as fully pending. Otherwise, installing the
+# pending version would try to move non-existent pending files into place.
+rm -rf "$WORKDIR/pending-missing"
+mkdir -p "$WORKDIR/pending-missing/definitions" "$WORKDIR/pending-missing/source" "$WORKDIR/pending-missing/target"
+printf 'first source\n' >"$WORKDIR/pending-missing/source/first-v1.bin"
+printf 'second source\n' >"$WORKDIR/pending-missing/source/second-v1.bin"
+printf 'first pending\n' >"$WORKDIR/pending-missing/target/.sysupdate.pending.first-v1.bin"
+cat >"$WORKDIR/pending-missing/definitions/01-first.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/pending-missing/source
+MatchPattern=first-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/pending-missing/target
+MatchPattern=first-@v.bin
+InstancesMax=2
+EOF
+cat >"$WORKDIR/pending-missing/definitions/02-second.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/pending-missing/source
+MatchPattern=second-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/pending-missing/target
+MatchPattern=second-@v.bin
+InstancesMax=2
+EOF
+"$SYSUPDATE" --definitions="$WORKDIR/pending-missing/definitions" --verify=no --offline list v1 | grep -F "current+incomplete" >/dev/null
+(! "$SYSUPDATE" --definitions="$WORKDIR/pending-missing/definitions" --verify=no --offline update) |& grep -F "Selected update 'v1' is incomplete, refusing." >/dev/null
+"$SYSUPDATE" --definitions="$WORKDIR/pending-missing/definitions" --verify=no --sync=no update
+printf 'first pending\n' | cmp - "$WORKDIR/pending-missing/target/first-v1.bin"
+cmp "$WORKDIR/pending-missing/source/second-v1.bin" "$WORKDIR/pending-missing/target/second-v1.bin"
+
 # Check the "cleanup" verb and the underlying install database. A successful
 # update must record an install database entry for every transfer that installs
 # into the file system, and those entries must cover all installed resources

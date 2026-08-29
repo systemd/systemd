@@ -605,7 +605,7 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                                 assert(flags == UPDATE_INSTALLED);
 
                                 match = resource_find_instance(&t->target, cursor);
-                                if (!match && !(extra_flags & (UPDATE_PARTIAL|UPDATE_PENDING)))
+                                if (!match && !FLAGS_SET(extra_flags, UPDATE_PARTIAL))
                                         /* When we're looking for installed versions, let's be robust and treat
                                          * an incomplete installation as an installation. Otherwise, there are
                                          * situations that can lead to sysupdate wiping the currently booted OS.
@@ -621,16 +621,17 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                         if (strv_contains(t->protected_versions, cursor))
                                 extra_flags |= UPDATE_PROTECTED;
 
-                        /* Partial or pending updates by definition are not incomplete, they’re
-                         * partial/pending instead. While an individual Instance cannot be both partial and
-                         * pending, an UpdateSet as a whole can contain both partial and pending instances. */
+                        /* A partial or pending instance is not incomplete by itself. Missing instances
+                         * still make the UpdateSet incomplete, though. While an individual Instance cannot
+                         * be both partial and pending, an UpdateSet as a whole can contain both partial and
+                         * pending instances. */
                         assert(!match || !(match->is_partial && match->is_pending));
 
                         if (match && match->is_partial)
                                 extra_flags = (extra_flags | UPDATE_PARTIAL) & ~UPDATE_INCOMPLETE;
 
                         if (match && match->is_pending)
-                                extra_flags = (extra_flags | UPDATE_PENDING) & ~UPDATE_INCOMPLETE;
+                                extra_flags |= UPDATE_PENDING;
                 }
 
                 r = free_and_strdup_warn(&boundary, cursor);
@@ -1692,8 +1693,8 @@ static int context_process_partial_and_pending(
         }
 
         if (FLAGS_SET(us->flags, UPDATE_INCOMPLETE))
-                log_info("Selected update '%s' is already installed, but incomplete. Repairing.", us->version);
-        else if ((us->flags & (UPDATE_PARTIAL|UPDATE_PENDING|UPDATE_INSTALLED)) == UPDATE_INSTALLED) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is incomplete, refusing.", us->version);
+        if ((us->flags & (UPDATE_PARTIAL|UPDATE_PENDING|UPDATE_INSTALLED)) == UPDATE_INSTALLED) {
                 log_info("Selected update '%s' is already installed. Skipping update.", us->version);
 
                 return 0;
@@ -1986,7 +1987,8 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
                             FLAGS_SET(us->flags, UPDATE_NEWEST)) {
                                 current = us->version;
-                                current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
+                                current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING) &&
+                                                     !FLAGS_SET(us->flags, UPDATE_INCOMPLETE);
                         }
 
                         r = strv_extend(&versions, us->version);

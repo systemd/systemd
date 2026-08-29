@@ -9,11 +9,11 @@ const char* update_set_flags_to_color(UpdateSetFlags flags) {
         if (flags == 0 || (flags & UPDATE_OBSOLETE))
                 return (flags & UPDATE_NEWEST) ? ansi_highlight_grey() : ansi_grey();
 
-        if (flags & (UPDATE_PARTIAL|UPDATE_PENDING))
-                return ansi_highlight_cyan();
-
         if (FLAGS_SET(flags, UPDATE_INSTALLED|UPDATE_INCOMPLETE))
                 return ansi_highlight_yellow();
+
+        if (flags & (UPDATE_PARTIAL|UPDATE_PENDING))
+                return ansi_highlight_cyan();
 
         if (FLAGS_SET(flags, UPDATE_INSTALLED|UPDATE_NEWEST))
                 return ansi_highlight();
@@ -32,6 +32,9 @@ const char* update_set_flags_to_glyph(UpdateSetFlags flags) {
         if (flags == 0 || (flags & UPDATE_OBSOLETE))
                 return glyph(GLYPH_MULTIPLICATION_SIGN);
 
+        if (FLAGS_SET(flags, UPDATE_INSTALLED|UPDATE_INCOMPLETE))
+                return glyph(GLYPH_BLACK_CIRCLE);
+
         if (flags & (UPDATE_PARTIAL|UPDATE_PENDING))
                 return glyph(GLYPH_DOWNLOAD);
 
@@ -48,6 +51,9 @@ const char* update_set_flags_to_glyph(UpdateSetFlags flags) {
 }
 
 const char* update_set_flags_to_string(UpdateSetFlags flags) {
+
+        if (FLAGS_SET(flags, UPDATE_INSTALLED|UPDATE_INCOMPLETE))
+                flags &= ~UPDATE_PENDING;
 
         switch ((unsigned) flags) {
 
