@@ -14,6 +14,18 @@ CHANGES WITH 262:
           such services were allowed to start even though a later reload could
           invoke the signal's default action and terminate the service.
 
+        * A DNS-SD service registered through systemd-resolved's
+          RegisterService() D-Bus method is now withdrawn when the client
+          connection that registered it goes away, which is what the tracker
+          the method installs was always meant to do — it was dropped before it
+          could ever fire, so the service instead stayed published until
+          resolved stopped — a reload does not clear D-Bus registrations.
+          This is now documented too. Clients
+          that registered a service and exited immediately, such as a one-shot
+          "busctl call ... RegisterService", used to leave it published and now
+          no longer do. Use a *.dnssd file for a service that must outlive the
+          process registering it.
+
         * systemd-repart's MakeSymlinks= option now expands "%" specifiers in
           the symlink target. Previously, these were only expanded in the
           source.
@@ -319,6 +331,16 @@ CHANGES WITH 262:
           entries like journalctl -f until the client disconnects.
 
         Changes in systemd-resolved and resolvectl:
+
+        * systemd-resolved now sends mDNS goodbye announcements (RFC 6762
+          section 10.1) for the DNS-SD services it publishes when they are
+          withdrawn — when the daemon is stopped, when a *.dnssd file is removed
+          and the daemon reloaded, or when the client that registered a service
+          over D-Bus disconnects — so peers drop them right away instead of
+          waiting out the record TTL. To let the goodbye reach the network
+          (and be repeated once, as that section requires), stopping the daemon
+          now takes about a second longer on hosts that publish any such
+          service. Hosts publishing none are unaffected.
 
         * 'resolvectl openpgp' and 'resolvectl tlsa' now support --json= when
           querying their implied record types. Mismatched explicit --type=

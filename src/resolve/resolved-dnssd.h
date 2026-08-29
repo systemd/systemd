@@ -39,6 +39,10 @@ typedef struct DnssdRegisteredService {
 
         Manager *manager;
 
+        /* Watches the client that registered this service over the bus, so that its records are
+         * withdrawn when it goes away. Unset for services read from a .dnssd file. */
+        sd_bus_track *bus_track;
+
         /* Services registered via D-Bus are not removed on reload */
         ResolveConfigSource config_source;
 
