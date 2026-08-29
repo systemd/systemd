@@ -515,7 +515,7 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
          * resolution that cannot conclude before we exit. The record was stopped and withdrawn
          * above all the same: that is the loser's silent deferral (RFC 6762 section 8.2), and
          * skipping it would leave a lost record answerable for the rest of the second. */
-        if (i->scope->protocol == DNS_PROTOCOL_MDNS && i->scope->manager->mdns_withdrawing)
+        if (dns_scope_mdns_withdrawing(i->scope))
                 return;
 
         (void) dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));
