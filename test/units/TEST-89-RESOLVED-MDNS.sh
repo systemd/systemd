@@ -472,6 +472,88 @@ testcase_browse_shared_querier() {
     echo testcase_end
 }
 
+testcase_browse_unrelated_scope_teardown() {
+    : "Losing one link's mDNS scope must not withdraw services discovered on another link"
+    resolvectl flush-caches
+
+    local out0 outb unit0 unitb service_type off0 offb params0 paramsb
+    local dummy="ravc-scoped"
+
+    out0="$(mktemp)"; outb="$(mktemp)"
+    unit0="varlinkctl-scoped0-$SRANDOM.service"
+    unitb="varlinkctl-scopedb-$SRANDOM.service"
+    service_type="_testService9._udp"
+    params0="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": 0, \"flags\": 16785432 }"
+    paramsb="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+
+    # A second mDNS link whose scope is torn down mid-subscription; the services under test live on
+    # the bridge, never here. A previous interrupted run may have leaked the fixed-name link.
+    ip link del "$dummy" 2>/dev/null || :
+    ip link add "$dummy" type dummy
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit0 $unitb 2>/dev/null || :; ip link del $dummy 2>/dev/null || :; rm -f $out0 $outb" EXIT
+    ip link set "$dummy" up multicast on
+    ip address add 169.254.172.172/16 dev "$dummy"
+    resolvectl mdns "$dummy" yes
+    [[ "$(resolvectl mdns "$dummy")" =~ :\ yes$ ]]
+    sleep 2  # let resolved create the scope before we start browsing
+
+    # Two live subscriptions: one across all interfaces, one pinned to the bridge. The purge that
+    # the teardown below triggers is scoped to the vanishing link, so the pinned one is skipped
+    # outright while the ifindex=0 one reconciles against the scopes that remain.
+    systemd-run --unit="$unit0" --service-type=exec -p StandardOutput="file:$out0" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params0"
+    systemd-run --unit="$unitb" --service-type=exec -p StandardOutput="file:$outb" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$paramsb"
+
+    local ready=0 n0 nb
+    for _ in {0..14}; do
+        n0="$( { grep -o '"updateFlag":"added"' "$out0" || :; } | wc -l)"
+        nb="$( { grep -o '"updateFlag":"added"' "$outb" || :; } | wc -l)"
+        if [[ "$n0" -ge 40 && "$nb" -ge 40 ]]; then
+            ready=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ready" -ne 1 ]]; then
+        echo >&2 "Both subscribers did not discover the services (n0=${n0:-0} nb=${nb:-0})"
+        cat "$out0" "$outb" >&2
+        return 1
+    fi
+
+    # Checkpoint, then take the unrelated link's mDNS scope away.
+    off0="$(wc -c <"$out0")"
+    offb="$(wc -c <"$outb")"
+    resolvectl mdns "$dummy" no
+    [[ "$(resolvectl mdns "$dummy")" =~ :\ no$ ]]
+
+    # The scope teardown purges the browse subscriptions. Give it the same settling window the
+    # other no-flap negatives use, and anchor on a positive fact first: the services still resolve.
+    sleep 2
+    local ok=0
+    for _ in {0..14}; do
+        if resolvectl service "Test Service 180 on $CONTAINER_1" "$service_type" local >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Services stopped resolving after an unrelated link's mDNS scope went away"
+        return 1
+    fi
+
+    if removed_since "$out0" "$off0" '"name"' || removed_since "$outb" "$offb" '"name"'; then
+        echo >&2 "Tearing down an unrelated link's mDNS scope withdrew services from the browse:"
+        tail -c "+$((off0 + 1))" "$out0" >&2
+        tail -c "+$((offb + 1))" "$outb" >&2
+        return 1
+    fi
+
+    echo testcase_end
+}
+
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
