@@ -1409,7 +1409,12 @@ static int ndisc_option_parse_encrypted_dns(Set **options, size_t offset, size_t
 
         *new_res = TAKE_STRUCT(res);
 
-        return ndisc_option_add_encrypted_dns(options, offset, new_res, lifetime);
+        r = ndisc_option_add_encrypted_dns(options, offset, new_res, lifetime);
+
+        if (r == -ENOMEM)
+                sd_dns_resolver_unref(res);
+
+        return r;
 }
 
 static int ndisc_option_build_encrypted_dns(const sd_ndisc_option *option, usec_t timestamp, uint8_t **ret) {
