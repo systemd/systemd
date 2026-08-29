@@ -112,9 +112,24 @@ DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s);
 
 bool dns_scope_name_wants_search_domain(DnsScope *s, const char *name);
 
+bool dns_scope_mdns_withdrawing(DnsScope *scope);
 bool dns_scope_network_good(DnsScope *s);
 
 int dns_scope_ifindex(DnsScope *s);
+
+/* The first mDNS scope at or after 's' in the manager's scope list, NULL if there is none. */
+DnsScope* dns_scope_first_mdns(DnsScope *s);
+
+/* Walk the mDNS scopes in a scope list — pass the manager's, which already holds both families of
+ * every link, and this replaces walking the links and spelling out the two scope fields, along with
+ * every caller's skip of the ones a link does not have. Takes the list head rather than the manager
+ * so that this header needs no more than the DnsScope definition. Not safe against the body freeing
+ * the scope it was handed. */
+#define FOREACH_MDNS_SCOPE(scope, head)                                 \
+        for (DnsScope *scope = dns_scope_first_mdns(head);               \
+             scope;                                                     \
+             scope = dns_scope_first_mdns(scope->scopes_next))
+
 const char* dns_scope_ifname(DnsScope *s);
 
 int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer);
