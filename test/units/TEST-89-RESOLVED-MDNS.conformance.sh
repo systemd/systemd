@@ -615,6 +615,37 @@ ref_scenario_query_backoff() {
     esac
 }
 
+ref_scenario_ttl_reconfirmation() {
+    : "A record whose publisher keeps answering is re-confirmed before its TTL lapses (RFC 6762 section 5.2)"
+    local out="$REF_TMPDIR/reconfirm.browse" peer_log="$REF_TMPDIR/reconfirm.peer"
+
+    ref_start_browse "$out" "$REF_IF1_INDEX" || return 2
+    # A 10s TTL is short enough that the browse question's own doubling cannot
+    # keep the record alive: those queries fall at roughly 1, 3, 7, 15 and 31
+    # seconds, so a record last answered at 15s lapses at 25s with nothing due
+    # to ask again until 31s. Keeping the instance listed therefore takes the
+    # per-record re-confirmation of section 5.2 -- querying again at 80%, 85%,
+    # 90% and 95% of the record's own lifetime -- rather than the browse
+    # question's schedule.
+    ref_start_peer "$peer_log" "$REF_IF1_PEER" "$REF_IF1_PEER_ADDR" RefReconfirm --ttl 10 || return 2
+    ref_wait_event "$out" added RefReconfirm "$REF_IF1_INDEX" 30 || { cat "$out" "$peer_log" >&2; return 2; }
+
+    # The publisher stays up and answers every re-confirmation, so the instance
+    # must still be listed after several of its TTLs have gone by.
+    sleep 40
+    # The silence is only meaningful if the subscription survived the window: a dead browse unit
+    # (or a crashed and restarted resolved, which drops the varlink connection) appends nothing,
+    # and the absent removal would score a PASS exactly when nothing was watched.
+    systemctl --quiet is-active "${REF_BROWSE_UNITS[-1]}" || { cat "$out" "$peer_log" >&2; return 2; }
+    # And the other half of the liveness: a publisher that died mid-window turns the missing
+    # removal into a false verdict about the ladder, in either direction.
+    ref_publisher_survived "$REF_LAST_PEER_PID" "$peer_log" || return 2
+    if [[ "$(ref_count_events "$out" removed RefReconfirm "$REF_IF1_INDEX")" -ne 0 ]]; then
+        cat "$out" "$peer_log" >&2
+        return 1
+    fi
+}
+
 ref_scenario_responder_unicast_qu() {
     : "QU questions on recently multicast records are answered via unicast (RFC 6762 section 5.4)"
     local qm_log="$REF_TMPDIR/qm.query" qu_log="$REF_TMPDIR/qu.query"
@@ -1586,6 +1617,7 @@ run_conformance_scorecard() {
         expiry_no_goodbye                   # 6762 section 5.2
         expiry_no_goodbye_plain_flags       # 6762 section 5.2
         query_backoff                       # 6762 section 5.2
+        ttl_reconfirmation                  # 6762 section 5.2
         responder_unicast_qu                # 6762 section 5.4
         shared_record_response_delay        # 6762 section 6
         responder_nsec                      # 6762 section 6.1
