@@ -740,8 +740,6 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 }
 
 static bool manager_needs_mdns_goodbyes(Manager *m) {
-        Link *l;
-
         assert(m);
 
         /* Goodbyes are about withdrawing published DNS-SD services. The mDNS zone of every enabled
@@ -753,21 +751,14 @@ static bool manager_needs_mdns_goodbyes(Manager *m) {
         if (hashmap_isempty(m->dnssd_registered_services))
                 return false;
 
-        HASHMAP_FOREACH(l, m->links) {
-                DnsScope *scope;
-
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope)
-                        if (dns_scope_shutdown_goodbye_has_content(scope))
-                                return true;
-        }
+        FOREACH_MDNS_SCOPE(scope, m->dns_scopes)
+                if (dns_scope_shutdown_goodbye_has_content(scope))
+                        return true;
 
         return false;
 }
 
 static void manager_send_mdns_goodbyes(Manager *m) {
-        DnsScope *scope;
-        Link *l;
-
         assert(m);
 
         /* The event loop keeps serving during the goodbye grace second, and several paths would
@@ -783,26 +774,20 @@ static void manager_send_mdns_goodbyes(Manager *m) {
         log_debug("Sending mDNS goodbye announcements for %u published DNS-SD service(s), "
                   "holding the exit for their retransmission.",
                   hashmap_size(m->dnssd_registered_services));
-        HASHMAP_FOREACH(l, m->links)
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope)
-                        (void) dns_scope_announce(scope, /* goodbye= */ true);
+        FOREACH_MDNS_SCOPE(scope, m->dns_scopes)
+                (void) dns_scope_announce(scope, /* goodbye= */ true);
 }
 
 /* The queued withdrawals are per scope, and so is everything deciding what of them still goes out;
  * only the timer belongs to the manager. */
 static void manager_flush_pending_withdrawals(Manager *m) {
-        DnsScope *scope;
-        Link *l;
-
         assert(m);
 
         m->mdns_withdrawal_retransmit_event_source =
                 sd_event_source_disable_unref(m->mdns_withdrawal_retransmit_event_source);
 
-        HASHMAP_FOREACH(l, m->links)
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope)
-                        if (scope)
-                                dns_scope_flush_pending_withdrawals(scope);
+        FOREACH_MDNS_SCOPE(scope, m->dns_scopes)
+                dns_scope_flush_pending_withdrawals(scope);
 }
 
 static int on_mdns_goodbye_retransmit(sd_event_source *s, usec_t usec, void *userdata) {
@@ -891,7 +876,6 @@ static int manager_dispatch_exit_signal(
          * sends once the event loop returns comes too late for that, and sending it twice is harmless
          * -- networkd and udevd do the same when they delay their own exit. */
         (void) sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
-
 
         r = sd_event_add_time_relative(
                         m->event,
@@ -1841,10 +1825,9 @@ void manager_verify_all(Manager *m) {
          * flips established zone items back to probing, and the probe queries would carry the very
          * records just withdrawn back onto the wire. This is reachable during the goodbye grace
          * second via a configuration reload or the resume-from-suspend logic, both of which may
-         * still run while we wait for the retransmission timer. LLMNR records are not withdrawn by
-         * the goodbyes, so only mDNS scopes sit this out. */
+         * still run while we wait for the retransmission timer. */
         LIST_FOREACH(scopes, s, m->dns_scopes) {
-                if (s->protocol == DNS_PROTOCOL_MDNS && m->mdns_withdrawing)
+                if (dns_scope_mdns_withdrawing(s))
                         continue;
 
                 dns_zone_verify_all(&s->zone);

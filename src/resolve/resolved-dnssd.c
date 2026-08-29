@@ -18,7 +18,6 @@
 #include "resolved-dns-scope.h"
 #include "resolved-dns-zone.h"
 #include "resolved-dnssd.h"
-#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "set.h"
@@ -183,8 +182,6 @@ static int dnssd_registered_service_collect_withdraw_rrs(DnssdRegisteredService 
  * least twice, and the shutdown path already does so. Best effort by design: failures are logged,
  * the records are going away either way, and peers then age them out over their TTL. */
 static void dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
-        DnsScope *scope;
-        Link *l;
         int r;
 
         assert(m);
@@ -196,17 +193,13 @@ static void dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
 
         bool pending = false;
 
-        HASHMAP_FOREACH(l, m->links)
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope) {
-                        if (!scope)
-                                continue;
+        FOREACH_MDNS_SCOPE(scope, m->dns_scopes) {
+                r = dns_scope_withdraw_rrs(scope, answer);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to withdraw mDNS records, ignoring: %m");
 
-                        r = dns_scope_withdraw_rrs(scope, answer);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to withdraw mDNS records, ignoring: %m");
-
-                        pending = pending || !dns_answer_isempty(scope->pending_withdrawals);
-                }
+                pending = pending || !dns_answer_isempty(scope->pending_withdrawals);
+        }
 
         if (pending)
                 manager_arm_mdns_withdrawal_retransmit(m);
@@ -300,39 +293,27 @@ static bool dnssd_type_published_elsewhere(Manager *m, DnssdRegisteredService *e
 /* Best-effort fallback: whatever else fails, the service's records must leave the zones — or
  * resolved would keep answering and re-announcing for a service that no longer exists. */
 static void dnssd_registered_service_remove_from_zones(DnssdRegisteredService *s) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *enumeration_rr = NULL;
         DnsResourceRecord *ptr;
-        DnsScope *scope;
-        Link *l;
 
         assert(s);
         assert(s->manager);
 
-        HASHMAP_FOREACH(l, s->manager->links)
-                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope) {
-                        if (!scope)
-                                continue;
+        /* The type's enumeration PTR (RFC 6763 § 9) goes too once this was the last instance of
+         * the type, or the zone would keep answering type enumerations with a type nothing
+         * serves. Building it takes an allocation -- the very thing that may have just failed --
+         * so it stays best effort like the rest of the fallback, and NULL simply skips it below. */
+        if (!dnssd_type_published_elsewhere(s->manager, s))
+                (void) dnssd_registered_service_enumeration_ptr_new(s, &enumeration_rr);
 
-                        FOREACH_ARGUMENT(ptr, s->ptr_rr, s->sub_ptr_rr, s->srv_rr)
-                                if (ptr)
-                                        dns_zone_remove_rr(&scope->zone, ptr);
+        FOREACH_MDNS_SCOPE(scope, s->manager->dns_scopes) {
+                FOREACH_ARGUMENT(ptr, s->ptr_rr, s->sub_ptr_rr, s->srv_rr, enumeration_rr)
+                        if (ptr)
+                                dns_zone_remove_rr(&scope->zone, ptr);
 
-                        LIST_FOREACH(items, txt_data, s->txt_data_items)
-                                if (txt_data->rr)
-                                        dns_zone_remove_rr(&scope->zone, txt_data->rr);
-                }
-
-        /* And the type's enumeration PTR (RFC 6763 § 9) once this was the last instance of the type,
-         * or the zone would keep answering type enumerations with a type nothing serves. Building it
-         * takes an allocation -- the very thing that may have just failed -- so this stays best
-         * effort like the rest of the fallback. */
-        if (!dnssd_type_published_elsewhere(s->manager, s)) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *enumeration_rr = NULL;
-
-                if (dnssd_registered_service_enumeration_ptr_new(s, &enumeration_rr) >= 0)
-                        HASHMAP_FOREACH(l, s->manager->links)
-                                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope)
-                                        if (scope)
-                                                dns_zone_remove_rr(&scope->zone, enumeration_rr);
+                LIST_FOREACH(items, txt_data, s->txt_data_items)
+                        if (txt_data->rr)
+                                dns_zone_remove_rr(&scope->zone, txt_data->rr);
         }
 }
 
