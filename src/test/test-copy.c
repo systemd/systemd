@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
+#include "btrfs-util.h"
 #include "chase.h"
 #include "copy.h"
 #include "errno-util.h"
@@ -856,5 +857,37 @@ TEST(copy_times_clamp) {
         /* No clamp requested: the source's own timestamps. */
         test_copy_times_one(TIMESPEC_PAIR(after, after), USEC_INFINITY, TIMESPEC_PAIR(after, after));
 }
+
+TEST(fallback_directory_preserve_root_stat) {
+        _cleanup_(rm_rf_physical_and_freep) char *dir = NULL;
+        _cleanup_close_ int dir_fd = -EBADF;
+
+        /* Use a plain temp directory (not a btrfs subvolume) so that the fallback copy path is
+         * exercised: btrfs_subvol_make() fails with ENOTSUP and BTRFS_SNAPSHOT_FALLBACK_DIRECTORY
+         * falls back to mkdirat() to create the snapshot root. */
+        dir_fd = ASSERT_OK(mkdtemp_open(NULL, 0, &dir));
+
+        ASSERT_OK_ERRNO(mkdirat(dir_fd, "src", 0755));
+        ASSERT_OK(write_string_file_at(dir_fd, "src/file", "hello", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(fchmodat(dir_fd, "src", 0700, 0));
+
+        struct stat src_st;
+        ASSERT_OK_ERRNO(fstatat(dir_fd, "src", &src_st, 0));
+
+        ASSERT_OK(btrfs_subvol_snapshot_at(dir_fd, "src", dir_fd, "snap",
+                                           BTRFS_SNAPSHOT_FALLBACK_COPY|BTRFS_SNAPSHOT_FALLBACK_DIRECTORY));
+
+        struct stat snap_st;
+        ASSERT_OK_ERRNO(fstatat(dir_fd, "snap", &snap_st, 0));
+
+        ASSERT_EQ(snap_st.st_mode & 07777, src_st.st_mode & 07777);
+        ASSERT_EQ(snap_st.st_uid, src_st.st_uid);
+        ASSERT_EQ(snap_st.st_gid, src_st.st_gid);
+
+        _cleanup_free_ char *content = NULL;
+        ASSERT_OK(read_full_file_at(dir_fd, "snap/file", &content, NULL));
+        ASSERT_STREQ(content, "hello\n");
+}
+
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
