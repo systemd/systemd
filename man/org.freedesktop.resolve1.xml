@@ -450,6 +450,20 @@ node /org/freedesktop/resolve1 {
       DNS-SD SRV record. Finally, it takes an array of TXT record data. It returns an object path which may be
       used as handle to the registered service.</para>
 
+      <para>A service registered this way is bound to the lifetime of the client connection that
+      registered it: when that connection is closed the service is withdrawn automatically, and a
+      goodbye announcement is sent for it. A client that wants its service to outlive it should use
+      a <filename>*.dnssd</filename> file instead.</para>
+
+      <para>If the connection to the message bus itself is lost — because the bus was restarted, say
+      — services registered over it stay published: their clients' exits are no longer observable,
+      and the services are withdrawn only when the resolver stops. Clients that care should
+      re-register after reconnecting to the bus.</para>
+
+      <para>While the service is shutting down the method fails with
+      <constant>org.freedesktop.systemd1.ShuttingDown</constant>: the records could no longer be
+      announced before the daemon exits. Clients may retry against the next instance.</para>
+
       <para>The <function>UnregisterService()</function> method undoes the effect of
       <function>RegisterService()</function> and deletes a DNS-SD service previously created via IPC
       again.</para>
