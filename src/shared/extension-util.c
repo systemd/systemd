@@ -1,12 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
+
 #include "alloc-util.h"
 #include "architecture.h"
+#include "blockdev-util.h"
 #include "chase.h"
+#include "devnum-util.h"
 #include "env-util.h"
 #include "extension-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "os-util.h"
+#include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -177,4 +185,46 @@ int extension_has_forbidden_content(const char *root) {
                 return log_debug_errno(r, "Failed to determine whether '/usr/lib/os-release' exists in the extension: %m");
 
         return 0;
+}
+
+int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret) {
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        /* Tries to read the backing device information systemd-sysext puts in
+         * the virtual file .systemd-sysext/.systemd-confext */
+
+        _cleanup_free_ char *j = path_join(p, image_class == IMAGE_CONFEXT ? ".systemd-confext" : ".systemd-sysext");
+        if (!j)
+                return log_oom_debug();
+
+        _cleanup_close_ int fd = open(j, O_RDONLY|O_DIRECTORY);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open '%s': %m", j);
+
+        r = fd_is_fs_type(fd, OVERLAYFS_SUPER_MAGIC);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine backing file system of '%s': %m", j);
+        if (r == 0)
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(ENOTTY), "Backing file system of '%s' is not an overlayfs.", j);
+
+        _cleanup_free_ char *buf = NULL;
+        r = read_one_line_file_at(fd, "backing", &buf);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read contents of '%s/backing': %m", j);
+
+        r = parse_devnum(buf, ret);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse contents of '%s/backing': %m", j);
+
+        if (major(*ret) == 0) { /* not a block device? */
+                *ret = 0;
+                return 0;
+        }
+
+        (void) block_get_originating(*ret, ret, /* recursive= */ false);
+        return 1;
 }
