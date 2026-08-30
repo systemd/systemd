@@ -15,6 +15,7 @@
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
 #include "resolved-manager.h"
+#include "sd-event.h"
 #include "socket-netlink.h"
 #include "string-util.h"
 #include "strv.h"

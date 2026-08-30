@@ -1090,6 +1090,17 @@ DnsServer *manager_get_dns_server(Manager *m) {
         if (!m->current_dns_server && !manager_search_default_route_dns_server(m))
                 manager_set_dns_server(m, m->fallback_dns_servers);
 
+        if (m->current_dns_server && m->current_dns_server != m->dns_servers &&
+            m->current_dns_server->type != DNS_SERVER_FALLBACK &&
+            m->retry_primary_dns_server_usec > 0) {
+                usec_t ts;
+
+                assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &ts) >= 0);
+
+                if (m->current_dns_server_switched_usec + m->retry_primary_dns_server_usec <= ts)
+                        manager_set_dns_server(m, m->dns_servers);
+        }
+
         return m->current_dns_server;
 }
 
