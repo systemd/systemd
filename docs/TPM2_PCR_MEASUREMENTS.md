@@ -84,8 +84,9 @@ fields are:
   TPM — but enabled (i.e. RAM) for NvPCRs we expect to be written many times
   during runtime, so that we minimize wear. This reflects real-life experience
   where the RAM in TPMs is so constrained that allocating many NvPCRs in TPM
-  RAM simply doesn't work. For now, only the `hardware` NvPCR (which is written
-  just once, early at boot) sets this flag to false.
+  RAM simply doesn't work. For now, the `hardware` and
+  `interactive-credentials` NvPCRs (which are written only during early boot)
+  set this flag to false.
 
 There's one complication: these NV indexes (like any NV indexes) can be deleted
 by anyone with access to the TPM, and then be recreated. This could be used to
@@ -327,6 +328,32 @@ UUID formatted in hexadecimal lowercase characters, without separators. If no
 product UUID of the local system could be determined the string
 "product-id:missing" is measured instead. Example string:
 `product-id:4691595be6a345f1833cc75fab63e475`.
+
+### NvPCR `interactive-credentials` (base+4), interactive boot credentials
+
+The `systemd-pcrcredential.service` service measures credentials entered in the
+`systemd-boot` menu and accepted by the initrd into the
+`interactive-credentials` NvPCR.
+Credential names are processed in ascending, locale-independent, byte-wise
+`strcmp()` order. For each credential, let *N* be the credential name and *V*
+be the exact value bytes stored in `/run/credentials/@system/` followed by *N*.
+The name is C-escaped with `:` included in the set of characters to escape, and
+*S* is the UTF-8 string `credential:` followed by that escaped name. The digest
+extended into the NvPCR is `HMAC-ALG(key=V, data=S)`, where `ALG` is the hash
+algorithm configured for the NvPCR. The userspace event-log record has event
+type `credential` and description *S*. Thus neither *V* nor its plain hash is
+stored in the event log.
+
+After all credentials have been measured, the UTF-8 string
+`credentials-done:` followed by the decimal number of credentials is measured
+with a plain `Hash-ALG`, not an HMAC. This closing record also has event type
+`credential` and is distinguished from per-credential records by its
+`credentials-done:` description. It distinguishes a complete measurement,
+including a complete empty set, from a skipped or partial run.
+
+Interactive credentials are passed from `systemd-boot` to initrd userspace in a
+volatile runtime EFI variable and are not included in an initrd to avoid
+changing the PCR 9, 11, 12, or 13 measurements.
 
 ### PCR 15, file system
 
