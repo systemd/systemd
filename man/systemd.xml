@@ -966,6 +966,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.interactive_cred_allow=</varname></term>
+
+        <listitem><para>Allow the specified credential name to be imported when it was entered interactively
+        in the boot loader. This option may be specified more than once to allow multiple credentials. If the
+        value is <literal>*</literal>, all valid credential names are allowed. This allowlist is enforced when
+        Secure Boot is enabled; when Secure Boot is disabled all valid names are accepted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.credentials_boot_policy=</varname></term>
 
         <listitem><para>Controls under which conditions a credential encrypted with a <literal>null</literal>
