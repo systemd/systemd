@@ -15,7 +15,7 @@
 #include "virt.h"
 
 #if HAVE_KMOD
-static int match_modalias_recurse_dir_cb(
+static int match_pci_modalias_recurse_dir_cb(
                 RecurseDirEvent event,
                 const char *path,
                 int dir_fd,
@@ -49,7 +49,7 @@ static int match_modalias_recurse_dir_cb(
         return RECURSE_DIR_LEAVE_DIRECTORY;
 }
 
-static bool has_virtio_feature(const char *name, char **modaliases) {
+static bool has_virtio_pci_feature(const char *name, char **modaliases) {
         int r;
 
         /* Directory traversal might be slow, hence let's do a cheap check first if it's even worth it */
@@ -62,25 +62,101 @@ static bool has_virtio_feature(const char *name, char **modaliases) {
                         /* statx_mask= */ 0,
                         /* n_depth_max= */ 3,
                         RECURSE_DIR_ENSURE_TYPE,
-                        match_modalias_recurse_dir_cb,
+                        match_pci_modalias_recurse_dir_cb,
                         modaliases);
         if (r < 0)
-                log_debug_errno(r, "Failed to determine whether host has %s device, ignoring: %m", name);
+                log_debug_errno(r, "Failed to determine whether host has %s PCI device, ignoring: %m", name);
 
         return r > 0;
 }
 
+#if defined(__s390__) || defined(__s390x__)
+static int match_ccw_modalias_recurse_dir_cb(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        _cleanup_free_ char *alias = NULL;
+        char **modaliases = ASSERT_PTR(userdata);
+        int r;
+
+        if (event != RECURSE_DIR_ENTRY)
+                return RECURSE_DIR_CONTINUE;
+
+        if (de->d_type != DT_REG)
+                return RECURSE_DIR_CONTINUE;
+
+        if (!streq(de->d_name, "modalias"))
+                return RECURSE_DIR_CONTINUE;
+
+        /* Unlike PCI's "recurse_dir_cb", we must go deeper than the top
+         * directory to search for virtio CCW devices. Thus we must tell the
+         * caller to continue walking the current directory, to look in
+         * subdirectories, even after we've found a non-matching "modalias". */
+        r = read_one_line_file(path, &alias);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read %s, ignoring: %m", path);
+                return RECURSE_DIR_CONTINUE;
+        }
+
+        if (startswith_strv(alias, modaliases))
+                return 1;
+
+        return RECURSE_DIR_CONTINUE;
+}
+
+static bool has_virtio_ccw_feature(const char *name, char **modaliases) {
+        int r;
+
+        /* Directory traversal might be slow, hence let's do a cheap check first if it's even worth it */
+        if (detect_vm() == VIRTUALIZATION_NONE)
+                return false;
+
+        r = recurse_dir_at(
+                        AT_FDCWD,
+                        "/sys/devices/css0",
+                        /* statx_mask= */ 0,
+                        /* n_depth_max= */ 3,
+                        RECURSE_DIR_ENSURE_TYPE,
+                        match_ccw_modalias_recurse_dir_cb,
+                        modaliases);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether host has %s CCW device, ignoring: %m", name);
+
+        return r > 0;
+}
+
+static bool has_virtio_ccw(void) {
+        /* All virtio-ccw devices use the control unit type (CU type) 0x3832 */
+        return has_virtio_ccw_feature("virtio-ccw", STRV_MAKE("ccw:t3832"));
+}
+#else
+static bool has_virtio_ccw_feature(const char *name, char **modaliases) {
+        return false;
+}
+
+static bool has_virtio_ccw(void) {
+        return false;
+}
+#endif
+
 static bool has_virtio_rng(void) {
-        return has_virtio_feature("virtio-rng", STRV_MAKE("pci:v00001AF4d00001005", "pci:v00001AF4d00001044"));
+        return has_virtio_pci_feature("virtio-rng", STRV_MAKE("pci:v00001AF4d00001005", "pci:v00001AF4d00001044")) ||
+               has_virtio_ccw_feature("virtio-rng", STRV_MAKE("ccw:t3832m04"));
 }
 
 static bool has_virtio_pci(void) {
-        return has_virtio_feature("virtio-pci", STRV_MAKE("pci:v00001AF4d"));
+        return has_virtio_pci_feature("virtio-pci", STRV_MAKE("pci:v00001AF4d"));
 }
 
 static bool may_have_virtio(void) {
-        /* FIXME: strictly speaking, other virtio features, e.g. vsock, are independent of the virtio PCI device. */
-        return has_virtio_pci();
+        /* FIXME: strictly speaking, other virtio features, e.g. vsock, are independent of the virtio PCI
+         * or CCW device. */
+        return has_virtio_pci() || has_virtio_ccw();
 }
 
 static bool in_qemu(void) {
@@ -139,6 +215,7 @@ int kmod_setup(void) {
                  * resolved and the kernel fix is widely available. */
                 { "virtiofs",                   "/sys/module/virtiofs",         false, false, may_have_virtio           },
                 { "virtio_pci",                 "/sys/module/virtio_pci",       false, false, has_virtio_pci            },
+                { "virtio_ccw",                 "/sys/module/virtio_ccw",       false, false, has_virtio_ccw            },
 
                 /* qemu_fw_cfg would be loaded by udev later, but we want to import credentials from it super early */
                 { "qemu_fw_cfg",                "/sys/firmware/qemu_fw_cfg",    false, false, in_qemu                   },
