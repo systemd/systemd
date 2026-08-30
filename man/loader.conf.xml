@@ -227,8 +227,8 @@
       <varlistentry>
         <term>editor</term>
 
-        <listitem><para>Takes a boolean argument. Enable (the default) or disable the
-        editor. The editor should be disabled if the machine can be accessed by
+        <listitem><para>Takes a boolean argument. Enable (the default) or disable the command line editor
+        and interactive credential input. The editor should be disabled if the machine can be accessed by
         unauthorized persons.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
