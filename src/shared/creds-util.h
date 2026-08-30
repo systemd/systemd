@@ -6,8 +6,6 @@
 #include "fd-util.h"
 #include "forward.h"
 
-#define CREDENTIAL_NAME_MAX FDNAME_MAX
-
 /* Put a size limit on the individual credential */
 #define CREDENTIAL_SIZE_MAX (1U * U64_MB)
 
