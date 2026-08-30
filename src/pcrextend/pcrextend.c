@@ -1,19 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+
 #include "sd-json.h"
 #include "sd-messages.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "build.h"
+#include "creds-util.h"
 #include "crypto-util.h"
 #include "dlopen-note.h"
 #include "efi-loader.h"
 #include "escape.h"
+#include "fileio.h"
 #include "json-util.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
+#include "recurse-dir.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -31,6 +36,7 @@ static char **arg_banks = NULL;
 static char *arg_file_system = NULL;
 static bool arg_machine_id = false;
 static bool arg_product_id = false;
+static bool arg_credentials = false;
 static UserRecord *arg_login = NULL;
 static uint32_t arg_pcr_mask = 0;
 static char *arg_nvpcr_name = NULL;
@@ -45,12 +51,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_login, user_record_unrefp);
 
 COMMAND(
         "systemd-pcrextend\0",
-        "Extend a TPM2 PCR with boot phase, machine ID, file system ID or user record.",
+        "Extend a TPM2 PCR with boot phase, machine ID, file system ID, credential or user record.",
         .argspec =
                 "WORD\0"
                 "--file-system=PATH\0"
                 "--machine-id\0"
                 "--product-id\0"
+                "--credentials\0"
                 "--login=UID|USER\0",
         .man_pages = "systemd-pcrextend(8)\0",
 );
@@ -149,6 +156,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_product_id = true;
                         break;
 
+                OPTION_LONG("credentials", NULL,
+                            "Measure marked boot credentials into NvPCR 'interactive-credentials'"):
+                        arg_credentials = true;
+                        break;
+
                 OPTION_LONG("login", "UID|USER",
                             "Measure a user's record into NvPCR 'login'"): {
                         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
@@ -176,11 +188,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
-        if (!!arg_file_system + arg_machine_id + arg_product_id + !!arg_login > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id, --product-id, --login= may not be combined.");
+        if (!!arg_file_system + arg_machine_id + arg_product_id + arg_credentials + !!arg_login > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id, --product-id, --credentials, --login= may not be combined.");
 
         if (arg_pcr_mask != 0 && arg_nvpcr_name)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--pcr= and --nvpcr= may not be combined.");
+        if (arg_credentials && arg_pcr_mask != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--credentials may not be combined with --pcr=.");
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
@@ -188,13 +202,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         if (r > 0)
                 arg_varlink = true;
         else if (arg_pcr_mask == 0 && !arg_nvpcr_name) {
-                arg_pcr_mask =
-                        (arg_file_system || arg_machine_id) ? INDEX_TO_MASK(uint32_t, TPM2_PCR_SYSTEM_IDENTITY) : /* → PCR 15 */
-                              (arg_product_id || arg_login) ? 0 :                                                 /* → NvPCR */
-                                                              INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);      /* → PCR 11 */
+                if (arg_file_system || arg_machine_id)
+                        arg_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_SYSTEM_IDENTITY); /* → PCR 15 */
+                else if (!arg_product_id && !arg_credentials && !arg_login)
+                        arg_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT); /* → PCR 11 */
 
                 r = free_and_strdup_warn(&arg_nvpcr_name,
                                          arg_product_id  ? "hardware" :
+                                         arg_credentials ? "interactive-credentials" :
                                          arg_login       ? "login" :
                                                            NULL);
                 if (r < 0)
@@ -336,20 +351,17 @@ static int extend_pcr_now(
         return 0;
 }
 
-static int extend_nvpcr_now(
+static int extend_nvpcr(
+                Tpm2Context *c,
                 const char *name,
                 const struct iovec *data,
                 const struct iovec *secret,
                 Tpm2UserspaceEventType event) {
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r;
 
+        assert(c);
         assert(name);
-
-        r = tpm2_context_new_for_measurement(&c);
-        if (r < 0)
-                return r;
 
         _cleanup_free_ char *safe = NULL;
         if (escape_and_truncate_data(data, &safe) < 0)
@@ -375,6 +387,116 @@ static int extend_nvpcr_now(
                    LOG_MESSAGE("Extended NvPCR index '%s' with '%s'.", name, safe),
                    "MEASURING=%s", safe,
                    "NVPCR=%s", name);
+
+        return 0;
+}
+
+static int extend_nvpcr_now(
+                const char *name,
+                const struct iovec *data,
+                const struct iovec *secret,
+                Tpm2UserspaceEventType event) {
+
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        int r;
+
+        r = tpm2_context_new_for_measurement(&c);
+        if (r < 0)
+                return r;
+
+        return extend_nvpcr(c, name, data, secret, event);
+}
+
+static int measure_credentials(Tpm2UserspaceEventType event) {
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_close_ int credentials_fd = -EBADF, markers_fd = -EBADF;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        const char *credentials_directory;
+        int r;
+
+        assert(arg_nvpcr_name);
+
+        markers_fd = open(CREDENTIALS_MEASURE_DIRECTORY, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (markers_fd < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open credential measurement directory: %m");
+
+                log_debug_errno(errno, "No interactive credentials to measure.");
+        } else {
+                r = readdir_all(markers_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_REGULAR, &de);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate credentials to measure: %m");
+        }
+
+        size_t n_credentials = de ? de->n_entries : 0;
+
+        if (n_credentials > 0) {
+                r = get_system_credentials_dir(&credentials_directory);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine system credentials directory: %m");
+
+                credentials_fd = open(credentials_directory, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                if (credentials_fd < 0)
+                        return log_error_errno(errno, "Failed to open system credentials directory: %m");
+        }
+
+        r = tpm2_context_new_for_measurement(&c);
+        if (r < 0)
+                return r;
+
+        for (size_t i = 0; i < n_credentials; i++) {
+                const struct dirent *d = de->entries[i];
+                _cleanup_(erase_and_freep) char *value = NULL;
+                _cleanup_free_ char *escaped_name = NULL, *word = NULL;
+                size_t value_size;
+
+                if (!credential_name_valid(d->d_name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name '%s' is invalid, refusing to measure.", d->d_name);
+
+                r = read_full_file_full(
+                                credentials_fd,
+                                d->d_name,
+                                UINT64_MAX,
+                                CREDENTIAL_SIZE_MAX,
+                                READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER|READ_FULL_FILE_VERIFY_REGULAR,
+                                /* bind_name= */ NULL,
+                                &value,
+                                &value_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read credential '%s' for measurement: %m", d->d_name);
+                if (value_size == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Credential '%s' is empty, refusing to measure without an HMAC key.", d->d_name);
+
+                escaped_name = xescape(d->d_name, ":");
+                if (!escaped_name)
+                        return log_oom();
+
+                word = strjoin("credential:", escaped_name);
+                if (!word)
+                        return log_oom();
+
+                r = extend_nvpcr(
+                                c,
+                                arg_nvpcr_name,
+                                &IOVEC_MAKE_STRING(word),
+                                &IOVEC_MAKE(value, value_size),
+                                event);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_free_ char *done = NULL;
+        if (asprintf(&done, "credentials-done:%zu", n_credentials) < 0)
+                return log_oom();
+
+        r = extend_nvpcr(
+                        c,
+                        arg_nvpcr_name,
+                        &IOVEC_MAKE_STRING(done),
+                        /* secret= */ NULL,
+                        event);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -541,6 +663,12 @@ static int run(int argc, char *argv[]) {
 
                 event = TPM2_EVENT_PRODUCT_ID;
 
+        } else if (arg_credentials) {
+                if (n_args != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
+
+                event = TPM2_EVENT_CREDENTIAL;
+
         } else if (arg_login) {
 
                 if (n_args != 0)
@@ -586,7 +714,9 @@ static int run(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        if (arg_nvpcr_name)
+        if (arg_credentials)
+                r = measure_credentials(event);
+        else if (arg_nvpcr_name)
                 r = extend_nvpcr_now(arg_nvpcr_name, &IOVEC_MAKE(word, strlen(word)), NULL, event);
         else
                 r = extend_pcr_now(arg_pcr_mask, &IOVEC_MAKE(word, strlen(word)), NULL, event);
