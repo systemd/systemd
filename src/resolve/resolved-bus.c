@@ -1891,10 +1891,16 @@ static int bus_method_reset_server_features(sd_bus_message *message, void *userd
 
 static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata) {
         DnssdRegisteredService *s = ASSERT_PTR(userdata);
+        int r;
 
         assert(t);
 
-        log_debug("Client of active request vanished, destroying DNS-SD service.");
+        log_debug("Client of active request vanished, withdrawing DNS-SD service.");
+
+        r = dnssd_registered_service_withdraw(s);
+        if (r < 0)
+                log_warning_errno(r, "Failed to withdraw DNS-SD service '%s', ignoring: %m", s->id);
+
         dnssd_registered_service_free(s);
 
         return 0;
@@ -2068,6 +2074,10 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         r = hashmap_ensure_put(&m->dnssd_registered_services, &string_hash_ops, service->id, service);
         if (r < 0)
                 return r;
+
+        /* Hand the tracker to the service: it is what notices the registering client going away, and
+         * it has to outlive this call for that. */
+        service->bus_track = TAKE_PTR(bus_track);
 
         service = NULL;
 
