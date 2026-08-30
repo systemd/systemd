@@ -112,6 +112,13 @@ check_first() {
     return 1
 }
 
+# Did any 'removed' event whose name matches $3 arrive in $1 after byte offset $2?
+removed_since() {
+    local file="${1:?}" off="${2:?}" needle="${3:?}"
+
+    tail -c "+$((off + 1))" "$file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep -e "$needle" >/dev/null
+}
+
 run_and_check_services() {
     local service_id="${1:?}"
     local check_func="${2:?}"
@@ -315,6 +322,242 @@ testcase_browse_ifindex_zero_no_flap() {
     echo testcase_end
 }
 
+testcase_browse_shared_querier() {
+    : "Concurrent subscribers of one service type share a querier and each receives updates"
+    resolvectl flush-caches
+
+    local out1 out2 out3 unit1 unit2 unit3 service_type params n1 n2 n3 since joins orig_level
+    service_type="_testService8._udp"
+    params="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+    out1="$(mktemp)"
+    out2="$(mktemp)"
+    out3="$(mktemp)"
+    unit1="varlinkctl-shared1-$SRANDOM.service"
+    unit2="varlinkctl-shared2-$SRANDOM.service"
+    unit3="varlinkctl-shared3-$SRANDOM.service"
+
+    # An EXIT trap, not RETURN: set -e aborts skip RETURN traps, and this subshell's EXIT trap
+    # fires however the testcase ends — the infinity browse units must never outlive it. Armed
+    # before anything can fail, so an early abort cleans up the files too. The level is captured
+    # before it is raised below: the integration image boots with systemd.log_level=debug, and
+    # restoring a hardcoded 'info' would quietly downgrade every testcase that follows.
+    orig_level="$(resolvectl log-level)"
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit1 $unit2 $unit3 2>/dev/null || :; resolvectl log-level $orig_level || :; rm -f $out1 $out2 $out3" EXIT
+
+    # Debug logging, so the sharing itself is observable below and not just its symptoms: every
+    # assertion on the event streams alone is equally satisfied by one querier per subscriber.
+    resolvectl log-level debug
+    since="$(date '+%Y-%m-%d %H:%M:%S')"
+
+    # Two concurrent subscriptions to the same question from the start. --timeout=infinity: both
+    # must survive the ~120s TTL expiry phase below despite going idle in between.
+    systemd-run --unit="$unit1" --service-type=exec -p StandardOutput="file:$out1" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params"
+    systemd-run --unit="$unit2" --service-type=exec -p StandardOutput="file:$out2" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params"
+
+    # Both subscribers must see all 40 services (20 per container, both families collapse onto
+    # family-tagged entries; count 'added' occurrences like the other testcases). The raw >=40
+    # count alone could be satisfied by a single container's 20 services on two families, so
+    # also require that BOTH containers appear in each stream -- the expiry phase below yanks
+    # CONTAINER_2 and would be doomed from the start if it was never discovered.
+    local both=0
+    for _ in {0..14}; do
+        n1="$( { grep -o '"updateFlag":"added"' "$out1" || :; } | wc -l)"
+        n2="$( { grep -o '"updateFlag":"added"' "$out2" || :; } | wc -l)"
+        if [[ "$n1" -ge 40 && "$n2" -ge 40 ]] &&
+           grep "on $CONTAINER_1" "$out1" >/dev/null && grep "on $CONTAINER_2" "$out1" >/dev/null &&
+           grep "on $CONTAINER_1" "$out2" >/dev/null && grep "on $CONTAINER_2" "$out2" >/dev/null; then
+            both=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$both" -ne 1 ]]; then
+        echo >&2 "Concurrent subscribers did not both discover both containers' services (n1=${n1:-0} n2=${n2:-0})"
+        cat "$out1" "$out2" >&2
+        return 1
+    fi
+
+    # The point of the whole testcase: those two subscriptions must be sharing one querier, which
+    # only resolved itself can tell us. The second subscription logs that it joined the first's
+    # querier; a regression that allocated a querier per subscriber would still satisfy every
+    # assertion above and below, but would log nothing here.
+    joins=0
+    for _ in {0..9}; do
+        joins="$( { journalctl -u systemd-resolved.service --since "$since" || :; } \
+                  | { grep -c "Joining existing browse querier for $service_type" || :; })"
+        [[ "$joins" -ge 1 ]] && break
+        sleep 1
+    done
+    if [[ "$joins" -lt 1 ]]; then
+        echo >&2 "The second subscriber did not join the first one's querier"
+        journalctl -u systemd-resolved.service --since "$since" >&2 || :
+        return 1
+    fi
+
+    # A late joiner of the same question is served a snapshot of the querier state and must not
+    # need to wait for any wire traffic -- poll briefly only to absorb event-loop scheduling.
+    systemd-run --unit="$unit3" --service-type=exec -p StandardOutput="file:$out3" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params"
+    local snap=0
+    for _ in {0..9}; do
+        n3="$( { grep -o '"updateFlag":"added"' "$out3" || :; } | wc -l)"
+        if [[ "$n3" -ge 40 ]] &&
+           grep "on $CONTAINER_1" "$out3" >/dev/null && grep "on $CONTAINER_2" "$out3" >/dev/null; then
+            snap=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$snap" -ne 1 ]]; then
+        echo >&2 "Late joiner did not receive the full initial snapshot (n3=${n3:-0})"
+        cat "$out3" >&2
+        return 1
+    fi
+
+    # Detaching one subscriber must not affect the others: checkpoint the survivors' streams
+    # BEFORE the stop, hold a quiet window spanning several continuous-query revisits (as the
+    # no-flap testcase does), and assert no 'removed' reached them. All publishers are still up,
+    # so any hit here is detach-induced flap -- which would otherwise be indistinguishable from
+    # the expiry-driven removals asserted below.
+    local off1 off3
+    off1="$(wc -c <"$out1")"
+    off3="$(wc -c <"$out3")"
+
+    systemctl stop "$unit2"
+    sleep 12
+
+    if tail -c "+$((off1 + 1))" "$out1" | grep '"updateFlag":"removed"' >/dev/null; then
+        echo >&2 "Detaching a subscriber caused spurious 'removed' events for a surviving subscriber:"
+        tail -c "+$((off1 + 1))" "$out1" >&2
+        return 1
+    fi
+    if tail -c "+$((off3 + 1))" "$out3" | grep '"updateFlag":"removed"' >/dev/null; then
+        echo >&2 "Detaching a subscriber caused spurious 'removed' events for the late joiner:"
+        tail -c "+$((off3 + 1))" "$out3" >&2
+        return 1
+    fi
+
+    # Take the second container off the network abruptly. The assertion here is the fan-out:
+    # however the expired records get pruned (for a type the surviving publisher still answers,
+    # its refreshes can drive the pruning just as well as the querier's TTL-maintenance ladder
+    # -- testcase_mdns_remove_on_expiry is what pins down the ladder mechanism), every remaining
+    # subscriber must receive the resulting 'removed' events, late joiner included.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
+
+    local removed1=0 removed3=0
+    for _ in {0..99}; do
+        if [[ "$removed1" -eq 0 ]] && removed_since "${out1}" "${off1}" "on $CONTAINER_2"; then
+            removed1=1
+        fi
+        if [[ "$removed3" -eq 0 ]] && removed_since "${out3}" "${off3}" "on $CONTAINER_2"; then
+            removed3=1
+        fi
+        [[ "$removed1" -eq 1 && "$removed3" -eq 1 ]] && break
+        sleep 2
+    done
+
+    if [[ "$removed1" -ne 1 || "$removed3" -ne 1 ]]; then
+        echo >&2 "Expiry removals were not fanned out to all subscribers (removed1=$removed1 removed3=$removed3)"
+        cat "$out1" "$out3" >&2
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0 || :
+        return 1
+    fi
+
+    # Restore the second container for the remaining testcases. Best effort: everything this
+    # testcase asserts has been asserted by now, and a transient hiccup here — wait-online hitting
+    # its cap on a loaded runner — must not fail a passed testcase.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0 || :
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        /usr/lib/systemd/systemd-networkd-wait-online --ipv4 --ipv6 --interface=host0 --operational-state=degraded --timeout=30 || :
+
+    echo testcase_end
+}
+
+testcase_browse_unrelated_scope_teardown() {
+    : "Losing one link's mDNS scope must not withdraw services discovered on another link"
+    resolvectl flush-caches
+
+    local out0 outb unit0 unitb service_type off0 offb params0 paramsb
+    local dummy="ravc-scoped"
+
+    out0="$(mktemp)"; outb="$(mktemp)"
+    unit0="varlinkctl-scoped0-$SRANDOM.service"
+    unitb="varlinkctl-scopedb-$SRANDOM.service"
+    service_type="_testService9._udp"
+    params0="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": 0, \"flags\": 16785432 }"
+    paramsb="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+
+    # A second mDNS link whose scope is torn down mid-subscription; the services under test live on
+    # the bridge, never here. A previous interrupted run may have leaked the fixed-name link.
+    ip link del "$dummy" 2>/dev/null || :
+    ip link add "$dummy" type dummy
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit0 $unitb 2>/dev/null || :; ip link del $dummy 2>/dev/null || :; rm -f $out0 $outb" EXIT
+    ip link set "$dummy" up multicast on
+    ip address add 169.254.172.172/16 dev "$dummy"
+    resolvectl mdns "$dummy" yes
+    [[ "$(resolvectl mdns "$dummy")" =~ :\ yes$ ]]
+    sleep 2  # let resolved create the scope before we start browsing
+
+    # Two live subscriptions: one across all interfaces, one pinned to the bridge. The purge that
+    # the teardown below triggers is scoped to the vanishing link, so the pinned one is skipped
+    # outright while the ifindex=0 one reconciles against the scopes that remain.
+    systemd-run --unit="$unit0" --service-type=exec -p StandardOutput="file:$out0" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$params0"
+    systemd-run --unit="$unitb" --service-type=exec -p StandardOutput="file:$outb" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$paramsb"
+
+    local ready=0 n0 nb
+    for _ in {0..14}; do
+        n0="$( { grep -o '"updateFlag":"added"' "$out0" || :; } | wc -l)"
+        nb="$( { grep -o '"updateFlag":"added"' "$outb" || :; } | wc -l)"
+        if [[ "$n0" -ge 40 && "$nb" -ge 40 ]]; then
+            ready=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ready" -ne 1 ]]; then
+        echo >&2 "Both subscribers did not discover the services (n0=${n0:-0} nb=${nb:-0})"
+        cat "$out0" "$outb" >&2
+        return 1
+    fi
+
+    # Checkpoint, then take the unrelated link's mDNS scope away.
+    off0="$(wc -c <"$out0")"
+    offb="$(wc -c <"$outb")"
+    resolvectl mdns "$dummy" no
+    [[ "$(resolvectl mdns "$dummy")" =~ :\ no$ ]]
+
+    # The scope teardown purges the browse subscriptions. Give it the same settling window the
+    # other no-flap negatives use, and anchor on a positive fact first: the services still resolve.
+    sleep 2
+    local ok=0
+    for _ in {0..14}; do
+        if resolvectl service "Test Service 180 on $CONTAINER_1" "$service_type" local >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Services stopped resolving after an unrelated link's mDNS scope went away"
+        return 1
+    fi
+
+    if removed_since "$out0" "$off0" '"name"' || removed_since "$outb" "$offb" '"name"'; then
+        echo >&2 "Tearing down an unrelated link's mDNS scope withdrew services from the browse:"
+        tail -c "+$((off0 + 1))" "$out0" >&2
+        tail -c "+$((offb + 1))" "$outb" >&2
+        return 1
+    fi
+
+    echo testcase_end
+}
+
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
@@ -331,6 +574,110 @@ testcase_second_unreachable() {
     for id in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
         run_and_check_services "$id" check_both
     done
+}
+
+testcase_mdns_remove_on_expiry() {
+    : "A service that vanishes without a goodbye must be removed when its records expire"
+
+    local out_file error_file unit_name service_type
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-expiry-$SRANDOM.service"
+    service_type="_testExpiry._udp"
+
+    # An EXIT trap, not RETURN: set -e aborts skip RETURN traps, and this subshell's EXIT trap
+    # fires however the testcase ends — the infinity browse unit must never outlive it. Armed
+    # before anything can fail, so an early abort cleans up the files too.
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file" EXIT
+
+    # Publish a canary service type from the second container ONLY. A type that
+    # both containers publish cannot discriminate a broken maintenance ladder:
+    # the surviving publisher keeps answering the browser's continuous PTR
+    # query, and each successful completion of that query also revisits the
+    # cache -- pruning expired records and emitting the very 'removed' event
+    # this test is about, ladder or no ladder. With no surviving publisher, no
+    # transaction completes successfully once the container is gone, so the
+    # removal below is reachable only through the ladder's terminal fire.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/expiry-canary.dnssd <<EOF
+[Service]
+Name=Expiry Canary on %H
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    # Reload rather than restart: it re-runs dnssd_load() to pick up the new
+    # file while leaving the runtime per-link mDNS switches from setup intact.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service
+
+    resolvectl flush-caches
+
+    # Note: --timeout=infinity, because this subscription must outlive the 120s record
+    # TTL: varlinkctl's default 45s method-call timeout would sever the connection --
+    # and with it the server-side browser and its maintenance ladder -- long before
+    # the expiry-driven removal that this test is about could be observed.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+
+    # Wait until the canary has been discovered.
+    local ok=0
+    for _ in {0..14}; do
+        if grep "on $CONTAINER_2" >/dev/null "$out_file"; then
+            ok=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered the expiry canary on $CONTAINER_2"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # Checkpoint the output: only 'removed' events produced AFTER the container
+    # goes away count, so a match is provably expiry-driven rather than some
+    # earlier transient churn.
+    local off
+    off="$(wc -c <"$out_file")"
+
+    # Yank the second container off the network *abruptly* (no goodbye). We do
+    # NOT flush caches here: with the canary's only publisher gone, removal must
+    # be driven purely by the browser's TTL-maintenance ladder re-confirming
+    # and then, at TTL expiry, pruning the now-unanswered records and emitting
+    # 'removed'.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
+
+    # Records use MDNS_DEFAULT_TTL (120s); the terminal fire lands at ~down+120s
+    # plus ladder jitter and event-loop slop, so poll generously (~200s).
+    local removed=0
+    for _ in {0..99}; do
+        if removed_since "${out_file}" "${off}" "on $CONTAINER_2"; then
+            removed=1
+            break
+        fi
+        sleep 2
+    done
+
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "$CONTAINER_2 services were not removed after their records expired"
+        cat "$out_file" "$error_file" >&2
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0 || :
+        return 1
+    fi
+
+    # Restore the second container for the remaining testcases and withdraw the
+    # canary again. Best-effort: the removal this testcase is about has already
+    # been asserted above, and the next testcase re-downs host0 and brings it
+    # back up with its own wait -- a transient hiccup here (say, wait-online
+    # hitting its cap on a loaded runner) must not fail a passed testcase.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl up host0 || :
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        /usr/lib/systemd/systemd-networkd-wait-online --ipv4 --ipv6 --interface=host0 --operational-state=degraded --timeout=30 || :
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/expiry-canary.dnssd || :
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service || :
+
+    echo testcase_end
 }
 
 : "Setup host & containers"
