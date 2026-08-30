@@ -80,6 +80,7 @@ int dns_scope_new(
 
                 /* Enforce ratelimiting for the multicast protocols */
                 .ratelimit = { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST },
+                .mdns_goodbye_notify_ratelimit = { MDNS_GOODBYE_DELAY, 1 },
         };
 
         if (protocol == DNS_PROTOCOL_DNS) {

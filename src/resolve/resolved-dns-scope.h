@@ -55,6 +55,10 @@ typedef struct DnsScope {
 
         RateLimit ratelimit;
 
+        /* Bounds the browser reconciliation a goodbye triggers on its own, without a timer to
+         * coalesce behind. See mdns_goodbye_arm()'s caller in resolved-mdns.c. */
+        RateLimit mdns_goodbye_notify_ratelimit;
+
         usec_t resend_timeout;
         usec_t max_rtt;
 
@@ -76,6 +80,7 @@ typedef struct DnsScope {
 
 int dns_scope_new(Manager *m, DnsScope **ret, DnsScopeOrigin origin, Link *link, DnsDelegate *delegate, DnsProtocol protocol, int family);
 DnsScope* dns_scope_free(DnsScope *s);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsScope*, dns_scope_free);
 
 void dns_scope_packet_received(DnsScope *s, usec_t rtt);
 void dns_scope_packet_lost(DnsScope *s, usec_t usec);
