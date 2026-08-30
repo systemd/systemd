@@ -10,6 +10,7 @@
 #include "dlopen-note.h"
 #include "efi-loader.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "json-util.h"
 #include "main-func.h"
 #include "parse-argument.h"
