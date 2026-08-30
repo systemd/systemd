@@ -1598,10 +1598,6 @@ run_conformance_scorecard() {
     # gates on, tagged with the requirement level it misses -- MUST is a
     # violation, SHOULD a deviation -- so the table doubles as a work list.
     local -A known_failures=(
-        # Without SD_RESOLVED_NO_STALE the per-service maintenance timer is
-        # armed from a bogus cache expiry timestamp and dies after one shot, so
-        # silently vanished publishers are never reported as removed.
-        [expiry_no_goodbye_plain_flags]="TODO, SHOULD (RFC 6762 section 5.2): maintenance timer dies without SD_RESOLVED_NO_STALE"
         # Identical records from different machines share a single cache entry
         # owned by whichever announced last, so one machine's goodbye drops
         # the instance for the subscriber even while the other machine still
