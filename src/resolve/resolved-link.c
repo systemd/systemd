@@ -3,9 +3,9 @@
 #include <linux/if.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
-#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "dns-domain.h"

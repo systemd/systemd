@@ -1033,6 +1033,8 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
                 log_full((s->type == DNS_SERVER_FALLBACK) != (m->current_dns_server && m->current_dns_server->type == DNS_SERVER_FALLBACK) ? LOG_NOTICE : LOG_DEBUG,
                          "Switching to %s DNS server %s.", dns_server_type_to_string(s->type), strna(dns_server_string_full(s)));
 
+        assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &m->current_dns_server_switched_usec) >= 0);
+
         dns_server_unref(m->current_dns_server);
         m->current_dns_server = dns_server_ref(s);
 
