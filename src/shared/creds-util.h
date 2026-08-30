@@ -32,6 +32,7 @@ int open_credentials_dir(void);
 /* Where creds have been passed to the system */
 #define SYSTEM_CREDENTIALS_DIRECTORY "/run/credentials/@system"
 #define ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY "/run/credentials/@encrypted"
+#define CREDENTIALS_MEASURE_DIRECTORY "/run/systemd/credentials-measure"
 
 /* Where system creds have been passed */
 int get_system_credentials_dir(const char **ret);
