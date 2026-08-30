@@ -1551,7 +1551,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         /* Note, we'll not return UID values from the host, since the child might not run in the same
          * user namespace as us. If they want to know the ranges they should read them off the userns fd, so
          * that they are translated into their PoV */
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("name", userns_name));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("name", userns_info->name));
 
 fail:
         /* Note: we don't have to clean-up the BPF maps in the error path: the bpf map type used will
@@ -1755,7 +1755,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         if (r < 0)
                 goto fail;
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("name", userns_name));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("name", userns_info->name));
 
 fail:
         userns_registry_remove(registry_dir_fd, userns_info);
