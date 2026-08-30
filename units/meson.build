@@ -631,6 +631,11 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         {
+          'file' : 'systemd-pcrcredential.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2', 'ENABLE_INITRD'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-pcrfs-root.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
         },

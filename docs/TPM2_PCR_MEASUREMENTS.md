@@ -328,6 +328,19 @@ product UUID of the local system could be determined the string
 "product-id:missing" is measured instead. Example string:
 `product-id:4691595be6a345f1833cc75fab63e475`.
 
+### NvPCR `credentials` (base+4), interactive boot credentials
+
+The `systemd-pcrcredential.service` service measures credentials entered in the
+`systemd-boot` menu and accepted by the initrd into the `credentials` NvPCR.
+Credential names are processed in lexical order. For each credential, the
+measured digest is the HMAC of the string `credential:` followed by the
+credential name, using the credential value as the HMAC key. Thus neither the
+credential value nor its plain hash is stored in the event log.
+
+Interactive credentials are passed from `systemd-boot` to initrd userspace in a
+volatile runtime EFI variable and are not included in an initrd to avoid
+changing the PCR 9, 11, 12, or 13 measurements.
+
 ### PCR 15, file system
 
 The `systemd-pcrfs-root.service` and `systemd-pcrfs@.service` services will

@@ -1177,6 +1177,7 @@ manpages = [
  ['systemd-pcrphase.service',
   '8',
   ['systemd-pcrextend',
+   'systemd-pcrcredential.service',
    'systemd-pcrfs-root.service',
    'systemd-pcrfs@.service',
    'systemd-pcrlogin@.service',
