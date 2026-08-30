@@ -113,8 +113,7 @@ Variables will be listed below using the Linux efivarfs naming,
   contains credentials entered interactively in the boot loader. It is a volatile,
   runtime-accessible variable containing pairs of individually NUL-terminated UTF-16
   strings. The first string of each pair is the credential name and the second is its
-  value. The OS should erase the variable immediately after reading it. The credential
-  values are sensitive and must not be written to logs or persistent storage.
+  value.
 
 * The EFI variable `LoaderFeatures-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains a 64-bit unsigned integer with a number of flags bits
