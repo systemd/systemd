@@ -1755,7 +1755,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         if (r < 0)
                 goto fail;
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("name", userns_name));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("name", userns_info->name));
 
 fail:
         userns_registry_remove(registry_dir_fd, userns_info);
