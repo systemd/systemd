@@ -487,6 +487,8 @@ Service.FileDescriptorStoreMax,               config_parse_unsigned,            
 Service.FileDescriptorStorePreserve,          config_parse_exec_preserve_mode,                    0,                                  offsetof(Service, fd_store_preserve_mode)
 Service.LUOSession,                           config_parse_luo_sessions,                          0,                                  offsetof(Service, luo_sessions)
 Service.NotifyAccess,                         config_parse_notify_access,                         0,                                  offsetof(Service, notify_access)
+Service.NotifyRateLimitIntervalSec,           config_parse_sec,                                   0,                                  offsetof(Service, notify_ratelimit.interval)
+Service.NotifyRateLimitBurst,                 config_parse_unsigned,                              0,                                  offsetof(Service, notify_ratelimit.burst)
 Service.Sockets,                              config_parse_service_sockets,                       0,                                  0
 Service.BusPolicy,                            config_parse_warn_compat,                           DISABLED_LEGACY,                    0
 Service.USBFunctionDescriptors,               config_parse_unit_path_printf,                      0,                                  offsetof(Service, usb_function_descriptors)

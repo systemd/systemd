@@ -20,6 +20,9 @@
 #define DEFAULT_START_LIMIT_INTERVAL (10*USEC_PER_SEC)
 #define DEFAULT_START_LIMIT_BURST 5
 
+#define DEFAULT_NOTIFY_RATE_LIMIT_INTERVAL (1*USEC_PER_SEC)
+#define DEFAULT_NOTIFY_RATE_LIMIT_BURST 10
+
 /* The default time after which exit-on-idle services exit. This
  * should be kept lower than the watchdog timeout, because otherwise
  * the watchdog pings will keep the loop busy. */

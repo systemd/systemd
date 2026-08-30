@@ -33,6 +33,7 @@ libcore_sources = files(
         'bpf-restrict-fsaccess.c',
         'bpf-restrict-ifaces.c',
         'bpf-socket-bind.c',
+        'bpf-socket-ratelimit.c',
         'cgroup.c',
         'dbus-automount.c',
         'dbus-cgroup.c',
@@ -110,6 +111,10 @@ if conf.get('BPF_FRAMEWORK') == 1
         foreach name : ['socket-bind', 'restrict-fs', 'restrict-ifaces', 'bind-iface']
                 libcore_sources += bpf_programs_by_name[name]
         endforeach
+endif
+
+if conf.get('HAVE_BPF_SOCK_READ_XATTR') == 1
+        libcore_sources += bpf_programs_by_name['socket-ratelimit']
 endif
 
 if conf.get('HAVE_LSM_INTEGRITY_TYPE') == 1
