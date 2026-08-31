@@ -20,6 +20,7 @@ _arguments \
     '--image=[Operate on disk image as filesystem root]:image' \
     '--image-policy=[Specify disk image dissection policy]:policy' \
     '--replace=[Treat arguments as replacement for PATH]:PATH' \
+    '(--cat-config --tldr)--inline[Treat arguments as configuration lines]'
     '(--cat-config --tldr)'{-n,--dry-run}'[Just print what would be done]' \
     '--no-pager[Do not pipe output into a pager]' \
     '*::files:_files -g "*.conf"'
