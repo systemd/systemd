@@ -1568,6 +1568,7 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
 int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
         DnsPacket **packets = NULL;
         size_t n_packets = 0, max_size, fragmented_max;
+        unsigned n_sent = 0, n_records = 0;
         int r, ret = 0;
 
         assert(scope);
@@ -1585,8 +1586,21 @@ int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
         /* Emission is best effort per packet: a failed send must not withhold the remaining
          * packets of the announcement. */
         FOREACH_ARRAY(p, packets, n_packets) {
-                RET_GATHER(ret, dns_scope_emit_udp(scope, /* fd= */ -EBADF, AF_UNSPEC, *p));
+                r = dns_scope_emit_udp(scope, /* fd= */ -EBADF, AF_UNSPEC, *p);
+                RET_GATHER(ret, r);
+                if (r >= 0) {
+                        /* Counted once it is out, not once it is built: a rate limit or a transient
+                         * -ENOBUFS must not show up below as records that reached the link. */
+                        n_sent++;
+                        n_records += DNS_PACKET_ANCOUNT(*p);
+                }
         }
+
+        /* What actually went on the wire, per pass: an announcement whose records were all filtered
+         * out, all too large to pack, or all lost to a failed send is indistinguishable from one
+         * that was sent in a log that only records the intent to announce. */
+        log_debug("Emitted %u mDNS announcement packet(s) carrying %u record(s) on scope %s.",
+                  n_sent, n_records, dns_scope_ifname(scope) ?: "*");
 
         return ret;
 }
