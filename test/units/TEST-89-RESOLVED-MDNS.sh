@@ -416,17 +416,38 @@ testcase_mdns_goodbye_on_stop() {
     # RFC 6762 section 8.3 wants goodbyes sent at least twice, one second apart: by the time
     # 'systemctl stop' returned, resolved held its exit and retransmitted. Count the passes that put
     # records on the wire, not the 'sending goodbyes' line, which is logged once per pass before any
-    # scope is walked and so appears twice even for an empty second pass. Poll briefly, since the
-    # linked journal can lag the stop.
-    local goodbyes=0
+    # scope is walked and so appears twice even for an empty second pass. A pass ends at the next
+    # runtime withdrawal line: the canaries' clients vanish inside the grace second, and their
+    # withdrawal logs emission lines of its own. Poll briefly, since the linked journal can lag the
+    # stop.
+    local goodbyes=0 journal
     for _ in {0..9}; do
-        goodbyes="$( publisher_journal "$since" \
-                     | { grep -c "Sending mDNS goodbye announcements" || :; })"
+        journal="$(publisher_journal "$since")"
+        goodbyes="$(awk '
+            /Sending mDNS goodbye announcements/ { if (emitted) passes++; emitted = 0; in_pass = 1; next }
+            /Withdrawing [0-9]+ DNS-SD record|Retransmitting mDNS withdrawal/ { in_pass = 0; next }
+            in_pass && /mDNS announcement packet\(s\) carrying [1-9][0-9]* record\(s\)/ { emitted = 1 }
+            END { if (emitted) passes++; print passes + 0 }' <<<"$journal")"
         if [[ "$goodbyes" -ge 2 ]]; then break; fi
         sleep 1
     done
     if [[ "$goodbyes" -lt 2 ]]; then
-        echo >&2 "Expected 2 goodbye transmissions (RFC 6762 §8.3), saw $goodbyes"
+        echo >&2 "Expected 2 goodbye transmissions carrying records (RFC 6762 §8.3), saw $goodbyes"
+        publisher_journal "$since" >&2
+        return 1
+    fi
+
+    # The goodbye for the container's 200 services does not fit into one packet, and the emission
+    # line reports how many a pass took: one would mean the split is gone.
+    local packets
+    packets="$(awk '
+        /Sending mDNS goodbye announcements/ { in_pass = 1; next }
+        /Withdrawing [0-9]+ DNS-SD record|Retransmitting mDNS withdrawal/ { in_pass = 0; next }
+        in_pass && match($0, /Emitted [0-9]+ mDNS announcement packet\(s\) carrying [1-9]/) {
+            split(substr($0, RSTART), f, " "); if (!min || f[2] + 0 < min) min = f[2] + 0 }
+        END { print min + 0 }' <<<"$journal")"
+    if [[ "$packets" -lt 2 ]]; then
+        echo >&2 "A goodbye pass fit into $packets packet(s); the announcement is not being split"
         publisher_journal "$since" >&2
         return 1
     fi
