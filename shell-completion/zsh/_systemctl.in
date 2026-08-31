@@ -22,6 +22,7 @@
         "force-reload:Reload one or more units if possible, otherwise restart if active"
         "try-reload-or-restart:Reload one or more units if possible, otherwise restart if active"
         "isolate:Start one unit and stop all others"
+        "wait:Wait for a unit to terminate"
         "kill:Send signal to processes of a unit"
         "is-active:Check whether units are active"
         "is-failed:Check whether units are failed"
@@ -328,7 +329,7 @@ done
 }
 
 # Completion functions for STOPPABLE_UNITS
-for fun in stop condstop kill try-restart condrestart freeze thaw; do
+for fun in stop condstop kill try-restart condrestart freeze thaw wait; do
     (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
     {
         local _sys_active_units; _systemctl_active_units
