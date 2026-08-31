@@ -1269,17 +1269,21 @@ static int ndisc_option_build_prefix64(const sd_ndisc_option *option, usec_t tim
 int ndisc_option_add_encrypted_dns_internal(
                 Set **options,
                 size_t offset,
-                sd_dns_resolver *res,
+                sd_dns_resolver *res, /* This takes the ownership of this object. */
                 usec_t lifetime,
                 usec_t valid_until) {
+
         assert(options);
+        assert(res);
+
+        _cleanup_(sd_dns_resolver_unrefp) sd_dns_resolver *resolver = TAKE_PTR(res);
 
         sd_ndisc_option *p = ndisc_option_new(SD_NDISC_OPTION_ENCRYPTED_DNS, offset);
         if (!p)
                 return -ENOMEM;
 
         p->encrypted_dns = (sd_ndisc_dnr) {
-                .resolver = res,
+                .resolver = TAKE_PTR(resolver),
                 .lifetime = lifetime,
                 .valid_until = valid_until,
         };
