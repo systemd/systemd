@@ -168,7 +168,9 @@ _arguments -s \
     '(- *)'{-h,--help}'[Show help]' \
     '(- *)--version[Show package version]' \
     '*'{-p+,--property=}'[Show only properties by this name]:unit property' \
+    '*-P+[Equivalent to --value --property=NAME]:unit property' \
     '(-a --all)'{-a,--all}'[Show all properties, including empty ones]' \
+    '--value[When showing properties, only print the value]' \
     '--kill-whom=[Whom to send signal to]:killwhom:(main control all)' \
     '(-s --signal)'{-s+,--signal=}'[Which signal to send]:signal:_signals' \
     '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
@@ -179,4 +181,6 @@ _arguments -s \
     '--no-ask-password[Do not ask for system passwords]' \
     '(-n --lines)'{-n+,--lines=}'[Number of journal entries to show]' \
     '(-o --output)'{-o+,--output=}'[Change journal output mode]:output modes:_sd_outputmodes' \
+    '--json=[Shows output formatted as JSON]:format:(pretty short off)' \
+    '-j[Equivalent to --json=pretty on TTY, --json=short otherwise]' \
     '*::loginctl command:_loginctl_commands'
