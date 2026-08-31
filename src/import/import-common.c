@@ -21,6 +21,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "signal-util.h"
 #include "selinux-util.h"
 #include "stat-util.h"
 #include "tar-util.h"
@@ -387,6 +388,9 @@ int import_allocate_event_with_signals(sd_event **ret) {
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        /* Make file size limits report EFBIG through write(), rather than terminating the process with SIGXFSZ. */
+        (void) ignore_signals(SIGXFSZ);
 
         (void) sd_event_add_signal(event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler,  NULL);
         (void) sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler, NULL);
