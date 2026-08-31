@@ -560,6 +560,7 @@ _sys_arguments=(
     '--failed[Show failed units]'
     '--timestamp=[Change format of printed timestamps]:style:_systemctl_timestamp'
     '--when=[Schedule halt/power-off/reboot/kexec action after a certain timestamp]:timestamp:(show cancel auto)'
+    '--kernel-cmdline[Append to the kernel command line when loading]:cmdline:'
     '--kernel-cmdline-reuse[Reuse the current kernel command line when loading the kexec kernel]'
 )
 _arguments -s "$_sys_arguments[@]" \
