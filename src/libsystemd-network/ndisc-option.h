@@ -321,20 +321,20 @@ static inline int ndisc_option_set_prefix64(
 int ndisc_option_add_encrypted_dns_internal(
                 Set **options,
                 size_t offset,
-                sd_dns_resolver *res,
+                const sd_dns_resolver *res,
                 usec_t lifetime,
                 usec_t valid_until);
 static inline int ndisc_option_add_encrypted_dns(
                 Set **options,
                 size_t offset,
-                sd_dns_resolver *res,
+                const sd_dns_resolver *res,
                 usec_t lifetime) {
         return ndisc_option_add_encrypted_dns_internal(options, offset, res, lifetime, USEC_INFINITY);
 }
 static inline int ndisc_option_set_encrypted_dns(
                 Set **options,
                 size_t offset,
-                sd_dns_resolver *res,
+                const sd_dns_resolver *res,
                 usec_t lifetime,
                 usec_t valid_until) {
         return ndisc_option_add_encrypted_dns_internal(options, 0, res, lifetime, valid_until);
