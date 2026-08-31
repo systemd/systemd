@@ -116,6 +116,47 @@ END_SEC=$(date -u '+%s')
 ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 5 ]]
 
+# Test "systemctl wait"
+# An already inactive unit terminates the wait immediately, successfully
+timeout 5 systemctl wait wait2.service
+
+# A running unit is waited for until it terminates
+systemctl --no-block start wait2.service
+START_SEC=$(date -u '+%s')
+timeout 10 systemctl wait wait2.service
+END_SEC=$(date -u '+%s')
+ELAPSED=$((END_SEC-START_SEC))
+[[ "$ELAPSED" -ge 1 ]]
+
+# The exit status of the unit's main process is propagated
+systemctl --no-block start wait5fail.service
+assert_rc 1 timeout 10 systemctl wait wait5fail.service
+systemd-run --no-block --unit=wait-exit7.service bash -c 'sleep 2; exit 7'
+assert_rc 7 systemctl wait wait-exit7.service
+# ... with termination by signal reported as 255
+systemd-run --unit=wait-sigkill.service sleep 60
+systemctl kill --signal=SIGKILL wait-sigkill.service
+assert_rc 255 timeout 10 systemctl wait wait-sigkill.service
+
+# A summary is shown on stdout, unless --quiet is given
+systemctl --no-block start wait2.service
+systemctl wait wait2.service | grep "Finished with result" >/dev/null
+systemctl --no-block start wait2.service
+[[ -z "$(systemctl --quiet wait wait2.service)" ]]
+
+# --verbose forwards the unit's log output
+systemd-run --no-block --unit=wait-log.service bash -c 'echo hello-from-wait; sleep 2'
+systemctl --verbose wait wait-log.service 2>&1 | grep hello-from-wait >/dev/null
+
+# A non-existent unit is treated as terminated successfully, with a message in place of the summary
+systemctl wait nonexistent.service | grep "does not exist" >/dev/null
+[[ -z "$(systemctl --quiet wait nonexistent.service)" ]]
+
+# Template unit names are refused
+(! systemctl wait 'foo@.service')
+
+systemctl reset-failed wait-exit7.service wait-sigkill.service
+
 # Test time-limited scopes
 START_SEC=$(date -u '+%s')
 (! systemd-run --scope --property=RuntimeMaxSec=3s sleep 30)
