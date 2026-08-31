@@ -9832,7 +9832,7 @@ int tpm2_policy_super_pcr(
                                 if (single_value_pcrs & (UINT32_C(1) << pcr))
                                         (void) strextendf_with_separator(&j, ", ", "%" PRIu32, pcr);
 
-                        return log_error_errno(r, "Combined value for PCR(s) %s encoded in policy does not match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", strna(j));
+                        return log_error_errno(r, "Combined value for PCR(s) %s encoded in policy does not match the current TPM state. Either the system has been tampered with or the provided policy is incorrect.", strna(j));
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
@@ -9865,7 +9865,7 @@ int tpm2_policy_super_pcr(
                                 &pcr_selection,
                                 &current_policy_digest);
                 if (r == -EUCLEAN)
-                        return log_error_errno(r, "Value for PCR %" PRIu32 " encoded in policy does not match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", pcr);
+                        return log_error_errno(r, "Value for PCR %" PRIu32 " encoded in policy does not match the current TPM state. Either the system has been tampered with or the provided policy is incorrect.", pcr);
                 if (r < 0)
                         return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
 
@@ -9907,7 +9907,7 @@ int tpm2_policy_super_pcr(
                                 n_branches,
                                 &current_policy_digest);
                 if (r == -ENOANO)
-                        return log_error_errno(r, "None of the alternative values for PCR %" PRIu32 " encoded in policy match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", pcr);
+                        return log_error_errno(r, "None of the alternative values for PCR %" PRIu32 " encoded in policy match the current TPM state. Either the system has been tampered with or the provided policy is incorrect.", pcr);
                 if (r < 0)
                         return log_error_errno(r, "Failed to submit OR policy to TPM: %m");
 

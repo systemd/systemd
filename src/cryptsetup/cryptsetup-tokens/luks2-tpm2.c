@@ -136,7 +136,7 @@ int acquire_luks2_key(
         if (r == -ENOLCK)
                 return log_error_errno(r, "TPM is in dictionary attack lock-out mode.");
         if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
-                log_warning_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                log_warning_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                 /* Normalize to -EPERM so callers don't confuse it with -ENOANO's "needs PIN" meaning. */
                 return -EPERM;
         }
