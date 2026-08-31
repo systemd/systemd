@@ -37,7 +37,8 @@ _systemd_dissect() {
                      -r --read-only
                      --mkdir
                      --rmdir
-                     --in-memory'
+                     --in-memory
+                     --relax'
         [ARG]='-m --mount -M
                -u --umount -U
                --attach
