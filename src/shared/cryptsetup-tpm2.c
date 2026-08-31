@@ -178,7 +178,7 @@ int acquire_tpm2_key(
                 if (r == -EADDRNOTAVAIL)
                         return log_warning_errno(r, "NV index referenced by token is missing, unwritten, or unusable, it could be for another system.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
-                        log_warning_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                        log_warning_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                         /* Normalize to -EPERM so callers don't confuse it with -ENOANO's "needs PIN" meaning. */
                         return -EPERM;
                 }
@@ -258,7 +258,7 @@ int acquire_tpm2_key(
                 if (r == -EADDRNOTAVAIL)
                         return log_warning_errno(r, "NV index referenced by token is missing, unwritten, or unusable, it could be for another system.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
-                        log_warning_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                        log_warning_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                         /* Normalize to -EPERM so callers don't confuse it with -ENOANO's "needs PIN" meaning. */
                         return -EPERM;
                 }

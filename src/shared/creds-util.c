@@ -1525,7 +1525,7 @@ int decrypt_credential_and_warn(
                 if (r == -EADDRNOTAVAIL)
                         return log_error_errno(r, "NV index referenced by key is missing, unwritten, or unusable, it could be for another system.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 #else
