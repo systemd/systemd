@@ -28,6 +28,7 @@ systemctl_sources = files(
         'systemctl-start-special.c',
         'systemctl-switch-root.c',
         'systemctl-trivial-method.c',
+        'systemctl-wait.c',
         'systemctl-whoami.c',
 )
 systemctl_export_sources = files(
