@@ -249,6 +249,61 @@ timeout 30 bash -c 'until systemctl is-active varlink-transient-kill.service; do
 systemctl show -P KillMode varlink-transient-kill.service | grep '^process$' >/dev/null
 systemctl show -P SendSIGHUP varlink-transient-kill.service | grep '^yes$' >/dev/null
 
+# ExecStart execution flags, i.e. the Varlink counterparts of the "-", ":", "|", "+" and "!" prefixes of
+# unit file ExecStart= lines. First the ones observable from an unprivileged unit:
+#  - ignoreFailure: a failing command does not fail the unit
+#  - noEnvExpand: "${VAR}" in the arguments is passed as-is rather than expanded
+#  - viaShell: the command line is handed to the user's shell via "-c" (argv[0] is normalized to "sh")
+rm -f /tmp/varlink-transient-execflags-*
+defer_transient_cleanup varlink-transient-execflags.service
+# shellcheck disable=SC2016
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-execflags.service","Exec":{"Environment":["FLAGTEST=expanded"]},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[
+        {"path":"/bin/false","ignoreFailure":true},
+        {"path":"/usr/bin/touch","arguments":["touch","/tmp/varlink-transient-execflags-${FLAGTEST}"]},
+        {"path":"/usr/bin/touch","arguments":["touch","/tmp/varlink-transient-execflags-${FLAGTEST}"],"noEnvExpand":true},
+        {"path":"/bin/sh","arguments":["sh","touch","/tmp/varlink-transient-execflags-shell"],"viaShell":true}]}}}')
+echo "$result" | jq -e '.context.Service.ExecStart[0].ignoreFailure == true'
+echo "$result" | jq -e '.context.Service.ExecStart[1].noEnvExpand == false'
+echo "$result" | jq -e '.context.Service.ExecStart[2].noEnvExpand == true'
+echo "$result" | jq -e '.context.Service.ExecStart[3].viaShell == true'
+echo "$result" | jq -e '.context.Service.ExecStart[3].path == "/bin/sh"'
+echo "$result" | jq -e '.context.Service.ExecStart[3].arguments[0] == "sh"'
+# The unit only becomes active once all ExecStart= commands succeeded (or were allowed to fail)
+timeout 30 bash -c 'until systemctl is-active varlink-transient-execflags.service; do sleep 0.5; done'
+test -e /tmp/varlink-transient-execflags-expanded
+# shellcheck disable=SC2016
+test -e '/tmp/varlink-transient-execflags-${FLAGTEST}'
+test -e /tmp/varlink-transient-execflags-shell
+# The flags must show up as the matching prefix characters in the transient unit file
+fragment=$(systemctl show -P FragmentPath varlink-transient-execflags.service)
+grep -E '^ExecStart=-"/bin/false"$' "$fragment" >/dev/null
+grep -E '^ExecStart=:' "$fragment" >/dev/null
+grep -E '^ExecStart=\|' "$fragment" >/dev/null
+rm -f /tmp/varlink-transient-execflags-*
+
+# Now the privilege related ones, in a unit running as an unprivileged user:
+#  - privileged/noSetuid: the command runs with full privileges, i.e. can write where the user cannot
+#  - (neither): the command runs as the user, and fails to write there (tolerated via ignoreFailure)
+rm -f /run/varlink-transient-execflags-*
+defer_transient_cleanup varlink-transient-execflags-priv.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-execflags-priv.service","Exec":{"User":"nobody"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[
+        {"path":"/usr/bin/touch","arguments":["touch","/run/varlink-transient-execflags-plain"],"ignoreFailure":true},
+        {"path":"/usr/bin/touch","arguments":["touch","/run/varlink-transient-execflags-privileged"],"privileged":true},
+        {"path":"/usr/bin/touch","arguments":["touch","/run/varlink-transient-execflags-nosetuid"],"noSetuid":true}]}}}')
+echo "$result" | jq -e '.context.Service.ExecStart[0].privileged == false'
+echo "$result" | jq -e '.context.Service.ExecStart[1].privileged == true'
+echo "$result" | jq -e '.context.Service.ExecStart[2].noSetuid == true'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-execflags-priv.service; do sleep 0.5; done'
+test ! -e /run/varlink-transient-execflags-plain
+test -e /run/varlink-transient-execflags-privileged
+test -e /run/varlink-transient-execflags-nosetuid
+fragment=$(systemctl show -P FragmentPath varlink-transient-execflags-priv.service)
+grep -E '^ExecStart=\+' "$fragment" >/dev/null
+grep -E '^ExecStart=!' "$fragment" >/dev/null
+rm -f /run/varlink-transient-execflags-*
+
 # Exec.SetCredential: pass a credential and verify the running process can read it
 defer_transient_cleanup varlink-transient-cred.service
 CRED_VALUE_B64=$(printf 'secret-value' | base64 -w0)
@@ -347,6 +402,11 @@ expect_invalid_parameter \
 defer_transient_cleanup varlink-transient-badpath.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-badpath.service","Service":{"Type":"simple","ExecStart":[{"path":""}]}}}' \
+    "Service.ExecStart"
+# The 'privileged' and 'noSetuid' execution flags are mutually exclusive
+defer_transient_cleanup varlink-transient-badflags.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-badflags.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true","privileged":true,"noSetuid":true}]}}}' \
     "Service.ExecStart"
 # Relative WorkingDirectory path is rejected
 defer_transient_cleanup varlink-transient-bad-wd.service

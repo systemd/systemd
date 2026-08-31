@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <paths.h>
+
 #include "sd-bus.h"
 #include "sd-json.h"
 
@@ -654,6 +656,11 @@ void varlink_job_send_removed_signal(Job *j) {
 typedef struct TransientExecCommandItem {
         const char *path;
         char **arguments;
+        bool ignore_failure;
+        bool privileged;
+        bool no_setuid;
+        bool no_env_expand;
+        bool via_shell;
 } TransientExecCommandItem;
 
 static void transient_exec_command_item_done(TransientExecCommandItem *i) {
@@ -819,8 +826,13 @@ static void transient_service_parameters_init(TransientServiceParameters *p) {
 
 static int dispatch_transient_exec_command(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field exec_command_dispatch[] = {
-                { "path",      SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(TransientExecCommandItem, path),      SD_JSON_MANDATORY },
-                { "arguments", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,         offsetof(TransientExecCommandItem, arguments), 0                 },
+                { "path",          SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(TransientExecCommandItem, path),           SD_JSON_MANDATORY },
+                { "arguments",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,         offsetof(TransientExecCommandItem, arguments),      0                 },
+                { "ignoreFailure", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, ignore_failure), 0                 },
+                { "privileged",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, privileged),     0                 },
+                { "noSetuid",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, no_setuid),      0                 },
+                { "noEnvExpand",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, no_env_expand),  0                 },
+                { "viaShell",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, via_shell),      0                 },
                 {}
         };
 
@@ -1694,11 +1706,24 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
         FOREACH_ARRAY(item, sp->exec_start, sp->n_exec_start) {
                 _cleanup_(exec_command_freep) ExecCommand *c = NULL;
                 _cleanup_strv_free_ char **argv = NULL;
+                const char *path = item->path;
 
-                if (!filename_or_absolute_path_is_valid(item->path)) {
+                if (item->privileged && item->no_setuid) {
                         if (reterr_field)
                                 *reterr_field = "Service.ExecStart";
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ExecStart path: %s", item->path);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "ExecStart 'privileged' and 'noSetuid' flags may not be combined.");
+                }
+
+                if (item->via_shell)
+                        /* Always normalize path (and argv[0] below) to "sh", matching the D-Bus and unit
+                         * file counterparts. The real shell of the target user is determined at execution
+                         * time. */
+                        path = _PATH_BSHELL;
+                else if (!filename_or_absolute_path_is_valid(path)) {
+                        if (reterr_field)
+                                *reterr_field = "Service.ExecStart";
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ExecStart path: %s", path);
                 }
 
                 if (!strv_isempty(item->arguments)) {
@@ -1711,13 +1736,29 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
                 if (!c)
                         return -ENOMEM;
 
-                r = path_simplify_alloc(item->path, &c->path);
+                c->flags =
+                        (item->ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0) |
+                        (item->privileged ? EXEC_COMMAND_FULLY_PRIVILEGED : 0) |
+                        (item->no_setuid ? EXEC_COMMAND_NO_SETUID : 0) |
+                        (item->no_env_expand ? EXEC_COMMAND_NO_ENV_EXPAND : 0) |
+                        (item->via_shell ? EXEC_COMMAND_VIA_SHELL : 0);
+
+                r = path_simplify_alloc(path, &c->path);
                 if (r < 0)
                         return r;
 
-                /* If no arguments were provided, default argv[0] to the executable path.
-                 * Otherwise the caller is expected to include argv[0] in the arguments array. */
-                if (strv_isempty(argv)) {
+                if (item->via_shell) {
+                        /* Normalize argv[0] to "sh", preserving login shell semantics requested via a
+                         * leading dash. */
+                        if (strv_isempty(argv))
+                                r = strv_extend(&argv, "sh");
+                        else
+                                r = free_and_strdup(&argv[0], argv[0][0] == '-' ? "-sh" : "sh");
+                        if (r < 0)
+                                return r;
+                } else if (strv_isempty(argv)) {
+                        /* If no arguments were provided, default argv[0] to the executable path.
+                         * Otherwise the caller is expected to include argv[0] in the arguments array. */
                         r = strv_extend(&argv, c->path);
                         if (r < 0)
                                 return r;
@@ -1729,30 +1770,14 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
         }
 
         /* Write ExecStart= lines to the transient file */
-        if (sp->n_exec_start > 0) {
-                UnitWriteFlags esc_flags = UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_EXEC_SYNTAX_ENV;
+        LIST_FOREACH(command, c, s->exec_command[SERVICE_EXEC_START]) {
+                _cleanup_free_ char *a = NULL;
 
-                LIST_FOREACH(command, c, s->exec_command[SERVICE_EXEC_START]) {
-                        _cleanup_free_ char *a = NULL;
+                r = exec_command_to_setting(c, &a);
+                if (r < 0)
+                        return r;
 
-                        a = unit_concat_strv(c->argv, esc_flags);
-                        if (!a)
-                                return -ENOMEM;
-
-                        /* streq() instead path_equal() as argv[0] can be arbitrary and may not be a path */
-                        if (streq(c->path, c->argv[0]))
-                                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "ExecStart", "ExecStart=%s", a);
-                        else {
-                                _cleanup_free_ char *t = NULL;
-                                const char *p;
-
-                                p = unit_escape_setting(c->path, esc_flags, &t);
-                                if (!p)
-                                        return -ENOMEM;
-
-                                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "ExecStart", "ExecStart=@%s %s", p, a);
-                        }
-                }
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "ExecStart", "ExecStart=%s", a);
         }
 
         return 0;
