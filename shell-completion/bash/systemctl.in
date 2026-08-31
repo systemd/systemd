@@ -134,7 +134,7 @@ _systemctl () {
                       --help -h --no-ask-password --no-block --legend=no --no-pager --no-reload --no-wall --now
                       --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
                       --show-types --plain --failed --value --fail --dry-run --wait --no-warn --with-dependencies
-                      --show-transaction -T --mkdir --read-only --kernel-cmdline-reuse'
+                      --show-transaction -T --mkdir --read-only --kernel-cmdline-reuse --verbose -v'
         [ARG]='--host -H --kill-whom --property -p -P --signal -s --type -t --state --job-mode --root
                --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors --what
                --image --boot-loader-menu --boot-loader-entry --reboot-argument --kernel-cmdline --drop-in --when'
@@ -224,6 +224,7 @@ _systemctl () {
         [FAILED_UNITS]='reset-failed'
         [STARTABLE_UNITS]='start'
         [STOPPABLE_UNITS]='stop condstop kill try-restart condrestart freeze thaw'
+        [WAITABLE_UNITS]='wait'
         [ISOLATABLE_UNITS]='isolate'
         [RELOADABLE_UNITS]='reload condreload try-reload-or-restart force-reload'
         [RESTARTABLE_UNITS]='restart reload-or-restart'
@@ -315,6 +316,10 @@ _systemctl () {
 
     elif __contains_word "$verb" ${VERBS[STOPPABLE_UNITS]}; then
         comps=$( __get_stoppable_units $mode "$cur" )
+        compopt -o filenames
+
+    elif __contains_word "$verb" ${VERBS[WAITABLE_UNITS]}; then
+        comps=$( __get_active_units $mode "$cur" )
         compopt -o filenames
 
     elif __contains_word "$verb" ${VERBS[RELOADABLE_UNITS]}; then
