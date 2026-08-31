@@ -232,7 +232,7 @@ manual_testcase_01_resolvectl() {
     ip link add hoge.foo type dummy
 
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         ip link del hoge
         ip link del hoge.foo
@@ -349,6 +349,7 @@ manual_testcase_02_mdns_llmnr() {
     ip link add hoge.foo type dummy
 
     # Cleanup
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-mdns-llmnr.conf
         ip link del hoge
@@ -915,7 +916,7 @@ testcase_08_resolved() {
 
 testcase_09_resolvectl_showcache() {
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-resolved.conf
         rm -f /run/systemd/network/10-dns2.netdev
@@ -977,7 +978,7 @@ testcase_10_resolvectl_json() {
     local status_json
 
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-fallback.conf
         systemctl reload systemd-resolved.service
@@ -1148,7 +1149,7 @@ testcase_11_nft() {
 # Test resolvectl show-server-state
 testcase_12_resolvectl2() {
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-reload.conf
         systemctl reload systemd-resolved.service
@@ -1250,7 +1251,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
     fi
 
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         echo "===== io.systemd.Resolve.Monitor.SubscribeDNSConfiguration output: ====="
         cat "$tmpfile"
@@ -1327,7 +1328,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
 
 # Test RefuseRecordTypes
 testcase_14_refuse_record_types() {
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-refuserecords.conf
         restart_resolved
@@ -1489,7 +1490,7 @@ testcase_14_refuse_record_types() {
 # Test systemd-networkd-wait-online interactions with systemd-resolved
 testcase_15_wait_online_dns() {
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         echo "===== journalctl -u $unit ====="
         journalctl -b --no-pager --no-hostname --full -u "$unit"
