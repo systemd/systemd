@@ -7197,13 +7197,14 @@ int tpm2_unseal(Tpm2Context *c,
          *   -ENOLCK          → TPM is in dictionary lockout mode
          *   -EREMCHG         → submitted policy doesn't match NV index stored policy (in case of PolicyAuthorizeNV)
          *   -ENOANO          → none of the PolicyOR branches of a policy matched current state
-         *   -EUCLEAN         → PCR state doesn't match expectations
+         *   -EUCLEAN         → PCR state kept changing while we built the policy
          *   -EPERM           → stored policy does not match TPM state
          *   -ENOTRECOVERABLE → all other kinds of TPM errors
          *   -EILSEQ          → bad PIN
          *
-         * Of these all four of EREMCHG, ENOANO, EUCLEAN, EPERM can all mean that PCR state is not matching
-         * expectations. */
+         * Of these EREMCHG, ENOANO and EPERM mean that PCR state is not matching expectations. EUCLEAN means
+         * some PCR got extended while we were submitting the policy, which we retry RETRY_UNSEAL_MAX times,
+         * and only report if it keeps happening. */
 
         TSS2_RC rc;
         int r;
@@ -7361,7 +7362,12 @@ int tpm2_unseal(Tpm2Context *c,
                                         !!pin,
                                         (shard == 1 || !iovec_is_set(pubkey)) ? pcrlock_policy : NULL,
                                         &policy_digest);
-                        if (r == -EUCLEAN && i > 0) {
+                        if (r == -EUCLEAN) {
+                                /* If after RETRY_UNSEAL_MAX attempts still fail, report the real error.  The
+                                 * usual suspect is IMA (PCR 10) when secure boot is enabled. */
+                                if (i == 0)
+                                        return log_error_errno(r, "PCR values kept changing while building the TPM2 policy, giving up after %u attempts. Something on this system extends a PCR continuously.", RETRY_UNSEAL_MAX);
+
                                 log_debug("A PCR value changed during the TPM2 policy session, restarting HMAC key unsealing (%u tries left).", i);
                                 retry = true;
                                 break;
@@ -7403,7 +7409,13 @@ int tpm2_unseal(Tpm2Context *c,
                                         encryption_session->esys_handle, /* use HMAC session to enable parameter encryption */
                                         ESYS_TR_NONE,
                                         &unsealed);
-                        if (rc == TPM2_RC_PCR_CHANGED && i > 0) {
+                        if (rc == TPM2_RC_PCR_CHANGED) {
+                                /* Same as before with -EUCLEAN, report the last attempt to show the real
+                                 * error. */
+                                if (i == 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                               "PCR values kept changing while unsealing, giving up after %u attempts. Something on this system extends a PCR continuously.", RETRY_UNSEAL_MAX);
+
                                 log_debug("A PCR value changed during the TPM2 policy session, restarting HMAC key unsealing (%u tries left).", i);
                                 retry = true;
                                 break;
@@ -9825,15 +9837,10 @@ int tpm2_policy_super_pcr(
                                 session,
                                 &pcr_selection,
                                 &current_policy_digest);
-                if (r == -EUCLEAN) {
-                        _cleanup_free_ char *j = NULL;
-
-                        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++)
-                                if (single_value_pcrs & (UINT32_C(1) << pcr))
-                                        (void) strextendf_with_separator(&j, ", ", "%" PRIu32, pcr);
-
-                        return log_error_errno(r, "Combined value for PCR(s) %s encoded in policy does not match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", strna(j));
-                }
+                /* EUCLEAN is happening when as PCR gets extended during the TPM2 operation.  We report is as
+                 * debug and not as a fatal error. */
+                if (r == -EUCLEAN)
+                        return log_debug_errno(r, "PCR state changed while submitting the combined PolicyPCR expression, session needs to be restarted.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
 
@@ -9865,7 +9872,7 @@ int tpm2_policy_super_pcr(
                                 &pcr_selection,
                                 &current_policy_digest);
                 if (r == -EUCLEAN)
-                        return log_error_errno(r, "Value for PCR %" PRIu32 " encoded in policy does not match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", pcr);
+                        return log_debug_errno(r, "PCR state changed while submitting the PolicyPCR expression for PCR %" PRIu32 ", session needs to be restarted.", pcr);
                 if (r < 0)
                         return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
 
