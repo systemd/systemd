@@ -4,6 +4,7 @@
 import os
 import subprocess
 import sys
+from collections.abc import Iterator
 
 NAME_TO_MAGIC = {
     'apparmorfs':      ['AAFS_MAGIC'],
@@ -341,10 +342,10 @@ def generate_filesystem_sets():
     print('};')
 
 
-def magic_defines():
+def magic_defines(args: list[str]) -> Iterator[str]:
     cpp = os.environ['CPP'].split()
     out = subprocess.check_output(
-        [*cpp, '-dM', '-include', 'linux/magic.h', '-'],
+        [*cpp, '-dM', '-include', 'linux/magic.h'] + args + ['-'],
         stdin=subprocess.DEVNULL,
         text=True,
     )
@@ -365,8 +366,8 @@ def magic_defines():
             yield name
 
 
-def check():
-    kernel_magics = set(magic_defines())
+def check(args: list[str]) -> None:
+    kernel_magics = set(magic_defines(args))
     our_magics = set(sum(NAME_TO_MAGIC.values(), start=[]))
     extra = kernel_magics - our_magics
     if extra:
@@ -374,7 +375,9 @@ def check():
 
 
 if __name__ == '__main__':
-    for arg in sys.argv[1:]:
+    args = sys.argv[1:]
+
+    for i, arg in enumerate(args):
         if arg == 'gperf':
             generate_gperf()
         elif arg == 'fs-type-to-string':
@@ -384,6 +387,8 @@ if __name__ == '__main__':
         elif arg == 'fs-in-group':
             generate_fs_in_group()
         elif arg == 'check':
-            check()
+            # 'check' must be the last command; pass the remaining arguments to check().
+            check(args[i + 1 :])
+            break
         else:
             raise ValueError

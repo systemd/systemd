@@ -203,7 +203,7 @@ basic_sources += [filesystem_sets_c, filesystems_gperf_h]
 
 test('kernel-filesystem-magics',
      filesystem_sets_py,
-     args : ['check'],
+     args : ['check'] + system_include_args,
      env : ['CPP=@0@'.format(cpp)])
 
 libbasic_static = static_library(
