@@ -200,12 +200,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - portabled driving by system credential
 
-- sysinstall: add fully automatic mode that automatically picks target disk,
-  non-interactively. Should wait to ensure system is up for a certain amount of
-  minimal time (alternatively: certain amount of time since the last disk
-  showed up), to ensure disks have shown up before making the decision. Usecase
-  for this: redfish style server provisioning.
-
 - nspawn: optionally provide a /dev/tpm0 + /dev/tpmrm0 that is backed by swtpm,
   much like we do in vmspawn. let's us minimize differences between
   environments systemd runs in.
@@ -334,7 +328,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   partition with a portable service partition in one.
 
 - **systemd-sysinstall:**
-  - make systemd-sysinstall itself a varlink service
   - read installation definition from json file
   - polkit support in sysinstall
   - sysinstall: permit driving installer via credentials
