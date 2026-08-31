@@ -57,6 +57,8 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
         if (service->manager)
                 hashmap_remove(service->manager->dnssd_registered_services, service->id);
 
+        sd_bus_track_unref(service->bus_track);
+
         dns_resource_record_unref(service->ptr_rr);
         dns_resource_record_unref(service->sub_ptr_rr);
         dns_resource_record_unref(service->srv_rr);
