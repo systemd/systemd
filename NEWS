@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 262:
+CHANGES WITH 262 in spe:
 
         Feature Removals and Incompatible Changes:
 
@@ -701,6 +701,8 @@ CHANGES WITH 262:
         logical-misha, lucia-huang7, lzwind, quanyeyang, r-vdp, rashidmya,
         rodin-ia, totoro, tunaichao, wangzhaohui, wyu, xiahualiu, zhaoshuang,
         zouge666, Марко Костић (Marko Kostić), 김인수
+
+        — Edinburgh, 2026/08/31
 
 CHANGES WITH 261:
 
