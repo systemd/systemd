@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-import os
+import shlex
 import subprocess
 import sys
+from collections.abc import Iterator
 
 NAME_TO_MAGIC = {
     'apparmorfs':      ['AAFS_MAGIC'],
@@ -49,6 +50,7 @@ NAME_TO_MAGIC = {
     'ext4':            ['EXT4_SUPER_MAGIC'],
     'exfat':           ['EXFAT_SUPER_MAGIC'],
     'f2fs':            ['F2FS_SUPER_MAGIC'],
+    'failfs':          ['FAIL_FS_MAGIC'],
     # fuseblk is so closely related to fuse that it shares the same magic
     'fuseblk':         ['FUSE_SUPER_MAGIC'],
     'fuse':            ['FUSE_SUPER_MAGIC'],
@@ -340,10 +342,11 @@ def generate_filesystem_sets():
     print('};')
 
 
-def magic_defines():
-    cpp = os.environ['CPP'].split()
+def magic_defines(args: list[str]) -> Iterator[str]:
+    cpp = shlex.split(args[0])
+    include_dirs = args[1:]
     out = subprocess.check_output(
-        [*cpp, '-dM', '-include', 'linux/magic.h', '-'],
+        [*cpp, '-dM', '-include', 'linux/magic.h', *include_dirs, '-'],
         stdin=subprocess.DEVNULL,
         text=True,
     )
@@ -364,8 +367,8 @@ def magic_defines():
             yield name
 
 
-def check():
-    kernel_magics = set(magic_defines())
+def check(args: list[str]) -> None:
+    kernel_magics = set(magic_defines(args))
     our_magics = set(sum(NAME_TO_MAGIC.values(), start=[]))
     extra = kernel_magics - our_magics
     if extra:
@@ -373,7 +376,9 @@ def check():
 
 
 if __name__ == '__main__':
-    for arg in sys.argv[1:]:
+    args = sys.argv[1:]
+
+    for i, arg in enumerate(args):
         if arg == 'gperf':
             generate_gperf()
         elif arg == 'fs-type-to-string':
@@ -383,6 +388,8 @@ if __name__ == '__main__':
         elif arg == 'fs-in-group':
             generate_fs_in_group()
         elif arg == 'check':
-            check()
+            # 'check' must be the last command; pass the remaining arguments to check().
+            check(args[i + 1 :])
+            break
         else:
             raise ValueError
