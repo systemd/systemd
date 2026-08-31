@@ -436,6 +436,78 @@ manual_testcase_02_mdns_llmnr() {
     assert_in 'no' "$(resolvectl llmnr hoge)"
 }
 
+# Test for the D-Bus RegisterService()/UnregisterService() API
+manual_testcase_03_register_service() {
+    local cursor_file="" invocation_id
+
+    # Cleanup
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/90-mdns.conf "${cursor_file:-}"
+        ip link del mdns99 2>/dev/null || :
+        systemctl reload systemd-resolved.service
+    }
+
+    trap cleanup RETURN ERR
+
+    mkdir -p /run/systemd/resolved.conf.d
+    {
+        echo "[Resolve]"
+        echo "MulticastDNS=yes"
+    } >/run/systemd/resolved.conf.d/90-mdns.conf
+    restart_resolved
+    resolvectl log-level debug
+
+    # resolved is restarted automatically if it crashes (Restart=always), which would let the checks below
+    # pass for the wrong reason, so remember the invocation and verify it stayed the same at the end.
+    invocation_id=$(systemctl show -P InvocationID systemd-resolved.service)
+
+    # Make sure at least one link carries mDNS scopes, so that unregistration actually runs the
+    # per-scope goodbye/zone teardown.
+    ip link add mdns99 type dummy
+    ip link set mdns99 up
+    resolvectl mdns mdns99 yes
+
+    cursor_file=$(mktemp)
+    journalctl -n 0 --cursor-file="$cursor_file"
+
+    # The lifetime of a registered service is bound to the bus connection of the client that registered
+    # it. busctl disconnects right after the call, so the service should be unregistered again shortly
+    # after. Wait for the vanish handler log message as proof that the client tracking triggered the
+    # unregistration. See testcase_15_wait_online_dns() for why journalctl -f | grep -m1 is not used here.
+    assert_in '/org/freedesktop/resolve1/dnssd/testservice' \
+              "$(busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+                     RegisterService 'sssqqqaa{say}' testservice '%H' _testservice._tcp 1234 0 0 0)"
+
+    timeout 30 bash -c "until journalctl --after-cursor=\"\$(cat \"$cursor_file\")\" SYSLOG_IDENTIFIER=systemd-resolved --grep \"Client of DNS-SD service 'testservice' vanished, unregistering.\" >/dev/null 2>&1; do sleep .5; done"
+
+    assert_not_in 'dnssd/testservice' "$(busctl tree org.freedesktop.resolve1)"
+
+    # Unregistering it again should fail specifically because the service is gone (busctl prints the
+    # D-Bus error message, not the error name), i.e. not because resolved crashed or the bus connection
+    # failed.
+    assert_in "DNS-SD service 'testservice' not known" \
+              "$(busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+                     UnregisterService 'o' /org/freedesktop/resolve1/dnssd/testservice 2>&1 || :)"
+
+    # Re-registering the same identifier must succeed: before client tracking worked, the identifier
+    # stayed taken by the vanished client's service and this failed with DNSSD_SERVICE_EXISTS. Take a
+    # fresh cursor so the wait below cannot match the first round's identical message.
+    rm -f "$cursor_file"
+    journalctl -n 0 --cursor-file="$cursor_file"
+    assert_in '/org/freedesktop/resolve1/dnssd/testservice' \
+              "$(busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+                     RegisterService 'sssqqqaa{say}' testservice '%H' _testservice._tcp 1234 0 0 0)"
+
+    timeout 30 bash -c "until journalctl --after-cursor=\"\$(cat \"$cursor_file\")\" SYSLOG_IDENTIFIER=systemd-resolved --grep \"Client of DNS-SD service 'testservice' vanished, unregistering.\" >/dev/null 2>&1; do sleep .5; done"
+
+    assert_not_in 'dnssd/testservice' "$(busctl tree org.freedesktop.resolve1)"
+
+    # resolved must not have crashed and gotten restarted along the way.
+    assert_eq "$(systemctl show -P InvocationID systemd-resolved.service)" "$invocation_id"
+    systemctl is-active systemd-resolved.service
+}
+
 testcase_03_23951() {
     : "--- nss-resolve/nss-myhostname tests"
 
@@ -1725,6 +1797,7 @@ systemctl enable --now systemd-resolved.service
 # Need to be run before SETUP, otherwise things will break
 manual_testcase_01_resolvectl
 manual_testcase_02_mdns_llmnr
+manual_testcase_03_register_service
 
 # Run setup
 setup
