@@ -19,6 +19,12 @@ at_exit() {
 
     systemctl log-level "$ORIG_LOG_LEVEL"
 
+    # The "systemctl wait" subtest leaves units in failed state behind (wait-sigkill.service may even still
+    # be running its "sleep 60" if the subtest aborted midway), which would leak into the remaining subtests
+    # of this file, hence clean up unconditionally here.
+    systemctl stop wait2.service wait5fail.service wait-exit7.service wait-sigkill.service wait-log.service
+    systemctl reset-failed wait2.service wait5fail.service wait-exit7.service wait-sigkill.service wait-log.service
+
     if [[ -v UNIT_NAME && -e /run/systemd/system/"$UNIT_NAME" ]]; then
         systemctl stop "$UNIT_NAME"
         rm -f /run/systemd/system/"$UNIT_NAME"
@@ -115,6 +121,50 @@ START_SEC=$(date -u '+%s')
 END_SEC=$(date -u '+%s')
 ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 5 ]]
+
+# Test "systemctl wait"
+# An already inactive unit terminates the wait immediately, successfully
+timeout 5 systemctl wait wait2.service
+
+# A running unit is waited for until it terminates
+systemctl --no-block start wait2.service
+START_SEC=$(date -u '+%s')
+timeout 10 systemctl wait wait2.service
+END_SEC=$(date -u '+%s')
+ELAPSED=$((END_SEC-START_SEC))
+[[ "$ELAPSED" -ge 1 ]]
+
+# The exit status of the unit's main process is propagated
+systemctl --no-block start wait5fail.service
+assert_rc 1 timeout 10 systemctl wait wait5fail.service
+systemd-run --no-block --unit=wait-exit7.service bash -c 'sleep 2; exit 7'
+assert_rc 7 systemctl wait wait-exit7.service
+# ... with termination by signal reported as 255
+systemd-run --unit=wait-sigkill.service sleep 60
+systemctl kill --signal=SIGKILL wait-sigkill.service
+assert_rc 255 timeout 10 systemctl wait wait-sigkill.service
+
+# A summary is shown on stdout, unless --quiet is given
+systemctl --no-block start wait2.service
+systemctl wait wait2.service | grep "Finished with result" >/dev/null
+systemctl --no-block start wait2.service
+OUT="$(timeout 10 systemctl --quiet wait wait2.service)"
+[[ -z "$OUT" ]]
+
+# --verbose forwards the unit's log output
+systemd-run --no-block --unit=wait-log.service bash -c 'echo hello-from-wait; sleep 2'
+systemctl --verbose wait wait-log.service 2>&1 | grep hello-from-wait >/dev/null
+
+# A non-existent unit is treated as terminated successfully, with a message in place of the summary
+systemctl wait nonexistent.service | grep "does not exist" >/dev/null
+OUT="$(systemctl --quiet wait nonexistent.service)"
+[[ -z "$OUT" ]]
+
+# A unit type without a Result property (e.g. a target) exits successfully once inactive
+timeout 5 systemctl wait hello-after-sleep.target
+
+# Template unit names are refused
+(! systemctl wait 'foo@.service')
 
 # Test time-limited scopes
 START_SEC=$(date -u '+%s')
