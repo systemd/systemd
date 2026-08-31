@@ -146,6 +146,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><keycap>c</keycap></term>
+        <listitem><para>Enter a credential name and value for the selected unified kernel image. The
+        credential is passed to userspace through a volatile EFI variable and, during measured boot,
+        measured into the <literal>interactive-credentials</literal> NvPCR. Once at least one credential has
+        been entered, a <literal>Clear Runtime Credentials</literal> entry is added to the menu. Selecting it
+        clears all credentials entered during this boot-menu session.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><keycap>d</keycap></term>
         <listitem><para>Make selected entry the preferred boot entry</para>
 
