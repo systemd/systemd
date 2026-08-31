@@ -10,16 +10,19 @@
 #include "log.h"
 #include "string-util.h"
 #include "unit-def.h"
+#include "unit-result.h"
 
 typedef struct WaitForItem {
         BusWaitForUnits *parent;
 
         BusWaitForUnitsFlags flags;
 
+        char *name;
         char *bus_path;
 
         sd_bus_slot *slot_get_all;
         sd_bus_slot *slot_properties_changed;
+        sd_bus_slot *slot_collect_result;
 
         bus_wait_for_units_unit_callback_t unit_callback;
         void *userdata;
@@ -28,6 +31,8 @@ typedef struct WaitForItem {
         uint32_t job_id;
         char *clean_result;
         char *live_mount_result;
+
+        UnitResult result;
 } WaitForItem;
 
 typedef struct BusWaitForUnits {
@@ -67,7 +72,11 @@ static WaitForItem* wait_for_item_free(WaitForItem *item) {
 
         sd_bus_slot_unref(item->slot_properties_changed);
         sd_bus_slot_unref(item->slot_get_all);
+        sd_bus_slot_unref(item->slot_collect_result);
 
+        unit_result_done(&item->result);
+
+        free(item->name);
         free(item->bus_path);
         free(item->active_state);
         free(item->clean_result);
@@ -80,7 +89,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(WaitForItem*, wait_for_item_free);
 
 static void call_unit_callback_and_wait(BusWaitForUnits *d, WaitForItem *item, bool good) {
         if (item->unit_callback)
-                item->unit_callback(d, item->bus_path, good, item->userdata);
+                item->unit_callback(d,
+                                    item->name,
+                                    good,
+                                    FLAGS_SET(item->flags, BUS_WAIT_COLLECT_RESULT) ? &item->result : NULL,
+                                    item->userdata);
 
         wait_for_item_free(item);
 }
@@ -172,6 +185,45 @@ static void bus_wait_for_units_check_ready(BusWaitForUnits *d) {
         d->state = d->has_failed ? BUS_WAIT_FAILURE : BUS_WAIT_SUCCESS;
 }
 
+static int on_collect_result(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+        WaitForItem *item = ASSERT_PTR(userdata);
+        BusWaitForUnits *d = ASSERT_PTR(item->parent);
+        const sd_bus_error *e;
+        bool good = true;
+        int r;
+
+        assert(m);
+
+        e = sd_bus_message_get_error(m);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+                log_debug_errno(r, "Failed to query final state of unit %s: %s",
+                                item->name, bus_error_message(e, r));
+                good = false;
+        } else {
+                r = bus_message_map_all_properties(
+                                m,
+                                unit_result_property_map,
+                                BUS_MAP_STRDUP,
+                                /* reterr_error= */ NULL,
+                                &item->result);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse final state of unit %s: %m", item->name);
+                        good = false;
+                }
+        }
+
+        /* If we couldn't determine how the unit finished, propagate this as failure, so that callers don't
+         * mistake an empty result for a successfully collected one. */
+        if (!good)
+                d->has_failed = true;
+
+        call_unit_callback_and_wait(d, item, good);
+        bus_wait_for_units_check_ready(d);
+
+        return 0;
+}
+
 static void wait_for_item_check_ready(WaitForItem *item) {
         BusWaitForUnits *d;
 
@@ -199,6 +251,36 @@ static void wait_for_item_check_ready(WaitForItem *item) {
                         d->has_failed = true;
                 else if (!streq_ptr(item->active_state, "inactive"))
                         return;
+        }
+
+        if (FLAGS_SET(item->flags, BUS_WAIT_COLLECT_RESULT)) {
+                int r;
+
+                if (item->slot_collect_result) /* Query already in progress? */
+                        return;
+
+                /* Now that the unit is done, query its final state and resource usage asynchronously, so
+                 * that we can pass the data to the callback. Note that a full GetAll() query covering all
+                 * interfaces is necessary for this, since the various resource accounting properties are not
+                 * included in PropertiesChanged signals. */
+                r = sd_bus_call_method_async(
+                                d->bus,
+                                &item->slot_collect_result,
+                                "org.freedesktop.systemd1",
+                                item->bus_path,
+                                "org.freedesktop.DBus.Properties",
+                                "GetAll",
+                                on_collect_result,
+                                item,
+                                "s", "");
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to query final state of unit %s: %m", item->name);
+                        d->has_failed = true;
+                        call_unit_callback_and_wait(d, item, false);
+                        bus_wait_for_units_check_ready(d);
+                }
+
+                return;
         }
 
         call_unit_callback_and_wait(d, item, true);
@@ -308,7 +390,12 @@ int bus_wait_for_units_add_unit(
                 .unit_callback = callback,
                 .userdata = userdata,
                 .job_id = UINT32_MAX,
+                .result = UNIT_RESULT_INIT,
         };
+
+        item->name = strdup(unit);
+        if (!item->name)
+                return -ENOMEM;
 
         if (!FLAGS_SET(item->flags, BUS_WAIT_REFFED)) {
                 r = sd_bus_call_method_async(
