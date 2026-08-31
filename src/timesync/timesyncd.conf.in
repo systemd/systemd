@@ -24,3 +24,4 @@
 #PollIntervalMaxSec=2048
 #ConnectionRetrySec=30
 #SaveIntervalSec=60
+#MaxClockChangeSec=infinity
