@@ -201,10 +201,15 @@ filesystems_gperf_h = custom_target(
 generated_sources += [filesystem_sets_c, filesystems_gperf_gperf, filesystems_gperf_h]
 basic_sources += [filesystem_sets_c, filesystems_gperf_h]
 
+cmd='CPP=@0@'.format(cpp)
+foreach i : system_include_args
+        cmd += ' @0@'.format(i)
+endforeach
+
 test('kernel-filesystem-magics',
      filesystem_sets_py,
      args : ['check'],
-     env : ['CPP=@0@'.format(cpp)])
+     env : [cmd])
 
 libbasic_static = static_library(
         'basic',
