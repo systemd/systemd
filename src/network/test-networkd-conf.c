@@ -466,6 +466,75 @@ TEST(config_parse_multipath_route) {
         test_config_parse_multipath_route_one("@wg0 abc", 0, 0); /* Non-numeric */
 }
 
+static void test_config_parse_dhcp_request_options_helper(int ltype, const char *rvalue, Set *expected) {
+        _cleanup_(network_unrefp) Network *network = NULL;
+        ASSERT_NOT_NULL(network = new0(Network, 1));
+        network->n_ref = 1;
+
+        ASSERT_OK(config_parse_dhcp_request_options("network", "filename", 1, "section", 1, "RequestOptions",
+                                                    ltype, rvalue, network, network));
+        if (ltype == AF_INET) {
+                ASSERT_TRUE(set_equal(expected, network->dhcp_request_options));
+                ASSERT_NULL(network->dhcp6_request_options);
+        } else {
+                ASSERT_TRUE(set_equal(expected, network->dhcp6_request_options));
+                ASSERT_NULL(network->dhcp_request_options);
+        }
+}
+
+TEST(config_parse_dhcp_request_options) {
+        _cleanup_(set_freep) Set *expected_options = set_new(NULL);
+
+        /* Empty string parses without error */
+        set_clear(expected_options);
+        test_config_parse_dhcp_request_options_helper(AF_INET, "", expected_options);
+
+        set_clear(expected_options);
+        test_config_parse_dhcp_request_options_helper(AF_INET6, "", expected_options);
+
+        /* Valid DHCPv4 range 1-254 is accepted */
+        set_clear(expected_options);
+        ASSERT_OK(set_put(expected_options, UINT32_TO_PTR(1)));
+        ASSERT_OK(set_put(expected_options, UINT32_TO_PTR(254)));
+        test_config_parse_dhcp_request_options_helper(AF_INET, "1 254", expected_options);
+
+        /* Non-valid DHCPv4 options 0 and 255 are ignored */
+        set_clear(expected_options);
+        test_config_parse_dhcp_request_options_helper(AF_INET, "0 255", expected_options);
+
+        /* Non 8 bit DHCPv4 options -1 and 256 are ignored */
+        set_clear(expected_options);
+        test_config_parse_dhcp_request_options_helper(AF_INET, "-1 256", expected_options);
+
+        /* Valid DHCPv6 range 1-65535 is accepted */
+        set_clear(expected_options);
+        ASSERT_OK(set_put(expected_options, UINT32_TO_PTR(1)));
+        ASSERT_OK(set_put(expected_options, UINT32_TO_PTR(65535)));
+        test_config_parse_dhcp_request_options_helper(AF_INET6, "1 65535", expected_options);
+
+        /* Non-valid DHCPv6 option 0 is ignored */
+        set_clear(expected_options);
+        test_config_parse_dhcp_request_options_helper(AF_INET6, "0", expected_options);
+
+        /* Non 16 bit DHCPv6 options -1 and 65536 are ignored */
+        set_clear(expected_options);
+        test_config_parse_dhcp_request_options_helper(AF_INET, "-1 65536", expected_options);
+
+        /* Quoted values are ignored */
+        set_clear(expected_options);
+        test_config_parse_dhcp_request_options_helper(AF_INET, "\"1\"", expected_options);
+
+        set_clear(expected_options);
+        test_config_parse_dhcp_request_options_helper(AF_INET6, "\"1\"", expected_options);
+
+        /* Non-numeric values are ignored */
+        set_clear(expected_options);
+        test_config_parse_dhcp_request_options_helper(AF_INET, "test", expected_options);
+
+        set_clear(expected_options);
+        test_config_parse_dhcp_request_options_helper(AF_INET6, "test", expected_options);
+}
+
 TEST(config_parse_stacked_netdev) {
         _cleanup_hashmap_free_ Hashmap *netdevs = NULL;
         ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VLAN", NETDEV_KIND_VLAN, "foo bar baz invalid:name", &netdevs, NULL));
