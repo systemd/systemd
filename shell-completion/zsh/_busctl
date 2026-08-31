@@ -303,7 +303,7 @@ _arguments \
     '(-q --quiet)'{-q,--quiet}'[Do not show method call reply]'\
     '--verbose[Show result values in long format]' \
     '--xml-interface[Dump the XML description in introspect command]' \
-    '--json=[Show result values in long format]:format:_busctl_get_json' \
+    '--json=[Shows output formatted as JSON]:format:_busctl_get_json' \
     '-j[Show pretty json in interactive sessions, short json otherwise]' \
     '--expect-reply=[Expect a method call reply]:boolean:(1 0)' \
     '--auto-start=[Auto-start destination service]:boolean:(1 0)' \
