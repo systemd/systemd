@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
 
@@ -2238,6 +2239,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         putchar('\n');
+
+        /* All questions asked, we are about to begin the installation. Let the service manager know (it's
+         * fine if we sent READY=1 before already, e.g. from the device auto-pick logic). */
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
 
         r = sysinstall_context_run(&context);
         if (r < 0)
