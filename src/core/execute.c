@@ -2317,6 +2317,14 @@ void exec_command_append_list(ExecCommand **l, ExecCommand *e) {
                 *l = e;
 }
 
+char* exec_command_flags_to_exec_chars(ExecCommandFlags flags) {
+        return strjoin(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE)   ? "-" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND)    ? ":" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) ? "+" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)        ? "|" : "");
+}
+
 int exec_command_set(ExecCommand *c, const char *path, ...) {
         va_list ap;
         char **l, *p;
