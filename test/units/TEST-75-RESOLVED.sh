@@ -436,6 +436,55 @@ manual_testcase_02_mdns_llmnr() {
     assert_in 'no' "$(resolvectl llmnr hoge)"
 }
 
+# Test for the D-Bus RegisterService()/UnregisterService() API
+manual_testcase_03_register_service() {
+    local since
+
+    # Cleanup
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/90-mdns.conf
+        systemctl reload systemd-resolved.service
+    }
+
+    trap cleanup RETURN ERR
+
+    mkdir -p /run/systemd/resolved.conf.d
+    {
+        echo "[Resolve]"
+        echo "MulticastDNS=yes"
+    } >/run/systemd/resolved.conf.d/90-mdns.conf
+    restart_resolved
+    resolvectl log-level debug
+
+    since=$(date '+%F %T')
+
+    # The lifetime of a registered service is bound to the bus connection of the client that registered
+    # it. busctl disconnects right after the call, so the service should be unregistered again shortly
+    # after.
+    assert_in '/org/freedesktop/resolve1/dnssd/testservice' \
+              "$(busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+                     RegisterService 'sssqqqaa{say}' testservice '%H' _testservice._tcp 1234 0 0 0)"
+
+    # Wait for the vanish handler to kick in, which is the observable proof that the client tracking
+    # actually triggered the unregistration.
+    (
+        set +o pipefail
+        timeout -v 30s journalctl -u systemd-resolved.service --since "$since" -f --full | \
+            grep -m1 "Client of DNS-SD service 'testservice' vanished, unregistering."
+    )
+
+    (! busctl tree org.freedesktop.resolve1 | grep dnssd/testservice >/dev/null)
+
+    # Unregistering it again should fail with a specific error, i.e. not because resolved crashed or the
+    # bus connection failed.
+    assert_in 'org.freedesktop.resolve1.NoSuchDnssdService' \
+              "$(busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+                     UnregisterService 'o' /org/freedesktop/resolve1/dnssd/testservice 2>&1 || :)"
+
+    systemctl is-active systemd-resolved.service
+}
+
 testcase_03_23951() {
     : "--- nss-resolve/nss-myhostname tests"
 
@@ -1725,6 +1774,7 @@ systemctl enable --now systemd-resolved.service
 # Need to be run before SETUP, otherwise things will break
 manual_testcase_01_resolvectl
 manual_testcase_02_mdns_llmnr
+manual_testcase_03_register_service
 
 # Run setup
 setup
