@@ -4,6 +4,19 @@ CHANGES WITH 262:
 
         Feature Removals and Incompatible Changes:
 
+        * DNS-SD services registered via systemd-resolved's D-Bus method
+          org.freedesktop.resolve1.Manager.RegisterService() are now
+          unregistered automatically when the client that registered them
+          disconnects from the bus, as originally intended and matching the
+          behavior of the equivalent Avahi API. Due to a bug the client
+          tracking never worked, and such services used to stay registered
+          until systemd-resolved exited (but did not survive a restart of the
+          daemon either). Clients must now keep their bus connection open for
+          as long as the service shall remain registered; one-shot
+          registrations, e.g. via busctl or gdbus, will be withdrawn again as
+          soon as the tool exits. To register a DNS-SD service independently
+          of a client's lifetime, use *.dnssd files, see systemd.dnssd(5).
+
         * Meson options '-Dlibiptc=' (deprecated in v259), '-Dlibidn=',
           '-Drc-local=', '-Dsysvinit-path=', and '-Dsysvrcnd-path=' (deprecated
           in v260) have been removed.
