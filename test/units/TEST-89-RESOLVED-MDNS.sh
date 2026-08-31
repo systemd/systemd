@@ -358,17 +358,22 @@ testcase_mdns_goodbye_on_stop() {
 
     # RFC 6762 §8.3 wants unsolicited announcements -- goodbyes included -- sent at least twice,
     # one second apart: by the time 'systemctl stop' returned, resolved held its exit for the
-    # grace second and retransmitted. Both transmissions log at debug level; poll briefly since
-    # the linked journal can lag the stop.
-    local goodbyes=0
+    # grace second and retransmitted. Count the passes that actually put records on the wire, not
+    # the "sending goodbyes" line: that one is logged once per pass before any scope is walked, so
+    # it still appears twice for a second pass that emits nothing. Poll briefly, since the linked
+    # journal can lag the stop.
+    local goodbyes=0 journal
     for _ in {0..9}; do
-        goodbyes="$( { journalctl -M "$CONTAINER_2" -u systemd-resolved.service --since "$since" || :; } \
-                     | { grep -c "Sending mDNS goodbye announcements" || :; })"
+        journal="$(journalctl -M "$CONTAINER_2" -u systemd-resolved.service --since "$since" || :)"
+        goodbyes="$(awk '
+            /Sending mDNS goodbye announcements/ { if (emitted) passes++; emitted = 0; in_pass = 1; next }
+            in_pass && /mDNS announcement packet\(s\) carrying [1-9][0-9]* record\(s\)/ { emitted = 1 }
+            END { if (emitted) passes++; print passes + 0 }' <<<"$journal")"
         if [[ "$goodbyes" -ge 2 ]]; then break; fi
         sleep 1
     done
     if [[ "$goodbyes" -lt 2 ]]; then
-        echo >&2 "Expected 2 goodbye transmissions (RFC 6762 §8.3), saw $goodbyes"
+        echo >&2 "Expected 2 goodbye transmissions carrying records (RFC 6762 §8.3), saw $goodbyes"
         journalctl -M "$CONTAINER_2" -u systemd-resolved.service --since "$since" >&2 || :
         systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl start systemd-resolved.service || :
         return 1
