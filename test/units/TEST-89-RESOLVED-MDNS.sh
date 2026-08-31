@@ -133,8 +133,6 @@ removed_since() {
     tail -c "+$((off + 1))" "$file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep -e "$needle" >/dev/null
 }
 
-# How many 'added' events has $1 seen? The counterpart of removed_since() for the other half of the
-# event vocabulary.
 # Did $1 carry events for both address families? AF_INET is 2 and AF_INET6 is 10; every event
 # carries the family it was discovered over, so this catches a snapshot missing one of them --
 # which a bare event count cannot, both families being the same instances twice over.
@@ -144,6 +142,8 @@ both_families() {
     grep '"family":2[,}]' "$file" >/dev/null && grep '"family":10[,}]' "$file" >/dev/null
 }
 
+# How many 'added' events has $1 seen? The counterpart of removed_since() for the other half of the
+# event vocabulary.
 added_count() {
     { grep -o '"updateFlag":"added"' "${1:?}" || :; } | wc -l
 }
@@ -480,7 +480,8 @@ testcase_browse_shared_querier() {
     for _ in {0..9}; do
         n3="$(added_count "$out3")"
         if [[ "$n3" -ge 40 ]] &&
-           grep "on $CONTAINER_1" "$out3" >/dev/null && grep "on $CONTAINER_2" "$out3" >/dev/null; then
+           grep "on $CONTAINER_1" "$out3" >/dev/null && grep "on $CONTAINER_2" "$out3" >/dev/null &&
+           both_families "$out3"; then
             snap=1
             break
         fi
@@ -697,6 +698,129 @@ EOF
         echo >&2 "Tearing down an unrelated link's mDNS scope withdrew services from the browse:"
         tail -c "+$((off0 + 1))" "$out0" >&2
         tail -c "+$((offb + 1))" "$outb" >&2
+        return 1
+    fi
+
+    echo testcase_end
+}
+
+testcase_mdns_goodbye_shared_instance() {
+    : "A goodbye must not flap instances that a publisher still answers for"
+
+    local out_file error_file unit_name service_type service_path container off
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-sharedbye-$SRANDOM.service"
+    service_type="_sharedBye._udp"
+
+    # An EXIT trap, not RETURN: set -e aborts skip RETURN traps, and this subshell's EXIT trap
+    # fires however the testcase ends — the infinity browse unit must never outlive it. Armed
+    # before anything can fail, so an early abort cleans up the files too — the .dnssd canaries
+    # included: left behind, the same instance name stays published from BOTH containers, and that
+    # standing conflict keeps driving re-announcements under every later testcase.
+    # shellcheck disable=SC2064,SC2154  # $c is assigned by the trap's own for loop at fire time
+    trap "systemctl stop $unit_name 2>/dev/null || :; \
+          for c in $CONTAINER_1 $CONTAINER_2; do \
+              systemd-run -M \"\$c\" --wait --pipe -- \
+                  rm -f /etc/systemd/dnssd/sharedbye.dnssd /etc/systemd/dnssd/lonebye.dnssd 2>/dev/null || :; \
+              systemd-run -M \"\$c\" --wait --pipe -- \
+                  systemctl reload systemd-resolved.service 2>/dev/null || :; \
+          done; \
+          rm -f $out_file $error_file" EXIT
+
+    # Publish the same instance from BOTH containers. The identical PTR records collapse onto a
+    # single cache entry at the subscriber, owned by whichever container announced last. The
+    # second container additionally publishes a lone instance of the same type, whose removal
+    # below is the control. The ids double as the bus object paths (which is why they must not
+    # contain characters the bus path encoding would escape).
+    for container in "$CONTAINER_1" "$CONTAINER_2"; do
+        systemd-run -M "$container" --wait --pipe -- tee /etc/systemd/dnssd/sharedbye.dnssd <<EOF
+[Service]
+Name=Shared Goodbye Canary
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    done
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/lonebye.dnssd <<EOF
+[Service]
+Name=Lone Goodbye Canary
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    # Reload rather than restart: it re-runs dnssd_load() to pick up the new files while
+    # leaving the runtime per-link mDNS switches from setup intact.
+    for container in "$CONTAINER_1" "$CONTAINER_2"; do
+        systemd-run -M "$container" --wait --pipe -- systemctl reload systemd-resolved.service
+    done
+    service_path="/org/freedesktop/resolve1/dnssd/lonebye"
+
+    resolvectl flush-caches
+
+    # --timeout=infinity: the subscription idles between the events asserted below, longer than
+    # varlinkctl's default 45s method-call timeout.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+
+    # Wait until both instances are discovered.
+    local ok=0
+    for _ in {0..14}; do
+        if grep "Shared Goodbye Canary" >/dev/null "$out_file" &&
+           grep "Lone Goodbye Canary" >/dev/null "$out_file"; then
+            ok=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered both canary instances"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # Checkpoint the output: only events produced after the unregisters count.
+    off="$(wc -c <"$out_file")"
+
+    # The second container unregisters both canaries, so the shared instance's PTR is withdrawn
+    # on the wire while the first container still answers for it — whether resolved's goodbye
+    # covers the whole zone or exactly the unregistered service's records. The files are removed
+    # first, so a later reload cannot resurrect the unregistered instances.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/lonebye.dnssd /etc/systemd/dnssd/sharedbye.dnssd
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+        UnregisterService o "$service_path"
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+        UnregisterService o /org/freedesktop/resolve1/dnssd/sharedbye
+
+    # The lone instance lost its only publisher, so its removal is driven by the goodbye's
+    # one-second grace — its arrival is the control that the goodbye went out and was honored.
+    local removed=0
+    for _ in {0..14}; do
+        if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Lone Goodbye Canary" >/dev/null; then
+            removed=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "The lone instance was not removed after its publisher's goodbye"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # The shared instance's PTR was withdrawn by the second container's goodbyes, but the first
+    # container still answers for it: the goodbye-triggered re-query must rescue it within the
+    # RFC 6762 section 10.1 one-second grace, so no 'removed' may have been emitted for it. The
+    # control above pins the window: the grace period that would have flapped it has demonstrably
+    # elapsed. (A late 'added' for the other address family is benign, so only 'removed' events
+    # count here.)
+    sleep 3
+    if removed_since "$out_file" "$off" "Shared Goodbye Canary"; then
+        echo >&2 "A goodbye flapped the shared instance although another publisher still answers for it:"
+        tail -c "+$((off + 1))" "$out_file" >&2
         return 1
     fi
 
