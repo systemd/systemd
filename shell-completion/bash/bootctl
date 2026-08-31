@@ -37,7 +37,7 @@ _bootctl() {
                       --print-stub-path -R --print-root-device -RR
                       --print-efi-architecture
                       --no-pager --graceful -q --quiet --all-architectures
-                      --dry-run'
+                      -n --dry-run'
         [ARG]='--esp-path --boot-path --root --image --image-policy --install-source
                --variables --random-seed --make-entry-directory --entry-token --json
                --efi-boot-option-description --efi-boot-option-description-with-device
