@@ -2,13 +2,16 @@
 
 #include <fcntl.h>
 #include <poll.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <sys/personality.h>
+#include <sys/ptrace.h>
 #include <sys/shm.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
@@ -638,6 +641,63 @@ TEST(memory_deny_write_execute_shmat) {
                 log_debug_errno(p == MAP_FAILED ? errno : 0, "shmat(0): %m");
                 assert_se(p != MAP_FAILED);
                 assert_se(shmdt(p) == 0);
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
+TEST(restrict_ptrace) {
+        int r;
+
+        CHECK_SECCOMP(/* refuse_container= */ false);
+
+        r = ASSERT_OK(pidref_safe_fork("(restrict-ptrace)", FORK_LOG|FORK_WAIT, NULL));
+        if (r == 0) {
+                void *addr = (void*) (uintptr_t) &ptrace;
+                int status;
+                pid_t pid;
+                long word;
+
+                /* A tracee that stops right away; PTRACE_TRACEME is not filtered. */
+                pid = fork();
+                ASSERT_OK_ERRNO(pid);
+                if (pid == 0) {
+                        if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0)
+                                _exit(EXIT_FAILURE);
+                        raise(SIGSTOP);
+                        _exit(EXIT_SUCCESS);
+                }
+
+                ASSERT_OK_ERRNO(waitpid(pid, &status, WUNTRACED));
+                if (WIFEXITED(status)) {
+                        log_tests_skipped("ptrace() not permitted");
+                        _exit(EXIT_SUCCESS);
+                }
+                ASSERT_TRUE(WIFSTOPPED(status));
+
+                /* Positive control: without the filter, writing the word back works. */
+                errno = 0;
+                word = ptrace(PTRACE_PEEKTEXT, pid, addr, NULL);
+                ASSERT_TRUE(word != -1 || errno == 0);
+                if (ptrace(PTRACE_POKETEXT, pid, addr, (void*) (uintptr_t) word) < 0) {
+                        log_tests_skipped_errno(errno, "PTRACE_POKETEXT not permitted");
+                        (void) kill(pid, SIGKILL);
+                        _exit(EXIT_SUCCESS);
+                }
+
+                ASSERT_OK(seccomp_restrict_ptrace());
+
+                /* Reading stays allowed... */
+                errno = 0;
+                word = ptrace(PTRACE_PEEKTEXT, pid, addr, NULL);
+                ASSERT_TRUE(word != -1 || errno == 0);
+
+                /* ...writing is refused by the filter. */
+                ASSERT_ERROR_ERRNO(ptrace(PTRACE_POKETEXT, pid, addr, (void*) (uintptr_t) word), EPERM);
+                ASSERT_ERROR_ERRNO(ptrace(PTRACE_POKEDATA, pid, addr, (void*) (uintptr_t) word), EPERM);
+
+                ASSERT_OK_ERRNO(kill(pid, SIGKILL));
+                ASSERT_OK_ERRNO(waitpid(pid, &status, 0));
 
                 _exit(EXIT_SUCCESS);
         }

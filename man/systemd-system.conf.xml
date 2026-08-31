@@ -553,6 +553,10 @@
         shared libraries (<literal>mmap_file</literal>), and write-to-execute transitions such as JIT
         compilation (<literal>file_mprotect</literal>).</para>
 
+        <para>The policy also enforces W^X system-wide: no mapping may be writable and executable at the
+        same time, and a private file mapping that has been modified through copy-on-write may not be made
+        executable afterwards.</para>
+
         <para>Since v262, files on overlayfs mounts are resolved to the layer that hosts their data, so
         execution from an overlay whose data resides on a signed dm-verity device is permitted, while files
         in a writable upper layer are denied. This requires kernel v7.2 or newer; on older kernels execution from
@@ -561,13 +565,11 @@
         btrfs are unsupported.</para>
 
         <para>Note that, without further measures to secure the system, kexec can be used to circumvent
-        this. Writable and executable memory mappings can also be used to circumvent this, so they need to
-        be blocked, which can be achieved using other LSMs, or on a per-service basis by using the
-        <varname>MemoryDenyWriteExecute=</varname> setting.</para>
+        this.</para>
 
         <para>This requires the kernel to be booted with <literal>dm_verity.require_signatures=1</literal>
-        on the kernel command line and with BPF LSM enabled (<literal>lsm=...,bpf</literal>). If either
-        prerequisite is not met, PID 1 will refuse to complete startup.</para>
+        and <literal>proc_mem.force_override=never</literal> on the kernel command line, and with BPF LSM
+        enabled (<literal>lsm=...,bpf</literal>).</para>
 
         <para>The value <literal>yes</literal> is equivalent to <literal>exec</literal>. Additional
         modes may be added in the future.</para>
