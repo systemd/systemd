@@ -11,10 +11,13 @@
 #include "extract-word.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "path-util.h"
 #include "resolved-conf.h"
+#include "resolved-dns-scope.h"
 #include "resolved-dns-zone.h"
 #include "resolved-dnssd.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -66,6 +69,50 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
         free(service->name_template);
 
         return mfree(service);
+}
+
+DnssdRegisteredService *dnssd_registered_service_unregister(DnssdRegisteredService *service) {
+        Link *l;
+        int r;
+
+        assert(service);
+
+        Manager *m = ASSERT_PTR(service->manager);
+
+        /* Sends goodbye messages for the service and removes its RRs from all mDNS zones, then frees the
+         * service. */
+
+        HASHMAP_FOREACH(l, m->links) {
+                if (l->mdns_ipv4_scope) {
+                        r = dns_scope_announce(l->mdns_ipv4_scope, true);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to send goodbye messages in IPv4 scope: %m");
+
+                        dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, service->ptr_rr);
+                        dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, service->sub_ptr_rr);
+                        dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, service->srv_rr);
+                        LIST_FOREACH(items, txt_data, service->txt_data_items)
+                                dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, txt_data->rr);
+                }
+
+                if (l->mdns_ipv6_scope) {
+                        r = dns_scope_announce(l->mdns_ipv6_scope, true);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to send goodbye messages in IPv6 scope: %m");
+
+                        dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, service->ptr_rr);
+                        dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, service->sub_ptr_rr);
+                        dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, service->srv_rr);
+                        LIST_FOREACH(items, txt_data, service->txt_data_items)
+                                dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, txt_data->rr);
+                }
+        }
+
+        dnssd_registered_service_free(service);
+
+        manager_refresh_rrs(m);
+
+        return NULL;
 }
 
 void dnssd_registered_service_clear_on_reload(Hashmap *services) {
