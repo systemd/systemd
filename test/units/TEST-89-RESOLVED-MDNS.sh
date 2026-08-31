@@ -375,15 +375,18 @@ testcase_mdns_goodbye_on_stop() {
     # records on the wire, not the 'sending goodbyes' line, which is logged once per pass before any
     # scope is walked and so appears twice even for an empty second pass. Poll briefly, since the
     # linked journal can lag the stop.
-    local goodbyes=0
+    local goodbyes=0 journal
     for _ in {0..9}; do
-        goodbyes="$( publisher_journal "$since" \
-                     | { grep -c "Sending mDNS goodbye announcements" || :; })"
+        journal="$(publisher_journal "$since")"
+        goodbyes="$(awk '
+            /Sending mDNS goodbye announcements/ { if (emitted) passes++; emitted = 0; in_pass = 1; next }
+            in_pass && /mDNS announcement packet\(s\) carrying [1-9][0-9]* record\(s\)/ { emitted = 1 }
+            END { if (emitted) passes++; print passes + 0 }' <<<"$journal")"
         if [[ "$goodbyes" -ge 2 ]]; then break; fi
         sleep 1
     done
     if [[ "$goodbyes" -lt 2 ]]; then
-        echo >&2 "Expected 2 goodbye transmissions (RFC 6762 §8.3), saw $goodbyes"
+        echo >&2 "Expected 2 goodbye transmissions carrying records (RFC 6762 §8.3), saw $goodbyes"
         publisher_journal "$since" >&2
         systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl start systemd-resolved.service || :
         return 1
