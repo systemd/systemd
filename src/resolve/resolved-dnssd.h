@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "sd-bus.h"
+
 #include "list.h"
 #include "resolved-conf.h"
 #include "resolved-forward.h"
@@ -38,6 +40,10 @@ typedef struct DnssdRegisteredService {
         LIST_HEAD(DnssdTxtData, txt_data_items);
 
         Manager *manager;
+
+        /* Tracks the D-Bus client that registered the service, so that it can be unregistered when the
+         * client disconnects from the bus. Only set for services registered via D-Bus. */
+        sd_bus_track *bus_track;
 
         /* Services registered via D-Bus are not removed on reload */
         ResolveConfigSource config_source;
