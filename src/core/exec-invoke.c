@@ -1210,7 +1210,7 @@ static int pam_close_session_and_delete_credentials(pam_handle_t *handle, int fl
 
         s = sym_pam_setcred(handle, PAM_DELETE_CRED | flags);
         if (s != PAM_SUCCESS)
-                pam_syslog_pam_error(handle, LOG_DEBUG, r, "pam_setcred(PAM_DELETE_CRED) failed: @PAMERR@");
+                pam_syslog_pam_error(handle, LOG_DEBUG, s, "pam_setcred(PAM_DELETE_CRED) failed: @PAMERR@");
 
         return r != PAM_SUCCESS ? r : s;
 }
