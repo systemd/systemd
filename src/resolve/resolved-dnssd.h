@@ -39,6 +39,10 @@ typedef struct DnssdRegisteredService {
 
         Manager *manager;
 
+        /* Watches the client that registered this service over the bus, so that its records are
+         * withdrawn when it goes away. Unset for services read from a .dnssd file. */
+        sd_bus_track *bus_track;
+
         /* Services registered via D-Bus are not removed on reload */
         ResolveConfigSource config_source;
 
@@ -50,6 +54,9 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);
 DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
 void dnssd_registered_service_clear_on_reload(Hashmap *services);
+int dnssd_registered_service_withdraw(DnssdRegisteredService *s);
+int dnssd_snapshot_file_service_rrs(Manager *m, DnsAnswer **ret);
+int dnssd_withdraw_stale_rrs(Manager *m, DnsAnswer *old_rrs);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdRegisteredService*, dnssd_registered_service_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdTxtData*, dnssd_txtdata_free);
