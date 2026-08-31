@@ -369,7 +369,7 @@ static int pick_word_linear_scan(FILE *f, off_t offset, char **ret) {
         }
 }
 
-static int hostname_pick_word(sd_id128_t mid, size_t pos, char **ret) {
+int hostname_pick_word(sd_id128_t mid, size_t pos, char **ret) {
         static const sd_id128_t word_key = SD_ID128_MAKE(2d,9f,1c,7a,4b,8e,43,11,9a,6d,5f,02,c8,77,e3,14);
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
