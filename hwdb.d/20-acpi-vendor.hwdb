@@ -312,6 +312,9 @@ acpi:MXIM*:
 acpi:NAIM*:
  ID_VENDOR_FROM_DATABASE=Vervent Audio Group
 
+acpi:NDTL*:
+ ID_VENDOR_FROM_DATABASE=Shenzhen New Degree Technology Co.,Ltd
+
 acpi:NOLO*:
  ID_VENDOR_FROM_DATABASE=NOLO Co., Ltd.
 

@@ -1,8 +1,8 @@
 #
 #	List of PCI IDs
 #
-#	Version: 2026.08.26
-#	Date:    2026-08-26 03:15:02
+#	Version: 2026.08.29
+#	Date:    2026-08-29 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -23008,6 +23008,8 @@
 	0227  CX10 Family [ConnectX-10 RMA]
 	0228  CX9 PCIe Switch Family [ConnectX-9 PCIe Switch Flash Recovery]
 	0229  CX9 PCIe Switch Family [ConnectX-9 PCIe Switch Secure Flash Recovery-RMA]
+	022a  CX11 Family [ConnectX-11 Flash Recovery]
+	022b  CX11 Family [ConnectX-11 RMA]
 	024e  MT53100 [Spectrum-2, Flash recovery mode]
 	024f  MT53100 [Spectrum-2, Secure Flash recovery mode]
 	0250  Spectrum-3, Flash recovery mode
@@ -23189,6 +23191,8 @@
 	1025  CX9 Family [ConnectX-9]
 	1027  CX10 Family [ConnectX-10]
 	1028  CX10 Family [ConnectX-10 Trusted Network Control Memory]
+	1029  CX11 Family [ConnectX-11]
+	102a  CX11 Family [ConnectX-11 Trusted Network Control Memory]
 	1974  MT28800 Family [ConnectX-5 PCIe Bridge]
 	1975  MT416842 Family [BlueField SoC PCIe Bridge]
 	1976  MT28908 Family [ConnectX-6 PCIe Bridge]
@@ -23201,6 +23205,7 @@
 	197d  CX8 Family [ConnectX-8 PCIe Bridge]
 	197e  CX9 Family [ConnectX-9 PCIe Bridge]
 	197f  CX10 Family [ConnectX-10 PCIe Bridge]
+	1980  CX11 Family [ConnectX-11 PCIe Bridge]
 	2020  MT2892 Family [ConnectX-6 Dx Emulated PCIe Bridge]
 	2021  MT42822 Family [BlueField-2 SoC Emulated PCIe Bridge]
 	2023  MT2910 Family [ConnectX-7 Emulated PCIe Bridge]
@@ -23209,6 +23214,7 @@
 	2100  CX8 Family [CX8 Data Direct Interface]
 # NVLink Chip to Chip Link
 	2101  CX10 Family [ConnectX-10 NVLink-C2C]
+	2102  CX11 Family [ConnectX-11 NVLink-C2C]
 # Starting with CX10 generation
 	2300  ConnectX/BlueField Family Hardware Performance Monitors [HWPM]
 	4117  MT27712A0-FDCF-AE
@@ -30516,6 +30522,7 @@
 212b  Flumeio
 # NVMe SSD
 	5951  Flumeio F5950Q
+212d  APEX Technologies
 2136  Dongguan Xincun Chengbang Technology Co., Ltd.
 	6600  NX6600U0 NVME SSD
 	7500  NX7500U0 NVME SSD
@@ -30523,6 +30530,8 @@
 214d  Equalizer Technologies
 	0001  Xeetah Base Firmware
 	0002  Xeetah Development Platform
+# This vendor ID 0x2155 is officially assigned by PCI‑SIG to Hubei Zhuanwei Technology Co., Ltd.
+2155  Hubei Zhuanwei Technology Co., Ltd.
 21b4  Hunan Goke Microelectronics Co., Ltd
 21c3  21st Century Computer Corp.
 22b8  Flex-Logix Technologies
@@ -38806,6 +38815,9 @@
 	4c8b  RocketLake-S GT1 [UHD Graphics 730]
 	4c90  RocketLake-S GT1 [UHD Graphics P750]
 	4c9a  RocketLake-S [UHD Graphics]
+	4d62  Core Processors (Series 3 for Edge) CSME HECI #1
+	4d63  Core Processors (Series 3 for Edge) CSME HECI #2
+	4d64  Core Processors (Series 3 for Edge) CSME HECI #3
 	4d87  Jasper Lake eSPI Controller
 	4da3  Jasper Lake SMBus
 	4da4  Jasper Lake SPI Controller
@@ -42321,6 +42333,9 @@ a200  NEC Corporation
 a259  Hewlett Packard
 a25b  Hewlett Packard GmbH PL24-MKT
 a304  Sony
+a69c  AIC Semiconductor (Shanghai) CO., Ltd.
+# Kernel driver in use: aic8800m80x2p_fdrv
+	8d90  AIC8800M80X2P Network controller
 a727  3Com Corporation
 	0013  3CRPAG175 Wireless PC Card
 	6803  3CRDAG675B Wireless 11a/b/g Adapter

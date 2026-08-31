@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 262:
+CHANGES WITH 262 in spe:
 
         Feature Removals and Incompatible Changes:
 
@@ -44,8 +44,8 @@ CHANGES WITH 262:
           "systemd-sysupdate@.service" unit for varlink activation of sysupdate.
 
         * The default OpenPGP keyring lookup now combines the vendor keyring in
-          /usr with the local keyring in /etc. Deployments that relied on a
-          single /etc keyring to exclude vendor trust should set
+          /usr/ with the local keyring in /etc/. Deployments that relied on a
+          single /etc/ keyring to exclude vendor trust should set
           $SYSTEMD_OPENPGP_KEYRING explicitly.
 
         * TPM-sealed credentials are now pinned to the TPM's SRK. This prevents
@@ -285,8 +285,9 @@ CHANGES WITH 262:
         Changes in systemd-networkd:
 
         * The IPv6ProxyNDPAddress= setting in the [Network] section of .network
-          files has been renamed to ProxyNeighbor=. The setting can now also be
-          used to add IPv4 addresses to the kernel's IPv4 neighbor proxy table.
+          files has been renamed to ProxyNeighbor=, and remains accepted as a
+          deprecated alias. ProxyNeighbor= can add both IPv4 and IPv6 addresses
+          to the kernel's neighbor proxy tables.
 
         * "networkctl reload" gained --no-reconfigure to reload .network and
           .netdev files from disk without reconfiguring existing links. It uses
@@ -317,6 +318,21 @@ CHANGES WITH 262:
           follow mode. When called with follow=true it returns the requested
           backlog and then keeps the method call open, streaming new matching
           entries like journalctl -f until the client disconnects.
+
+        Changes in systemd-coredump and coredumpctl:
+
+        * systemd-coredump now supports the kernel coredump socket protocol
+          available since Linux 6.17. On supported kernels,
+          systemd-coredumpd.service listens on
+          /run/systemd/coredumpd/kernel, and
+          systemd-coredump-register.service registers the socket through
+          kernel.core_pattern. Older kernels continue to use the per-coredump
+          systemd-coredump@.service path. Changes to coredump.conf require
+          reloading systemd-coredumpd.service, and deployments that set a
+          custom kernel.core_pattern should mask or stop that service.
+
+        * The coredumpctl dump and debug commands now honor --json= and include
+          the selected coredump's metadata in the requested JSON format.
 
         Changes in systemd-resolved and resolvectl:
 
@@ -468,6 +484,21 @@ CHANGES WITH 262:
           additional sizing details such as currentSizeBytes, minimalSizeBytes
           and needFreeBytes where appropriate.
 
+        * systemd-repart now honors $SOURCE_DATE_EPOCH while populating images.
+          Timestamps copied from source trees are clamped to the epoch, and a
+          validated value is forwarded to mkfs and mtools, improving
+          reproducibility of generated file systems. Byte-for-byte
+          reproducibility may still require --offline=yes and suitable
+          file-system tooling.
+
+        Changes in systemd-nspawn:
+
+        * When systemd-nspawn creates both user and network namespaces, it now
+          initializes net.ipv4.ping_group_range from the container's mapped GID
+          range. This permits unprivileged container users to create ICMP echo
+          sockets when their GIDs are mapped. Externally supplied network
+          namespaces are left unchanged.
+
         Changes in systemd-vmspawn:
 
         * systemd-vmspawn --coco= now supports Intel TDX in addition to
@@ -582,7 +613,8 @@ CHANGES WITH 262:
           primary key, allowing signing-key rotation without distributing each
           subkey separately. $SYSTEMD_OPENPGP_KEYRING may select a custom
           keyring for unprivileged pulls or custom sysupdate definitions. When
-          unset, the existing system keyring lookup remains unchanged.
+          unset, the vendor keyring in /usr/ and the local keyring in /etc/ are
+          combined.
 
         * New dm-clone boot integration was added. /etc/clonetab entries are
           translated by systemd-clonesetup-generator into
@@ -623,6 +655,54 @@ CHANGES WITH 262:
         * sd_id128_from_string() now accepts RFC 4122 UUID URNs with the
           "urn:uuid:" prefix in addition to plain 32-character IDs and dashed
           UUID strings.
+
+        Contributions from: Adam Dinwoodie, Akarithos, Aleksa Sarai,
+        Alexander Egorov, Alexandre Saou, Alexey Shabalin,
+        Alperen Kılıç, Américo Monteiro, Ananth, Ananth Bhaskararaman,
+        Andre Eikmeyer, Andrei Stepanov, Andres Beltran, Andrew Dunn,
+        Ani Sinha, Anton Tiurin, Antonio Alvarez Feijoo,
+        Arian van Putten, Arif Budiman, Aritra Basu, Armaan Sandhu,
+        Arseniy Kostevich, Aswin Murugan, Axel, Baurzhan Muftakhidinov,
+        Beniamino Galvani, Bone NI, Chris Ayoub, Chris Coulson,
+        Chris Down, Christian Brauner, Christian Glombek, Christian Hesse,
+        Clayton Craft, Confusedphoton, CrtlTom, Daan De Meyer,
+        Daniel28972897, Dara Adib, David 'equinox' Lamparter, David Tardon,
+        Davide Cavalca, Davis-Rippon, DongShengyuan, EJ Campbell,
+        Elliot Berman, Emanuele Petriglia, Emanuele Rocca,
+        Emilio Sepulveda, Eric Boucher, Eric Curtin, Fabian Vogt,
+        Fco. Javier F. Serrador, Fede2782, Frantisek Sumsal, Gabriel,
+        Guillaume Kehren, Hans de Goede, Hashim Khan, Hijae Song,
+        Hilal Rahmatullah, Honza Hejzl, Hüseyin Kutsi Balcı,
+        Ivan Kruglov, Jakub Stasiak, Jan Macku, Jason Yang,
+        Jelle van der Waa, Jesse Guo, Jonas Dreßler, Josh Hoffer,
+        Jouke Witteveen, Julian Bouzas, Julian Sparber, Jörg Behrmann,
+        Kai Lüke, Kai Wohlfahrt, Kakueeen, Konstantin Shkolnyy,
+        Lars Sjöstrom, Lefteris T, Lennart Poettering, Liu Zhangjian,
+        Liu Zheng, Luca Boccassi, LucasTavaresA, Ludwig Nussel,
+        Luna Jernberg, Léane GRASSER, Lương Việt Hoàng,
+        Marek Adamski, Markus Boehme, Martin Pitt, Martin Srebotnjak,
+        Matthew Schwartz, Matthias P. Walther, Michael Vogt,
+        Michal Koutný, Michal Sekletár, Michal Čihař, Mike Yuan,
+        Morteza Pourkazemi, Nandakumar Raghavan, Nicholas Lim,
+        Nick Rosbrook, Oğuz Ersen, Parag Gupta, Paul Menzel, Paul Meyer,
+        Pavel Borecki, Petru Rebeja, Philip Withnall, Popax21,
+        Pranay Pawar, Pétur, Rafael Fontenelle, Rafael Passos,
+        Raito Bezarius, Rasmus Villemoes, Renan Pagani,
+        Robin Richard Rajan, Rocker Zhang, Roman Vinogradov, Ronan Pigott,
+        Ross Burton, Semyon Klintsov, Sergey A., Shihao Ren, ShiroKSH,
+        Shivank Sharma, Simon de Vlieger, Simran Singh, Sinity,
+        Siteshwar Vashisht, Skye Soss, Srijan Keshri,
+        Stephanie Wilde-Hobbs, Sven Joachim, Syed Mohammed Nayyar,
+        Temuri Doghonadze, Thomas Kopp, Tim Culverhouse, Tim Schumacher,
+        Timon de Groot, Victor Verdan, Vsevolod Kozlov, Wang Yu,
+        Yu Watanabe, Zbigniew Jędrzejewski-Szmek, acandoo, cidkidnix,
+        countgitmick, cverorg, dirhamtriyadi, dongshengyuan, felix h, fuldeka,
+        gkehren, gpenz, guolin, hanjinpeng, jmestwa-coder, joo es,
+        logical-misha, lucia-huang7, lzwind, quanyeyang, r-vdp, rashidmya,
+        rodin-ia, totoro, tunaichao, wangzhaohui, wyu, xiahualiu, zhaoshuang,
+        zouge666, Марко Костић (Marko Kostić), 김인수
+
+        — Edinburgh, 2026/08/31
 
 CHANGES WITH 261:
 
