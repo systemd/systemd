@@ -68,7 +68,7 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(noSetuid, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Skip environment variable expansion"),
                 SD_VARLINK_DEFINE_FIELD(noEnvExpand, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Run via shell"),
+                SD_VARLINK_FIELD_COMMENT("Run via the target user's shell, which is resolved at execution time. If set, the specified path is ignored, and argv[0] is normalized to \"sh\" — or \"-sh\", requesting login shell semantics, if it begins with a dash"),
                 SD_VARLINK_DEFINE_FIELD(viaShell, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_STRUCT_TYPE(

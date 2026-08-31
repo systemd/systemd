@@ -519,6 +519,15 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
         return 1U << idx;
 }
 
+char* exec_command_flags_to_exec_chars(ExecCommandFlags flags) {
+        /* Converts the flags to the matching prefix characters of ExecStart= assignments in unit files */
+        return strjoin(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE)   ? "-" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND)    ? ":" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) ? "+" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "",
+                       FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)        ? "|" : "");
+}
+
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {
         /* Refuse invalid fds, regardless if fexecve() use is enabled or not */
         if (executable_fd < 0)

@@ -2317,6 +2317,50 @@ void exec_command_append_list(ExecCommand **l, ExecCommand *e) {
                 *l = e;
 }
 
+int exec_command_to_exec_setting(const ExecCommand *c, char **ret) {
+        assert(c);
+        assert(c->path);
+        assert(!strv_isempty(c->argv));
+        assert(ret);
+
+        /* Formats the command as the value of an ExecStart= (or friends) assignment in a unit file: the
+         * execution flag prefix characters, optionally the "@"-prefixed executable path, and the escaped
+         * argument vector. This is used when writing settings of transient units to disk, and must hence
+         * emit exactly the syntax config_parse_exec() parses back. */
+
+        bool via_shell = FLAGS_SET(c->flags, EXEC_COMMAND_VIA_SHELL);
+        UnitWriteFlags esc_flags = UNIT_ESCAPE_SPECIFIERS |
+                (FLAGS_SET(c->flags, EXEC_COMMAND_NO_ENV_EXPAND) ? UNIT_ESCAPE_EXEC_SYNTAX : UNIT_ESCAPE_EXEC_SYNTAX_ENV);
+
+        _cleanup_free_ char *exec_chars = exec_command_flags_to_exec_chars(c->flags);
+        if (!exec_chars)
+                return -ENOMEM;
+
+        /* For "via shell" commands the executable path is implied, and argv[0] is normalized to "sh" — or
+         * "-sh", requesting login shell semantics, which the "@" prefix expresses in unit files. */
+        _cleanup_free_ char *a = unit_concat_strv(via_shell ? strv_skip(c->argv, 1) : c->argv, esc_flags);
+        if (!a)
+                return -ENOMEM;
+
+        char *joined;
+        /* streq() instead of path_equal(), as argv[0] can be arbitrary and may not be a path */
+        if (via_shell || streq(c->path, c->argv[0]))
+                joined = strjoin(exec_chars, via_shell && c->argv[0][0] == '-' ? "@" : "", a);
+        else {
+                _cleanup_free_ char *t = NULL;
+                const char *p = unit_escape_setting(c->path, esc_flags, &t);
+                if (!p)
+                        return -ENOMEM;
+
+                joined = strjoin(exec_chars, "@", p, " ", a);
+        }
+        if (!joined)
+                return -ENOMEM;
+
+        *ret = joined;
+        return 0;
+}
+
 int exec_command_set(ExecCommand *c, const char *path, ...) {
         va_list ap;
         char **l, *p;
