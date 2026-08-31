@@ -62,6 +62,7 @@ SIGTEST_OTHERHOME=
 at_exit() {
     set +e
 
+    umount "$WORKDIR/full-esp" "$WORKDIR/full-esp-good" "$SYSTEMD_XBOOTLDR_PATH" 2>/dev/null
     systemctl stop test-sysupdate-notify-recorder.socket
     rm -f /run/systemd/system/test-sysupdate-notify-recorder.socket \
           /run/systemd/system/test-sysupdate-notify-recorder@.service
@@ -256,6 +257,110 @@ verify_object_fields() {
 
     [[ "${updatectl_output}" != *"Unrecognized object field"* ]]
 }
+
+test_full_esp_space() {
+    local full_esp="$WORKDIR/full-esp"
+    local full_esp_good="$WORKDIR/full-esp-good"
+    local full_esp_defs="$WORKDIR/full-esp-definitions"
+    local full_esp_src="$WORKDIR/full-esp-source"
+    local full_esp_log="$WORKDIR/full-esp-update.log"
+    local full_esp_good_log="$WORKDIR/full-esp-good-update.log"
+    local xbootldr="$SYSTEMD_XBOOTLDR_PATH"
+    local xbootldr_target="$xbootldr/EFI/Linux/uki_xbootldr_v1.efi"
+    local rc
+
+    mkdir -p "$full_esp" "$full_esp_good" "$full_esp_defs" "$full_esp_src" "$xbootldr"
+    if ! mount -t tmpfs -o size=1M tmpfs "$full_esp"; then
+        echo "No tmpfs support, skipping full ESP space test"
+        return 0
+    fi
+
+    if ! mount -t tmpfs -o size=8M tmpfs "$xbootldr"; then
+        echo "No tmpfs support, skipping full ESP space test"
+        umount "$full_esp" 2>/dev/null || :
+        return 0
+    fi
+
+    dd if=/dev/urandom of="$full_esp_src/uki-v1.efi" bs=1K count=600 status=none
+    dd if=/dev/urandom of="$full_esp_src/uki-extra-v1.efi" bs=1K count=600 status=none
+    dd if=/dev/urandom of="$full_esp_src/uki-xbootldr-v1.efi" bs=1K count=600 status=none
+
+    cat >"$full_esp_defs/01-full.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$full_esp_src
+MatchPattern=uki-@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=esp
+MatchPattern=uki_@v.efi
+Mode=0444
+EOF
+
+    cat >"$full_esp_defs/02-full.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$full_esp_src
+MatchPattern=uki-extra-@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=esp
+MatchPattern=uki_extra_@v.efi
+Mode=0444
+EOF
+
+    cat >"$full_esp_defs/03-full.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$full_esp_src
+MatchPattern=uki-xbootldr-@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=xbootldr
+MatchPattern=uki_xbootldr_@v.efi
+Mode=0444
+EOF
+
+    if ! mount -t tmpfs -o size=8M tmpfs "$full_esp_good"; then
+        echo "No tmpfs support, skipping full ESP space test"
+        umount "$full_esp" 2>/dev/null || :
+        umount "$xbootldr" 2>/dev/null || :
+        return 0
+    fi
+    SYSTEMD_ESP_PATH="$full_esp_good" "$SYSUPDATE" \
+        --definitions="$full_esp_defs" \
+        --verify=no update &>"$full_esp_good_log"
+    (! grep -F "Not enough free space on the filesystem containing" "$full_esp_good_log" >/dev/null)
+    cmp "$full_esp_src/uki-v1.efi" "$full_esp_good/EFI/Linux/uki_v1.efi"
+    cmp "$full_esp_src/uki-extra-v1.efi" "$full_esp_good/EFI/Linux/uki_extra_v1.efi"
+    cmp "$full_esp_src/uki-xbootldr-v1.efi" "$xbootldr_target"
+    umount "$full_esp_good"
+
+    set +e
+    SYSTEMD_ESP_PATH="$full_esp" "$SYSUPDATE" \
+        --definitions="$full_esp_defs" \
+        --verify=no update &>"$full_esp_log"
+    rc=$?
+    set -e
+    [[ $rc -ne 0 ]]
+    [[ $rc -ne 134 ]]
+    grep -F "Not enough free space on the filesystem containing" "$full_esp_log" >/dev/null
+    grep -F "$full_esp/EFI/Linux/uki_v1.efi', '$full_esp/EFI/Linux/uki_extra_v1.efi" \
+        "$full_esp_log" >/dev/null
+    (! grep -F "Not enough free space on the filesystem containing paths '$xbootldr_target'" \
+        "$full_esp_log" >/dev/null)
+    grep -F "No space left on device" "$full_esp_log" >/dev/null
+    umount "$full_esp"
+    umount "$xbootldr"
+}
+
+test_full_esp_space
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
 for client in sysupdate-cli varlink; do
