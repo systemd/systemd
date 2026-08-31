@@ -1269,17 +1269,23 @@ static int ndisc_option_build_prefix64(const sd_ndisc_option *option, usec_t tim
 int ndisc_option_add_encrypted_dns_internal(
                 Set **options,
                 size_t offset,
-                sd_dns_resolver *res,
+                const sd_dns_resolver *res,
                 usec_t lifetime,
                 usec_t valid_until) {
+
         assert(options);
+        assert(res);
+
+        _cleanup_(sd_dns_resolver_unrefp) sd_dns_resolver *resolver = newdup(sd_dns_resolver, res, 1);
+        if (!resolver)
+                return -ENOMEM;
 
         sd_ndisc_option *p = ndisc_option_new(SD_NDISC_OPTION_ENCRYPTED_DNS, offset);
         if (!p)
                 return -ENOMEM;
 
         p->encrypted_dns = (sd_ndisc_dnr) {
-                .resolver = res,
+                .resolver = TAKE_PTR(resolver),
                 .lifetime = lifetime,
                 .valid_until = valid_until,
         };
@@ -1403,13 +1409,7 @@ static int ndisc_option_parse_encrypted_dns(Set **options, size_t offset, size_t
         if (len - off >= 8 || !memeqzero(opt + off, len - off))
                 return -EBADMSG;
 
-        sd_dns_resolver *new_res = new(sd_dns_resolver, 1);
-        if (!new_res)
-                return -ENOMEM;
-
-        *new_res = TAKE_STRUCT(res);
-
-        return ndisc_option_add_encrypted_dns(options, offset, new_res, lifetime);
+        return ndisc_option_add_encrypted_dns(options, offset, &res, lifetime);
 }
 
 static int ndisc_option_build_encrypted_dns(const sd_ndisc_option *option, usec_t timestamp, uint8_t **ret) {
