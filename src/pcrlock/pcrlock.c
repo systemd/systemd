@@ -3849,8 +3849,16 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                                         policy_session,
                                         &old_policy.prediction,
                                         old_policy.algorithm);
+                        if (r == -EUCLEAN && attempt < 16) {
+                                /* Some PCR was extended while we were submitting the policy — not
+                                 * necessarily one of ours, the TPM's PCR update counter is global. This
+                                 * is transient and says nothing about the correctness of the policy, so
+                                 * build the session again, just like we do for -ESTALE below. */
+                                log_debug("Trying again (attempt %u), as PCR values changed while submitting the policy.", attempt+1);
+                                continue;
+                        }
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to submit PCR policy: %m");
 
                         r = tpm2_policy_authorize_nv(
                                         tc,
