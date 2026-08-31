@@ -8,7 +8,12 @@
 {% endif %}
 account  required   pam_unix.so
 
-auth     required   pam_deny.so
+# systemd never invokes pam_authenticate() on this stack (authorization for run0 is done via polkit), but it
+# does invoke pam_setcred(), which runs the "auth" stack too. Hence an "auth" entry is needed that lets
+# pam_setcred() succeed, without falling back to the "other" service (which typically consists of
+# pam_warn/pam_deny, and thus generates log noise). pam_rootok's pam_sm_setcred() unconditionally succeeds,
+# while its pam_sm_authenticate() only succeeds for callers running as root (which the service manager does).
+auth     required   pam_rootok.so
 
 {% if HAVE_SELINUX %}
 session  required   pam_selinux.so close
