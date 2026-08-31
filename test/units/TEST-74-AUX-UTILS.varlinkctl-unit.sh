@@ -211,6 +211,154 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 timeout 30 bash -c 'until systemctl is-active varlink-transient-wd-home.service; do sleep 0.5; done'
 systemctl show -P WorkingDirectory varlink-transient-wd-home.service | grep '^~$' >/dev/null
 
+# Exec.StandardInput/StandardOutput/StandardError enum properties and Exec.TTYPath
+defer_transient_cleanup varlink-transient-stdio.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-stdio.service","Exec":{"StandardInput":"null","StandardOutput":"null","StandardError":"journal","TTYPath":"/dev/tty2"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Exec.StandardInput == "null"'
+echo "$result" | jq -e '.context.Exec.StandardOutput == "null"'
+echo "$result" | jq -e '.context.Exec.StandardError == "journal"'
+echo "$result" | jq -e '.context.Exec.TTYPath == "/dev/tty2"'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-stdio.service; do sleep 0.5; done'
+systemctl show -P StandardInput varlink-transient-stdio.service | grep '^null$' >/dev/null
+systemctl show -P StandardOutput varlink-transient-stdio.service | grep '^null$' >/dev/null
+systemctl show -P StandardError varlink-transient-stdio.service | grep '^journal$' >/dev/null
+systemctl show -P TTYPath varlink-transient-stdio.service | grep '^/dev/tty2$' >/dev/null
+# "null" is also the default for StandardInput=, hence additionally verify it was written explicitly
+fragment=$(systemctl show -P FragmentPath varlink-transient-stdio.service)
+grep '^StandardInput=null$' "$fragment" >/dev/null
+
+# The combined output types are spelled with a "+" in unit files, but with a "_" in the Varlink IDL (and
+# hence in our own replies). The latter spelling must be accepted, so that replies can be fed back in.
+defer_transient_cleanup varlink-transient-stdio-combined.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-stdio-combined.service","Exec":{"StandardOutput":"kmsg_console","StandardError":"journal_console"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Exec.StandardOutput == "kmsg_console"'
+echo "$result" | jq -e '.context.Exec.StandardError == "journal_console"'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-stdio-combined.service; do sleep 0.5; done'
+systemctl show -P StandardOutput varlink-transient-stdio-combined.service | grep '^kmsg+console$' >/dev/null
+systemctl show -P StandardError varlink-transient-stdio-combined.service | grep '^journal+console$' >/dev/null
+
+# The same underscore-vs-dash property on the input side: "tty_force" is the IDL (and hence reply)
+# spelling of "tty-force", must be accepted on input, and must be written to the fragment in the dashed
+# spelling — an underscored one would be dropped by the unit file parser on the next reload. (Whether the
+# unit actually manages to open /dev/tty2 depends on the test environment, and is not of interest here.)
+defer_transient_cleanup varlink-transient-stdio-tty.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-stdio-tty.service","Exec":{"StandardInput":"tty_force","TTYPath":"/dev/tty2"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Exec.StandardInput == "tty_force"'
+fragment=$(systemctl show -P FragmentPath varlink-transient-stdio-tty.service)
+grep -x 'StandardInput=tty-force' "$fragment" >/dev/null
+
+# Kill.KillMode/Kill.SendSIGHUP
+defer_transient_cleanup varlink-transient-kill.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-kill.service","Kill":{"KillMode":"process","SendSIGHUP":true},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Kill.KillMode == "process"'
+echo "$result" | jq -e '.context.Kill.SendSIGHUP == true'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-kill.service; do sleep 0.5; done'
+systemctl show -P KillMode varlink-transient-kill.service | grep '^process$' >/dev/null
+systemctl show -P SendSIGHUP varlink-transient-kill.service | grep '^yes$' >/dev/null
+
+# ExecStart execution flags, i.e. the Varlink counterparts of the "-", ":", "|", "+" and "!" prefixes of
+# unit file ExecStart= lines. First the ones observable from an unprivileged unit:
+#  - ignoreFailure: a failing command does not fail the unit
+#  - noEnvExpand: "${VAR}" in the arguments is passed as-is rather than expanded
+#  - viaShell: the command line is handed to the user's shell via "-c"; the client-supplied path is
+#    ignored, and argv[0] is normalized to "sh" — or "-sh", i.e. login shell semantics, if it starts
+#    with a dash — which the reply must reflect
+rm -f /tmp/varlink-transient-execflags-*
+defer_transient_cleanup varlink-transient-execflags.service
+# shellcheck disable=SC2016
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-execflags.service","Exec":{"Environment":["FLAGTEST=expanded"]},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[
+        {"path":"/bin/false","ignoreFailure":true},
+        {"path":"/usr/bin/touch","arguments":["touch","/tmp/varlink-transient-execflags-${FLAGTEST}"]},
+        {"path":"/usr/bin/touch","arguments":["touch","/tmp/varlink-transient-execflags-${FLAGTEST}"],"noEnvExpand":true},
+        {"path":"/bin/false","ignoreFailure":true,"noEnvExpand":true},
+        {"path":"/usr/bin/env","arguments":["not-sh","touch","/tmp/varlink-transient-execflags-shell"],"viaShell":true},
+        {"path":"/bin/sh","arguments":["-fancy","touch","/tmp/varlink-transient-execflags-loginshell"],"viaShell":true},
+        {"path":"/bin/sh","viaShell":true}]}}}')
+echo "$result" | jq -e '.context.Service.ExecStart[0].ignoreFailure == true'
+echo "$result" | jq -e '.context.Service.ExecStart[1].noEnvExpand == false'
+echo "$result" | jq -e '.context.Service.ExecStart[2].noEnvExpand == true'
+echo "$result" | jq -e '.context.Service.ExecStart[4].viaShell == true'
+echo "$result" | jq -e '.context.Service.ExecStart[4].path == "/bin/sh"'
+echo "$result" | jq -e '.context.Service.ExecStart[4].arguments[0] == "sh"'
+echo "$result" | jq -e '.context.Service.ExecStart[5].arguments[0] == "-sh"'
+echo "$result" | jq -e '.context.Service.ExecStart[6].arguments == ["sh"]'
+# The unit only becomes active once all ExecStart= commands succeeded (or were allowed to fail; note that
+# the argument-less "viaShell" command runs an interactive shell, which exits immediately on the null stdin)
+timeout 30 bash -c 'until systemctl is-active varlink-transient-execflags.service; do sleep 0.5; done'
+test -e /tmp/varlink-transient-execflags-expanded
+# shellcheck disable=SC2016
+test -e '/tmp/varlink-transient-execflags-${FLAGTEST}'
+test -e /tmp/varlink-transient-execflags-shell
+test -e /tmp/varlink-transient-execflags-loginshell
+# The flags must show up as the matching prefix characters in the transient unit file. Assert on the full
+# lines, so that the flag → character mapping, the character order for combined flags, the "@" emitted
+# after the flag characters for login shells, and the "$$" escaping applied to all but noEnvExpand
+# commands are all pinned down.
+fragment=$(systemctl show -P FragmentPath varlink-transient-execflags.service)
+grep -Fx 'ExecStart=-"/bin/false"' "$fragment" >/dev/null
+# shellcheck disable=SC2016
+grep -Fx 'ExecStart=@/usr/bin/touch "touch" "/tmp/varlink-transient-execflags-$${FLAGTEST}"' "$fragment" >/dev/null
+# shellcheck disable=SC2016
+grep -Fx 'ExecStart=:@/usr/bin/touch "touch" "/tmp/varlink-transient-execflags-${FLAGTEST}"' "$fragment" >/dev/null
+grep -Fx 'ExecStart=-:"/bin/false"' "$fragment" >/dev/null
+grep -Fx 'ExecStart=|"touch" "/tmp/varlink-transient-execflags-shell"' "$fragment" >/dev/null
+grep -Fx 'ExecStart=|@"touch" "/tmp/varlink-transient-execflags-loginshell"' "$fragment" >/dev/null
+grep -Fx 'ExecStart=|' "$fragment" >/dev/null
+rm -f /tmp/varlink-transient-execflags-*
+
+# Now the privilege related ones, in a unit running as an unprivileged user:
+#  - privileged/noSetuid: the command runs with full privileges, i.e. can write where the user cannot
+#  - (neither): the command runs as the user, and fails to write there (tolerated via ignoreFailure)
+rm -f /run/varlink-transient-execflags-*
+defer_transient_cleanup varlink-transient-execflags-priv.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-execflags-priv.service","Exec":{"User":"nobody"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[
+        {"path":"/usr/bin/touch","arguments":["touch","/run/varlink-transient-execflags-plain"],"ignoreFailure":true},
+        {"path":"/usr/bin/touch","arguments":["touch","/run/varlink-transient-execflags-privileged"],"privileged":true},
+        {"path":"/usr/bin/touch","arguments":["touch","/run/varlink-transient-execflags-nosetuid"],"noSetuid":true},
+        {"path":"/usr/bin/touch","arguments":["touch","/run/varlink-transient-execflags-privfail"],"ignoreFailure":true,"privileged":true}]}}}')
+echo "$result" | jq -e '.context.Service.ExecStart[0].privileged == false'
+echo "$result" | jq -e '.context.Service.ExecStart[1].privileged == true'
+echo "$result" | jq -e '.context.Service.ExecStart[2].noSetuid == true'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-execflags-priv.service; do sleep 0.5; done'
+test ! -e /run/varlink-transient-execflags-plain
+test -e /run/varlink-transient-execflags-privileged
+test -e /run/varlink-transient-execflags-nosetuid
+test -e /run/varlink-transient-execflags-privfail
+# 'privileged' and 'noSetuid' are not distinguishable via their runtime effect above (both run the command
+# as root), hence pin their distinct prefix characters to the distinct target paths in the fragment
+fragment=$(systemctl show -P FragmentPath varlink-transient-execflags-priv.service)
+grep -Fx 'ExecStart=-@/usr/bin/touch "touch" "/run/varlink-transient-execflags-plain"' "$fragment" >/dev/null
+grep -Fx 'ExecStart=+@/usr/bin/touch "touch" "/run/varlink-transient-execflags-privileged"' "$fragment" >/dev/null
+grep -Fx 'ExecStart=!@/usr/bin/touch "touch" "/run/varlink-transient-execflags-nosetuid"' "$fragment" >/dev/null
+grep -Fx 'ExecStart=-+@/usr/bin/touch "touch" "/run/varlink-transient-execflags-privfail"' "$fragment" >/dev/null
+rm -f /run/varlink-transient-execflags-*
+
+# The emitted settings must round-trip through pid1's unit file parser: a daemon-reload reparses all
+# transient units from their fragments, after which every property must still be in effect — an ExecStart=
+# line config_parse_exec() cannot parse back, or a stdio/kill setting written in a spelling the parser does
+# not know, would be dropped or mangled here.
+systemctl daemon-reload
+systemctl show -P StandardInput varlink-transient-stdio.service | grep -x null >/dev/null
+systemctl show -P StandardOutput varlink-transient-stdio.service | grep -x null >/dev/null
+systemctl show -P StandardError varlink-transient-stdio.service | grep -x journal >/dev/null
+systemctl show -P TTYPath varlink-transient-stdio.service | grep -x /dev/tty2 >/dev/null
+systemctl show -P StandardInput varlink-transient-stdio-tty.service | grep -x tty-force >/dev/null
+systemctl show -P KillMode varlink-transient-kill.service | grep -x process >/dev/null
+systemctl show -P SendSIGHUP varlink-transient-kill.service | grep -x yes >/dev/null
+# ExecStartEx renders the reparsed execution flags by name, pinning the character → flag mapping once more
+systemctl show -P ExecStartEx varlink-transient-execflags.service | grep -F 'flags=ignore-failure no-env-expand' >/dev/null
+systemctl show -P ExecStartEx varlink-transient-execflags.service | grep -F 'flags=no-env-expand' >/dev/null
+systemctl show -P ExecStartEx varlink-transient-execflags.service | grep -F 'flags=via-shell' >/dev/null
+systemctl show -P ExecStartEx varlink-transient-execflags-priv.service | grep -F 'flags=privileged' >/dev/null
+systemctl show -P ExecStartEx varlink-transient-execflags-priv.service | grep -F 'flags=no-setuid' >/dev/null
+systemctl show -P ExecStartEx varlink-transient-execflags-priv.service | grep -F 'flags=ignore-failure privileged' >/dev/null
+
 # Exec.SetCredential: pass a credential and verify the running process can read it
 defer_transient_cleanup varlink-transient-cred.service
 CRED_VALUE_B64=$(printf 'secret-value' | base64 -w0)
@@ -310,6 +458,11 @@ defer_transient_cleanup varlink-transient-badpath.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-badpath.service","Service":{"Type":"simple","ExecStart":[{"path":""}]}}}' \
     "Service.ExecStart"
+# The 'privileged' and 'noSetuid' execution flags are mutually exclusive
+defer_transient_cleanup varlink-transient-badflags.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-badflags.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true","privileged":true,"noSetuid":true}]}}}' \
+    "Service.ExecStart"
 # Relative WorkingDirectory path is rejected
 defer_transient_cleanup varlink-transient-bad-wd.service
 expect_invalid_parameter \
@@ -340,6 +493,35 @@ defer_transient_cleanup varlink-transient-bad-rd.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-rd.service","Exec":{"RootDirectory":"relative/path"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
     "Exec.RootDirectory"
+# Note that an unparsable enum value (e.g. StandardOutput=bogus) is rejected by the Varlink IDL
+# validation layer before the JSON dispatch even runs, hence there's no point in testing pid1's
+# dispatch-level enum handling here — and doing so would trip post.sh's "didn't pass validation"
+# journal check, since the IDL layer logs about the rejection.
+# Relative TTYPath is rejected
+defer_transient_cleanup varlink-transient-bad-ttypath.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-ttypath.service","Exec":{"TTYPath":"relative/tty"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.TTYPath"
+# The file based stdio types need a companion path, which cannot be passed yet, hence are rejected
+for t in file append truncate; do
+    defer_transient_cleanup "varlink-transient-bad-stdout-$t.service"
+    expect_invalid_parameter \
+        "{\"context\":{\"ID\":\"varlink-transient-bad-stdout-$t.service\",\"Exec\":{\"StandardOutput\":\"$t\"},\"Service\":{\"Type\":\"oneshot\",\"ExecStart\":[{\"path\":\"/bin/true\"}]}}}" \
+        "Exec.StandardOutput"
+done
+defer_transient_cleanup varlink-transient-bad-stderr.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-stderr.service","Exec":{"StandardError":"file"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.StandardError"
+defer_transient_cleanup varlink-transient-bad-stdin.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-stdin.service","Exec":{"StandardInput":"file"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.StandardInput"
+# "data" likewise needs a companion field (the payload from StandardInputData=), hence is rejected too
+defer_transient_cleanup varlink-transient-bad-stdin-data.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-stdin-data.service","Exec":{"StandardInput":"data"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.StandardInput"
 # Invalid credential ID
 defer_transient_cleanup varlink-transient-bad-cred-id.service
 expect_invalid_parameter \
@@ -353,6 +535,9 @@ expect_invalid_parameter \
 # Exec on a unit type without an exec context (.slice) is rejected
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-exec.slice","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
+# Same for Kill on a unit type without a kill context
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-kill.slice","Kill":{"KillMode":"process"}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
 # Unknown field in Exec is rejected as PropertyNotSupported
 defer_transient_cleanup varlink-transient-unknown-exec.service
 unsupported_exec=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -366,6 +551,12 @@ unsupported_service=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTra
     '{"context":{"ID":"varlink-transient-unknown-service.service","Service":{"Type":"oneshot","Restart":"always","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
 echo "$unsupported_service" | grep "io.systemd.Unit.PropertyNotSupported"
 echo "$unsupported_service" | grep "Service.Restart"
+# Same for a Kill field
+defer_transient_cleanup varlink-transient-unknown-kill.service
+unsupported_kill=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-unknown-kill.service","Kill":{"KillSignal":"SIGINT"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
+echo "$unsupported_kill" | grep "io.systemd.Unit.PropertyNotSupported"
+echo "$unsupported_kill" | grep "Kill.KillSignal"
 set -o pipefail
 
 transient_cleanup
