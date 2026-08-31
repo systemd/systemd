@@ -43,12 +43,16 @@
 #include "prompt-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "sysinstall-auto-device.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "varlink-io.systemd.SysInstall.h"
 #include "varlink-util.h"
 #include "verbs.h"
 
 static char *arg_node = NULL;
+static bool arg_device_auto = false;
+static usec_t arg_device_auto_timeout = 30 * USEC_PER_SEC;
 static bool arg_welcome = true;
 static int arg_erase = -1;            /* tri-state */
 static bool arg_confirm = true;
@@ -179,6 +183,18 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_VERSION:
                         return version();
 
+                OPTION_LONG("device-auto", NULL, "Automatically pick the target disk, once exactly one candidate is present and the device list settled"):
+                        arg_device_auto = true;
+                        break;
+
+                OPTION_LONG("device-auto-timeout", "SECS", "How long the list of candidate disks must remain unchanged before a disk is picked"):
+                        r = parse_sec(opts.arg, &arg_device_auto_timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --device-auto-timeout= parameter: %s", opts.arg);
+                        if (arg_device_auto_timeout == USEC_INFINITY)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--device-auto-timeout= cannot be infinite, refusing.");
+                        break;
+
                 OPTION_LONG("welcome", "no", "Disable the welcome text"):
                         r = parse_boolean_argument("--welcome=", opts.arg, &arg_welcome);
                         if (r < 0)
@@ -285,6 +301,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (strv_length(args) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
         if (!strv_isempty(args)) {
+                if (arg_device_auto)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --device-auto with an explicitly specified device, refusing.");
+
                 arg_node = strdup(args[0]);
                 if (!arg_node)
                         return log_oom();
@@ -2130,6 +2149,18 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *repart_link = NULL;
         if (arg_node) {
                 r = print_welcome(&mute_console_link);
+                if (r < 0)
+                        return r;
+
+                r = validate_run(&repart_link, arg_node);
+                if (r < 0)
+                        return r;
+        } else if (arg_device_auto) {
+                r = print_welcome(&mute_console_link);
+                if (r < 0)
+                        return r;
+
+                r = sysinstall_auto_pick_block_device(arg_device_auto_timeout, &arg_node);
                 if (r < 0)
                         return r;
 
