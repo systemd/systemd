@@ -54,7 +54,43 @@ cleanup() {
         systemd-dissect --detach "$LOOPDEV"
         LOOPDEV=""
     fi
+    if [[ -n "${TARGETDEV:-}" ]]; then
+        systemd-dissect --detach "$TARGETDEV"
+        TARGETDEV=""
+    fi
+    if [[ -n "${UNIT:-}" ]]; then
+        systemctl stop "$UNIT"
+        UNIT=""
+    fi
     rm -rf "$WORKDIR"
+}
+
+assert_no_extra_block_devices() {
+    # Safety check for --device-auto tests: the only disk in the VM (as far as the candidate filter of
+    # systemd-sysinstall is concerned) must be the one we are booted from, otherwise the automatic pick
+    # would either fail or – worse – install to some unexpected disk. Skip what systemd-sysinstall skips
+    # too: partitions, zram, read-only devices, and devices without a medium (e.g. unused loopback
+    # devices, which have a size of zero).
+    local rootdev sysdev devname
+
+    rootdev="$(bootctl -RR)"
+
+    for sysdev in /sys/class/block/*; do
+        devname="$(basename "$sysdev")"
+
+        if [[ -e "$sysdev/partition" ]] || [[ "$devname" == zram* ]]; then
+            continue
+        fi
+        if [[ "$(<"$sysdev/size")" -eq 0 ]] || [[ "$(<"$sysdev/ro")" -ne 0 ]]; then
+            continue
+        fi
+        if [[ "/dev/$devname" == "$rootdev" ]]; then
+            continue
+        fi
+
+        echo "Unexpected block device /dev/$devname present besides root disk $rootdev, cannot run test." >&2
+        return 1
+    done
 }
 
 create_fake_os_source_tree() {
@@ -218,6 +254,79 @@ testcase_sysinstall_varlink_basic() {
     # literal credential ('marker') so we can verify it ends up next to the UKI
     # and is referenced from the boot loader entry.
     varlinkctl call /run/systemd/io.systemd.SysInstall io.systemd.SysInstall.Run "{\"erase\": true, \"variables\": false, \"credentials\" : [{ \"id\" : \"marker\", \"value\" : \"$CRED_VALUE_BASE64\" }], \"kernelImagePath\" : \"$WORKDIR/testuki.efi\", \"node\": \"$WORKDIR/target.img\", \"definitions\" : [\"$DEFS\"] }" --more
+
+    validate_image
+}
+
+testcase_sysinstall_device_auto() {
+    WORKDIR="$(mktemp --directory /tmp/test-sysinstall.XXXXXXXXXX)"
+    LOOPDEV=""
+    TARGETDEV=""
+    UNIT=""
+    MOUNTED=0
+
+    echo "WORKDIR=$WORKDIR"
+
+    trap cleanup RETURN
+
+    assert_no_extra_block_devices
+
+    create_fake_os_source_tree
+
+    # Put a bare file system on the target image, so that systemd-dissect --attach accepts it as an
+    # image later on (an all-zero file is not a valid image). Don't put a partition table on it though:
+    # the resulting loopback device shall have no partition block devices, so that nothing is in the
+    # way when systemd-repart adds the new ones. systemd-sysinstall erases the file system anyway.
+    mkfs.ext4 -q -F "$WORKDIR/target.img"
+
+    # Start the installer as a notify service with --device-auto, while no candidate disk exists yet.
+    # systemd-sysinstall sends READY=1 once its device monitor is set up, hence systemd-run only returns
+    # once we can be sure that a disk appearing from now on will be noticed.
+    UNIT="sysinstall-device-auto-$RANDOM.service"
+    systemd-run \
+        --unit="$UNIT" \
+        --service-type=notify \
+        --property=RemainAfterExit=yes \
+        --quiet \
+        -- \
+        systemd-sysinstall \
+            --welcome=no \
+            --chrome=no \
+            --confirm=no \
+            --summary=no \
+            --erase=yes \
+            --variables=no \
+            --reboot=no \
+            --mute-console=no \
+            --copy-locale=no \
+            --copy-keymap=no \
+            --copy-timezone=no \
+            --set-credential="marker:$CRED_VALUE" \
+            --kernel="$WORKDIR/testuki.efi" \
+            --definitions="$DEFS" \
+            --device-auto \
+            --device-auto-timeout-usec=10
+
+    # Only now, 5s later, make the target disk appear: a partition-scanning loopback device backed by
+    # the target image. It's the sole candidate disk in the VM, hence it must be picked.
+    sleep 5
+
+    # The installer must still be waiting at this point, there was nothing to install to so far.
+    assert_eq "$(systemctl show -P SubState "$UNIT")" "running"
+
+    TARGETDEV="$(systemd-dissect --attach "$WORKDIR/target.img")"
+    udevadm wait --settle "$TARGETDEV"
+
+    # Wait for the installation to finish, and check that it succeeded. Show the installer's output first,
+    # so that it ends up in the test log whatever happened.
+    timeout 120 bash -c "while [[ \"\$(systemctl show -P SubState '$UNIT')\" == running ]]; do sleep 1; done"
+    journalctl --no-pager -u "$UNIT"
+    assert_eq "$(systemctl show -P SubState "$UNIT")" "exited"
+    assert_eq "$(systemctl show -P Result "$UNIT")" "success"
+
+    # Release our loopback device again, validate_image attaches the image on its own.
+    systemd-dissect --detach "$TARGETDEV"
+    TARGETDEV=""
 
     validate_image
 }
