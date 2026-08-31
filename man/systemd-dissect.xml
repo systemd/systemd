@@ -209,7 +209,8 @@
         of <command>losetup --find --show --partscan</command>, but will validate the image as DDI before
         attaching, and derive the correct sector size to use automatically. Moreover, it ensures the
         per-partition block devices are created before returning and attempts to enable direct IO mode, if
-        possible. Takes a path to a disk image file.</para>
+        possible. Takes a path to a disk image file. Use <option>--relax</option> to attach images that do
+        not qualify as DDI.</para>
 
         <para>If combined with <option>--quiet</option> output of the block device name is suppressed.</para>
 
@@ -539,6 +540,18 @@
         string from the specified backing filename, truncating it if necessary.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--relax</option></term>
+
+        <listitem><para>If combined with <option>--attach</option>, skips validation of the image and
+        attaches it to the loopback block device as it is, even if it does not qualify as DDI. If this
+        switch is used, no image dissection takes place, and thus it is not guaranteed that the
+        per-partition block devices are created before the command returns. May not be combined with any
+        other command than <option>--attach</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
