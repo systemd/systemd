@@ -10,12 +10,14 @@
 #include "log.h"
 #include "string-util.h"
 #include "unit-def.h"
+#include "unit-result.h"
 
 typedef struct WaitForItem {
         BusWaitForUnits *parent;
 
         BusWaitForUnitsFlags flags;
 
+        char *name;
         char *bus_path;
 
         sd_bus_slot *slot_get_all;
@@ -28,6 +30,8 @@ typedef struct WaitForItem {
         uint32_t job_id;
         char *clean_result;
         char *live_mount_result;
+
+        UnitResult result;
 } WaitForItem;
 
 typedef struct BusWaitForUnits {
@@ -68,6 +72,9 @@ static WaitForItem* wait_for_item_free(WaitForItem *item) {
         sd_bus_slot_unref(item->slot_properties_changed);
         sd_bus_slot_unref(item->slot_get_all);
 
+        unit_result_done(&item->result);
+
+        free(item->name);
         free(item->bus_path);
         free(item->active_state);
         free(item->clean_result);
@@ -80,7 +87,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(WaitForItem*, wait_for_item_free);
 
 static void call_unit_callback_and_wait(BusWaitForUnits *d, WaitForItem *item, bool good) {
         if (item->unit_callback)
-                item->unit_callback(d, item->bus_path, good, item->userdata);
+                item->unit_callback(d,
+                                    item->name,
+                                    good,
+                                    FLAGS_SET(item->flags, BUS_WAIT_COLLECT_RESULT) ? &item->result : NULL,
+                                    item->userdata);
 
         wait_for_item_free(item);
 }
@@ -201,6 +212,20 @@ static void wait_for_item_check_ready(WaitForItem *item) {
                         return;
         }
 
+        if (FLAGS_SET(item->flags, BUS_WAIT_COLLECT_RESULT)) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                int r;
+
+                /* Now that the unit is done, query its final state and resource usage, so that we can pass
+                 * the data to the callback. Note that issuing this synchronous call is fine, even though we
+                 * are typically invoked from a message callback here: sd_bus_call() will queue but not
+                 * dispatch other incoming messages. */
+                r = unit_result_query(d->bus, item->bus_path, &item->result, &error);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to query final state of unit %s, ignoring: %s",
+                                        item->name, bus_error_message(&error, r));
+        }
+
         call_unit_callback_and_wait(d, item, true);
         bus_wait_for_units_check_ready(d);
 }
@@ -308,7 +333,12 @@ int bus_wait_for_units_add_unit(
                 .unit_callback = callback,
                 .userdata = userdata,
                 .job_id = UINT32_MAX,
+                .result = UNIT_RESULT_INIT,
         };
+
+        item->name = strdup(unit);
+        if (!item->name)
+                return -ENOMEM;
 
         if (!FLAGS_SET(item->flags, BUS_WAIT_REFFED)) {
                 r = sd_bus_call_method_async(
