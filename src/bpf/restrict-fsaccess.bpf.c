@@ -16,8 +16,11 @@
  *                              dm-verity signals signature validity
  *   - bdev_free_security hook: removes devices from the map on teardown
  *   - bprm_check_security:    blocks execve() from untrusted sources
- *   - mmap_file:              blocks PROT_EXEC mmap from untrusted sources
- *   - file_mprotect:          blocks W->X transitions from untrusted sources
+ *   - mmap_file:              blocks PROT_EXEC mmap from untrusted sources, and
+ *                              any writable+executable (W^X-violating) mapping
+ *   - file_mprotect:          blocks writable+executable mprotect, and making
+ *                              executable a mapping from an untrusted source or
+ *                              one that was modified through copy-on-write
  *
  * On kernels providing the bpf_real_data_inode() kfunc (v7.2+), files on
  * union filesystems (overlayfs) are resolved to the layer hosting their
@@ -39,6 +42,7 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
+#define PROT_WRITE         0x2
 #define PROT_EXEC          0x4
 #define VM_EXEC            0x00000004
 #define PTRACE_MODE_ATTACH 0x02
@@ -218,6 +222,10 @@ SEC("lsm.s/mmap_file")
 int BPF_PROG(restrict_fsaccess_mmap_file, struct file *file, unsigned long reqprot,
              unsigned long prot, unsigned long flags)
 {
+        /* W^X: a mapping may never be writable and executable at once. */
+        if ((prot & PROT_EXEC) && (prot & PROT_WRITE))
+                return -EPERM;
+
         /* Only enforce on executable mappings */
         if (!(prot & PROT_EXEC))
                 return 0;
@@ -245,16 +253,26 @@ int BPF_PROG(restrict_fsaccess_file_mprotect, struct vm_area_struct *vma,
 {
         struct file *file;
         unsigned long vm_flags;
+        void *anon_vma;
+
+        /* W^X: a mapping may never be writable and executable at once. */
+        if ((prot & PROT_EXEC) && (prot & PROT_WRITE))
+                return -EPERM;
 
         /* Only enforce when adding PROT_EXEC */
         if (!(prot & PROT_EXEC))
                 return 0;
 
-        /* If VM_EXEC is already set, the mapping is already executable — this
-         * mprotect isn't granting new executable capability, allow */
+        /* Already executable so this mprotect() grants no new capability. */
         BPF_CORE_READ_INTO(&vm_flags, vma, vm_flags);
         if (vm_flags & VM_EXEC)
                 return 0;
+
+        /* A private file mapping with an anon_vma has been written to
+         * (copy-on-write), so its pages may no longer match the trusted file. */
+        BPF_CORE_READ_INTO(&anon_vma, vma, anon_vma);
+        if (anon_vma)
+                return -EPERM;
 
         /* Anonymous executable mapping — no file backing, deny. Direct
          * dereference, see restrict_fsaccess_bprm_check(). vm_file is in the
