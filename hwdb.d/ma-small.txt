@@ -17195,6 +17195,12 @@ EFC000-EFCFFF     (base 16)		LonTen Technology（BeiJing）Co.,LTD.
 				Pfullingen    72793
 				DE
 
+8C-1F-64   (hex)		Power Electronics Espana, S.L.
+B78000-B78FFF     (base 16)		Power Electronics Espana, S.L.
+				RONDA DEL CAMP DE AVIACIO, NO. 4 CARRASES INDUSTRIAL ESTATE
+				LLÍRIA   Valencia  46160 
+				ES
+
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
 				5 Chemin de Chiradie
@@ -19350,12 +19356,6 @@ D19000-D19FFF     (base 16)		Senior Group LLC
 9C2000-9C2FFF     (base 16)		Sportsbeams Lighting, Inc.
 				1260 Pine Forest Cir
 				Round Rock  TX  78665
-				US
-
-70-B3-D5   (hex)		Honeywell/Intelligrated
-94C000-94CFFF     (base 16)		Honeywell/Intelligrated
-				10045 International Blvd
-				Cincinnati  OH  45246
 				US
 
 70-B3-D5   (hex)		LARIMART SPA
@@ -25819,6 +25819,18 @@ CAA000-CAAFFF     (base 16)		Energom Electronic Kft.
 				Tavasz u.6.
 				Nagytarcsa    2142
 				HU
+
+70-B3-D5   (hex)		Intelligrated System LLC
+94C000-94CFFF     (base 16)		Intelligrated System LLC
+				7901 Innovation Way
+				Mason  OH  45040-9498
+				US
+
+8C-1F-64   (hex)		Tokyo Denki Gijutsu Kogyo
+850000-850FFF     (base 16)		Tokyo Denki Gijutsu Kogyo
+				2-12-2 Nakane
+				Meguro-ku  TOKYO  1520031
+				JP
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -34358,11 +34370,29 @@ F89000-F89FFF     (base 16)		DIGITALWAN
 				Cavaillon    84300
 				FR
 
+8C-1F-64   (hex)		M/S MILIND RAMACHANDRA RAJWADE
+FA1000-FA1FFF     (base 16)		M/S MILIND RAMACHANDRA RAJWADE
+				713, Sinhgad Road, P.cast S. No. 39, Manikbaug Industries Wadagaon Budru
+				Pune  Maharashtra  411051
+				IN
+
+8C-1F-64   (hex)		Exatron Servers Manufacturing Pvt Ltd
+6A2000-6A2FFF     (base 16)		Exatron Servers Manufacturing Pvt Ltd
+				Plot No:11(E), KIADB Industrial area, Bashettyhalli,Doddaballapur Bangalore Rural
+				Bangalore Rural  Karnataka  561203
+				IN
+
 8C-1F-64   (hex)		INVENTIA Sp. z o.o.
 E5F000-E5FFFF     (base 16)		INVENTIA Sp. z o.o.
 				Poleczki 23
 				Warszawa  Mazowieckie  02-822
 				PL
+
+8C-1F-64   (hex)		Breas Medical AB
+950000-950FFF     (base 16)		Breas Medical AB
+				Företagsvägen 1
+				Mölnlycke    SE-435 33
+				SE
 
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
@@ -42841,3 +42871,9 @@ C21000-C21FFF     (base 16)		SPECIM, Spectral Imaging Oy Ltd
 				4-12-17 Meiekiminami, Nakamura-ku, Nagoya-shi
 				Aichi    450-0003
 				JP
+
+8C-1F-64   (hex)		MB connect line GmbH
+682000-682FFF     (base 16)		MB connect line GmbH
+				Winnettener Strasse 6
+				Dinkelsbuehl  Bavaria  91550
+				DE
