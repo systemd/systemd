@@ -436,6 +436,36 @@ manual_testcase_02_mdns_llmnr() {
     assert_in 'no' "$(resolvectl llmnr hoge)"
 }
 
+# Test for the D-Bus RegisterService()/UnregisterService() API
+manual_testcase_03_register_service() {
+    # Cleanup
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/90-mdns.conf
+        systemctl reload systemd-resolved.service
+    }
+
+    trap cleanup RETURN
+
+    mkdir -p /run/systemd/resolved.conf.d
+    {
+        echo "[Resolve]"
+        echo "MulticastDNS=yes"
+    } >/run/systemd/resolved.conf.d/90-mdns.conf
+    restart_resolved
+
+    # The lifetime of a registered service is bound to the bus connection of the client that registered
+    # it. busctl disconnects right after the call, so the service should be unregistered again shortly
+    # after.
+    assert_in '/org/freedesktop/resolve1/dnssd/testservice' \
+              "$(busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+                     RegisterService 'sssqqqaa{say}' testservice '%H' _testservice._tcp 1234 0 0 0)"
+
+    timeout -v 10s bash -c 'while busctl tree org.freedesktop.resolve1 | grep -q dnssd/testservice; do sleep .5; done'
+
+    (! busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+         UnregisterService 'o' /org/freedesktop/resolve1/dnssd/testservice)
+}
+
 testcase_03_23951() {
     : "--- nss-resolve/nss-myhostname tests"
 
@@ -1725,6 +1755,7 @@ systemctl enable --now systemd-resolved.service
 # Need to be run before SETUP, otherwise things will break
 manual_testcase_01_resolvectl
 manual_testcase_02_mdns_llmnr
+manual_testcase_03_register_service
 
 # Run setup
 setup
