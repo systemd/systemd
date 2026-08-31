@@ -6,15 +6,19 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
 #include "dns-rr.h"
 #include "extract-word.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "path-util.h"
 #include "resolved-conf.h"
+#include "resolved-dns-scope.h"
 #include "resolved-dns-zone.h"
 #include "resolved-dnssd.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -53,6 +57,8 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
         if (service->manager)
                 hashmap_remove(service->manager->dnssd_registered_services, service->id);
 
+        sd_bus_track_unref(service->bus_track);
+
         dns_resource_record_unref(service->ptr_rr);
         dns_resource_record_unref(service->sub_ptr_rr);
         dns_resource_record_unref(service->srv_rr);
@@ -66,6 +72,88 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
         free(service->name_template);
 
         return mfree(service);
+}
+
+static int dnssd_registered_service_make_goodbye(DnssdRegisteredService *service, DnsAnswer **ret) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        size_t n_rrs = 3;
+        int r;
+
+        assert(service);
+        assert(ret);
+
+        /* Collects the service's RRs flagged as goodbye (TTL 0), so that only this service is withdrawn,
+         * and not everything else published in the zone along with it. */
+
+        LIST_FOREACH(items, txt_data, service->txt_data_items)
+                n_rrs++;
+
+        answer = dns_answer_new(n_rrs);
+        if (!answer)
+                return -ENOMEM;
+
+        FOREACH_ARRAY(rr, ((DnsResourceRecord*[]) { service->ptr_rr, service->sub_ptr_rr, service->srv_rr }), 3) {
+                if (!*rr)
+                        continue;
+
+                r = dns_answer_add(answer, *rr, /* ifindex= */ 0,
+                                   dns_resource_key_is_dnssd_ptr((*rr)->key) ?
+                                   DNS_ANSWER_GOODBYE : (DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH),
+                                   /* rrsig= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(items, txt_data, service->txt_data_items) {
+                r = dns_answer_add(answer, txt_data->rr, /* ifindex= */ 0,
+                                   DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH, /* rrsig= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(answer);
+        return 0;
+}
+
+void dnssd_registered_service_unregister(DnssdRegisteredService *service) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *goodbye = NULL;
+        Link *l;
+        int r;
+
+        assert(service);
+
+        Manager *m = ASSERT_PTR(service->manager);
+
+        /* Takes the service out of service: sends goodbye messages for it, removes its RRs from all mDNS
+         * zones, and drops it from the manager. The object itself is not freed, that is up to the caller. */
+
+        r = dnssd_registered_service_make_goodbye(service, &goodbye);
+        if (r < 0)
+                log_warning_errno(r, "Failed to collect goodbye RRs for DNS-SD service '%s', ignoring: %m", service->id);
+
+        HASHMAP_FOREACH(l, m->links)
+                FOREACH_ARRAY(scope, ((DnsScope*[]) { l->mdns_ipv4_scope, l->mdns_ipv6_scope }), 2) {
+                        if (!*scope)
+                                continue;
+
+                        if (goodbye) {
+                                r = dns_scope_send_goodbye(*scope, goodbye);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to send goodbye messages, ignoring: %m");
+                        }
+
+                        dns_zone_remove_rr(&(*scope)->zone, service->ptr_rr);
+                        dns_zone_remove_rr(&(*scope)->zone, service->sub_ptr_rr);
+                        dns_zone_remove_rr(&(*scope)->zone, service->srv_rr);
+                        LIST_FOREACH(items, txt_data, service->txt_data_items)
+                                dns_zone_remove_rr(&(*scope)->zone, txt_data->rr);
+                }
+
+        /* Drop the service from the manager before refreshing the zones, so that its RRs are not simply
+         * added back. */
+        hashmap_remove(m->dnssd_registered_services, service->id);
+
+        manager_refresh_rrs(m);
 }
 
 void dnssd_registered_service_clear_on_reload(Hashmap *services) {
