@@ -124,6 +124,9 @@ COMMAND(
 #define PCRLOCK_FILE_SYSTEM_PATH_PREFIX     "/var/lib/pcrlock.d/840-file-system-"
 #define PCRLOCK_PE_INPUT_MAX                (2U * U64_GB)
 
+/* Maximum number of attempts when unsealing the recovery PIN */
+#define PCRLOCK_UNSEAL_ATTEMPTS_MAX         16U
+
 /* The default set of PCRs to lock to */
 #define DEFAULT_PCR_MASK                                     \
         ((UINT32_C(1) << TPM2_PCR_PLATFORM_CODE) |           \
@@ -3849,6 +3852,16 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                                         policy_session,
                                         &old_policy.prediction,
                                         old_policy.algorithm);
+                        if (r == -EUCLEAN) {
+                                /* Some PCR was extended while we were submitting the policy, not necessarily
+                                 * one of ours, the TPM's PCR update counter is global (pcrCounter). It is a
+                                 * transient error. */
+                                if (attempt >= PCRLOCK_UNSEAL_ATTEMPTS_MAX)
+                                        return log_error_errno(r, "PCR values kept changing while submitting the policy, giving up after %u attempts. Something on this system extends a PCR continuously.", attempt+1);
+
+                                log_debug("Trying again (attempt %u), as PCR values changed while submitting the policy.", attempt+1);
+                                continue;
+                        }
                         if (r < 0)
                                 return r;
 
@@ -3868,7 +3881,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                                         policy_session,
                                         encryption_session,
                                         &secret);
-                        if (r < 0 && (r != -ESTALE || attempt >= 16))
+                        if (r < 0 && (r != -ESTALE || attempt >= PCRLOCK_UNSEAL_ATTEMPTS_MAX))
                                 return log_error_errno(r, "Failed to unseal PIN: %m");
                         if (r == 0)
                                 break;

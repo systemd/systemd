@@ -1524,6 +1524,8 @@ int decrypt_credential_and_warn(
                         return log_error_errno(r, "TPM key integrity check failed. Key most likely does not belong to this TPM.");
                 if (r == -EADDRNOTAVAIL)
                         return log_error_errno(r, "NV index referenced by key is missing, unwritten, or unusable, it could be for another system.");
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "PCR values kept changing while unsealing the TPM2 secret, giving up. Something on this system extends a PCR continuously: %m");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
                         return log_error_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                 if (r < 0)
