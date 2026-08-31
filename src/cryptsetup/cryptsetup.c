@@ -2102,8 +2102,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 if (IN_SET(r, -EACCES, -ENOLCK))
                                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
                                 /* Stop unless we should keep iterating to next token because the tried one
-                                 * does not match boot state. For now without -EUCLEAN because currently the
-                                 * only error it reports won't be solved by moving to another token. */
+                                 * does not match boot state. Note: no -EUCLEAN here, acquire_tpm2_key()
+                                 * already turns that one into -EPERM itself. */
                                 if (!ERRNO_IS_NEG_TPM2_TOKEN_MISMATCH(r))
                                         break;
 
