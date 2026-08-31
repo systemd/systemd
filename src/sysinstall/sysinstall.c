@@ -2098,7 +2098,7 @@ static void end_marker(void) {
         if (!arg_welcome)
                 return;
 
-        printf("\n%sExiting first boot settings tool.%s\n\n", ansi_grey(), ansi_normal());
+        printf("\n%sExiting system installer tool.%s\n\n", ansi_grey(), ansi_normal());
         fflush(stdout);
 }
 
