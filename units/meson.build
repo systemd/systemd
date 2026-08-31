@@ -990,6 +990,12 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-ptybrokerd.service.in',
+        },
+        {
+          'file' : 'systemd-ptybrokerd.socket',
+        },
+        {
           'file' : 'systemd-udev-load-credentials.service',
           'install_tag' : 'udev',
         },
