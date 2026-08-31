@@ -735,6 +735,17 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   to override the filesystem type for all partitions with `Type=root`, you can
   set `SYSTEMD_REPART_OVERRIDE_FSTYPE_ROOT=ext4`.
 
+`systemd-sysinstall`:
+
+* `$SYSTEMD_SYSINSTALL_PERMIT_AUTO_TARGET_LOOP` – takes a boolean. If true,
+  loopback block devices are considered as candidates when the installation
+  target device is picked automatically (i.e. when `--device-auto` is used).
+  By default, loopback devices are never picked automatically, since they are
+  hardly ever the disk an unattended installation is supposed to end up on.
+  This is primarily useful for testing purposes, where loopback devices are
+  used as stand-ins for real disks. Only honoured if `systemd-sysinstall` is
+  not invoked with elevated privileges (i.e. via `secure_getenv()`).
+
 `systemd-nspawn`, `systemd-networkd`:
 
 * `$SYSTEMD_FIREWALL_BACKEND` – takes a string, either `iptables` or
