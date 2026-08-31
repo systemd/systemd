@@ -7982,6 +7982,12 @@ A00000-AFFFFF     (base 16)		Leegiot Intelligent Technology Co., Ltd.
 				Soja-shi  Okayama  719-1121
 				JP
 
+EC-BA-34   (hex)		Scenario Automation
+D00000-DFFFFF     (base 16)		Scenario Automation
+				Rua Paulo Elias, 216
+				São Carlos  São Paulo  13564400
+				BR
+
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
 				Floor 5th, Block 9th, Sunny Industrial Zone, Xili Town, Nanshan District, Shenzhen, China 
@@ -31211,6 +31217,18 @@ A00000-AFFFFF     (base 16)		Bull Creek Technologies
 				HangZhou  ZheJiang  311241
 				CN
 
+EC-BA-34   (hex)		MEVA AVİYONİK SİSTEMLER TEKNOLOJİ SANAYİ VE TİCARET A.Ş.
+700000-7FFFFF     (base 16)		MEVA AVİYONİK SİSTEMLER TEKNOLOJİ SANAYİ VE TİCARET A.Ş.
+				Üniversiteler Mahallesi İhsan Doğramacı Bulvarı No:23/B Teknokent ODTÜ, Çankaya/Ankara
+				Çankaya  Ankara  06800
+				TR
+
+EC-BA-34   (hex)		femrice
+000000-0FFFFF     (base 16)		femrice
+				Rm408,Tower B,Jiahu Building,Shangdi 3rd Street,Haidian,Beijing,China
+				Beijing    100085
+				CN
+
 C8-5C-E2   (hex)		Fela Management AG 
 000000-0FFFFF     (base 16)		Fela Management AG 
 				Basadingerstrasse 18
@@ -39166,3 +39184,15 @@ EC-BA-34   (hex)		Safety electronic technology(huizhou) Co.,Ltd
 				7th Floor, Unit 1, Building C1-3, Qunyi intelligent Manufacturing industrial Park, South of Sanhe Avenue, Tonghu Tow, Zhongkai High tech Zone, Huizhou，Guangdong, China
 				huizhou   Guangdong   516039
 				CN
+
+EC-BA-34   (hex)		Heizomat Gerätebau GmbH
+100000-1FFFFF     (base 16)		Heizomat Gerätebau GmbH
+				Maicha 21
+				Gunzenhausen    91710
+				DE
+
+EC-BA-34   (hex)		Aeon Super Ai Inc.
+500000-5FFFFF     (base 16)		Aeon Super Ai Inc.
+				6F., No. 186, Jianyi Rd., Zhonghe Dist.,
+				New Taipei City  Taiwan(R.O.C.)  235
+				TW

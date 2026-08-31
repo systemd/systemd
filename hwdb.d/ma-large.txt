@@ -48344,6 +48344,24 @@ F834E5     (base 16)		vivo Mobile Communication Co., Ltd.
 				Yuyao  Zhejiang  315470
 				CN
 
+F8-A9-86   (hex)		Microsoft Corporation
+F8A986     (base 16)		Microsoft Corporation
+				One Microsoft Way
+				REDMOND  WA  98052
+				US
+
+64-41-FF   (hex)		Shenzhen Wolf Technology Co., Ltd.
+6441FF     (base 16)		Shenzhen Wolf Technology Co., Ltd.
+				Room 201, Block C1, Zhu'ao Intelligent Manufacturing Park, Guxing Community, Xixiang Subdistrict, Bao'an District
+				Shenzhen City    51800
+				CN
+
+74-36-75   (hex)		Juniper Networks
+743675     (base 16)		Juniper Networks
+				1133 Innovation Way
+				Sunnyvale  CA  94089
+				US
+
 00-74-9C   (hex)		Ruijie Networks Co.,LTD
 00749C     (base 16)		Ruijie Networks Co.,LTD
 				19# Building,Star-net Science Plaza,Juyuanzhou, 618 Jinshan Road
@@ -95800,6 +95818,36 @@ ECBA34     (base 16)		IEEE Registration Authority
 				445 Hoes Lane
 				Piscataway  NJ  08554
 				US
+
+14-BA-88   (hex)		Zhejiang Uniview Technologies Co.,Ltd.
+14BA88     (base 16)		Zhejiang Uniview Technologies Co.,Ltd.
+				No.88,Jiangling Road
+				Hangzhou  Zhejiang,P.R.China  310051
+				CN
+
+E4-FE-D4   (hex)		Microsoft Corporation
+E4FED4     (base 16)		Microsoft Corporation
+				One Microsoft Way
+				REDMOND  WA  98052
+				US
+
+28-03-E6   (hex)		Nokia
+2803E6     (base 16)		Nokia
+				600 March Road
+				Kanata  Ontario  K2K 2E6
+				CA
+
+BC-12-2F   (hex)		LCFC(Hefei) Electronics Technology co., ltd
+BC122F     (base 16)		LCFC(Hefei) Electronics Technology co., ltd
+				No. 3188-1 Yungu Road (Comprehensive Bonded Zone), Hefei Economic & Technological Development Area，Anhui
+				HEFEI  ANHUI  230601
+				CN
+
+1C-E4-CB   (hex)		Espressif Systems (Singapore) Pte. Ltd
+1CE4CB     (base 16)		Espressif Systems (Singapore) Pte. Ltd
+				1 FUSIONOPOLIS VIEW#07-02ECLIPSE
+				Singapore    138577
+				SG
 
 6C-87-20   (hex)		New H3C Technologies Co., Ltd
 6C8720     (base 16)		New H3C Technologies Co., Ltd
@@ -143546,23 +143594,11 @@ B0A5B3     (base 16)		Hewlett Packard Enterprise
 				Dallas  TX  75243
 				US
 
-C8-19-D8   (hex)		Blink by Amazon 
-C819D8     (base 16)		Blink by Amazon 
-				100 Riverpark Drive
-				North Reading   MA  01864
-				US
-
-C8-C9-B2   (hex)		Amazon Technologies Inc.
-C8C9B2     (base 16)		Amazon Technologies Inc.
-				P.O Box 8102 
-				Reno  NV  89507
-				US
-
-C0-01-95   (hex)		Amazon Technologies Inc.
-C00195     (base 16)		Amazon Technologies Inc.
-				P.O Box 8102 
-				Reno  NV  89507
-				US
+A0-C7-73   (hex)		Chipsea Technologies (Shenzhen) Corp.
+A0C773     (base 16)		Chipsea Technologies (Shenzhen) Corp.
+				3 / F, Block A, Building 2, Shenzhen Bay Innovation Technology Center, No.3156 keyuan South Road, Yuehai Street, Nanshan District, Shenzhen
+				Shenzhen  Guangdong  518000
+				CN
 
 10-9A-93   (hex)		Telink Micro LLC
 109A93     (base 16)		Telink Micro LLC
@@ -143582,6 +143618,30 @@ C00195     (base 16)		Amazon Technologies Inc.
 				Dongguan    523808
 				CN
 
+C8-19-D8   (hex)		Blink by Amazon 
+C819D8     (base 16)		Blink by Amazon 
+				100 Riverpark Drive
+				North Reading   MA  01864
+				US
+
+C8-C9-B2   (hex)		Amazon Technologies Inc.
+C8C9B2     (base 16)		Amazon Technologies Inc.
+				P.O Box 8102 
+				Reno  NV  89507
+				US
+
+C0-01-95   (hex)		Amazon Technologies Inc.
+C00195     (base 16)		Amazon Technologies Inc.
+				P.O Box 8102 
+				Reno  NV  89507
+				US
+
+50-61-3C   (hex)		ShenZhen XinZhongXin Technology Co.， Ltd
+50613C     (base 16)		ShenZhen XinZhongXin Technology Co.， Ltd
+				Building A2,Donghuan Industrial Zone,No.293,Nanpu Road,Xinqiao Sub-district,Bao'an District,Shenzhen City,Guangdong Province
+				ShenZhen    518104
+				CN
+
 A4-38-28   (hex)		HUAWEI TECHNOLOGIES CO.,LTD
 A43828     (base 16)		HUAWEI TECHNOLOGIES CO.,LTD
 				No.2 Xin Cheng Road, Room R6,Songshan Lake Technology Park
@@ -143598,6 +143658,30 @@ A8-1C-36   (hex)		SmartSens Technology (Shanghai) Co., Ltd.
 A81C36     (base 16)		SmartSens Technology (Shanghai) Co., Ltd.
 				Building 8, Phase 4, Technology Oasis, No. 889 Tianlin Road, Minhang District
 				Shanghai    201101
+				CN
+
+E0-9E-2D   (hex)		Nokia
+E09E2D     (base 16)		Nokia
+				600 March Road
+				Kanata  Ontario  K2K 2E6
+				CA
+
+48-22-1D   (hex)		Bose Corporation
+48221D     (base 16)		Bose Corporation
+				The Mountain
+				Framingham  MA  01701-9168
+				US
+
+54-BF-55   (hex)		Juniper Networks
+54BF55     (base 16)		Juniper Networks
+				1133 Innovation Way
+				Sunnyvale  CA  94089
+				US
+
+14-27-20   (hex)		Bosch Rexroth (Changzhou) Co. Ltd.
+142720     (base 16)		Bosch Rexroth (Changzhou) Co. Ltd.
+				No 17 Longmen Road, Wujin Hi-tech Industrial Zone
+				Changzhou  Jiangsu  213164
 				CN
 
 B0-0C-9D   (hex)		Quectel Wireless Solutions Co.,Ltd.
@@ -191879,18 +191963,6 @@ E84EBA     (base 16)		Google, Inc.
 				FORT COLLINS  CO  80524
 				US
 
-3C-13-67   (hex)		CxTEK Innovations India Pvt Ltd
-3C1367     (base 16)		CxTEK Innovations India Pvt Ltd
-				5th Floor, Tower-C, The Iconic Corenthum, Sector-62
-				Noida  Uttar Pradesh  201301
-				IN
-
-9C-96-D5   (hex)		Espressif Systems (Singapore) Pte. Ltd
-9C96D5     (base 16)		Espressif Systems (Singapore) Pte. Ltd
-				1 FUSIONOPOLIS VIEW#07-02ECLIPSE
-				Singapore    138577
-				SG
-
 54-23-69   (hex)		HUAWEI TECHNOLOGIES CO.,LTD
 542369     (base 16)		HUAWEI TECHNOLOGIES CO.,LTD
 				No.2 Xin Cheng Road, Room R6,Songshan Lake Technology Park
@@ -191908,6 +191980,30 @@ E84EBA     (base 16)		Google, Inc.
 				B808, Tsinghua Tongfang Hi-Tech Plaza, Haidian
 				Beijing  Beijing  100083
 				CN
+
+C4-A3-EF   (hex)		UEI Electronics Private Ltd.
+C4A3EF     (base 16)		UEI Electronics Private Ltd.
+				#49, 1 st floor, East wing, Khanjabhavan, Racecourse Road.
+				Bengaluru  Karnataka  560001
+				IN
+
+3C-13-67   (hex)		CxTEK Innovations India Pvt Ltd
+3C1367     (base 16)		CxTEK Innovations India Pvt Ltd
+				5th Floor, Tower-C, The Iconic Corenthum, Sector-62
+				Noida  Uttar Pradesh  201301
+				IN
+
+9C-96-D5   (hex)		Espressif Systems (Singapore) Pte. Ltd
+9C96D5     (base 16)		Espressif Systems (Singapore) Pte. Ltd
+				1 FUSIONOPOLIS VIEW#07-02ECLIPSE
+				Singapore    138577
+				SG
+
+3C-0D-0D   (hex)		Espressif Systems (Singapore) Pte. Ltd
+3C0D0D     (base 16)		Espressif Systems (Singapore) Pte. Ltd
+				1 FUSIONOPOLIS VIEW#07-02ECLIPSE
+				Singapore    138577
+				SG
 
 C8-5C-E2   (hex)		IEEE Registration Authority
 C85CE2     (base 16)		IEEE Registration Authority
@@ -239760,4 +239856,10 @@ D89333     (base 16)		HUAWEI TECHNOLOGIES CO.,LTD
 10C283     (base 16)		Suzhou Pairlink Network Technology
 				Room304, Building 4, No.209, Zhu Yuan Road, Suzhou new district
 				Suzhou  Jiangsu  215011
+				CN
+
+94-36-8B   (hex)		GD Midea Air-Conditioning Equipment Co.,Ltd.
+94368B     (base 16)		GD Midea Air-Conditioning Equipment Co.,Ltd.
+				Midea Global Innovation Center,Beijiao Town,Shunde
+				Foshan  Guangdong  528311
 				CN
