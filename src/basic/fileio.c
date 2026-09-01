@@ -790,7 +790,9 @@ int read_full_stream_full(
                 if (feof(f))
                         break;
 
-                if (size != SIZE_MAX && !FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER)) { /* If we got asked to read some specific size, we already sized the buffer right, hence leave */
+                if (size != SIZE_MAX && !FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER)) {
+                        /* If we got asked to read some specific size, we already sized the buffer right,
+                         * hence leave. */
                         assert(l == size);
                         break;
                 }
@@ -834,9 +836,9 @@ int read_full_stream_full(
         }
 
         if (!ret_size) {
-                /* Safety check: if the caller doesn't want to know the size of what we just read it will rely on the
-                 * trailing NUL byte. But if there's an embedded NUL byte, then we should refuse operation as otherwise
-                 * there'd be ambiguity about what we just read. */
+                /* Safety check: if the caller doesn't want to know the size of what we just read it will
+                 * rely on the trailing NUL byte. But if there's an embedded NUL byte, then we should refuse
+                 * operation as otherwise there'd be ambiguity about what we just read. */
 
                 if (memchr(buf, 0, l)) {
                         r = -EBADMSG;
