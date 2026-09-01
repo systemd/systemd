@@ -783,7 +783,11 @@ def key_path_groups(
 
 
 def pe_strip_section_name(name: bytes) -> str:
-    return name.rstrip(b'\x00').decode()
+    raw = name.rstrip(b'\x00')
+    try:
+        return raw.decode()
+    except UnicodeDecodeError as e:
+        raise PEError(f'Section name {raw!r} is not valid UTF-8') from e
 
 
 def pe_section_name_is_equal(name: bytes, other_name: str) -> bool:
