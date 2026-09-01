@@ -2413,7 +2413,7 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositi
  KEYBOARD_KEY_76=touchpad_toggle                        # Fn+F1 toggle touchpad
  KEYBOARD_KEY_6e=search
 
-# Positivo (N15RPE-S e N15WPE-S)
+# Positivo (N15RPE-S, N15WPE-S)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositivo*:rnN15[RW]PE*
  KEYBOARD_KEY_76=touchpad_toggle                        # Fn+F1 toggle touchpad
  KEYBOARD_KEY_6e=search
