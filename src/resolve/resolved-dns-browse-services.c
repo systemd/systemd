@@ -68,14 +68,23 @@ static usec_t mdns_maintenance_next_time(usec_t until, uint32_t ttl, DnsRecordTT
         assert(percent > 0);
         assert(percent <= 100);
 
-        return usec_sub_unsigned(until, (100 - percent) * ttl * USEC_PER_SEC / 100);
+        /* Cast before multiplying: 'ttl' is a 32-bit value taken directly off the network, and
+         * (100 - percent) * ttl is evaluated in 32-bit unsigned arithmetic, which wraps for TTLs
+         * upwards of 2^32/20 s. */
+        return usec_sub_unsigned(until, (usec_t) (100 - percent) * ttl * USEC_PER_SEC / 100);
 }
 
 /* RFC 6762 section 5.2
  * A random variation of 2% of the record TTL should
  * be added to maintenance queries. */
 static usec_t mdns_maintenance_jitter(uint32_t ttl) {
-        return random_u64_range(2 * ttl * USEC_PER_SEC / 100);
+        /* Same 32-bit truncation concern as in mdns_maintenance_next_time(), and note that
+         * random_u64_range(0) returns a value from the full 64-bit range rather than 0. */
+        usec_t range = 2 * (usec_t) ttl * USEC_PER_SEC / 100;
+        if (range == 0)
+                return 0;
+
+        return random_u64_range(range);
 }
 
 static void mdns_maintenance_query_complete(DnsQuery *q) {
@@ -259,11 +268,23 @@ int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, 
         /* Update the 80% TTL maintenance event based on new record received
          * from the network. RFC 6762 section 5.2  */
         if (service->schedule_event) {
+                int r;
+
+                /* The record was refreshed, hence the maintenance schedule starts over at 80% of the
+                 * new lifetime. Also re-arm the event source: it is one-shot, so it is left disabled
+                 * once the 100% query has been issued, and merely setting a new time would not bring
+                 * it back. */
+                service->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
+
                 usec_t next_time = mdns_maintenance_next_time(
                         service->until, service->rr->ttl, DNS_RECORD_TTL_STATE_80_PERCENT);
                 usec_t jitter = mdns_maintenance_jitter(service->rr->ttl);
 
-                return sd_event_source_set_time(service->schedule_event, usec_add(next_time, jitter));
+                r = sd_event_source_set_time(service->schedule_event, usec_add(next_time, jitter));
+                if (r < 0)
+                        return r;
+
+                return sd_event_source_set_enabled(service->schedule_event, SD_EVENT_ONESHOT);
         }
 
         return 0;
