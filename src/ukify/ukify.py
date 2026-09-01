@@ -981,7 +981,7 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
             pe.__data__ = pe.__data__[:symbol_table]
             pe.FILE_HEADER.PointerToSymbolTable = 0
             pe.FILE_HEADER.NumberOfSymbols = 0
-            pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED = True
+            pe.FILE_HEADER.Characteristics |= pefile.IMAGE_CHARACTERISTICS['IMAGE_FILE_LOCAL_SYMS_STRIPPED']
 
     # pylint thinks that Structure doesn't have various members that it has…
     # pylint: disable=no-member
