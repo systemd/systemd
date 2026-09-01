@@ -807,7 +807,7 @@ static Network *network_free(Network *network) {
         free(network->dhcp6_mudurl);
         free(network->dhcp6_hostname);
         strv_free(network->dhcp6_user_class);
-        strv_free(network->dhcp6_vendor_class);
+        ordered_hashmap_free(network->dhcp6_vendor_class);
         set_free(network->dhcp6_request_options);
         ordered_hashmap_free(network->dhcp6_client_send_options);
         ordered_hashmap_free(network->dhcp6_client_send_vendor_options);
