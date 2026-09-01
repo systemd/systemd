@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "conf-parser.h"
+#include "dhcp6-option.h"
 #include "hexdecoct.h"
 #include "net-condition.h"
 #include "networkd-address.h"
@@ -533,6 +534,90 @@ TEST(config_parse_dhcp_request_options) {
 
         set_clear(expected_options);
         test_config_parse_dhcp_request_options_helper(AF_INET6, "test", expected_options);
+}
+
+static void test_config_parse_dhcp6_send_option_helper(const char *lvalue, const char *rvalue, sd_dhcp6_option *expected) {
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *options = NULL;
+
+        ASSERT_OK(config_parse_dhcp6_send_option("network", "filename", 1, "section", 1, lvalue, 0, rvalue, &options, NULL));
+
+        if (expected) {
+                sd_dhcp6_option *actual_option = ordered_hashmap_get(options, UINT_TO_PTR(expected->option));
+                ASSERT_NOT_NULL(actual_option);
+                ASSERT_EQ(actual_option->enterprise_identifier, expected->enterprise_identifier);
+                ASSERT_EQ(memcmp_nn(actual_option->data, actual_option->length, expected->data, expected->length), 0);
+                ASSERT_EQ(actual_option->length, expected->length);
+                ASSERT_EQ(actual_option->option, expected->option);
+        } else
+                ASSERT_TRUE(ordered_hashmap_isempty(options));
+}
+
+static void test_config_parse_dhcp6_send_option_ok(const char *lvalue, const char *rvalue, uint16_t option,
+                                                   const void *data, size_t length, uint32_t enterprise_identifier) {
+        _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *expected = NULL;
+
+        ASSERT_OK(sd_dhcp6_option_new(option, data, length, enterprise_identifier, &expected));
+        test_config_parse_dhcp6_send_option_helper(lvalue, rvalue, expected);
+}
+
+TEST(config_parse_dhcp6_send_option) {
+        /* First valid DHCP option is accepted */
+        test_config_parse_dhcp6_send_option_ok("SendOption", "1:string:test", 1, "test", 4, 0);
+
+        /* Last valid DHCP option is accepted */
+        test_config_parse_dhcp6_send_option_ok("SendOption", "65535:string:test", 65535u, "test", 4, 0);
+
+        /* First invalid DHCP option is ignored */
+        test_config_parse_dhcp6_send_option_helper("SendOption", "0:string:test", NULL);
+
+        /* Invalid DHCP option after last valid option is ignored */
+        test_config_parse_dhcp6_send_option_helper("SendOption", "65536:string:test", NULL);
+
+        /* Invalid non-numeric DHCP option is ignored */
+        test_config_parse_dhcp6_send_option_helper("SendOption", "option:string:test", NULL);
+
+        /* First valid PEN is accepted */
+        test_config_parse_dhcp6_send_option_ok("SendVendorOption", "0:1:string:test", 1, "test", 4, 0);
+
+        /* Last valid PEN is accepted */
+        test_config_parse_dhcp6_send_option_ok("SendVendorOption", "4294967295:1:string:test", 1, "test", 4,
+                                               4294967295U);
+
+        /* Invalid PEN bigger then 32 bit is ignored */
+        test_config_parse_dhcp6_send_option_helper("SendVendorOption", "4294967296:1:string:test", NULL);
+
+        /* Invalid non-numeric PEN is ignored */
+        test_config_parse_dhcp6_send_option_helper("SendVendorOption", "test:1:string:test", NULL);
+
+        /* Each data type is converted to its wire representation */
+        test_config_parse_dhcp6_send_option_ok("SendOption", "1:uint8:1", 1, &(const uint8_t[]){ 0x01 }, 1, 0);
+        test_config_parse_dhcp6_send_option_ok("SendOption", "1:uint16:255", 1,
+                                               &(const uint8_t[]){ 0x00, 0xff }, 2, 0);
+        test_config_parse_dhcp6_send_option_ok("SendOption", "1:uint32:65535", 1,
+                                               &(const uint8_t[]){ 0x00, 0x00, 0xff, 0xff }, 4, 0);
+        test_config_parse_dhcp6_send_option_ok("SendOption", "1:ipv4address:192.168.0.1", 1,
+                                               &(const uint8_t[]){ 192, 168, 0, 1 }, 4, 0);
+        test_config_parse_dhcp6_send_option_ok("SendOption", "1:ipv6address:2001:db8::1", 1,
+                                               &(const uint8_t[]){ 0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 },
+                                               16, 0);
+        test_config_parse_dhcp6_send_option_ok("SendOption", "1:string:🐱", 1, "🐱", 4, 0);
+
+        /* Values that do not correspond with their data type or are invalid are ignored */
+        test_config_parse_dhcp6_send_option_helper("SendOption", "1:uint8:invalid", NULL);
+        test_config_parse_dhcp6_send_option_helper("SendOption", "1:uint16:invalid", NULL);
+        test_config_parse_dhcp6_send_option_helper("SendOption", "1:uint32:invalid", NULL);
+        test_config_parse_dhcp6_send_option_helper("SendOption", "1:ipv4address:invalid", NULL);
+        test_config_parse_dhcp6_send_option_helper("SendOption", "1:ipv6address:invalid", NULL);
+        test_config_parse_dhcp6_send_option_helper("SendOption", "1:string:\\", NULL);
+
+        /* Invalid data type is ignored */
+        test_config_parse_dhcp6_send_option_helper("SendOption", "1:invalid:invalid", NULL);
+
+        /* Configuration values with missing fields are ignored */
+        test_config_parse_dhcp6_send_option_helper("SendOption", "1", NULL);
+        test_config_parse_dhcp6_send_option_helper("SendOption", "1:string", NULL);
+        test_config_parse_dhcp6_send_option_helper("SendVendorOption", "1:string", NULL);
+        test_config_parse_dhcp6_send_option_helper("SendVendorOption", "1:1:string", NULL);
 }
 
 TEST(config_parse_stacked_netdev) {
