@@ -31,6 +31,26 @@ static DnsResourceRecord *new_test_service_rr(uint32_t ttl) {
         return new_service_rr("Same Service._http._tcp.local", ttl);
 }
 
+/* The flags a scope-restricted emission carries: the goodbye rescue answers on the scope whose
+ * budget admitted it, which means swapping the mDNS family bits and nothing else -- a client's
+ * NO_ZONE or NO_NETWORK travelling along is what keeps the restricted query behaving like the
+ * querier's own. */
+TEST(mdns_restrict_flags_to_family) {
+        uint64_t flags = SD_RESOLVED_MDNS | SD_RESOLVED_NO_ZONE | SD_RESOLVED_NO_NETWORK;
+
+        ASSERT_EQ(mdns_restrict_flags_to_family(flags, AF_INET),
+                  SD_RESOLVED_MDNS_IPV4 | SD_RESOLVED_NO_ZONE | SD_RESOLVED_NO_NETWORK);
+        ASSERT_EQ(mdns_restrict_flags_to_family(flags, AF_INET6),
+                  SD_RESOLVED_MDNS_IPV6 | SD_RESOLVED_NO_ZONE | SD_RESOLVED_NO_NETWORK);
+
+        /* AF_UNSPEC is the callers that do not restrict: identity. */
+        ASSERT_EQ(mdns_restrict_flags_to_family(flags, AF_UNSPEC), flags);
+
+        /* A querier pinned to one family stays on it whichever family the restriction names. */
+        ASSERT_EQ(mdns_restrict_flags_to_family(SD_RESOLVED_MDNS_IPV6, AF_INET6),
+                  SD_RESOLVED_MDNS_IPV6);
+}
+
 /* The gate the RFC 6762 §10.1 rescue hangs on: a goodbye only earns a rescue query, and the budget
  * one costs, when it names an instance this querier actually reported. Matching on the question
  * alone would admit any PTR under the browsed type, so a stream of goodbyes for names nobody holds
@@ -380,6 +400,85 @@ TEST(mdns_querier_ladder_winds_back_on_refresh) {
         ASSERT_NULL(sq.dns_services->dns_services_next);
         ASSERT_EQ(sq.dns_services->until, usec_add(t, 120 * USEC_PER_SEC));
         ASSERT_NOT_NULL(sq.maintenance_event);
+
+        sq.maintenance_event = sd_event_source_disable_unref(sq.maintenance_event);
+        dns_remove_service(&sq, sq.dns_services);
+}
+
+/* The short end of the ladder: with 5% of the span under a second, the intermediate rungs would
+ * put four multicasts of one question a few hundred milliseconds apart, so the ladder collapses to
+ * the single 80% re-confirmation plus the terminal check. A TTL of 2 must step 80% -> terminal,
+ * not 80% -> 85%. */
+TEST(mdns_querier_maintenance_collapses_short_ttl_ladder) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        usec_t t = now(CLOCK_BOOTTIME);
+        usec_t until = usec_add(t, 2 * USEC_PER_SEC);
+        usec_t deadline;
+
+        ASSERT_OK(sd_event_new(&event));
+
+        Manager manager = {
+                .event = event,
+        };
+        DnsServiceQuerier sq = {
+                .n_ref = 1,
+                .manager = &manager,
+                .ifindex = 2,
+        };
+
+        ASSERT_NOT_NULL(rr = new_test_service_rr(2));
+        ASSERT_OK(dns_add_new_service(&sq, rr, AF_INET, /* ifindex= */ 2, until));
+
+        mdns_querier_run_maintenance(&sq);
+
+        ASSERT_EQ(sq.rr_ttl_state, DNS_RECORD_TTL_STATE_100_PERCENT);
+
+        /* The terminal rung is the expiry check itself: armed at the record's expiry, no jitter. */
+        ASSERT_NOT_NULL(sq.maintenance_event);
+        ASSERT_OK(sd_event_source_get_time(sq.maintenance_event, &deadline));
+        ASSERT_EQ(deadline, until);
+
+        sq.maintenance_event = sd_event_source_disable_unref(sq.maintenance_event);
+        dns_remove_service(&sq, sq.dns_services);
+}
+
+/* The long end: the span is the cache's lifetime, which calculate_until_valid() caps at
+ * CACHE_TTL_MAX_USEC, not the wire TTL. A peer announcing a multi-hour TTL with the entry
+ * nonetheless expiring soon must keep its intermediate rungs -- measured back from the expiry with
+ * the *clamped* span, the next one is still ahead -- where the unclamped span would put every rung
+ * but the terminal in the past and switch re-confirmation off for the shared ladder. */
+TEST(mdns_querier_maintenance_span_is_clamped_not_wire_ttl) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        usec_t t = now(CLOCK_BOOTTIME);
+        usec_t until = usec_add(t, 30 * USEC_PER_MINUTE);
+        usec_t deadline;
+
+        ASSERT_OK(sd_event_new(&event));
+
+        Manager manager = {
+                .event = event,
+        };
+        DnsServiceQuerier sq = {
+                .n_ref = 1,
+                .manager = &manager,
+                .ifindex = 2,
+        };
+
+        /* 100000s of wire TTL against a 2h cap; the entry expires half an hour out. */
+        ASSERT_NOT_NULL(rr = new_test_service_rr(100000));
+        ASSERT_OK(dns_add_new_service(&sq, rr, AF_INET, /* ifindex= */ 2, until));
+
+        mdns_querier_run_maintenance(&sq);
+
+        /* One step up the ladder, and a deadline before the expiry: the 85% rung measured back with
+         * the clamped span. Unclamped, every rung but the terminal lies in the past -- the state
+         * would race to the terminal and the deadline land on the expiry itself. */
+        ASSERT_EQ(sq.rr_ttl_state, DNS_RECORD_TTL_STATE_85_PERCENT);
+        ASSERT_NOT_NULL(sq.maintenance_event);
+        ASSERT_OK(sd_event_source_get_time(sq.maintenance_event, &deadline));
+        ASSERT_LT(deadline, until);
 
         sq.maintenance_event = sd_event_source_disable_unref(sq.maintenance_event);
         dns_remove_service(&sq, sq.dns_services);
