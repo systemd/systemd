@@ -2678,22 +2678,30 @@ foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyut
 endforeach
 
 if mkosi.found()
+        meson_args = [
+                mkosi,
+                '--directory', meson.current_source_dir(),
+                '--output-dir', meson.current_build_dir() / 'mkosi.output',
+                '--cache-dir', meson.current_build_dir() / 'mkosi.cache',
+                '--build-dir', meson.current_build_dir() / 'mkosi.builddir',
+                '--extra-search-path', meson.current_build_dir(),
+                '--force',
+        ]
+        mkosi_usr_only = custom_target(
+                build_always_stale: true,
+                build_by_default: false,
+                console: true,
+                output: 'mkosi-usr-only',
+                command : meson_args + ['--profile=usr-only', 'build'],
+                depends: mkosi_depends,
+        )
         custom_target(
                 build_always_stale : true,
                 build_by_default: false,
                 console : true,
                 output : 'mkosi',
-                command : [
-                        mkosi,
-                        '--directory', meson.current_source_dir(),
-                        '--output-dir', meson.current_build_dir() / 'mkosi.output',
-                        '--cache-dir', meson.current_build_dir() / 'mkosi.cache',
-                        '--build-dir', meson.current_build_dir() / 'mkosi.builddir',
-                        '--extra-search-path', meson.current_build_dir(),
-                        '--force',
-                        'build',
-                ],
-                depends : mkosi_depends,
+                command : meson_args + ['build'],
+                depends : mkosi_depends + [mkosi_usr_only],
         )
 endif
 
