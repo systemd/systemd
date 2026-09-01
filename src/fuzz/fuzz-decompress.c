@@ -1,0 +1,114 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <unistd.h>
+
+#include "alloc-util.h"
+#include "compress.h"
+#include "fd-util.h"
+#include "fuzz.h"
+#include "memfd-util.h"
+#include "tests.h"
+
+/* Unlike fuzz-compress, which round-trips data through a compressor and thus only ever hands the
+ * decoders well-formed input, this feeds arbitrary bytes straight to the decompression entrypoints.
+ * That is the situation the decoders are actually in: the blobs they parse come from journal files,
+ * systemd-journal-remote streams and coredumps, i.e. from wherever the data was written, which is not
+ * necessarily somewhere we trust. */
+
+/* Cap the output so that a decompression bomb doesn't OOM the fuzzer: we are looking for memory errors
+ * in the decoders, not for their willingness to allocate. */
+#define DST_MAX_LIMIT (2U * 1024U * 1024U)
+
+typedef enum EntryPoint {
+        ENTRYPOINT_BLOB,
+        ENTRYPOINT_STARTSWITH,
+        ENTRYPOINT_STREAM,
+        _ENTRYPOINT_MAX,
+} EntryPoint;
+
+typedef struct header {
+        uint8_t alg;
+        uint8_t entrypoint;
+        uint16_t prefix_len;
+        uint8_t extra;
+        uint8_t reserved[7]; /* Extra space to keep fuzz cases stable in case we need to add stuff in the
+                              * future. */
+        uint32_t dst_max;
+        uint8_t data[];
+} header;
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+        _cleanup_free_ void *buf = NULL;
+        int r;
+
+        if (size < offsetof(header, data) + 1)
+                return 0;
+
+        const header *h = (const header*) data;
+        const uint8_t *blob = h->data;
+        const size_t blob_size = size - offsetof(header, data);
+
+        Compression alg = h->alg % _COMPRESSION_MAX;
+        if (!compression_supported(alg))
+                return 0;
+
+        fuzz_setup_logging();
+
+        /* Leave 0 ("no limit") out of reach: an unbounded decode of a hostile blob is a memory
+         * exhaustion test, not a memory safety test. */
+        size_t dst_max = (h->dst_max % DST_MAX_LIMIT) + 1;
+
+        log_info("Using compression %s, blob size=%zu, dst_max=%zu",
+                 compression_to_string(alg), blob_size, dst_max);
+
+        switch ((EntryPoint) (h->entrypoint % _ENTRYPOINT_MAX)) {
+
+        case ENTRYPOINT_BLOB: {
+                size_t dst_size;
+
+                r = decompress_blob(alg, blob, blob_size, &buf, &dst_size, dst_max);
+                if (r >= 0)
+                        log_debug("Decompressed %zu bytes to → %zu bytes", blob_size, dst_size);
+                break;
+        }
+
+        case ENTRYPOINT_STARTSWITH: {
+                /* Compare against a prefix taken from the blob itself, so that a match is at least
+                 * reachable rather than astronomically unlikely. */
+                size_t prefix_len = MIN((size_t) h->prefix_len, blob_size);
+
+                r = decompress_startswith(alg, blob, blob_size, &buf, blob, prefix_len, h->extra);
+                if (r >= 0)
+                        log_debug("Prefix of %zu bytes %s", prefix_len, r > 0 ? "matches" : "does not match");
+                break;
+        }
+
+        case ENTRYPOINT_STREAM: {
+                _cleanup_close_ int fd = -EBADF, null_fd = -EBADF;
+                ssize_t n;
+
+                fd = memfd_new_and_seal("fuzz-decompress", blob, blob_size);
+                if (fd < 0) {
+                        log_debug_errno(fd, "Failed to allocate memfd, skipping: %m");
+                        return 0;
+                }
+
+                n = lseek(fd, 0, SEEK_SET);
+                if (n < 0)
+                        return 0;
+
+                null_fd = open("/dev/null", O_WRONLY|O_CLOEXEC|O_NOCTTY);
+                if (null_fd < 0)
+                        return 0;
+
+                r = decompress_stream(alg, fd, null_fd, dst_max);
+                break;
+        }
+
+        default:
+                assert_not_reached();
+        }
+
+        log_debug_errno(r, "Decompression returned: %m");
+        return 0;
+}
