@@ -2355,6 +2355,27 @@ static int show_one(
 
         log_debug("Showing one %s", path);
 
+        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES && !DEBUG_LOGGING) {
+                r = bus_get_all_properties(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        &error,
+                        &reply);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
+
+                if (*new_line)
+                        printf("\n");
+
+                *new_line = true;
+
+                r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_print_flags, NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                return 0;
+        }
+
         r = bus_map_all_properties(
                         bus,
                         "org.freedesktop.systemd1",
