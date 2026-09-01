@@ -839,39 +839,47 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
             if dtbauto is not None:
                 to_measure[dtbauto.name] = dtbauto
 
-            pp_groups = opts.phase_path_groups or []
-
-            cmd = [
-                measure_tool,
-                'calculate' if opts.measure else 'policy-digest',
-                '--json',
-                opts.json,
-                *(f'--{s.name.removeprefix(".")}={s.content}' for s in to_measure.values()),
-                *(f'--bank={bank}' for bank in banks),
-                # For measurement, the keys are not relevant, so we can lump all the phase paths
-                # into one call to systemd-measure calculate.
-                *(f'--phase={phase_path}' for phase_path in itertools.chain.from_iterable(pp_groups)),
+            policy_groups: list[tuple[list[str], Optional[str]]] = [
+                (list(itertools.chain.from_iterable(opts.phase_path_groups or [])), None),
             ]
+            if opts.policy_digest and opts.sign_initrd_pcrs:
+                policy_groups += [(['enter-initrd'], 'initrd')]
 
-            # The JSON object will be used for offline signing, include the public key
-            # so that the fingerprint is included too. In case a certificate is passed, use the
-            # right parameter so that systemd-measure can extract the public key from it.
-            if opts.policy_digest:
-                if opts.pcr_public_keys:
-                    cmd += ['--public-key', opts.pcr_public_keys[0]]
-                elif opts.pcr_certificates:
-                    cmd += ['--certificate', opts.pcr_certificates[0]]
-                    if opts.certificate_provider:
-                        cmd += ['--certificate-source', f'provider:{opts.certificate_provider}']
+            for phase_paths, policyref in policy_groups:
+                cmd = [
+                    measure_tool,
+                    'calculate' if opts.measure else 'policy-digest',
+                    '--json',
+                    opts.json,
+                    *(f'--{s.name.removeprefix(".")}={s.content}' for s in to_measure.values()),
+                    *(f'--bank={bank}' for bank in banks),
+                    # For measurement, the keys are not relevant, so we can lump all the phase paths
+                    # into one call to systemd-measure calculate.
+                    *(f'--phase={phase_path}' for phase_path in phase_paths),
+                ]
 
-            print('+', shell_join(cmd), file=sys.stderr)
-            output = subprocess.check_output(cmd, text=True)  # type: ignore
+                # The JSON object will be used for offline signing, include the public key
+                # so that the fingerprint is included too. In case a certificate is passed, use the
+                # right parameter so that systemd-measure can extract the public key from it.
+                if opts.policy_digest:
+                    if opts.pcr_public_keys:
+                        cmd += ['--public-key', opts.pcr_public_keys[0]]
+                    elif opts.pcr_certificates:
+                        cmd += ['--certificate', opts.pcr_certificates[0]]
+                        if opts.certificate_provider:
+                            cmd += ['--certificate-source', f'provider:{opts.certificate_provider}']
 
-            if opts.policy_digest:
-                pcrsig = json.loads(output)
-                pcrsigs += [pcrsig]
-            else:
-                print(output)
+                    if policyref is not None:
+                        cmd += [f'--policyref={policyref}']
+
+                print('+', shell_join(cmd), file=sys.stderr)
+                output = subprocess.check_output(cmd, text=True)  # type: ignore
+
+                if opts.policy_digest:
+                    pcrsig = json.loads(output)
+                    pcrsigs += [pcrsig]
+                else:
+                    print(output)
 
         if opts.policy_digest:
             combined = combine_signatures(pcrsigs)
@@ -2528,7 +2536,7 @@ def finalize_options(opts: argparse.Namespace) -> None:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
     if n_policyrefs is not None and n_policyrefs != n_pcr_priv:
         raise ValueError('--policyref= specifications must match --pcr-private-key=')
-    if opts.sign_initrd_pcrs and not n_pcr_priv:
+    if opts.sign_initrd_pcrs and not (n_pcr_priv or opts.policy_digest):
         raise ValueError('--sign-initrd-pcrs requires at least one --pcr-private-key=')
 
     opts.cmdline = resolve_at_path(opts.cmdline)
