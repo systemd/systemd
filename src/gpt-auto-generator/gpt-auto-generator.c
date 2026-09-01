@@ -2,6 +2,8 @@
 
 #include <sys/file.h>
 
+#include "sd-device.h"
+#include "sd-gpt.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -45,7 +47,16 @@ typedef enum MountPointFlags {
 
 static const char *arg_dest = NULL;
 static const char *arg_dest_late = NULL;
-static bool arg_enabled = true;
+
+typedef enum GptAutoMode {
+        GPT_AUTO_FULL,
+        GPT_AUTO_ESP_ONLY,
+        GPT_AUTO_OFF,
+        _GPT_AUTO_MODE_MAX,
+        _GPT_AUTO_MODE_INVALID = -EINVAL,
+} GptAutoMode;
+
+static GptAutoMode arg_auto_mode = GPT_AUTO_FULL;
 static GptAutoRoot arg_auto_root = _GPT_AUTO_ROOT_INVALID;
 static GptAutoRoot arg_auto_usr = _GPT_AUTO_ROOT_INVALID;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
@@ -1159,6 +1170,78 @@ mount:
         return r;
 }
 
+static int add_loader_esp_mount(void) {
+#if ENABLE_EFI
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_free_ char *path = NULL;
+        const char *type, *fstype;
+        sd_id128_t loader_uuid;
+        int r;
+
+        if (in_initrd())
+                return 0;
+
+        if (!is_efi_boot())
+                return 0;
+
+        r = loader_mounts_configured();
+        if (r > 0)
+                return 0;
+
+        r = efi_loader_get_device_part_uuid(&loader_uuid);
+        if (r == -ENOENT) {
+                log_debug("EFI loader partition unknown, not generating ESP mount.");
+                return 0;
+        }
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read loader partition UUID, not generating ESP mount: %m");
+                return 0;
+        }
+
+        path = path_join("/dev/disk/by-partuuid", SD_ID128_TO_UUID_STRING(loader_uuid));
+        if (!path)
+                return -ENOMEM;
+
+        /* udev already has the partition metadata needed here. Avoid opening and dissecting the whole
+         * root disk just to find the partition that the boot loader told us it used. */
+        r = sd_device_new_from_devname(&device, path);
+        if (r < 0) {
+                log_debug_errno(r,
+                                "Failed to resolve loader partition '%s', not generating ESP mount: %m",
+                                path);
+                return 0;
+        }
+
+        r = sd_device_get_property_value(device, "ID_PART_ENTRY_TYPE", &type);
+        if (r < 0) {
+                log_debug_errno(r,
+                                "Failed to query partition type for '%s', not generating ESP mount: %m",
+                                path);
+                return 0;
+        }
+        if (sd_id128_string_equal(type, SD_GPT_ESP) != 1) {
+                log_debug("Loader partition '%s' is not an ESP, not generating ESP mount.", path);
+                return 0;
+        }
+
+        r = sd_device_get_property_value(device, "ID_FS_TYPE", &fstype);
+        if (r < 0) {
+                log_debug_errno(r,
+                                "Failed to query file system type for '%s', not generating ESP mount: %m",
+                                path);
+                return 0;
+        }
+        if (!streq(fstype, "vfat")) {
+                log_debug("Loader partition '%s' is not a VFAT ESP, not generating ESP mount.", path);
+                return 0;
+        }
+
+        return add_esp_automount(path, fstype, fstype, /* has_xbootldr= */ false);
+#else
+        return 0;
+#endif
+}
+
 static int enumerate_partitions(dev_t devnum) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
@@ -1262,11 +1345,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         if (proc_cmdline_key_streq(key, "systemd.gpt_auto") ||
             proc_cmdline_key_streq(key, "rd.systemd.gpt_auto")) {
 
-                r = value ? parse_boolean(value) : 1;
-                if (r < 0)
-                        log_warning_errno(r, "Failed to parse gpt-auto switch \"%s\", ignoring: %m", value);
-                else
-                        arg_enabled = r;
+                if (streq_ptr(value, "esp-only"))
+                        arg_auto_mode = GPT_AUTO_ESP_ONLY;
+                else {
+                        r = value ? parse_boolean(value) : 1;
+                        if (r < 0)
+                                log_warning_errno(r,
+                                                  "Failed to parse gpt-auto switch \"%s\", ignoring: %m",
+                                                  value);
+                        else
+                                arg_auto_mode = r ? GPT_AUTO_FULL : GPT_AUTO_OFF;
+                }
 
         } else if (streq(key, "root")) {
 
@@ -1402,7 +1491,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        if (!arg_enabled) {
+        if (arg_auto_mode == GPT_AUTO_OFF) {
                 log_debug("Disabled, exiting.");
                 return 0;
         }
@@ -1411,7 +1500,9 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         RET_GATHER(r, add_root_mount());
         RET_GATHER(r, add_usr_mount());
         RET_GATHER(r, add_early_esp_mount());
-        RET_GATHER(r, add_mounts());
+
+        RET_GATHER(r,
+                   arg_auto_mode == GPT_AUTO_ESP_ONLY ? add_loader_esp_mount() : add_mounts());
 
         return r;
 }
