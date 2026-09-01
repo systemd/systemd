@@ -1,0 +1,19 @@
+{
+    "type": "devicetree",
+    "name": "ASUS Zenbook A16 UX3607OA",
+    "compatible": "asus,zenbook-a16-ux3607oa",
+    "hwids": [
+        "5b6d366d-9a43-536d-9637-8e47abfb8e63",
+        "40ce3633-a61c-59ae-8336-6d861b933733",
+        "9aca06aa-73c1-5b12-9bdb-d88c0111910c",
+        "ef65dda1-fabb-5a20-9f5b-173b9876cf17",
+        "176f35e1-a53c-5823-85ec-0e69ddccc718",
+        "aa97280b-2a64-5146-8cf5-1ab4cff4f4f7",
+        "8d1e50f4-5fca-5e73-91f3-21e46a9419ab",
+        "a29d04c1-686b-5861-9ff7-cadf33cbcb97",
+        "e2bb821e-aeef-5cfc-a062-392f2539fd67",
+        "c4e7b7b9-2520-5397-8040-8ac279f540d8",
+        "ab022687-b75a-5f75-a1c3-b3996e227c96",
+        "d8bcee6b-2797-55ca-86b7-d69170e86bbb"
+    ]
+}
