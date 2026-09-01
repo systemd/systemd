@@ -21,10 +21,12 @@ import os
 import pathlib
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
 import textwrap
+from types import SimpleNamespace
 
 try:
     import pytest
@@ -555,6 +557,355 @@ def test_sections(kernel_initrd, tmp_path):
 def test_pe_resolve_section_name_invalid_input(name, string_table, match):
     with pytest.raises(ukify.PEError, match=match):
         ukify.pe_resolve_section_name(name, string_table)
+
+
+@pytest.fixture
+def minimal_pe():
+    """Create the smallest PE image that pe_add_sections() can still process"""
+    FILE_ALIGNMENT = 512
+    SECTION_ALIGNMENT = 4096
+    IMAGE_FILE_EXECUTABLE_IMAGE = 0x0002
+    IMAGE_FILE_LINE_NUMS_STRIPPED = 0x0004
+    IMAGE_FILE_LARGE_ADDRESS_AWARE = 0x0020
+    E_LFANEW_OFFSET = 0x3C  # fixed DOS header field pointing at the PE header
+    PE_OFFSET = 0x40  # PE header right after the DOS header
+    PE_MAGIC = b'PE\0\0'
+    N_DATA_DIRECTORIES = 16
+    data_directory_format = '<II'
+
+    section_data = b'\0' * 16
+    section_format = '<8sIIIIIIHHI'
+    opt_format = '<HBBIIIIIQIIHHHHHHIIIIHHQQQQII'
+    opt_header_size = struct.calcsize(opt_format) + N_DATA_DIRECTORIES * struct.calcsize(
+        data_directory_format
+    )
+
+    coff = struct.pack(
+        '<HHIIIHH',
+        0x8664,  # Machine: EM_X86_64
+        1,  # NumberOfSections
+        0,  # TimeDateStamp
+        0,  # PointerToSymbolTable
+        0,  # NumberOfSymbols
+        opt_header_size,  # SizeOfOptionalHeader
+        IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_LINE_NUMS_STRIPPED | IMAGE_FILE_LARGE_ADDRESS_AWARE,
+    )
+
+    # Reserve header room for one more section, so tests can append one
+    header_size = (
+        PE_OFFSET + len(PE_MAGIC) + len(coff) + opt_header_size + struct.calcsize(section_format) * 2
+    )
+    size_of_headers = ukify.round_up(header_size, FILE_ALIGNMENT)
+    size_of_image = ukify.round_up(SECTION_ALIGNMENT + len(section_data), SECTION_ALIGNMENT)
+
+    opt = struct.pack(
+        opt_format,
+        0x20B,  # Magic: PE32+
+        0,  # MajorLinkerVersion
+        0,  # MinorLinkerVersion
+        0,  # SizeOfCode
+        0,  # SizeOfInitializedData
+        0,  # SizeOfUninitializedData
+        SECTION_ALIGNMENT,  # AddressOfEntryPoint
+        SECTION_ALIGNMENT,  # BaseOfCode
+        0,  # ImageBase
+        SECTION_ALIGNMENT,  # SectionAlignment
+        FILE_ALIGNMENT,  # FileAlignment
+        0,  # MajorOperatingSystemVersion
+        0,  # MinorOperatingSystemVersion
+        0,  # MajorImageVersion
+        0,  # MinorImageVersion
+        0,  # MajorSubsystemVersion
+        0,  # MinorSubsystemVersion
+        0,  # Win32VersionValue
+        size_of_image,  # SizeOfImage
+        size_of_headers,  # SizeOfHeaders
+        0,  # CheckSum
+        10,  # Subsystem: EFI application
+        0,  # DllCharacteristics
+        0,  # SizeOfStackReserve
+        0,  # SizeOfStackCommit
+        0,  # SizeOfHeapReserve
+        0,  # SizeOfHeapCommit
+        0,  # LoaderFlags
+        N_DATA_DIRECTORIES,  # NumberOfRvaAndSizes
+    ) + bytes(N_DATA_DIRECTORIES * struct.calcsize(data_directory_format))
+    assert len(opt) == opt_header_size
+
+    section = struct.pack(
+        section_format,
+        b'.text',
+        len(section_data),  # VirtualSize
+        SECTION_ALIGNMENT,  # VirtualAddress
+        ukify.round_up(len(section_data), FILE_ALIGNMENT),  # SizeOfRawData
+        size_of_headers,  # PointerToRawData
+        0,  # PointerToRelocations
+        0,  # PointerToLinenumbers
+        0,  # NumberOfRelocations
+        0,  # NumberOfLinenumbers
+        0x60000020,  # Characteristics: CNT_CODE|MEM_EXECUTE|MEM_READ
+    )
+
+    buf = bytearray(b'MZ')
+    buf += bytes(E_LFANEW_OFFSET - len(buf)) + struct.pack('<H', PE_OFFSET)
+    buf += bytes(PE_OFFSET - len(buf)) + PE_MAGIC + coff + opt + section
+    buf += bytes(size_of_headers - len(buf))
+    buf += section_data + bytes(ukify.round_up(len(section_data), FILE_ALIGNMENT) - len(section_data))
+
+    return pefile.PE(data=bytearray(buf), fast_load=True)
+
+
+@pytest.fixture
+def symbol_table_with_longnames():
+    name = b'.longname'
+    size = 4 + len(name) + 1
+    return size.to_bytes(4, 'little') + name + b'\0'
+
+
+@pytest.fixture
+def symbol_table_empty():
+    return (4).to_bytes(4, 'little')
+
+
+def _attach_symbol_table(pe, table):
+    table_start = ukify.round_up(len(pe.__data__), pe.OPTIONAL_HEADER.FileAlignment)
+    pe.__data__ += bytes(table_start - len(pe.__data__)) + table
+    pe.FILE_HEADER.PointerToSymbolTable = table_start
+    pe.FILE_HEADER.NumberOfSymbols = 0
+
+
+def _pe_to_file(pe, tmp_path):
+    path = tmp_path / 'in.efi'
+    pe.write(str(path))
+    return path
+
+
+def test_symbol_table_from_pe_invalid_string_table_size(minimal_pe):
+    _attach_symbol_table(minimal_pe, (2).to_bytes(4, 'little'))
+    with pytest.raises(ukify.PEError, match='invalid size'):
+        ukify.SymbolTable.from_pe(minimal_pe)
+
+
+@pytest.fixture
+def pe_with_symbol_table(minimal_pe, symbol_table_with_longnames):
+    pe = minimal_pe
+    _attach_symbol_table(pe, symbol_table_with_longnames)
+    pe.sections[-1].Name = b'/4'.ljust(8, b'\0')
+    return pe
+
+
+@pytest.fixture
+def pe_with_symbol_table_file(pe_with_symbol_table, tmp_path):
+    return _pe_to_file(pe_with_symbol_table, tmp_path)
+
+
+@pytest.fixture
+def pe_with_empty_symbol_table_file(minimal_pe, symbol_table_empty, tmp_path):
+    _attach_symbol_table(minimal_pe, symbol_table_empty)
+    return _pe_to_file(minimal_pe, tmp_path)
+
+
+@pytest.fixture
+def pe_with_misplaced_symbol_table_file(pe_with_symbol_table, tmp_path):
+    """Simulate an older ukify that didn't relocate the table before appending sections."""
+    pe = pe_with_symbol_table
+    new_section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__, pe=pe)
+    new_section.__unpack__(b'\0' * new_section.sizeof())
+    new_section.set_file_offset(pe.sections[-1].get_file_offset() + new_section.sizeof())
+    new_section.Name = b'.stray'
+    data = b'stray'
+    new_section.Misc_VirtualSize = len(data)
+    new_section.PointerToRawData = ukify.round_up(len(pe.__data__), pe.OPTIONAL_HEADER.FileAlignment)
+    new_section.SizeOfRawData = ukify.round_up(len(data), pe.OPTIONAL_HEADER.FileAlignment)
+    new_section.VirtualAddress = ukify.round_up(
+        pe.sections[-1].VirtualAddress + pe.sections[-1].Misc_VirtualSize,
+        pe.OPTIONAL_HEADER.SectionAlignment,
+    )
+    new_section.IMAGE_SCN_MEM_READ = True
+    new_section.IMAGE_SCN_CNT_INITIALIZED_DATA = True
+    pe.__data__ += (
+        bytes(new_section.PointerToRawData - len(pe.__data__))
+        + data
+        + bytes(new_section.SizeOfRawData - len(data))
+    )
+    pe.FILE_HEADER.NumberOfSections += 1
+    pe.OPTIONAL_HEADER.SizeOfInitializedData += new_section.Misc_VirtualSize
+    pe.__structures__.append(new_section)
+    pe.sections.append(new_section)
+    return _pe_to_file(pe, tmp_path)
+
+
+@pytest.fixture
+def pe_with_misplaced_symbol_table_and_cert_table_file(pe_with_misplaced_symbol_table_file, tmp_path):
+    pe = pefile.PE(str(pe_with_misplaced_symbol_table_file), fast_load=True)
+    security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
+    security.VirtualAddress = ukify.round_up(len(pe.__data__), pe.OPTIONAL_HEADER.FileAlignment)
+    security.Size = 8
+    return _pe_to_file(pe, tmp_path)
+
+
+@pytest.fixture
+def pe_with_section_in_alignment_gap_file(pe_with_symbol_table, tmp_path):
+    pe = pe_with_symbol_table
+    table_end = len(pe.__data__)
+    new_section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__, pe=pe)
+    new_section.__unpack__(b'\0' * new_section.sizeof())
+    new_section.set_file_offset(pe.sections[-1].get_file_offset() + new_section.sizeof())
+    new_section.Name = b'.stray'
+    data = b'stray'
+    new_section.Misc_VirtualSize = len(data)
+    new_section.PointerToRawData = table_end
+    new_section.SizeOfRawData = ukify.round_up(len(data), pe.OPTIONAL_HEADER.FileAlignment)
+    new_section.VirtualAddress = ukify.round_up(
+        pe.sections[-1].VirtualAddress + pe.sections[-1].Misc_VirtualSize,
+        pe.OPTIONAL_HEADER.SectionAlignment,
+    )
+    new_section.IMAGE_SCN_MEM_READ = True
+    new_section.IMAGE_SCN_CNT_INITIALIZED_DATA = True
+    pe.__data__ += data + bytes(new_section.SizeOfRawData - len(data))
+    pe.FILE_HEADER.NumberOfSections += 1
+    pe.OPTIONAL_HEADER.SizeOfInitializedData += new_section.Misc_VirtualSize
+    pe.__structures__.append(new_section)
+    pe.sections.append(new_section)
+    return _pe_to_file(pe, tmp_path)
+
+
+@pytest.fixture
+def pe_section_overlaps_symbol_table_invalid_file(pe_with_symbol_table, tmp_path):
+    pe = pe_with_symbol_table
+    symbol_table_start = pe.FILE_HEADER.PointerToSymbolTable
+    new_section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__, pe=pe)
+    new_section.__unpack__(b'\0' * new_section.sizeof())
+    new_section.set_file_offset(pe.sections[-1].get_file_offset() + new_section.sizeof())
+    new_section.Name = b'.stray'
+    new_section.Misc_VirtualSize = 4
+    new_section.PointerToRawData = symbol_table_start + 5
+    new_section.SizeOfRawData = 4
+    new_section.VirtualAddress = ukify.round_up(
+        pe.sections[-1].VirtualAddress + pe.sections[-1].Misc_VirtualSize,
+        pe.OPTIONAL_HEADER.SectionAlignment,
+    )
+    new_section.IMAGE_SCN_MEM_READ = True
+    new_section.IMAGE_SCN_CNT_INITIALIZED_DATA = True
+    pe.FILE_HEADER.NumberOfSections += 1
+    pe.OPTIONAL_HEADER.SizeOfInitializedData += new_section.Misc_VirtualSize
+    pe.__structures__.append(new_section)
+    pe.sections.append(new_section)
+    return _pe_to_file(pe, tmp_path)
+
+
+def assert_no_gaps(ukified_pe):
+    prev_end = ukified_pe.OPTIONAL_HEADER.SizeOfHeaders
+    for section in ukified_pe.sections:
+        assert section.PointerToRawData == prev_end, f'gap before {section.Name}'
+        prev_end = section.PointerToRawData + section.SizeOfRawData
+
+
+def assert_uki_after_symbol_table_sanitize(ukified_pe):
+    # Referenced table is not stripped
+    assert ukified_pe.FILE_HEADER.PointerToSymbolTable != 0
+    assert not ukified_pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED
+
+    assert_no_gaps(ukified_pe)
+
+    # Every long-named section still resolves to its original name
+    symbol_table = ukify.SymbolTable.from_pe(ukified_pe)
+    string_table = symbol_table.string_table if symbol_table else None
+    for section in ukified_pe.sections:
+        if section.Name.startswith(b'/'):
+            assert ukify.pe_resolve_section_name(section.Name, string_table) == '.longname'
+
+    # Symbol table ends up in Authenticode's trailing-data range
+    authenticode_extra_data_offset = ukified_pe.OPTIONAL_HEADER.SizeOfHeaders + sum(
+        s.SizeOfRawData for s in ukified_pe.sections
+    )
+    assert ukified_pe.FILE_HEADER.PointerToSymbolTable >= authenticode_extra_data_offset
+
+
+def test_pe_add_sections_strips_unreferenced_symbol_table(pe_with_empty_symbol_table_file, tmp_path):
+    dst = tmp_path / 'out.efi'
+    ukify.pe_add_sections(
+        SimpleNamespace(pcrsig=None), ukify.UKI(executable=pe_with_empty_symbol_table_file), dst
+    )
+    ukified_pe = pefile.PE(str(dst), fast_load=True)
+
+    assert ukified_pe.FILE_HEADER.PointerToSymbolTable == 0
+    assert ukified_pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED
+    assert_no_gaps(ukified_pe)
+
+
+def test_pe_add_sections_keeps_referenced_symbol_table(pe_with_symbol_table_file, tmp_path):
+    dst = tmp_path / 'out.efi'
+    uki = ukify.UKI(executable=pe_with_symbol_table_file)
+    uki.add_section(ukify.Section.create('.extra', b'extra section data'))
+    ukify.pe_add_sections(SimpleNamespace(pcrsig=None), uki, dst)
+    ukified_pe = pefile.PE(str(dst), fast_load=True)
+
+    assert_uki_after_symbol_table_sanitize(ukified_pe)
+
+
+def test_pe_add_sections_relocates_misplaced_symbol_table(pe_with_misplaced_symbol_table_file, tmp_path):
+    dst = tmp_path / 'out.efi'
+    ukify.pe_add_sections(
+        SimpleNamespace(pcrsig=None), ukify.UKI(executable=pe_with_misplaced_symbol_table_file), dst
+    )
+    ukified_pe = pefile.PE(str(dst), fast_load=True)
+
+    assert_uki_after_symbol_table_sanitize(ukified_pe)
+
+
+def test_pe_add_sections_shifts_section_in_alignment_gap(pe_with_section_in_alignment_gap_file, tmp_path):
+    dst = tmp_path / 'out.efi'
+    ukify.pe_add_sections(
+        SimpleNamespace(pcrsig=None),
+        ukify.UKI(executable=pe_with_section_in_alignment_gap_file),
+        dst,
+    )
+    ukified_pe = pefile.PE(str(dst), fast_load=True)
+
+    assert_uki_after_symbol_table_sanitize(ukified_pe)
+    stray = next(s for s in ukified_pe.sections if s.Name.rstrip(b'\0') == b'.stray')
+    assert ukified_pe.__data__[stray.PointerToRawData : stray.PointerToRawData + 5] == b'stray'
+
+
+def test_pe_add_sections_section_overlapping_symbol_table(
+    pe_section_overlaps_symbol_table_invalid_file, tmp_path
+):
+    with pytest.raises(ukify.PEError, match='section pointer into symbol table'):
+        ukify.pe_add_sections(
+            SimpleNamespace(pcrsig=None),
+            ukify.UKI(executable=pe_section_overlaps_symbol_table_invalid_file),
+            tmp_path / 'out.efi',
+        )
+
+
+def test_pe_add_sections_with_cert_table_without_pcrsig(
+    pe_with_misplaced_symbol_table_and_cert_table_file, tmp_path
+):
+    with pytest.raises(ukify.PEError):
+        ukify.pe_add_sections(
+            SimpleNamespace(pcrsig=None),
+            ukify.UKI(executable=pe_with_misplaced_symbol_table_and_cert_table_file),
+            tmp_path / 'out.efi',
+        )
+
+
+def test_pe_add_sections_with_cert_table_and_pcrsig_leaves_symbol_table_untouched(
+    pe_with_misplaced_symbol_table_and_cert_table_file, tmp_path
+):
+    original_pe = pefile.PE(str(pe_with_misplaced_symbol_table_and_cert_table_file), fast_load=True)
+
+    dst = tmp_path / 'out.efi'
+    ukify.pe_add_sections(
+        SimpleNamespace(pcrsig='{}'),
+        ukify.UKI(executable=pe_with_misplaced_symbol_table_and_cert_table_file),
+        dst,
+    )
+    ukified_pe = pefile.PE(str(dst), fast_load=True)
+
+    assert ukified_pe.FILE_HEADER.PointerToSymbolTable == original_pe.FILE_HEADER.PointerToSymbolTable
+    assert ukified_pe.FILE_HEADER.NumberOfSymbols == original_pe.FILE_HEADER.NumberOfSymbols
+    assert ukify.SymbolTable.from_pe(ukified_pe).data == ukify.SymbolTable.from_pe(original_pe).data
 
 
 def test_addon(tmp_path):
