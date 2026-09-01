@@ -5,6 +5,7 @@
 #include "crypto-util.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
+#include "memory-util.h"
 #include "random-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
@@ -1335,6 +1336,92 @@ static void check_supports_command(Tpm2Context *c) {
         assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
 }
 
+static void check_get_capability_property(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        /* Fetch the whole group of fixed properties in one go, so that we have something to cross-check the
+         * individual properties we fetch below against. This doesn't use the tpm2_get_capability_property
+         * helper that we are testing. */
+        Tpm2VendorInfo vendor_info;
+        ASSERT_OK(tpm2_get_vendor_info(c, &vendor_info));
+
+        /* The TPM will tell us that there are more properties to report if there are any properties after
+         * the last one we ask for, even if we don't request it. */
+        uint32_t value;
+        ASSERT_OK_POSITIVE(tpm2_get_capability_property(c, /* audit_session= */ NULL, TPM2_PT_LEVEL, &value));
+        ASSERT_EQ(value, vendor_info.level);
+
+        ASSERT_OK_POSITIVE(tpm2_get_capability_property(c, /* audit_session= */ NULL, TPM2_PT_YEAR, &value));
+        ASSERT_EQ(value, vendor_info.year);
+
+        ASSERT_OK_POSITIVE(tpm2_get_capability_property(
+                        c, /* audit_session= */ NULL, TPM2_PT_FIRMWARE_VERSION_2, &value));
+        ASSERT_EQ(value, vendor_info.firmware_version2);
+
+        /* Request a property we know doesn't exist. */
+        ASSERT_ERROR(tpm2_get_capability_property(
+                        c, /* audit_session= */ NULL, TPM2_PT_FIXED + TPM2_PT_GROUP - 1, &value), ENOENT);
+
+        /* Fetching a property with an audit session must give the same result. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        ASSERT_OK(tpm2_make_exclusive_audit_session(c, &session));
+
+        uint32_t audited_value;
+        ASSERT_OK_POSITIVE(tpm2_get_capability_property(
+                        c, session, TPM2_PT_FIRMWARE_VERSION_2, &audited_value));
+        ASSERT_EQ(audited_value, vendor_info.firmware_version2);
+}
+
+static void check_get_capability_auth_policy(Tpm2Context *c) {
+        static const TPM2_HANDLE handles[] = {
+                TPM2_RH_OWNER,
+                TPM2_RH_LOCKOUT,
+                TPM2_RH_ENDORSEMENT,
+        };
+        TPMT_HA policies[ELEMENTSOF(handles)] = {};
+        TPMT_HA policy = {};
+        int r;
+
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        r = tpm2_get_capability_auth_policy(c, /* audit_session= */ NULL, handles[0], &policies[0]);
+        if (r == -ENXIO) {
+                /* TPMs older than v1.38 don't support TPM_CAP_AUTH_POLICIES. */
+                log_notice("TPM does not support TPM_CAP_AUTH_POLICIES, skipping remaining tests.");
+                return;
+        }
+        ASSERT_OK(r);
+
+        for (size_t i = 0; i < ELEMENTSOF(handles); i++) {
+                ASSERT_OK(tpm2_get_capability_auth_policy(
+                                c, /* audit_session= */ NULL, handles[i], &policies[i]));
+
+                /* A hierarchy without an authorization policy is reported with TPM2_ALG_NULL, otherwise the
+                 * policy hash must use a hash algorithm the TPM supports. */
+                if (policies[i].hashAlg != TPM2_ALG_NULL) {
+                        ASSERT_TRUE(tpm2_supports_alg(c, policies[i].hashAlg));
+                }
+        }
+
+        /* The TPM must not report an authorization policy for a reserved permanent handle. */
+        ASSERT_ERROR(tpm2_get_capability_auth_policy(
+                        c, /* audit_session= */ NULL, TPM2_RH_LAST, &policy), ENOENT);
+
+        /* Fetching the same policies through an audit session must give the same results. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        ASSERT_OK(tpm2_make_exclusive_audit_session(c, &session));
+
+        for (size_t i = 0; i < ELEMENTSOF(handles); i++) {
+                policy = (TPMT_HA) {};
+                ASSERT_OK(tpm2_get_capability_auth_policy(c, session, handles[i], &policy));
+                ASSERT_EQ(policy.hashAlg, policies[i].hashAlg);
+        }
+}
+
 static void check_get_or_create_srk(Tpm2Context *c) {
         TEST_LOG_FUNC();
 
@@ -2186,6 +2273,123 @@ TEST(tpm2_tpms_nv_public_to_json) {
         ASSERT_STREQ(json, "{\"nvIndex\":30474754,\"nameAlg\":\"SHA256\",\"attributes\":738590792,\"authPolicy\":\"c0f52d0be7f6c1666d90a181a99a74b99c5e0bfd00bc52cc27ae0e66d89afcf5\",\"dataSize\":32}");
 }
 
+TEST(tpm2_tpms_tagged_property_to_json) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v1 = NULL;
+        TPMS_TAGGED_PROPERTY prop1 = {
+                .property = TPM2_PT_PERMANENT,
+                .value = TPMA_PERMANENT_LOCKOUTAUTHSET,
+        };
+        ASSERT_OK(tpm2_tpms_tagged_property_to_json(&prop1, &v1));
+
+        _cleanup_free_ char *json1 = NULL;
+        ASSERT_OK(sd_json_variant_format(v1, 0, &json1));
+        ASSERT_STREQ(json1, "{\"property\":\"PERMANENT\",\"value\":4}");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v2 = NULL;
+        TPMS_TAGGED_PROPERTY prop2 = {
+                .property = TPM2_PT_LOCKOUT_INTERVAL,
+                .value = 7200,
+        };
+        ASSERT_OK(tpm2_tpms_tagged_property_to_json(&prop2, &v2));
+
+        _cleanup_free_ char *json2 = NULL;
+        ASSERT_OK(sd_json_variant_format(v2, 0, &json2));
+        ASSERT_STREQ(json2, "{\"property\":\"LOCKOUT_INTERVAL\",\"value\":7200}");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v3 = NULL;
+        TPMS_TAGGED_PROPERTY prop3 = {
+                .property = TPM2_PT_MAX_DIGEST,
+                .value = 48,
+        };
+        ASSERT_OK(tpm2_tpms_tagged_property_to_json(&prop3, &v3));
+
+        _cleanup_free_ char *json3 = NULL;
+        ASSERT_OK(sd_json_variant_format(v3, 0, &json3));
+        ASSERT_STREQ(json3, "{\"property\":288,\"value\":48}");
+}
+
+TEST(tpm2_tpms_tagged_policy_to_json) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v1 = NULL;
+        TPMS_TAGGED_POLICY policy1 = {
+                .handle = TPM2_RH_OWNER,
+                .policyHash = {
+                        .hashAlg = TPM2_ALG_NULL,
+                }
+        };
+
+        ASSERT_OK(tpm2_tpms_tagged_policy_to_json(&policy1, &v1));
+
+        _cleanup_free_ char *json1 = NULL;
+        ASSERT_OK(sd_json_variant_format(v1, 0, &json1));
+        ASSERT_STREQ(json1, "{\"handle\":1073741825,\"policyHash\":{\"hashAlg\":\"NULL\"}}");
+
+        const char policy_hex2[] = "39d64794bd1eba89098fc63aac282c2c4eedf1dee79e4f6b99ca3f57f87d7dfc";
+        DEFINE_HEX_PTR(policy_bytes2, policy_hex2);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v2 = NULL;
+        TPMS_TAGGED_POLICY policy2 = {
+                .handle = TPM2_RH_LOCKOUT,
+                .policyHash = {
+                        .hashAlg = TPM2_ALG_SHA256,
+                },
+        };
+        ASSERT_EQ(policy_bytes2_len, sizeof(policy2.policyHash.digest.sha256));
+        memcpy(&policy2.policyHash.digest.sha256, policy_bytes2, sizeof(policy2.policyHash.digest.sha256));
+
+        ASSERT_OK(tpm2_tpms_tagged_policy_to_json(&policy2, &v2));
+
+        _cleanup_free_ char *json2 = NULL;
+        ASSERT_OK(sd_json_variant_format(v2, 0, &json2));
+        _cleanup_free_ char *json2_expected = NULL;
+        ASSERT_OK(asprintf(&json2_expected, "{\"handle\":1073741834,\"policyHash\":{\"hashAlg\":\"SHA256\",\"digest\":\"%s\"}}", policy_hex2));
+        ASSERT_STREQ(json2, json2_expected);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v3 = NULL;
+        TPMS_TAGGED_POLICY policy3 = {
+                .handle = TPM2_RH_PLATFORM,
+                .policyHash = {
+                        .hashAlg = TPM2_ALG_NULL,
+                }
+        };
+
+        ASSERT_OK(tpm2_tpms_tagged_policy_to_json(&policy3, &v3));
+
+        _cleanup_free_ char *json3 = NULL;
+        ASSERT_OK(sd_json_variant_format(v3, 0, &json3));
+        ASSERT_STREQ(json3, "{\"handle\":1073741836,\"policyHash\":{\"hashAlg\":\"NULL\"}}");
+
+        const char policy_hex4[] = "0a6d20fef462389c789b36e42efb94f9f9fd4d0174f0c27e14beff33d1cbdafeef119433117124e77a89b64ec80112f6";
+        DEFINE_HEX_PTR(policy_bytes4, policy_hex4);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v4 = NULL;
+        TPMS_TAGGED_POLICY policy4 = {
+                .handle = TPM2_RH_ENDORSEMENT,
+                .policyHash = {
+                        .hashAlg = TPM2_ALG_SHA384,
+                },
+        };
+        ASSERT_EQ(policy_bytes4_len, sizeof(policy4.policyHash.digest.sha384));
+        memcpy(&policy4.policyHash.digest.sha384, policy_bytes4, sizeof(policy4.policyHash.digest.sha384));
+
+        ASSERT_OK(tpm2_tpms_tagged_policy_to_json(&policy4, &v4));
+
+        _cleanup_free_ char *json4 = NULL;
+        ASSERT_OK(sd_json_variant_format(v4, 0, &json4));
+        _cleanup_free_ char *json4_expected = NULL;
+        ASSERT_OK(asprintf(&json4_expected, "{\"handle\":1073741835,\"policyHash\":{\"hashAlg\":\"SHA384\",\"digest\":\"%s\"}}", policy_hex4));
+        ASSERT_STREQ(json4, json4_expected);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v5 = NULL;
+        TPMS_TAGGED_POLICY policy_unsupported = {
+                .handle = TPM2_RH_OWNER,
+                .policyHash = {
+                        .hashAlg = TPM2_ALG_SM3_256,
+                }
+        };
+
+        ASSERT_ERROR(tpm2_tpms_tagged_policy_to_json(&policy_unsupported, &v5), EINVAL);
+}
+
 static void check_attest_common(const TPMS_ATTEST *attest, TPMI_ST_ATTEST type, const TPM2B_DATA *extra_data) {
         ASSERT_EQ(attest->magic, TPM2_GENERATED_VALUE);
         ASSERT_EQ(attest->type, type);
@@ -2359,6 +2563,8 @@ TEST_RET(tests_which_require_tpm) {
         check_test_parms(c);
         check_supports_alg(c);
         check_supports_command(c);
+        check_get_capability_property(c);
+        check_get_capability_auth_policy(c);
         check_best_srk_template(c);
         check_get_or_create_srk(c);
         check_seal_unseal(c);
