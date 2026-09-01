@@ -1442,6 +1442,14 @@ static int decompress_startswith_gzip(
 
                 size_t used = allocated - s.avail_out;
 
+                /* The decoder stopped although output space was left, i.e. it ran out of input: the
+                 * stream is truncated. Note that inflate() reports exactly this as Z_BUF_ERROR, which we
+                 * accept above because it is also how it asks for a bigger output buffer. Growing the
+                 * buffer cannot conjure up the missing input, so without this we'd double the allocation
+                 * on every iteration until we hit OOM. */
+                if (s.avail_out > 0)
+                        return -EBADMSG;
+
                 if (!(greedy_realloc(buffer, allocated * 2, 1)))
                         return -ENOMEM;
 
@@ -1507,6 +1515,13 @@ static int decompress_startswith_bzip2(
                         return 0;
 
                 size_t used = allocated - s.avail_out;
+
+                /* Same as in decompress_startswith_gzip(): output space left over means the decoder is
+                 * out of input, i.e. the stream is truncated. BZ2_bzDecompress() has no distinct return
+                 * code for that, it just keeps saying BZ_OK, so growing the buffer here would double the
+                 * allocation forever. */
+                if (s.avail_out > 0)
+                        return -EBADMSG;
 
                 if (!(greedy_realloc(buffer, allocated * 2, 1)))
                         return -ENOMEM;
