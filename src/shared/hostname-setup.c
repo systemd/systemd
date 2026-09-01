@@ -455,9 +455,10 @@ int hostname_pick_word(sd_id128_t mid, size_t pos, char **ret) {
                 /* Comment/empty/invalid line: resample rather than advancing, to keep the pick uniform. */
         }
 
-        /* We exhausted the uniform attempts, this should never happen but if it does fallback to picking the
-        * next word after our last attempt. */
-        log_warning("hostname_pick_word did not find a usable word after %u in wordlist %zu", MAX_ITERATIONS, pos);
+        /* We exhausted the uniform attempts, this occasionally happens, so fall back to picking the next
+         * word after our last offset. */
+        log_debug("Falling back to linear scan for a word in wordlist %zu after trying %u random offsets.",
+                  pos, MAX_ITERATIONS);
         return pick_word_linear_scan(words, size, offset, ret);
 }
 
