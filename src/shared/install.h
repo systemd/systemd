@@ -16,6 +16,8 @@ typedef enum UnitFilePresetMode {
 typedef enum InstallChangeType {
         INSTALL_CHANGE_SYMLINK,
         INSTALL_CHANGE_UNLINK,
+        INSTALL_CHANGE_MASK_DEPENDENCY,
+        INSTALL_CHANGE_UNMASK_DEPENDENCY,
         INSTALL_CHANGE_IS_MASKED,
         INSTALL_CHANGE_IS_MASKED_GENERATOR,
         INSTALL_CHANGE_IS_DANGLING,
@@ -36,6 +38,8 @@ typedef enum UnitFileFlags {
         UNIT_FILE_PORTABLE                 = 1 << 2, /* Public API via DBUS, do not change */
         UNIT_FILE_DRY_RUN                  = 1 << 3,
         UNIT_FILE_IGNORE_AUXILIARY_FAILURE = 1 << 4,
+        UNIT_FILE_VENDOR                   = 1 << 5, /* Operate on the vendor unit directory below /usr/ */
+        UNIT_FILE_APPLYING_PRESET          = 1 << 6, /* Applying a policy, not recording an explicit request */
         _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
 } UnitFileFlags;
 
@@ -59,7 +63,11 @@ typedef struct InstallChange {
 
 static inline bool install_changes_have_modification(const InstallChange *changes, size_t n_changes) {
         FOREACH_ARRAY(i, changes, n_changes)
-                if (IN_SET(i->type, INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK))
+                if (IN_SET(i->type,
+                           INSTALL_CHANGE_SYMLINK,
+                           INSTALL_CHANGE_UNLINK,
+                           INSTALL_CHANGE_MASK_DEPENDENCY,
+                           INSTALL_CHANGE_UNMASK_DEPENDENCY))
                         return true;
         return false;
 }

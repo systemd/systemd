@@ -512,7 +512,8 @@ int lookup_paths_init(
                 *generator = NULL, *generator_early = NULL, *generator_late = NULL,
                 *transient = NULL,
                 *persistent_control = NULL, *runtime_control = NULL,
-                *persistent_attached = NULL, *runtime_attached = NULL;
+                *persistent_attached = NULL, *runtime_attached = NULL,
+                *vendor_config = NULL;
         _cleanup_strv_free_ char **paths = NULL;
         int r;
 
@@ -694,6 +695,19 @@ int lookup_paths_init(
         if (r < 0)
                 return r;
 
+        /* The vendor unit directory. Only meaningful for the system and global scopes: user units have no
+         * vendor directory whose enablement PID 1 would honour the same way. */
+        if (IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_GLOBAL)) {
+                vendor_config = strdup(scope == RUNTIME_SCOPE_SYSTEM ? SYSTEM_DATA_UNIT_DIR
+                                                                     : USER_DATA_UNIT_DIR);
+                if (!vendor_config)
+                        return -ENOMEM;
+
+                r = patch_root_prefix(&vendor_config, root);
+                if (r < 0)
+                        return r;
+        }
+
         r = patch_root_prefix_strv(paths, root);
         if (r < 0)
                 return -ENOMEM;
@@ -715,6 +729,8 @@ int lookup_paths_init(
 
                 .persistent_attached = TAKE_PTR(persistent_attached),
                 .runtime_attached = TAKE_PTR(runtime_attached),
+
+                .vendor_config = TAKE_PTR(vendor_config),
 
                 .root_dir = TAKE_PTR(root),
                 .temporary_dir = TAKE_PTR(tempdir),
@@ -743,6 +759,8 @@ void lookup_paths_done(LookupPaths *lp) {
 
         lp->persistent_attached = mfree(lp->persistent_attached);
         lp->runtime_attached = mfree(lp->runtime_attached);
+
+        lp->vendor_config = mfree(lp->vendor_config);
 
         lp->generator = mfree(lp->generator);
         lp->generator_early = mfree(lp->generator_early);

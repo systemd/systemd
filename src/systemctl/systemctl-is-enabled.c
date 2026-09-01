@@ -27,13 +27,17 @@ static int show_installation_targets_client_side(const char *name) {
         flags = UNIT_FILE_DRY_RUN |
                 (arg_runtime ? UNIT_FILE_RUNTIME : 0);
 
-        r = unit_file_disable(arg_runtime_scope, flags, NULL, p, &changes, &n_changes);
+        r = unit_file_disable(arg_runtime_scope, flags, arg_root, p, &changes, &n_changes);
         if (r < 0)
                 return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
         FOREACH_ARRAY(c, changes, n_changes)
                 if (c->type == INSTALL_CHANGE_UNLINK)
                         printf("  %s\n", c->path);
+                else if (c->type == INSTALL_CHANGE_MASK_DEPENDENCY)
+                        /* Enabled by the vendor: report the symlink that does it, not the mask that would
+                         * be created to shadow it. */
+                        printf("  %s\n", c->source);
 
         return 0;
 }
