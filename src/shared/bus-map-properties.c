@@ -216,6 +216,37 @@ int bus_message_map_all_properties(
         return r;
 }
 
+int bus_get_all_properties(
+                sd_bus *bus,
+                const char *destination,
+                const char *path,
+                sd_bus_error *reterr_error,
+                sd_bus_message **ret_reply) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(bus);
+        assert(destination);
+        assert(path);
+        assert(ret_reply);
+
+        r = sd_bus_call_method(
+                        bus,
+                        destination,
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "GetAll",
+                        reterr_error,
+                        &reply,
+                        "s", "");
+        if (r < 0)
+                return r;
+
+        *ret_reply = TAKE_PTR(reply);
+        return 0;
+}
+
 int bus_map_all_properties(
                 sd_bus *bus,
                 const char *destination,
@@ -235,15 +266,7 @@ int bus_map_all_properties(
         assert(map);
         assert(ret_reply || (flags & BUS_MAP_STRDUP));
 
-        r = sd_bus_call_method(
-                        bus,
-                        destination,
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        reterr_error,
-                        &reply,
-                        "s", "");
+        r = bus_get_all_properties(bus, destination, path, reterr_error, &reply);
         if (r < 0)
                 return r;
 
