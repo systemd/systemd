@@ -341,6 +341,19 @@ TEST(decompress_startswith_short) {
                         ASSERT_OK_POSITIVE(decompress_startswith(c, buf, csize, &buf2, TEXT, i, TEXT[i]));
                         ASSERT_OK_ZERO(decompress_startswith(c, buf, csize, &buf2, TEXT, i, 'y'));
                 }
+
+                /* A truncated stream leaves the decoder unable to make progress: it has consumed all the
+                 * input there is, and the prefix we are after never materialises. Since
+                 * decompress_startswith() grows its output buffer whenever it comes back with less than
+                 * the prefix decoded, that has to be recognised, as more output room cannot substitute
+                 * for missing input. Hence the result may be a match, a non-match, or -EBADMSG, but never
+                 * -ENOMEM. */
+                for (size_t i = 1; i < csize; i++) {
+                        _cleanup_free_ void *buf2 = NULL;
+
+                        ASSERT_OK_OR(decompress_startswith(c, buf, i, &buf2, TEXT, strlen(TEXT), TEXT[strlen(TEXT)]),
+                                     -EBADMSG);
+                }
         }
 #undef TEXT
 }
