@@ -257,6 +257,8 @@ typedef struct Tpm2VendorInfo {
         char vendor_string[4*4+1];
 } Tpm2VendorInfo;
 
+int tpm2_get_capability_property(Tpm2Context *c, Tpm2Handle *audit_session, TPM2_PT property, uint32_t *ret);
+int tpm2_get_capability_auth_policy(Tpm2Context *c, Tpm2Handle *audit_session, TPM2_HANDLE handle, TPMT_HA *ret);
 int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret);
 int tpm2_get_vendor_info(Tpm2Context *c, Tpm2VendorInfo *ret);
 
@@ -427,6 +429,8 @@ int tpm2_tpmt_signature_to_json(const TPMT_SIGNATURE *signature, sd_json_variant
 int tpm2_attest_info_to_json(const TPMT_SIG_SCHEME *scheme, const TPMS_ATTEST *attest, sd_json_variant **ret);
 int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret);
 int tpm2_tpms_nv_public_to_json(const TPMS_NV_PUBLIC *nv_public, sd_json_variant **ret);
+int tpm2_tpms_tagged_property_to_json(const TPMS_TAGGED_PROPERTY *property, sd_json_variant **ret);
+int tpm2_tpms_tagged_policy_to_json(const TPMS_TAGGED_POLICY *policy, sd_json_variant **ret);
 
 int tpm2_quote(Tpm2Context *c, const Tpm2Handle *sign_session, const Tpm2Handle *audit_session, const Tpm2Handle *sign_key, const TPM2B_DATA *qualifying_data, const TPML_PCR_SELECTION *pcr_select, TPMS_ATTEST **ret_quoted, TPMT_SIGNATURE **ret_signature);
 int tpm2_nv_certify(Tpm2Context *c, const Tpm2Handle *sign_session, const Tpm2Handle *auth_session, const Tpm2Handle *audit_session, const Tpm2Handle *sign_key, const TPMS_NV_PUBLIC *nv_public, const Tpm2Handle *nv_handle, const TPM2B_DATA *qualifying_data, TPMS_ATTEST **ret_certify_info, TPMT_SIGNATURE **ret_signature);
