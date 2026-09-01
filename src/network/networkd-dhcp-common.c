@@ -807,12 +807,16 @@ int config_parse_dhcp6_send_option(
         }
 
         r = safe_atou16(word, &u16);
-        if (r < 0) {
+        if (r == -ERANGE) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid DHCP option, valid range is 1-65535, ignoring assignment: %s", rvalue);
+                return 0;
+        } else if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid DHCP option, ignoring assignment: %s", rvalue);
                 return 0;
         }
-        if (u16 < 1 || u16 >= UINT16_MAX) {
+        if (u16 < 1) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid DHCP option, valid range is 1-65535, ignoring assignment: %s", rvalue);
                 return 0;
