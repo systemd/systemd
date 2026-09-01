@@ -1,0 +1,16 @@
+{
+    "type": "devicetree",
+    "name": "Qualcomm Technologies, Inc. Glymur CRD",
+    "compatible": "qcom,glymur-crd",
+    "hwids": [
+        "e88849e7-af59-5c58-9776-75cfb6bac078",
+        "d9972e14-0a66-56a8-9cee-8c5647fbe470",
+        "e53db94e-68fe-541f-b06e-4b5a253dadf9",
+        "ce496e01-9bd8-522e-8937-8045126ed39a",
+        "031a5cd7-883e-5004-90c2-92d29025c777",
+        "4bb05d50-6c4f-525d-a9ec-8924afd6edea",
+        "339fc6d2-e0f4-5226-9dd9-62c4dc41881d",
+        "49bcdd2b-d769-5071-b3a4-4a02ff1d36f5",
+        "6fcbdad8-149e-5f72-b2e3-0fd78572ff93"
+    ]
+}

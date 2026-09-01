@@ -1,0 +1,18 @@
+{
+    "type": "devicetree",
+    "name": "ASUS Zenbook A14 UX3407NA",
+    "compatible": "asus,zenbook-a14-ux3407na",
+    "hwids": [
+        "f83b2743-4d7a-5fc5-ab29-8f7c3955ce91",
+        "239dac86-8b01-592b-b89d-405153e44194",
+        "a44af168-a1f5-59cb-9af2-451316f4fe3d",
+        "1a80da71-97b3-50c6-a8c2-5c8c4356cbd1",
+        "889cd77f-34a1-541f-a95f-6566c8fcda20",
+        "b680d605-b115-5d67-b413-93f44ff3220a",
+        "48008168-2010-52ff-aaaf-ab706ba99638",
+        "27fc49a6-607b-5f8d-bcd4-eb8bdedfb31a",
+        "16ae4df2-f7ce-59fb-82be-33464322d7ee",
+        "7a71569d-bdb8-5feb-bf86-3c17d3eece44",
+        "c0717bbf-62ca-5ab1-a76b-75f3fd1bc013"
+    ]
+}
