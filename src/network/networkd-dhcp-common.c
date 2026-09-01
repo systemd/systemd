@@ -794,6 +794,12 @@ int config_parse_dhcp6_send_option(
                                    "Failed to parse DHCPv6 enterprise identifier data, ignoring assignment: %s", p);
                         return 0;
                 }
+                if (enterprise_identifier < 1 || enterprise_identifier >= UINT32_MAX) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid DHCPv6 enterprise identifier, valid range is 1-%"PRIu32", ignoring assignment: %s",
+                                   UINT32_MAX -1, rvalue);
+                        return 0;
+                }
                 word = mfree(word);
         }
 
