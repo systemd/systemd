@@ -93,6 +93,10 @@ executables += [
                 'sources' : files('test-oci-util.c'),
                 'import' : ['systemd-importd'],
         },
+        fuzz_template + {
+                'sources' : files('fuzz-qcow2.c'),
+                'import' : ['systemd-importd'],
+        },
 ]
 
 install_data('org.freedesktop.import1.conf',
