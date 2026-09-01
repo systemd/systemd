@@ -1,0 +1,56 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=PTY Broker
+Documentation=man:systemd-ptybrokerd.service(8)
+Requires=systemd-ptybrokerd.socket
+After=systemd-ptybrokerd.socket
+Conflicts=shutdown.target
+Before=sysinit.target shutdown.target
+DefaultDependencies=no
+
+[Service]
+# CAP_CHOWN: to hand PTYs over to the requesting client's UID/GID
+# CAP_DAC_OVERRIDE: to reopen a PTY we handed over for hang-up
+# CAP_SYS_ADMIN: for TIOCVHANGUP
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_SYS_ADMIN
+ExecStart={{LIBEXECDIR}}/systemd-ptybrokerd
+IPAddressDeny=any
+KillMode=mixed
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+PrivateTmp=disconnected
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+Restart=on-failure
+RestartSec=0
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+Type=notify
+{{SERVICE_WATCHDOG}}
+
+[Install]
+Also=systemd-ptybrokerd.socket

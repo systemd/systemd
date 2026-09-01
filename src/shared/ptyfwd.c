@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "ansi-seq.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -19,6 +20,7 @@
 #include "hostname-setup.h"
 #include "io-util.h"
 #include "log.h"
+#include "osc-winsize.h"
 #include "pretty-print.h"
 #include "ptyfwd.h"
 #include "stat-util.h"
@@ -110,9 +112,19 @@ struct PTYForward {
 
         char *title;           /* Window title to show by default */
         char *title_prefix;    /* If terminal client overrides window title, prefix this string */
+
+        /* OSC 2811 (UAPI.17 terminal size change notification): we implement the emulator side towards the
+         * pty, i.e. we answer subscribe sequences arriving via the master fd with reply sequences carrying
+         * the current dimensions. */
+        AnsiSeqParser osc2811_input_parser;       /* Tracks ANSI sequence boundaries on the input (stdin → master) stream */
+        char *osc2811_reply;                      /* A generated reply sequence, waiting for insertion into the input stream */
+        bool osc2811_subscribed;                  /* A dimension change subscription is pending */
+        unsigned osc2811_columns, osc2811_lines;  /* The dimensions declared in the pending subscription */
 };
 
 #define ESCAPE_USEC (1*USEC_PER_SEC)
+
+static int pty_forward_add_defer(PTYForward *f);
 
 static void pty_forward_disconnect(PTYForward *f) {
 
@@ -178,6 +190,10 @@ static void pty_forward_disconnect(PTYForward *f) {
         f->csi_sequence = mfree(f->csi_sequence);
         f->osc_sequence = mfree(f->osc_sequence);
         f->ansi_color_state = _ANSI_COLOR_STATE_INVALID;
+
+        f->osc2811_reply = mfree(f->osc2811_reply);
+        f->osc2811_subscribed = false;
+        ansi_seq_parser_done(&f->osc2811_input_parser);
 }
 
 static int pty_forward_done(PTYForward *f, int rcode) {
@@ -459,6 +475,122 @@ static int insert_window_title_fix(PTYForward *f, size_t offset) {
         return insert_string(f, offset, joined);
 }
 
+static int pty_forward_osc2811_flush(PTYForward *f) {
+        assert(f);
+
+        /* Inserts a pending OSC 2811 reply sequence into the input stream, but only at a safe position,
+         * i.e. never in the middle of an ANSI sequence the terminal is currently sending us, and only if
+         * there's room in the input buffer. */
+
+        if (!f->osc2811_reply)
+                return 0;
+
+        if (f->osc2811_input_parser.state != ANSI_SEQ_STATE_GROUND)
+                return 0;
+
+        size_t l = strlen(f->osc2811_reply);
+        if (f->in_buffer_full + l > LINE_MAX)
+                return 0;
+
+        memcpy(f->in_buffer + f->in_buffer_full, f->osc2811_reply, l);
+        f->in_buffer_full += l;
+
+        f->osc2811_reply = mfree(f->osc2811_reply);
+        return 1;
+}
+
+static int pty_forward_osc2811_maybe_reply(PTYForward *f) {
+        int r;
+
+        assert(f);
+
+        /* Sends an OSC 2811 reply sequence if a subscription is pending and the actual dimensions differ
+         * from the ones declared in the subscription. */
+
+        if (!f->osc2811_subscribed)
+                return 0;
+
+        /* Take the dimensions from the master if we can (it's authoritative: explicitly set dimensions end
+         * up there), with a fallback to the output fd (the master might not be a tty at all, for example
+         * when we are forwarding a monitor stream of ptybrokerd). */
+        struct winsize ws;
+        if (ioctl(f->master, TIOCGWINSZ, &ws) < 0 &&
+            ioctl(f->output_fd, TIOCGWINSZ, &ws) < 0) {
+                log_debug_errno(errno, "Failed to query terminal dimensions, ignoring: %m");
+                return 0;
+        }
+
+        if (f->osc2811_columns == ws.ws_col && f->osc2811_lines == ws.ws_row)
+                return 0;
+
+        _cleanup_free_ char *reply = NULL;
+        r = osc_winsize_format(OSC_WINSIZE_REPORT, ws.ws_col, ws.ws_row, &reply);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to format OSC 2811 sequence: %m");
+
+        free_and_replace(f->osc2811_reply, reply);
+        f->osc2811_subscribed = false; /* The subscription is consumed by the reply */
+
+        return pty_forward_osc2811_flush(f);
+}
+
+static int pty_forward_osc2811_process(PTYForward *f, size_t *i, size_t n_terminator) {
+        int r;
+
+        assert(f);
+        assert(i);
+        assert(*i < f->out_buffer_full);
+        assert(IN_SET(n_terminator, 1, 2));
+
+        /* Checks whether the OSC sequence that just completed at offset *i of the output buffer is an OSC
+         * 2811 subscribe (or cancel) sequence. If so, consumes it: we implement the emulator side towards
+         * the pty, hence such requests are addressed to us and must not leak to the outer terminal.
+         * Returns > 0 if the sequence was consumed and excised from the output buffer, 0 otherwise. */
+
+        if (FLAGS_SET(f->flags, PTY_FORWARD_TRANSPARENT))
+                return 0;
+
+        if (!f->osc_sequence)
+                return 0;
+
+        OscWinsize ws;
+        r = osc_winsize_parse(f->osc_sequence, &ws);
+        if (r <= 0)
+                return r;
+        if (ws.type == OSC_WINSIZE_REPORT) /* Not marked as request? Then this is presumably a reply
+                                            * reflected back at us, which we shall ignore (i.e. pass
+                                            * through), as per spec. */
+                return 0;
+
+        /* Excise the full sequence from the output buffer: OSC (2 bytes) + payload + terminator. None of it
+         * can have been flushed yet, since out_buffer_write_len is only advanced outside of ANSI sequences. */
+        size_t l = 2 + strlen(f->osc_sequence) + n_terminator;
+        assert(*i + 1 >= l);
+        size_t begin = *i + 1 - l;
+        assert(f->out_buffer_write_len <= begin);
+
+        memmove(f->out_buffer + begin, f->out_buffer + *i + 1, f->out_buffer_full - *i - 1);
+        f->out_buffer_full -= l;
+        *i = begin - 1; /* NB: this may wrap around to SIZE_MAX if the sequence started the buffer, which the
+                         * caller's loop increment brings back to 0 */
+
+        if (ws.type == OSC_WINSIZE_CANCEL)
+                /* A cancel sequence: discard any pending subscription without a reply */
+                f->osc2811_subscribed = false;
+        else {
+                f->osc2811_subscribed = true;
+                f->osc2811_columns = ws.columns;
+                f->osc2811_lines = ws.lines;
+
+                /* If the declared dimensions are already out-of-date, this answers immediately */
+                r = pty_forward_osc2811_maybe_reply(f);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
+}
+
 static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
         int r;
 
@@ -498,6 +630,10 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                         return r;
 
                                 i += r;
+
+                                /* A reset discards any pending OSC 2811 subscription, as per spec */
+                                f->osc2811_subscribed = false;
+
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         } else
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
@@ -527,6 +663,9 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                                 return r;
 
                                         i += r;
+
+                                        /* A reset discards any pending OSC 2811 subscription, as per spec */
+                                        f->osc2811_subscribed = false;
                                 } else if (c == 'm') {
                                         /* This is an "SGR" (Select Graphic Rendition) sequence. Patch in our background color. */
                                         r = insert_background_fix(f, i);
@@ -561,10 +700,15 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                  * codepoint, and that would create ambiguity. Various terminal emulators
                                  * similar do not support it. */
 
-                                r = insert_window_title_fix(f, i+1);
+                                r = pty_forward_osc2811_process(f, &i, /* n_terminator= */ 1);
                                 if (r < 0)
                                         return r;
-                                i += r;
+                                if (r == 0) {
+                                        r = insert_window_title_fix(f, i+1);
+                                        if (r < 0)
+                                                return r;
+                                        i += r;
+                                }
 
                                 f->osc_sequence = mfree(f->osc_sequence);
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
@@ -580,10 +724,15 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
 
                 case ANSI_COLOR_STATE_OSC_SEQUENCE_TERMINATING:
                         if (c == '\x5c') {
-                                r = insert_window_title_fix(f, i+1);
+                                r = pty_forward_osc2811_process(f, &i, /* n_terminator= */ 2);
                                 if (r < 0)
                                         return r;
-                                i += r;
+                                if (r == 0) {
+                                        r = insert_window_title_fix(f, i+1);
+                                        if (r < 0)
+                                                return r;
+                                        i += r;
+                                }
                         }
 
                         f->osc_sequence = mfree(f->osc_sequence);
@@ -599,6 +748,17 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
         }
 
         return 0;
+}
+
+static void pty_forward_master_hangup(PTYForward *f) {
+        assert(f);
+
+        /* The master side is gone: stop all I/O on it */
+
+        f->master_readable = f->master_writable = false;
+        f->master_hangup = true;
+
+        f->master_event_source = sd_event_source_unref(f->master_event_source);
 }
 
 static int do_shovel(PTYForward *f) {
@@ -670,6 +830,11 @@ static int do_shovel(PTYForward *f) {
                                 f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
                         } else {
                                 if (!FLAGS_SET(f->flags, PTY_FORWARD_TRANSPARENT)) {
+                                        /* Keep the input ANSI sequence tracker up-to-date, so that we know
+                                         * where OSC 2811 replies may be inserted safely */
+                                        for (ssize_t j = 0; j < k; j++)
+                                                (void) ansi_seq_parser_feed_harder(&f->osc2811_input_parser, f->in_buffer[f->in_buffer_full + j]);
+
                                         /* Check if ^] has been pressed three times within one second. If we get this we quit
                                          * immediately. */
                                         RequestOperation q = look_for_escape(f, f->in_buffer + f->in_buffer_full, k);
@@ -685,6 +850,11 @@ static int do_shovel(PTYForward *f) {
                                         }
                                 } else
                                         f->in_buffer_full += (size_t) k;
+
+                                /* Now that the tracker progressed, maybe a pending reply can be inserted */
+                                r = pty_forward_osc2811_flush(f);
+                                if (r < 0)
+                                        return r;
                         }
 
                         did_something = true;
@@ -697,17 +867,19 @@ static int do_shovel(PTYForward *f) {
 
                                 if (IN_SET(errno, EAGAIN, EIO))
                                         f->master_writable = false;
-                                else if (IN_SET(errno, EPIPE, ECONNRESET)) {
-                                        f->master_writable = f->master_readable = false;
-                                        f->master_hangup = true;
-
-                                        f->master_event_source = sd_event_source_unref(f->master_event_source);
-                                } else
+                                else if (ERRNO_IS_DISCONNECT(errno))
+                                        pty_forward_master_hangup(f);
+                                else
                                         return log_error_errno(errno, "write(): %m");
                         } else {
                                 assert(f->in_buffer_full >= (size_t) k);
                                 memmove(f->in_buffer, f->in_buffer + k, f->in_buffer_full - k);
                                 f->in_buffer_full -= k;
+
+                                /* There's room in the input buffer again, maybe a pending reply fits now */
+                                r = pty_forward_osc2811_flush(f);
+                                if (r < 0)
+                                        return r;
                         }
 
                         did_something = true;
@@ -724,14 +896,14 @@ static int do_shovel(PTYForward *f) {
 
                                 if (errno == EAGAIN || (errno == EIO && !pty_forward_vhangup_honored(f)))
                                         f->master_readable = false;
-                                else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
-                                        f->master_readable = f->master_writable = false;
-                                        f->master_hangup = true;
-
-                                        f->master_event_source = sd_event_source_unref(f->master_event_source);
-                                } else
+                                else if (errno == EIO || ERRNO_IS_DISCONNECT(errno))
+                                        pty_forward_master_hangup(f);
+                                else
                                         return log_error_errno(errno, "Failed to read from pty master fd: %m");
-                        } else {
+                        } else if (k == 0)
+                                /* EOF on master? (can only really happen if the master wasn't really a master) */
+                                pty_forward_master_hangup(f);
+                        else {
                                 f->read_from_master = true;
                                 size_t scan_index = f->out_buffer_full;
                                 f->out_buffer_full += (size_t) k;
@@ -883,6 +1055,10 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
         /* The window size changed, let's forward that. */
         if (ioctl(f->output_fd, TIOCGWINSZ, &ws) >= 0)
                 (void) ioctl(f->master, TIOCSWINSZ, &ws);
+
+        /* If an OSC 2811 dimension change subscription is pending, answer it now. (ignore failures)*/
+        if (pty_forward_osc2811_maybe_reply(f) > 0)
+                (void) pty_forward_add_defer(f);
 
         return 0;
 }
@@ -1231,6 +1407,10 @@ int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height)
 
         /* Make sure we ignore SIGWINCH window size events from now on */
         f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
+
+        /* If an OSC 2811 dimension change subscription is pending, answer it now */
+        if (pty_forward_osc2811_maybe_reply(f) > 0)
+                (void) pty_forward_add_defer(f);
 
         return 0;
 }
