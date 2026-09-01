@@ -232,7 +232,7 @@ manual_testcase_01_resolvectl() {
     ip link add hoge.foo type dummy
 
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         ip link del hoge
         ip link del hoge.foo
@@ -349,6 +349,7 @@ manual_testcase_02_mdns_llmnr() {
     ip link add hoge.foo type dummy
 
     # Cleanup
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-mdns-llmnr.conf
         ip link del hoge
@@ -434,6 +435,71 @@ manual_testcase_02_mdns_llmnr() {
     resolvectl llmnr hoge no
     assert_in 'no' "$(resolvectl mdns hoge)"
     assert_in 'no' "$(resolvectl llmnr hoge)"
+}
+
+# Test for the D-Bus RegisterService()/UnregisterService() API
+manual_testcase_03_register_service() {
+    local since
+
+    # Cleanup
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/90-mdns.conf
+        systemctl reload systemd-resolved.service
+    }
+
+    trap cleanup RETURN ERR
+
+    mkdir -p /run/systemd/resolved.conf.d
+    {
+        echo "[Resolve]"
+        echo "MulticastDNS=yes"
+    } >/run/systemd/resolved.conf.d/90-mdns.conf
+    restart_resolved
+    resolvectl log-level debug
+
+    since=$(date '+%F %T')
+
+    # The lifetime of a registered service is bound to the bus connection of the client that registered
+    # it. busctl disconnects right after the call, so the service should be unregistered again shortly
+    # after.
+    assert_in '/org/freedesktop/resolve1/dnssd/testservice' \
+              "$(busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+                     RegisterService 'sssqqqaa{say}' testservice '%H' _testservice._tcp 1234 0 0 0)"
+
+    # Wait for the vanish handler to kick in, which is the observable proof that the client tracking
+    # actually triggered the unregistration.
+    (
+        set +o pipefail
+        timeout -v 30s journalctl -u systemd-resolved.service --since "$since" -f --full | \
+            grep -m1 "Client of DNS-SD service 'testservice' vanished, unregistering."
+    )
+
+    assert_not_in 'dnssd/testservice' "$(busctl tree org.freedesktop.resolve1)"
+
+    # Unregistering it again should fail specifically because the service is gone (busctl prints the
+    # D-Bus error message, not the error name), i.e. not because resolved crashed or the bus connection
+    # failed.
+    assert_in "DNS-SD service 'testservice' not known" \
+              "$(busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+                     UnregisterService 'o' /org/freedesktop/resolve1/dnssd/testservice 2>&1 || :)"
+
+    # Re-registering the same identifier must succeed: before client tracking worked, the identifier
+    # stayed taken by the vanished client's service and this failed with DNSSD_SERVICE_EXISTS.
+    since=$(date '+%F %T')
+    assert_in '/org/freedesktop/resolve1/dnssd/testservice' \
+              "$(busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+                     RegisterService 'sssqqqaa{say}' testservice '%H' _testservice._tcp 1234 0 0 0)"
+
+    (
+        set +o pipefail
+        timeout -v 30s journalctl -u systemd-resolved.service --since "$since" -f --full | \
+            grep -m1 "Client of DNS-SD service 'testservice' vanished, unregistering."
+    )
+
+    assert_not_in 'dnssd/testservice' "$(busctl tree org.freedesktop.resolve1)"
+
+    systemctl is-active systemd-resolved.service
 }
 
 testcase_03_23951() {
@@ -866,7 +932,7 @@ testcase_08_resolved() {
 
 testcase_09_resolvectl_showcache() {
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-resolved.conf
         rm -f /run/systemd/network/10-dns2.netdev
@@ -928,7 +994,7 @@ testcase_10_resolvectl_json() {
     local status_json
 
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-fallback.conf
         systemctl reload systemd-resolved.service
@@ -1099,7 +1165,7 @@ testcase_11_nft() {
 # Test resolvectl show-server-state
 testcase_12_resolvectl2() {
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-reload.conf
         systemctl reload systemd-resolved.service
@@ -1201,7 +1267,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
     fi
 
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         echo "===== io.systemd.Resolve.Monitor.SubscribeDNSConfiguration output: ====="
         cat "$tmpfile"
@@ -1278,7 +1344,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
 
 # Test RefuseRecordTypes
 testcase_14_refuse_record_types() {
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-refuserecords.conf
         restart_resolved
@@ -1440,7 +1506,7 @@ testcase_14_refuse_record_types() {
 # Test systemd-networkd-wait-online interactions with systemd-resolved
 testcase_15_wait_online_dns() {
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         echo "===== journalctl -u $unit ====="
         journalctl -b --no-pager --no-hostname --full -u "$unit"
@@ -1725,6 +1791,7 @@ systemctl enable --now systemd-resolved.service
 # Need to be run before SETUP, otherwise things will break
 manual_testcase_01_resolvectl
 manual_testcase_02_mdns_llmnr
+manual_testcase_03_register_service
 
 # Run setup
 setup

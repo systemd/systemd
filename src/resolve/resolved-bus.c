@@ -1894,8 +1894,8 @@ static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata
 
         assert(t);
 
-        log_debug("Client of active request vanished, destroying DNS-SD service.");
-        dnssd_registered_service_free(s);
+        log_debug("Client of DNS-SD service '%s' vanished, unregistering.", s->id);
+        dnssd_registered_service_unregister(s);
 
         return 0;
 }
@@ -2062,6 +2062,10 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         r = sd_bus_track_add_sender(bus_track, message);
         if (r < 0)
                 return r;
+
+        /* The service is unregistered automatically when the client that registered it disconnects from the
+         * bus, hence keep the bus track object pinned for the lifetime of the service. */
+        service->bus_track = TAKE_PTR(bus_track);
 
         service->manager = m;
 
