@@ -46,6 +46,11 @@ CRED_VALUE_BASE64=$(echo -n "$CRED_VALUE" | base64 -w0)
 
 cleanup() {
     set +e
+    # Stop the installer first: it might still be writing to the devices and files removed below.
+    if [[ -n "${UNIT:-}" ]]; then
+        systemctl stop "$UNIT"
+        UNIT=""
+    fi
     if [[ "$MOUNTED" -eq 1 ]]; then
         umount -R "$WORKDIR/mnt"
         MOUNTED=0
@@ -54,7 +59,40 @@ cleanup() {
         systemd-dissect --detach "$LOOPDEV"
         LOOPDEV=""
     fi
+    if [[ -n "${TARGETDEV:-}" ]]; then
+        systemd-dissect --detach "$TARGETDEV"
+        TARGETDEV=""
+    fi
+    if [[ -n "${TARGETDEV2:-}" ]]; then
+        systemd-dissect --detach "$TARGETDEV2"
+        TARGETDEV2=""
+    fi
     rm -rf "$WORKDIR"
+}
+
+check_device_auto_environment() {
+    # Safety check for the --device-auto testcases: systemd-sysinstall must be able to determine the disk
+    # the running system is booted from (it refuses the automatic pick otherwise), and no candidate disk
+    # may be around initially, since the testcases rely on the disks they attach themselves being the only
+    # candidates — otherwise the automatic pick would either fail or – worse – install to some unexpected
+    # disk. Query the candidate list the same way systemd-sysinstall does (i.e. with the very same filter
+    # set), instead of approximating the filters here.
+    local out
+
+    if ! bootctl -RR >/dev/null; then
+        echo "Cannot determine the disk the system is booted from." >&2
+        return 1
+    fi
+
+    if out="$(varlinkctl call --more "exec:$(command -v systemd-repart)" io.systemd.Repart.ListCandidateDevices '{"ignoreRoot":true,"ignoreEmpty":true}' 2>&1)"; then
+        echo "Unexpected candidate disks present: $out" >&2
+        return 1
+    fi
+
+    if [[ "$out" != *"io.systemd.Repart.NoCandidateDevices"* ]]; then
+        echo "Failed to enumerate candidate disks: $out" >&2
+        return 1
+    fi
 }
 
 create_fake_os_source_tree() {
@@ -220,6 +258,186 @@ testcase_sysinstall_varlink_basic() {
     varlinkctl call /run/systemd/io.systemd.SysInstall io.systemd.SysInstall.Run "{\"erase\": true, \"variables\": false, \"credentials\" : [{ \"id\" : \"marker\", \"value\" : \"$CRED_VALUE_BASE64\" }], \"kernelImagePath\" : \"$WORKDIR/testuki.efi\", \"node\": \"$WORKDIR/target.img\", \"definitions\" : [\"$DEFS\"] }" --more
 
     validate_image
+}
+
+testcase_sysinstall_device_auto() {
+    WORKDIR="$(mktemp --directory /tmp/test-sysinstall.XXXXXXXXXX)"
+    LOOPDEV=""
+    TARGETDEV=""
+    UNIT=""
+    MOUNTED=0
+
+    echo "WORKDIR=$WORKDIR"
+
+    trap cleanup RETURN
+
+    if ! check_device_auto_environment; then
+        echo "Environment not suitable for --device-auto tests, skipping." >&2
+        return 0
+    fi
+
+    create_fake_os_source_tree
+
+    # Put a bare file system on the target image, so that systemd-dissect --attach accepts it as an
+    # image later on (an all-zero file is not a valid image). Don't put a partition table on it though:
+    # the resulting loopback device shall have no partition block devices, so that nothing is in the
+    # way when systemd-repart adds the new ones. systemd-sysinstall erases the file system anyway.
+    mkfs.ext4 -q -F "$WORKDIR/target.img"
+
+    # Start the installer as a notify service with --device-auto, while no candidate disk exists yet.
+    # systemd-sysinstall sends READY=1 once its device monitor is set up, hence systemd-run only returns
+    # once we can be sure that a disk appearing from now on will be noticed.
+    UNIT="sysinstall-device-auto-$RANDOM.service"
+    systemd-run \
+        --unit="$UNIT" \
+        --service-type=notify \
+        --property=RemainAfterExit=yes \
+        --quiet \
+        -- \
+        systemd-sysinstall \
+            --welcome=no \
+            --chrome=no \
+            --confirm=no \
+            --summary=no \
+            --erase=yes \
+            --variables=no \
+            --reboot=no \
+            --mute-console=no \
+            --copy-locale=no \
+            --copy-keymap=no \
+            --copy-timezone=no \
+            --set-credential="marker:$CRED_VALUE" \
+            --kernel="$WORKDIR/testuki.efi" \
+            --definitions="$DEFS" \
+            --device-auto \
+            --device-auto-timeout=30s
+
+    # Only now, 5s later, make the target disk appear: a partition-scanning loopback device backed by
+    # the target image. It's the sole candidate disk in the VM, hence it must be picked.
+    sleep 5
+
+    # The installer must still be waiting at this point, there was nothing to install to so far.
+    assert_eq "$(systemctl show -P SubState "$UNIT")" "running"
+
+    TARGETDEV="$(systemd-dissect --attach "$WORKDIR/target.img")"
+    udevadm wait --settle "$TARGETDEV"
+
+    # Wait for the installation to finish, and check that it succeeded. Show the installer's output first,
+    # so that it ends up in the test log whatever happened — hence don't abort right away if the wait times
+    # out, the assertions below will catch that case after the output has been dumped.
+    timeout 180 bash -c "while [[ \"\$(systemctl show -P SubState '$UNIT')\" == running ]]; do sleep 1; done" || :
+    journalctl --sync
+    journalctl --no-pager -u "$UNIT"
+    assert_eq "$(systemctl show -P SubState "$UNIT")" "exited"
+    assert_eq "$(systemctl show -P Result "$UNIT")" "success"
+
+    # Release our loopback device again, validate_image attaches the image on its own.
+    systemd-dissect --detach "$TARGETDEV"
+    TARGETDEV=""
+
+    validate_image
+}
+
+testcase_sysinstall_device_auto_two_candidates() {
+    WORKDIR="$(mktemp --directory /tmp/test-sysinstall.XXXXXXXXXX)"
+    LOOPDEV=""
+    TARGETDEV=""
+    TARGETDEV2=""
+    UNIT=""
+    MOUNTED=0
+
+    echo "WORKDIR=$WORKDIR"
+
+    trap cleanup RETURN
+
+    if ! check_device_auto_environment; then
+        echo "Environment not suitable for --device-auto tests, skipping." >&2
+        return 0
+    fi
+
+    create_fake_os_source_tree
+
+    # Attach two candidate disks, both carrying a bare file system (see testcase_sysinstall_device_auto
+    # for why), so that we can verify below that neither of them was touched.
+    mkfs.ext4 -q -F "$WORKDIR/target.img"
+    truncate -s 512M "$WORKDIR/target2.img"
+    mkfs.ext4 -q -F "$WORKDIR/target2.img"
+
+    TARGETDEV="$(systemd-dissect --attach "$WORKDIR/target.img")"
+    TARGETDEV2="$(systemd-dissect --attach "$WORKDIR/target2.img")"
+    udevadm wait --settle "$TARGETDEV" "$TARGETDEV2"
+
+    # With two candidate disks present the automatic pick must refuse right away, without waiting for the
+    # settle timeout, and without installing anywhere.
+    local start="$SECONDS" rc=0
+    timeout 60 systemd-sysinstall \
+        --welcome=no \
+        --chrome=no \
+        --confirm=no \
+        --summary=no \
+        --erase=yes \
+        --variables=no \
+        --reboot=no \
+        --mute-console=no \
+        --copy-locale=no \
+        --copy-keymap=no \
+        --copy-timezone=no \
+        --set-credential="marker:$CRED_VALUE" \
+        --kernel="$WORKDIR/testuki.efi" \
+        --definitions="$DEFS" \
+        --device-auto \
+        --device-auto-timeout=30s || rc=$?
+    assert_neq "$rc" 0
+    assert_neq "$rc" 124
+    (( SECONDS - start < 30 ))
+
+    # Neither disk may have been touched: the bare file systems must have survived unmodified, in
+    # particular no partition table may have been written.
+    assert_eq "$(blkid -p -o value -s TYPE "$TARGETDEV")" "ext4"
+    assert_eq "$(blkid -p -o value -s TYPE "$TARGETDEV2")" "ext4"
+}
+
+testcase_sysinstall_device_auto_no_candidate() {
+    if ! check_device_auto_environment; then
+        echo "Environment not suitable for --device-auto tests, skipping." >&2
+        return 0
+    fi
+
+    # With no candidate disk around the automatic pick must fail once the settle timeout expires — not
+    # before it expires, and not by hanging around forever either.
+    local start="$SECONDS" rc=0 out
+    out="$(timeout 60 systemd-sysinstall \
+        --welcome=no \
+        --chrome=no \
+        --confirm=no \
+        --summary=no \
+        --erase=yes \
+        --variables=no \
+        --reboot=no \
+        --mute-console=no \
+        --device-auto \
+        --device-auto-timeout=5s 2>&1)" || rc=$?
+    echo "$out"
+    assert_neq "$rc" 0
+    assert_neq "$rc" 124
+    assert_in "No suitable block device" "$out"
+    (( SECONDS - start >= 5 ))
+}
+
+testcase_sysinstall_device_auto_argument_errors() {
+    local rc
+
+    # --device-auto cannot be combined with an explicitly specified target device...
+    rc=0
+    timeout 30 systemd-sysinstall --device-auto /dev/null || rc=$?
+    assert_neq "$rc" 0
+    assert_neq "$rc" 124
+
+    # ...and the settle timeout cannot be infinite.
+    rc=0
+    timeout 30 systemd-sysinstall --device-auto --device-auto-timeout=infinity || rc=$?
+    assert_neq "$rc" 0
+    assert_neq "$rc" 124
 }
 
 run_testcases
