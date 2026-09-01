@@ -382,7 +382,7 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
 
         dns_cache_prune(&scope->cache);
 
-        mdns_queriers_notify_goodbye(scope);
+        dns_browse_services_purge(scope->manager, scope->family, dns_scope_ifindex(scope));
 
         if (dns_cache_expiry_in_one_second(&scope->cache, usec)) {
                 r = sd_event_add_time_relative(
