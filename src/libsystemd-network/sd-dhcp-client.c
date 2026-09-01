@@ -21,6 +21,7 @@
 #include "iovec-wrapper.h"
 #include "ip-util.h"
 #include "network-common.h"
+#include "path-util.h"
 #include "random-util.h"
 #include "set.h"
 #include "socket-util.h"
@@ -1406,6 +1407,10 @@ static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {
         iovw_done_free(&client->user_class);
         tlv_unref(client->extra_options);
         tlv_unref(client->vendor_options);
+
+        safe_close(client->lease_dir_fd);
+        free(client->lease_file);
+
         free(client->ifname);
         return mfree(client);
 }
@@ -1431,6 +1436,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
                 .max_discover_attempts = UINT64_MAX,
                 .ip_service_type = IPTOS_CLASS_CS6, /* Defaults to CS6 (Internetwork Control). */
                 .socket_priority = tos_to_priority(IPTOS_CLASS_CS6),
+                .lease_dir_fd = -EBADF,
         };
 
         FOREACH_ELEMENT(opt, default_req_opts) {

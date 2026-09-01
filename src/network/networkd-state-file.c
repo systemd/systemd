@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-dhcp-client.h"
 #include "sd-dhcp6-lease.h"
 
 #include "alloc-util.h"
@@ -17,6 +18,7 @@
 #include "fs-util.h"
 #include "network-internal.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp4.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"
@@ -958,6 +960,12 @@ static int link_save(Link *link) {
 
         print_link_hashmap(f, "CARRIER_BOUND_TO=", link->bound_to_links);
         print_link_hashmap(f, "CARRIER_BOUND_BY=", link->bound_by_links);
+
+        if (link->dhcp_lease && is_dhcp_client_persist_leases(link)) {
+                r = sd_dhcp_client_save_lease(link->dhcp_client);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to save persistent DHCP lease: %m");
+        }
 
         r = link_serialize_dhcp6_client(link, f);
         if (r < 0)
