@@ -32,6 +32,9 @@ struct DnssdDiscoveredService {
         int family;
         int ifindex;
         usec_t until;
+        /* The part of the record's lifetime that is actually cached, i.e. what was left until 'until'
+         * when the record was last received. The maintenance points are fractions of this. */
+        usec_t lifetime;
         DnsRecordTTLState rr_ttl_state;
         DnsQuery *query;
         LIST_FIELDS(DnssdDiscoveredService, dns_services);
@@ -78,6 +81,7 @@ int mdns_answer_contains_service(
 int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int owner_family);
 int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until);
 int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t t, usec_t until);
+int mdns_service_arm_maintenance(DnssdDiscoveredService *service, usec_t usec, DnsRecordTTLState ttl_state);
 int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family);
 int dns_subscribe_browse_service(
                 Manager *m,
