@@ -5,6 +5,7 @@
 #include "crypto-util.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
+#include "memory-util.h"
 #include "random-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
@@ -2184,6 +2185,91 @@ TEST(tpm2_tpms_nv_public_to_json) {
         _cleanup_free_ char *json = NULL;
         ASSERT_OK(sd_json_variant_format(v, 0, &json));
         ASSERT_STREQ(json, "{\"nvIndex\":30474754,\"nameAlg\":\"SHA256\",\"attributes\":738590792,\"authPolicy\":\"c0f52d0be7f6c1666d90a181a99a74b99c5e0bfd00bc52cc27ae0e66d89afcf5\",\"dataSize\":32}");
+}
+
+TEST(tpm2_tpms_tagged_property_to_json) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v1 = NULL;
+        TPMS_TAGGED_PROPERTY prop1 = (TPMS_TAGGED_PROPERTY){
+                .property = TPM2_PT_PERMANENT,
+                .value = TPMA_PERMANENT_LOCKOUTAUTHSET,
+        };
+        ASSERT_OK(tpm2_tpms_tagged_property_to_json(&prop1, &v1));
+
+        _cleanup_free_ char *json1 = NULL;
+        ASSERT_OK(sd_json_variant_format(v1, 0, &json1));
+        ASSERT_STREQ(json1, "{\"property\":\"PERMANENT\",\"value\":4}");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v2 = NULL;
+        TPMS_TAGGED_PROPERTY prop2 = (TPMS_TAGGED_PROPERTY){
+                .property = TPM2_PT_LOCKOUT_INTERVAL,
+                .value = 7200,
+        };
+        ASSERT_OK(tpm2_tpms_tagged_property_to_json(&prop2, &v2));
+
+        _cleanup_free_ char *json2 = NULL;
+        ASSERT_OK(sd_json_variant_format(v2, 0, &json2));
+        ASSERT_STREQ(json2, "{\"property\":\"LOCKOUT_INTERVAL\",\"value\":7200}");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v3 = NULL;
+        TPMS_TAGGED_PROPERTY prop3 = (TPMS_TAGGED_PROPERTY){
+                .property = TPM2_PT_MAX_DIGEST,
+                .value = 48,
+        };
+        ASSERT_OK(tpm2_tpms_tagged_property_to_json(&prop3, &v3));
+
+        _cleanup_free_ char *json3 = NULL;
+        ASSERT_OK(sd_json_variant_format(v3, 0, &json3));
+        ASSERT_STREQ(json3, "{\"property\":288,\"value\":48}");
+}
+
+TEST(tpm2_tpms_tagged_policy_to_json) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v1 = NULL;
+        TPMS_TAGGED_POLICY policy1 = (TPMS_TAGGED_POLICY){
+                .handle = TPM2_RH_OWNER,
+                .policyHash = {
+                        .hashAlg = TPM2_ALG_NULL,
+                }
+        };
+
+        ASSERT_OK(tpm2_tpms_tagged_policy_to_json(&policy1, &v1));
+
+        _cleanup_free_ char *json1 = NULL;
+        ASSERT_OK(sd_json_variant_format(v1, 0, &json1));
+        ASSERT_STREQ(json1, "{\"handle\":\"OWNER\",\"policyHash\":{\"hashAlg\":\"NULL\"}}");
+
+        const char h[] = "39d64794bd1eba89098fc63aac282c2c4eedf1dee79e4f6b99ca3f57f87d7dfc";
+        DEFINE_HEX_PTR(policy_bytes, h);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v2 = NULL;
+        TPMS_TAGGED_POLICY policy2 = (TPMS_TAGGED_POLICY){
+                .handle = TPM2_RH_LOCKOUT,
+                .policyHash = {
+                        .hashAlg = TPM2_ALG_SHA256,
+                },
+        };
+        memcpy_safe(&policy2.policyHash.digest.sha256, policy_bytes, sizeof(policy2.policyHash.digest.sha256));
+
+        ASSERT_OK(tpm2_tpms_tagged_policy_to_json(&policy2, &v2));
+
+        _cleanup_free_ char *json2 = NULL;
+        ASSERT_OK(sd_json_variant_format(v2, 0, &json2));
+        _cleanup_free_ char *json2_expected = NULL;
+        ASSERT_OK(asprintf(&json2_expected, "{\"handle\":\"LOCKOUT\",\"policyHash\":{\"hashAlg\":\"SHA256\",\"digest\":\"%s\"}}", h));
+        ASSERT_STREQ(json2, json2_expected);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v3 = NULL;
+        TPMS_TAGGED_POLICY policy3 = (TPMS_TAGGED_POLICY){
+                .handle = TPM2_RH_PLATFORM,
+                .policyHash = {
+                        .hashAlg = TPM2_ALG_NULL,
+                }
+        };
+
+        ASSERT_OK(tpm2_tpms_tagged_policy_to_json(&policy3, &v3));
+
+        _cleanup_free_ char *json3 = NULL;
+        ASSERT_OK(sd_json_variant_format(v3, 0, &json3));
+        ASSERT_STREQ(json3, "{\"handle\":1073741836,\"policyHash\":{\"hashAlg\":\"NULL\"}}");
 }
 
 static void check_attest_common(const TPMS_ATTEST *attest, TPMI_ST_ATTEST type, const TPM2B_DATA *extra_data) {
