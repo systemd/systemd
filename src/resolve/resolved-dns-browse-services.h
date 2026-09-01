@@ -70,7 +70,6 @@ struct DnsServiceQuerier {
         LIST_HEAD(DnsServiceBrowser, subscribers);
 };
 
-
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceQuerier, dns_service_querier);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceQuerier *, dns_service_querier_unref);
 
@@ -99,7 +98,6 @@ bool mdns_queriers_exist(Manager *m);
 #define MDNS_RESCUE_RATELIMIT_SCOPE_BURST (2 * MDNS_RESCUE_RATELIMIT_QUERIER_BURST)
 
 void mdns_queriers_notify_unsolicited_updates(DnsScope *scope, DnsAnswer *answer, int owner_family);
-void mdns_queriers_notify_goodbye(DnsScope *scope);
 void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *goodbyes);
 
 /* Exposed for src/resolve/test-dns-browse-services.c only; not part of the interface above. */
