@@ -2589,12 +2589,20 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 if (r < 0)
                         goto inner_fail;
                 if (r == 0) {
-                        r = table_add_many(
-                                        t,
-                                        TABLE_PATH, *p,
-                                        TABLE_STRING, "none",
-                                        TABLE_SET_COLOR, ansi_grey(),
-                                        TABLE_EMPTY);
+                        if (sd_json_format_enabled(arg_json_format_flags))
+                                r = table_add_many(
+                                                t,
+                                                TABLE_PATH, *p,
+                                                /* In json mode this field is a string array, set to empty */
+                                                TABLE_STRV, NULL,
+                                                TABLE_EMPTY);
+                        else
+                                r = table_add_many(
+                                                t,
+                                                TABLE_PATH, *p,
+                                                TABLE_STRING, "none",
+                                                TABLE_SET_COLOR, ansi_grey(),
+                                                TABLE_EMPTY);
                         if (r < 0)
                                 return table_log_add_error(r);
 
