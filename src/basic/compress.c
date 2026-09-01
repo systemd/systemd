@@ -1440,6 +1440,9 @@ static int decompress_startswith_gzip(
                 if (r == Z_STREAM_END)
                         return 0;
 
+                if (s.avail_out > 0)
+                        return -EBADMSG; /* truncated */
+
                 size_t used = allocated - s.avail_out;
 
                 if (!(greedy_realloc(buffer, allocated * 2, 1)))
@@ -1505,6 +1508,9 @@ static int decompress_startswith_bzip2(
 
                 if (r == BZ_STREAM_END)
                         return 0;
+
+                if (s.avail_out > 0)
+                        return -EBADMSG; /* truncated */
 
                 size_t used = allocated - s.avail_out;
 
