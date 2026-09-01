@@ -299,6 +299,26 @@ def test_parse_args_many():
     assert opts.sign_initrd_pcrs is False
 
 
+@pytest.mark.parametrize(
+    'signing_args',
+    (
+        ('--pcr-private-key=PKEY',),
+        ('--policy-digest', '--pcr-public-key=PKEY'),
+    ),
+    ids=('private-key', 'policy-digest'),
+)
+def test_parse_args_sign_initrd_pcrs(signing_args):
+    args = ['build', '--linux=LINUX', '--output=OUTPUT', '--sign-initrd-pcrs']
+    opts = ukify.parse_args([*args, *signing_args])
+    assert opts.sign_initrd_pcrs is True
+
+    with pytest.raises(
+        ValueError,
+        match='--sign-initrd-pcrs requires --pcr-private-key= or --policy-digest',
+    ):
+        ukify.parse_args(args)
+
+
 def test_parse_sections():
     opts = ukify.parse_args(
         [
@@ -1129,7 +1149,9 @@ def test_pcr_signing3(kernel_initrd, tmp_path):
     shutil.rmtree(tmp_path)
 
 
-def test_pcr_signing_initrd_pcrs(kernel_initrd, tmp_path):
+@pytest.mark.skipif(not slow_tests, reason='slow')
+@pytest.mark.parametrize('policy_digest', (False, True), ids=('sign', 'policy-digest'))
+def test_pcr_signing_initrd_pcrs(kernel_initrd, tmp_path, policy_digest):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
     try:
@@ -1150,10 +1172,14 @@ def test_pcr_signing_initrd_pcrs(kernel_initrd, tmp_path):
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
         '--pcr-banks=sha384',  # sha1 might not be allowed, use something else
-        f'--pcr-private-key={priv.name}',
         f'--pcr-public-key={pub.name}',
         '--sign-initrd-pcrs',
-    ] + arg_tools
+    ]
+    if policy_digest:
+        args += ['--policy-digest']
+    else:
+        args += [f'--pcr-private-key={priv.name}']
+    args += arg_tools
 
     opts = ukify.parse_args(args)
     try:
@@ -1170,13 +1196,15 @@ def test_pcr_signing_initrd_pcrs(kernel_initrd, tmp_path):
 
     sig = json.loads(open(tmp_path / 'out.pcrsig').read())
     assert list(sig.keys()) == ['sha384']
-    assert len(sig['sha384']) == 5  # five items for five phase paths
-    assert 'ref' not in sig['sha384'][0]
-    assert 'ref' not in sig['sha384'][1]
-    assert 'ref' not in sig['sha384'][2]
-    assert 'ref' not in sig['sha384'][3]
-    assert 'ref' in sig['sha384'][4]
-    assert sig['sha384'][4]['ref'] == 'initrd'
+    policies = sig['sha384']
+    assert len(policies) == 5  # five items for five phase paths
+    assert policies[0]['pol'] == policies[4]['pol']
+    assert all('ref' not in policy for policy in policies[:4])
+    assert policies[4]['ref'] == 'initrd'
+    if policy_digest:
+        assert all('pkfp' in policy and 'sig' not in policy for policy in policies)
+    else:
+        assert all('sig' in policy for policy in policies)
 
     shutil.rmtree(tmp_path)
 
@@ -1324,6 +1352,7 @@ def test_join_pcrsig(capsys, kernel_initrd, tmp_path):
         f'--pcr-public-key={pub.name}',
         '--json=short',
         '--policy-digest',
+        '--sign-initrd-pcrs',
     ] + arg_tools
     opts = ukify.parse_args(args)
     try:
@@ -1335,7 +1364,7 @@ def test_join_pcrsig(capsys, kernel_initrd, tmp_path):
     pcrs = json.loads(capsys.readouterr().out)
     for bank, sigs in pcrs.items():
         for sig in sigs:
-            sig['sig'] = 'a' * int(bank[3:])
+            sig['sig'] = ('b' if sig.get('ref') else 'a') * int(bank[3:])
 
     opts = ukify.parse_args(['inspect', str(output)])
     ukify.inspect_sections(opts)
@@ -1359,6 +1388,16 @@ def test_join_pcrsig(capsys, kernel_initrd, tmp_path):
         pytest.skip(str(e))
 
     ukify.make_uki(opts)
+
+    pcrsig = tmp_path / 'out.pcrsig'
+    subprocess.check_call(
+        ['objcopy', f'--dump-section=.pcrsig={pcrsig}', output_sig, tmp_path / 'dummy'],
+        text=True,
+    )
+    attached = json.loads(pcrsig.read_text())
+    for bank, sigs in attached.items():
+        for sig in sigs:
+            assert sig['sig'] == ('b' if sig.get('ref') else 'a') * int(bank[3:])
 
     opts = ukify.parse_args(['inspect', str(output_sig)])
     ukify.inspect_sections(opts)
