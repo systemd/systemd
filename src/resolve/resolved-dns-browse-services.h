@@ -69,7 +69,6 @@ struct DnsServiceQuerier {
         LIST_HEAD(DnsServiceBrowser, subscribers);
 };
 
-
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceQuerier, dns_service_querier);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceQuerier *, dns_service_querier_unref);
 
