@@ -1035,7 +1035,7 @@ static void link_free_bound_by_list(Link *link) {
                 link_dirty(link);
 }
 
-static int link_append_to_master(Link *link) {
+int link_append_to_master(Link *link) {
         Link *master;
         int r;
 
