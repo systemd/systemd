@@ -786,6 +786,10 @@ def pe_strip_section_name(name: bytes) -> str:
     return name.rstrip(b'\x00').decode()
 
 
+def pe_section_name_is_equal(name: bytes, other_name: str) -> bool:
+    return name.rstrip(b'\x00') == other_name.encode()
+
+
 def pe_section_size(section: pefile.SectionStructure) -> int:
     return cast(int, min(section.Misc_VirtualSize, section.SizeOfRawData))
 
@@ -1083,7 +1087,7 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
         for i, s in enumerate(pe.sections[:n_original_sections]):
-            if pe_strip_section_name(s.Name) == section.name and section.name != '.dtbauto':
+            if pe_section_name_is_equal(s.Name, section.name) and section.name != '.dtbauto':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(
                         f'Not enough space in existing section {section.name} to append new data'
@@ -1118,7 +1122,7 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
     if opts.pcrsig:
         signatures = json.loads(str(opts.pcrsig))
         for i, section in enumerate(pe.sections):
-            if pe_strip_section_name(section.Name) == '.pcrsig':
+            if pe_section_name_is_equal(section.Name, '.pcrsig'):
                 j = json.loads(
                     bytes(
                         pe.__data__[
@@ -1172,7 +1176,7 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
             continue
 
         for section in pe.sections:
-            if pe_strip_section_name(section.Name) == '.sbat':
+            if pe_section_name_is_equal(section.Name, '.sbat'):
                 split = section.get_data().rstrip(b'\x00').decode().splitlines()
                 if not split[0].startswith('sbat,'):
                     print(f'{f} does not contain a valid SBAT section, skipping.', file=sys.stderr)
