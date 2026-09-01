@@ -1,0 +1,17 @@
+{
+    "type": "devicetree",
+    "name": "Elitegroup Computer Systems Co., LTD. SC7180",
+    "compatible": "ecs,liva-qc710",
+    "hwids": [
+        "6303e758-6932-5e81-a3b9-cc9570590686",
+        "11bb94a9-341f-50bd-a569-2f61f7c745d3",
+        "9879a093-0829-5ddc-ad6c-2069f38bb66e",
+        "332352d0-6474-53ce-b480-46ced6d1327b",
+        "0253c128-80b3-584d-9fc1-74b546aad2e6",
+        "c0ef167b-7a32-5ad7-8dbb-2462f696c107",
+        "0a89edb3-78c9-5b09-b58a-c5a5c7890945",
+        "8d7bc998-a131-5a67-8f6b-3971a6a418ba",
+        "dfc147a4-4369-5b01-8148-86f55396b8f3",
+        "36a999ce-a606-57b5-a404-45bb5821669f"
+    ]
+}
