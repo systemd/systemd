@@ -113,3 +113,4 @@ int dns_add_new_service(
                 usec_t until);
 void mdns_querier_run_maintenance(DnsServiceQuerier *sq);
 bool mdns_goodbyes_hit_discovered(DnsServiceQuerier *sq, DnsAnswer *goodbyes, int ifindex);
+uint64_t mdns_restrict_flags_to_family(uint64_t flags, int family);
