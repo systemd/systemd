@@ -3,10 +3,14 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include "sd-event.h"
+
 #include "dns-answer.h"
 #include "dns-rr.h"
 #include "resolved-dns-browse-services.h"
+#include "resolved-manager.h"
 #include "tests.h"
+#include "time-util.h"
 
 static DnsResourceRecord *new_test_service_rr(uint32_t ttl) {
         DnsResourceRecord *rr;
@@ -145,6 +149,255 @@ TEST(mdns_answer_contains_service_ifindex) {
 
         sb_scoped.ifindex = 3;
         ASSERT_OK_ZERO(mdns_answer_contains_service(&sb_scoped, answer2, &service));
+}
+
+TEST(mdns_service_update_restarts_schedule) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        usec_t next;
+        int enabled;
+
+        ASSERT_OK(sd_event_default(&e));
+        ASSERT_NOT_NULL(rr = new_test_service_rr(120));
+        ASSERT_OK(sd_event_add_time(e, &s, CLOCK_BOOTTIME, 0, 0, NULL, NULL));
+
+        /* The event source is one-shot, i.e. it is disabled once the 100% maintenance query has been
+         * issued. A refreshed record must restart the schedule at 80% and re-arm the source. */
+        ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_OFF));
+
+        Manager manager = { .event = e };
+        DnsServiceBrowser sb = { .manager = &manager };
+        DnssdDiscoveredService service = {
+                .rr = rr,
+                .service_browser = &sb,
+                .family = AF_INET,
+                .ifindex = 2,
+                .until = 10 * USEC_PER_MINUTE,
+                .schedule_event = s,
+                .rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT,
+        };
+
+        ASSERT_OK(mdns_service_update(&service, rr, /* t= */ 0, 20 * USEC_PER_MINUTE));
+        ASSERT_EQ(service.until, 20 * USEC_PER_MINUTE);
+        ASSERT_EQ(service.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
+
+        ASSERT_OK(sd_event_source_get_enabled(s, &enabled));
+        ASSERT_EQ(enabled, SD_EVENT_ONESHOT);
+
+        /* The source must be armed at 80% of the new lifetime, plus at most 2% of it of jitter. */
+        ASSERT_OK(sd_event_source_get_time(s, &next));
+        ASSERT_LE(20 * USEC_PER_MINUTE - 24 * USEC_PER_SEC, next);
+        ASSERT_LT(next, 20 * USEC_PER_MINUTE - 24 * USEC_PER_SEC + 2400 * USEC_PER_MSEC);
+}
+
+TEST(mdns_service_update_reads_new_ttl) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL, *refreshed = NULL;
+        usec_t next;
+
+        ASSERT_OK(sd_event_default(&e));
+        ASSERT_NOT_NULL(rr = new_test_service_rr(1000));
+        ASSERT_NOT_NULL(refreshed = new_test_service_rr(100));
+        ASSERT_OK(sd_event_add_time(e, &s, CLOCK_BOOTTIME, 0, 0, NULL, NULL));
+
+        Manager manager = { .event = e };
+        DnsServiceBrowser sb = { .manager = &manager };
+        DnssdDiscoveredService service = {
+                .rr = rr,
+                .service_browser = &sb,
+                .family = AF_INET,
+                .ifindex = 2,
+                .schedule_event = s,
+        };
+
+        /* dns_resource_record_equal() ignores the TTL, hence the record a service is refreshed with
+         * legitimately carries a different one than the copy the service holds, and the new schedule
+         * has to be derived from the incoming record. */
+        ASSERT_OK(mdns_service_update(&service, refreshed, /* t= */ 0, 600 * USEC_PER_SEC));
+        ASSERT_EQ(service.rr->ttl, UINT32_C(100));
+
+        ASSERT_OK(sd_event_source_get_time(s, &next));
+        ASSERT_LE(580 * USEC_PER_SEC, next);
+        ASSERT_LT(next, 582 * USEC_PER_SEC);
+}
+
+TEST(mdns_service_update_large_ttl) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        ASSERT_OK(sd_event_default(&e));
+
+        /* TTLs are 32-bit values taken off the network. With a TTL of 2^31 s both 20 * ttl and 2 * ttl
+         * wrap when evaluated in 32-bit arithmetic: the former makes the 80% point come out as 'until'
+         * itself, i.e. the maintenance query is scheduled after the record has already expired, and the
+         * latter leaves a zero jitter range, which random_u64_range() answers with a value from the
+         * full 64-bit range. Pick an 'until' that leaves the whole TTL to run, so that the lifetime the
+         * schedule is derived from is the TTL itself and both bounds below are meaningful. */
+        ASSERT_NOT_NULL(rr = new_test_service_rr(UINT32_C(1) << 31));
+
+        usec_t until = (usec_t) rr->ttl * USEC_PER_SEC;
+        usec_t offset = 20 * until / 100;
+        usec_t range = 2 * until / 100;
+
+        for (unsigned i = 0; i < 5; i++) {
+                _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+                usec_t next;
+
+                ASSERT_OK(sd_event_add_time(e, &s, CLOCK_BOOTTIME, 0, 0, NULL, NULL));
+
+                Manager manager = { .event = e };
+                DnsServiceBrowser sb = { .manager = &manager };
+                DnssdDiscoveredService service = {
+                        .rr = rr,
+                        .service_browser = &sb,
+                        .family = AF_INET,
+                        .ifindex = 2,
+                        .schedule_event = s,
+                };
+
+                ASSERT_OK(mdns_service_update(&service, rr, /* t= */ 0, until));
+                ASSERT_OK(sd_event_source_get_time(s, &next));
+                ASSERT_LE(until - offset, next);
+                ASSERT_LT(next, until - offset + range);
+        }
+}
+
+TEST(mdns_service_update_short_window) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        usec_t next;
+
+        ASSERT_OK(sd_event_default(&e));
+        ASSERT_NOT_NULL(rr = new_test_service_rr(120));
+        ASSERT_OK(sd_event_add_time(e, &s, CLOCK_BOOTTIME, 0, 0, NULL, NULL));
+
+        Manager manager = { .event = e };
+        DnsServiceBrowser sb = { .manager = &manager };
+        DnssdDiscoveredService service = {
+                .rr = rr,
+                .service_browser = &sb,
+                .family = AF_INET,
+                .ifindex = 2,
+                .schedule_event = s,
+        };
+
+        /* 'until' is capped by the cache while the record's TTL is not, and a service may also be
+         * picked up in the middle of a record's lifetime. Here only 5 of the 120 s are left, so all
+         * five maintenance points have to be laid out over those 5 s: deriving them from the TTL
+         * instead would put every one of them in the past and the jitter past 'until', where no query
+         * is sent anymore. */
+        ASSERT_OK(mdns_service_update(&service, rr, /* t= */ 5 * USEC_PER_SEC, 10 * USEC_PER_SEC));
+        ASSERT_EQ(service.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
+
+        ASSERT_OK(sd_event_source_get_time(s, &next));
+        ASSERT_LE(9 * USEC_PER_SEC, next);
+        ASSERT_LT(next, 9 * USEC_PER_SEC + 100 * USEC_PER_MSEC);
+}
+
+TEST(mdns_service_update_expired) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        usec_t next;
+
+        ASSERT_OK(sd_event_default(&e));
+        ASSERT_NOT_NULL(rr = new_test_service_rr(120));
+        ASSERT_OK(sd_event_add_time(e, &s, CLOCK_BOOTTIME, 0, 0, NULL, NULL));
+
+        Manager manager = { .event = e };
+        DnsServiceBrowser sb = { .manager = &manager };
+        DnssdDiscoveredService service = {
+                .rr = rr,
+                .service_browser = &sb,
+                .family = AF_INET,
+                .ifindex = 2,
+                .schedule_event = s,
+        };
+
+        /* Nothing is left of the lifetime, so there is no maintenance query to schedule anymore, just a
+         * prompt cache revisit, and no jitter on top of it. */
+        ASSERT_OK(mdns_service_update(&service, rr, /* t= */ 10 * USEC_PER_SEC, 5 * USEC_PER_SEC));
+        ASSERT_EQ(service.rr_ttl_state, DNS_RECORD_TTL_STATE_100_PERCENT);
+
+        ASSERT_OK(sd_event_source_get_time(s, &next));
+        ASSERT_EQ(next, 11 * USEC_PER_SEC);
+}
+
+TEST(mdns_service_update_zero_ttl) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        usec_t next;
+
+        ASSERT_OK(sd_event_default(&e));
+        ASSERT_NOT_NULL(rr = new_test_service_rr(0));
+        ASSERT_OK(sd_event_add_time(e, &s, CLOCK_BOOTTIME, 0, 0, NULL, NULL));
+
+        Manager manager = { .event = e };
+        DnsServiceBrowser sb = { .manager = &manager };
+        DnssdDiscoveredService service = {
+                .rr = rr,
+                .service_browser = &sb,
+                .family = AF_INET,
+                .ifindex = 2,
+                .schedule_event = s,
+        };
+
+        /* A zero TTL leaves no room for jitter, and asking random_u64_range() for a zero range would
+         * yield an arbitrary 64-bit value rather than none. */
+        ASSERT_OK(mdns_service_update(&service, rr, /* t= */ 0, 10 * USEC_PER_MINUTE));
+        ASSERT_OK(sd_event_source_get_time(s, &next));
+        ASSERT_EQ(next, 10 * USEC_PER_MINUTE);
+}
+
+TEST(mdns_maintenance_schedule_skips_elapsed) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        DnsRecordTTLState ttl_state;
+        usec_t next;
+
+        ASSERT_NOT_NULL(rr = new_test_service_rr(100));
+
+        /* A lifetime of 100 s ending at 'until' puts the maintenance points at 80, 85, 90, 95 and
+         * 100 s, and allows for up to 2 s of jitter. */
+        DnssdDiscoveredService service = {
+                .rr = rr,
+                .family = AF_INET,
+                .ifindex = 2,
+                .until = 100 * USEC_PER_SEC,
+                .lifetime = 100 * USEC_PER_SEC,
+        };
+
+        /* Nothing has elapsed yet: schedule the state we are asked for. */
+        ttl_state = DNS_RECORD_TTL_STATE_90_PERCENT;
+        next = mdns_maintenance_schedule(&service, /* usec= */ 0, &ttl_state);
+        ASSERT_EQ(ttl_state, DNS_RECORD_TTL_STATE_90_PERCENT);
+        ASSERT_LE(90 * USEC_PER_SEC, next);
+        ASSERT_LT(next, 92 * USEC_PER_SEC);
+
+        /* The 80% and 85% points are in the past. Arming the source there would only make it fire
+         * immediately and issue those queries in one burst, so skip ahead to 90% - and no further, the
+         * 90% and 95% queries are still to be made. */
+        ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
+        next = mdns_maintenance_schedule(&service, 88 * USEC_PER_SEC, &ttl_state);
+        ASSERT_EQ(ttl_state, DNS_RECORD_TTL_STATE_90_PERCENT);
+        ASSERT_LE(90 * USEC_PER_SEC, next);
+        ASSERT_LT(next, 92 * USEC_PER_SEC);
+
+        /* Every query point is in the past, only the cache revisit at 'until' is left. It gets no
+         * jitter, which would push it past the expiry it is meant to clean up after. */
+        ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
+        next = mdns_maintenance_schedule(&service, 99 * USEC_PER_SEC, &ttl_state);
+        ASSERT_EQ(ttl_state, DNS_RECORD_TTL_STATE_100_PERCENT);
+        ASSERT_EQ(next, 100 * USEC_PER_SEC);
+
+        /* 'until' itself has passed, hence revisit the cache promptly instead. */
+        ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
+        next = mdns_maintenance_schedule(&service, 101 * USEC_PER_SEC, &ttl_state);
+        ASSERT_EQ(ttl_state, DNS_RECORD_TTL_STATE_100_PERCENT);
+        ASSERT_EQ(next, 102 * USEC_PER_SEC);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
