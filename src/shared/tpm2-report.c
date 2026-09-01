@@ -17,12 +17,18 @@ void tpm2_report_options_done(Tpm2ReportOptions *opts) {
         assert(opts);
 
         opts->nv_pcrs = strv_free(opts->nv_pcrs);
+        opts->tpm_props = mfree(opts->tpm_props);
+        opts->n_tpm_props = 0;
+        opts->auth_policies = mfree(opts->auth_policies);
+        opts->n_auth_policies = 0;
 }
 
 static const char* const tpm2_report_component_type_table[_TPM2_REPORT_TYPE_MAX] = {
-        [TPM2_REPORT_TYPE_PCR]           = "pcr",
-        [TPM2_REPORT_TYPE_NVPCR]         = "nvpcr",
-        [TPM2_REPORT_TYPE_SESSION_AUDIT] = "session-audit",
+        [TPM2_REPORT_TYPE_PCR]                     = "pcr",
+        [TPM2_REPORT_TYPE_NVPCR]                   = "nvpcr",
+        [TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY] = "capability-tpm-property",
+        [TPM2_REPORT_TYPE_CAPABILITY_AUTH_POLICY]  = "capability-auth-policy",
+        [TPM2_REPORT_TYPE_SESSION_AUDIT]           = "session-audit",
 };
 DEFINE_STRING_TABLE_LOOKUP(tpm2_report_component_type, Tpm2ReportComponentType);
 
@@ -33,6 +39,10 @@ static void tpm2_report_component_done(Tpm2ReportComponent *c) {
         c->nv_public = mfree(c->nv_public);
 
         c->authenticated_data = mfree(c->authenticated_data);
+
+        c->property = mfree(c->property);
+
+        c->auth_policy = mfree(c->auth_policy);
 
         c->attestation = mfree(c->attestation);
         sym_Esys_Free(c->signature);
@@ -143,6 +153,10 @@ static int tpm2_generate_report_try(
                 const TPML_PCR_SELECTION *pcrs,
                 NvPCRReportRequest *nv_pcrs,
                 size_t n_nv_pcrs,
+                TPM2_PT *tpm_props,
+                size_t n_tpm_props,
+                TPM2_HANDLE *auth_policies,
+                size_t n_auth_policies,
                 const TPM2B_DATA *external_data,
                 sd_json_variant **ret_event_log,
                 Tpm2ReportComponent **ret_components,
@@ -283,6 +297,52 @@ static int tpm2_generate_report_try(
                 r = sd_json_variant_new_array(&event_log, /* array= */ NULL, /* n= */ 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to allocate empty event log array: %m");
+        }
+
+        FOREACH_ARRAY(prop, tpm_props, n_tpm_props) {
+                uint32_t value;
+                r = tpm2_get_capability_property(c, audit_session, *prop, &value);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to fetch TPM property 0x%08" PRIx32 ": %m", *prop);
+
+                _cleanup_free_ TPMS_TAGGED_PROPERTY *tp = new0(TPMS_TAGGED_PROPERTY, 1);
+                if (!tp)
+                        return log_oom_debug();
+                tp->property = *prop;
+                tp->value = value;
+
+                if (!GREEDY_REALLOC(components, n_components + 1))
+                        return log_oom_debug();
+                components[n_components++] = (Tpm2ReportComponent) {
+                        .type = TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY,
+                        .more_caps = r > 0,
+                        .property = TAKE_PTR(tp),
+                };
+        }
+
+        FOREACH_ARRAY(handle, auth_policies, n_auth_policies) {
+                TPMT_HA policy;
+                r = tpm2_get_capability_auth_policy(c, audit_session, *handle, &policy);
+                if (r == -EOPNOTSUPP) {
+                        log_debug("Not including authorization policies in report as TPM_CAP_AUTH_POLICIES is not supported by the TPM.");
+                        break;
+                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to fetch auth policy for TPM handle 0x%08" PRIx32 ": %m", *handle);
+
+                _cleanup_free_ TPMS_TAGGED_POLICY *tp = new0(TPMS_TAGGED_POLICY, 1);
+                if (!tp)
+                        return log_oom_debug();
+                tp->handle = *handle;
+                tp->policyHash = policy;
+
+                if (!GREEDY_REALLOC(components, n_components + 1))
+                        return log_oom_debug();
+                components[n_components++] = (Tpm2ReportComponent) {
+                        .type = TPM2_REPORT_TYPE_CAPABILITY_AUTH_POLICY,
+                        .more_caps = r > 0,
+                        .auth_policy = TAKE_PTR(tp),
+                };
         }
 
         _cleanup_free_ TPMS_ATTEST *audit_info = NULL;
@@ -439,6 +499,8 @@ int tpm2_generate_report(
                                 key,
                                 &pcrs,
                                 nv_pcrs, n_nv_pcrs,
+                                options->tpm_props, options->n_tpm_props,
+                                options->auth_policies, options->n_auth_policies,
                                 external_data,
                                 &event_log,
                                 &components, &n_components);

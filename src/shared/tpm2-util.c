@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -355,6 +356,20 @@ static void tpm2b_sensitive_data_erase_and_esys_freep(TPM2B_SENSITIVE_DATA **p) 
         sym_Esys_Free(*p);
 }
 
+static bool tpm2_is_audit_session(Tpm2Context *c, const Tpm2Handle *session) {
+        TPMA_SESSION flags = 0;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(session);
+
+        rc = sym_Esys_TRSess_GetAttributes(c->esys_context, session->esys_handle, &flags);
+        if (rc != TSS2_RC_SUCCESS)
+                return false;
+
+        return flags & TPMA_SESSION_AUDIT;
+}
+
 /* Get a specific TPM capability (or capabilities).
  *
  * Returns 0 if there are no more capability properties of the requested type, or 1 if there are more, or < 0
@@ -372,6 +387,7 @@ static void tpm2b_sensitive_data_erase_and_esys_freep(TPM2B_SENSITIVE_DATA **p) 
  * details. */
 static int tpm2_get_capability(
                 Tpm2Context *c,
+                const Tpm2Handle *audit_session,
                 TPM2_CAP capability,
                 uint32_t property,
                 uint32_t count,
@@ -386,9 +402,13 @@ static int tpm2_get_capability(
         log_debug("Getting TPM2 capability 0x%04" PRIx32 " property 0x%04" PRIx32 " count %" PRIu32 ".",
                   capability, property, count);
 
+        if (audit_session && !tpm2_is_audit_session(c, audit_session))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Supplied session handle is not an audit session.");
+
         rc = sym_Esys_GetCapability(
                         c->esys_context,
-                        ESYS_TR_NONE,
+                        audit_session ? audit_session->esys_handle : ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         capability,
@@ -396,7 +416,11 @@ static int tpm2_get_capability(
                         count,
                         &more,
                         &capabilities);
-        if (rc == TPM2_RC_VALUE)
+        if (rc == TPM2_RC_EXCLUSIVE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                       "Failed to get TPM2 capability 0x%04" PRIx32 " property 0x%04" PRIx32 ": audit session required exclusivity",
+                                       capability, property);
+        if ((rc & ~(TPM2_RC_N_MASK|TPM2_RC_P)) == TPM2_RC_VALUE)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
                                        "Requested TPM2 capability 0x%04" PRIx32 " property 0x%04" PRIx32 " apparently doesn't exist: %s",
                                        capability, property, sym_Tss2_RC_Decode(rc));
@@ -413,25 +437,6 @@ static int tpm2_get_capability(
                 *ret_capability_data = capabilities->data;
 
         return more == TPM2_YES;
-}
-
-static int tpm2_get_capability_property(Tpm2Context *c, uint32_t property, uint32_t *ret_value) {
-        int r;
-
-        assert(c);
-        assert(ret_value);
-
-        TPMU_CAPABILITIES capabilities = {};
-        r = tpm2_get_capability(c, TPM2_CAP_TPM_PROPERTIES, property, 1, &capabilities);
-        if (r < 0)
-                return r;
-
-        if (capabilities.tpmProperties.count == 0 ||
-            capabilities.tpmProperties.tpmProperty[0].property != property)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM property 0x%04" PRIx32 " does not exist", property);
-
-        *ret_value = capabilities.tpmProperties.tpmProperty[0].value;
-        return 0;
 }
 
 int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret) {
@@ -502,6 +507,7 @@ int tpm2_get_vendor_info(
         TPMU_CAPABILITIES capabilities = {};
         r = tpm2_get_capability(
                         c,
+                        /* audit_session= */ NULL,
                         TPM2_CAP_TPM_PROPERTIES,
                         TPM2_PT_FAMILY_INDICATOR,
                         TPM2_PT_FIRMWARE_VERSION_2 - TPM2_PT_FAMILY_INDICATOR + 1, /* get all relevant fields at once */
@@ -579,6 +585,51 @@ int tpm2_get_vendor_info(
         return 0;
 }
 
+/* Fetch a single TPM property. Returns 1 if the TPM has further properties to report after this one
+ * (i.e. TPM2_GetCapability() set moreData), 0 otherwise. */
+int tpm2_get_capability_property(Tpm2Context *c, const Tpm2Handle *audit_session, TPM2_PT property, uint32_t *ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        TPMU_CAPABILITIES capabilities = {};
+        r = tpm2_get_capability(c, audit_session, TPM2_CAP_TPM_PROPERTIES, property, 1, &capabilities);
+        if (r < 0)
+                return r;
+
+        if (capabilities.tpmProperties.count == 0 ||
+            capabilities.tpmProperties.tpmProperty[0].property != property)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM property 0x%08" PRIx32 " does not exist", property);
+
+        *ret = capabilities.tpmProperties.tpmProperty[0].value;
+        return r;
+}
+
+/* Fetch the authorization policy of a single permanent handle. Returns 1 if the TPM has further policies
+ * to report after this one (i.e. TPM2_GetCapability() set moreData), 0 otherwise. */
+int tpm2_get_capability_auth_policy(Tpm2Context *c, const Tpm2Handle *audit_session, TPM2_HANDLE handle, TPMT_HA *ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        TPMU_CAPABILITIES capabilities = {};
+        r = tpm2_get_capability(c, audit_session, TPM2_CAP_AUTH_POLICIES, handle, 1, &capabilities);
+        if (r == -ENXIO)
+                /* TPMs older than v1.38 of the reference library don't support TPM_CAP_AUTH_POLICIES. */
+                return -EOPNOTSUPP;
+        if (r < 0)
+                return r;
+
+        if (capabilities.authPolicies.count == 0 ||
+            capabilities.authPolicies.policies[0].handle != handle)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Auth policy for TPM handle 0x%08" PRIx32 " does not exist", handle);
+
+        *ret = capabilities.authPolicies.policies[0].policyHash;
+        return r;
+}
+
 #define TPMA_CC_TO_TPM2_CC(cca) (((cca) & TPMA_CC_COMMANDINDEX_MASK) >> TPMA_CC_COMMANDINDEX_SHIFT)
 
 /* The TCG reference library spec (part 2) doesn't guarantee a minimum size for the
@@ -603,6 +654,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         for (;;) {
                 r = tpm2_get_capability(
                                 c,
+                                /* audit_session= */ NULL,
                                 TPM2_CAP_ALGS,
                                 (uint32_t) current_alg, /* The spec states to cast TPM2_ALG_ID to uint32_t. */
                                 TPM2_MAX_CAP_ALGS,
@@ -636,6 +688,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         for (;;) {
                 r = tpm2_get_capability(
                                 c,
+                                /* audit_session= */ NULL,
                                 TPM2_CAP_COMMANDS,
                                 current_cc,
                                 TPM2_MAX_CAP_CC,
@@ -669,6 +722,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         for (;;) {
                 r = tpm2_get_capability(
                                 c,
+                                /* audit_session= */ NULL,
                                 TPM2_CAP_ECC_CURVES,
                                 current_ecc_curve,
                                 TPM2_MAX_ECC_CURVES,
@@ -704,6 +758,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
          * safely assume the TPM PCR allocation will not change while we are using it. */
         r = tpm2_get_capability(
                         c,
+                        /* audit_session= */ NULL,
                         TPM2_CAP_PCRS,
                         /* property= */ 0,
                         /* count= */ 1,
@@ -724,7 +779,11 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
          * certificate with a RSA public key. */
         uint32_t max_nv_buffer_size = 0;
 
-        r = tpm2_get_capability_property(c, TPM2_PT_NV_BUFFER_MAX, &max_nv_buffer_size);
+        r = tpm2_get_capability_property(
+                        c,
+                        /* audit_session= */ NULL,
+                        TPM2_PT_NV_BUFFER_MAX,
+                        &max_nv_buffer_size);
         if (r == -ENOENT) {
                 log_debug("TPM bug: didn't report a value for TPM_PT_NV_BUFFER_MAX; using %"PRIu32".", FALLBACK_MAX_NV_BUFFER_SIZE);
                 max_nv_buffer_size = FALLBACK_MAX_NV_BUFFER_SIZE;
@@ -808,7 +867,11 @@ int tpm2_max_data_size(Tpm2Context *c) {
         assert(c);
 
         uint32_t max_digest_size = 0;
-        r = tpm2_get_capability_property(c, TPM2_PT_MAX_DIGEST, &max_digest_size);
+        r = tpm2_get_capability_property(
+                        c,
+                        /* audit_session= */ NULL,
+                        TPM2_PT_MAX_DIGEST,
+                        &max_digest_size);
         if (r < 0)
                 return r;
 
@@ -848,7 +911,13 @@ static int tpm2_get_capability_handles(
 
         while (max > 0) {
                 TPMU_CAPABILITIES capability;
-                r = tpm2_get_capability(c, TPM2_CAP_HANDLES, current, (uint32_t) max, &capability);
+                r = tpm2_get_capability(
+                                c,
+                                /* audit_session= */ NULL,
+                                TPM2_CAP_HANDLES,
+                                current,
+                                (uint32_t) max,
+                                &capability);
                 if (r < 0)
                         return r;
 
@@ -4523,20 +4592,6 @@ int tpm2_make_encryption_session(
         *ret_session = TAKE_PTR(session);
 
         return 0;
-}
-
-static bool tpm2_is_audit_session(Tpm2Context *c, const Tpm2Handle *session) {
-        TPMA_SESSION flags = 0;
-        TSS2_RC rc;
-
-        assert(c);
-        assert(session);
-
-        rc = sym_Esys_TRSess_GetAttributes(c->esys_context, session->esys_handle, &flags);
-        if (rc != TSS2_RC_SUCCESS)
-                return false;
-
-        return flags & TPMA_SESSION_AUDIT;
 }
 
 int tpm2_make_exclusive_audit_session(Tpm2Context *c, Tpm2Handle **ret_session) {
@@ -10407,6 +10462,8 @@ static const char* tpm2_hash_alg_to_string_tss2(TPMI_ALG_HASH alg) {
                 return "SHA384";
         case TPM2_ALG_SHA512:
                 return "SHA512";
+        case TPM2_ALG_NULL:
+                return "NULL";
         default:
                 log_debug("Unknown hash algorithm id 0x%" PRIx16, alg);
                 return NULL;
@@ -10896,6 +10953,185 @@ int tpm2_tpms_nv_public_to_json(const TPMS_NV_PUBLIC *nv_public, sd_json_variant
                         SD_JSON_BUILD_PAIR_INTEGER("attributes", nv_public->attributes),
                         SD_JSON_BUILD_PAIR_HEX("authPolicy", nv_public->authPolicy.buffer, nv_public->authPolicy.size),
                         SD_JSON_BUILD_PAIR_INTEGER("dataSize", nv_public->dataSize));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+/* Convert a TPM property to JSON, in a way that is compatible with the TCG TSS2 JSON data
+ * format, and which is compatible with the TSS2 implementation. These are converted to a string
+ * with the TPM2_PT_ prefix dropped, or a plain base-10 integer for properties that aren't
+ * implemented.
+ *
+ * See https://trustedcomputinggroup.org/wp-content/uploads/TSS_JSON_Policy_v0p7_r08_pub.pdf */
+static int tpm2_tpm_pt_to_json(TPM2_PT prop, sd_json_variant **ret) {
+        int r;
+
+        assert(ret);
+
+        const char *s = NULL;
+        switch (prop) {
+        case TPM2_PT_PERMANENT:
+                s = "PERMANENT";
+                break;
+        case TPM2_PT_MAX_AUTH_FAIL:
+                s = "MAX_AUTH_FAIL";
+                break;
+        case TPM2_PT_LOCKOUT_INTERVAL:
+                s = "LOCKOUT_INTERVAL";
+                break;
+        case TPM2_PT_LOCKOUT_RECOVERY:
+                s = "LOCKOUT_RECOVERY";
+                break;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        if (s)
+                r = sd_json_variant_new_string(&v, s);
+        else
+                r = sd_json_variant_new_unsigned(&v, prop);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+/* Convert a tagged property to JSON, in a format compatible with the TCG TSS2 JSON data format, and
+ * which is compatible with the TSS2 implementation.
+ *
+ * See https://trustedcomputinggroup.org/wp-content/uploads/TSS_JSON_Policy_v0p7_r08_pub.pdf */
+int tpm2_tpms_tagged_property_to_json(const TPMS_TAGGED_PROPERTY *property, sd_json_variant **ret) {
+        int r;
+
+        assert(property);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *prop = NULL;
+        r = tpm2_tpm_pt_to_json(property->property, &prop);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_VARIANT("property", prop),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("value", property->value));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+/* Convert a TPM handle to JSON, in a way that is compatible with the TCG TSS2 JSON data
+ * format, and which is compatible with the TSS2 implementation. These are converted to a string
+ * with the TPM2_RH_ prefix dropped, or a plain base-10 integer for handles that aren't
+ * implemented.
+ *
+ * See https://trustedcomputinggroup.org/wp-content/uploads/TSS_JSON_Policy_v0p7_r08_pub.pdf */
+static int tpm2_tpm_handle_to_json(TPM2_HANDLE handle, sd_json_variant **ret) {
+        int r;
+
+        assert(ret);
+
+        const char *s = NULL;
+        switch (handle) {
+        case TPM2_RH_OWNER:
+                s = "OWNER";
+                break;
+        case TPM2_RH_LOCKOUT:
+                s = "LOCKOUT";
+                break;
+        case TPM2_RH_ENDORSEMENT:
+                s = "ENDORSEMENT";
+                break;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        if (s)
+                r = sd_json_variant_new_string(&v, s);
+        else
+                r = sd_json_variant_new_unsigned(&v, handle);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int tpm2_tpmt_ha_to_json(const TPMT_HA *ha, sd_json_variant **ret) {
+        int r;
+
+        assert(ha);
+        assert(ret);
+
+        const uint8_t *digest;
+        size_t digest_len;
+        switch (ha->hashAlg) {
+        case TPM2_ALG_SHA1:
+                digest = ha->digest.sha1;
+                digest_len = sizeof(ha->digest.sha1);
+                break;
+        case TPM2_ALG_SHA256:
+                digest = ha->digest.sha256;
+                digest_len = sizeof(ha->digest.sha256);
+                break;
+        case TPM2_ALG_SHA384:
+                digest = ha->digest.sha384;
+                digest_len = sizeof(ha->digest.sha384);
+                break;
+        case TPM2_ALG_SHA512:
+                digest = ha->digest.sha512;
+                digest_len = sizeof(ha->digest.sha512);
+                break;
+        case TPM2_ALG_NULL:
+                digest = NULL;
+                digest_len = 0;
+                break;
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported hash algorithm id 0x%" PRIx16, ha->hashAlg);
+        }
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string_tss2(ha->hashAlg)),
+                        SD_JSON_BUILD_PAIR_CONDITION(digest != NULL, "digest", SD_JSON_BUILD_HEX(digest, digest_len)));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+/* Convert a tagged policy to JSON, in a format compatible with the TCG TSS2 JSON data format, and
+ * which is compatible with the TSS2 implementation.
+ *
+ * See https://trustedcomputinggroup.org/wp-content/uploads/TSS_JSON_Policy_v0p7_r08_pub.pdf */
+int tpm2_tpms_tagged_policy_to_json(const TPMS_TAGGED_POLICY *policy, sd_json_variant **ret) {
+        int r;
+
+        assert(policy);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *handle = NULL;
+        r = tpm2_tpm_handle_to_json(policy->handle, &handle);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *policy_hash = NULL;
+        r = tpm2_tpmt_ha_to_json(&policy->policyHash, &policy_hash);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_VARIANT("handle", handle),
+                        SD_JSON_BUILD_PAIR_VARIANT("policyHash", policy_hash));
         if (r < 0)
                 return r;
 
