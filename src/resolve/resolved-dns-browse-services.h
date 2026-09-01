@@ -48,8 +48,8 @@ struct DnsServiceQuerier {
         usec_t delay;
         sd_event_source *schedule_event;      /* continuous browse query (RFC 6762 §5.2 backoff) */
         sd_event_source *maintenance_event;   /* single TTL re-confirmation ladder for the whole RRset */
-        DnsQuery *in_flight_query;          /* the one query in flight, whichever emitter sent it;
-                                               cleared by dns_query_free() */
+        DnsQuery *in_flight_query;            /* the one query in flight, whichever emitter sent it;
+                                                 cleared by dns_query_free() */
         DnsRecordTTLState rr_ttl_state;       /* the ladder's rung: wound back to 80% whenever the list
                                                  changes or an instance is seen again, advanced only by
                                                  mdns_querier_run_maintenance(), re-armed once per
@@ -121,3 +121,4 @@ int dns_add_new_service(
                 usec_t until);
 void mdns_querier_run_maintenance(DnsServiceQuerier *sq);
 bool mdns_goodbyes_hit_discovered(DnsServiceQuerier *sq, DnsAnswer *goodbyes, int ifindex);
+uint64_t mdns_restrict_flags_to_family(uint64_t flags, int family);
