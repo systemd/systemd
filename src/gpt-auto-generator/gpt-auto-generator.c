@@ -659,19 +659,25 @@ static int add_partition_xbootldr(DissectedPartition *p) {
 }
 
 #if ENABLE_EFI
-static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
+static int add_esp_automount(
+                const char *node,
+                const char *options_fstype,
+                const char *mount_fstype,
+                bool has_xbootldr) {
+
         const char *esp_path = NULL, *id = NULL;
         _cleanup_free_ char *options = NULL;
         int r;
 
-        assert(p);
+        assert(node);
         assert(!in_initrd());
 
         /* Check if there's an existing fstab entry for ESP. If so, we just skip the gpt-auto logic. */
-        r = fstab_has_node(p->node);
+        r = fstab_has_node(node);
         if (r < 0)
-                log_warning_errno(r, "Failed to check if fstab entry for device '%s' exists, ignoring: %m",
-                                  p->node);
+                log_warning_errno(r,
+                                  "Failed to check if fstab entry for device '%s' exists, ignoring: %m",
+                                  node);
         if (r > 0)
                 return 0;
 
@@ -701,7 +707,7 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
 
         r = partition_pick_mount_options(
                         PARTITION_ESP,
-                        dissected_partition_fstype(p),
+                        options_fstype,
                         /* rw= */ true,
                         /* discard= */ false,
                         &options,
@@ -711,13 +717,23 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
 
         return add_automount(
                         id,
-                        p->node,
+                        node,
                         esp_path,
-                        p->fstype,
+                        mount_fstype,
                         MOUNT_RW,
                         options,
                         "EFI System Partition Automount",
                         LOADER_PARTITION_IDLE_USEC);
+}
+
+static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
+        assert(p);
+
+        return add_esp_automount(
+                        p->node,
+                        dissected_partition_fstype(p),
+                        p->fstype,
+                        has_xbootldr);
 }
 #else
 static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
@@ -1075,12 +1091,8 @@ static int add_early_esp_mount(void) {
                          /* conflicts= */ "initrd-switch-root.target");
 }
 
-static int process_loader_partitions(DissectedPartition *esp, DissectedPartition *xbootldr) {
-        sd_id128_t loader_uuid;
+static int loader_mounts_configured(void) {
         int r;
-
-        assert(esp);
-        assert(xbootldr);
 
         /* If any paths in fstab look similar to our favorite paths for ESP or XBOOTLDR, we just exit
          * early. We also don't bother with cases where one is configured explicitly and the other shall be
@@ -1089,10 +1101,24 @@ static int process_loader_partitions(DissectedPartition *esp, DissectedPartition
         r = fstab_has_mount_point_prefix_strv(STRV_MAKE("/boot", "/efi"));
         if (r > 0) {
                 log_debug("Found mount entries in the /boot/ or /efi/ hierarchies in fstab, not generating ESP or XBOOTLDR mounts.");
-                return 0;
+                return 1;
         }
         if (r < 0)
                 log_debug_errno(r, "Failed to check fstab existing paths, ignoring: %m");
+
+        return 0;
+}
+
+static int process_loader_partitions(DissectedPartition *esp, DissectedPartition *xbootldr) {
+        sd_id128_t loader_uuid;
+        int r;
+
+        assert(esp);
+        assert(xbootldr);
+
+        r = loader_mounts_configured();
+        if (r > 0)
+                return 0;
 
         if (!is_efi_boot()) {
                 log_debug("Not an EFI boot, skipping loader partition UUID check.");
