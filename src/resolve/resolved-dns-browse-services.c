@@ -241,15 +241,23 @@ static int mdns_querier_revisit_cache(DnsServiceQuerier *sq, int owner_family);
 static DnssdDiscoveredService* dnssd_discovered_service_free(DnssdDiscoveredService *service);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdDiscoveredService *, dnssd_discovered_service_free);
 
-/* Revisit both families: the ladder is armed against the soonest expiry across both, and the callee
- * logs about failures itself. */
-static void mdns_querier_revisit_cache_both(DnsServiceQuerier *sq) {
-        int af;
+/* Revisit one family's cache -- or both, for AF_UNSPEC: the ladder is armed against the soonest
+ * expiry across both. The one place a failed revisit is reported and swallowed, whichever caller
+ * reached it. */
+static void mdns_querier_revisit_cache_family(DnsServiceQuerier *sq, int family) {
+        int af, r;
 
         assert(sq);
 
-        FOREACH_ARGUMENT(af, AF_INET, AF_INET6)
-                (void) mdns_querier_revisit_cache(sq, af);
+        FOREACH_ARGUMENT(af, AF_INET, AF_INET6) {
+                if (family != AF_UNSPEC && family != af)
+                        continue;
+
+                r = mdns_querier_revisit_cache(sq, af);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to revisit cache for %s, ignoring: %m",
+                                          af_to_ipv4_ipv6(af));
+        }
 }
 
 static void mdns_querier_query_complete(DnsQuery *q) {
@@ -264,7 +272,7 @@ static void mdns_querier_query_complete(DnsQuery *q) {
         if (query->state != DNS_TRANSACTION_SUCCESS)
                 return;
 
-        mdns_querier_revisit_cache_both(sq);
+        mdns_querier_revisit_cache_family(sq, AF_UNSPEC);
 }
 
 /* A maintenance query in flight pins the querier via its reference; abort it when the last
@@ -384,7 +392,7 @@ void mdns_querier_run_maintenance(DnsServiceQuerier *sq) {
          * never the querier that owns this timer. */
         if (sq->rr_ttl_state == DNS_RECORD_TTL_STATE_100_PERCENT) {
                 sq->rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT;
-                mdns_querier_revisit_cache_both(sq);
+                mdns_querier_revisit_cache_family(sq, AF_UNSPEC);
 
                 /* Each reconciled family re-armed the ladder already; this covers the family whose
                  * revisit could not reconcile at all (a failed cache lookup), so a transient error
@@ -645,11 +653,54 @@ int mdns_answer_contains_service(
         return 0;
 }
 
-void dns_browse_services_purge(Manager *m, int family, int ifindex) {
+/* The one fan-out over the querier registry: every path that reconciles queriers against a cache
+ * change funnels through here, so the pinning discipline lives in one place -- the registry holds
+ * no reference, and a revisit can drop the last subscriber and free the querier under the loop.
+ * 'ifindex' selects the queriers (0: all), 'family' the cache side to reconcile (AF_UNSPEC: both),
+ * and a non-NULL 'match' additionally restricts to queriers whose question the answer names. Kept
+ * going on per-querier failures, or every querier behind the failing one in hash order would
+ * silently miss the round. */
+static void mdns_queriers_revisit(Manager *m, int ifindex, int family, DnsAnswer *match) {
+        DnsServiceQuerier *sq;
         int r;
 
-        /* Called after cached records went away wholesale — all caches flushed, or one scope (and
-         * its cache) on its way out, in which case ifindex names the affected link. Reconcile every
+        assert(m);
+
+        HASHMAP_FOREACH(sq, m->dns_service_queriers) {
+                if (!dns_service_querier_covers_ifindex(sq, ifindex))
+                        continue;
+
+                if (match) {
+                        r = dns_answer_match_key(match, sq->key, NULL);
+                        if (r < 0) {
+                                log_warning_errno(r,
+                                                  "Failed to match answer key against a querier, "
+                                                  "ignoring: %m");
+                                continue;
+                        }
+                        if (r == 0)
+                                continue;
+                }
+
+                _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *pin =
+                        dns_service_querier_ref(sq);
+
+                mdns_querier_revisit_cache_family(pin, family);
+        }
+}
+
+/* Whether any browse question is being asked at all. Lets the packet path skip work that only
+ * exists to feed the queriers without reaching into their registry itself. */
+bool mdns_queriers_exist(Manager *m) {
+        assert(m);
+
+        return !hashmap_isempty(m->dns_service_queriers);
+}
+
+void dns_browse_services_purge(Manager *m, int family, int ifindex) {
+        /* Called after cached records went away — all caches flushed, one scope (and its cache) on
+         * its way out, or a goodbye pass having pruned a scope's cache, in which case ifindex and
+         * family name what changed. Reconcile every
          * querier that could hold records from what went away against what is left, so its
          * subscribers get their removals; queriers pinned to other links are skipped, their caches
          * did not change. The continuous-query schedules are left alone here: they keep running, and
@@ -658,27 +709,7 @@ void dns_browse_services_purge(Manager *m, int family, int ifindex) {
          * caller that does want a prompt re-query, manager_flush_caches(), asks for it itself. */
         assert(m);
 
-        DnsServiceQuerier *sq;
-        HASHMAP_FOREACH(sq, m->dns_service_queriers) {
-                if (!dns_service_querier_covers_ifindex(sq, ifindex))
-                        continue;
-
-                /* The registry holds no reference, and the revisits can drop subscribers (failed
-                 * notifies), the last of which takes the querier with it — pin it across both
-                 * families, and work through the pin so it is plainly the live reference. */
-                _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *pin = dns_service_querier_ref(sq);
-                int af;
-
-                FOREACH_ARGUMENT(af, AF_INET, AF_INET6) {
-                        if (family != AF_UNSPEC && family != af)
-                                continue;
-
-                        r = mdns_querier_revisit_cache(pin, af);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to revisit cache for %s, ignoring: %m",
-                                                  af_to_ipv4_ipv6(af));
-                }
-        }
+        mdns_queriers_revisit(m, ifindex, family, /* match= */ NULL);
 }
 
 int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int owner_family) {
@@ -720,7 +751,7 @@ int mdns_manage_services_answer(DnsServiceQuerier *sq, DnsAnswer *answer, int ow
 
                 r = dns_add_new_service(sq, item->rr, owner_family, ifindex, item->until);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to add new DNS service: %m");
+                        log_debug_errno(r, "Failed to add new DNS service: %m");
                         goto finish;
                 }
         }
@@ -869,42 +900,6 @@ static int mdns_querier_revisit_cache(DnsServiceQuerier *sq, int owner_family) {
         /* The callee logs its own failures; the outermost caller decides whether to carry on and
          * says so in its own message. */
         return mdns_manage_services_answer(sq, combined, owner_family);
-}
-
-/* Whether any browse question is being asked at all. Lets the packet path skip work that only
- * exists to feed the queriers without reaching into their registry itself. */
-bool mdns_queriers_exist(Manager *m) {
-        assert(m);
-
-        return !hashmap_isempty(m->dns_service_queriers);
-}
-
-void mdns_queriers_notify_goodbye(DnsScope *scope) {
-        DnsServiceQuerier *sq;
-        int r;
-
-        assert(scope);
-        assert(scope->manager);
-
-        /* A goodbye-driven removal is a one-shot event: keep going when one querier's revisit
-         * fails, or every querier behind it in hash order would silently miss this round. */
-        HASHMAP_FOREACH(sq, scope->manager->dns_service_queriers) {
-                if (!dns_service_querier_covers_ifindex(sq, dns_scope_ifindex(scope)))
-                        continue;
-
-                /* Pinned like the sibling fan-out in dns_browse_services_purge(): the registry
-                 * holds no reference, and a revisit can drop the last subscriber and take the
-                 * querier with it. Nothing here touches sq afterwards today, but only because the
-                 * callee ends in a tail call -- not something a later edit should have to know. */
-                _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *pin =
-                        dns_service_querier_ref(sq);
-
-                r = mdns_querier_revisit_cache(pin, scope->family);
-                if (r < 0)
-                        log_warning_errno(r,
-                                          "Failed to revisit cache for %s, ignoring: %m",
-                                          af_to_ipv4_ipv6(scope->family));
-        }
 }
 
 /* Does any of these goodbyes name an instance this querier has reported to its subscribers over the
@@ -1129,15 +1124,15 @@ void dns_browse_services_restart(Manager *m, int ifindex) {
                         dns_service_querier_ref(sq);
 
                 mdns_querier_restart_schedule(pin);
-
-                /* The restarted query goes to the wire on purpose -- a browser that just gained a
-                 * scope has to ask on the link that came up, and a still-valid cache elsewhere
-                 * would answer without multicasting anything there. That leaves the warm caches of
-                 * the other links unreconciled until the answer arrives, so reconcile against them
-                 * now. (manager_flush_caches() purges immediately before restarting, so for that
-                 * caller this second pass runs over caches it just emptied and finds nothing.) */
-                mdns_querier_revisit_cache_both(pin);
         }
+
+        /* The restarted queries go to the wire on purpose -- a browser that just gained a scope has
+         * to ask on the link that came up, and a still-valid cache elsewhere would answer without
+         * multicasting anything there. That leaves the warm caches of the other links unreconciled
+         * until the answers arrive, so reconcile against them now. (manager_flush_caches() purges
+         * immediately before restarting, so for that caller this pass runs over caches it just
+         * emptied and finds nothing.) */
+        mdns_queriers_revisit(m, ifindex, AF_UNSPEC, /* match= */ NULL);
 }
 
 static void dns_service_querier_hash_func(const DnsServiceQuerier *sq, struct siphash *state) {
@@ -1249,7 +1244,7 @@ static int dns_service_querier_new(
                         "mdns-next-query-schedule",
                         /* force_reset= */ true);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to arm the continuous browse query timer: %m");
 
         *ret = TAKE_PTR(sq);
         return 0;
