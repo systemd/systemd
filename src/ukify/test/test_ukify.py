@@ -1129,7 +1129,8 @@ def test_pcr_signing3(kernel_initrd, tmp_path):
     shutil.rmtree(tmp_path)
 
 
-def test_pcr_signing_initrd_pcrs(kernel_initrd, tmp_path):
+@pytest.mark.parametrize('policy_digest', (False, True), ids=('sign', 'policy-digest'))
+def test_pcr_signing_initrd_pcrs(kernel_initrd, tmp_path, policy_digest):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
     try:
@@ -1150,10 +1151,14 @@ def test_pcr_signing_initrd_pcrs(kernel_initrd, tmp_path):
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
         '--pcr-banks=sha384',  # sha1 might not be allowed, use something else
-        f'--pcr-private-key={priv.name}',
         f'--pcr-public-key={pub.name}',
         '--sign-initrd-pcrs',
-    ] + arg_tools
+    ]
+    if policy_digest:
+        args += ['--policy-digest']
+    else:
+        args += [f'--pcr-private-key={priv.name}']
+    args += arg_tools
 
     opts = ukify.parse_args(args)
     try:
