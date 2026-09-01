@@ -577,11 +577,17 @@ TEST(config_parse_dhcp6_send_option) {
         test_config_parse_dhcp6_send_option_helper("SendOption", "option:string:test", NULL);
 
         /* First valid PEN is accepted */
-        test_config_parse_dhcp6_send_option_ok("SendVendorOption", "0:1:string:test", 1, "test", 4, 0);
+        test_config_parse_dhcp6_send_option_ok("SendVendorOption", "1:1:string:test", 1, "test", 4, 1);
 
         /* Last valid PEN is accepted */
-        test_config_parse_dhcp6_send_option_ok("SendVendorOption", "4294967295:1:string:test", 1, "test", 4,
-                                               4294967295U);
+        test_config_parse_dhcp6_send_option_ok("SendVendorOption", "4294967294:1:string:test", 1, "test", 4,
+                                               4294967294U);
+
+        /* First invalid PEN is ignored */
+        test_config_parse_dhcp6_send_option_helper("SendVendorOption", "0:1:string:test", NULL);
+
+        /* Invalid PEN after last valid PEN is ignored */
+        test_config_parse_dhcp6_send_option_helper("SendVendorOption", "4294967295:1:string:test", NULL);
 
         /* Invalid PEN bigger then 32 bit is ignored */
         test_config_parse_dhcp6_send_option_helper("SendVendorOption", "4294967296:1:string:test", NULL);
