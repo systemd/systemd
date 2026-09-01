@@ -79,9 +79,9 @@ static usec_t mdns_maintenance_jitter(uint32_t ttl) {
 }
 
 static void mdns_maintenance_query_complete(DnsQuery *q) {
+        _cleanup_(dnssd_discovered_service_unrefp) DnssdDiscoveredService *service = NULL;
         _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = q;
-        DnssdDiscoveredService *service = NULL;
         int r;
 
         assert(query);
