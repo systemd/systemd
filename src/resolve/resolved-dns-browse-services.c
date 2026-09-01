@@ -229,6 +229,13 @@ void dns_remove_service(DnsServiceBrowser *sb, DnssdDiscoveredService *service) 
         assert(sb);
         assert(service);
 
+        /* Stop the maintenance schedule here rather than leaving it to dns_service_free(): the list's
+         * reference is not necessarily the last one - a maintenance query in flight holds one too - so
+         * the service can outlive its removal from the browser, with the timer still armed. Once it is
+         * off the list the client has already been told the service is gone, so further maintenance
+         * queries for it are just stale multicast traffic. */
+        service->schedule_event = sd_event_source_disable_unref(service->schedule_event);
+
         LIST_REMOVE(dns_services, sb->dns_services, service);
         dnssd_discovered_service_unref(service);
 }
