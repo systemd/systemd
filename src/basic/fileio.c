@@ -1295,7 +1295,7 @@ static int search_and_fopen_internal(
         assert(path);
         assert(mode || !ret_file);
 
-        r = search_and_open(
+        r = search_and_open_internal(
                         path,
                         mode ? fopen_mode_to_flags(mode) : 0,
                         root,
