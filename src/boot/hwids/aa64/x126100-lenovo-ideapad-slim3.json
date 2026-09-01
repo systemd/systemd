@@ -1,0 +1,25 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO IdeaPad Slim 3 15Q8X10",
+    "compatible": "lenovo,ideapad-slim3",
+    "hwids": [
+        "d0a73ed7-fc46-5f8c-bfaa-62375492a303",
+        "14d6f910-fb4f-5ff1-87e4-03a16448a255",
+        "57530352-2dd8-5087-8350-77d82bdc984d",
+        "4f6c85c4-b6e2-5cd9-9a22-91b839f31474",
+        "0549a586-ab3b-5606-a55a-f9374515909c",
+        "1bee74fc-5f4d-53a1-92a3-f532d4170a95",
+        "b59e5273-1ed4-51d7-9beb-da0e48f96459",
+        "123d7adb-792e-5e3e-9044-3d5eec53b59d",
+        "67f92433-2c48-5d27-8423-afe79c8f86e1",
+        "0b1ba81f-8f6b-5ba3-aebc-a6e71b280d83",
+        "f9f59b59-b3f3-5b8a-a65a-84bc573ee694",
+        "216c17d6-9f5b-5020-b8cc-1be8b74f6204",
+        "e093d715-70f7-51f4-b6c8-b4a7e31def85",
+        "71d86d4d-02f8-5566-a7a1-529cef184b7e",
+        "6de5d951-d755-576b-bd09-c5cf66b27234",
+        "9c54c867-8153-5607-8f22-413c8f17fc13",
+        "5963a641-1d3e-5431-86a8-5d0d98f90e3e",
+        "99431f53-09a1-5869-be79-65e2fa3f341d"
+    ]
+}

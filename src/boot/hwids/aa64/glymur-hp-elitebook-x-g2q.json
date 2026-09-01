@@ -1,0 +1,19 @@
+{
+    "type": "devicetree",
+    "name": "HP 103C_5336AN HP EliteBook",
+    "compatible": "hp,elitebook-x-g2q",
+    "hwids": [
+        "a8eb125e-80bb-5eb6-a448-8b9a73a9fda4",
+        "2111654e-fca0-5191-adf1-a341304be9ac",
+        "547910dc-38d6-509e-af6a-1bac70567950",
+        "6778dcb3-7a6c-5aa9-90fe-4b131dc2076a",
+        "1f684671-96d7-5c00-a060-54604fe83c55",
+        "02de9849-4c7c-5a0e-acda-f575977ecb10",
+        "b0d41b70-a607-5e5e-9da8-cce48044dfaf",
+        "99590fa9-8fc9-5066-80b8-49e1dbf06f4d",
+        "19fe40b5-1900-5d4a-a48f-b9f9938f3e69",
+        "4c84c882-b54c-58d5-b412-26bcdf254c3e",
+        "24c45613-de19-5b89-9fa1-9e269daf079d",
+        "93f84748-c854-5d6b-b78a-13c2361e0758"
+    ]
+}
