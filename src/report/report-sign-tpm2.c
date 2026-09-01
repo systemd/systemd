@@ -5,6 +5,7 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "dlopen-note.h"
 #include "fd-util.h"
@@ -21,6 +22,7 @@
 #include "tpm2-pcr.h"
 #include "tpm2-report.h"
 #include "tpm2-util.h"
+#include "tss2_tpm2_types.h"
 #include "varlink-io.systemd.Report.Signer.h"
 #include "varlink-util.h"
 #include "verbs.h"
@@ -92,9 +94,36 @@ static int make_default_report_options(Tpm2ReportOptions *ret) {
                 (UINT32_C(1) << TPM2_PCR_SHIM_POLICY) |
                 (UINT32_C(1) << TPM2_PCR_SYSTEM_IDENTITY);
 
+        /* Include TPM properties pertaining to hierarchy authorization and
+         * dictionary attack logic configuration. */
+        static const TPM2_PT tpm_props[] = {
+                TPM2_PT_PERMANENT,
+                TPM2_PT_MAX_AUTH_FAIL,
+                TPM2_PT_LOCKOUT_INTERVAL,
+                TPM2_PT_LOCKOUT_RECOVERY,
+        };
+
+        _cleanup_free_ TPM2_PT *props = newdup(TPM2_PT, tpm_props, ELEMENTSOF(tpm_props));
+        if (!props)
+                return log_oom();
+
+        static const TPM2_HANDLE hierarchies[] = {
+                TPM2_RH_OWNER,
+                TPM2_RH_LOCKOUT,
+                TPM2_RH_ENDORSEMENT,
+        };
+
+        _cleanup_free_ TPM2_HANDLE *policies = newdup(TPM2_HANDLE, hierarchies, ELEMENTSOF(hierarchies));
+        if (!policies)
+                return log_oom();
+
         *ret = (Tpm2ReportOptions) {
                 .pcr_mask = pcr_mask,
                 .nv_pcrs = TAKE_PTR(nv_pcrs),
+                .tpm_props = TAKE_PTR(props),
+                .n_tpm_props = ELEMENTSOF(tpm_props),
+                .auth_policies = TAKE_PTR(policies),
+                .n_auth_policies = ELEMENTSOF(hierarchies),
         };
         return 0;
 }
@@ -586,39 +615,56 @@ static int reply_report(sd_varlink *link, const Tpm2Report *report, const struct
                                 return log_error_errno(r, "Cannot convert NvPCR public area to JSON: %m");
                 }
 
-                TPMT_SIG_SCHEME scheme = {
-                        .scheme = c->signature->sigAlg,
-                };
-                if (IN_SET(scheme.scheme, TPM2_ALG_RSASSA, TPM2_ALG_RSAPSS, TPM2_ALG_ECDSA))
-                        scheme.details.any = c->signature->signature.any;
-                else if (scheme.scheme != TPM2_ALG_NULL)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Unsupported signature scheme 0x%" PRIx16, scheme.scheme);
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *tpm_prop = NULL;
+                if (c->type == TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY) {
+                        r = tpm2_tpms_tagged_property_to_json(c->property, &tpm_prop);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot convert tagged TPM property to JSON: %m");
+                }
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *attest_info = NULL;
-                r = tpm2_attest_info_to_json(&scheme, c->attestation, &attest_info);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot convert attestation info to JSON: %m");
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *auth_policy = NULL;
+                if (c->type == TPM2_REPORT_TYPE_CAPABILITY_AUTH_POLICY) {
+                        r = tpm2_tpms_tagged_policy_to_json(c->auth_policy, &auth_policy);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot convert tagged auth policy to JSON: %m");
+                }
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *sig = NULL;
-                r = tpm2_tpmt_signature_to_json(c->signature, &sig);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot convert signature to JSON: %m");
-
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *attest_info = NULL, *sig = NULL;
                 _cleanup_free_ char *sig_pem = NULL;
-                r = tpm2_tpmt_signature_to_pem(c->signature, &sig_pem);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot convert signature to PEM: %m");
+                if (IN_SET(c->type, TPM2_REPORT_TYPE_PCR, TPM2_REPORT_TYPE_NVPCR, TPM2_REPORT_TYPE_SESSION_AUDIT)) {
+                        TPMT_SIG_SCHEME scheme = {
+                                .scheme = c->signature->sigAlg,
+                        };
+                        if (IN_SET(scheme.scheme, TPM2_ALG_RSASSA, TPM2_ALG_RSAPSS, TPM2_ALG_ECDSA))
+                                scheme.details.any = c->signature->signature.any;
+                        else if (scheme.scheme != TPM2_ALG_NULL)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Unsupported signature scheme 0x%" PRIx16, scheme.scheme);
+
+                        r = tpm2_attest_info_to_json(&scheme, c->attestation, &attest_info);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot convert attestation info to JSON: %m");
+
+                        r = tpm2_tpmt_signature_to_json(c->signature, &sig);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot convert signature to JSON: %m");
+
+                        r = tpm2_tpmt_signature_to_pem(c->signature, &sig_pem);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot convert signature to PEM: %m");
+                }
 
                 r = sd_json_variant_append_arraybo(
                                 &cv,
                                 SD_JSON_BUILD_PAIR_STRING("type", tpm2_report_component_type_to_string(c->type)),
                                 SD_JSON_BUILD_PAIR_CONDITION(c->type == TPM2_REPORT_TYPE_NVPCR, "nvpcrName", SD_JSON_BUILD_STRING(c->nv_pcr_name)),
                                 SD_JSON_BUILD_PAIR_CONDITION(c->type == TPM2_REPORT_TYPE_NVPCR, "nvPublic", SD_JSON_BUILD_VARIANT(nv_public)),
-                                SD_JSON_BUILD_PAIR_CONDITION(c->type != TPM2_REPORT_TYPE_SESSION_AUDIT && c->authenticated_data, "authenticatedData", SD_JSON_BUILD_STRING(c->authenticated_data)),
-                                SD_JSON_BUILD_PAIR_VARIANT("attestInfo", attest_info),
-                                SD_JSON_BUILD_PAIR_VARIANT("signature", sig),
-                                SD_JSON_BUILD_PAIR_STRING("signaturePEM", sig_pem));
+                                SD_JSON_BUILD_PAIR_CONDITION(c->type == TPM2_REPORT_TYPE_NVPCR, "authenticatedData", SD_JSON_BUILD_STRING(c->authenticated_data)),
+                                SD_JSON_BUILD_PAIR_CONDITION(c->type == TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY, "tpmProperty", SD_JSON_BUILD_VARIANT(tpm_prop)),
+                                SD_JSON_BUILD_PAIR_CONDITION(c->type == TPM2_REPORT_TYPE_CAPABILITY_AUTH_POLICY, "authPolicy", SD_JSON_BUILD_VARIANT(auth_policy)),
+                                SD_JSON_BUILD_PAIR_CONDITION(attest_info != NULL, "attestInfo", SD_JSON_BUILD_VARIANT(attest_info)),
+                                SD_JSON_BUILD_PAIR_CONDITION(sig != NULL, "signature", SD_JSON_BUILD_VARIANT(sig)),
+                                SD_JSON_BUILD_PAIR_CONDITION(sig_pem != NULL, "signaturePEM", SD_JSON_BUILD_STRING(sig_pem)));
                 if (r < 0)
                         return log_error_errno(r, "Cannot add component to report array: %m");
         }

@@ -10,14 +10,20 @@ set -o pipefail
 # only the TPM2 integration test provides.
 #
 # The TPM2 backend returns a set of signed TPM attestations (a PCR quote, one
-# NV certification per NvPCR, and a session audit digest), together with the
-# signing key's public area and the pcrlock event log. The public area, the
-# attestations and the signatures are all serialized as TCG TSS2 JSON. For each
-# attestation we rebuild the public key, re-marshal the TPMS_ATTEST that was
-# signed, and verify the signature using the embedded Python helper below. The
-# helper also cross-checks the parallel PEM encodings (publicKeyPEM and signaturePEM)
-# against the JSON encodings. We also confirm the report digest is carried in the
-# extraData field of the session audit attestation.
+# NV certification per NvPCR, and a session audit digest), a set of unsigned TPM
+# capability readings (a few TPM properties and the hierarchy auth policies),
+# together with the signing key's public area and the pcrlock event log. The
+# public area, the attestations, the capabilities and the signatures are all
+# serialized as TCG TSS2 JSON. For each attestation we rebuild the public key,
+# re-marshal the TPMS_ATTEST that was signed, and verify the signature using the
+# embedded Python helper below. The helper also cross-checks the parallel PEM
+# encodings (publicKeyPEM and signaturePEM) against the JSON encodings. We also
+# confirm the report digest is carried in the extraData field of the session audit
+# attestation.
+#
+# The capability components carry no signature of their own. They are bound to the
+# report by the session audit digest, which covers every command issued inside
+# the audit session, including the TPM2_GetCapability commands.
 #
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
@@ -48,8 +54,19 @@ fi
 
 WORK="$(mktemp -d)"
 
+# See below - we temporarily give the lockout hierarchy an authorization value and
+# a policy.
+LOCKOUT_AUTH="systemd-report-sign-test"
+lockout_modified=0
+
 at_exit() {
     set +e
+
+    if [ "$lockout_modified" -eq 1 ]; then
+        tpm2_changeauth -c lockout -p "$LOCKOUT_AUTH" ""
+        tpm2_setprimarypolicy -C lockout
+    fi
+
     systemctl stop systemd-report.socket systemd-report-sign-tpm2.socket
     rm -rf "$WORK"
 }
@@ -62,6 +79,21 @@ trap at_exit EXIT
 if ! tpm2_createek -c 0x81010001 -G ecc; then
     echo "tpm2_createek failed, assuming an EK is already present."
 fi
+
+# None of the hierarchies have an authorization value or a policy in the test
+# environment, so every auth policy the backend reports would be empty and the
+# TPMA_PERMANENT it reports would carry none of the *AuthSet flags. Give the
+# lockout hierarchy both for the duration of the test so that the non-empty cases
+# actually get exercised. We pick the lockout hierarchy because, unlike the owner
+# and endorsement hierarchies, nothing else here makes use of it.
+python3 -c 'import hashlib, sys
+digest = hashlib.sha256(b"systemd report signing test").digest()
+open(sys.argv[1], "wb").write(digest)
+print(digest.hex())' "$WORK/lockout.policy"
+
+tpm2_setprimarypolicy -C lockout -L "$WORK/lockout.policy" -g sha256
+tpm2_changeauth -c lockout "$LOCKOUT_AUTH"
+lockout_modified=1
 
 # The TPM2 backend reads the event log from pcrlock's Varlink interface, so make
 # sure its socket is up.
@@ -117,7 +149,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
-HASH_ALG_ID = {"SHA1": 0x0004, "SHA256": 0x000b, "SHA384": 0x000c, "SHA512": 0x000d}
+HASH_ALG_ID = {"SHA1": 0x0004, "SHA256": 0x000b, "SHA384": 0x000c, "SHA512": 0x000d,
+               "NULL": 0x0010}
 SIG_ALG_ID = {"RSASSA": 0x0014, "RSAPSS": 0x0016, "ECDSA": 0x0018, "NULL": 0x0010}
 PUB_ALG_ID = {"RSA": 0x0001, "ECC": 0x0023}
 CURVE_ID = {"NIST_P192": 0x0001, "NIST_P224": 0x0002, "NIST_P256": 0x0003,
@@ -127,7 +160,13 @@ ST_ATTEST = {"ATTEST_NV": 0x8014, "ATTEST_SESSION_AUDIT": 0x8016, "ATTEST_QUOTE"
 TPM_GENERATED = 0xff544347
 ALG_NULL = 0x0010
 CC_QUOTE = 0x00000158
+CC_GET_CAPABILITY = 0x0000017a
 CC_NV_CERTIFY = 0x00000184
+CAP_TPM_PROPERTIES = 0x00000006
+CAP_AUTH_POLICIES = 0x00000009
+TPM_PT_ID = {"PERMANENT": 0x00000200, "MAX_AUTH_FAIL": 0x0000020f,
+             "LOCKOUT_INTERVAL": 0x00000210, "LOCKOUT_RECOVERY": 0x00000211}
+TPM_HANDLE_ID = {"OWNER": 0x40000001, "LOCKOUT": 0x4000000a, "ENDORSEMENT": 0x4000000b}
 
 HASHES = {"SHA1": hashes.SHA1, "SHA256": hashes.SHA256,
           "SHA384": hashes.SHA384, "SHA512": hashes.SHA512}
@@ -147,6 +186,28 @@ def sha256(data):
     h = hashes.Hash(hashes.SHA256())
     h.update(data)
     return h.finalize()
+
+
+def tpm_pt_id(prop):
+    """Decode the JSON encoding of a TPM2_PT, which is either the property name with
+    the TPM2_PT_ prefix dropped, or a plain integer for properties that the encoder
+    doesn't know a name for."""
+    if isinstance(prop, int):
+        return prop
+    if prop not in TPM_PT_ID:
+        sys.exit(f"unsupported TPM property {prop}")
+    return TPM_PT_ID[prop]
+
+
+def tpm_handle_id(handle):
+    """Decode the JSON encoding of a TPM2_HANDLE, which is either the handle name with
+    the TPM2_RH_ prefix dropped, or a plain integer for handles that the encoder
+    doesn't know a name for."""
+    if isinstance(handle, int):
+        return handle
+    if handle not in TPM_HANDLE_ID:
+        sys.exit(f"unsupported TPM handle {handle}")
+    return TPM_HANDLE_ID[handle]
 
 
 # Helpers to serialize JSON encodings to the TPM wire format.
@@ -227,6 +288,16 @@ def marshal_tpms_attest(att):
     return out
 
 
+def marshal_tpmt_ha(ha):
+    """Serialize the supplied JSON encoded TPMT_HA to its wire form. The digest is
+    a fixed size union member, so it carries no size prefix, and it is absent for
+    a null algorithm."""
+    out = marshal_u16(HASH_ALG_ID[ha["hashAlg"]])
+    if ha["hashAlg"] != "NULL":
+        out += bytes.fromhex(ha["digest"])
+    return out
+
+
 def marshal_tpms_nv_public(nv):
     """Serialize the supplied JSON encoded TPMS_NV_PUBLIC to its wire form."""
     out = marshal_u32(nv["nvIndex"] & 0xffffffff)
@@ -290,6 +361,25 @@ def marshal_tpmt_signature(sig):
     if alg == "ECDSA":
         return out + marshal_hex_tpm2b(s["signatureR"]) + marshal_hex_tpm2b(s["signatureS"])
     sys.exit(f"unsupported sigAlg {alg}")
+
+
+def marshal_attestation_rp(comp):
+    """Serialize the response parameter area of an audited attestation command."""
+    out = marshal_bytes_tpm2b(marshal_tpms_attest(comp["attestInfo"]["attest"])) # TPM2B_ATTEST out
+    out += marshal_tpmt_signature(comp["signature"])                             # signature
+    return out
+
+
+def marshal_capability_rp(cap, entry):
+    """Serialize the response parameter area of an audited TPM2_GetCapability
+    command that returned the single supplied capability list entry."""
+    # The backend always asks for a single property or handle, and the TPM always has
+    # further ones of the same type to report after the ones it asks for, so moreData
+    # is always YES.
+    out = marshal_u8(1)     # moreData
+    out += marshal_u32(cap) # capabilityData.capability
+    out += marshal_u32(1)   # capabilityData.data.<list>.count
+    return out + entry
 
 
 def build_pubkey(pub):
@@ -356,22 +446,60 @@ def check_nvpcr(i, comp):
         sys.exit(f"component {i}: authenticatedData digest does not match attested extraData")
 
 
+def check_tpm_property(i, comp):
+    """Check the properties of the capability-tpm-property component."""
+    prop = comp.get("tpmProperty")
+    if prop is None:
+        sys.exit(f"component {i}: no tpmProperty")
+
+    # The property must be one we know how to marshal for the audit digest check
+    # below, and its value must be a plain integer.
+    tpm_pt_id(prop["property"])
+    if not isinstance(prop["value"], int):
+        sys.exit(f"component {i}: tpmProperty value is not an integer")
+
+
+def check_auth_policy(i, comp):
+    """Check the properties of the capability-auth-policy component."""
+    policy = comp.get("authPolicy")
+    if policy is None:
+        sys.exit(f"component {i}: no authPolicy")
+
+    # The handle must be one we know how to marshal for the audit digest check below.
+    tpm_handle_id(policy["handle"])
+
+    # A hierarchy without an auth policy is reported as a TPMT_HA with a null
+    # algorithm and no digest. Anything else must carry a digest of the length
+    # implied by the algorithm.
+    ha = policy["policyHash"]
+    alg = ha["hashAlg"]
+    if alg == "NULL":
+        if "digest" in ha:
+            sys.exit(f"component {i}: policyHash has no algorithm but carries a digest")
+    elif alg not in HASHES:
+        sys.exit(f"component {i}: unsupported policyHash algorithm {alg}")
+    elif len(bytes.fromhex(ha["digest"])) != HASHES[alg]().digest_size:
+        sys.exit(f"component {i}: policyHash digest doesn't match algorithm {alg}")
+
+
 def check_session_audit(doc, key_name):
     """Check the properties of the session-audit component."""
     digest = b"\x00" * 32 # Starting audit digest
 
     reported = None
     for comp in doc["components"]:
-        # Determine the command code, command handle names and cpBytes.
-        att = comp["attestInfo"]["attest"]
+        # Determine the command code, command handle names, cpBytes and rpBytes.
         t = comp["type"]
         if t == "pcr":
+            att = comp["attestInfo"]["attest"]
             cc = CC_QUOTE
             names = key_name                                               # signHandle only
             cp = marshal_hex_tpm2b("")                                     # qualifyingData
             cp += marshal_u16(ALG_NULL)                                    # inScheme.scheme
             cp += marshal_tpml_pcr_selection(att["attested"]["pcrSelect"]) # pcrSelect
+            rp = marshal_attestation_rp(comp)
         elif t == "nvpcr":
+            att = comp["attestInfo"]["attest"]
             cc = CC_NV_CERTIFY
             nv_name = digest_bytes_and_marshal_tpmt_ha(comp["nvPublic"]["nameAlg"], marshal_tpms_nv_public(comp["nvPublic"]))
             # Handle area is signHandle, authHandle, nvIndex - we pass the NV index for both
@@ -381,15 +509,32 @@ def check_session_audit(doc, key_name):
             cp += marshal_u16(ALG_NULL)                     # inScheme.scheme
             cp += marshal_u16(comp["nvPublic"]["dataSize"]) # size
             cp += marshal_u16(0)                            # offset
+            rp = marshal_attestation_rp(comp)
+        elif t == "capability-tpm-property":
+            prop = tpm_pt_id(comp["tpmProperty"]["property"])
+            cc = CC_GET_CAPABILITY
+            names = b""                          # no command handles
+            cp = marshal_u32(CAP_TPM_PROPERTIES) # capability
+            cp += marshal_u32(prop)              # property
+            cp += marshal_u32(1)                 # propertyCount
+            rp = marshal_capability_rp(
+                    CAP_TPM_PROPERTIES,
+                    marshal_u32(prop) + marshal_u32(comp["tpmProperty"]["value"]))
+        elif t == "capability-auth-policy":
+            handle = tpm_handle_id(comp["authPolicy"]["handle"])
+            cc = CC_GET_CAPABILITY
+            names = b""                         # no command handles
+            cp = marshal_u32(CAP_AUTH_POLICIES) # capability
+            cp += marshal_u32(handle)           # property
+            cp += marshal_u32(1)                # propertyCount
+            rp = marshal_capability_rp(
+                    CAP_AUTH_POLICIES,
+                    marshal_u32(handle) + marshal_tpmt_ha(comp["authPolicy"]["policyHash"]))
         elif t == "session-audit":
-            reported = att["attested"]["sessionDigest"]
+            reported = comp["attestInfo"]["attest"]["attested"]["sessionDigest"]
             continue                                    # not audited itself
         else:
             sys.exit(f"unsupported component type {t}")
-
-        # Calculate rpBytes.
-        rp = marshal_bytes_tpm2b(marshal_tpms_attest(att)) # TPM2B_ATTEST out
-        rp += marshal_tpmt_signature(comp["signature"])    # signature
 
         # Calculate cpHash and rpHash.
         cp_hash = sha256(marshal_u32(cc) + names + cp)
@@ -420,31 +565,45 @@ def main():
 
     saw_report_binding = False
     for i, comp in enumerate(data["components"]):
-        scheme = comp["attestInfo"]["sig_scheme"]
-        message = marshal_tpms_attest(comp["attestInfo"]["attest"])
+        # The capability components are read inside the audit session but are not
+        # signed individually, so they are bound to the report solely by the session
+        # audit digest, which is checked below.
+        if comp["type"] in ("capability-tpm-property", "capability-auth-policy"):
+            for field in ("attestInfo", "signature", "signaturePEM"):
+                if field in comp:
+                    sys.exit(f"component {i}: capability component carries a {field} field")
 
-        sig = comp["signature"]
+        else:
+          scheme = comp["attestInfo"]["sig_scheme"]
+          message = marshal_tpms_attest(comp["attestInfo"]["attest"])
 
-        # Make sure that the signature scheme in the attestInfo matches the
-        # information in the JSON encoded signature.
-        if scheme["scheme"] != sig["sigAlg"] or scheme["details"]["hashAlg"] != sig["signature"]["hash"]:
-            sys.exit(f"component {i}: signature scheme inconsistent with signature")
+          sig = comp["signature"]
 
-        # Reconstruct the signature from the JSON fields and decode the parallel
-        # signaturePEM blob. They should be the same.
-        sig_json, label = json_signature_bytes(sig)
-        sig_pem = pem_to_der(comp["signaturePEM"], label)
-        if sig_pem != sig_json:
-            sys.exit(f"component {i}: signaturePEM does not match the JSON signature")
+          # Make sure that the signature scheme in the attestInfo matches the
+          # information in the JSON encoded signature.
+          if scheme["scheme"] != sig["sigAlg"] or scheme["details"]["hashAlg"] != sig["signature"]["hash"]:
+              sys.exit(f"component {i}: signature scheme inconsistent with signature")
 
-        # Verify using the PEM-loaded key and PEM-decoded signature.
-        try:
-            verify(key_pem, scheme, sig_pem, message)
-        except InvalidSignature:
-            sys.exit(f"component {i} ({comp['type']}): signature verification FAILED")
+          # Reconstruct the signature from the JSON fields and decode the parallel
+          # signaturePEM blob. They should be the same.
+          sig_json, label = json_signature_bytes(sig)
+          sig_pem = pem_to_der(comp["signaturePEM"], label)
+          if sig_pem != sig_json:
+              sys.exit(f"component {i}: signaturePEM does not match the JSON signature")
 
+          # Verify using the PEM-loaded key and PEM-decoded signature.
+          try:
+              verify(key_pem, scheme, sig_pem, message)
+          except InvalidSignature:
+              sys.exit(f"component {i} ({comp['type']}): signature verification FAILED")
+
+        # Perform some checks specific to each component now.
         if comp["type"] == "nvpcr":
             check_nvpcr(i, comp)
+        elif comp["type"] == "capability-tpm-property":
+            check_tpm_property(i, comp)
+        elif comp["type"] == "capability-auth-policy":
+            check_auth_policy(i, comp)
         elif comp["type"] == "session-audit":
             # The report digest passed to the signer is the session audit's
             # qualifying data, so it appears as extraData prefixed with the SHA256
@@ -479,6 +638,90 @@ nvpcrs_json="$(systemd-analyze nvpcrs --json=short)"
 expected_nvpcrs="$(echo "$nvpcrs_json" | jq 'length')"
 [ "$expected_nvpcrs" -gt 0 ]
 
+# The backend also reports a fixed set of TPM properties and hierarchy auth
+# policies, read with TPM2_GetCapability inside the audit session.
+expected_props=(PERMANENT MAX_AUTH_FAIL LOCKOUT_INTERVAL LOCKOUT_RECOVERY)
+expected_policies=(OWNER LOCKOUT ENDORSEMENT)
+
+# The values the backend reports for those must be the ones the TPM reports now,
+# so we have to query them ourselves. tpm2_getcap can't do that for us: it has no
+# way to query TPM2_CAP_AUTH_POLICIES at all, and it prints TPM2_PT_PERMANENT
+# decomposed into its individual flags rather than as a value. So assemble the
+# TPM2_GetCapability commands by hand and push them through the TPM with tpm2_send.
+GETCAP="$WORK/tpm-getcap.py"
+cat >"$GETCAP" <<'EOF'
+#!/usr/bin/env python3
+"""Print a single TPM capability value, as named in the TCG TSS2 JSON format.
+
+For 'property' this prints the value of the named TPM2_PT as a decimal number, for
+'auth-policy' the policy digest of the named permanent handle as the hash algorithm
+followed by the digest in hex (the digest is empty for a null algorithm, i.e. when
+the hierarchy has no policy set)."""
+
+import struct
+import subprocess
+import sys
+
+ST_NO_SESSIONS = 0x8001
+CC_GET_CAPABILITY = 0x0000017a
+CAP_TPM_PROPERTIES = 0x00000006
+CAP_AUTH_POLICIES = 0x00000009
+
+TPM_PT_ID = {"PERMANENT": 0x00000200, "MAX_AUTH_FAIL": 0x0000020f,
+             "LOCKOUT_INTERVAL": 0x00000210, "LOCKOUT_RECOVERY": 0x00000211}
+TPM_HANDLE_ID = {"OWNER": 0x40000001, "LOCKOUT": 0x4000000a, "ENDORSEMENT": 0x4000000b}
+HASH_ALG_NAME = {0x0004: "SHA1", 0x000b: "SHA256", 0x000c: "SHA384", 0x000d: "SHA512",
+                 0x0010: "NULL"}
+
+
+def get_capability(capability, prop):
+    """Run a TPM2_GetCapability for a single property, returning the one entry of
+    the returned capability list."""
+    body = struct.pack(">III", capability, prop, 1) # capability, property, propertyCount
+    cmd = struct.pack(">HII", ST_NO_SESSIONS, 10 + len(body), CC_GET_CAPABILITY) + body
+
+    rsp = subprocess.run(["tpm2_send"], input=cmd, stdout=subprocess.PIPE, check=True).stdout
+
+    _, _, rc = struct.unpack(">HII", rsp[:10])
+    if rc != 0:
+        sys.exit(f"TPM2_GetCapability failed with response code {rc:#010x}")
+
+    # The response parameters are moreData followed by a TPMS_CAPABILITY_DATA, i.e.
+    # the capability, the number of list entries and the entries themselves.
+    _, cap, count = struct.unpack(">BII", rsp[10:19])
+    if cap != capability or count != 1:
+        sys.exit(f"TPM2_GetCapability returned capability {cap:#010x} with {count} entries")
+
+    return rsp[19:]
+
+
+def main():
+    kind, name = sys.argv[1], sys.argv[2]
+
+    if kind == "property":
+        # TPMS_TAGGED_PROPERTY
+        prop, value = struct.unpack(">II", get_capability(CAP_TPM_PROPERTIES, TPM_PT_ID[name]))
+        if prop != TPM_PT_ID[name]:
+            sys.exit(f"TPM reported property {prop:#010x} instead of {name}")
+        print(value)
+    elif kind == "auth-policy":
+        # TPMS_TAGGED_POLICY, whose policyHash is a TPMT_HA: the digest is a fixed
+        # size union member, so the rest of the entry is the digest.
+        entry = get_capability(CAP_AUTH_POLICIES, TPM_HANDLE_ID[name])
+        handle, alg = struct.unpack(">IH", entry[:6])
+        if handle != TPM_HANDLE_ID[name]:
+            sys.exit(f"TPM reported handle {handle:#010x} instead of {name}")
+        if alg not in HASH_ALG_NAME:
+            sys.exit(f"TPM reported unknown hash algorithm id {alg:#06x}")
+        print(HASH_ALG_NAME[alg], entry[6:].hex())
+    else:
+        sys.exit(f"unsupported capability kind {kind}")
+
+
+if __name__ == "__main__":
+    main()
+EOF
+
 # Verify every component signature and collect the component types.
 echo "$sig_json" | python3 "$VERIFY" "$report_digest" >"$WORK/component-types"
 mapfile -t comp_types <"$WORK/component-types"
@@ -487,6 +730,8 @@ mapfile -t comp_types <"$WORK/component-types"
 saw_pcr=0
 saw_audit=0
 n_nvpcr=0
+seen_props=()
+seen_policies=()
 
 for i in "${!comp_types[@]}"; do
     type="${comp_types[$i]}"
@@ -520,6 +765,26 @@ for i in "${!comp_types[@]}"; do
             [ "$(echo "$auth" | jq -r '.name')" = "$name" ]
             [ "$(echo "$auth" | jq -r '.priority')" = "$(echo "$expected_nvpcr" | jq -r '.priority')" ]
             ;;
+        capability-tpm-property)
+            prop="$(echo "$comp" | jq -r '.tpmProperty.property')"
+            value="$(echo "$comp" | jq -r '.tpmProperty.value')"
+            seen_props+=("$prop")
+
+            # The reported value must be the one the TPM reports for this property.
+            [ "$value" -eq "$(python3 "$GETCAP" property "$prop")" ]
+            ;;
+        capability-auth-policy)
+            handle="$(echo "$comp" | jq -r '.authPolicy.handle')"
+            alg="$(echo "$comp" | jq -r '.authPolicy.policyHash.hashAlg')"
+            # A hierarchy with no policy set is reported with a null algorithm and
+            # no digest at all, so this may legitimately be empty.
+            digest="$(echo "$comp" | jq -r '.authPolicy.policyHash.digest // ""')"
+            seen_policies+=("$handle")
+
+            # The reported policy hash must be the one the TPM reports for this
+            # hierarchy, digest included.
+            [ "$alg $digest" = "$(python3 "$GETCAP" auth-policy "$handle")" ]
+            ;;
         session-audit)
             saw_audit=1
             ;;
@@ -530,3 +795,5 @@ done
 [ "$saw_pcr" -eq 1 ]
 [ "$saw_audit" -eq 1 ]
 [ "$n_nvpcr" -eq "$expected_nvpcrs" ]
+diff <(printf '%s\n' "${expected_props[@]}" | sort) <(printf '%s\n' "${seen_props[@]}" | sort)
+diff <(printf '%s\n' "${expected_policies[@]}" | sort) <(printf '%s\n' "${seen_policies[@]}" | sort)
