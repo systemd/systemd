@@ -345,6 +345,39 @@ TEST(decompress_startswith_short) {
 #undef TEXT
 }
 
+TEST(decompress_startswith_truncated) {
+#define TEXT "HUGE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+        /* A truncated stream leaves the decoder unable to make progress: it has consumed all the input
+         * there is, and the prefix we are after never materialises. Since decompress_startswith() grows
+         * its output buffer whenever it comes back with less than the prefix decoded, that situation has
+         * to be recognised and reported — more output room cannot substitute for missing input, so
+         * growing just doubles the allocation until the allocator gives up. Hence the result may be a
+         * plain "no match", or a match once enough of the stream survived to decode the prefix, or
+         * -EBADMSG for a stream that cannot be decoded — but never -ENOMEM. */
+
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (c == COMPRESSION_NONE || !compression_supported(c))
+                        continue;
+
+                char buf[1024];
+                size_t csize;
+
+                log_info("/* decompress_startswith_truncated with %s */", compression_to_string(c));
+
+                ASSERT_OK(compress_blob(c, TEXT, sizeof TEXT, buf, sizeof buf, &csize, -1));
+
+                for (size_t i = 1; i < csize; i++) {
+                        _cleanup_free_ void *buf2 = NULL;
+                        int r;
+
+                        r = decompress_startswith(c, buf, i, &buf2, TEXT, strlen(TEXT), TEXT[strlen(TEXT)]);
+                        ASSERT_TRUE(r >= 0 || r == -EBADMSG);
+                }
+        }
+#undef TEXT
+}
+
 TEST(compress_decompress_stream) {
         for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
                 if (c == COMPRESSION_NONE || !compression_supported(c))
