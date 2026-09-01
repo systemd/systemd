@@ -47,6 +47,26 @@ static DnsResourceRecord *new_other_service_rr(uint32_t ttl) {
  * alone would admit any PTR under the browsed type, so a stream of goodbyes for names nobody holds
  * could drain the budget and leave a genuine goodbye unrescued -- the spurious "removed" the rescue
  * exists to prevent. */
+/* The flags a scope-restricted emission carries: the goodbye rescue answers on the scope whose
+ * budget admitted it, which means swapping the mDNS family bits and nothing else -- a client's
+ * NO_ZONE or NO_NETWORK travelling along is what keeps the restricted query behaving like the
+ * querier's own. */
+TEST(mdns_restrict_flags_to_family) {
+        uint64_t flags = SD_RESOLVED_MDNS | SD_RESOLVED_NO_ZONE | SD_RESOLVED_NO_NETWORK;
+
+        ASSERT_EQ(mdns_restrict_flags_to_family(flags, AF_INET),
+                  SD_RESOLVED_MDNS_IPV4 | SD_RESOLVED_NO_ZONE | SD_RESOLVED_NO_NETWORK);
+        ASSERT_EQ(mdns_restrict_flags_to_family(flags, AF_INET6),
+                  SD_RESOLVED_MDNS_IPV6 | SD_RESOLVED_NO_ZONE | SD_RESOLVED_NO_NETWORK);
+
+        /* AF_UNSPEC is the callers that do not restrict: identity. */
+        ASSERT_EQ(mdns_restrict_flags_to_family(flags, AF_UNSPEC), flags);
+
+        /* A querier pinned to one family stays on it whichever family the restriction names. */
+        ASSERT_EQ(mdns_restrict_flags_to_family(SD_RESOLVED_MDNS_IPV6, AF_INET6),
+                  SD_RESOLVED_MDNS_IPV6);
+}
+
 TEST(mdns_goodbyes_hit_discovered_matches_only_held_instances) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *held = NULL, *other = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *hit = NULL, *miss = NULL;
