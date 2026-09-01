@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO IdeaCentre Mini 01Q8X10 (Purwa)",
+    "compatible": "lenovo,purwa-ideacentre-mini-01q8x10",
+    "hwids": [
+        "694ae0fe-f407-5a28-a7b8-42874f767fd1",
+        "ce9593db-c21e-5d92-922a-b5881d3b5bc0",
+        "a1a3bdb0-0bf6-51ba-84b8-15bc0ffa1085",
+        "0fa5b19a-d837-55eb-8cc3-2961dcbcc5cc",
+        "8db38791-9759-5f99-9fda-4528aa7fcd85",
+        "434b3aab-4cfb-5916-af0f-015b1887af66",
+        "e9b204d4-c5de-5235-a9e1-ca1a27930eae",
+        "03b204a1-c87d-5d0a-a830-71c3b267efe1",
+        "8cf5845d-547c-558e-b5db-2dc96c3a1918",
+        "3553f25c-472d-519d-9e7b-93284da42015",
+        "cedd9e06-b4d3-5a74-944e-7fba5d8f8faa",
+        "737534ab-4396-53d7-9bb7-3c21176b24b0",
+        "d3ff9b34-1c07-5574-ad73-f90bdc1d33f6"
+    ]
+}
