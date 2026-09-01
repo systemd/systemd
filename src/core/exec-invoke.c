@@ -459,7 +459,7 @@ static bool can_inherit_stderr_from_stdout(const ExecContext *context) {
         if (e == EXEC_OUTPUT_NAMED_FD)
                 return false;
 
-        if (IN_SET(e, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND, EXEC_OUTPUT_FILE_TRUNCATE))
+        if (exec_output_is_file(e))
                 return path_equal(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
 
         return true;
