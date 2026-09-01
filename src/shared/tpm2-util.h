@@ -51,8 +51,10 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 int dlopen_tpm2(int log_level) _dlopen_loader_;
 
 /* tpm2_unseal() returns a bunch of different errors for various flavours of PCR issues, let's group them.
- * Kept outside the HAVE_TPM2 guard as callers switch on these errnos even in builds without TPM2. */
-#define ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r) IN_SET(r, -EREMCHG, -ENOANO, -EUCLEAN, -EPERM)
+ * Kept outside the HAVE_TPM2 guard as callers switch on these errnos even in builds without TPM2. Note that
+ * -EUCLEAN is not part of this: it means a PCR was continuously extended while unsealing, which says nothing
+ * about whether the PCR state matches the policy. */
+#define ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r) IN_SET(r, -EREMCHG, -ENOANO, -EPERM)
 
 /* Errors that mean the tried TPM2 token does not match the boot state, be it due to wrong PCR state, a
  * different PCR signing key/policy, a different TPM, or an unusable NV index. The caller should keep trying
