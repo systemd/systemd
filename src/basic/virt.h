@@ -64,3 +64,4 @@ int running_in_chroot(void);
 
 DECLARE_STRING_TABLE_LOOKUP(virtualization, Virtualization);
 bool has_cpu_with_flag(const char *flag);
+int cpu_known_features(char ***ret);
