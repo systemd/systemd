@@ -81,8 +81,8 @@
       <varlistentry>
         <term><varname>Documentation=</varname></term>
 
-        <listitem><para>A user-presentable URL to documentation about this feature.
-        This setting supports specifier expansion; see below for details on supported specifiers.</para>
+        <listitem><para>One or more user-presentable URLs to documentation about this feature. This setting may be
+        specified more than once. It supports specifier expansion; see below for details on supported specifiers.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
