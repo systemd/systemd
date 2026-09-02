@@ -839,8 +839,6 @@ int manager_start(Manager *m) {
 }
 
 Manager* manager_free(Manager *m) {
-        Link *l;
-
         if (!m)
                 return NULL;
 
@@ -848,9 +846,7 @@ Manager* manager_free(Manager *m) {
         dns_server_unlink_all(m->fallback_dns_servers);
         dns_search_domain_unlink_all(m->search_domains);
 
-        while ((l = hashmap_first(m->links)))
-               link_free(l);
-
+        m->links = hashmap_free(m->links);
         m->delegates = hashmap_free(m->delegates);
 
         while (m->dns_queries)
@@ -869,7 +865,6 @@ Manager* manager_free(Manager *m) {
 #endif
 
         set_free(m->refuse_record_types);
-        hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
 
         sd_event_source_unref(m->network_event_source);
