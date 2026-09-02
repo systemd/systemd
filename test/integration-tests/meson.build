@@ -74,6 +74,7 @@ foreach dirname : [
         'TEST-45-TIMEDATE',
         'TEST-46-HOMED',
         'TEST-50-DISSECT',
+        'TEST-51-USR-ONLY',
         'TEST-52-HONORFIRSTSHUTDOWN',
         'TEST-53-TIMER',
         'TEST-54-CREDS',
