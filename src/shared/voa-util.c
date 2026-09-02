@@ -11,6 +11,7 @@
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "set.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "voa-util.h"
@@ -221,6 +222,18 @@ static int voa_collect(
                 if (!streq(fn, name)) {
                         log_full(c->log_level, "Ignoring '%s': target '/%s' has a different name.",
                                  path, skip_leading_slash(f->resolved_path));
+                        continue;
+                }
+
+                /* The prefix was resolved twice, once to enumerate and once to open. A regular entry of
+                 * the enumerated directory must be the very file that was opened. */
+                struct stat est;
+                if (fstatat(dfd, name, &est, AT_SYMLINK_NOFOLLOW) < 0) {
+                        log_full_errno(c->log_level, errno, "Ignoring '%s': %m", path);
+                        continue;
+                }
+                if (S_ISREG(est.st_mode) && !stat_inode_same(&est, &f->st)) {
+                        log_full(c->log_level, "Ignoring '%s': changed while collecting.", path);
                         continue;
                 }
 
