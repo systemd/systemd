@@ -1125,6 +1125,22 @@ systemd-analyze architectures x86-64
 systemd-analyze architectures native
 systemd-analyze architectures uname
 
+if systemd-analyze condition \
+                   'ConditionArchitecture=|arm64' \
+                   'ConditionArchitecture=|arm64-be' \
+                   'ConditionArchitecture=|x86' \
+                   'ConditionArchitecture=|x86-64'; then
+    systemd-analyze cpu-features
+    systemd-analyze cpu-features --json=pretty
+    systemd-analyze cpu-features foo hoge fpu fp
+    systemd-analyze cpu-features --json=pretty foo hoge fpu fp avx
+else
+    (! systemd-analyze cpu-features)
+    (! systemd-analyze cpu-features --json=pretty)
+    (! systemd-analyze cpu-features foo hoge fpu fp)
+    (! systemd-analyze cpu-features --json=pretty foo hoge fpu fp avx)
+fi
+
 systemd-analyze smbios11
 systemd-analyze smbios11 -q
 
