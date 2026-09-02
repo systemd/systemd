@@ -882,7 +882,7 @@ static int ndisc_option_build_flags_extension(const sd_ndisc_option *option, uin
 
         _cleanup_free_ uint8_t *buf = new(uint8_t, 8);
         if (!buf)
-                return 0;
+                return -ENOMEM;
 
         unaligned_write_be64(buf, (option->extended_flags & UINT64_C(0x00ffffffffffff00)) << 8);
         buf[0] = SD_NDISC_OPTION_FLAGS_EXTENSION;
@@ -1794,8 +1794,10 @@ int ndisc_send(int fd, const struct in6_addr *dst, const struct icmp6_hdr *hdr, 
                 }
                 if (r == -ENOMEM)
                         return log_oom_debug();
-                if (r < 0)
+                if (r < 0) {
                         log_debug_errno(r, "Failed to build NDisc option %u, ignoring: %m", option->type);
+                        continue;
+                }
 
                 iov[n_iov++] = IOVEC_MAKE(buf, buf[1] * 8);
                 TAKE_PTR(buf);
