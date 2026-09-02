@@ -9,6 +9,15 @@ fi
 declare -i _CHILD_PID=0
 _PASSED_TESTS=()
 _SKIPPED_TESTS=()
+# Excluded by the operator rather than skipped by themselves. Both filters are unanchored
+# regexes: an unmatched TEST_MATCH_SUBTEST is most likely a typo (asked for something, got
+# nothing), while a TEST_SKIP_SUBTESTS hit is an explicit removal -- but a skip broad enough to
+# empty the whole run is refused in _show_summary unless the parent ran testcases of its own,
+# or a finalizing runner is about to turn it into a proper skip.
+_UNMATCHED_TESTS=()
+_EXCLUDED_TESTS=()
+declare -i _EXECUTED_TESTCASES=0
+declare -i _WILL_FINALIZE=0
 
 # A subtest may exit with this code to report that it skipped itself,
 # matching the skip code used by the integration test harness.
@@ -62,8 +71,29 @@ _show_summary() {(
     set +x
 
     if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_SKIPPED_TESTS[@]} -eq 0 ]]; then
-        echo >&2 "No tests were executed, this is most likely an error"
-        exit 1
+        if [[ ${#_UNMATCHED_TESTS[@]} -gt 0 && ${#_EXCLUDED_TESTS[@]} -eq 0 ]]; then
+            echo >&2 "TEST_MATCH_SUBTEST='${TEST_MATCH_SUBTEST:-}' matched no subtest, this is most likely an error"
+            exit 1
+        fi
+
+        if [[ ${#_EXCLUDED_TESTS[@]} -eq 0 ]]; then
+            echo >&2 "No tests were executed, this is most likely an error"
+            exit 1
+        fi
+
+        # Everything the filter left was named by TEST_SKIP_SUBTESTS. That is survivable when the
+        # parent ran testcases of its own, or when a finalizing runner follows to report the empty
+        # run as a skip -- but a bare run_subtests whose process ran nothing at all must not turn
+        # an over-broad skip regex into a green result.
+        if [[ $_EXECUTED_TESTCASES -eq 0 && $_WILL_FINALIZE -eq 0 ]]; then
+            echo >&2 "TEST_SKIP_SUBTESTS='${TEST_SKIP_SUBTESTS:-}' filtered out every subtest and nothing else ran, this is most likely an error"
+            exit 1
+        fi
+    fi
+
+    if [[ ${#_UNMATCHED_TESTS[@]} -gt 0 || ${#_EXCLUDED_TESTS[@]} -gt 0 ]]; then
+        printf "FILTERED OUT: %3d:\n" "$((${#_UNMATCHED_TESTS[@]} + ${#_EXCLUDED_TESTS[@]}))"
+        printf "        %s\n" "${_UNMATCHED_TESTS[@]}" "${_EXCLUDED_TESTS[@]}"
     fi
 
     printf "PASSED TESTS: %3d:\n" "${#_PASSED_TESTS[@]}"
@@ -115,12 +145,14 @@ run_subtests_with_signals() {
     for subtest in "${subtests[@]}"; do
         if [[ -n "${TEST_MATCH_SUBTEST:-}" ]] && ! [[ "$subtest" =~ $TEST_MATCH_SUBTEST ]]; then
             echo "Skipping $subtest (not matching '$TEST_MATCH_SUBTEST')"
+            _UNMATCHED_TESTS+=("$subtest")
             continue
         fi
 
         for skip in ${TEST_SKIP_SUBTESTS:-}; do
             if [[ "$subtest" =~ $skip ]]; then
                 echo "Skipping $subtest (matching '$skip')"
+                _EXCLUDED_TESTS+=("$subtest")
                 continue 2
             fi
         done
@@ -151,12 +183,14 @@ run_subtests() {
     for subtest in "${subtests[@]}"; do
         if [[ -n "${TEST_MATCH_SUBTEST:-}" ]] && ! [[ "$subtest" =~ $TEST_MATCH_SUBTEST ]]; then
             echo "Skipping $subtest (not matching '$TEST_MATCH_SUBTEST')"
+            _UNMATCHED_TESTS+=("$subtest")
             continue
         fi
 
         for skip in ${TEST_SKIP_SUBTESTS:-}; do
             if [[ "$subtest" =~ $skip ]]; then
                 echo "Skipping $subtest (matching '$skip')"
+                _EXCLUDED_TESTS+=("$subtest")
                 continue 2
             fi
         done
@@ -173,6 +207,13 @@ run_subtests() {
 }
 
 _finalize_subtests() {
+    # _show_summary has already errored out on a run that executed nothing it should have; what is
+    # left here is a deliberate TEST_SKIP_SUBTESTS covering everything, which reports as a skip.
+    if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_SKIPPED_TESTS[@]} -eq 0 && ${#_EXCLUDED_TESTS[@]} -gt 0 ]]; then
+        echo "All subtests filtered out" | tee --append /skipped
+        exit "$_SUBTEST_SKIP_RC"
+    fi
+
     if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_SKIPPED_TESTS[@]} -gt 0 ]]; then
         echo "All subtests skipped" | tee --append /skipped
         exit "$_SUBTEST_SKIP_RC"
@@ -186,6 +227,7 @@ _finalize_subtests() {
 # otherwise mark success (/testok) and exit. Use this ONLY for tests whose body is just subtests.
 # Do NOT use it if the parent script has meaningful test content of its own.
 run_subtests_and_exit() {
+    _WILL_FINALIZE=1
     run_subtests
     _finalize_subtests
 }
@@ -193,6 +235,7 @@ run_subtests_and_exit() {
 # Like run_subtests_and_exit, but propagates the given signals to the subtests (see
 # run_subtests_with_signals).
 run_subtests_with_signals_and_exit() {
+    _WILL_FINALIZE=1
     run_subtests_with_signals "$@"
     _finalize_subtests
 }
@@ -228,6 +271,7 @@ run_testcases() {
         #       function and call it for the second time once we return,
         #       causing a "double-free"
         ("$testcase")
+        _EXECUTED_TESTCASES+=1
         : "+++ $testcase END +++"
     done
 }

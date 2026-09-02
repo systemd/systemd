@@ -138,9 +138,9 @@ that make use of `run_testcases`.
 
 `TEST_SKIP`: takes a space separated list of tests to skip.
 
-`TEST_SKIP_SUBTEST=subtest`: takes a space separated list of subtests to skip.
+`TEST_SKIP_SUBTESTS=subtest`: takes a space separated list of subtests to skip.
 
-`TEST_SKIP_TESTCASE=testcase`: takes a space separated list of testcases to skip.
+`TEST_SKIP_TESTCASES=testcase`: takes a space separated list of testcases to skip.
 
 `TEST_SAVE_JOURNAL=0|1|fail`: When `0`, journal file will be removed on exit.
 When `1`, journal file will be saved at `$BUILD_DIR/test/journal`. When `fail`,
