@@ -322,8 +322,8 @@ node /org/freedesktop/sysupdate1/target/host {
 
       <variablelist>
         <varlistentry>
-          <term><literal>name</literal></term>
-          <listitem><para>A string containing the feature's name.</para></listitem>
+          <term><literal>id</literal></term>
+          <listitem><para>A string containing the feature's ID.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -333,18 +333,18 @@ node /org/freedesktop/sysupdate1/target/host {
         </varlistentry>
 
         <varlistentry>
-          <term><literal>enabled</literal></term>
+          <term><literal>isEnabled</literal></term>
           <listitem><para>A boolean indicating whether this feature is enabled.</para></listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><literal>documentationUrl</literal></term>
-          <listitem><para>An optional string that contains a user-presentable HTTP/HTTPS URL to documentation
+          <term><literal>documentation</literal></term>
+          <listitem><para>An optional array of strings containing user-presentable HTTP/HTTPS URLs to documentation
           about this feature.</para></listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><literal>appstreamUrl</literal></term>
+          <term><literal>appstream</literal></term>
           <listitem><para>An optional string that contains an HTTP/HTTPS URL to an
           <ulink url="https://wwww.freedesktop.org/software/appstream/docs/chap-CatalogData.html">appstream
           catalog</ulink> XML file containing metadata about this feature.</para></listitem>
