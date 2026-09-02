@@ -47,6 +47,7 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 #  include <openssl/pkcs7.h>            /* IWYU pragma: export */
 #  include <openssl/rsa.h>              /* IWYU pragma: export */
 #  include <openssl/sha.h>              /* IWYU pragma: export */
+#  include <openssl/x509v3.h>           /* IWYU pragma: export */
 
 #  include "dlfcn-util.h"
 
@@ -61,6 +62,7 @@ extern DLSYM_PROTOTYPE(ASN1_OCTET_STRING_it);
 extern DLSYM_PROTOTYPE(ASN1_OCTET_STRING_set);
 extern DLSYM_PROTOTYPE(ASN1_STRING_get0_data);
 extern DLSYM_PROTOTYPE(ASN1_STRING_length);
+extern DLSYM_PROTOTYPE(ASN1_STRING_type);
 extern DLSYM_PROTOTYPE(ASN1_STRING_new);
 extern DLSYM_PROTOTYPE(ASN1_STRING_set);
 extern DLSYM_PROTOTYPE(ASN1_STRING_set0);
@@ -256,6 +258,11 @@ extern DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_ip);
 extern DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set_hostflags);
 extern DLSYM_PROTOTYPE(X509_free);
 extern DLSYM_PROTOTYPE(X509_get0_pubkey);
+extern DLSYM_PROTOTYPE(X509_get0_serialNumber);
+extern DLSYM_PROTOTYPE(X509_get0_subject_key_id);
+extern DLSYM_PROTOTYPE(X509_get_extended_key_usage);
+extern DLSYM_PROTOTYPE(X509_get_extension_flags);
+extern DLSYM_PROTOTYPE(X509_get_key_usage);
 extern DLSYM_PROTOTYPE(X509_get_pubkey);
 extern DLSYM_PROTOTYPE(X509_get_subject_name);
 extern DLSYM_PROTOTYPE(X509_gmtime_adj);
@@ -435,6 +442,8 @@ int openssl_load_x509_certificate(
                 const char *certificate_source,
                 const char *certificate,
                 X509 **ret);
+
+int openssl_load_x509_certificate_from_pem(const struct iovec *pem, X509 **ret, bool *ret_more);
 
 int openssl_load_private_key(
                 KeySourceType private_key_source_type,

@@ -16,6 +16,7 @@ typedef enum ConfFilesFlags {
         CONF_FILES_TRUNCATE_SUFFIX          = 1 << 6, /* truncate specified suffix from return filename or path */
         CONF_FILES_WARN                     = 1 << 7, /* warn on some errors */
         CONF_FILES_DONT_PREFIX_ROOT         = 1 << 8, /* don't prefix the specified root path to the resulting paths */
+        CONF_FILES_CHASE_SAFE               = 1 << 9, /* refuse unsafe ownership transitions while resolving */
 } ConfFilesFlags;
 
 typedef struct ConfFile {
