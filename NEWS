@@ -350,6 +350,13 @@ CHANGES WITH 262 in spe:
           and ResetServerFeatures() methods, and resolvectl uses them where
           available for its flush-caches and reset-server-features commands.
 
+        * nss-myhostname, systemd-resolved, and networkctl now also synthesize
+          "_gateway" and "_outbound" from gateway-less point-to-point
+          default routes when the peer endpoint is unambiguous. This makes
+          ppp-style default routes resolvable even without an explicit
+          gateway address in the routing table. networkctl status will now
+          show synthesized peer addresses in its Gateway: field for such links.
+
         Changes in systemd-timesyncd:
 
         * systemd-timesyncd now resolves NTP server names through

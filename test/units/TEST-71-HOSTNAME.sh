@@ -164,7 +164,7 @@ testcase_hardware_serial() {
 }
 
 testcase_nss-myhostname() {
-    local database host i
+    local database have_p2p=0 host i
 
     if ! check_nss_module myhostname; then
         return 0
@@ -181,6 +181,16 @@ testcase_nss-myhostname() {
     done
     ip route add 10.0.0.1 dev foo
     ip route add default via 10.0.0.1 dev foo
+
+    if ip link add p2pfoo type ipip local 192.0.2.1 remote 192.0.2.2; then
+        have_p2p=1
+        trap 'ip link del p2pfoo || :' RETURN
+        ip link set up dev p2pfoo
+        ip addr add 10.1.0.1 peer 10.1.0.2 dev p2pfoo
+        ip route add default dev p2pfoo metric 2048
+    else
+        echo "Skipping p2p _gateway check: failed to create ipip link" >&2
+    fi
 
     # Note: `getent hosts` probes gethostbyname2(), whereas `getent ahosts` probes gethostbyname3()
     #       and gethostbyname4() (through getaddrinfo() -> gaih_inet() -> get_nss_addresses())
@@ -243,6 +253,12 @@ testcase_nss-myhostname() {
         run_and_grep "^10\.0\.0\.1\s+_gateway$" getent hosts -s myhostname "$host"
         run_and_grep "^10\.0\.0\.1\s+STREAM" getent ahosts -s myhostname "$host"
     done
+    if (( have_p2p )); then
+        for host in _gateway{,.} 10.1.0.2; do
+            run_and_grep "^10\.1\.0\.2\s+_gateway$" getent hosts -s myhostname "$host"
+            run_and_grep "^10\.1\.0\.2\s+STREAM" getent ahosts -s myhostname "$host"
+        done
+    fi
 
     # _outbound
     for host in _outbound{,.} 10.0.0.2; do
