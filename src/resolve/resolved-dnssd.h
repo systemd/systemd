@@ -39,6 +39,10 @@ typedef struct DnssdRegisteredService {
 
         Manager *manager;
 
+        /* Tracks the D-Bus client that registered the service, so that it can be unregistered when the
+         * client disconnects from the bus. Only set for services registered via D-Bus. */
+        sd_bus_track *bus_track;
+
         /* Services registered via D-Bus are not removed on reload */
         ResolveConfigSource config_source;
 
@@ -47,6 +51,7 @@ typedef struct DnssdRegisteredService {
 } DnssdRegisteredService;
 
 DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *service);
+void dnssd_registered_service_unregister(DnssdRegisteredService *service);
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);
 DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
 void dnssd_registered_service_clear_on_reload(Hashmap *services);
