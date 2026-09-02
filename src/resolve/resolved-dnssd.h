@@ -50,6 +50,8 @@ typedef struct DnssdRegisteredService {
         uid_t originator;
 } DnssdRegisteredService;
 
+extern const struct hash_ops dnssd_registered_service_hash_ops;
+
 DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *service);
 void dnssd_registered_service_unregister(DnssdRegisteredService *service);
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);

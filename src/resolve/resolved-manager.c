@@ -840,7 +840,6 @@ int manager_start(Manager *m) {
 
 Manager* manager_free(Manager *m) {
         Link *l;
-        DnssdRegisteredService *s;
 
         if (!m)
                 return NULL;
@@ -914,8 +913,6 @@ Manager* manager_free(Manager *m) {
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
 
-        while ((s = hashmap_first(m->dnssd_registered_services)))
-               dnssd_registered_service_free(s);
         hashmap_free(m->dnssd_registered_services);
 
         dns_trust_anchor_flush(&m->trust_anchor);
