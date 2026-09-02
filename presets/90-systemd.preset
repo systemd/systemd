@@ -67,5 +67,6 @@ disable systemd-confext-sysroot.service
 disable systemd-journal-gatewayd.*
 disable systemd-journal-remote.*
 disable systemd-journal-upload.*
+disable systemd-keyring-setup.service
 disable systemd-sysext-sysroot.service
 disable systemd-time-wait-sync.service
