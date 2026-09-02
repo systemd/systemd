@@ -167,18 +167,15 @@ static void vl_on_disconnect(sd_varlink_server *s, sd_varlink *link, void *userd
         if (!m)
                 return;
 
-        DnsServiceBrowser *sb = hashmap_remove(m->dns_service_browsers, link);
-        dns_service_browser_unref(sb);
-
         q = sd_varlink_get_userdata(link);
-        if (!q)
-                return;
+        if (q && DNS_TRANSACTION_IS_LIVE(q->state)) {
+                log_debug("Client of active query vanished, aborting query.");
+                dns_query_complete(q, DNS_TRANSACTION_ABORTED);
+        }
 
-        if (!DNS_TRANSACTION_IS_LIVE(q->state))
-                return;
-
-        log_debug("Client of active query vanished, aborting query.");
-        dns_query_complete(q, DNS_TRANSACTION_ABORTED);
+        DnsServiceBrowser *sb = hashmap_remove(m->dns_service_browsers, link);
+        if (sb)
+                dns_service_browser_detach(sb);
 }
 
 static void vl_on_notification_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
