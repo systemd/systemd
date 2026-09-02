@@ -543,6 +543,15 @@ def main() -> None:
             '''
         )
 
+    if os.getenv('TEST_SKIP_SUBTESTS'):
+        # Quoted, unlike the values above: this one is a space-separated list.
+        dropin += textwrap.dedent(
+            f'''
+            [Service]
+            Environment="TEST_SKIP_SUBTESTS={os.environ['TEST_SKIP_SUBTESTS']}"
+            '''
+        )
+
     if os.getenv('TEST_RUN_DFUZZER'):
         dropin += textwrap.dedent(
             f'''
