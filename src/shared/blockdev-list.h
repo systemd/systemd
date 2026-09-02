@@ -6,16 +6,17 @@
 typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_SHOW_SYMLINKS              = 1 << 0,  /* Pick up symlinks to block devices too */
         BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING = 1 << 1,  /* Only consider block devices with partition scanning */
-        BLOCKDEV_LIST_IGNORE_VIRTUAL             = 1 << 2,  /* Ignore virtual devices (devices under /sys/devices/virtual/) */
-        BLOCKDEV_LIST_IGNORE_PARTITIONS          = 1 << 3,  /* Ignore partitions */
-        BLOCKDEV_LIST_IGNORE_ZRAM                = 1 << 4,  /* Ignore ZRAM */
-        BLOCKDEV_LIST_IGNORE_ROOT                = 1 << 5,  /* Ignore the block device we are currently booted from */
-        BLOCKDEV_LIST_IGNORE_EMPTY               = 1 << 6,  /* Ignore disks of zero size (usually drives without a medium) */
-        BLOCKDEV_LIST_IGNORE_READ_ONLY           = 1 << 7,  /* Ignore read-only block devices */
-        BLOCKDEV_LIST_REQUIRE_LUKS               = 1 << 8,  /* Only consider block devices with LUKS superblocks */
-        BLOCKDEV_LIST_METADATA                   = 1 << 9,  /* Fill in model, vendor, subsystem, read_only */
-        BLOCKDEV_LIST_DISKSEQ                    = 1 << 10, /* Fill in the diskseq field */
-        BLOCKDEV_LIST_RW_STATS                   = 1 << 11, /* Fill in read and write measurements */
+        BLOCKDEV_LIST_IGNORE_VIRTUAL             = 1 << 2,  /* Ignore virtual devices (devices under /sys/devices/virtual/), except loopback devices */
+        BLOCKDEV_LIST_IGNORE_LOOP                = 1 << 3,  /* Ignore loopback devices */
+        BLOCKDEV_LIST_IGNORE_PARTITIONS          = 1 << 4,  /* Ignore partitions */
+        BLOCKDEV_LIST_IGNORE_ZRAM                = 1 << 5,  /* Ignore ZRAM */
+        BLOCKDEV_LIST_IGNORE_ROOT                = 1 << 6,  /* Ignore the block device we are currently booted from */
+        BLOCKDEV_LIST_IGNORE_EMPTY               = 1 << 7,  /* Ignore disks of zero size (usually drives without a medium) */
+        BLOCKDEV_LIST_IGNORE_READ_ONLY           = 1 << 8,  /* Ignore read-only block devices */
+        BLOCKDEV_LIST_REQUIRE_LUKS               = 1 << 9,  /* Only consider block devices with LUKS superblocks */
+        BLOCKDEV_LIST_METADATA                   = 1 << 10, /* Fill in model, vendor, subsystem, read_only */
+        BLOCKDEV_LIST_DISKSEQ                    = 1 << 11, /* Fill in the diskseq field */
+        BLOCKDEV_LIST_RW_STATS                   = 1 << 12, /* Fill in read and write measurements */
 } BlockDevListFlags;
 
 /* The "dynamic" filters – ones the kernel can flip at runtime via sysattrs on a live device.

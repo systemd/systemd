@@ -167,7 +167,22 @@ int blockdev_list_one(
                         goto no_match;
         }
 
-        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_VIRTUAL)) {
+        bool is_loop = false;
+        if (flags & (BLOCKDEV_LIST_IGNORE_LOOP|BLOCKDEV_LIST_IGNORE_VIRTUAL)) {
+                r = device_sysname_startswith(dev, "loop");
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to check device name of discovered block device '%s', ignoring: %m", node);
+                        goto skipped;
+                }
+
+                is_loop = r > 0;
+                if (is_loop && FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_LOOP))
+                        goto no_match;
+        }
+
+        /* Loopback devices are virtual devices too, but they are covered by BLOCKDEV_LIST_IGNORE_LOOP above,
+         * hence exclude them here. */
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_VIRTUAL) && !is_loop) {
                 const char *devpath;
 
                 r = sd_device_get_devpath(dev, &devpath);
