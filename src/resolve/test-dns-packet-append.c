@@ -209,6 +209,72 @@ TEST(packet_append_key_single_soa_any_class) {
         ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
 }
 
+TEST(packet_append_key_cache_flush_mdns) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_MDNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1, 0, 1, 0, 0, 0, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(packet)->ancount = htobe16(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.local");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_packet_append_key(packet, key, DNS_ANSWER_CACHE_FLUSH, NULL));
+        dns_resource_key_unref(key);
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x05, 'l', 'o', 'c', 'a', 'l',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN + cache-flush */
+                        0x80, 0x01
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+/* The cache-flush bit is defined for mDNS only. RRs taken from our mDNS zone carry
+ * DNS_ANSWER_CACHE_FLUSH, but when they are sent out via the DNS stub the bit must not end up in the
+ * CLASS field, where it would be parsed as class 32769. See RFC 6762, section 10.2. */
+TEST(packet_append_key_cache_flush_dns) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1, 0, 1, 0, 0, 0, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(packet)->ancount = htobe16(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.local");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_packet_append_key(packet, key, DNS_ANSWER_CACHE_FLUSH, NULL));
+        dns_resource_key_unref(key);
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x05, 'l', 'o', 'c', 'a', 'l',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
 /* ================================================================
  * dns_packet_append_question()
  * ================================================================ */
@@ -813,6 +879,58 @@ TEST(packet_append_answer_single_ptr) {
         /* rdata */     0x00, 0x0d,
         /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
                         0x03, 'c', 'o', 'm',
+                        0x00
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+/* Reverse lookups for link-local addresses are answered from resolved's own mDNS zone, whose answer
+ * items carry DNS_ANSWER_CACHE_FLUSH. When such an RR is handed to a client of the DNS stub the
+ * cache-flush bit must be dropped, otherwise the client sees CLASS32769 instead of IN. */
+TEST(packet_append_answer_single_ptr_ip6_cache_flush) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnsResourceRecord *rr = NULL;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
+                                          "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa");
+        ASSERT_NOT_NULL(rr);
+        rr->ttl = 120;
+        rr->ptr.name = strdup("example.local");
+
+        answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(answer);
+        dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHE_FLUSH, NULL);
+        dns_resource_record_unref(rr);
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1, 0, 1, 0, 1, 1, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(packet)->ancount = htobe16(dns_answer_size(answer));
+
+        ASSERT_OK(dns_packet_append_answer(packet, answer, NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_QR | BIT_AA | BIT_RD, BIT_RA | DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x01, '1', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0',
+                        0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0',
+                        0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0',
+                        0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '0', 0x01, '8', 0x01, 'e', 0x01, 'f',
+                        0x03, 'i', 'p', '6',
+                        0x04, 'a', 'r', 'p', 'a',
+                        0x00,
+        /* PTR */       0x00, 0x0c,
+        /* IN */        0x00, 0x01,
+        /* ttl */       0x00, 0x00, 0x00, 0x78,
+        /* rdata */     0x00, 0x0f,
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x05, 'l', 'o', 'c', 'a', 'l',
                         0x00
         };
 
