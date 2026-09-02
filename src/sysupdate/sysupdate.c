@@ -2019,6 +2019,8 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 }
 
+static int feature_to_json(Context *context, const Feature *f, sd_json_variant **ret);
+
 VERB(verb_features, "features", "[FEATURE]\0", VERB_ANY, 2, 0,
      "Show optional features");
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -2055,6 +2057,16 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "Optional feature not found: %s",
                                                feature_id);
+
+                if (sd_json_format_enabled(arg_json_format_flags)) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+
+                        r = feature_to_json(&context, f, &json);
+                        if (r < 0)
+                                return r;
+
+                        return sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                }
 
                 table = table_new_vertical();
                 if (!table)
@@ -2415,8 +2427,8 @@ static int feature_to_json(Context *context, const Feature *f, sd_json_variant *
         if (r < 0)
                 return r;
 
-        /* FIXME: Long term we’d like to support an array of documentation, but currently the D-Bus interface
-         * doesn’t support that and neither do the internals of sysupdate. So just expose 0 or 1 URLs for now. */
+        /* FIXME: The internals of sysupdate currently support only one documentation URL, so expose 0 or 1
+         * URLs for now while keeping the API extensible. */
         documentation_strv[0] = f->documentation;
 
         r = sd_json_variant_merge_objectbo(
