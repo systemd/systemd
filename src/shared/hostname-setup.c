@@ -331,45 +331,72 @@ static bool normalize_and_validate_word(char *word) {
         return hostname_is_valid(word, /* flags= */ 0);
 }
 
-static int pick_word_linear_scan(FILE *f, off_t offset, char **ret) {
-        int r;
-
-        assert(f);
+static int pick_word_at(const char *words, size_t size, size_t offset, char **ret) {
+        assert(words);
+        assert(offset <= size);
         assert(ret);
 
-        if (fseeko(f, offset, SEEK_SET) < 0)
-                return -errno;
+        /* Extracts the line starting at 'offset', strips and validates it. Returns 1 and the word on
+         * success, 0 if the line is a comment, empty, or not a valid hostname word. */
 
-        bool wrapped = false;
-        r = read_line(f, LONG_LINE_MAX, NULL); /* discard the partial line we landed in */
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                wrapped = true;
-                rewind(f);
+        const char *p = words + offset;
+        size_t len = MIN(size - offset, LONG_LINE_MAX + 1);
+
+        const char *e = memchr(p, '\n', len);
+        if (e)
+                len = e - p;
+        if (len > LONG_LINE_MAX)
+                return -EUCLEAN;
+
+        /* Strip leading and trailing whitespace */
+        while (len > 0 && strchr(WHITESPACE, p[0])) {
+                p++;
+                len--;
         }
+        while (len > 0 && strchr(WHITESPACE, p[len - 1]))
+                len--;
+
+        _cleanup_free_ char *word = strndup(p, len);
+        if (!word)
+                return -ENOMEM;
+
+        bool good = normalize_and_validate_word(word);
+        *ret = good ? TAKE_PTR(word) : NULL;
+        return good;
+}
+
+static int pick_word_linear_scan(const char *words, size_t size, size_t offset, char **ret) {
+        int r;
+
+        assert(words);
+        assert(size > 0);
+        assert(offset <= size);
+        assert(ret);
+
+        /* Skip the partial line we landed in */
+        bool wrapped = false;
+        const char *e = memchr(words + offset, '\n', size - offset);
+        offset = e ? (size_t) (e - words) + 1 : size;
 
         for (;;) {
-                _cleanup_free_ char *line = NULL;
-
-                r = read_stripped_line(f, LONG_LINE_MAX, &line);
-                if (r < 0)
-                        return r;
-                if (r == 0) { /* hit EOF: we started at a random offset, wrap around to the beginning */
+                if (offset >= size) { /* hit EOF: we started at a random offset, wrap around to the beginning */
                         if (wrapped) /* already wrapped once, the file contains no usable word at all */
                                 return -ENOENT;
                         wrapped = true;
-                        rewind(f);
-                        continue;
+                        offset = 0;
                 }
-                if (normalize_and_validate_word(line)) {
-                        *ret = TAKE_PTR(line);
-                        return 0;
-                }
+
+                r = pick_word_at(words, size, offset, ret);
+                if (r != 0)
+                        return r < 0 ? r : 0;
+
+                /* Advance to the next line */
+                e = memchr(words + offset, '\n', size - offset);
+                offset = e ? (size_t) (e - words) + 1 : size;
         }
 }
 
-static int hostname_pick_word(sd_id128_t mid, size_t pos, char **ret) {
+int hostname_pick_word(sd_id128_t mid, size_t pos, char **ret) {
         static const sd_id128_t word_key = SD_ID128_MAKE(2d,9f,1c,7a,4b,8e,43,11,9a,6d,5f,02,c8,77,e3,14);
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
@@ -391,55 +418,48 @@ static int hostname_pick_word(sd_id128_t mid, size_t pos, char **ret) {
         r = stat_verify_regular(&st);
         if (r < 0)
                 return r;
-        if (st.st_size == 0)
+
+        _cleanup_free_ char *words = NULL;
+        size_t size;
+        r = read_full_stream(f, &words, &size);
+        if (r < 0)
+                return r;
+        if (size == 0)
                 return -ENOENT;
 
-        /* Pick a word without reading the whole list into memory:
-         * 1. pick a random offset in the file [0 … st.st_size-1]
-         * 2. if offset is zero, read a full line from the beginning of the file, use that.
-         * 3. otherwise, seek to offset minus 1 and read one character.
-         * 4. if that character is newline, then read a full line after it, and use that as result
-         * 5. otherwise, goto 1
+        /* Pick a word:
+         * 1. pick a random offset in the buffer [0 … size-1]
+         * 2. if the offset is zero or the preceding byte is a newline, it starts a line: use that line
+         * 3. otherwise, goto 1
          *
          * As a safety net terminate after a fixed number iterations (for pathological wordlists)
-         * This stream is independent of the '?' nibble stream so pure-'?'  * templates keep producing
+         * This stream is independent of the '?' nibble stream so pure-'?' templates keep producing
          * byte-identical output. Stable as long as the wordlist is stable. */
-        off_t offset = 0;
+        size_t offset = 0;
         const unsigned int MAX_ITERATIONS = 64;
         for (unsigned i = 0; i < MAX_ITERATIONS; i++) {
-                _cleanup_free_ char *line = NULL;
-
                 struct siphash state;
                 siphash24_init(&state, word_key.bytes);
                 siphash24_compress_typesafe(mid, &state);
                 siphash24_compress_typesafe(pos, &state);
                 siphash24_compress_typesafe(i, &state); /* counter mode */
-                offset = (off_t) (siphash24_finalize(&state) % (uint64_t) st.st_size);
+                offset = (size_t) (siphash24_finalize(&state) % (uint64_t) size);
 
-                if (offset > 0) {
-                        if (fseeko(f, offset - 1, SEEK_SET) < 0)
-                                return -errno;
-                        if (fgetc(f) != '\n')
-                                continue; /* not a line start */
-                } else if (fseeko(f, 0, SEEK_SET) < 0) /* offset 0 always begins the first line */
-                        return -errno;
+                if (offset > 0 && words[offset - 1] != '\n')
+                        continue; /* not a line start */
 
-                r = read_stripped_line(f, LONG_LINE_MAX, &line);
-                if (r < 0)
-                        return r;
-                if (r == 0) /* raced with truncation */
-                        continue;
-                if (normalize_and_validate_word(line)) {
-                        *ret = TAKE_PTR(line);
-                        return 0;
-                }
+                r = pick_word_at(words, size, offset, ret);
+                if (r != 0)
+                        return r < 0 ? r : 0;
+
                 /* Comment/empty/invalid line: resample rather than advancing, to keep the pick uniform. */
         }
 
-        /* We exhausted the uniform attempts, this should never happen but if it does fallback to picking the
-        * next word after our last attempt. */
-        log_warning("hostname_pick_word did not find a usable word after %u in wordlist %zu", MAX_ITERATIONS, pos);
-        return pick_word_linear_scan(f, offset, ret);
+        /* We exhausted the uniform attempts, this occasionally happens, so fall back to picking the next
+         * word after our last offset. */
+        log_debug("Falling back to linear scan for a word in wordlist %zu after trying %u random offsets.",
+                  pos, MAX_ITERATIONS);
+        return pick_word_linear_scan(words, size, offset, ret);
 }
 
 int hostname_substitute_wildcards(const char *name, char **ret) {

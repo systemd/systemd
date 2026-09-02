@@ -22,6 +22,7 @@ int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret);
 void hostname_update_source_hint(const char *hostname, HostnameSource source);
 int hostname_setup(bool really);
 
+int hostname_pick_word(sd_id128_t mid, size_t pos, char **ret);
 int hostname_substitute_wildcards(const char *name, char **ret);
 
 char* get_default_hostname(void);
