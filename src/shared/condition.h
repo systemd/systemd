@@ -87,6 +87,7 @@ typedef int (*condition_test_logger_t)(void *userdata, int level, int error, con
 typedef const char* (*condition_to_string_t)(ConditionType t) _const_;
 bool condition_test_list_net(Condition *first, char **env, condition_to_string_t to_string, condition_test_logger_t logger, void *userdata);
 bool condition_test_list(Condition *first, char **env, condition_to_string_t to_string, condition_test_logger_t logger, void *userdata);
+int condition_test_list_errno(Condition *first, char **env, condition_to_string_t to_string, condition_test_logger_t logger, void *userdata);
 
 void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string);
 void condition_dump_list(Condition *first, FILE *f, const char *prefix, condition_to_string_t to_string);

@@ -44,6 +44,15 @@
 #include "user-util.h"
 #include "virt.h"
 
+TEST(condition_test_list_errno) {
+        Condition *condition;
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
+        ASSERT_FALSE(condition_test_list(condition, environ, NULL, NULL, NULL));
+        ASSERT_ERROR(condition_test_list_errno(condition, environ, NULL, NULL, NULL), EINVAL);
+        condition_free(condition);
+}
+
 TEST(condition_test_path) {
         Condition *condition;
 
