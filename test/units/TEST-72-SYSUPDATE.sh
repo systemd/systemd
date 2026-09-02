@@ -524,6 +524,8 @@ EOF
         verify_object_fields "$("$UPDATECTL" list 2>&1)"
         verify_object_fields "$("$UPDATECTL" list host 2>&1)"
         verify_object_fields "$("$UPDATECTL" list host@v6 2>&1)"
+        "$UPDATECTL" features | grep "optional" >/dev/null
+        "$UPDATECTL" features optional | grep "Optional Feature" >/dev/null
         "$UPDATECTL" check
         rm -r /run/sysupdate.test.d
     fi
