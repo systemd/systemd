@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -22,6 +23,7 @@
 #include "hexdecoct.h"
 #include "install-file.h"
 #include "mkdir.h"
+#include "mountpoint-util.h"
 #include "notify-recv.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
@@ -32,6 +34,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "specifier.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -1324,6 +1327,138 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
         }
 
         return 0;
+}
+
+static int open_nearest_existing_ancestor(const char *path, int flags) {
+        _cleanup_free_ char *candidate = NULL;
+
+        assert(path);
+
+        candidate = strdup(path);
+        if (!candidate)
+                return -ENOMEM;
+
+        for (;;) {
+                _cleanup_free_ char *parent = NULL;
+                int fd, r;
+
+                fd = open_parent(candidate, flags, 0);
+                if (fd != -ENOENT)
+                        return fd;
+
+                r = path_extract_directory(candidate, &parent);
+                if (r == -EDESTADDRREQ)
+                        parent = strdup(".");
+                else if (r == -EADDRNOTAVAIL) {
+                        if (streq(candidate, "."))
+                                return -ENOENT;
+
+                        parent = strdup(candidate);
+                } else if (r < 0)
+                        return r;
+                if (!parent)
+                        return -ENOMEM;
+
+                if (streq(parent, "/"))
+                        return -ENOENT;
+
+                free(candidate);
+                candidate = TAKE_PTR(parent);
+        }
+}
+
+int transfer_measure_free_space(
+                Transfer *t,
+                Instance *i,
+                uint64_t *ret_required,
+                uint64_t *ret_free,
+                dev_t *ret_dev) {
+        _cleanup_close_ int parent_fd = -EBADF;
+        _cleanup_close_ int target_parent_fd = -EBADF;
+        struct stat st;
+        uint64_t required, free_bytes;
+        int parent_mnt_id, target_mnt_id;
+        int r;
+
+        assert(t);
+        assert(i);
+        assert(ret_required);
+        assert(ret_free);
+        assert(ret_dev);
+
+        if (!RESOURCE_IS_FILESYSTEM(t->target.type) ||
+            i->resource == &t->target ||
+            resource_find_instance(&t->target, i->metadata.version))
+                return 0;
+
+        assert(t->final_path);
+
+        parent_fd = open_nearest_existing_ancestor(t->final_path, O_RDONLY|O_CLOEXEC|O_NOFOLLOW);
+        if (parent_fd < 0) {
+                log_debug_errno(parent_fd, "Failed to open existing parent directory of '%s', "
+                                "skipping free space check: %m",
+                                t->final_path);
+                return 0;
+        }
+
+        r = path_get_mnt_id(t->target.path, &target_mnt_id);
+        if (r == -ENOENT) {
+                target_parent_fd = open_nearest_existing_ancestor(
+                                t->target.path,
+                                O_RDONLY|O_CLOEXEC|O_NOFOLLOW);
+                if (target_parent_fd < 0) {
+                        log_debug_errno(target_parent_fd, "Failed to open existing parent directory of target '%s', "
+                                        "skipping free space check: %m",
+                                        t->target.path);
+                        return 0;
+                }
+
+                r = path_get_mnt_id_at(target_parent_fd, NULL, &target_mnt_id);
+        }
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine the mount containing target '%s', "
+                                "skipping free space check: %m",
+                                t->target.path);
+                return 0;
+        }
+
+        r = path_get_mnt_id_at(parent_fd, NULL, &parent_mnt_id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine the mount containing '%s', "
+                                "skipping free space check: %m",
+                                t->final_path);
+                return 0;
+        }
+        if (parent_mnt_id != target_mnt_id) {
+                log_debug("Target '%s' and destination '%s' are on different mounts, skipping free space check.",
+                          t->target.path,
+                          t->final_path);
+                return 0;
+        }
+
+        if (fstat(parent_fd, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat parent directory of '%s', "
+                                "skipping free space check: %m",
+                                t->final_path);
+                return 0;
+        }
+
+        r = vfs_free_bytes(parent_fd, &free_bytes);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine free space for '%s', "
+                                "skipping free space check: %m",
+                                t->final_path);
+                return 0;
+        }
+
+        instance_get_expected_size(i, &required);
+        if (required == UINT64_MAX)
+                return 0;
+
+        *ret_required = required;
+        *ret_free = free_bytes;
+        *ret_dev = st.st_dev;
+        return 1;
 }
 
 int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
