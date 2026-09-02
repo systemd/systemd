@@ -1390,6 +1390,8 @@ typedef struct Feature {
         char *description;
         bool enabled;
         char *documentation;
+        char *appstream;
+        char **documentation_urls;
         char **transfers;
 } Feature;
 
@@ -1398,6 +1400,8 @@ static void feature_done(Feature *f) {
         f->name = mfree(f->name);
         f->description = mfree(f->description);
         f->documentation = mfree(f->documentation);
+        f->appstream = mfree(f->appstream);
+        f->documentation_urls = strv_free(f->documentation_urls);
         f->transfers = strv_free(f->transfers);
 }
 
@@ -1410,11 +1414,12 @@ static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",             SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, name),          SD_JSON_MANDATORY },
-                { "description",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, description),   0                 },
-                { "enabled",          SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(Feature, enabled),       SD_JSON_MANDATORY },
-                { "documentationUrl", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, documentation), 0                 },
-                { "transfers",        SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(Feature, transfers),     0                 },
+                { "id",              SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, name),               SD_JSON_MANDATORY },
+                { "description",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, description),        0                 },
+                { "isEnabled",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(Feature, enabled),            SD_JSON_MANDATORY },
+                { "documentation",   SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(Feature, documentation_urls), 0                 },
+                { "appstream",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, appstream),          0                 },
+                { "transfers",       SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(Feature, transfers),          0                 },
                 {}
         };
 
@@ -1443,9 +1448,16 @@ static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse JSON: %m");
 
-        r = sd_json_dispatch(v, dispatch_table, 0, &f);
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to dispatch JSON: %m");
+
+        if (!strv_isempty(f.documentation_urls)) {
+                f.documentation = strdup(f.documentation_urls[0]);
+                if (!f.documentation)
+                        return log_oom();
+                f.documentation_urls = strv_free(f.documentation_urls);
+        }
 
         *ret = TAKE_STRUCT(f);
         return 0;
@@ -1545,6 +1557,15 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                                    TABLE_FIELD, "Documentation",
                                    TABLE_STRING, f.documentation,
                                    TABLE_SET_URL, f.documentation);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (f.appstream) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "AppStream",
+                                   TABLE_STRING, f.appstream,
+                                   TABLE_SET_URL, f.appstream);
                 if (r < 0)
                         return table_log_add_error(r);
         }
