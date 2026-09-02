@@ -167,7 +167,22 @@ int blockdev_list_one(
                         goto no_match;
         }
 
-        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_VIRTUAL)) {
+        bool is_loop = false;
+        if (flags & (BLOCKDEV_LIST_IGNORE_LOOP|BLOCKDEV_LIST_IGNORE_VIRTUAL)) {
+                r = device_sysname_startswith(dev, "loop");
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to check device name of discovered block device '%s', ignoring: %m", node);
+                        goto skipped;
+                }
+
+                is_loop = r > 0;
+                if (is_loop && FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_LOOP))
+                        goto no_match;
+        }
+
+        /* Loopback devices are virtual devices too, but they are covered by BLOCKDEV_LIST_IGNORE_LOOP above,
+         * hence exclude them here. */
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_VIRTUAL) && !is_loop) {
                 const char *devpath;
 
                 r = sd_device_get_devpath(dev, &devpath);
@@ -340,7 +355,13 @@ skipped:
         return BLOCKDEV_LIST_MATCH_SKIPPED;
 }
 
-int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *ret_n_devices) {
+int blockdev_list_full(
+                BlockDevListFlags flags,
+                dev_t root_devno,
+                dev_t whole_root_devno,
+                BlockDevice **ret_devices,
+                size_t *ret_n_devices) {
+
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
 
@@ -353,8 +374,8 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
         size_t n = 0;
         CLEANUP_ARRAY(l, n, block_device_array_free);
 
-        dev_t root_devno = 0, whole_root_devno = 0;
-        (void) blockdev_list_get_root_devnos(flags, &root_devno, &whole_root_devno);
+        if (root_devno == 0 && whole_root_devno == 0)
+                (void) blockdev_list_get_root_devnos(flags, &root_devno, &whole_root_devno);
 
         if (sd_device_enumerator_new(&e) < 0)
                 return log_oom();
