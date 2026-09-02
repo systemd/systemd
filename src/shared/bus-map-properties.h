@@ -24,3 +24,9 @@ int bus_map_job_id(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_er
 int bus_message_map_all_properties(sd_bus_message *m, const struct bus_properties_map *map, unsigned flags, sd_bus_error *reterr_error, void *userdata);
 int bus_map_all_properties(sd_bus *bus, const char *destination, const char *path, const struct bus_properties_map *map,
                            unsigned flags, sd_bus_error *reterr_error, sd_bus_message **ret_reply, void *userdata);
+int bus_get_all_properties(
+                sd_bus *bus,
+                const char *destination,
+                const char *path,
+                sd_bus_error *reterr_error,
+                sd_bus_message **ret_reply);
