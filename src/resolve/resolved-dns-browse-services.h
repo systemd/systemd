@@ -33,7 +33,6 @@ struct DnssdDiscoveredService {
         int ifindex;
         usec_t until;
         DnsRecordTTLState rr_ttl_state;
-        DnsQuery *query;
         LIST_FIELDS(DnssdDiscoveredService, dns_services);
 };
 
@@ -51,9 +50,6 @@ struct DnsServiceBrowser {
         uint64_t token;
         LIST_HEAD(DnssdDiscoveredService, dns_services);
 };
-
-void dns_remove_service(DnsServiceBrowser *sb, DnssdDiscoveredService *service);
-DnssdDiscoveredService *dns_service_free(DnssdDiscoveredService *service);
 
 void dns_service_browser_detach(DnsServiceBrowser *sb);
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceBrowser, dns_service_browser);
