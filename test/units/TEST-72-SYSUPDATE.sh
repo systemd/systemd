@@ -254,7 +254,10 @@ verify_version_current() {
 verify_object_fields() {
     local updatectl_output="${1:?}"
 
-    [[ "${updatectl_output}" != *"Unrecognized object field"* ]]
+    [[ "${updatectl_output}" != *"Unexpected object field"* &&
+       "${updatectl_output}" != *"Missing object field"* &&
+       "${updatectl_output}" != *"Failed to dispatch JSON"* &&
+       "${updatectl_output}" != *"Failed to parse JSON"* ]]
 }
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
@@ -397,6 +400,26 @@ EOF
     cat >"$CONFIGDIR/optional.feature" <<EOF
 [Feature]
 Description=Optional Feature
+Documentation=https://example.com/optional
+Documentation=https://example.com/optional-more
+AppStream=https://example.com/optional.appstream.xml
+EOF
+
+    cat >"$CONFIGDIR/undocumented.feature" <<EOF
+[Feature]
+Description=Feature Without Documentation
+EOF
+
+    cat >"$CONFIGDIR/malformed.feature" <<EOF
+[Feature]
+Description=Feature With Invalid Suggest Condition
+SuggestOnFirmware=smbios-field(malformed)
+EOF
+
+    cat >"$CONFIGDIR/suggested.feature" <<EOF
+[Feature]
+Description=Suggested Feature
+Suggest=yes
 EOF
 
     cat >"$CONFIGDIR/99-optional.transfer" <<EOF
@@ -476,6 +499,31 @@ EOF
         exit 1
     fi
 
+    feature_json="$("$SYSUPDATE" --json=short features optional)"
+    jq -e '.id == "optional"' <<<"$feature_json" >/dev/null
+    jq -e '
+        .documentation == [
+            "https://example.com/optional",
+            "https://example.com/optional-more"
+        ]
+    ' <<<"$feature_json" >/dev/null
+    jq -e '.isEnabled == false' <<<"$feature_json" >/dev/null
+    jq -e '.suggested == false' <<<"$feature_json" >/dev/null
+    jq -e '.appstream == "https://example.com/optional.appstream.xml"' <<<"$feature_json" >/dev/null
+
+    suggested_json="$("$SYSUPDATE" --json=short features suggested)"
+    jq -e '.id == "suggested" and .suggested == true' <<<"$suggested_json" >/dev/null
+
+    undocumented_json="$("$SYSUPDATE" --json=short features undocumented)"
+    jq -e '.id == "undocumented" and (.documentation == null)' <<<"$undocumented_json" >/dev/null
+    "$SYSUPDATE" features undocumented | grep -F "Feature Without Documentation" >/dev/null
+
+    malformed_json="$("$SYSUPDATE" --json=short features malformed)"
+    jq -e '.id == "malformed" and (has("suggested") | not)' <<<"$malformed_json" >/dev/null
+    "$SYSUPDATE" features malformed | grep -F "error (Invalid argument)" >/dev/null
+    all_features_output="$("$SYSUPDATE" features)"
+    grep -F "malformed" <<<"$all_features_output" >/dev/null
+
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
     mkdir "$CONFIGDIR/optional.feature.d"
     echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
@@ -521,9 +569,24 @@ EOF
     if [[ -x "$UPDATECTL" ]]; then
         mkdir -p /run/sysupdate.test.d/
         cp "$CONFIGDIR/01-first.transfer" /run/sysupdate.test.d/01-first.transfer
-        verify_object_fields "$("$UPDATECTL" list 2>&1)"
-        verify_object_fields "$("$UPDATECTL" list host 2>&1)"
-        verify_object_fields "$("$UPDATECTL" list host@v6 2>&1)"
+        updatectl_output="$("$UPDATECTL" list 2>&1)"
+        verify_object_fields "$updatectl_output"
+        updatectl_output="$("$UPDATECTL" list host 2>&1)"
+        verify_object_fields "$updatectl_output"
+        updatectl_output="$("$UPDATECTL" list host@v6 2>&1)"
+        verify_object_fields "$updatectl_output"
+        features_output="$("$UPDATECTL" features)"
+        grep "optional" <<<"$features_output" >/dev/null
+        grep "undocumented" <<<"$features_output" >/dev/null
+        feature_output="$("$UPDATECTL" features optional)"
+        grep "Optional Feature" <<<"$feature_output" >/dev/null
+        grep "Suggested: no" <<<"$feature_output" >/dev/null
+        grep "https://example.com/optional-more" <<<"$feature_output" >/dev/null
+        grep "https://example.com/optional.appstream.xml" <<<"$feature_output" >/dev/null
+        grep "malformed" <<<"$features_output" >/dev/null
+        verify_object_fields "$features_output"
+        malformed_feature_output="$("$UPDATECTL" features malformed)"
+        (! grep -F "Suggested:" <<<"$malformed_feature_output")
         "$UPDATECTL" check
         rm -r /run/sysupdate.test.d
     fi
