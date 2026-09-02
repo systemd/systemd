@@ -249,7 +249,8 @@
           <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
           by using the <option>--tpm2-public-key-policyref=initrd</option> option. The extra signatures reuse
           the first <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option>, hence one must be
-          specified. Defaults to false.</para>
+          specified, unless <option>--policy-digest</option> is used to generate the policies for offline
+          signing. Defaults to false.</para>
 
           <xi:include href="version-info.xml" xpointer="v262"/></listitem>
         </varlistentry>
@@ -989,6 +990,7 @@ ID=factory-reset' \
       --cmdline='quiet rw' \
       --pcr-public-key=tpm2-pcr-initrd-public-key.pem \
       --policy-digest \
+      --sign-initrd-pcrs \
       --json=short \
       --output=base.efi >base.pcrs
 </programlisting>
@@ -996,7 +998,7 @@ ID=factory-reset' \
       <para>Then, sign the PCR digests offline and insert them in the JSON blob:</para>
 
       <programlisting>#!/usr/bin/python3
-import base64, json, subprocess
+import base64, hashlib, json, subprocess
 
 priv_key = '/home/zbyszek/src/systemd/tpm2-pcr-private.pem'
 base_file = 'base.pcrs'
@@ -1005,9 +1007,11 @@ base = json.load(open(base_file))
 
 for bank,policies in base.items():
     for policy in policies:
-        pol = base64.b16decode(policy['pol'].upper())
+        to_sign = base64.b16decode(policy['pol'].upper())
+        if policyref := policy.get('ref'):
+            to_sign += hashlib.sha256(policyref.encode()).digest()
         call = subprocess.run(['openssl', 'dgst', f'-{bank}', '-sign', priv_key],
-                              input=pol,
+                              input=to_sign,
                               check=True,
                               capture_output=True)
         sig = base64.b64encode(call.stdout).decode()
