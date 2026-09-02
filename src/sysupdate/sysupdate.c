@@ -2019,6 +2019,8 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 }
 
+static int feature_to_json(Context *context, const Feature *f, sd_json_variant **ret);
+
 VERB(verb_features, "features", "[FEATURE]\0", VERB_ANY, 2, 0,
      "Show optional features");
 static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -2056,6 +2058,20 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                                                "Optional feature not found: %s",
                                                feature_id);
 
+                if (sd_json_format_enabled(arg_json_format_flags)) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+
+                        r = feature_to_json(&context, f, &json);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to print JSON: %m");
+
+                        return r;
+                }
+
                 table = table_new_vertical();
                 if (!table)
                         return log_oom();
@@ -2092,11 +2108,10 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                                 return table_log_add_error(r);
                 }
 
-                if (f->documentation) {
+                if (!strv_isempty(f->documentation)) {
                         r = table_add_many(table,
                                            TABLE_FIELD, "Documentation",
-                                           TABLE_STRING, f->documentation,
-                                           TABLE_SET_URL, f->documentation);
+                                           TABLE_STRV_WRAPPED, f->documentation);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
@@ -2142,8 +2157,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                         r = table_add_many(table,
                                            TABLE_STRING, f->id,
                                            TABLE_STRING, f->description,
-                                           TABLE_STRING, f->documentation,
-                                           TABLE_SET_URL, f->documentation);
+                                           TABLE_STRV_WRAPPED, f->documentation);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
@@ -2404,7 +2418,7 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
 static int feature_to_json(Context *context, const Feature *f, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_strv_free_ char **transfers = NULL;
-        const char *documentation_strv[2] = { NULL, };
+        int suggested;
         int r;
 
         assert(context);
@@ -2415,20 +2429,28 @@ static int feature_to_json(Context *context, const Feature *f, sd_json_variant *
         if (r < 0)
                 return r;
 
-        /* FIXME: Long term we’d like to support an array of documentation, but currently the D-Bus interface
-         * doesn’t support that and neither do the internals of sysupdate. So just expose 0 or 1 URLs for now. */
-        documentation_strv[0] = f->documentation;
+        suggested = feature_is_suggested(f);
+        if (suggested < 0)
+                log_debug_errno(suggested,
+                                "Failed to determine whether feature '%s' is suggested, omitting field: %m",
+                                f->id);
 
         r = sd_json_variant_merge_objectbo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("id", f->id),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("description", f->description),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", (char **) documentation_strv),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", f->documentation),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("appstream", f->appstream),
                         SD_JSON_BUILD_PAIR_BOOLEAN("isEnabled", f->enabled),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("transfers", transfers));
         if (r < 0)
                 return log_oom();
+
+        if (suggested >= 0) {
+                r = sd_json_variant_set_field_boolean(&v, "suggested", suggested);
+                if (r < 0)
+                        return log_oom();
+        }
 
         *ret = TAKE_PTR(v);
         return 1;
@@ -2978,7 +3000,7 @@ static int context_component_is_suggested(Context *c) {
         if (!c->component_suggest_on) /* no condition → false */
                 return false;
 
-        return condition_test_list(c->component_suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+        return condition_test_list_errno(c->component_suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
 }
 
 VERB_NOARG(verb_components, "components",
