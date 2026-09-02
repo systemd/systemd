@@ -138,6 +138,9 @@ static ChaseFlags conf_files_chase_flags(ConfFilesFlags flags) {
                  * to drop unsafe symlinks. */
                 chase_flags |= CHASE_NONEXISTENT;
 
+        if (FLAGS_SET(flags, CONF_FILES_CHASE_SAFE))
+                chase_flags |= CHASE_SAFE;
+
         return chase_flags;
 }
 
