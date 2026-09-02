@@ -230,6 +230,12 @@ static int load_certificate(Keyring *k, const ConfFile *f, VoaMode mode) {
         if (size == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "'%s' is empty, ignoring.", path);
 
+        /* Key material feeding a kernel trust store must not be tamperable by the unprivileged */
+        if (f->st.st_uid != 0 || (f->st.st_mode & 0022) != 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EPERM),
+                                         "'%s' is not owned by root or is writable by group or others, "
+                                         "ignoring.", path);
+
         r = openssl_load_x509_certificate_from_pem(&IOVEC_MAKE(text, size), &x, &more);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse '%s', ignoring: %m", path);
