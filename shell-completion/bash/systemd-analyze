@@ -56,6 +56,10 @@ __get_architectures() {
     systemd-analyze --no-legend --no-pager architectures 2>/dev/null | { while read -r a b; do echo " $a"; done; }
 }
 
+__get_cpu_features() {
+    systemd-analyze --no-legend --no-pager cpu-features 2>/dev/null | { while read -r a b; do echo " $a"; done; }
+}
+
 __get_filesystem_sets() {
     local line
     systemd-analyze filesystems --no-pager 2>/dev/null | while IFS= read -r line; do
@@ -91,6 +95,7 @@ _systemd_analyze() {
         [DLOPEN_METADATA]='dlopen-metadata'
         [PLOT]='plot'
         [ARCHITECTURES]='architectures'
+        [CPU_FEATURES]='cpu-features'
         [FDSTORE]='fdstore'
         [CAPABILITY]='capability'
         [TRANSIENT_SETTINGS]='transient-settings'
@@ -248,6 +253,13 @@ _systemd_analyze() {
             comps='--help --version --no-pager --json=off --json=pretty --json=short --no-legend'
         else
             comps=$( __get_architectures )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[CPU_FEATURES]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --no-pager --json=off --json=pretty --json=short --no-legend'
+        else
+            comps=$( __get_cpu_features )
         fi
 
     elif __contains_word "$verb" ${VERBS[FDSTORE]}; then

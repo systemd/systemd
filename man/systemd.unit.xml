@@ -2054,6 +2054,11 @@
           among others. For the full list, see the documentation on
           <ulink url="https://docs.kernel.org/arch/arm64/elf_hwcaps.html">ARM64 ELF hwcaps</ulink>.</para>
 
+          <para>See
+          <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+          <command>cpu-features</command> command for the complete list of known CPU features for the system.
+          </para>
+
           <para>To avoid ambiguities in mixed-architecture fleets, the value can be prefixed
           with the architecture name using the form <literal>ARCH.FEATURE</literal>. If the
           architecture prefix does not match the running system, the condition evaluates
