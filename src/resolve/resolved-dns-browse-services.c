@@ -160,6 +160,7 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
         int r;
 
         assert(sb);
+        assert(sb->manager);
         assert(rr);
 
         s = new(DnssdDiscoveredService, 1);
@@ -725,6 +726,7 @@ static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *use
 
         assert(userdata);
         assert_se(sb = dns_service_browser_ref(userdata));
+        assert(sb->manager);
 
         /* If the varlink connection has a userdata, then that means the previous query has not been finished. */
         if (!sd_varlink_get_userdata(sb->link)) {
@@ -804,6 +806,14 @@ void dns_browse_services_restart(Manager *m) {
         }
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        dns_service_browser_hash_ops,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        DnsServiceBrowser,
+        dns_service_browser_detach);
+
 int dns_subscribe_browse_service(
                 Manager *m, sd_varlink *link, const char *domain, const char *type, int ifindex, uint64_t flags) {
 
@@ -855,8 +865,6 @@ int dns_subscribe_browse_service(
 
         *sb = (DnsServiceBrowser) {
                 .n_ref = 1,
-                .manager = m,
-                .link = sd_varlink_ref(link),
                 .question_utf8 = dns_question_ref(question_utf8),
                 .question_idna = dns_question_ref(question_idna),
                 .key = dns_question_first_key(question_utf8),
@@ -880,34 +888,50 @@ int dns_subscribe_browse_service(
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_put(&m->dns_service_browsers, NULL, link, sb);
+        r = hashmap_ensure_put(&m->dns_service_browsers, &dns_service_browser_hash_ops, link, sb);
         if (r < 0)
                 return log_error_errno(r, "Failed to add service browser to the hashmap: %m");
 
+        sb->manager = m;
+        sb->link = sd_varlink_ref(link);
         TAKE_PTR(sb);
 
         return 0;
 }
 
-DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb) {
-        DnsQuery *q;
-
-        if (!sb)
-                return NULL;
+static DnsServiceBrowser* dns_service_browser_detach_impl(DnsServiceBrowser *sb) {
+        assert(sb);
+        assert(!sb->manager == !sb->link);
 
         while (sb->dns_services)
                 dns_remove_service(sb, sb->dns_services);
 
         sb->schedule_event = sd_event_source_disable_unref(sb->schedule_event);
 
-        q = sd_varlink_get_userdata(sb->link);
+        if (!sb->manager)
+                return NULL; /* already detached */
+
+        DnsQuery *q = sd_varlink_get_userdata(sb->link);
         if (q && DNS_TRANSACTION_IS_LIVE(q->state))
                 dns_query_complete(q, DNS_TRANSACTION_ABORTED);
 
+        hashmap_remove(sb->manager->dns_service_browsers, sb->link);
+        sb->link = sd_varlink_unref(sb->link);
+        sb->manager = NULL;
+        return sb; /* indicate that the object is detached */
+}
+
+void dns_service_browser_detach(DnsServiceBrowser *sb) {
+        dns_service_browser_unref(dns_service_browser_detach_impl(sb));
+}
+
+static DnsServiceBrowser* dns_service_browser_free(DnsServiceBrowser *sb) {
+        if (!sb)
+                return NULL;
+
+        dns_service_browser_detach_impl(sb);
         sb->question_idna = dns_question_unref(sb->question_idna);
         sb->question_utf8 = dns_question_unref(sb->question_utf8);
-
-        sb->link = sd_varlink_unref(sb->link);
 
         return mfree(sb);
 }
