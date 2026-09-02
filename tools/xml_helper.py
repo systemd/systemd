@@ -15,7 +15,7 @@ class CustomResolver(tree.Resolver):
 
         return None
 
-_parser = tree.XMLParser()
+_parser = tree.XMLParser(resolve_entities=True)
 # pylint: disable=no-member
 _parser.resolvers.add(CustomResolver())
 
