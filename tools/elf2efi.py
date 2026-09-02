@@ -27,6 +27,7 @@ import hashlib
 import io
 import os
 import pathlib
+import struct
 import sys
 import time
 import typing
@@ -188,18 +189,73 @@ class PeSection(LittleEndianStructure):
         self.data = bytearray()
 
 
+class PeDebugDirectoryEntry(LittleEndianStructure):
+    _fields_ = (
+        ('Characteristics',  c_uint32),
+        ('TimeDateStamp',    c_uint32),
+        ('MajorVersion',     c_uint16),
+        ('MinorVersion',     c_uint16),
+        ('Type',             c_uint32),
+        ('SizeOfData',       c_uint32),
+        ('AddressOfRawData', c_uint32),
+        ('PointerToRawData', c_uint32),
+    )  # fmt: skip
+
+
+class PeCodeViewPdb70(LittleEndianStructure):
+    _fields_ = (
+        ('CvSignature', c_char * 4),
+        ('Signature',   c_uint8 * 16),
+        ('Age',         c_uint32),
+    )  # fmt: skip
+
+
 N_DATA_DIRECTORY_ENTRIES = 16
 
 assert sizeof(PeSection) == 40
 assert sizeof(PeCoffHeader) == 20
 assert sizeof(PeOptionalHeader32) == 224
 assert sizeof(PeOptionalHeader32Plus) == 240
+assert sizeof(PeDebugDirectoryEntry) == 28
+assert sizeof(PeCodeViewPdb70) == 24
+
+IMAGE_DEBUG_TYPE_CODEVIEW = 2
+CV_INFO_PDB70_SIGNATURE = b'RSDS'
+NT_GNU_BUILD_ID = 3
+IMAGE_FILE_EXECUTABLE_IMAGE = 0x0002
+IMAGE_FILE_LINE_NUMS_STRIPPED = 0x0004
+IMAGE_FILE_LOCAL_SYMS_STRIPPED = 0x0008
+IMAGE_FILE_LARGE_ADDRESS_AWARE = 0x0020
+IMAGE_FILE_32BIT_MACHINE = 0x0100
+IMAGE_FILE_DEBUG_STRIPPED = 0x0200
+IMAGE_SCN_MEM_DISCARDABLE = 0x02000000
 
 # fmt: off
 PE_CHARACTERISTICS_RX = 0x60000020  # CNT_CODE|MEM_READ|MEM_EXECUTE
 PE_CHARACTERISTICS_RW = 0xC0000040  # CNT_INITIALIZED_DATA|MEM_READ|MEM_WRITE
 PE_CHARACTERISTICS_R  = 0x40000040  # CNT_INITIALIZED_DATA|MEM_READ
+PE_CHARACTERISTICS_DISCARDABLE = 0x42000040  # CNT_INITIALIZED_DATA|MEM_DISCARDABLE|MEM_READ
 # fmt: on
+
+DWARF_SECTION_NAMES = [
+    '.debug_abbrev',
+    '.debug_addr',
+    '.debug_aranges',
+    '.debug_frame',
+    '.debug_info',
+    '.debug_line',
+    '.debug_line_str',
+    '.debug_loc',
+    '.debug_loclists',
+    '.debug_macinfo',
+    '.debug_macro',
+    '.debug_names',
+    '.debug_ranges',
+    '.debug_rnglists',
+    '.debug_str',
+    '.debug_str_offsets',
+    '.debug_types',
+]
 
 IGNORE_SECTIONS = [
     '.eh_frame',
@@ -242,6 +298,63 @@ def align_down(x: int, align: int) -> int:
 
 def next_section_address(sections: list[PeSection]) -> int:
     return align_to(sections[-1].VirtualAddress + sections[-1].VirtualSize, SECTION_ALIGNMENT)
+
+
+def read_elf_build_id(file: elffile.ELFFile) -> typing.Optional[bytes]:
+    section = file.get_section_by_name('.note.gnu.build-id')
+    if section is None:
+        print('WARNING: no .note.gnu.build-id section', file=sys.stderr)
+        return None
+
+    note: bytes = section.data()
+    header_size = struct.calcsize('<III')
+    if len(note) < header_size:
+        print('WARNING: .note.gnu.build-id is not a valid GNU build-id note, skipping', file=sys.stderr)
+        return None
+
+    n_namesz, n_descsz, n_type = struct.unpack_from('<III', note)
+    owner_offset = header_size
+    owner = note[owner_offset : owner_offset + n_namesz]
+    desc_offset = align_to(owner_offset + n_namesz, 4)
+    build_id = note[desc_offset : desc_offset + n_descsz]
+
+    if n_type != NT_GNU_BUILD_ID or owner.rstrip(b'\0') != b'GNU':
+        print('WARNING: .note.gnu.build-id is not a valid GNU build-id note, skipping', file=sys.stderr)
+        return None
+    if len(build_id) != 16:
+        print(
+            f'WARNING: ELF build-id is {len(build_id)} bytes, expected 16 (link with --build-id=md5)',
+            file=sys.stderr,
+        )
+        return None
+
+    return build_id
+
+
+def add_codeview_section(opt: PeOptionalHeader, cv_signature: bytes, sections: list[PeSection]) -> PeSection:
+    cv_record = PeCodeViewPdb70()
+    cv_record.CvSignature = CV_INFO_PDB70_SIGNATURE
+    cv_record.Signature = (c_uint8 * 16).from_buffer_copy(cv_signature)
+    cv_record.Age = 1
+    cv_record_bytes = bytes(cv_record) + b'\0'
+
+    debug_dir_entry = PeDebugDirectoryEntry()
+    debug_dir_entry.Type = IMAGE_DEBUG_TYPE_CODEVIEW
+    debug_dir_entry.SizeOfData = len(cv_record_bytes)
+
+    codeview_section = PeSection()
+    codeview_section.Name = b'.buildid'
+    codeview_section.VirtualAddress = next_section_address(sections)
+    codeview_section.Characteristics = PE_CHARACTERISTICS_R
+    debug_dir_entry.AddressOfRawData = codeview_section.VirtualAddress + sizeof(debug_dir_entry)
+
+    codeview_section.data = bytearray(debug_dir_entry) + bytearray(cv_record_bytes)
+    codeview_section.VirtualSize = len(codeview_section.data)
+    codeview_section.SizeOfRawData = align_to(len(codeview_section.data), FILE_ALIGNMENT)
+
+    sections.append(codeview_section)
+    opt.SizeOfInitializedData += codeview_section.VirtualSize
+    return codeview_section
 
 
 class BadSectionError(ValueError):
@@ -352,13 +465,15 @@ def convert_sections(
     return sections
 
 
-def copy_sections(
+def copy_sections_by_name(
     file: elffile.ELFFile,
     opt: PeOptionalHeader,
-    input_names: str,
+    names: list[str],
     sections: list[PeSection],
+    coff_string_table: bytearray,
+    characteristics: int,
 ) -> None:
-    for name in input_names.split(','):
+    for name in names:
         elf_s = file.get_section_by_name(name)
         if not elf_s:
             continue
@@ -368,13 +483,23 @@ def copy_sections(
             raise BadSectionError(f'ELF section {name} is not read-only data')
 
         pe_s = PeSection()
-        pe_s.Name = name.encode()
+        if len(name) <= 8:
+            pe_s.Name = name.encode()
+        else:
+            # long section names are a GNU BFD extension, required for DWARF
+            if not coff_string_table:
+                coff_string_table += (4).to_bytes(4, 'little')
+            offset_in_table = int.from_bytes(coff_string_table[0:4], 'little')
+            coff_string_table[0:4] = (offset_in_table + len(name) + 1).to_bytes(4, 'little')
+            coff_string_table += name.encode() + b'\0'
+            pe_s.Name = f'/{offset_in_table}'.encode()
         pe_s.data = elf_s.data()
         pe_s.VirtualAddress = next_section_address(sections)
-        pe_s.VirtualSize = len(elf_s.data())
-        pe_s.SizeOfRawData = align_to(len(elf_s.data()), FILE_ALIGNMENT)
-        pe_s.Characteristics = PE_CHARACTERISTICS_R
-        opt.SizeOfInitializedData += pe_s.VirtualSize
+        pe_s.VirtualSize = len(pe_s.data)
+        pe_s.SizeOfRawData = align_to(len(pe_s.data), FILE_ALIGNMENT)
+        pe_s.Characteristics = characteristics
+        if not characteristics & IMAGE_SCN_MEM_DISCARDABLE:
+            opt.SizeOfInitializedData += pe_s.VirtualSize
         sections.append(pe_s)
 
 
@@ -454,7 +579,6 @@ def convert_elf_relocations(
     file: elffile.ELFFile,
     opt: PeOptionalHeader,
     sections: list[PeSection],
-    minimum_sections: int,
 ) -> typing.Optional[PeSection]:
     dynamic = file.get_section_by_name('.dynamic')
     if dynamic is None:
@@ -470,15 +594,6 @@ def convert_elf_relocations(
         exe_start = symtab.get_symbol_by_name('__executable_start')
         if exe_start and exe_start[0]['st_value'] != 0:
             raise ValueError('Unexpected ELF image base')
-
-    opt.SizeOfHeaders = align_to(
-        PE_OFFSET
-        + len(PE_MAGIC)
-        + sizeof(PeCoffHeader)
-        + sizeof(opt)
-        + sizeof(PeSection) * max(len(sections) + 1, minimum_sections),
-        FILE_ALIGNMENT,
-    )
 
     # We use the basic VMA layout from the ELF image in the PE image. This could cause the first
     # section to overlap the PE image headers during runtime at VMA 0. We can simply apply a fixed
@@ -529,15 +644,34 @@ def convert_elf_relocations(
     pe_reloc_s.VirtualAddress = next_section_address(sections)
     pe_reloc_s.VirtualSize = len(data)
     pe_reloc_s.SizeOfRawData = align_to(len(data), FILE_ALIGNMENT)
-    # CNT_INITIALIZED_DATA|MEM_READ|MEM_DISCARDABLE
-    pe_reloc_s.Characteristics = 0x42000040
+    pe_reloc_s.Characteristics = PE_CHARACTERISTICS_DISCARDABLE
 
     sections.append(pe_reloc_s)
-    opt.SizeOfInitializedData += pe_reloc_s.VirtualSize
     return pe_reloc_s
 
 
-def write_pe(
+def layout_sections(opt: PeOptionalHeader, sections: list[PeSection]) -> tuple[list[PeSection], int]:
+    sections = sorted(sections, key=lambda s: s.VirtualAddress)
+    offset: int = opt.SizeOfHeaders
+    for pe_s in sections:
+        if pe_s.VirtualAddress < opt.SizeOfHeaders:
+            raise BadSectionError(
+                f'Section {pe_s.Name} @{pe_s.VirtualAddress:#x} overlaps PE headers ending at {opt.SizeOfHeaders:#x}'
+            )
+
+        pe_s.PointerToRawData = offset
+        offset = align_to(offset + len(pe_s.data), FILE_ALIGNMENT)
+
+    return sections, offset
+
+
+def patch_codeview_pointer_to_raw_data(codeview_section: PeSection) -> None:
+    assert codeview_section.PointerToRawData != 0
+    debug_dir_entry_view = PeDebugDirectoryEntry.from_buffer(codeview_section.data)
+    debug_dir_entry_view.PointerToRawData = codeview_section.PointerToRawData + sizeof(PeDebugDirectoryEntry)
+
+
+def write_pe_headers(
     file: typing.IO[bytes],
     coff: PeCoffHeader,
     opt: PeOptionalHeader,
@@ -551,24 +685,22 @@ def write_pe(
     file.write(coff)
     file.write(opt)
 
-    offset = opt.SizeOfHeaders
-    for pe_s in sorted(sections, key=lambda s: s.VirtualAddress):
-        if pe_s.VirtualAddress < opt.SizeOfHeaders:
-            raise BadSectionError(
-                f'Section {pe_s.Name} @{pe_s.VirtualAddress:#x} overlaps PE headers ending at {opt.SizeOfHeaders:#x}'
-            )
-
-        pe_s.PointerToRawData = offset
+    for pe_s in sections:
         file.write(pe_s)
-        offset = align_to(offset + len(pe_s.data), FILE_ALIGNMENT)
 
     assert file.tell() <= opt.SizeOfHeaders
 
+
+def write_pe_data(
+    file: typing.IO[bytes], sections: list[PeSection], trailer_offset: int, trailer: bytes
+) -> None:
     for pe_s in sections:
         file.seek(pe_s.PointerToRawData, io.SEEK_SET)
         file.write(pe_s.data)
 
-    file.truncate(offset)
+    file.seek(trailer_offset, io.SEEK_SET)
+    file.write(trailer)
+    file.truncate(trailer_offset + len(trailer))
 
 
 def elf2efi(args: argparse.Namespace) -> None:
@@ -590,6 +722,13 @@ def elf2efi(args: argparse.Namespace) -> None:
         raise ValueError(f'Unsupported ELF architecture {file["e_machine"]}')
 
     coff = PeCoffHeader()
+    coff.Characteristics = (
+        IMAGE_FILE_EXECUTABLE_IMAGE
+        | IMAGE_FILE_LINE_NUMS_STRIPPED
+        | IMAGE_FILE_LOCAL_SYMS_STRIPPED
+        | IMAGE_FILE_DEBUG_STRIPPED
+        | (IMAGE_FILE_32BIT_MACHINE if file.elfclass == 32 else IMAGE_FILE_LARGE_ADDRESS_AWARE)
+    )
     opt = PeOptionalHeader32() if file.elfclass == 32 else PeOptionalHeader32Plus()
 
     # We relocate to a unique image base to reduce the chances for runtime relocation to occur.
@@ -601,16 +740,43 @@ def elf2efi(args: argparse.Namespace) -> None:
         opt.ImageBase = (0x100000000 + opt.ImageBase) & 0x1FFFF0000
 
     sections = convert_sections(file, opt)
-    copy_sections(file, opt, args.copy_sections, sections)
-    pe_reloc_s = convert_elf_relocations(file, opt, sections, args.minimum_sections)
+    coff_string_table = bytearray()
+    copy_sections_by_name(
+        file, opt, args.copy_sections.split(','), sections, coff_string_table, PE_CHARACTERISTICS_R
+    )
+    copy_sections_by_name(
+        file, opt, DWARF_SECTION_NAMES, sections, coff_string_table, PE_CHARACTERISTICS_DISCARDABLE
+    )
+    build_id = read_elf_build_id(file)
+
+    n_reserved_sections = len(sections) + 1 + args.extra_sections + (1 if build_id is not None else 0)
+    opt.SizeOfHeaders = align_to(
+        PE_OFFSET
+        + len(PE_MAGIC)
+        + sizeof(PeCoffHeader)
+        + sizeof(opt)
+        + sizeof(PeSection) * n_reserved_sections,
+        FILE_ALIGNMENT,
+    )
+
+    pe_reloc_s = convert_elf_relocations(file, opt, sections)
+
+    codeview_section = None
+    if build_id is not None:
+        pe_guid = (
+            int.from_bytes(build_id[0:4], 'big').to_bytes(4, 'little')
+            + int.from_bytes(build_id[4:6], 'big').to_bytes(2, 'little')
+            + int.from_bytes(build_id[6:8], 'big').to_bytes(2, 'little')
+            + build_id[8:16]
+        )
+        codeview_section = add_codeview_section(opt, pe_guid, sections)
+        coff.Characteristics &= ~IMAGE_FILE_DEBUG_STRIPPED
+        opt.Debug = PeDataDirectory(codeview_section.VirtualAddress, sizeof(PeDebugDirectoryEntry))
 
     coff.Machine = pe_arch
     coff.NumberOfSections = len(sections)
     coff.TimeDateStamp = int(os.environ.get('SOURCE_DATE_EPOCH') or time.time())
     coff.SizeOfOptionalHeader = sizeof(opt)
-    # EXECUTABLE_IMAGE|LINE_NUMS_STRIPPED|LOCAL_SYMS_STRIPPED|DEBUG_STRIPPED
-    # and (32BIT_MACHINE or LARGE_ADDRESS_AWARE)
-    coff.Characteristics = 0x30E if file.elfclass == 32 else 0x22E
 
     opt.SectionAlignment = SECTION_ALIGNMENT
     opt.FileAlignment = FILE_ALIGNMENT
@@ -635,7 +801,15 @@ def elf2efi(args: argparse.Namespace) -> None:
     if pe_reloc_s:
         opt.BaseRelocationTable = PeDataDirectory(pe_reloc_s.VirtualAddress, pe_reloc_s.VirtualSize)
 
-    write_pe(args.PE, coff, opt, sections)
+    sections, trailer_offset = layout_sections(opt, sections)
+    if codeview_section is not None:
+        patch_codeview_pointer_to_raw_data(codeview_section)
+    if coff_string_table:
+        coff.Characteristics &= ~IMAGE_FILE_LOCAL_SYMS_STRIPPED
+        coff.PointerToSymbolTable = trailer_offset
+
+    write_pe_headers(args.PE, coff, opt, sections)
+    write_pe_data(args.PE, sections, trailer_offset, bytes(coff_string_table))
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -681,10 +855,10 @@ def create_parser() -> argparse.ArgumentParser:
         help='Output PE/EFI file',
     )
     parser.add_argument(
-        '--minimum-sections',
+        '--extra-sections',
         type=int,
         default=0,
-        help='Minimum number of sections to leave space for',
+        help='Number of additional section header slots to reserve space for',
     )
     parser.add_argument(
         '--copy-sections',
