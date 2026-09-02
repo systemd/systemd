@@ -254,7 +254,7 @@ verify_version_current() {
 verify_object_fields() {
     local updatectl_output="${1:?}"
 
-    [[ "${updatectl_output}" != *"Unrecognized object field"* ]]
+    [[ "${updatectl_output}" != *"Unexpected object field"* ]]
 }
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
@@ -397,6 +397,9 @@ EOF
     cat >"$CONFIGDIR/optional.feature" <<EOF
 [Feature]
 Description=Optional Feature
+Documentation=https://example.com/optional
+Documentation=https://example.com/optional-more
+AppStream=https://example.com/optional.appstream.xml
 EOF
 
     cat >"$CONFIGDIR/99-optional.transfer" <<EOF
@@ -476,6 +479,18 @@ EOF
         exit 1
     fi
 
+    feature_json="$("$SYSUPDATE" --json=short features optional)"
+    jq -e '.id == "optional"' <<<"$feature_json" >/dev/null
+    jq -e '
+        .documentation == [
+            "https://example.com/optional",
+            "https://example.com/optional-more"
+        ]
+    ' <<<"$feature_json" >/dev/null
+    jq -e '(.isEnabled | type) == "boolean"' <<<"$feature_json" >/dev/null
+    jq -e '(.suggested | type) == "boolean"' <<<"$feature_json" >/dev/null
+    jq -e '.appstream == "https://example.com/optional.appstream.xml"' <<<"$feature_json" >/dev/null
+
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
     mkdir "$CONFIGDIR/optional.feature.d"
     echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
@@ -524,6 +539,12 @@ EOF
         verify_object_fields "$("$UPDATECTL" list 2>&1)"
         verify_object_fields "$("$UPDATECTL" list host 2>&1)"
         verify_object_fields "$("$UPDATECTL" list host@v6 2>&1)"
+        "$UPDATECTL" features | grep "optional" >/dev/null
+        "$UPDATECTL" features optional | grep "Optional Feature" >/dev/null
+        "$UPDATECTL" features optional | grep "Suggested" >/dev/null
+        "$UPDATECTL" features optional | grep "Documentation" >/dev/null
+        "$UPDATECTL" features optional | grep "https://example.com/optional-more" >/dev/null
+        "$UPDATECTL" features optional | grep "AppStream" >/dev/null
         "$UPDATECTL" check
         rm -r /run/sysupdate.test.d
     fi
