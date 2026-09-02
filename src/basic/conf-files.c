@@ -138,6 +138,9 @@ static ChaseFlags conf_files_chase_flags(ConfFilesFlags flags) {
                  * to drop unsafe symlinks. */
                 chase_flags |= CHASE_NONEXISTENT;
 
+        if (FLAGS_SET(flags, CONF_FILES_CHASE_SAFE))
+                chase_flags |= CHASE_SAFE;
+
         return chase_flags;
 }
 
@@ -631,7 +634,8 @@ static int conf_files_list_impl(
         root = empty_to_root(root);
 
         if (replacement) {
-                r = conf_file_new_at(replacement, root, rfd, flags & CONF_FILES_WARN, &c);
+                r = conf_file_new_at(replacement, root, rfd,
+                                     flags & (CONF_FILES_WARN|CONF_FILES_CHASE_SAFE), &c);
                 if (r < 0)
                         return r;
         }
@@ -640,7 +644,9 @@ static int conf_files_list_impl(
                 _cleanup_closedir_ DIR *dir = NULL;
                 _cleanup_free_ char *path = NULL;
 
-                r = chase_and_opendirat(rfd, rfd, *p, 0, &path, &dir);
+                r = chase_and_opendirat(rfd, rfd, *p,
+                                        FLAGS_SET(flags, CONF_FILES_CHASE_SAFE) ? CHASE_SAFE : 0,
+                                        &path, &dir);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_full_errno(conf_files_log_level(flags), r,
