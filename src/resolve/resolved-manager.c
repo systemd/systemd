@@ -841,7 +841,6 @@ int manager_start(Manager *m) {
 Manager* manager_free(Manager *m) {
         Link *l;
         DnssdRegisteredService *s;
-        DnsServiceBrowser *sb;
 
         if (!m)
                 return NULL;
@@ -923,9 +922,10 @@ Manager* manager_free(Manager *m) {
         manager_etc_hosts_flush(m);
         manager_static_records_flush(m);
 
-        while ((sb = hashmap_first(m->dns_service_browsers)))
-                dns_service_browser_free(sb);
+        /* Browsers first: freeing one detaches it from its querier, which the queriers map below
+         * must still be around for. */
         hashmap_free(m->dns_service_browsers);
+        hashmap_free(m->dns_service_queriers);
 
         hashmap_free(m->hooks);
 
@@ -1819,8 +1819,11 @@ void manager_flush_caches(Manager *m, int log_level) {
         LIST_FOREACH(scopes, scope, m->dns_scopes)
                 dns_cache_flush(&scope->cache);
 
-        dns_browse_services_purge(m, AF_UNSPEC); /* Clear records of DNS service browse subscriber, since caches are flushed */
-        dns_browse_services_restart(m);
+        /* Reconcile the browse subscriptions against the flushed caches, then re-ask their
+         * questions: everything they knew was just dropped, so waiting out the §5.2 backoff would
+         * leave subscribers staring at an empty list for up to an hour. */
+        dns_browse_services_purge(m, AF_UNSPEC, /* ifindex= */ 0);
+        dns_browse_services_restart(m, /* ifindex= */ 0);
 
         log_full(log_level, "Flushed all caches.");
 }
