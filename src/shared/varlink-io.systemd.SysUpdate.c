@@ -42,6 +42,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(appstream, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether the feature is enabled."),
                 SD_VARLINK_DEFINE_FIELD(isEnabled, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether the feature is suggested for enablement."),
+                SD_VARLINK_DEFINE_FIELD(suggested, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Array of IDs of the transfers (including currently disabled ones) which are controlled by this feature."),
                 SD_VARLINK_DEFINE_FIELD(transfers, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY));
 
