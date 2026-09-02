@@ -397,6 +397,8 @@ EOF
     cat >"$CONFIGDIR/optional.feature" <<EOF
 [Feature]
 Description=Optional Feature
+Documentation=https://example.com/optional
+AppStream=https://example.com/optional.appstream.xml
 EOF
 
     cat >"$CONFIGDIR/99-optional.transfer" <<EOF
@@ -524,6 +526,11 @@ EOF
         verify_object_fields "$("$UPDATECTL" list 2>&1)"
         verify_object_fields "$("$UPDATECTL" list host 2>&1)"
         verify_object_fields "$("$UPDATECTL" list host@v6 2>&1)"
+        "$SYSUPDATE" --json=short features optional | jq -e '.id == "optional" and (.documentation | type == "array") and .documentation[0] == "https://example.com/optional" and (.isEnabled | type == "boolean") and .appstream == "https://example.com/optional.appstream.xml"' >/dev/null
+        "$UPDATECTL" features | grep "optional" >/dev/null
+        "$UPDATECTL" features optional | grep "Optional Feature" >/dev/null
+        "$UPDATECTL" features optional | grep "Documentation" >/dev/null
+        "$UPDATECTL" features optional | grep "AppStream" >/dev/null
         "$UPDATECTL" check
         rm -r /run/sysupdate.test.d
     fi
