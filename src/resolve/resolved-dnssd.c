@@ -74,6 +74,14 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
         return mfree(service);
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        dnssd_registered_service_hash_ops,
+        char,
+        string_hash_func,
+        string_compare_func,
+        DnssdRegisteredService,
+        dnssd_registered_service_free);
+
 static int dnssd_registered_service_make_goodbye(
                 DnssdRegisteredService *service,
                 DnsScope *scope,
@@ -263,7 +271,7 @@ static int dnssd_registered_service_load(Manager *manager, const char *path) {
                 TAKE_PTR(txt_data);
         }
 
-        r = hashmap_ensure_put(&manager->dnssd_registered_services, &string_hash_ops, service->id, service);
+        r = hashmap_ensure_put(&manager->dnssd_registered_services, &dnssd_registered_service_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 
