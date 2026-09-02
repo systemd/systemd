@@ -12,20 +12,20 @@
 static int run(int argc, char **argv) {
         int r;
 
-        log_parse_environment();
+        log_setup();
 
         unsigned c = 100, pos = 1;
 
         if (argc > 1) {
-                r = safe_atou(argv[1], &pos);
+                r = safe_atou_bounded(argv[1], /* min= */ 1, /* max= */ UINT_MAX, &pos);
                 if (r < 0)
-                        return log_error_errno(r, "Cannot parse uint %s: %m", argv[1]);
+                        return log_error_errno(r, "Cannot parse uint '%s': %m", argv[1]);
         }
 
         if (argc > 2) {
-                r = safe_atou(argv[2], &c);
+                r = safe_atou_bounded(argv[2], /* min= */ 1, /* max= */ UINT_MAX, &c);
                 if (r < 0)
-                        return log_error_errno(r, "Cannot parse uint %s: %m", argv[2]);
+                        return log_error_errno(r, "Cannot parse uint '%s': %m", argv[2]);
         }
 
         sd_id128_t mid = SD_ID128_ARRAY(aa,bb,cc,ee,33,21,42,31,89,ba,a4,91,33,22,11,00);
