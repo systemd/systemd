@@ -677,6 +677,11 @@ done
 # that a ‘default’ component is only listed by sysupdate if it’s fully configured
 mv "$CONFIGDIR" "$CONFIGDIR.backup"
 mkdir -p /run/sysupdate.some-component.d
+cat >/run/sysupdate.some-component.component <<EOF
+[Component]
+Documentation=https://example.com/some-component
+Documentation=https://example.com/some-component-more
+EOF
 tee /run/sysupdate.some-component.d/portable.transfer << EOF
 [Transfer]
 ChangeLog=https://example.com/changelog/@v
@@ -693,10 +698,18 @@ Path=/var/lib/portables
 MatchPattern=some-component_@v
 CurrentSymlink=some-component
 EOF
-"$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+component_json="$("$SYSUPDATE" --json=short components)"
+jq -e '
+        .components == ["some-component"] and
+        .componentDocumentation[0].id == "some-component" and
+        .componentDocumentation[0].documentation == [
+                "https://example.com/some-component",
+                "https://example.com/some-component-more"
+        ]' <<<"$component_json" >/dev/null
 varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets | all(.id.class != "host")' >/dev/null
 mkdir /run/sysupdate.d
-"$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+component_json="$("$SYSUPDATE" --json=short components)"
+jq -e '(.components == ["some-component"] and (.componentDocumentation[0].documentation | length == 2))' <<<"$component_json" >/dev/null
 varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets | all(.id.class != "host")' >/dev/null
 [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -r '.targets[0].id.name') == "some-component" ]]
 
@@ -712,6 +725,7 @@ varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.tar
 # Clean up regression test
 rmdir /run/sysupdate.d
 rm -rf /run/sysupdate.some-component.d
+rm -f /run/sysupdate.some-component.component
 mv "$CONFIGDIR.backup" "$CONFIGDIR"
 
 # Make sure the processing of compressed streams still handles uncompressed streams shorter than

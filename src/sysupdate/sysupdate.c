@@ -3088,13 +3088,12 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         if (r < 0)
                                 return table_log_add_error(r);
 
-                        const char *doc = cc.component_documentation ? cc.component_documentation[0] : NULL;
-
+                        const char *doc = strv_isempty(cc.component_documentation) ? NULL : cc.component_documentation[0];
                         r = table_add_many(
                                         t,
                                         TABLE_STRING, *i,
                                         TABLE_STRING, cc.component_description,
-                                        TABLE_STRING, doc,
+                                        TABLE_STRV_WRAPPED, cc.component_documentation,
                                         TABLE_SET_URL, doc);
                         if (r < 0)
                                 return table_log_add_error(r);
@@ -3103,9 +3102,42 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                 return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *component_documentation = NULL;
 
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
-                                          SD_JSON_BUILD_PAIR_STRV("components", component_names));
+                STRV_FOREACH(i, component_names) {
+                        _cleanup_(context_done) Context cc = CONTEXT_NULL;
+
+                        r = context_from_base_with_component(&context, *i, &cc);
+                        if (r < 0)
+                                return r;
+
+                        r = context_load_offline(
+                                        &cc,
+                                        /* process_image_flags= */ 0,
+                                        /* read_definitions_flags= */ 0);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r < 0)
+                                continue;
+
+                        r = sd_json_variant_append_arraybo(
+                                        &component_documentation,
+                                        SD_JSON_BUILD_PAIR_STRING("id", *i),
+                                        JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", cc.component_documentation));
+                        if (r < 0)
+                                return r;
+                }
+
+                if (!component_documentation) {
+                        r = sd_json_variant_new_array(&component_documentation, NULL, 0);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_json_buildo(&json,
+                                   SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
+                                   SD_JSON_BUILD_PAIR_STRV("components", component_names),
+                                   SD_JSON_BUILD_PAIR_VARIANT("componentDocumentation", component_documentation));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
