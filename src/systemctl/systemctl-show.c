@@ -2100,7 +2100,7 @@ static int print_property(
                                 return bus_log_parse_error(r);
 
                         return 1;
-                } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink")) {
+                } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink", "ConfigurationDirectorySymlink")) {
                         const char *a, *p;
                         uint64_t symlink_flags;
 
