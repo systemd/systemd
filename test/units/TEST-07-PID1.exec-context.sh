@@ -271,7 +271,8 @@ systemd-run --wait --pipe "${ARGUMENTS[@]}" \
     bash -xec '[[ $CONFIGURATION_DIRECTORY == /etc/also_context/bar:/etc/context/foo:/etc/context/nested/baz:/etc/context/semi:colon ]];
                [[ $(stat -c "%a" "${CONFIGURATION_DIRECTORY%%:*}") == 400 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
-    bash -xec '[[ $LOGS_DIRECTORY == /var/log/context/a/very/nested/logs/dir:/var/log/context/foo ]];
+    # Note: the empty LogsDirectory= above resets the list, so context/foo is gone
+    bash -xec '[[ $LOGS_DIRECTORY == /var/log/context/a/very/nested/logs/dir ]];
                [[ $(stat -c "%a" "${LOGS_DIRECTORY##*:}") == 755 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
     bash -xec '[[ $RUNTIME_DIRECTORY == "/run/also_context:/run/context/with spaces" ]];
