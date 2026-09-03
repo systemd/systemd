@@ -454,9 +454,10 @@ node /org/freedesktop/resolve1 {
       client that registered it: when the client disconnects from the bus the service is automatically
       unregistered and goodbye packets are sent out, as if <function>UnregisterService()</function> had been
       called. Clients hence must keep their bus connection open for as long as the service shall remain
-      registered. The registration also does not survive <filename>systemd-resolved</filename> losing its
-      own bus connection, in which case tracking clients is not possible anymore and all services registered
-      via this method are unregistered. To register a DNS-SD service independently of a client's lifetime,
+      registered. If <filename>systemd-resolved</filename> loses its own bus connection — because the
+      message bus was restarted, say — services registered via this method stay published: their
+      clients' exits are no longer observable, and the services are withdrawn only when the resolver
+      stops. Clients that care should re-register after reconnecting to the bus. To register a DNS-SD service independently of a client's lifetime,
       use <filename>*.dnssd</filename> files, see
       <citerefentry><refentrytitle>systemd.dnssd</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
       that prior to version 262, due to a bug, the client's connection was not tracked and services

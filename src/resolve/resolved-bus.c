@@ -1894,6 +1894,16 @@ static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata
 
         assert(t);
 
+        /* Distinguish the client going away from our own bus connection going away: bus_track_close()
+         * flushes and dispatches every non-empty track when the connection is torn down, so a
+         * dbus-daemon restart would otherwise withdraw every IPC-registered service while its client
+         * is alive and never asked for that — permanently, since resolved does not reconnect. The
+         * daemon keeps serving over the stub and varlink either way, so the registrations stay. */
+        if (!sd_bus_is_open(sd_bus_track_get_bus(t))) {
+                log_debug("Bus connection went away, keeping the DNS-SD service '%s' registered.", s->id);
+                return 0;
+        }
+
         log_debug("Client of DNS-SD service '%s' vanished, unregistering.", s->id);
         dnssd_registered_service_unregister(s);
 
