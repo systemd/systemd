@@ -2109,7 +2109,8 @@ static int print_property(
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sst)", &a, &p, &symlink_flags)) > 0)
-                                bus_print_property_valuef(name, expected_value, flags, "%s:%s", a, p);
+                                bus_print_property_valuef(name, expected_value, flags, "%s:%s%s", a, p,
+                                                          FLAGS_SET(symlink_flags, EXEC_DIRECTORY_READ_ONLY) ? ":ro" : "");
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
