@@ -2,9 +2,12 @@
 
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "condition.h"
 #include "conf-parser.h"
+#include "json-util.h"
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
@@ -80,4 +83,32 @@ int component_is_suggested(const Component *c) {
                 return false;
 
         return condition_test_list(c->suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+}
+
+int component_to_json(const Component *c, sd_json_variant **ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        /* Serializes the component metadata, with the effective enablement and suggestion state. The field
+         * names match the settings in sysupdate.components(5). */
+
+        r = component_is_suggested(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if component is suggested: %m");
+
+        r = sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("description", c->description),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", c->documentation),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("enabled", c->enabled),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("suggest", r > 0),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("minVersion", c->min_version),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("maxVersion", c->max_version),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("protectVersion", c->protected_versions));
+        if (r < 0)
+                return log_oom();
+
+        return 0;
 }
