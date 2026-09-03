@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "sd-id128.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build-path.h"
@@ -21,6 +22,7 @@
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "install-file.h"
+#include "json-util.h"
 #include "mkdir.h"
 #include "notify-recv.h"
 #include "parse-helpers.h"
@@ -94,11 +96,11 @@ Transfer* transfer_new(Context *ctx) {
         *t = (Transfer) {
                 .source.type = _RESOURCE_TYPE_INVALID,
                 .target.type = _RESOURCE_TYPE_INVALID,
-                .remove_temporary = true,
+                .remove_temporary = -1,
                 .mode = MODE_INVALID,
                 .tries_left = UINT64_MAX,
                 .tries_done = UINT64_MAX,
-                .verify = true,
+                .verify = -1,
 
                 /* the three flags, as configured by the user */
                 .no_auto = -1,
@@ -667,7 +669,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Transfer",    "MinVersion",              config_parse_transfer_version_bound,       0,                    &t->min_version             },
                 { "Transfer",    "MaxVersion",              config_parse_transfer_version_bound,       0,                    &t->max_version             },
                 { "Transfer",    "ProtectVersion",          config_parse_transfer_protect_version,     0,                    &t->protected_versions      },
-                { "Transfer",    "Verify",                  config_parse_bool,                         0,                    &t->verify                  },
+                { "Transfer",    "Verify",                  config_parse_tristate,                     0,                    &t->verify                  },
                 { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog               },
                 { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0,                    &t->appstream               },
                 { "Transfer",    "Features",                config_parse_strv,                         0,                    &t->features                },
@@ -690,7 +692,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Target",      "TriesLeft",               config_parse_uint64,                       0,                    &t->tries_left              },
                 { "Target",      "TriesDone",               config_parse_uint64,                       0,                    &t->tries_done              },
                 { "Target",      "InstancesMax",            config_parse_instances_max,                0,                    &t->instances_max           },
-                { "Target",      "RemoveTemporary",         config_parse_bool,                         0,                    &t->remove_temporary        },
+                { "Target",      "RemoveTemporary",         config_parse_tristate,                     0,                    &t->remove_temporary        },
                 { "Target",      "CurrentSymlink",          config_parse_current_symlink,              0,                    &t->current_symlink         },
                 {}
         };
@@ -730,6 +732,251 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         return transfer_finalize(t, path, 1, known_features);
 }
 
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_resource_type, ResourceType, resource_type_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_path_relative_to, PathRelativeTo, path_relative_to_from_string);
+
+typedef struct TransferJsonContext {
+        Transfer *transfer;
+        const char *origin;
+} TransferJsonContext;
+
+static int dispatch_resource_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Resource *rr = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        if (resource_set_path(rr, sd_json_variant_string(variant)) < 0)
+                return json_log_oom(variant, flags);
+
+        return 0;
+}
+
+static int dispatch_resource_patterns_full(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata, bool is_source) {
+        _cleanup_strv_free_ char **l = NULL;
+        Resource *rr = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        r = sd_json_dispatch_strv(name, variant, flags, &l);
+        if (r < 0)
+                return r;
+
+        rr->patterns = strv_free(rr->patterns);
+
+        STRV_FOREACH(i, l) {
+                r = resource_add_pattern(&rr->patterns, is_source, *i, /* filename= */ NULL, /* line= */ 0);
+                if (r < 0)
+                        return r;
+        }
+
+        strv_uniq(rr->patterns);
+        return 0;
+}
+
+static int dispatch_source_patterns(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        return dispatch_resource_patterns_full(name, variant, flags, userdata, /* is_source= */ true);
+}
+
+static int dispatch_target_patterns(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        return dispatch_resource_patterns_full(name, variant, flags, userdata, /* is_source= */ false);
+}
+
+static int dispatch_partition_type(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Resource *rr = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                rr->partition_type = (GptPartitionType) {};
+                rr->partition_type_set = false;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        r = gpt_partition_type_from_string(sd_json_variant_string(variant), &rr->partition_type);
+        if (r < 0)
+                return json_log(variant, flags, r, "JSON field '%s' is not a valid partition type: %m", strna(name));
+
+        rr->partition_type_set = true;
+        return 0;
+}
+
+static int dispatch_partition_uuid(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Transfer *t = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                t->partition_uuid = SD_ID128_NULL;
+                t->partition_uuid_set = false;
+                return 0;
+        }
+
+        r = sd_json_dispatch_id128(name, variant, flags, &t->partition_uuid);
+        if (r < 0)
+                return r;
+
+        t->partition_uuid_set = true;
+        return 0;
+}
+
+static int dispatch_partition_flags(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Transfer *t = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                t->partition_flags = 0;
+                t->partition_flags_set = false;
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint64(name, variant, flags, &t->partition_flags);
+        if (r < 0)
+                return r;
+
+        t->partition_flags_set = true;
+        return 0;
+}
+
+static int dispatch_instances_max(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint64_t *instances_max = ASSERT_PTR(userdata), u;
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *instances_max = 0; /* Revert to default logic */
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint64(name, variant, flags, &u);
+        if (r < 0)
+                return r;
+
+        transfer_set_instances_max(instances_max, u, /* filename= */ NULL, /* line= */ 0);
+        return 0;
+}
+
+static int dispatch_current_symlink(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_free_ char *p = NULL;
+        char **current_symlink = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *current_symlink = mfree(*current_symlink);
+                return 0;
+        }
+
+        r = sd_json_dispatch_string(name, variant, flags, &p);
+        if (r < 0)
+                return r;
+
+        r = path_simplify_and_warn(p, 0, /* unit= */ NULL, /* filename= */ NULL, /* line= */ 0, name);
+        if (r < 0)
+                return r;
+
+        return free_and_replace(*current_symlink, p);
+}
+
+static int dispatch_transfer_source(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Transfer *t = ASSERT_PTR(userdata);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "type",           SD_JSON_VARIANT_STRING, dispatch_resource_type,    offsetof(Transfer, source.type),             SD_JSON_MANDATORY },
+                { "path",           SD_JSON_VARIANT_STRING, dispatch_resource_path,    offsetof(Transfer, source),                  SD_JSON_MANDATORY },
+                { "pathRelativeTo", SD_JSON_VARIANT_STRING, dispatch_path_relative_to, offsetof(Transfer, source.path_relative_to), 0 },
+                { "matchPattern",   SD_JSON_VARIANT_ARRAY,  dispatch_source_patterns,  offsetof(Transfer, source),                  SD_JSON_MANDATORY },
+                {},
+        };
+
+        assert(variant);
+
+        return sd_json_dispatch(variant, dispatch_table, flags, t);
+}
+
+static int dispatch_transfer_target(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Transfer *t = ASSERT_PTR(userdata);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "type",                    SD_JSON_VARIANT_STRING,        dispatch_resource_type,    offsetof(Transfer, target.type),             0 },
+                { "path",                    SD_JSON_VARIANT_STRING,        dispatch_resource_path,    offsetof(Transfer, target),                  SD_JSON_MANDATORY },
+                { "pathRelativeTo",          SD_JSON_VARIANT_STRING,        dispatch_path_relative_to, offsetof(Transfer, target.path_relative_to), 0 },
+                { "matchPattern",            SD_JSON_VARIANT_ARRAY,         dispatch_target_patterns,  offsetof(Transfer, target),                  0 },
+                { "matchPartitionType",      SD_JSON_VARIANT_STRING,        dispatch_partition_type,   offsetof(Transfer, target),                  0 },
+                { "partitionUUID",           SD_JSON_VARIANT_STRING,        dispatch_partition_uuid,   0,                                           0 },
+                { "partitionFlags",          _SD_JSON_VARIANT_TYPE_INVALID, dispatch_partition_flags,  0,                                           0 },
+                { "partitionNoAuto",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, no_auto),                 0 },
+                { "partitionGrowFileSystem", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, growfs),                  0 },
+                { "readOnly",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, read_only),               0 },
+                { "mode",                    _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, offsetof(Transfer, mode),                    0 },
+                { "triesLeft",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,   offsetof(Transfer, tries_left),              0 },
+                { "triesDone",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,   offsetof(Transfer, tries_done),              0 },
+                { "instancesMax",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_instances_max,    offsetof(Transfer, instances_max),           0 },
+                { "removeTemporary",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, remove_temporary),        0 },
+                { "currentSymlink",          SD_JSON_VARIANT_STRING,        dispatch_current_symlink,  offsetof(Transfer, current_symlink),         0 },
+                {},
+        };
+
+        assert(variant);
+
+        return sd_json_dispatch(variant, dispatch_table, flags, t);
+}
+
+int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hashmap *known_features) {
+        int r;
+
+        assert(t);
+        assert(origin);
+
+        /* Fills in a transfer definition from a JSON object, as acquired from a component provider, the
+         * equivalent of transfer_read_definition() for .transfer files. Note that in contrast to the
+         * configuration files no specifier expansion takes place. 'origin' identifies where the data came
+         * from, for logging purposes. */
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id",                SD_JSON_VARIANT_STRING,  json_dispatch_filename,    offsetof(Transfer, id),                 SD_JSON_MANDATORY },
+                { "minVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, min_version),        0 },
+                { "maxVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, max_version),        0 },
+                { "protectVersion",    SD_JSON_VARIANT_ARRAY,   json_dispatch_versions,    offsetof(Transfer, protected_versions), 0 },
+                { "verify",            SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Transfer, verify),             0 },
+                { "changeLog",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, changelog),          0 },
+                { "appStream",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, appstream),          0 },
+                { "features",          SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, features),           0 },
+                { "requisiteFeatures", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, requisite_features), 0 },
+                { "source",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_source,  0,                                      SD_JSON_MANDATORY },
+                { "target",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_target,  0,                                      SD_JSON_MANDATORY },
+                {},
+        };
+
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_LOG, t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse transfer definition from %s: %m", origin);
+
+        /* The enum dispatcher maps null to the invalid value, revert to the default in that case */
+        if (t->source.path_relative_to < 0)
+                t->source.path_relative_to = PATH_RELATIVE_TO_ROOT;
+        if (t->target.path_relative_to < 0)
+                t->target.path_relative_to = PATH_RELATIVE_TO_ROOT;
+
+        _cleanup_free_ char *o = path_join(origin, t->id);
+        if (!o)
+                return log_oom();
+
+        return transfer_finalize(t, o, /* line= */ 0, known_features);
+}
+
 int transfer_resolve_paths(
                 Transfer *t,
                 const char *root,
@@ -761,7 +1008,7 @@ static void transfer_remove_temporary(Transfer *t) {
 
         assert(t);
 
-        if (!t->remove_temporary)
+        if (t->remove_temporary == 0)
                 return;
 
         if (!IN_SET(t->target.type, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME))

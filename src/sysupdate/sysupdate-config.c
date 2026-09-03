@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "condition.h"
+#include "json-util.h"
 #include "log.h"
 #include "specifier.h"
 #include "string-table.h"
@@ -246,4 +249,22 @@ int config_parse_condition(
 
         LIST_PREPEND(conditions, *list, c);
         return 0;
+}
+
+int json_dispatch_versions(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        char ***s = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        r = sd_json_dispatch_strv(name, variant, flags, &l);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, l)
+                if (!version_is_valid(*i, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains an invalid version string: %s", strna(name), *i);
+
+        return strv_free_and_replace(*s, l);
 }

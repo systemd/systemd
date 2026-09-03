@@ -428,7 +428,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                                        "No transfer definitions found.");
         }
 
-        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT) && !c->component_info.enabled)
+        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT) && c->component_info.enabled == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Component is disabled.");
 
         return 0;
@@ -446,7 +446,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify != 0,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -457,7 +457,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify != 0,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -478,7 +478,7 @@ static int context_load_available_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->source,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify != 0,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -3170,8 +3170,8 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
                         r = table_add_many(
                                         t,
-                                        TABLE_BOOLEAN_CHECKMARK, cc.component_info.enabled,
-                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_info.enabled));
+                                        TABLE_BOOLEAN_CHECKMARK, cc.component_info.enabled != 0,
+                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_info.enabled != 0));
                         if (r < 0)
                                 return table_log_add_error(r);
 
