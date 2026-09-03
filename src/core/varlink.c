@@ -393,6 +393,10 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
                         u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
                         break;
                 }
+
+        /* Values are nonzero (VARLINK_JOB_SUBSCRIBER_*), so remove() disambiguates membership. */
+        if (hashmap_remove(m->varlink_job_subscribers, link))
+                sd_varlink_unref(link);
 }
 
 int manager_setup_varlink_server(Manager *m) {
@@ -442,6 +446,7 @@ int manager_setup_varlink_server(Manager *m) {
                         "io.systemd.Unit.List", vl_method_list_units,
                         "io.systemd.Unit.SetProperties", vl_method_set_unit_properties,
                         "io.systemd.Unit.StartTransient", vl_method_start_transient_unit,
+                        "io.systemd.Unit.SubscribeJobs", vl_method_subscribe_jobs,
                         "io.systemd.service.Ping", varlink_method_ping,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
@@ -632,6 +637,17 @@ void manager_varlink_done(Manager *m) {
         sd_varlink_close_unref(TAKE_PTR(m->managed_oom_varlink));
 
         m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
+
+        /* Job subscribers hold a ref taken in vl_method_subscribe_jobs(); take each out of
+         * the map before unreffing so vl_disconnect() cannot unref a second time. */
+        for (;;) {
+                sd_varlink *link;
+                void *value = hashmap_steal_first_key_and_value(m->varlink_job_subscribers, (void**) &link);
+                if (!value)
+                        break;
+                sd_varlink_unref(link);
+        }
+        m->varlink_job_subscribers = hashmap_free(m->varlink_job_subscribers);
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
