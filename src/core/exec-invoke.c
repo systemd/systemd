@@ -5094,6 +5094,25 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
 
         const char *tty_path = exec_context_tty_path(context);
         if (tty_path) {
+                /* Prefer an explicit setting for the concrete TTY over inheriting the terminal type from PID
+                 * 1. In particular, /dev/console may resolve to a serial TTY for which the user configured a
+                 * different terminal type. Keep /dev/console itself special, since PID 1 already applies
+                 * systemd.tty.term.console= and gives an explicit TERM= assignment precedence over it. */
+                if (!path_equal(tty_path, "/dev/console") &&
+                    in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
+                        _cleanup_free_ char *key = NULL, *cmdline = NULL;
+
+                        key = strjoin("systemd.tty.term.", skip_dev_prefix(tty_path));
+                        if (!key)
+                                return -ENOMEM;
+
+                        r = proc_cmdline_get_key(key, /* flags= */ 0, &cmdline);
+                        if (r > 0)
+                                return strv_env_assign(env, "TERM", cmdline);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read '%s' from kernel cmdline, ignoring: %m", key);
+                }
+
                 /* If we are forked off PID 1 and we are supposed to operate on /dev/console, then let's try
                  * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
                  * container manager passes to PID 1 ends up all the way in the console login shown.
@@ -5120,22 +5139,7 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
 
                                 return 1;
                         }
-
                 } else {
-                        if (in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
-                                _cleanup_free_ char *key = NULL, *cmdline = NULL;
-
-                                key = strjoin("systemd.tty.term.", skip_dev_prefix(tty_path));
-                                if (!key)
-                                        return -ENOMEM;
-
-                                r = proc_cmdline_get_key(key, /* flags= */ 0, &cmdline);
-                                if (r > 0)
-                                        return strv_env_assign(env, "TERM", cmdline);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to read '%s' from kernel cmdline, ignoring: %m", key);
-                        }
-
                         /* This handles real virtual terminals (returning "linux") and
                          * any terminals which support the DCS +q query sequence. */
                         _cleanup_free_ char *dcs_term = NULL;
