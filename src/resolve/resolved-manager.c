@@ -782,11 +782,91 @@ static void manager_send_mdns_goodbyes(Manager *m) {
                         (void) dns_scope_announce(scope, /* goodbye= */ true);
 }
 
+/* The queued withdrawals are per scope, and so is everything deciding what of them still goes out;
+ * only the timer belongs to the manager. */
+static void manager_flush_pending_withdrawals(Manager *m) {
+        DnsScope *scope;
+        Link *l;
+
+        assert(m);
+
+        m->mdns_withdrawal_retransmit_event_source =
+                sd_event_source_disable_unref(m->mdns_withdrawal_retransmit_event_source);
+
+        HASHMAP_FOREACH(l, m->links)
+                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope)
+                        if (scope)
+                                dns_scope_flush_pending_withdrawals(scope);
+}
+
 static int on_mdns_goodbye_retransmit(sd_event_source *s, usec_t usec, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
+        /* The grace second let a pending runtime withdrawal reach its own retransmission;
+         * anything armed for later would be lost to the exit below, so flush whatever is left. */
+        manager_flush_pending_withdrawals(m);
+
         manager_send_mdns_goodbyes(m);
         return sd_event_exit(m->event, 0);
+}
+
+static int on_mdns_withdrawal_retransmit(sd_event_source *s, usec_t usec, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        manager_flush_pending_withdrawals(m);
+        return 0;
+}
+
+/* RFC 6762 section 8.3: unsolicited announcements, goodbyes included, are sent at least twice,
+ * one second apart. The shutdown path holds the exit and resends; runtime withdrawals resend
+ * through this timer. Best effort on top of an already sent goodbye. */
+void manager_arm_mdns_withdrawal_retransmit(Manager *m) {
+        usec_t n, deadline;
+        int r;
+
+        assert(m);
+
+        /* The second is a minimum, so a batch queued while the timer already runs pushes the
+         * deadline out rather than riding the pending one. Pushing out is capped at one further
+         * delay, so withdrawals arriving faster than once a second cannot defer the
+         * retransmission indefinitely; past the cap the whole queue goes out together, some of
+         * it earlier than its own second, which the RFC permits far more readily than not going
+         * out at all. */
+        assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &n) >= 0);
+
+        if (!m->mdns_withdrawal_retransmit_event_source)
+                m->mdns_withdrawal_queued_since = n;
+
+        /* MAX(n, ...): a cap that has already passed must not arm a deadline in the past, which
+         * would retransmit this batch on the next iteration, the very thing being avoided. */
+        deadline = MIN(n + MDNS_ANNOUNCE_DELAY,
+                       MAX(n, m->mdns_withdrawal_queued_since + 2 * MDNS_ANNOUNCE_DELAY));
+
+        log_debug("Scheduling the mDNS withdrawal retransmission in %s.",
+                  FORMAT_TIMESPAN(deadline - n, USEC_PER_MSEC));
+
+        if (m->mdns_withdrawal_retransmit_event_source) {
+                r = sd_event_source_set_time(m->mdns_withdrawal_retransmit_event_source, deadline);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to defer mDNS withdrawal retransmission, ignoring: %m");
+                return;
+        }
+
+        r = sd_event_add_time(
+                        m->event,
+                        &m->mdns_withdrawal_retransmit_event_source,
+                        CLOCK_BOOTTIME,
+                        deadline,
+                        /* accuracy= */ 0,
+                        on_mdns_withdrawal_retransmit,
+                        m);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to arm mDNS withdrawal retransmission, ignoring: %m");
+                return;
+        }
+
+        (void) sd_event_source_set_description(
+                        m->mdns_withdrawal_retransmit_event_source, "mdns-withdrawal-retransmit");
 }
 
 static int manager_dispatch_exit_signal(
@@ -802,9 +882,14 @@ static int manager_dispatch_exit_signal(
         if (m->mdns_goodbye_retransmit_event_source)
                 return sd_event_exit(m->event, 0);
 
-        /* Nothing published that needs a goodbye? Exit right away. */
-        if (!manager_needs_mdns_goodbyes(m))
+        /* Nothing published that needs a goodbye? Then nothing holds the exit, and a runtime
+         * withdrawal still waiting for its retransmission would lose it: send it now, closer to
+         * its first transmission than section 8.3 asks for, which beats going out once. */
+        if (!manager_needs_mdns_goodbyes(m)) {
+                log_debug("No published mDNS services to withdraw, exiting without a goodbye hold.");
+                manager_flush_pending_withdrawals(m);
                 return sd_event_exit(m->event, 0);
+        }
 
         /* Send the goodbyes on the way out, then hold the exit for one second and retransmit
          * (RFC 6762 section 8.3). The event loop keeps running and serving meanwhile. */
@@ -839,6 +924,11 @@ static int manager_dispatch_exit_signal(
 static int on_mdns_goodbye_exit(sd_event_source *s, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int code;
+
+        /* A runtime withdrawal awaiting its retransmission loses its timer with the exiting
+         * loop, and its records already left the zones, so the goodbye below cannot cover for
+         * it. Send it now. */
+        manager_flush_pending_withdrawals(m);
 
         /* Fallback for graceful exits that do not come in via SIGTERM or SIGINT: this runs
          * during SD_EVENT_EXITING while the sockets are still live; once the loop is FINISHED
@@ -898,13 +988,14 @@ int manager_new(Manager **ret) {
 
         /* Instead of sd_event_set_signal_exit() install our own SIGTERM/SIGINT handlers, so that the
          * exit can be held for one second to retransmit the mDNS goodbyes (RFC 6762 §8.3). */
-        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_exit_signal, m);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_exit_signal, m);
-        if (r < 0)
-                return r;
+        int sig;
+        FOREACH_ARGUMENT(sig, SIGTERM, SIGINT) {
+                r = sd_event_add_signal(
+                                m->event, /* ret= */ NULL, sig | SD_EVENT_SIGNAL_PROCMASK,
+                                manager_dispatch_exit_signal, m);
+                if (r < 0)
+                        return r;
+        }
 
         /* Emit mDNS goodbyes on graceful exits that bypass the signal handlers. */
         r = sd_event_add_exit(m->event, /* ret= */ NULL, on_mdns_goodbye_exit, m);
@@ -1052,6 +1143,7 @@ Manager* manager_free(Manager *m) {
         safe_close(m->hostname_fd);
 
         sd_event_source_unref(m->mdns_goodbye_retransmit_event_source);
+        sd_event_source_unref(m->mdns_withdrawal_retransmit_event_source);
 
         sd_event_unref(m->event);
 
@@ -1751,11 +1843,12 @@ void manager_verify_all(Manager *m) {
         /* Once the shutdown goodbyes went out nothing must be re-verified: re-verification flips
          * items back to probing, and the probe queries would carry the withdrawn records back
          * onto the wire. Reachable during the grace second via a reload or resume from suspend. */
-        if (m->mdns_withdrawing)
-                return;
+        LIST_FOREACH(scopes, s, m->dns_scopes) {
+                if (s->protocol == DNS_PROTOCOL_MDNS && m->mdns_withdrawing)
+                        continue;
 
-        LIST_FOREACH(scopes, s, m->dns_scopes)
                 dns_zone_verify_all(&s->zone);
+        }
 }
 
 int manager_is_own_hostname(Manager *m, const char *name) {
