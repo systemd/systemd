@@ -247,6 +247,17 @@ common_test_dependencies = [
 
 executables += [
         test_template + {
+                'name' : 'test-homework-thin',
+                'sources' : files(
+                        '../home/home-util.c',
+                        '../home/homework-thin.c',
+                        '../home/user-record-util.c',
+                        'test-homework-thin.c',
+                ),
+                'include_directories' : [include_directories('../home'), includes],
+                'dependencies' : libblkid_cflags,
+        },
+        test_template + {
                 'sources' : files('test-acl-util.c'),
                 'conditions' : ['HAVE_ACL'],
                 'dependencies' : libacl_cflags,

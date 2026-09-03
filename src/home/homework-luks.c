@@ -40,8 +40,10 @@
 #include "homework.h"
 #include "homework-blob.h"
 #include "homework-luks.h"
+#include "homework-luks-token.h"
 #include "homework-mount.h"
 #include "homework-password-cache.h"
+#include "homework-thin.h"
 #include "io-util.h"
 #include "json-util.h"
 #include "keyring-util.h"
@@ -49,6 +51,7 @@
 #include "memory-util.h"
 #include "mkdir.h"
 #include "mkfs-util.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -70,6 +73,12 @@
  * partitions to that too. In the worst case we'll waste 1 MiB per partition that way, but I think I can live
  * with that. */
 #define DISK_SIZE_ROUND_DOWN(x) ((x) & ~(U64_MB - 1))
+
+#define HOME_LUKS_INTEGRITY_ALGORITHM "hmac(sha256)"
+#define HOME_LUKS_INTEGRITY_KEY_SIZE 32U
+#define HOME_LUKS_INTEGRITY_TAG_SIZE 32U
+#define HOME_LUKS_INTEGRITY_SECTOR_SIZE 4096U
+#define HOME_LUKS_INTEGRITY_JOURNAL_SIZE (UINT64_C(32) * U64_MB)
 
 /* Rounds up to the nearest 1 MiB boundary. Returns UINT64_MAX on overflow */
 #define DISK_SIZE_ROUND_UP(x)                                           \
@@ -401,6 +410,7 @@ static int luks_setup(
                 sd_id128_t uuid,
                 const char *cipher,
                 const char *cipher_mode,
+                const char *key_type,
                 uint64_t volume_key_size,
                 const PasswordCache *cache,
                 bool discard,
@@ -415,7 +425,7 @@ static int luks_setup(
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
         size_t vks;
-        int r;
+        int encryption_type, r;
 
         assert(h);
         assert(node);
@@ -431,6 +441,11 @@ static int luks_setup(
         r = sym_crypt_load(cd, CRYPT_LUKS2, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to load LUKS superblock: %m");
+
+        encryption_type = sym_crypt_get_hw_encryption_type(cd);
+        if (encryption_type < 0)
+                return log_error_errno(encryption_type,
+                                       "Failed to determine LUKS hardware-encryption type: %m");
 
         r = sym_crypt_get_volume_key_size(cd);
         if (r <= 0)
@@ -460,7 +475,47 @@ static int luks_setup(
         if (cipher_mode && !streq_ptr(cipher_mode, sym_crypt_get_cipher_mode(cd)))
                 return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "LUKS superblock declares wrong cipher mode.");
 
-        if (volume_key_size != UINT64_MAX && vks != volume_key_size)
+        const char *actual_key_type = encryption_type == CRYPT_INLINE_HW_WRAPPED ? "hw-wrapped" : "raw";
+        if (key_type && !streq(key_type, actual_key_type))
+                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                       "LUKS superblock key type '%s' does not match record binding '%s'.",
+                                       actual_key_type, key_type);
+
+        struct crypt_params_integrity integrity = {};
+        r = sym_crypt_get_integrity_info(cd, &integrity);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine LUKS integrity profile: %m");
+
+        const char *actual_integrity = NULL;
+        if (encryption_type == CRYPT_INLINE_HW_WRAPPED && integrity.integrity) {
+                if (integrity.journal_size != HOME_LUKS_INTEGRITY_JOURNAL_SIZE ||
+                    integrity.journal_watermark != 0 ||
+                    integrity.journal_commit_time != 0 ||
+                    integrity.interleave_sectors != 0 ||
+                    integrity.tag_size != HOME_LUKS_INTEGRITY_TAG_SIZE ||
+                    integrity.sector_size != HOME_LUKS_INTEGRITY_SECTOR_SIZE ||
+                    integrity.buffer_sectors != 0 ||
+                    !streq(integrity.integrity, HOME_LUKS_INTEGRITY_ALGORITHM) ||
+                    integrity.integrity_key_size != HOME_LUKS_INTEGRITY_KEY_SIZE ||
+                    integrity.journal_integrity ||
+                    integrity.journal_integrity_key ||
+                    integrity.journal_integrity_key_size != 0 ||
+                    integrity.journal_crypt ||
+                    integrity.journal_crypt_key ||
+                    integrity.journal_crypt_key_size != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                               "LUKS superblock declares an unsupported hardware-wrapped integrity profile.");
+
+                actual_integrity = HOME_LUKS_INTEGRITY_ALGORITHM;
+        }
+
+        if (!streq_ptr(actual_integrity, h->luks_integrity))
+                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                       "LUKS superblock integrity profile '%s' does not match record binding '%s'.",
+                                       strna(actual_integrity), strna(h->luks_integrity));
+
+        if (encryption_type != CRYPT_INLINE_HW_WRAPPED &&
+            volume_key_size != UINT64_MAX && vks != volume_key_size)
                 return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "LUKS superblock declares wrong volume key size.");
 
         vk = malloc(vks);
@@ -477,7 +532,7 @@ static int luks_setup(
                         cd,
                         dm_name,
                         vk, vks,
-                        discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
+                        (discard || h->luks_integrity) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unlock LUKS superblock: %m");
 
@@ -849,31 +904,109 @@ static int crypt_device_to_evp_cipher(struct crypt_device *cd, const EVP_CIPHER 
         return 0;
 }
 
+static int luks_validate_decrypted_home_record(
+                UserRecord *h,
+                PasswordCache *cache,
+                char *decrypted,
+                size_t decrypted_size,
+                UserRecord **ret_luks_home_record) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL;
+        _cleanup_(user_record_unrefp) UserRecord *lhr = NULL;
+        int r;
+
+        assert(h);
+        assert(decrypted);
+        assert(ret_luks_home_record);
+
+        if (memchr(decrypted, 0, decrypted_size))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Inner NUL byte in JSON record, refusing.");
+
+        decrypted[decrypted_size] = 0;
+
+        r = sd_json_parse(decrypted, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE,
+                          &record, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse decrypted JSON record, refusing.");
+
+        lhr = user_record_new();
+        if (!lhr)
+                return log_oom();
+
+        r = user_record_load(lhr, record, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse user record: %m");
+
+        if (!user_record_compatible(h, lhr))
+                return log_error_errno(SYNTHETIC_ERRNO(EREMCHG),
+                                       "LUKS home record not compatible with host record, refusing.");
+
+        r = user_record_authenticate(lhr, h, cache, /* strict_verify= */ true);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+
+        *ret_luks_home_record = TAKE_PTR(lhr);
+        return 0;
+}
+
+static int luks_token_decrypt_legacy(
+                struct crypt_device *cd,
+                sd_json_variant *token,
+                const void *volume_key,
+                char **ret_decrypted,
+                size_t *ret_decrypted_size) {
+
+        const EVP_CIPHER *cipher;
+        int r;
+
+        assert(cd);
+        assert(token);
+        assert(volume_key);
+        assert(ret_decrypted);
+        assert(ret_decrypted_size);
+
+        r = crypt_device_to_evp_cipher(cd, &cipher);
+        if (r < 0)
+                return r;
+
+        return home_luks_token_decrypt_legacy(
+                        token,
+                        cipher,
+                        volume_key,
+                        (size_t) sym_EVP_CIPHER_get_key_length(cipher),
+                        (void**) ret_decrypted,
+                        ret_decrypted_size);
+}
+
 static int luks_validate_home_record(
                 struct crypt_device *cd,
                 UserRecord *h,
                 const void *volume_key,
+                size_t volume_key_size,
                 PasswordCache *cache,
                 UserRecord **ret_luks_home_record) {
 
-        int r;
+        int encryption_type, r;
 
         assert(cd);
         assert(h);
+        assert(volume_key);
+        assert(volume_key_size > 0);
         assert(ret_luks_home_record);
 
+        encryption_type = sym_crypt_get_hw_encryption_type(cd);
+        if (encryption_type < 0)
+                return log_error_errno(encryption_type, "Failed to determine LUKS hardware-encryption type: %m");
+
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *rr = NULL;
-                _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
-                _cleanup_(user_record_unrefp) UserRecord *lhr = NULL;
-                _cleanup_free_ void *encrypted = NULL, *iv = NULL;
-                size_t decrypted_size, encrypted_size, iv_size;
-                int decrypted_size_out1, decrypted_size_out2;
-                _cleanup_free_ char *decrypted = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_(crypt_safe_freep) void *software_secret = NULL;
+                _cleanup_(erase_and_freep) char *decrypted = NULL;
+                size_t decrypted_size, software_secret_size = 0;
                 const char *text, *type;
                 crypt_token_info state;
-                sd_json_variant *jr, *jiv;
-                const EVP_CIPHER *cc;
+                sd_json_variant *version;
 
                 state = sym_crypt_token_status(cd, token, &type);
                 if (state == CRYPT_TOKEN_INACTIVE) /* First unconfigured token, give up */
@@ -895,95 +1028,66 @@ static int luks_validate_home_record(
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse LUKS token JSON data %u:%u: %m", line, column);
 
-                jr = sd_json_variant_by_key(v, "record");
-                if (!jr)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "LUKS token lacks 'record' field.");
-                jiv = sd_json_variant_by_key(v, "iv");
-                if (!jiv)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "LUKS token lacks 'iv' field.");
+                version = sd_json_variant_by_key(v, "version");
+                if (!version) {
+                        if (encryption_type == CRYPT_INLINE_HW_WRAPPED)
+                                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                                       "Hardware-wrapped LUKS home uses a legacy identity token, refusing.");
 
-                r = sd_json_variant_unbase64(jr, &encrypted, &encrypted_size);
+                        r = luks_token_decrypt_legacy(cd, v, volume_key, &decrypted, &decrypted_size);
+                } else {
+                        if (!sd_json_variant_is_unsigned(version) || sd_json_variant_unsigned(version) != 2)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Unsupported LUKS identity-token version.");
+                        if (encryption_type != CRYPT_INLINE_HW_WRAPPED)
+                                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                                       "Version-2 identity token requires a hardware-wrapped LUKS home.");
+
+                        r = sym_crypt_hw_wrapped_key_derive_secret(
+                                        cd,
+                                        volume_key,
+                                        volume_key_size,
+                                        (char**) &software_secret,
+                                        &software_secret_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to derive LUKS identity-token secret: %m");
+                        if (software_secret_size != CRYPT_HW_WRAPPED_KEY_SW_SECRET_SIZE)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "LUKS identity-token secret has an invalid size.");
+
+                        const char *uuid = sym_crypt_get_uuid(cd);
+                        if (!uuid)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Hardware-wrapped LUKS home lacks a UUID.");
+
+                        r = home_luks_token_decrypt_v2(
+                                        v,
+                                        software_secret,
+                                        software_secret_size,
+                                        uuid,
+                                        (void**) &decrypted,
+                                        &decrypted_size);
+                }
                 if (r < 0)
-                        return log_error_errno(r, "Failed to base64 decode record: %m");
+                        return log_error_errno(r, "Failed to decrypt LUKS identity token: %m");
 
-                r = sd_json_variant_unbase64(jiv, &iv, &iv_size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to base64 decode IV: %m");
-
-                r = crypt_device_to_evp_cipher(cd, &cc);
-                if (r < 0)
-                        return r;
-                if (iv_size > INT_MAX || sym_EVP_CIPHER_get_iv_length(cc) != (int) iv_size)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "IV size doesn't match.");
-
-                context = sym_EVP_CIPHER_CTX_new();
-                if (!context)
-                        return log_oom();
-
-                if (sym_EVP_DecryptInit_ex(context, cc, NULL, volume_key, iv) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize decryption context.");
-
-                decrypted_size = encrypted_size + sym_EVP_CIPHER_get_key_length(cc) * 2;
-                decrypted = new(char, decrypted_size);
-                if (!decrypted)
-                        return log_oom();
-
-                if (sym_EVP_DecryptUpdate(context, (uint8_t*) decrypted, &decrypted_size_out1, encrypted, encrypted_size) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decrypt JSON record.");
-
-                assert((size_t) decrypted_size_out1 <= decrypted_size);
-
-                if (sym_EVP_DecryptFinal_ex(context, (uint8_t*) decrypted + decrypted_size_out1, &decrypted_size_out2) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finish decryption of JSON record.");
-
-                assert((size_t) decrypted_size_out1 + (size_t) decrypted_size_out2 < decrypted_size);
-                decrypted_size = (size_t) decrypted_size_out1 + (size_t) decrypted_size_out2;
-
-                if (memchr(decrypted, 0, decrypted_size))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Inner NUL byte in JSON record, refusing.");
-
-                decrypted[decrypted_size] = 0;
-
-                r = sd_json_parse(decrypted, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &rr, NULL, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse decrypted JSON record, refusing.");
-
-                lhr = user_record_new();
-                if (!lhr)
-                        return log_oom();
-
-                r = user_record_load(lhr, rr, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse user record: %m");
-
-                if (!user_record_compatible(h, lhr))
-                        return log_error_errno(SYNTHETIC_ERRNO(EREMCHG), "LUKS home record not compatible with host record, refusing.");
-
-                r = user_record_authenticate(lhr, h, cache, /* strict_verify= */ true);
-                if (r < 0)
-                        return r;
-                assert(r > 0); /* Insist that a password was verified */
-
-                *ret_luks_home_record = TAKE_PTR(lhr);
-                return 0;
+                return luks_validate_decrypted_home_record(
+                                h, cache, decrypted, decrypted_size, ret_luks_home_record);
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Couldn't find home record in LUKS2 header, refusing.");
 }
 
-static int format_luks_token_text(
+static int format_luks_token_text_legacy(
                 struct crypt_device *cd,
                 UserRecord *hr,
                 const void *volume_key,
                 char **ret) {
 
-        int r, encrypted_size_out1 = 0, encrypted_size_out2 = 0, iv_size, key_size;
-        _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_free_ void *iv = NULL, *encrypted = NULL;
-        size_t text_length, encrypted_size;
-        _cleanup_free_ char *text = NULL;
+        _cleanup_free_ void *iv = NULL;
+        _cleanup_(erase_and_freep) char *text = NULL;
         const EVP_CIPHER *cc;
+        int iv_size, r;
 
         assert(cd);
         assert(hr);
@@ -994,7 +1098,6 @@ static int format_luks_token_text(
         if (r < 0)
                 return r;
 
-        key_size = sym_EVP_CIPHER_get_key_length(cc);
         iv_size = sym_EVP_CIPHER_get_iv_length(cc);
 
         if (iv_size > 0) {
@@ -1007,46 +1110,87 @@ static int format_luks_token_text(
                         return log_error_errno(r, "Failed to generate IV: %m");
         }
 
-        context = sym_EVP_CIPHER_CTX_new();
-        if (!context)
-                return log_oom();
-
-        if (sym_EVP_EncryptInit_ex(context, cc, NULL, volume_key, iv) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize encryption context.");
-
         r = sd_json_variant_format(hr->json, 0, &text);
         if (r < 0)
                 return log_error_errno(r, "Failed to format user record for LUKS: %m");
 
-        text_length = strlen(text);
-        encrypted_size = text_length + 2*key_size - 1;
-
-        encrypted = malloc(encrypted_size);
-        if (!encrypted)
-                return log_oom();
-
-        if (sym_EVP_EncryptUpdate(context, encrypted, &encrypted_size_out1, (uint8_t*) text, text_length) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to encrypt JSON record.");
-
-        assert((size_t) encrypted_size_out1 <= encrypted_size);
-
-        if (sym_EVP_EncryptFinal_ex(context, (uint8_t*) encrypted + encrypted_size_out1, &encrypted_size_out2) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finish encryption of JSON record.");
-
-        assert((size_t) encrypted_size_out1 + (size_t) encrypted_size_out2 <= encrypted_size);
-
-        r = sd_json_buildo(
-                        &v,
-                        SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-homed")),
-                        SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_EMPTY_ARRAY),
-                        SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_BASE64(encrypted, encrypted_size_out1 + encrypted_size_out2)),
-                        SD_JSON_BUILD_PAIR("iv", SD_JSON_BUILD_BASE64(iv, iv_size)));
-        if (r < 0)
-                return log_error_errno(r, "Failed to prepare LUKS JSON token object: %m");
-
-        r = sd_json_variant_format(v, 0, ret);
+        r = home_luks_token_encrypt_legacy(
+                        text,
+                        strlen(text),
+                        cc,
+                        volume_key,
+                        (size_t) sym_EVP_CIPHER_get_key_length(cc),
+                        iv,
+                        (size_t) iv_size,
+                        ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to format encrypted user record for LUKS: %m");
+
+        return 0;
+}
+
+static int format_luks_token_text(
+                struct crypt_device *cd,
+                UserRecord *hr,
+                const void *volume_key,
+                size_t volume_key_size,
+                char **ret) {
+
+        _cleanup_(crypt_safe_freep) void *software_secret = NULL;
+        _cleanup_(erase_and_freep) char *plaintext = NULL;
+        uint8_t iv[HOME_LUKS_TOKEN_V2_IV_SIZE];
+        size_t software_secret_size = 0;
+        int encryption_type, r;
+
+        assert(cd);
+        assert(hr);
+        assert(volume_key);
+        assert(volume_key_size > 0);
+        assert(ret);
+
+        encryption_type = sym_crypt_get_hw_encryption_type(cd);
+        if (encryption_type < 0)
+                return encryption_type;
+        if (encryption_type != CRYPT_INLINE_HW_WRAPPED)
+                return format_luks_token_text_legacy(cd, hr, volume_key, ret);
+
+        CLEANUP_ERASE(iv);
+
+        r = sym_crypt_hw_wrapped_key_derive_secret(
+                        cd,
+                        volume_key,
+                        volume_key_size,
+                        (char**) &software_secret,
+                        &software_secret_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to derive LUKS identity-token secret: %m");
+        if (software_secret_size != CRYPT_HW_WRAPPED_KEY_SW_SECRET_SIZE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "LUKS identity-token secret has an invalid size.");
+
+        r = sd_json_variant_format(hr->json, 0, &plaintext);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format user record for LUKS: %m");
+
+        r = crypto_random_bytes(iv, sizeof(iv));
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate LUKS identity-token IV: %m");
+
+        const char *uuid = sym_crypt_get_uuid(cd);
+        if (!uuid)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Hardware-wrapped LUKS home lacks a UUID.");
+
+        r = home_luks_token_encrypt_v2(
+                        plaintext,
+                        strlen(plaintext),
+                        software_secret,
+                        software_secret_size,
+                        uuid,
+                        iv,
+                        ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to encrypt LUKS identity token: %m");
 
         return 0;
 }
@@ -1084,7 +1228,8 @@ int home_store_header_identity_luks(
                 return 0;
         }
 
-        r = format_luks_token_text(setup->crypt_device, header_home, setup->volume_key, &text);
+        r = format_luks_token_text(setup->crypt_device, header_home,
+                                   setup->volume_key, setup->volume_key_size, &text);
         if (r < 0)
                 return r;
 
@@ -1234,6 +1379,33 @@ static int lock_image_fd(int image_fd, const char *ip) {
         return 0;
 }
 
+static int luks_mount_options(UserRecord *h, const char *fstype, char **ret) {
+        _cleanup_free_ char *options = NULL;
+        int r;
+
+        assert(h);
+        assert(fstype);
+        assert(ret);
+
+        if (h->luks_extra_mount_options) {
+                options = strdup(h->luks_extra_mount_options);
+                if (!options)
+                        return -ENOMEM;
+        }
+
+        if (h->thin_pool_uuid && streq(fstype, "ext4")) {
+                r = mount_option_supported(fstype, "provision", NULL);
+                if (r > 0)
+                        if (!strextend_with_separator(&options, ",", "provision"))
+                                return -ENOMEM;
+                if (r < 0)
+                        log_debug_errno(r, "Unable to determine whether ext4 supports the 'provision' mount option, not enabling it: %m");
+        }
+
+        *ret = TAKE_PTR(options);
+        return 0;
+}
+
 static int open_image_file(
                 UserRecord *h,
                 const char *force_image_path,
@@ -1325,7 +1497,8 @@ int home_setup_luks(
                 }
 
                 if (ret_luks_home) {
-                        r = luks_validate_home_record(setup->crypt_device, h, volume_key, cache, &luks_home);
+                        r = luks_validate_home_record(setup->crypt_device, h, volume_key,
+                                                      volume_key_size, cache, &luks_home);
                         if (r < 0)
                                 return r;
                 }
@@ -1398,7 +1571,7 @@ int home_setup_luks(
                                 return log_error_errno(errno, "Failed to open home directory: %m");
                 }
         } else {
-                _cleanup_free_ char *fstype = NULL, *subdir = NULL;
+                _cleanup_free_ char *fstype = NULL, *mount_options = NULL, *subdir = NULL;
                 const char *ip;
 
                 /* When we aren't reopening the home directory we are allocating it fresh, hence the relevant
@@ -1465,6 +1638,7 @@ int home_setup_luks(
                                h->luks_uuid,
                                h->luks_cipher,
                                h->luks_cipher_mode,
+                               h->luks_key_type,
                                h->luks_volume_key_size,
                                cache,
                                user_record_luks_discard(h) || user_record_luks_offline_discard(h),
@@ -1479,7 +1653,8 @@ int home_setup_luks(
                 setup->undo_dm = true;
 
                 if (ret_luks_home) {
-                        r = luks_validate_home_record(setup->crypt_device, h, volume_key, cache, &luks_home);
+                        r = luks_validate_home_record(setup->crypt_device, h, volume_key,
+                                                      volume_key_size, cache, &luks_home);
                         if (r < 0)
                                 return r;
                 }
@@ -1492,7 +1667,11 @@ int home_setup_luks(
                 if (r < 0)
                         return r;
 
-                r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h), h->luks_extra_mount_options);
+                r = luks_mount_options(h, fstype, &mount_options);
+                if (r < 0)
+                        return r;
+
+                r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h), mount_options);
                 if (r < 0)
                         return r;
 
@@ -1662,6 +1841,7 @@ int home_activate_luks(
                 log_warning_errno(r, "Failed to relinquish DM device, ignoring: %m");
 
         setup->undo_dm = false;
+        setup->deactivate_thin_volume = false;
         setup->do_offline_fallocate = false;
         setup->do_mark_clean = false;
         setup->do_drop_caches = false;
@@ -1783,14 +1963,24 @@ static int luks_format(
                 char **effective_passwords,
                 bool discard,
                 uint64_t sector_size,
+                bool hardware_wrapped_keys,
                 UserRecord *hr,
                 struct crypt_device **ret) {
 
         _cleanup_(user_record_unrefp) UserRecord *reduced = NULL;
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_(erase_and_freep) void *volume_key = NULL;
+        _cleanup_(erase_and_freep) void *raw_volume_key = NULL;
+        _cleanup_(crypt_safe_freep) void *wrapped_key = NULL;
         struct crypt_pbkdf_type good_pbkdf, minimal_pbkdf;
+        const struct crypt_params_integrity integrity_params = {
+                .journal_size = HOME_LUKS_INTEGRITY_JOURNAL_SIZE,
+                .tag_size = HOME_LUKS_INTEGRITY_TAG_SIZE,
+                .sector_size = HOME_LUKS_INTEGRITY_SECTOR_SIZE,
+                .integrity = HOME_LUKS_INTEGRITY_ALGORITHM,
+                .integrity_key_size = HOME_LUKS_INTEGRITY_KEY_SIZE,
+        };
         _cleanup_free_ char *text = NULL;
+        const void *volume_key;
         size_t volume_key_size;
         int slot = 0, r;
 
@@ -1809,14 +1999,31 @@ static int luks_format(
          * can't extract the volume key from the library again, but we need it in order to encrypt the JSON
          * record. Hence, let's generate it on our own, so that we can keep track of it. */
 
-        volume_key_size = user_record_luks_volume_key_size(hr);
-        volume_key = malloc(volume_key_size);
-        if (!volume_key)
-                return log_oom();
+        if (hardware_wrapped_keys) {
+                r = sym_crypt_hw_wrapped_key_generate(
+                                cd,
+                                (char**) &wrapped_key,
+                                &volume_key_size);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               "Failed to generate hardware-wrapped LUKS volume key: %m");
+                if (volume_key_size == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Generated hardware-wrapped LUKS volume key is empty.");
 
-        r = crypto_random_bytes(volume_key, volume_key_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate volume key: %m");
+                volume_key = wrapped_key;
+        } else {
+                volume_key_size = user_record_luks_volume_key_size(hr);
+                raw_volume_key = malloc(volume_key_size);
+                if (!raw_volume_key)
+                        return log_oom();
+
+                r = crypto_random_bytes(raw_volume_key, volume_key_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate volume key: %m");
+
+                volume_key = raw_volume_key;
+        }
 
         /* Increase the metadata space to 4M, the largest LUKS2 supports */
         r = sym_crypt_set_metadata_size(cd, 4096U*1024U, 0);
@@ -1826,20 +2033,34 @@ static int luks_format(
         build_good_pbkdf(&good_pbkdf, hr);
         build_minimal_pbkdf(&minimal_pbkdf, hr);
 
-        r = sym_crypt_format(
-                        cd,
-                        CRYPT_LUKS2,
-                        user_record_luks_cipher(hr),
-                        user_record_luks_cipher_mode(hr),
-                        SD_ID128_TO_UUID_STRING(uuid),
-                        volume_key,
-                        volume_key_size,
-                        &(struct crypt_params_luks2) {
-                                .label = label,
-                                .subsystem = "systemd-home",
-                                .sector_size = sector_size, /* sector-size of 0 is auto for libcryptsetup */
-                                .pbkdf = &good_pbkdf,
-                        });
+        struct crypt_params_luks2 params = {
+                .label = label,
+                .subsystem = "systemd-home",
+                .sector_size = hardware_wrapped_keys ? HOME_LUKS_INTEGRITY_SECTOR_SIZE : sector_size,
+                .integrity = hardware_wrapped_keys ? HOME_LUKS_INTEGRITY_ALGORITHM : NULL,
+                .integrity_params = hardware_wrapped_keys ? &integrity_params : NULL,
+                .pbkdf = &good_pbkdf,
+        };
+
+        if (hardware_wrapped_keys)
+                r = sym_crypt_format_luks2_hw_wrapped(
+                                cd,
+                                user_record_luks_cipher(hr),
+                                user_record_luks_cipher_mode(hr),
+                                SD_ID128_TO_UUID_STRING(uuid),
+                                volume_key,
+                                volume_key_size,
+                                &params);
+        else
+                r = sym_crypt_format(
+                                cd,
+                                CRYPT_LUKS2,
+                                user_record_luks_cipher(hr),
+                                user_record_luks_cipher_mode(hr),
+                                SD_ID128_TO_UUID_STRING(uuid),
+                                volume_key,
+                                volume_key_size,
+                                &params);
         if (r < 0)
                 return log_error_errno(r, "Failed to format LUKS image: %m");
 
@@ -1871,22 +2092,11 @@ static int luks_format(
                 slot++;
         }
 
-        r = sym_crypt_activate_by_volume_key(
-                        cd,
-                        dm_name,
-                        volume_key,
-                        volume_key_size,
-                        discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to activate LUKS superblock: %m");
-
-        log_info("LUKS activation by volume key succeeded.");
-
         r = user_record_clone(hr, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &reduced);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare home record for LUKS: %m");
 
-        r = format_luks_token_text(cd, reduced, volume_key, &text);
+        r = format_luks_token_text(cd, reduced, volume_key, volume_key_size, &text);
         if (r < 0)
                 return r;
 
@@ -1895,6 +2105,17 @@ static int luks_format(
                 return log_error_errno(r, "Failed to set LUKS JSON token: %m");
 
         log_info("Writing user record as LUKS token completed.");
+
+        r = sym_crypt_activate_by_volume_key(
+                        cd,
+                        dm_name,
+                        volume_key,
+                        volume_key_size,
+                        (discard || hardware_wrapped_keys) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate LUKS superblock: %m");
+
+        log_info("LUKS activation by volume key succeeded.");
 
         if (ret)
                 *ret = TAKE_PTR(cd);
@@ -2194,7 +2415,7 @@ int home_create_luks(
                 char **effective_passwords,
                 UserRecord **ret_home) {
 
-        _cleanup_free_ char *subdir = NULL, *disk_uuid_path = NULL;
+        _cleanup_free_ char *subdir = NULL, *disk_uuid_path = NULL, *mount_options = NULL;
         uint64_t encrypted_size, image_sector_size, luks_sector_size,
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
@@ -2203,6 +2424,7 @@ int home_create_luks(
         const char *fstype, *ip;
         struct statfs sfs;
         struct stat st;
+        bool hardware_wrapped_keys;
         int r;
         _cleanup_strv_free_ char **extra_mkfs_options = NULL;
 
@@ -2220,6 +2442,21 @@ int home_create_luks(
         r = dlopen_cryptsetup(LOG_DEBUG);
         if (r < 0)
                 return r;
+
+        r = getenv_bool("SYSTEMD_HOME_HARDWARE_WRAPPED_KEYS");
+        if (r < 0 && r != -ENXIO)
+                return log_error_errno(r, "Failed to parse hardware-wrapped key creation policy: %m");
+        hardware_wrapped_keys = r > 0;
+
+        if (hardware_wrapped_keys &&
+            (!h->thin_pool_uuid || !setup->thin_volume_path || !streq(user_record_file_system_type(h), "ext4")))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Hardware-wrapped keys require a thin-backed LUKS/ext4 home.");
+
+        if (hardware_wrapped_keys && h->luks_sector_size != UINT64_MAX &&
+            user_record_luks_sector_size(h) != HOME_LUKS_INTEGRITY_SECTOR_SIZE)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Hardware-wrapped keys require a 4096-byte LUKS sector size.");
 
         assert_se(ip = user_record_image_path(h));
 
@@ -2385,6 +2622,8 @@ int home_create_luks(
                 } else
                         image_sector_size = luks_sector_size = user_record_luks_sector_size(h);
         }
+        if (hardware_wrapped_keys)
+                luks_sector_size = HOME_LUKS_INTEGRITY_SECTOR_SIZE;
         r = make_partition_table(
                         setup->image_fd,
                         image_sector_size,
@@ -2404,25 +2643,46 @@ int home_create_luks(
         /* Ensure we don't create a loop device over block device as it leads to huge overhead for discard operations
          * if the device does not support discard_zeroes_data */
         if (S_ISBLK(st.st_mode)) {
-                _cleanup_free_ char *partition_path = NULL;
+                _cleanup_free_ char *mapped_path = NULL, *partition_path = NULL;
+                const char *open_path;
+
                 assert(!sd_id128_is_null(partition_uuid));
-                if (asprintf(&partition_path, "/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(partition_uuid)) < 0)
-                        return log_oom();
+
+                if (setup->thin_volume_path) {
+                        r = home_thin_volume_map_partition(
+                                        h,
+                                        setup->image_fd,
+                                        partition_offset,
+                                        partition_size,
+                                        &mapped_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to map thin-volume home partition: %m");
+
+                        open_path = mapped_path;
+                } else {
+                        if (asprintf(&partition_path,
+                                     "/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR,
+                                     SD_ID128_FORMAT_VAL(partition_uuid)) < 0)
+                                return log_oom();
+
+                        open_path = partition_path;
+                }
 
                 /* Release the lock, so that udev can find the partition */
                 setup->image_fd = safe_close(setup->image_fd);
-                (void) wait_for_devlink(partition_path);
+                if (partition_path)
+                        (void) wait_for_devlink(partition_path);
                 setup->image_fd = open_image_file(h, ip, &st);
                 if (setup->image_fd < 0)
                         return setup->image_fd;
 
                 r = loop_device_open_from_path(
-                                partition_path,
+                                open_path,
                                 O_RDWR,
                                 LOCK_EX,
                                 &setup->loop);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to open newly written partition device: %s", partition_path);
+                        return log_error_errno(r, "Failed to open newly written partition device: %s", open_path);
         } else {
                 r = loop_device_make(
                                 setup->image_fd,
@@ -2451,6 +2711,7 @@ int home_create_luks(
                         effective_passwords,
                         user_record_luks_discard(h) || user_record_luks_offline_discard(h),
                         luks_sector_size,
+                        hardware_wrapped_keys,
                         h,
                         &setup->crypt_device);
         if (r < 0)
@@ -2483,7 +2744,11 @@ int home_create_luks(
 
         log_info("Formatting file system completed.");
 
-        r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h), h->luks_extra_mount_options);
+        r = luks_mount_options(h, fstype, &mount_options);
+        if (r < 0)
+                return r;
+
+        r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h), mount_options);
         if (r < 0)
                 return r;
 
@@ -2536,6 +2801,7 @@ int home_create_luks(
                         fs_uuid,
                         sym_crypt_get_cipher(setup->crypt_device),
                         sym_crypt_get_cipher_mode(setup->crypt_device),
+                        luks_key_type_convert(setup->crypt_device),
                         luks_volume_key_size_convert(setup->crypt_device),
                         fstype,
                         NULL,
@@ -2543,6 +2809,12 @@ int home_create_luks(
                         (gid_t) h->uid);
         if (r < 0)
                 return log_error_errno(r, "Failed to add binding to record: %m");
+
+        if (hardware_wrapped_keys) {
+                r = user_record_set_luks_integrity_binding(new_home, HOME_LUKS_INTEGRITY_ALGORITHM);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add LUKS integrity binding to record: %m");
+        }
 
         if (user_record_luks_offline_discard(h)) {
                 r = run_fitrim(setup->root_fd);
@@ -3073,6 +3345,7 @@ static int resize_fs_loop(
                 uint64_t new_fs_size,
                 uint64_t *ret_fs_size) {
 
+        _cleanup_free_ char *mount_options = NULL;
         uint64_t current_fs_size;
         unsigned n_iterations = 0;
         int r;
@@ -3080,6 +3353,10 @@ static int resize_fs_loop(
         assert(h);
         assert(setup);
         assert(setup->root_fd >= 0);
+
+        r = luks_mount_options(h, "ext4", &mount_options);
+        if (r < 0)
+                return r;
 
         /* A bisection loop trying to find the closest size to what the user asked for. (Well, we bisect like
          * this only when we *shrink* the fs — if we grow the fs there's no need to bisect.) */
@@ -3108,7 +3385,7 @@ static int resize_fs_loop(
                         /* If we hit a disk space issue and are shrinking the fs, then maybe it helps to
                          * increase the image size. */
                 } else {
-                        r = ext4_offline_resize_fs(setup, try_fs_size, user_record_luks_discard(h), user_record_mount_flags(h), h->luks_extra_mount_options);
+                        r = ext4_offline_resize_fs(setup, try_fs_size, user_record_luks_discard(h), user_record_mount_flags(h), mount_options);
                         if (r < 0)
                                 return r;
 
@@ -3839,7 +4116,7 @@ rollback:
 
 int home_lock_luks(UserRecord *h, HomeSetup *setup) {
         const char *p;
-        int r;
+        int encryption_type, r;
 
         assert(h);
         assert(setup);
@@ -3862,8 +4139,13 @@ int home_lock_luks(UserRecord *h, HomeSetup *setup) {
         /* Note that we don't invoke FIFREEZE here, it appears libcryptsetup/device-mapper already does that on its own for us */
 
         r = sym_crypt_suspend(setup->crypt_device, setup->dm_name);
-        if (r < 0)
+        if (r < 0) {
+                encryption_type = sym_crypt_get_hw_encryption_type(setup->crypt_device);
+                if (r == -ENOTSUP && encryption_type == CRYPT_INLINE_HW_WRAPPED)
+                        return log_error_errno(r,
+                                               "Locking a hardware-wrapped home requires dm-inlinecrypt key wipe/set support.");
                 return log_error_errno(r, "Failed to suspend cryptsetup device: %s: %m", setup->dm_node);
+        }
 
         log_info("LUKS device suspended.");
         return 0;
@@ -4075,9 +4357,27 @@ uint64_t luks_volume_key_size_convert(struct crypt_device *cd) {
 
         /* Convert the "int" to uint64_t, which we usually use for byte sizes stored on disk. */
 
+        k = sym_crypt_get_hw_encryption_type(cd);
+        if (k == CRYPT_INLINE_HW_WRAPPED)
+                return UINT64_MAX;
+        if (k < 0)
+                return UINT64_MAX;
+
         k = sym_crypt_get_volume_key_size(cd);
         if (k <= 0)
                 return UINT64_MAX;
 
         return (uint64_t) k;
+}
+
+const char* luks_key_type_convert(struct crypt_device *cd) {
+        int k;
+
+        assert(cd);
+
+        k = sym_crypt_get_hw_encryption_type(cd);
+        if (k < 0)
+                return NULL;
+
+        return k == CRYPT_INLINE_HW_WRAPPED ? "hw-wrapped" : "raw";
 }

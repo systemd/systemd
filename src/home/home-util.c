@@ -6,12 +6,15 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hash-funcs.h"
 #include "home-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "user-record.h"
 #include "user-util.h"
 
@@ -151,4 +154,80 @@ const char* home_record_dir(void) {
 
 const char* home_system_blob_dir(void) {
         return secure_getenv("SYSTEMD_HOME_SYSTEM_BLOB_DIR") ?: "/var/cache/systemd/home/";
+}
+
+int home_record_commit_pending(const char *user_name) {
+        const char *final, *pending;
+        int r;
+
+        assert(user_name);
+
+        pending = strjoina(home_record_dir(), "/", user_name, HOME_RECORD_PENDING_SUFFIX);
+        final = strjoina(home_record_dir(), "/", user_name, HOME_RECORD_SUFFIX);
+
+        r = rename_noreplace(AT_FDCWD, pending, AT_FDCWD, final);
+        if (r < 0)
+                return r;
+
+        return fsync_parent_at(AT_FDCWD, final);
+}
+
+int home_record_cancel_pending(const char *user_name) {
+        _cleanup_close_ int dir_fd = -EBADF;
+        _cleanup_free_ char *intent = NULL, *pending = NULL;
+        bool removed = false;
+        int ret = 0, r;
+
+        assert(user_name);
+
+        dir_fd = open(home_record_dir(), O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (dir_fd < 0)
+                return errno == ENOENT ? 0 : -errno;
+
+        pending = strjoin(user_name, HOME_RECORD_PENDING_SUFFIX);
+        intent = strjoin(user_name, HOME_RECORD_THIN_INTENT_SUFFIX);
+        if (!pending || !intent)
+                return -ENOMEM;
+
+        r = RET_NERRNO(unlinkat(dir_fd, pending, 0));
+        if (r == -ENOENT)
+                r = 0;
+        else if (r >= 0)
+                removed = true;
+        RET_GATHER(ret, r);
+
+        r = RET_NERRNO(unlinkat(dir_fd, intent, 0));
+        if (r == -ENOENT)
+                r = 0;
+        else if (r >= 0)
+                removed = true;
+        RET_GATHER(ret, r);
+
+        if (removed)
+                RET_GATHER(ret, RET_NERRNO(fsync(dir_fd)));
+
+        return ret;
+}
+
+int home_record_has_pending(const char *user_name) {
+        const char *intent, *pending;
+        int r;
+
+        assert(user_name);
+
+        pending = strjoina(home_record_dir(), "/", user_name, HOME_RECORD_PENDING_SUFFIX);
+        r = access_nofollow(pending, F_OK);
+        if (r >= 0)
+                return 1;
+        if (r != -ENOENT)
+                return r;
+
+        intent = strjoina(home_record_dir(), "/", user_name, HOME_RECORD_THIN_INTENT_SUFFIX);
+        r = access_nofollow(intent, F_OK);
+        if (r >= 0)
+                return 1;
+        if (r != -ENOENT)
+                return r;
+
+        return 0;
 }

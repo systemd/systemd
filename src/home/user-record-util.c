@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "group-record.h"
 #include "hashmap.h"
 #include "home-util.h"
@@ -26,6 +27,29 @@
 #include "user-record.h"
 #include "user-record-util.h"
 #include "user-util.h"
+
+int user_record_save(UserRecord *h, const char *path) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *text = NULL;
+        int r;
+
+        assert(h);
+        assert(path);
+
+        v = sd_json_variant_ref(h->json);
+        r = sd_json_variant_normalize(&v);
+        if (r < 0)
+                log_debug_errno(r, "User record could not be normalized, ignoring: %m");
+
+        r = sd_json_variant_format(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_NEWLINE, &text);
+        if (r < 0)
+                return r;
+
+        return write_string_file(
+                        path,
+                        text,
+                        WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_SYNC);
+}
 
 int user_record_synthesize(
                 UserRecord *h,
@@ -289,6 +313,7 @@ int user_record_add_binding(
                 sd_id128_t fs_uuid,
                 const char *luks_cipher,
                 const char *luks_cipher_mode,
+                const char *luks_key_type,
                 uint64_t luks_volume_key_size,
                 const char *file_system_type,
                 const char *home_directory,
@@ -296,7 +321,8 @@ int user_record_add_binding(
                 gid_t gid) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *new_binding_entry = NULL, *binding = NULL;
-        _cleanup_free_ char *blob = NULL, *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
+        _cleanup_free_ char *blob = NULL, *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL,
+                *lkt = NULL, *fst = NULL;
         sd_id128_t mid;
         int r;
 
@@ -347,6 +373,12 @@ int user_record_add_binding(
                         return -ENOMEM;
         }
 
+        if (luks_key_type) {
+                lkt = strdup(luks_key_type);
+                if (!lkt)
+                        return -ENOMEM;
+        }
+
         r = sd_json_buildo(
                         &new_binding_entry,
                         SD_JSON_BUILD_PAIR_STRING("blobDirectory", blob),
@@ -356,6 +388,7 @@ int user_record_add_binding(
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(fs_uuid), "fileSystemUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(fs_uuid))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!luks_cipher, "luksCipher", SD_JSON_BUILD_STRING(luks_cipher)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!luks_cipher_mode, "luksCipherMode", SD_JSON_BUILD_STRING(luks_cipher_mode)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!luks_key_type, "luksKeyType", SD_JSON_BUILD_STRING(luks_key_type)),
                         SD_JSON_BUILD_PAIR_CONDITION(luks_volume_key_size != UINT64_MAX, "luksVolumeKeySize", SD_JSON_BUILD_UNSIGNED(luks_volume_key_size)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!file_system_type, "fileSystemType", SD_JSON_BUILD_STRING(file_system_type)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!home_directory, "homeDirectory", SD_JSON_BUILD_STRING(home_directory)),
@@ -411,6 +444,8 @@ int user_record_add_binding(
                 free_and_replace(h->luks_cipher, lc);
         if (lcm)
                 free_and_replace(h->luks_cipher_mode, lcm);
+        if (lkt)
+                free_and_replace(h->luks_key_type, lkt);
         if (luks_volume_key_size != UINT64_MAX)
                 h->luks_volume_key_size = luks_volume_key_size;
 
@@ -426,6 +461,180 @@ int user_record_add_binding(
 
         h->mask |= USER_RECORD_BINDING;
         return 1;
+}
+
+int user_record_add_thin_pool_binding(
+                UserRecord *h,
+                const char *pool_uuid,
+                uint32_t device_id) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL, *binding = NULL;
+        _cleanup_free_ char *u = NULL;
+        sd_id128_t mid;
+        int r;
+
+        assert(h);
+        assert(pool_uuid);
+        assert(device_id < UINT32_C(1) << 24);
+
+        if (!h->json)
+                return -EUNATCH;
+
+        u = strdup(pool_uuid);
+        if (!u)
+                return -ENOMEM;
+
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                return r;
+
+        binding = sd_json_variant_ref(sd_json_variant_by_key(h->json, "binding"));
+        if (!binding)
+                return -ENXIO;
+
+        entry = sd_json_variant_ref(sd_json_variant_by_key(binding, SD_ID128_TO_STRING(mid)));
+        if (!entry)
+                return -ENXIO;
+
+        r = sd_json_variant_set_field_string(&entry, "thinPoolUuid", pool_uuid);
+        if (r < 0)
+                return r;
+        r = sd_json_variant_set_field_unsigned(&entry, "thinDeviceId", device_id);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_set_field(&binding, SD_ID128_TO_STRING(mid), entry);
+        if (r < 0)
+                return r;
+        r = sd_json_variant_set_field(&h->json, "binding", binding);
+        if (r < 0)
+                return r;
+
+        free_and_replace(h->thin_pool_uuid, u);
+        h->thin_device_id = device_id;
+        h->mask |= USER_RECORD_BINDING;
+        return 1;
+}
+
+int user_record_set_luks_integrity_binding(UserRecord *h, const char *integrity) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL, *binding = NULL;
+        _cleanup_free_ char *copy = NULL;
+        sd_id128_t mid;
+        int r;
+
+        assert(h);
+
+        if (!h->json)
+                return -EUNATCH;
+
+        if (integrity) {
+                copy = strdup(integrity);
+                if (!copy)
+                        return -ENOMEM;
+        }
+
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                return r;
+
+        binding = sd_json_variant_ref(sd_json_variant_by_key(h->json, "binding"));
+        if (!binding)
+                return -ENXIO;
+
+        entry = sd_json_variant_ref(sd_json_variant_by_key(binding, SD_ID128_TO_STRING(mid)));
+        if (!entry)
+                return -ENXIO;
+
+        if (integrity)
+                r = sd_json_variant_set_field_string(&entry, "luksIntegrity", integrity);
+        else
+                r = sd_json_variant_filter(&entry, STRV_MAKE("luksIntegrity"));
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_set_field(&binding, SD_ID128_TO_STRING(mid), entry);
+        if (r < 0)
+                return r;
+        r = sd_json_variant_set_field(&h->json, "binding", binding);
+        if (r < 0)
+                return r;
+
+        free_and_replace(h->luks_integrity, copy);
+        h->mask |= USER_RECORD_BINDING;
+        return 1;
+}
+
+int user_record_set_thin_volume_creation_id(UserRecord *h, sd_id128_t creation_id) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *binding = NULL, *entry = NULL;
+        sd_id128_t mid;
+        int r;
+
+        assert(h);
+        assert(!sd_id128_is_null(creation_id));
+
+        if (!h->json)
+                return -EUNATCH;
+
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                return r;
+
+        binding = sd_json_variant_ref(sd_json_variant_by_key(h->json, "binding"));
+        if (!binding)
+                return -ENXIO;
+
+        entry = sd_json_variant_ref(sd_json_variant_by_key(binding, SD_ID128_TO_STRING(mid)));
+        if (!entry)
+                return -ENXIO;
+
+        r = sd_json_variant_set_field_id128(&entry, HOMEWORK_THIN_CREATION_ID_FIELD, creation_id);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_set_field(&binding, SD_ID128_TO_STRING(mid), entry);
+        if (r < 0)
+                return r;
+        r = sd_json_variant_set_field(&h->json, "binding", binding);
+        if (r < 0)
+                return r;
+
+        h->mask |= USER_RECORD_BINDING;
+        return 1;
+}
+
+int user_record_get_thin_volume_creation_id(UserRecord *h, sd_id128_t *ret_creation_id) {
+        sd_json_variant *binding, *entry, *v;
+        sd_id128_t creation_id, mid;
+        int r;
+
+        assert(h);
+        assert(h->json);
+        assert(ret_creation_id);
+
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                return r;
+
+        binding = sd_json_variant_by_key(h->json, "binding");
+        if (!binding)
+                return -ENXIO;
+
+        entry = sd_json_variant_by_key(binding, SD_ID128_TO_STRING(mid));
+        if (!entry)
+                return -ENXIO;
+
+        v = sd_json_variant_by_key(entry, HOMEWORK_THIN_CREATION_ID_FIELD);
+        if (!v)
+                return -EBADMSG;
+
+        r = sd_json_dispatch_id128(HOMEWORK_THIN_CREATION_ID_FIELD, v, SD_JSON_STRICT, &creation_id);
+        if (r < 0)
+                return r;
+        if (sd_id128_is_null(creation_id))
+                return -EBADMSG;
+
+        *ret_creation_id = creation_id;
+        return 0;
 }
 
 int user_record_test_home_directory(UserRecord *h) {
@@ -1355,7 +1564,8 @@ int user_record_is_supported(UserRecord *hr, sd_bus_error *error) {
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot manage custom blob directories.");
         }
 
-        if (sd_json_variant_by_key(hr->json, HOMEWORK_BLOB_FDMAP_FIELD))
+        if (sd_json_variant_by_key(hr->json, HOMEWORK_BLOB_FDMAP_FIELD) ||
+            sd_json_variant_by_key(hr->json, HOMEWORK_THIN_CREATION_ID_FIELD))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "User record contains unsafe internal fields.");
 
         return 0;

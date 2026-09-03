@@ -30,6 +30,8 @@ typedef struct Manager {
         bool scan_slash_home;
         UserStorage default_storage;
         char *default_file_system_type;
+        char *thin_pool;
+        bool hardware_wrapped_keys;
 
         sd_event_source *inotify_event_source;
 
@@ -66,6 +68,7 @@ Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 int manager_startup(Manager *m);
+int manager_recover_records(Manager *m);
 
 int manager_augment_record_with_uid(Manager *m, UserRecord *hr);
 

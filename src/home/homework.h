@@ -58,6 +58,12 @@ typedef struct HomeSetup {
         char *mount_suffix;           /* The directory to use as home dir is this path below /run/systemd/user-home-mount */
 
         char *temporary_image_path;
+
+        char *thin_volume_path;
+        char *thin_volume_intent_path;
+        bool undo_thin_volume:1;
+        bool deactivate_thin_volume:1;
+        bool thin_volume_record_saved:1;
 } HomeSetup;
 
 #define HOME_SETUP_INIT                                 \
