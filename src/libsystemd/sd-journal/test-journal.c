@@ -5,6 +5,7 @@
 
 #include "argv-util.h"
 #include "chattr-util.h"
+#include "fd-util.h"
 #include "iovec-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
@@ -579,6 +580,141 @@ TEST(recover_truncated_hash_chain) {
                 test_recover_truncated_hash_chain_one(/* field= */ true, /* zeroed_tail= */ false);
                 test_recover_truncated_hash_chain_one(/* field= */ true, /* zeroed_tail= */ true);
         }
+}
+
+TEST(verify_header_torn) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        dual_timestamp ts;
+        JournalFile *f;
+        Object *o;
+        le64_t tail_object_offset_le = 0, tail_entry_offset_le, data_hash_table_offset_le = 0,
+                header_size_le = 0, arena_size_le = 0, data_hash_table_size_le = 0, oversized_le;
+        uint8_t state;
+        uint64_t p, c;
+        usec_t from, to;
+        int r;
+        char t[] = "/var/tmp/journal-XXXXXX";
+
+        /* A live writer updates the tail offsets and counters of an append one at a time, so a reader
+         * racing it can load a mutually inconsistent snapshot of them, e.g. a tail_entry_offset past the
+         * tail_object_offset it loaded a moment earlier (#40053). A read-only open must tolerate that and
+         * still find the entries; a writable open must keep refusing it; and damage to the hash table
+         * descriptors, which no append ever touches, must keep being refused even read-only. */
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        dual_timestamp_now(&ts);
+
+        for (unsigned i = 0; i < 10; i++) {
+                struct iovec iovec = IOVEC_MAKE_STRING("LINE=x");
+                ts.realtime = i + 1;
+                ASSERT_OK_ZERO(journal_file_append_entry(
+                                f, &ts, /* boot_id= */ NULL, &iovec, 1,
+                                /* seqnum= */ NULL, /* seqnum_id= */ NULL,
+                                /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        }
+
+        (void) journal_file_offline_close(f);
+
+        /* Emulate the torn snapshot: point tail_entry_offset past tail_object_offset. */
+        ASSERT_OK_ERRNO(fd = open("test.journal", O_RDWR|O_CLOEXEC));
+        ASSERT_OK_EQ_ERRNO(pread(fd, &tail_object_offset_le, sizeof(tail_object_offset_le),
+                                 offsetof(Header, tail_object_offset)),
+                           (ssize_t) sizeof(tail_object_offset_le));
+        tail_entry_offset_le = htole64(le64toh(tail_object_offset_le) + 16);
+        ASSERT_OK_EQ_ERRNO(pwrite(fd, &tail_entry_offset_le, sizeof(tail_entry_offset_le),
+                                  offsetof(Header, tail_entry_offset)),
+                           (ssize_t) sizeof(tail_entry_offset_le));
+
+        /* The relaxation must not depend on the state byte: a crashed writer leaves STATE_ONLINE behind,
+         * and journald flips a live file to STATE_OFFLINE on sync, so neither value proves anything. */
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        (void) journal_file_close(f);
+
+        state = STATE_ONLINE;
+        ASSERT_OK_EQ_ERRNO(pwrite(fd, &state, sizeof(state), offsetof(Header, state)),
+                           (ssize_t) sizeof(state));
+
+        /* A writable open must keep refusing the inconsistency, before it ever gets to the state check
+         * (EBUSY), i.e. writable opens stay strict. */
+        ASSERT_ERROR(journal_file_open(
+                        -EBADF, "test.journal", O_RDWR, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f), ENODATA);
+
+        /* A read-only open must succeed, and the entries must be reachable: iteration goes through the
+         * entry array, not through the torn tail_entry_offset. */
+        ASSERT_OK_ZERO(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f));
+
+        c = 0;
+        p = 0;
+        while ((r = journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p)) > 0) {
+                c++;
+                ASSERT_EQ(le64toh(o->entry.seqnum), c);
+        }
+        ASSERT_OK_ZERO(r);
+        ASSERT_EQ(c, UINT64_C(10));
+
+        ASSERT_EQ(journal_file_get_cutoff_realtime_usec(f, &from, &to), 1);
+        ASSERT_EQ(from, UINT64_C(1));
+        ASSERT_EQ(to, UINT64_C(10));
+
+        (void) journal_file_close(f);
+
+        /* The whole item span must lie inside the arena: a size that keeps the object start in bounds
+         * but runs the items offsetof(Object, hash_table.items) bytes past header_size + arena_size
+         * must be refused. */
+        ASSERT_OK_EQ_ERRNO(pread(fd, &header_size_le, sizeof(header_size_le),
+                                 offsetof(Header, header_size)),
+                           (ssize_t) sizeof(header_size_le));
+        ASSERT_OK_EQ_ERRNO(pread(fd, &arena_size_le, sizeof(arena_size_le),
+                                 offsetof(Header, arena_size)),
+                           (ssize_t) sizeof(arena_size_le));
+        ASSERT_OK_EQ_ERRNO(pread(fd, &data_hash_table_offset_le, sizeof(data_hash_table_offset_le),
+                                 offsetof(Header, data_hash_table_offset)),
+                           (ssize_t) sizeof(data_hash_table_offset_le));
+        ASSERT_OK_EQ_ERRNO(pread(fd, &data_hash_table_size_le, sizeof(data_hash_table_size_le),
+                                 offsetof(Header, data_hash_table_size)),
+                           (ssize_t) sizeof(data_hash_table_size_le));
+
+        oversized_le = htole64(le64toh(header_size_le) + le64toh(arena_size_le) -
+                               (le64toh(data_hash_table_offset_le) - offsetof(Object, hash_table.items)));
+        ASSERT_OK_EQ_ERRNO(pwrite(fd, &oversized_le, sizeof(oversized_le),
+                                  offsetof(Header, data_hash_table_size)),
+                           (ssize_t) sizeof(oversized_le));
+
+        ASSERT_ERROR(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f), ENODATA);
+
+        ASSERT_OK_EQ_ERRNO(pwrite(fd, &data_hash_table_size_le, sizeof(data_hash_table_size_le),
+                                  offsetof(Header, data_hash_table_size)),
+                           (ssize_t) sizeof(data_hash_table_size_le));
+
+        /* The hash table descriptors are written only at file creation, so they cannot be observed torn,
+         * and a read-only open of an online file must keep validating them: point the data hash table
+         * into the header and expect refusal. */
+        data_hash_table_offset_le = htole64(ALIGN64(sizeof(Header) / 2));
+        ASSERT_OK_EQ_ERRNO(pwrite(fd, &data_hash_table_offset_le, sizeof(data_hash_table_offset_le),
+                                  offsetof(Header, data_hash_table_offset)),
+                           (ssize_t) sizeof(data_hash_table_offset_le));
+
+        ASSERT_ERROR(journal_file_open(
+                        -EBADF, "test.journal", O_RDONLY, JOURNAL_COMPRESS, 0666, UINT64_MAX,
+                        /* metrics= */ NULL, m, /* template= */ NULL, &f), ENODATA);
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else
+                ASSERT_OK(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL));
 }
 
 static int intro(void) {

@@ -1671,6 +1671,26 @@ static int add_any_file(
                 }
         }
 
+        if (our_fd >= 0 && st.st_size == 0 && FLAGS_SET(j->flags, SD_JOURNAL_ASSUME_IMMUTABLE)) {
+                /* Journal writers create journal files empty at their final name, and write the header in
+                 * a second step. Hence an empty journal file is likely one we caught right at the time of
+                 * its creation, before its header was written, and carries no data yet. Skip it, as if it
+                 * didn't exist yet, instead of failing the whole open with -ENODATA, but record the skip
+                 * in the error map so that callers can still report the file. Do this only when the
+                 * caller declared it won't wait for changes: without SD_JOURNAL_ASSUME_IMMUTABLE the
+                 * caller may wait for the file to become readable, but a file skipped here would never be
+                 * picked up again once sd_journal_open_files() has marked the file set as final, so keep
+                 * the hard error there (for watched directories the enumeration ignores the error, and
+                 * inotify retries once the header has been written). Also do this only for files we
+                 * opened ourselves by path: for a caller provided fd skipping the file would leave the
+                 * fd's ownership in limbo, neither taken by us nor reported back. */
+                log_debug("Journal file %s is empty, likely being created right now, skipping.", path);
+                r = journal_put_error(j, -ENODATA, path);
+                if (r < 0)
+                        return r;
+                return 0;
+        }
+
         if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
                 r = log_debug_errno(SYNTHETIC_ERRNO(ETOOMANYREFS),
                                     "Too many open journal files, not adding %s.", path ?: "fd");
@@ -2689,11 +2709,16 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
                  * recent entry timestamps from the header. It's equally good. Unfortunately though, in old
                  * versions of the journal the boot ID in the header doesn't have to match the monotonic
                  * timestamp of the header. Let's check the header flag that indicates whether this strictly
-                 * matches first hence, before using the data. */
+                 * matches first hence, before using the data. The timestamps must also be valid: a
+                 * read-only open does not validate them, hence check here, at use. */
 
-                if (JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) && f->header->state == STATE_ARCHIVED) {
-                        mo = le64toh(f->header->tail_entry_monotonic);
-                        rt = le64toh(f->header->tail_entry_realtime);
+                uint64_t header_mo = le64toh(READ_NOW(f->header->tail_entry_monotonic)),
+                         header_rt = le64toh(READ_NOW(f->header->tail_entry_realtime));
+
+                if (JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) && f->header->state == STATE_ARCHIVED &&
+                    VALID_MONOTONIC(header_mo) && VALID_REALTIME(header_rt)) {
+                        mo = header_mo;
+                        rt = header_rt;
                         id = f->header->tail_entry_boot_id;
                         offset = UINT64_MAX;
                 } else {
