@@ -280,6 +280,7 @@ class UkifyConfig:
     hwids: Union[str, Path, None]
     initrd: list[Path]
     efifw: list[Path]
+    mokkeys: list[Path]
     join_profiles: list[Path]
     sign_profiles: list[str]
     json: Union[Literal['pretty'], Literal['short'], Literal['off']]
@@ -416,6 +417,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
     '.dtbauto': 'binary',
     '.hwids':   'binary',
     '.efifw':   'binary',
+    '.mokkeys': 'binary',
     '.cmdline': 'text',
     '.osrel':   'text',
     '.uname':   'text',
@@ -1308,6 +1310,38 @@ def parse_hwid_dir(path: Path) -> bytes:
     return devices_blob + strings_blob
 
 
+EFI_CERT_X509_GUID = uuid.UUID('a5c059a1-94e4-4aa7-87b5-ab155c2bf072')
+EFI_SIGNATURE_LIST_HEADER_SIZE = 16 + 4 + 4 + 4
+
+
+def pack_mokkeys(paths: list[Path]) -> Optional[bytes]:
+    """Wrap DER certificates as concatenated EFI_SIGNATURE_LISTs for the .mokkeys section.
+
+    One list per certificate, each holding a single signature with a zero owner GUID, which is
+    the layout the kernel's EFI signature list parser expects and the only signature type its
+    MOK handler accepts. Keeping the wrapping here means the boot loader needs no structure
+    building code of its own.
+    """
+    if not paths:
+        return None
+
+    blob = b''
+    for path in paths:
+        cert = path.read_bytes()
+        if cert[:1] != b'\x30':
+            raise ValueError(f'{path} is not a DER certificate (expected a SEQUENCE tag)')
+        signature = uuid.UUID(int=0).bytes_le + cert
+        blob += (
+            EFI_CERT_X509_GUID.bytes_le
+            + struct.pack('<I', EFI_SIGNATURE_LIST_HEADER_SIZE + len(signature))
+            + struct.pack('<I', 0)
+            + struct.pack('<I', len(signature))
+            + signature
+        )
+
+    return blob
+
+
 def parse_efifw_dir(path: Path) -> bytes:
     if not path.is_dir():
         raise ValueError(f'{path} is not a directory or it does not exist')
@@ -1460,6 +1494,7 @@ def make_uki(opts: UkifyConfig) -> None:
         ('.linux',   linux,           True),
         ('.initrd',  initrd,          True),
         *(('.efifw', parse_efifw_dir(fw), False) for fw in opts.efifw),
+        ('.mokkeys', pack_mokkeys(opts.mokkeys), True),
         ('.ucode',   opts.microcode,  True),
     ]  # fmt: skip
 
@@ -2065,6 +2100,16 @@ CONFIG_ITEMS = [
         default=[],
         help='Directory with efi firmware binary file [.efifw section]',
         config_key='UKI/Firmware',
+        config_push=ConfigItem.config_list_prepend,
+    ),
+    ConfigItem(
+        '--mokkeys',
+        metavar='PATH',
+        type=Path,
+        action='append',
+        default=[],
+        help='DER certificate to offer to the kernel .machine keyring [.mokkeys section]',
+        config_key='UKI/MokKeys',
         config_push=ConfigItem.config_list_prepend,
     ),
     ConfigItem(

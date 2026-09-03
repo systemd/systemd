@@ -21,6 +21,7 @@ import os
 import pathlib
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -343,6 +344,43 @@ def test_parse_sections():
     assert opts.sections[1].content == pathlib.Path('FILE')
     assert opts.sections[1].tmpfile is None
     assert opts.sections[1].measure is False
+
+
+def test_pack_mokkeys(tmp_path):
+    assert ukify.pack_mokkeys([]) is None
+
+    # pack_mokkeys() looks at the DER SEQUENCE tag and nothing else, so the certificate bodies
+    # can be arbitrary here.
+    cert1 = tmp_path / 'cert1.der'
+    cert1.write_bytes(b'\x30\x82\x00\x0c' + b'\xa1' * 12)
+    cert2 = tmp_path / 'cert2.der'
+    cert2.write_bytes(b'\x30\x82\x00\x1c' + b'\xb2' * 28)
+
+    blob = ukify.pack_mokkeys([cert1])
+    assert blob is not None
+    sig_type, list_size, header_size, sig_size = struct.unpack('<16sIII', blob[:28])
+    assert sig_type == ukify.EFI_CERT_X509_GUID.bytes_le
+    assert list_size == len(blob)
+    assert header_size == 0
+    assert sig_size == 16 + len(cert1.read_bytes())
+    # The owner GUID is zero, and the certificate follows it verbatim.
+    assert blob[28:44] == bytes(16)
+    assert blob[44:] == cert1.read_bytes()
+
+    # One list per certificate, concatenated in the order given.
+    blob = ukify.pack_mokkeys([cert1, cert2])
+    first = 28 + 16 + len(cert1.read_bytes())
+    second = 28 + 16 + len(cert2.read_bytes())
+    assert len(blob) == first + second
+    assert struct.unpack('<I', blob[16:20])[0] == first
+    assert struct.unpack('<I', blob[first + 16 : first + 20])[0] == second
+    assert blob[first + 44 :] == cert2.read_bytes()
+
+    # A PEM certificate is the mistake to expect, and it is rejected rather than embedded.
+    pem = tmp_path / 'cert.pem'
+    pem.write_bytes(b'-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n')
+    with pytest.raises(ValueError):
+        ukify.pack_mokkeys([pem])
 
 
 def test_config_priority(tmp_path):
