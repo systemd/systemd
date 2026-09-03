@@ -120,6 +120,105 @@ TEST(credential_glob_valid) {
         ASSERT_TRUE(credential_glob_valid(buf));
 }
 
+TEST(credential_key_scope) {
+        static const struct {
+                sd_id128_t unscoped;
+                sd_id128_t scoped;
+        } compatible[] = {
+                { _CRED_AUTO, _CRED_AUTO_SCOPED },
+                { CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_SCOPED },
+                {
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,
+                },
+                {
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,
+                },
+                {
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,
+                },
+                {
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,
+                },
+        };
+        static const sd_id128_t incompatible[] = {
+                _CRED_AUTO_TPM2,
+                _CRED_AUTO_HOST_AND_TPM2,
+                _CRED_AUTO_INITRD,
+                CRED_AES256_GCM_BY_TPM2_HMAC,
+                CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
+                CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK,
+                CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK,
+                CRED_AES256_GCM_BY_NULL,
+                SD_ID128_NULL,
+        };
+
+        FOREACH_ELEMENT(i, compatible) {
+                sd_id128_t id = i->unscoped;
+                ASSERT_OK(credential_key_make_scoped(&id));
+                ASSERT_EQ_ID128(id, i->scoped);
+
+                id = i->scoped;
+                ASSERT_OK(credential_key_make_scoped(&id));
+                ASSERT_EQ_ID128(id, i->scoped);
+        }
+
+        FOREACH_ELEMENT(i, incompatible) {
+                sd_id128_t id = *i;
+                ASSERT_ERROR(credential_key_make_scoped(&id), EOPNOTSUPP);
+                ASSERT_EQ_ID128(id, *i);
+        }
+}
+
+TEST(credential_key_varlink) {
+        static const struct {
+                sd_id128_t id;
+                const char *name;
+        } compatible[] = {
+                { _CRED_AUTO, "auto" },
+                { _CRED_AUTO_SCOPED, "auto" },
+                { _CRED_AUTO_TPM2, "tpm2" },
+                { _CRED_AUTO_INITRD, "auto_initrd" },
+                { CRED_AES256_GCM_BY_HOST, "host" },
+                { CRED_AES256_GCM_BY_HOST_SCOPED, "host" },
+                { CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK, "tpm2_with_public_key" },
+                { CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK, "tpm2_with_public_key" },
+                { CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, "host_tpm2" },
+                { CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED, "host_tpm2" },
+                { CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK, "host_tpm2" },
+                { CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK, "host_tpm2" },
+                { CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK, "host_tpm2_with_public_key" },
+                { CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED, "host_tpm2_with_public_key" },
+                { CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK, "host_tpm2_with_public_key" },
+                {
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,
+                        "host_tpm2_with_public_key",
+                },
+                { CRED_AES256_GCM_BY_NULL, "null" },
+        };
+        static const sd_id128_t incompatible[] = {
+                _CRED_AUTO_HOST_AND_TPM2,
+                CRED_AES256_GCM_BY_TPM2_HMAC,
+                CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK,
+                SD_ID128_NULL,
+        };
+
+        FOREACH_ELEMENT(i, compatible) {
+                const char *name = NULL;
+                ASSERT_OK(credential_key_to_varlink(i->id, &name));
+                ASSERT_STREQ(name, i->name);
+        }
+
+        FOREACH_ELEMENT(i, incompatible) {
+                const char *name = NULL;
+                ASSERT_ERROR(credential_key_to_varlink(*i, &name), EOPNOTSUPP);
+                ASSERT_NULL(name);
+        }
+}
+
 static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
         static const struct iovec plaintext = CONST_IOVEC_MAKE_STRING("this is a super secret string");
         int r;
