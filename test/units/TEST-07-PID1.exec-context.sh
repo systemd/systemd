@@ -248,14 +248,15 @@ ARGUMENTS=(
     -p CacheDirectory="context"
     -p CacheDirectoryMode="0123"
     -p CacheDirectoryMode="0666"
-    -p ConfigurationDirectory="context/foo also_context/bar context/nested/baz context/semi\:colon"
+    # Note: all *Directory= directives support the tuple syntax (directory:symlink:flags for
+    #       {Runtime,State,Cache,Logs}Directory=, directory::flags for ConfigurationDirectory=),
+    #       which requires an additional level of escaping for the colon character
+    -p ConfigurationDirectory="context/foo also_context/bar context/nested/baz context/semi\\\:colon"
     -p ConfigurationDirectoryMode="0400"
     -p LogsDirectory="context/foo"
     -p LogsDirectory=""
     -p LogsDirectory="context/a/very/nested/logs/dir"
     -p RuntimeDirectory="context/with\ spaces"
-    # Note: {Runtime,State,Cache,Logs}Directory= directives support the directory:symlink syntax, which
-    #       requires an additional level of escaping for the colon character
     -p RuntimeDirectory="also_context:a\ symlink\ with\ \\\:\ col\\\:ons\ and\ \ spaces"
     -p RuntimeDirectoryPreserve=yes
     -p StateDirectory="context"
@@ -271,7 +272,8 @@ systemd-run --wait --pipe "${ARGUMENTS[@]}" \
     bash -xec '[[ $CONFIGURATION_DIRECTORY == /etc/also_context/bar:/etc/context/foo:/etc/context/nested/baz:/etc/context/semi:colon ]];
                [[ $(stat -c "%a" "${CONFIGURATION_DIRECTORY%%:*}") == 400 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
-    bash -xec '[[ $LOGS_DIRECTORY == /var/log/context/a/very/nested/logs/dir:/var/log/context/foo ]];
+    # Note: the empty LogsDirectory= above resets the list, so context/foo is gone
+    bash -xec '[[ $LOGS_DIRECTORY == /var/log/context/a/very/nested/logs/dir ]];
                [[ $(stat -c "%a" "${LOGS_DIRECTORY##*:}") == 755 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
     bash -xec '[[ $RUNTIME_DIRECTORY == "/run/also_context:/run/context/with spaces" ]];
