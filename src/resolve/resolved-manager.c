@@ -818,8 +818,8 @@ static int manager_dispatch_exit_signal(
          * during that grace second. */
         manager_send_mdns_goodbyes(m);
         /* Tell the service manager we are on the way out before holding the exit: the daemon has
-         * already withdrawn its published services, so leaving the unit looking READY for the
-         * grace second would misreport it. The STOPPING=1 that notify_on_cleanup
+         * already withdrawn its published services and refuses new registrations, so leaving the
+         * unit looking READY for the grace second would misreport it. The STOPPING=1 that notify_on_cleanup
          * sends once the event loop returns comes too late for that, and sending it twice is harmless
          * -- networkd and udevd do the same when they delay their own exit. */
         (void) sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);

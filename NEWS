@@ -38,6 +38,12 @@ CHANGES WITH 262 in spe:
           soon as the tool exits. To register a DNS-SD service independently
           of a client's lifetime, use *.dnssd files, see systemd.dnssd(5).
 
+        * RegisterService() now fails with org.freedesktop.resolve1.ShuttingDown
+          when called while systemd-resolved is already withdrawing its
+          published records on the way down: the registration could never be
+          announced. Clients may retry against the next instance of the
+          service.
+
         * Meson options '-Dlibiptc=' (deprecated in v259), '-Dlibidn=',
           '-Drc-local=', '-Dsysvinit-path=', and '-Dsysvrcnd-path=' (deprecated
           in v260) have been removed.
