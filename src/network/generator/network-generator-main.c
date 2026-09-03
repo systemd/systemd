@@ -23,6 +23,7 @@
 #include "verbs.h"
 
 #define NETWORK_UNIT_DIRECTORY "/run/systemd/network/"
+#define NETWORKD_CONF_DROPIN_DIRECTORY "/run/systemd/networkd.conf.d/"
 
 static const char *arg_root = NULL;
 
@@ -234,11 +235,19 @@ static int run(int argc, char *argv[]) {
 
         RET_GATHER(ret, context_save(&context));
 
-        static const PickUpCredential table[] = {
-                { "network.conf.",    "/run/systemd/networkd.conf.d/", ".conf"    },
-                { "network.link.",    NETWORK_UNIT_DIRECTORY,          ".link"    },
-                { "network.netdev.",  NETWORK_UNIT_DIRECTORY,          ".netdev"  },
-                { "network.network.", NETWORK_UNIT_DIRECTORY,          ".network" },
+        _cleanup_free_ char *network_dir = path_join(arg_root, NETWORK_UNIT_DIRECTORY);
+        if (!network_dir)
+                return log_oom();
+
+        _cleanup_free_ char *networkd_conf_dropin_dir = path_join(arg_root, NETWORKD_CONF_DROPIN_DIRECTORY);
+        if (!networkd_conf_dropin_dir)
+                return log_oom();
+
+        const PickUpCredential table[] = {
+                { "network.conf.",    networkd_conf_dropin_dir, ".conf"    },
+                { "network.link.",    network_dir,               ".link"    },
+                { "network.netdev.",  network_dir,               ".netdev"  },
+                { "network.network.", network_dir,               ".network" },
         };
         RET_GATHER(ret, pick_up_credentials(table, ELEMENTSOF(table)));
 
