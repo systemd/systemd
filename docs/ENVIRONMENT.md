@@ -129,6 +129,11 @@ All tools:
   for example in `systemd-nspawn`, will be logged to the audit log, if the
   kernel supports this.
 
+* `$SYSTEMD_LISTMOUNT=0` — if set, the mount table is read by parsing
+  `/proc/self/mountinfo` even where the kernel supports `listmount()` and
+  `statmount()`, just as it is on kernels without the two syscalls. This is
+  the fallback path, so the knob is mostly useful for testing it.
+
 * `$SYSTEMD_ENABLE_LOG_CONTEXT` — if set, extra fields will always be logged to
   the journal instead of only when logging in debug mode.
 
