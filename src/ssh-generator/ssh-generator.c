@@ -120,7 +120,7 @@ static int make_sshd_template_unit(
                         "\n"
                         "[Service]\n"
                         "ExecStartPre=systemd-tmpfiles --create --inline 'f^ /run/sshd-generated-%%i/authorized_keys 0444 root root - ssh.ephemeral-authorized_keys-all'\n"
-                        "ExecStart=-%s -i -o \"AuthorizedKeysFile /run/sshd-generated-%%i/authorized_keys .ssh/authorized_keys\"\n"
+                        "ExecStart=-%s -i -o \"AuthorizedKeysFile /run/sshd-generated-%%i/authorized_keys .ssh/authorized_keys .ssh/authorized_keys2\"\n"
                         "StandardInput=socket\n"
                         "ImportCredential=ssh.ephemeral-authorized_keys-all\n"
                         "RuntimeDirectory=sshd-generated-%%i\n",
