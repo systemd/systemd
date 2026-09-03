@@ -4,12 +4,15 @@
 set -eux
 set -o pipefail
 
+ROOT="$(mktemp -d /var/tmp/test-network-generator-root.XXXXXX)"
+
 at_exit() {
     rm -f /run/credstore/network.conf.50-testme
     rm -f /run/credstore/network.network.50-testme
     rm -f /run/systemd/networkd.conf.d/50-testme.conf
     rm -f /run/systemd/network/50-testme.network
     rm -f /run/systemd/system/systemd-network-generator.service.d/50-testme.conf
+    rm -rf "$ROOT"
 }
 
 trap at_exit EXIT
@@ -35,3 +38,10 @@ systemctl restart systemd-network-generator
 
 diff /run/credstore/network.conf.50-testme /run/systemd/networkd.conf.d/50-testme.conf
 diff /run/credstore/network.network.50-testme /run/systemd/network/50-testme.network
+
+CREDENTIALS_DIRECTORY=/run/credstore /usr/lib/systemd/systemd-network-generator --root="$ROOT"
+
+diff /run/credstore/network.conf.50-testme \
+    "$ROOT/run/systemd/networkd.conf.d/50-testme.conf"
+diff /run/credstore/network.network.50-testme \
+    "$ROOT/run/systemd/network/50-testme.network"
