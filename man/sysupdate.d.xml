@@ -479,6 +479,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MaxVersion=</varname></term>
+
+        <listitem><para>Specifies the maximum version to permit for this transfer. If the source or
+        target patterns in this transfer definition match files newer than this version they will be
+        considered too new, and never be selected as candidate for the update operation, nor may they be
+        selected explicitly. They are otherwise treated like any other version, i.e. remain subject to
+        vacuuming and cleanup. This is useful to pin an installation to a specific version series. Note
+        that instances newer than this version that are already installed are not removed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ProtectVersion=</varname></term>
 
         <listitem><para>Takes one or more version strings to mark as "protected". Protected versions are
@@ -897,7 +910,7 @@
   <refsect1>
     <title>Specifiers</title>
 
-    <para>Specifiers may be used in the <varname>MinVersion=</varname>, <varname>ProtectVersion=</varname>,
+    <para>Specifiers may be used in the <varname>MinVersion=</varname>, <varname>MaxVersion=</varname>, <varname>ProtectVersion=</varname>,
     <varname>Path=</varname>, <varname>MatchPattern=</varname> and <varname>CurrentSymlink=</varname>
     settings. The following expansions are understood:</para>
       <table class='specifiers'>
