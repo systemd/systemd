@@ -116,7 +116,7 @@ Transfer* transfer_new(Context *ctx) {
         return t;
 }
 
-static int config_parse_protect_version(
+static int config_parse_transfer_protect_version(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -128,39 +128,14 @@ static int config_parse_protect_version(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *resolved = NULL;
-        char ***protected_versions = ASSERT_PTR(data);
         Transfer *t = ASSERT_PTR(userdata);
-        int r;
 
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *protected_versions = strv_free(*protected_versions);
-                return 0;
-        }
-
-        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in ProtectVersion=, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))  {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "ProtectVersion= string is not valid, ignoring: %s", resolved);
-                return 0;
-        }
-
-        r = strv_extend(protected_versions, resolved);
-        if (r < 0)
-                return log_oom();
-
-        return 0;
+        /* Here we expect userdata to point to our Transfer object, but config_parse_protect_version() wants
+         * the root directory as userdata, hence let's pass that on. */
+        return config_parse_protect_version(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, t->context->root);
 }
 
-static int config_parse_version_bound(
+static int config_parse_transfer_version_bound(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -172,32 +147,10 @@ static int config_parse_version_bound(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *resolved = NULL;
-        char **version = ASSERT_PTR(data);
         Transfer *t = ASSERT_PTR(userdata);
-        int r;
 
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *version = mfree(*version);
-                return 0;
-        }
-
-        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "%s= string is not valid, ignoring: %s", lvalue, resolved);
-                return 0;
-        }
-
-        return free_and_replace(*version, resolved);
+        /* Ditto */
+        return config_parse_version_bound(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, t->context->root);
 }
 
 static int config_parse_transfer_url_specifiers_many(
@@ -545,9 +498,9 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         assert(t);
 
         ConfigTableItem table[] = {
-                { "Transfer",    "MinVersion",              config_parse_version_bound,                0,                    &t->min_version             },
-                { "Transfer",    "MaxVersion",              config_parse_version_bound,                0,                    &t->max_version             },
-                { "Transfer",    "ProtectVersion",          config_parse_protect_version,              0,                    &t->protected_versions      },
+                { "Transfer",    "MinVersion",              config_parse_transfer_version_bound,       0,                    &t->min_version             },
+                { "Transfer",    "MaxVersion",              config_parse_transfer_version_bound,       0,                    &t->max_version             },
+                { "Transfer",    "ProtectVersion",          config_parse_transfer_protect_version,     0,                    &t->protected_versions      },
                 { "Transfer",    "Verify",                  config_parse_bool,                         0,                    &t->verify                  },
                 { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog               },
                 { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0,                    &t->appstream               },
@@ -887,7 +840,7 @@ int transfer_vacuum(
                  * In future, we will also want to keep partial protected versions, but that’s only useful
                  * once we support resuming downloads. */
                 if (instance->is_pending &&
-                    (strv_contains(t->protected_versions, instance->metadata.version) ||
+                    (component_version_is_protected(t->context, instance->metadata.version) ||
                      (extra_protected_version && streq(extra_protected_version, instance->metadata.version)))) {
                         log_debug("Version '%s' is pending but protected, not removing.", instance->metadata.version);
                         i++;
@@ -977,7 +930,7 @@ int transfer_vacuum(
                         assert(oldest);
 
                         /* If this is listed among the protected versions, then let's not remove it */
-                        if (!strv_contains(t->protected_versions, oldest->metadata.version) &&
+                        if (!component_version_is_protected(t->context, oldest->metadata.version) &&
                             (!extra_protected_version || !streq(extra_protected_version, oldest->metadata.version)))
                                 break;
 
