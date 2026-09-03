@@ -124,6 +124,9 @@ executables += [
                 'sources' : files('test-resolved-etc-hosts.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-resolved-manager.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-resolved-packet.c'),
         },
         resolve_test_template + {
