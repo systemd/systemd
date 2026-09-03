@@ -3420,7 +3420,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         system object to standard input. An absolute path following the <literal>:</literal> character is expected,
         which may refer to a regular file, a FIFO or special file. If an <constant>AF_UNIX</constant> socket in the
         file system is specified, a stream socket is connected to it. The latter is useful for connecting standard
-        input of processes to arbitrary system services.</para>
+        input of processes to arbitrary system services. Note that the file system object is opened by the
+        service manager before the executable is invoked; see the note on the security context this
+        happens in for <varname>StandardOutput=</varname> below.</para>
 
         <para>The <option>socket</option> option is valid in socket-activated services only, and requires the relevant
         socket unit file (see
@@ -3514,6 +3516,71 @@ SystemCallErrorNumber=EPERM</programlisting>
         only one process runs at a time, such as services with a single <varname>ExecStart=</varname> and no
         <varname>ExecStartPost=</varname>, <varname>ExecReload=</varname>, <varname>ExecStop=</varname> or
         similar.</para>
+
+        <para>Note that for <option>file:<replaceable>path</replaceable></option>,
+        <option>append:<replaceable>path</replaceable></option> and
+        <option>truncate:<replaceable>path</replaceable></option> of <varname>StandardOutput=</varname> or
+        <varname>StandardError=</varname> — and likewise for
+        <option>file:<replaceable>path</replaceable></option> of <varname>StandardInput=</varname> — the
+        path is opened while the process is still being set up, i.e. before the executable is invoked and
+        before the Mandatory Access Control label of the service process is applied. The access check is
+        thus made against the security context inherited from the service manager, which may differ from
+        the one the service ultimately runs in. Setting <varname>SELinuxContext=</varname> makes no
+        difference here, as it only takes effect when the executable is invoked, i.e. after the path has
+        already been opened.</para>
+
+        <para>On systems using SELinux this means the path must be labelled such that the domain of the
+        respective service manager instance — typically <literal>init_t</literal> for the system service
+        manager on common policies, and a different domain for the per-user one — is permitted the access
+        the open actually requires: <literal>open</literal> in all cases, <literal>read</literal> for
+        <varname>StandardInput=</varname> and <literal>write</literal> for
+        <varname>StandardOutput=</varname>/<varname>StandardError=</varname> with
+        <option>file:<replaceable>path</replaceable></option> or
+        <option>truncate:<replaceable>path</replaceable></option>, and <literal>append</literal> instead of
+        <literal>write</literal> for <option>append:<replaceable>path</replaceable></option> — except when
+        the path is shared with a <varname>StandardInput=</varname>
+        <option>file:<replaceable>path</replaceable></option> at the same path (see below), in which case
+        granting both <literal>read</literal> and <literal>write</literal> covers the actual open regardless
+        of which of these modes triggered the sharing. Labelling the path only for the domain the service
+        transitions into is not sufficient.</para>
+
+        <para>The reverse — labelling the path only for the manager's domain — is not sufficient either.
+        <literal>read</literal>, <literal>write</literal> and <literal>append</literal> are checked again on
+        every subsequent read or write of the inherited descriptor, this time against the service's own
+        domain; the manager's <literal>open</literal> does not carry permission forward across the MAC
+        transition. Reproduced directly: with only the manager-side permissions above granted, the manager's
+        <literal>open</literal>/<literal>append</literal> succeed as expected, and a second,
+        independently-timestamped <literal>append</literal> denial then appears against the service's own
+        domain on its first write to that same descriptor. (A <literal>fd</literal> class
+        <literal>use</literal> permission between the two domains is also involved at the kernel level, but
+        the <literal>domain_fd_use</literal> boolean grants it between all domains by default on the
+        reference policy, so it is rarely the actual blocker.)</para>
+
+        <para>A path that does not exist yet is created independently for each of the three
+        <option>file:<replaceable>path</replaceable></option>,
+        <option>append:<replaceable>path</replaceable></option> and
+        <option>truncate:<replaceable>path</replaceable></option> modes of <varname>StandardOutput=</varname>
+        or <varname>StandardError=</varname>, which requires <literal>write</literal> plus
+        <literal>add_name</literal> on the enclosing directory, and <literal>create</literal> on the label
+        the new file receives — not on any label defined for the path itself; see below for how that label
+        is derived. A <varname>StandardInput=</varname> <option>file:<replaceable>path</replaceable></option>
+        can trigger the same creation, or instead share an already-open descriptor with one of these
+        settings, depending on which of them name the identical path and in which mode; the exact
+        conditions, and their interaction with the appending and truncating semantics, are corner cases this
+        note does not attempt to enumerate — see the general note on descriptor sharing above. The service
+        manager does not apply a file creation context when opening the path, so a newly created file is not
+        labelled according to any file context defined for the path itself; it gets whatever label the
+        policy's type transition for the manager's domain and the enclosing directory's type yields, or the
+        enclosing directory's own type if no such transition is defined.</para>
+
+        <para>If <replaceable>path</replaceable> refers to a FIFO or a special file, the checks are made
+        against the corresponding object class. For an <constant>AF_UNIX</constant> socket in the file
+        system they are cumulative: <function>open()</function> is attempted first for the requested
+        direction and checked against class <literal>sock_file</literal> as above, even though on a socket it
+        is expected to fail (with <constant>ENXIO</constant>) before falling through to
+        <function>connect()</function>; the connection attempt then additionally requires
+        <literal>write</literal> on <literal>sock_file</literal> regardless of direction, plus
+        <literal>connectto</literal> against the domain of the listening peer.</para>
 
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>
