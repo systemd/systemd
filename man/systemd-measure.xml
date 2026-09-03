@@ -113,6 +113,10 @@
         TPM2 policy and print its digest. This will write a JSON object to standard output that contains
         the policy digests for all specified PCR banks (see the <option>--bank=</option> option below),
         so that it may be signed offline, for the cases where the private key is not directly accessible.
+        Each policy contains a <literal>pol</literal> field with the approved PolicyPCR digest and a
+        <literal>dig</literal> field with the data to sign. The two fields have the same value when no
+        policy reference is specified. With <option>--policyref=</option>, <literal>dig</literal> is the
+        concatenation of <literal>pol</literal> and the digest of the policy reference.
         If <option>--public-key=</option> or <option>--certificate=</option> are specified, the JSON object
         will also contain the key fingerprint.</para>
 
@@ -280,10 +284,11 @@
       <varlistentry>
         <term><option>--policyref=<replaceable>STRING</replaceable></option></term>
 
-        <listitem><para>When generating a PCR JSON signature (via the <command>sign</command> command), bind
-        the generated signatures to the specified policy reference. The policy reference is an opaque string
-        that is included in the data that is signed, and is also incorporated into the authorization policy of
-        any TPM2 resource that is locked against these signatures (via the
+        <listitem><para>When generating a PCR JSON signature or policy digest (via the <command>sign</command>
+        or <command>policy-digest</command> command), bind the generated signatures to the specified policy
+        reference. The policy reference is an opaque string that is included in the data that is signed, and
+        is also incorporated into the authorization policy of any TPM2 resource that is locked against these
+        signatures (via the
         <constant>TPM2_PolicyAuthorize</constant> assertion). As a result, a signed policy is only accepted
         for a resource whose authorization policy was created with the same policy reference. Signed policies
         created with a different policy reference are rejected, even if they are produced with the same

@@ -1328,6 +1328,34 @@ def test_key_cert_generation_common_name_too_long(tmp_path):
         ukify.generate_keys(opts)
 
 
+def test_apply_pcr_signatures() -> None:
+    pcrsig = {
+        'sha256': [
+            {'pol': 'same', 'dig': 'first'},
+            {'pol': 'same', 'dig': 'second'},
+            {'pol': 'legacy', 'ref': 'first'},
+            {'pol': 'legacy', 'ref': 'second'},
+        ]
+    }
+    signatures = {
+        'sha256': [
+            {'pol': 'same', 'dig': 'second', 'sig': 'second-signature'},
+            {'pol': 'same', 'dig': 'first', 'sig': 'first-signature'},
+            {'pol': 'legacy', 'ref': 'second', 'sig': 'legacy-second-signature'},
+            {'pol': 'legacy', 'ref': 'first', 'sig': 'legacy-first-signature'},
+        ]
+    }
+
+    ukify.apply_pcr_signatures(pcrsig, signatures)
+
+    assert [policy['sig'] for policy in pcrsig['sha256']] == [
+        'first-signature',
+        'second-signature',
+        'legacy-first-signature',
+        'legacy-second-signature',
+    ]
+
+
 @pytest.mark.skipif(not slow_tests, reason='slow')
 def test_join_pcrsig(capsys, kernel_initrd, tmp_path):
     if kernel_initrd is None:
