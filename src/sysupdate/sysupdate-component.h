@@ -12,6 +12,10 @@ typedef struct Component {
 
         int suggest;
         Condition *suggest_on;
+
+        char *min_version;
+        char *max_version;
+        char **protected_versions;
 } Component;
 
 #define COMPONENT_NULL                          \
