@@ -257,7 +257,40 @@ testcase_mdns_goodbye_on_stop() {
 
     # Gracefully stop resolved in the second container: on a clean stop it multicasts goodbyes for
     # its published services, so the browser must see 'removed' for them well before the 120s TTL.
-    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl stop systemd-resolved.service
+    # The stop runs in the container's own shell with registration attempts hammering the bus beside
+    # it, started only once the unit is deactivating: a registration landing before the signal would
+    # refresh every record of the zone back into probing, which the goodbye skips, and the removal
+    # and host-record checks below would pass on the PTRs alone. A RegisterService() arriving in the
+    # grace second must be refused with the ShuttingDown error; attempts after the exit fail with
+    # the bus's name-gone wording, so the refusal's message is what is looked for, busctl printing
+    # 'Call failed: <message>' and never the error name. --auto-start=no makes the race raceable at
+    # all: an ordinary call would enqueue an activation job that cancels the stop. The script's
+    # variables are the container shell's, hence the single quotes.
+    # shellcheck disable=SC2016
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- bash -ec '
+        systemctl stop systemd-resolved.service &
+        stop_pid=$!
+        for i in $(seq 1 500); do
+            [ "$(systemctl show -P ActiveState systemd-resolved.service)" = deactivating ] && break
+            kill -0 "$stop_pid" 2>/dev/null || break
+            sleep 0.01
+        done
+        seen=0
+        for i in $(seq 1 500); do
+            kill -0 "$stop_pid" 2>/dev/null || break
+            out="$(busctl --auto-start=no call org.freedesktop.resolve1 /org/freedesktop/resolve1 \
+                       org.freedesktop.resolve1.Manager RegisterService "sssqqqaa{say}" \
+                       "shutdown-canary-$i" "Shutdown Canary $i" _shutdownbye._udp 4711 0 0 0 2>&1)" && continue
+            case "$out" in
+                *"Refusing to register a DNS-SD service while shutting down"*) seen=1; break ;;
+            esac
+            sleep 0.01
+        done
+        wait "$stop_pid"
+        if [ "$seen" -ne 1 ]; then
+            echo "No RegisterService() call was refused while systemd-resolved was shutting down" >&2
+            exit 1
+        fi'
 
     # Count distinct withdrawn instances rather than stop at the first: the goodbye for 200 services
     # spans several packets, and a truncated emission would still withdraw a random subset.
