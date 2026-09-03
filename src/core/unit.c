@@ -29,6 +29,7 @@
 #include "escape.h"
 #include "exec-credential.h"
 #include "execute.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -6410,7 +6411,7 @@ int unit_failure_action_exit_status(Unit *u) {
 
         r = unit_exit_status(u);
         if (r == -EBADE) /* Exited, but not cleanly (i.e. by signal or such) */
-                return 255;
+                return EXIT_EXCEPTION;
 
         return r;
 }
@@ -6427,7 +6428,7 @@ int unit_success_action_exit_status(Unit *u) {
 
         r = unit_exit_status(u);
         if (r == -EBADE) /* Exited, but not cleanly (i.e. by signal or such) */
-                return 255;
+                return EXIT_EXCEPTION;
 
         return r;
 }
