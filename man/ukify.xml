@@ -81,6 +81,7 @@
       <varname>DeviceTree=</varname>/<option>--devicetree=</option>,
       <varname>DeviceTreeAuto=</varname>/<option>--devicetree-auto=</option>,
       <varname>HWIDs=</varname>/<option>--hwids=</option>,
+      <varname>MokKeys=</varname>/<option>--mokkeys=</option>,
       <varname>Splash=</varname>/<option>--splash=</option>,
       <varname>PCRPKey=</varname>/<option>--pcrpkey=</option>,
       <varname>Uname=</varname>/<option>--uname=</option>,
@@ -489,6 +490,22 @@
           this parameter if automatically selectable DeviceTrees are to be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>MokKeys=<replaceable>PATH</replaceable>...</varname></term>
+          <term><option>--mokkeys=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>Zero or more X.509 certificates in DER format to embed in the
+          <literal>.mokkeys</literal> section, for the kernel to trust when it checks module
+          signatures. In the configuration file, items are separated by whitespace; on the command
+          line the option may be specified more than once. The certificates are wrapped as
+          <constant>EFI_SIGNATURE_LIST</constant> structures, one per certificate. If not specified,
+          the section will not be present. See
+          <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          for what the boot loader does with them.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
         </varlistentry>
 
         <varlistentry>
