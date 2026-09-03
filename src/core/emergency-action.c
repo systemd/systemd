@@ -4,6 +4,7 @@
 
 #include "ansi-color.h"
 #include "emergency-action.h"
+#include "exit-status.h"
 #include "manager.h"
 #include "reboot-util.h"
 #include "special.h"
@@ -154,6 +155,10 @@ void emergency_action(
 
                 if (exit_status >= 0)
                         m->return_value = exit_status;
+                else if (FLAGS_SET(flags, EMERGENCY_ACTION_IS_FAILURE) && m->return_value == EXIT_SUCCESS)
+                        /* Nothing to propagate, but we act on a failure: don't report success. An exit
+                         * status set explicitly via SetExitCode() stays. */
+                        m->return_value = EXIT_EXCEPTION;
 
                 if (MANAGER_IS_USER(m) || detect_container() > 0) {
                         log_and_status(m, action, flags, "Exiting", reason);
@@ -173,6 +178,10 @@ void emergency_action(
 
                 if (exit_status >= 0)
                         m->return_value = exit_status;
+                else if (FLAGS_SET(flags, EMERGENCY_ACTION_IS_FAILURE) && m->return_value == EXIT_SUCCESS)
+                        /* Nothing to propagate, but we act on a failure: don't report success. An exit
+                         * status set explicitly via SetExitCode() stays. */
+                        m->return_value = EXIT_EXCEPTION;
 
                 if (MANAGER_IS_USER(m) || detect_container() > 0) {
                         log_and_status(m, action, flags, "Exiting immediately", reason);
