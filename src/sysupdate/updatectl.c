@@ -1386,18 +1386,21 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 typedef struct Feature {
-        char *name;
+        char *id;
         char *description;
         bool enabled;
-        char *documentation;
+        int suggested;
+        char **documentation;
+        char *appstream;
         char **transfers;
 } Feature;
 
 static void feature_done(Feature *f) {
         assert(f);
-        f->name = mfree(f->name);
+        f->id = mfree(f->id);
         f->description = mfree(f->description);
-        f->documentation = mfree(f->documentation);
+        f->documentation = strv_free(f->documentation);
+        f->appstream = mfree(f->appstream);
         f->transfers = strv_free(f->transfers);
 }
 
@@ -1405,16 +1408,20 @@ static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(feature_done) Feature f = {};
+        _cleanup_(feature_done) Feature f = {
+                .suggested = -1,
+        };
         char *json;
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",             SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, name),          SD_JSON_MANDATORY },
-                { "description",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, description),   0                 },
-                { "enabled",          SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(Feature, enabled),       SD_JSON_MANDATORY },
-                { "documentationUrl", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, documentation), 0                 },
-                { "transfers",        SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(Feature, transfers),     0                 },
+                { "id",              SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, id),                 SD_JSON_MANDATORY },
+                { "description",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, description),        0                 },
+                { "isEnabled",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Feature, enabled),            SD_JSON_MANDATORY },
+                { "suggested",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Feature, suggested),          0                 },
+                { "documentation",   SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Feature, documentation),      0                 },
+                { "appstream",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, appstream),          0                 },
+                { "transfers",       SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Feature, transfers),          0                 },
                 {}
         };
 
@@ -1443,7 +1450,7 @@ static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse JSON: %m");
 
-        r = sd_json_dispatch(v, dispatch_table, 0, &f);
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to dispatch JSON: %m");
 
@@ -1488,8 +1495,8 @@ static int list_features(sd_bus *bus) {
                 if (r < 0)
                         return r;
 
-                if (urlify_enabled() && f.documentation) {
-                        name_link = strjoin(f.name, glyph(GLYPH_EXTERNAL_LINK));
+                if (urlify_enabled() && !strv_isempty(f.documentation)) {
+                        name_link = strjoin(f.id, glyph(GLYPH_EXTERNAL_LINK));
                         if (!name_link)
                                 return log_oom();
                 }
@@ -1497,8 +1504,8 @@ static int list_features(sd_bus *bus) {
                 r = table_add_many(table,
                                    TABLE_BOOLEAN_CHECKMARK, f.enabled,
                                    TABLE_SET_COLOR, ansi_highlight_green_red(f.enabled),
-                                   TABLE_STRING, name_link ?: f.name,
-                                   TABLE_SET_URL, f.documentation,
+                                   TABLE_STRING, name_link ?: f.id,
+                                   TABLE_SET_URL, strv_isempty(f.documentation) ? NULL : f.documentation[0],
                                    TABLE_STRING, f.description);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -1528,11 +1535,19 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
 
         r = table_add_many(table,
                            TABLE_FIELD, "Name",
-                           TABLE_STRING, f.name,
+                           TABLE_STRING, f.id,
                            TABLE_FIELD, "Enabled",
                            TABLE_BOOLEAN, f.enabled);
         if (r < 0)
                 return table_log_add_error(r);
+
+        if (f.suggested >= 0) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Suggested",
+                                   TABLE_BOOLEAN, f.suggested);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         if (f.description) {
                 r = table_add_many(table, TABLE_FIELD, "Description", TABLE_STRING, f.description);
@@ -1540,11 +1555,19 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                         return table_log_add_error(r);
         }
 
-        if (f.documentation) {
+        if (!strv_isempty(f.documentation)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Documentation",
-                                   TABLE_STRING, f.documentation,
-                                   TABLE_SET_URL, f.documentation);
+                                   TABLE_STRV_WRAPPED, f.documentation);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (f.appstream) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "AppStream",
+                                   TABLE_STRING, f.appstream,
+                                   TABLE_SET_URL, f.appstream);
                 if (r < 0)
                         return table_log_add_error(r);
         }
