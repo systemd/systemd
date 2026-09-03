@@ -3,7 +3,7 @@
 #include "bus-polkit.h"
 #include "varlink-io.systemd.SysUpdate.h"
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 TargetClass,
                 SD_VARLINK_FIELD_COMMENT("Container or machine managed by systemd-machined.service(8)."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(machine),
@@ -18,14 +18,14 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Component managed by systemd-sysupdate.service(8)."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(component));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 TargetIdentifier,
                 SD_VARLINK_FIELD_COMMENT("Where the target was enumerated."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(class, TargetClass, 0),
                 SD_VARLINK_FIELD_COMMENT("Name of the target, unique within a class."),
                 SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Target,
                 SD_VARLINK_FIELD_COMMENT("Identifier for the target."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(id, TargetIdentifier, 0),
