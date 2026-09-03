@@ -429,6 +429,75 @@ EOF
         return 1
     fi
 
+    # The retransmission is filtered through the zone: a record the zone stands behind again by
+    # the time the second transmission is due must not be goodbye'd a second time -- that would
+    # withdraw the live record from every peer, cache-flush bit and all, until its next
+    # announcement. Provoke exactly that from the container's own shell, so the four steps fit
+    # into the second with room to spare: drop the sibling's file and reload (its goodbye goes
+    # out and queues the retransmission), then put the file back and reload again. The
+    # retransmission line must not appear for this pass -- everything it would have carried is
+    # published again -- while the unregister above has already shown that it does appear when
+    # the records stay gone.
+    since="$(systemd-run -M "$CONTAINER_2" --wait --pipe -- date '+%Y-%m-%d %H:%M:%S')"
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- bash -ec '
+        cp /etc/systemd/dnssd/reloadbye.dnssd /run/reloadbye.dnssd.bak
+        rm /etc/systemd/dnssd/reloadbye.dnssd
+        systemctl reload systemd-resolved.service
+        mv /run/reloadbye.dnssd.bak /etc/systemd/dnssd/reloadbye.dnssd
+        systemctl reload systemd-resolved.service'
+
+    # Positive control: the first reload did withdraw something.
+    ok=0
+    for _ in {0..9}; do
+        if { journalctl -M "$CONTAINER_2" -u systemd-resolved.service --since "$since" || :; } \
+               | grep -E "Withdrawing [1-9][0-9]* DNS-SD record" >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Dropping the sibling's file on reload withdrew nothing"
+        journalctl -M "$CONTAINER_2" -u systemd-resolved.service --since "$since" >&2 || :
+        return 1
+    fi
+
+    # The negative needs the restore to have landed inside the window, which a loaded runner
+    # cannot be guaranteed to manage: take the two reloads' own timestamps from the journal and
+    # evaluate the filter only when it did.
+    local reload_gap_msec
+    reload_gap_msec="$( { journalctl -M "$CONTAINER_2" -u systemd-resolved.service --since "$since" \
+                                     -o short-unix || :; } \
+                        | awk '/Config file reloaded/ { n++; if (n == 1) first = $1; if (n == 2) second = $1 }
+                               END { if (first && second) printf "%d\n", (second - first) * 1000; else print -1 }')"
+    if [[ "$reload_gap_msec" -lt 0 || "$reload_gap_msec" -ge 900 ]]; then
+        echo "The restoring reload came ${reload_gap_msec}ms after the withdrawing one, outside the retransmission window: not evaluating the zone filter"
+    else
+        sleep 2
+        if { journalctl -M "$CONTAINER_2" -u systemd-resolved.service --since "$since" || :; } \
+               | grep "Retransmitting mDNS withdrawal of" >/dev/null; then
+            echo >&2 "The restored canary's records were goodbye'd a second time although the zone publishes them again"
+            journalctl -M "$CONTAINER_2" -u systemd-resolved.service --since "$since" >&2 || :
+            return 1
+        fi
+    fi
+
+    # Give the restored canary time to probe and announce again before its file goes for good
+    # below: a goodbye covers established records only.
+    sleep 2
+    ok=0
+    for _ in {0..14}; do
+        if resolvectl service "Reload Canary" "$service_type" local >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "The restored canary never resolved again"
+        return 1
+    fi
+
     # Checkpoint again, then drop the second canary's file and reload: the reload must withdraw
     # the vanished service with a goodbye, again well before its record TTL.
     off="$(wc -c <"$out_file")"

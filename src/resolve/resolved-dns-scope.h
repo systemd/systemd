@@ -51,6 +51,10 @@ typedef struct DnsScope {
 
         sd_event_source *announce_event_source;
 
+        /* Runtime withdrawals emitted on this scope, awaiting their RFC 6762 §8.3 one-second
+         * retransmission. A scope freed inside that window abandons them, see dns_scope_free(). */
+        DnsAnswer *pending_withdrawals;
+
         sd_event_source *mdns_goodbye_event_source;
 
         RateLimit ratelimit;
@@ -115,6 +119,7 @@ const char* dns_scope_ifname(DnsScope *s);
 
 int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer);
 bool dns_scope_shutdown_goodbye_has_content(DnsScope *scope);
+int dns_scope_withdraw_rrs(DnsScope *scope, DnsAnswer *candidates);
 int dns_scope_announce(DnsScope *scope, bool goodbye);
 
 int dns_scope_add_dnssd_registered_services(DnsScope *scope);
