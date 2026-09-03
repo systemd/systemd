@@ -15,6 +15,7 @@
 #include "mkdir.h"
 #include "network-generator.h"
 #include "options.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "string-util.h"
@@ -22,7 +23,9 @@
 
 #define NETWORK_UNIT_DIRECTORY "/run/systemd/network/"
 
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 static int network_save(Network *network, const char *dest_dir) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
@@ -168,6 +171,8 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
+
         assert(argc >= 0);
         assert(argv);
         assert(ret_args);
@@ -183,9 +188,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_VERSION:
                         return version();
 
-                OPTION_LONG("root", "PATH",
-                            "Operate on an alternate filesystem root"):
-                        arg_root = opts.arg;
+                OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
                 }
 
