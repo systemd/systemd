@@ -288,7 +288,7 @@ void dev_kmsg_record(Manager *m, char *p, size_t l) {
                  * log_info() and friends to avoid infinite loops. */
                 if (is_us(identifier, pid)) {
                         if (!ratelimit_below(&m->kmsg_own_ratelimit))
-                                return;
+                                goto finish;
 
                         saved_log_max_level = log_get_max_level();
                         c = m->my_context;
