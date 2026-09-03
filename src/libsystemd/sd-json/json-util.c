@@ -514,6 +514,24 @@ int json_dispatch_version(const char *name, sd_json_variant *variant, sd_json_di
         return 0;
 }
 
+int json_dispatch_versions(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        char ***s = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        r = sd_json_dispatch_strv(name, variant, flags, &l);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, l)
+                if (!version_is_valid(*i, FLAGS_SET(flags, SD_JSON_STRICT) ? 0 : VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains an invalid version string: %s", strna(name), *i);
+
+        return strv_free_and_replace(*s, l);
+}
+
 int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref) {
         sd_id128_t boot_id = SD_ID128_NULL;
         int r;
