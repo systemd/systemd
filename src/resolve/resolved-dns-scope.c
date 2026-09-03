@@ -1547,7 +1547,7 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
         return 0;
 }
 
-static int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
+int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
         size_t max_size, fragmented_max;
         unsigned n_sent = 0, n_records = 0;
         int r, ret = 0;
