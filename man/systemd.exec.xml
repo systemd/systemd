@@ -3515,6 +3515,16 @@ SystemCallErrorNumber=EPERM</programlisting>
         <varname>ExecStartPost=</varname>, <varname>ExecReload=</varname>, <varname>ExecStop=</varname> or
         similar.</para>
 
+        <para>Note that for <option>file:<replaceable>path</replaceable></option>,
+        <option>append:<replaceable>path</replaceable></option> and
+        <option>truncate:<replaceable>path</replaceable></option> the file is opened while the process is
+        still being set up, i.e. before the executable is invoked and hence before any MAC (Mandatory Access
+        Control) domain transition associated with the execution takes place. The access check for opening
+        the file is thus made against the security context inherited from the service manager, not the one
+        the service ultimately runs in. On systems using SELinux this means the file must be labelled so
+        that the manager's domain (<constant>init_t</constant> for the system service manager) may open it
+        for writing; labelling it only for the domain the service transitions into is not sufficient.</para>
+
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>
 
