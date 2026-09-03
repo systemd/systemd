@@ -71,9 +71,6 @@ int mdns_answer_contains_service(
                 DnsServiceBrowser *sb,
                 DnsAnswer *answer,
                 DnssdDiscoveredService *service);
-int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int owner_family);
-int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until);
-int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t t, usec_t until);
 int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family);
 int dns_subscribe_browse_service(
                 Manager *m,
