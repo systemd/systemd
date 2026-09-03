@@ -23,6 +23,7 @@
 #include "verbs.h"
 
 #define NETWORK_UNIT_DIRECTORY "/run/systemd/network/"
+#define NETWORKD_CONF_DROPIN_DIRECTORY "/run/systemd/networkd.conf.d/"
 
 static const char *arg_root = NULL;
 
@@ -138,22 +139,21 @@ static int context_save(Context *context) {
         Link *link;
         int r;
 
-        _cleanup_free_ char *p = path_join(arg_root, NETWORK_UNIT_DIRECTORY);
-        if (!p)
-                return log_oom();
+        assert(context);
+        assert(context->network_dir);
 
-        r = mkdir_p(p, 0755);
+        r = mkdir_p(context->network_dir, 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory " NETWORK_UNIT_DIRECTORY ": %m");
 
         HASHMAP_FOREACH(network, context->networks_by_name)
-                RET_GATHER(r, network_save(network, p));
+                RET_GATHER(r, network_save(network, context->network_dir));
 
         HASHMAP_FOREACH(netdev, context->netdevs_by_name)
-                RET_GATHER(r, netdev_save(netdev, p));
+                RET_GATHER(r, netdev_save(netdev, context->network_dir));
 
         HASHMAP_FOREACH(link, context->links_by_filename)
-                RET_GATHER(r, link_save(link, p));
+                RET_GATHER(r, link_save(link, context->network_dir));
 
         return r;
 }
@@ -202,6 +202,14 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
+        context.network_dir = path_join(arg_root, NETWORK_UNIT_DIRECTORY);
+        if (!context.network_dir)
+                return log_oom();
+
+        context.networkd_conf_dropin_dir = path_join(arg_root, NETWORKD_CONF_DROPIN_DIRECTORY);
+        if (!context.networkd_conf_dropin_dir)
+                return log_oom();
+
         if (strv_isempty(args)) {
                 r = proc_cmdline_parse(parse_cmdline_item, &context, 0);
                 if (r < 0)
@@ -234,11 +242,11 @@ static int run(int argc, char *argv[]) {
 
         RET_GATHER(ret, context_save(&context));
 
-        static const PickUpCredential table[] = {
-                { "network.conf.",    "/run/systemd/networkd.conf.d/", ".conf"    },
-                { "network.link.",    NETWORK_UNIT_DIRECTORY,          ".link"    },
-                { "network.netdev.",  NETWORK_UNIT_DIRECTORY,          ".netdev"  },
-                { "network.network.", NETWORK_UNIT_DIRECTORY,          ".network" },
+        const PickUpCredential table[] = {
+                { "network.conf.",    context.networkd_conf_dropin_dir, ".conf"    },
+                { "network.link.",    context.network_dir,              ".link"    },
+                { "network.netdev.",  context.network_dir,              ".netdev"  },
+                { "network.network.", context.network_dir,              ".network" },
         };
         RET_GATHER(ret, pick_up_credentials(table, ELEMENTSOF(table)));
 
