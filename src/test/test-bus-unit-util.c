@@ -364,7 +364,6 @@ TEST(execute_properties) {
                         "NoExecPaths=/tmp /var/tmp",
                         "ExecSearchPath=/usr/bin:/usr/local/bin",
                         "ExtensionDirectories=/var/lib/extensions /opt/extensions",
-                        "ConfigurationDirectory=myapp subdir",
                         "SupplementaryGroups=wheel audio video",
                         "SystemCallArchitectures=native x86-64",
 
@@ -539,6 +538,20 @@ TEST(execute_properties) {
                         "CacheDirectory=myapp subdir",
                         "LogsDirectory=myapp",
                         "LogsDirectory=myapp subdir",
+                        "ConfigurationDirectory=myapp",
+                        "ConfigurationDirectory=myapp subdir",
+
+                        "StateDirectory=myapp:link",
+                        "StateDirectory=myapp:link:ro",
+                        "StateDirectory=myapp::ro",
+                        "RuntimeDirectory=myapp::ro",
+                        "CacheDirectory=myapp::ro",
+                        "LogsDirectory=myapp::ro",
+                        /* ConfigurationDirectory= takes flags, but no symlink destination */
+                        "ConfigurationDirectory=myapp::ro",
+                        "-EINVAL ConfigurationDirectory=myapp:link",
+                        "-EINVAL ConfigurationDirectory=myapp:link:ro",
+                        "-EINVAL StateDirectory=myapp::rw",
 
                         "ProtectHostname=true",
                         "ProtectHostname=false",
