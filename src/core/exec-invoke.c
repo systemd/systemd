@@ -5078,6 +5078,40 @@ static void prepare_terminal(
                 (void) osc_context_open_service(p->unit_id, p->invocation_id, /* ret_seq= */ NULL);
 }
 
+static int apply_tty_term_from_cmdline(char ***env, const char *tty_path) {
+        int r;
+
+        assert(env);
+        assert(tty_path);
+
+        /* Looks for a systemd.tty.term.<tty>= kernel command line option matching the given tty and, if
+         * present, assigns its value to $TERM. Returns 1 if $TERM was set, 0 if there was no matching key
+         * (or the tty name can't appear in one), and a negative errno on OOM. */
+
+        const char *name = skip_dev_prefix(tty_path);
+        if (!in_charset(name, ALPHANUMERICAL))
+                return 0;
+
+        _cleanup_free_ char *key = NULL, *cmdline = NULL;
+        key = strjoin("systemd.tty.term.", name);
+        if (!key)
+                return -ENOMEM;
+
+        r = proc_cmdline_get_key(key, /* flags= */ 0, &cmdline);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read '%s' from kernel cmdline, ignoring: %m", key);
+                return 0;
+        }
+        if (r == 0)
+                return 0;
+
+        r = strv_env_assign(env, "TERM", cmdline);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int setup_term_environment(const ExecContext *context, char ***env) {
         int r;
 
@@ -5094,6 +5128,23 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
 
         const char *tty_path = exec_context_tty_path(context);
         if (tty_path) {
+                /* If we operate on /dev/console, resolve it to the concrete device backing it (e.g. ttyS0)
+                 * and prefer an explicit systemd.tty.term.<device>= setting for that device over inheriting
+                 * the terminal type from PID 1. tty_is_console() only matches the literal name, so without
+                 * resolving here a per-device setting for the console's backend would never be consulted. */
+                if (tty_is_console(tty_path)) {
+                        _cleanup_free_ char *resolved = NULL;
+
+                        r = resolve_dev_console(&resolved);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to resolve /dev/console, ignoring: %m");
+                        else {
+                                r = apply_tty_term_from_cmdline(env, resolved);
+                                if (r != 0)
+                                        return r;
+                        }
+                }
+
                 /* If we are forked off PID 1 and we are supposed to operate on /dev/console, then let's try
                  * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
                  * container manager passes to PID 1 ends up all the way in the console login shown.
@@ -5120,21 +5171,10 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
 
                                 return 1;
                         }
-
                 } else {
-                        if (in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
-                                _cleanup_free_ char *key = NULL, *cmdline = NULL;
-
-                                key = strjoin("systemd.tty.term.", skip_dev_prefix(tty_path));
-                                if (!key)
-                                        return -ENOMEM;
-
-                                r = proc_cmdline_get_key(key, /* flags= */ 0, &cmdline);
-                                if (r > 0)
-                                        return strv_env_assign(env, "TERM", cmdline);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to read '%s' from kernel cmdline, ignoring: %m", key);
-                        }
+                        r = apply_tty_term_from_cmdline(env, tty_path);
+                        if (r != 0)
+                                return r;
 
                         /* This handles real virtual terminals (returning "linux") and
                          * any terminals which support the DCS +q query sequence. */
