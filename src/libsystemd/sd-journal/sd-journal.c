@@ -2689,11 +2689,16 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
                  * recent entry timestamps from the header. It's equally good. Unfortunately though, in old
                  * versions of the journal the boot ID in the header doesn't have to match the monotonic
                  * timestamp of the header. Let's check the header flag that indicates whether this strictly
-                 * matches first hence, before using the data. */
+                 * matches first hence, before using the data. The timestamps must also be valid: a
+                 * read-only open does not validate them, hence check here, at use. */
 
-                if (JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) && f->header->state == STATE_ARCHIVED) {
-                        mo = le64toh(f->header->tail_entry_monotonic);
-                        rt = le64toh(f->header->tail_entry_realtime);
+                uint64_t header_mo = le64toh(READ_NOW(f->header->tail_entry_monotonic)),
+                         header_rt = le64toh(READ_NOW(f->header->tail_entry_realtime));
+
+                if (JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) && f->header->state == STATE_ARCHIVED &&
+                    VALID_MONOTONIC(header_mo) && VALID_REALTIME(header_rt)) {
+                        mo = header_mo;
+                        rt = header_rt;
                         id = f->header->tail_entry_boot_id;
                         offset = UINT64_MAX;
                 } else {
