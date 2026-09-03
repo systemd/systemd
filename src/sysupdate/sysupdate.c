@@ -240,8 +240,6 @@ static void server_done(Server *s) {
         s->system_bus = sd_bus_flush_close_unref(s->system_bus);
 }
 
-static DEFINE_POINTER_ARRAY_FREE_FUNC(Transfer*, transfer_free);
-
 static int read_features(
                 Context *c,
                 const char **dirs) {
@@ -285,6 +283,25 @@ static int read_features(
         return 0;
 }
 
+static int context_add_transfer(Context *c, Transfer *t) {
+        Transfer **appended;
+
+        assert(c);
+        assert(t);
+
+        /* Adds the transfer to the context, sorting it into the enabled or disabled list. Consumes the
+         * transfer on success. */
+
+        if (t->enabled)
+                appended = GREEDY_REALLOC_APPEND(c->transfers, c->n_transfers, &t, 1);
+        else
+                appended = GREEDY_REALLOC_APPEND(c->disabled_transfers, c->n_disabled_transfers, &t, 1);
+        if (!appended)
+                return log_oom();
+
+        return 0;
+}
+
 static int read_transfers(
                 Context *c,
                 const char **dirs,
@@ -292,13 +309,10 @@ static int read_transfers(
                 const char *node) {
 
         ConfFile **files = NULL;
-        Transfer **transfers = NULL, **disabled = NULL;
-        size_t n_files = 0, n_transfers = 0, n_disabled = 0;
+        size_t n_files = 0;
         int r;
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_array);
-        CLEANUP_ARRAY(transfers, n_transfers, transfer_free_array);
-        CLEANUP_ARRAY(disabled, n_disabled, transfer_free_array);
 
         assert(c);
         assert(dirs);
@@ -312,7 +326,6 @@ static int read_transfers(
 
         FOREACH_ARRAY(i, files, n_files) {
                 _cleanup_(transfer_freep) Transfer *t = NULL;
-                Transfer **appended;
                 ConfFile *e = *i;
 
                 t = transfer_new(c);
@@ -327,19 +340,12 @@ static int read_transfers(
                 if (r < 0)
                         return r;
 
-                if (t->enabled)
-                        appended = GREEDY_REALLOC_APPEND(transfers, n_transfers, &t, 1);
-                else
-                        appended = GREEDY_REALLOC_APPEND(disabled, n_disabled, &t, 1);
-                if (!appended)
-                        return log_oom();
+                r = context_add_transfer(c, t);
+                if (r < 0)
+                        return r;
                 TAKE_PTR(t);
         }
 
-        c->transfers = TAKE_PTR(transfers);
-        c->n_transfers = n_transfers;
-        c->disabled_transfers = TAKE_PTR(disabled);
-        c->n_disabled_transfers = n_disabled;
         return 0;
 }
 
