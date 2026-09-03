@@ -34,7 +34,11 @@
          CHASE_STEP |                                   \
          CHASE_PROHIBIT_SYMLINKS |                      \
          CHASE_PARENT |                                 \
-         CHASE_MKDIR_0755)
+         CHASE_MKDIR_0755 |                             \
+         CHASE_DIR_0755 |                               \
+         CHASE_DIR_0700 |                               \
+         CHASE_FILE_0644 |                              \
+         CHASE_FILE_0600)
 
 #define CHASE_MUST_BE_ANY \
         (CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_SOCKET)
@@ -207,6 +211,72 @@ static int log_unsafe_transition(int a, int b, const char *path, ChaseFlags flag
                                  strna(n1), strna(user_a), glyph(GLYPH_ARROW_RIGHT), strna(n2), strna(user_b), path);
 }
 
+static int log_unexpected_mode(int fd, mode_t mode, mode_t expected, const char *path, ChaseFlags flags) {
+        _cleanup_free_ char *n = NULL;
+
+        if (!FLAGS_SET(flags, CHASE_WARN))
+                return -ENOLINK;
+
+        (void) fd_get_path(fd, &n);
+
+        return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
+                                 "Detected mode %04o instead of %04o on %s during canonicalization of %s.",
+                                 mode, expected, strna(n), path);
+}
+
+/* The permission bits must match exactly. The root and the starting directory are the caller's trust anchors
+ * and are not checked. Symlinks are never checked as their mode is irrelevant. The flags must disable the
+ * openat2() and open() shortcuts. */
+static int chase_verify_mode(
+                int fd,
+                const struct statx *stx,
+                const struct statx *start_stx,
+                const struct statx *root_stx, /* NULL if the host's root directory is the root */
+                const char *path,
+                ChaseFlags flags) {
+
+        mode_t expected;
+        int r;
+
+        assert(stx);
+        assert(start_stx);
+
+        if (S_ISDIR(stx->stx_mode)) {
+                if (FLAGS_SET(flags, CHASE_DIR_0755))
+                        expected = 0755;
+                else if (FLAGS_SET(flags, CHASE_DIR_0700))
+                        expected = 0700;
+                else
+                        return 0;
+
+                if (statx_inode_same(stx, start_stx))
+                        return 0;
+                if (root_stx) {
+                        if (statx_inode_same(stx, root_stx))
+                                return 0;
+                } else {
+                        r = dir_fd_is_root(fd);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return 0;
+                }
+        } else if (S_ISREG(stx->stx_mode)) {
+                if (FLAGS_SET(flags, CHASE_FILE_0644))
+                        expected = 0644;
+                else if (FLAGS_SET(flags, CHASE_FILE_0600))
+                        expected = 0600;
+                else
+                        return 0;
+        } else
+                return 0;
+
+        if ((stx->stx_mode & 07777) != expected)
+                return log_unexpected_mode(fd, stx->stx_mode & 07777, expected, path, flags);
+
+        return 0;
+}
+
 static int log_autofs_mount_point(int fd, const char *path, ChaseFlags flags) {
         _cleanup_free_ char *n1 = NULL;
 
@@ -348,6 +418,9 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
         /* If multiple flags are set now, fail immediately */
         if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY) + FLAGS_SET(flags, CHASE_MUST_BE_REGULAR) + FLAGS_SET(flags, CHASE_MUST_BE_SOCKET) > 1)
                 return -EBADSLT;
+        if (FLAGS_SET(flags, CHASE_DIR_0755|CHASE_DIR_0700) ||
+            FLAGS_SET(flags, CHASE_FILE_0644|CHASE_FILE_0600))
+                return -EBADSLT;
 
         if (!ret_path) {
                 r = chase_openat2(root_fd, dir_fd, path, flags);
@@ -423,6 +496,9 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 return r;
                 }
         }
+
+        /* The mode flags exempt the starting directory and the root */
+        const struct statx start_stx = stx, *anchor_root = root_fd != XAT_FDROOT ? &root_stx : NULL;
 
         _cleanup_free_ char *buffer = strdup(path);
         if (!buffer)
@@ -543,6 +619,10 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                         return log_unsafe_transition(fd, fd_parent, path, flags);
                         }
 
+                        r = chase_verify_mode(fd_parent, &stx_parent, &start_stx, anchor_root, path, flags);
+                        if (r < 0)
+                                return r;
+
                         /* If the path ends on a "..", and CHASE_PARENT is specified then our current 'fd' is
                          * the child of the returned normalized path, not the parent as requested. To correct
                          * this we have to go *two* levels up. */
@@ -565,6 +645,11 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                         if (r > 0)
                                                 return log_unsafe_transition(fd_parent, fd_grandparent, path, flags);
                                 }
+
+                                r = chase_verify_mode(fd_grandparent, &stx_grandparent, &start_stx,
+                                                      anchor_root, path, flags);
+                                if (r < 0)
+                                        return r;
 
                                 stx = stx_grandparent;
                                 close_and_replace(fd, fd_grandparent);
@@ -681,6 +766,10 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
 
                         continue;
                 }
+
+                r = chase_verify_mode(child, &stx_child, &start_stx, anchor_root, path, flags);
+                if (r < 0)
+                        return r;
 
                 /* If this is not a symlink, then let's just add the name we read to what we already verified. */
                 if (!path_extend(&done, first))
