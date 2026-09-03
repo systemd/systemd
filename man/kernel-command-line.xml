@@ -766,7 +766,19 @@
         <replaceable>tty</replaceable>. Additionally, <varname>systemd.tty.term.console</varname> will
         configure the <varname>$TERM</varname> value used by <command>systemd</command> if not set explicitly
         using <varname>TERM</varname> on the kernel command line. The tty name should be specified without
-        the <filename>/dev/</filename> prefix (e.g. <literal>systemd.tty.rows.ttyS0=80</literal>).
+        the <filename>/dev/</filename> prefix (e.g. <literal>systemd.tty.rows.ttyS0=80</literal>). For the
+        <varname>$TERM</varname> of services attached to <filename>/dev/console</filename>, the console is
+        resolved to its backing device (e.g. <filename>ttyS0</filename>) and an explicit
+        <varname>systemd.tty.term.<replaceable>tty</replaceable></varname> setting for that device takes
+        precedence over a generic <varname>systemd.tty.term.console</varname>, allowing a console login
+        service to use a different terminal type than <command>systemd</command> itself (e.g.
+        <literal>systemd.tty.term.console=dumb</literal> for a faster boot while the login shell on
+        <filename>ttyS0</filename> still uses <literal>systemd.tty.term.ttyS0=linux</literal>). A
+        <varname>TERM</varname> set explicitly on the kernel command line overrides both. The resolution
+        applies only to <varname>systemd.tty.term.<replaceable>tty</replaceable></varname>;
+        <varname>systemd.tty.rows.<replaceable>tty</replaceable></varname> and
+        <varname>systemd.tty.columns.<replaceable>tty</replaceable></varname> continue to use the unresolved
+        tty name.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>

@@ -1434,6 +1434,39 @@ int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_col
         return rows != UINT_MAX || cols != UINT_MAX;
 }
 
+int proc_cmdline_tty_term(const char *tty, char **ret) {
+        int r;
+
+        assert(tty);
+        assert(ret);
+
+        /* Looks for a systemd.tty.term.<tty>= kernel command line option for the given tty and returns its
+         * value. Like proc_cmdline_tty_size() the tty name is taken without the /dev/ prefix. Returns 1 and
+         * sets *ret if a non-empty value was found, 0 if there is no such key (because it is unset, has an
+         * empty value, or the tty name cannot appear in an option name), and a negative errno only on
+         * allocation failure. */
+
+        tty = skip_dev_prefix(tty);
+        if (!in_charset(tty, ALPHANUMERICAL))
+                return 0; /* A non-alphanumeric name (e.g. "pts/0") cannot appear in an option name. */
+
+        _cleanup_free_ char *key = strjoin("systemd.tty.term.", tty);
+        if (!key)
+                return -ENOMEM;
+
+        _cleanup_free_ char *value = NULL;
+        r = proc_cmdline_get_key(key, /* flags= */ 0, &value);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read '%s' from kernel cmdline, ignoring: %m", key);
+                return r == -ENOMEM ? r : 0;
+        }
+        if (r == 0 || isempty(value))
+                return 0;
+
+        *ret = TAKE_PTR(value);
+        return 1;
+}
+
 /* intended to be used as a SIGWINCH sighandler */
 void columns_lines_cache_reset(int signum) {
         cached_columns = 0;
