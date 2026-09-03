@@ -6,10 +6,22 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Test unit configuration/state/cache/log/runtime data cleanup
 
 export HOME=/root
 export XDG_RUNTIME_DIR=/run/user/0
+
+at_exit() {
+    set +e
+
+    systemctl --user stop test-execdir-flags.service
+    rm -fr "$HOME"/.local/state/waldo
+}
+
+trap at_exit EXIT
 
 systemctl start user@0.service
 
@@ -63,3 +75,10 @@ test -L "$HOME"/.local/state/bar
 
 rm "$HOME"/.local/state/foo
 rmdir "$HOME"/.config/foo
+
+# A flags field without a symlink destination must round-trip through the transient
+# unit, i.e. it must not end up serialized with a literal "(null)" destination
+systemd-run --user --unit=test-execdir-flags -p StateDirectory=waldo::ro sleep infinity
+systemctl --user cat test-execdir-flags.service | grep "^StateDirectory=waldo::ro$" >/dev/null
+systemctl --user daemon-reload
+assert_eq "$(systemctl --user show -P StateDirectorySymlink test-execdir-flags.service)" "waldo:"
