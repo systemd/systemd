@@ -23,12 +23,12 @@ typedef struct Component {
         char *description;
         char **documentation;
 
-        bool enabled;
+        int enabled; /* tristate, unset means enabled */
 
         ComponentSuccessAction success_action;
         ComponentFailureAction failure_action;
 
-        int suggest;
+        int suggest; /* tristate */
         Condition *suggest_on;
 
         char *min_version;
@@ -38,7 +38,7 @@ typedef struct Component {
 
 #define COMPONENT_NULL                          \
         (Component) {                           \
-                .enabled = true,                \
+                .enabled = -1,                  \
                 .suggest = -1,                  \
         }
 
@@ -52,3 +52,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_component_success_action);
 CONFIG_PARSER_PROTOTYPE(config_parse_component_failure_action);
 
 int component_to_json(const Component *c, sd_json_variant **ret);
+int component_from_json(Component *c, sd_json_variant *v, const char *origin);

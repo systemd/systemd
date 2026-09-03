@@ -39,7 +39,7 @@ int component_read_definition(Component *c, const char *name, const char *root) 
         ConfigTableItem table[] = {
                 { "Component", "Description",                config_parse_string,                   0,                             &c->description        },
                 { "Component", "Documentation",              config_parse_url_specifiers_many,      0,                             &c->documentation      },
-                { "Component", "Enabled",                    config_parse_bool,                     0,                             &c->enabled            },
+                { "Component", "Enabled",                    config_parse_tristate,                 0,                             &c->enabled            },
                 { "Component", "SuccessAction",              config_parse_component_success_action, 0,                             &c->success_action     },
                 { "Component", "FailureAction",              config_parse_component_failure_action, 0,                             &c->failure_action     },
                 { "Component", "Suggest",                    config_parse_tristate,                 0,                             &c->suggest            },
@@ -106,6 +106,9 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP(component_failure_action, ComponentFailureAct
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_component_failure_action, component_failure_action, ComponentFailureAction);
 
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_component_success_action, ComponentSuccessAction, component_success_action_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_component_failure_action, ComponentFailureAction, component_failure_action_from_string);
+
 int component_to_json(const Component *c, sd_json_variant **ret) {
         int suggested, r;
 
@@ -123,7 +126,7 @@ int component_to_json(const Component *c, sd_json_variant **ret) {
                         ret,
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("description", c->description),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", c->documentation),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("enabled", c->enabled),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("enabled", c->enabled != 0),
                         JSON_BUILD_PAIR_ENUM("successAction", component_success_action_to_string(c->success_action)),
                         JSON_BUILD_PAIR_ENUM("failureAction", component_failure_action_to_string(c->failure_action)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("suggested", suggested > 0),
@@ -133,5 +136,50 @@ int component_to_json(const Component *c, sd_json_variant **ret) {
         if (r < 0)
                 return log_oom();
 
+        return 0;
+}
+
+int component_from_json(Component *c, sd_json_variant *v, const char *origin) {
+        int r;
+
+        assert(c);
+        assert(origin);
+
+        /* The inverse of component_to_json(): fills in the component metadata from a JSON object, as acquired
+         * from a component provider, typically a Target object (whose identifier is ignored here, as are
+         * any other fields we do not know). If the object is NULL, all settings take their defaults. Note that in contrast to the configuration files
+         * no specifier expansion takes place. 'origin' identifies where the data came from, for logging
+         * purposes. */
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "description",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,                offsetof(Component, description),        SD_JSON_NULLABLE },
+                { "documentation",  SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,                offsetof(Component, documentation),      SD_JSON_NULLABLE },
+                { "enabled",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,              offsetof(Component, enabled),            SD_JSON_NULLABLE },
+                { "successAction",  SD_JSON_VARIANT_STRING,  json_dispatch_component_success_action, offsetof(Component, success_action),     SD_JSON_NULLABLE },
+                { "failureAction",  SD_JSON_VARIANT_STRING,  json_dispatch_component_failure_action, offsetof(Component, failure_action),     SD_JSON_NULLABLE },
+                { "suggested",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,              offsetof(Component, suggest),            SD_JSON_NULLABLE },
+                { "minVersion",     SD_JSON_VARIANT_STRING,  json_dispatch_version,                  offsetof(Component, min_version),        SD_JSON_NULLABLE },
+                { "maxVersion",     SD_JSON_VARIANT_STRING,  json_dispatch_version,                  offsetof(Component, max_version),        SD_JSON_NULLABLE },
+                { "protectVersion", SD_JSON_VARIANT_ARRAY,   json_dispatch_versions,                 offsetof(Component, protected_versions), SD_JSON_NULLABLE },
+                {},
+        };
+
+        _cleanup_(component_done) Component d = COMPONENT_NULL;
+
+        /* Dispatch into a temporary object, so that we don't leave a half-initialized one around on failure */
+        if (v) {
+                r = sd_json_dispatch(v, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse component definition from %s: %m", origin);
+
+                /* The enum dispatchers map null to the invalid value, revert to the defaults in that case */
+                if (d.success_action < 0)
+                        d.success_action = COMPONENT_SUCCESS_CONTINUE;
+                if (d.failure_action < 0)
+                        d.failure_action = COMPONENT_FAILURE_CONTINUE;
+        }
+
+        component_done(c);
+        *c = TAKE_STRUCT(d);
         return 0;
 }
