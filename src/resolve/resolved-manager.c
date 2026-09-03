@@ -956,6 +956,13 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         assert(ret);
 
         ms = next_datagram_size_fd(fd);
+        /* The MSG_PEEK recv() in next_datagram_size_fd() validates the datagram's checksum, and drops it if
+         * it is bad. Hence we can end up here with nothing left to read even though the event source said
+         * otherwise, and must treat that like the recvmsg_safe() below does: as "no packet", not as a
+         * failure. Our callers propagate a failure to the event loop, which would then turn the listening
+         * socket's event source off for good. */
+        if (ERRNO_IS_NEG_TRANSIENT(ms))
+                return 0;
         if (ms < 0)
                 return ms;
 
