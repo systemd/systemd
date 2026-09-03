@@ -366,12 +366,14 @@ CHANGES WITH 262 in spe:
         Changes in systemd-resolved and resolvectl:
 
         * systemd-resolved now sends mDNS goodbye announcements (RFC 6762
-          section 10.1) for the DNS-SD services it publishes when the daemon is
-          stopped, so peers drop them right away instead of waiting out the
-          record TTL. To let the goodbye reach the network (and be repeated
-          once, as that section requires), stopping the daemon now takes about a
-          second longer on hosts that publish any such service. Hosts publishing
-          none are unaffected.
+          section 10.1) for the DNS-SD services it publishes when they are
+          withdrawn — when the daemon is stopped, and when a *.dnssd file is
+          removed and the daemon reloaded — so peers drop them right away
+          instead of waiting out the record TTL. To let the goodbye of a
+          stopping daemon reach the network (and be repeated once, as that
+          section requires), stopping the daemon now takes about a second
+          longer on hosts that publish any such service. Hosts publishing none
+          are unaffected.
 
         * 'resolvectl openpgp' and 'resolvectl tlsa' now support --json= when
           querying their implied record types. Mismatched explicit --type=
