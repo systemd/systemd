@@ -1558,7 +1558,9 @@ int decrypt_credential_and_warn(
         if (sd_id128_equal(h->id, CRED_AES256_GCM_BY_NULL) && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
                 log_warning("Warning: using a null key for decryption and authentication. Confidentiality or authenticity are not provided.");
 
-        sha256_hash_host_and_tpm2_key(&host_key, &tpm2_key, md);
+        r = sha256_hash_host_and_tpm2_key(&host_key, &tpm2_key, md);
+        if (r < 0)
+                return r;
 
         if (CRED_KEY_IS_SCOPED(h->id)) {
                 r = mangle_uid_into_key(uid, md);
