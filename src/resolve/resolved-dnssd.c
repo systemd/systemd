@@ -183,6 +183,176 @@ void dnssd_registered_service_clear_on_reload(Hashmap *services) {
                 }
 }
 
+/* Collect the records a registered service publishes, flagged for withdrawal: TTL 0 on the wire
+ * (DNS_ANSWER_GOODBYE), with cache-flush on the unique (non-PTR) records. */
+static int dnssd_registered_service_collect_withdraw_rrs(DnssdRegisteredService *s, DnsAnswer **answer) {
+        DnsResourceRecord *ptr;
+        int r;
+
+        assert(s);
+        assert(answer);
+
+        FOREACH_ARGUMENT(ptr, s->ptr_rr, s->sub_ptr_rr) {
+                if (!ptr)
+                        continue;
+
+                r = dns_answer_add_extend(answer, ptr, 0, DNS_ANSWER_GOODBYE, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (s->srv_rr) {
+                r = dns_answer_add_extend(answer, s->srv_rr, 0, DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(items, txt_data, s->txt_data_items) {
+                if (!txt_data->rr)
+                        continue;
+
+                r = dns_answer_add_extend(answer, txt_data->rr, 0, DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+/* Multicast a goodbye for the given records and drop them from the mDNS zones. Unlike
+ * dns_scope_announce() with goodbye=true, which withdraws the entire zone, this withdraws exactly
+ * the given records: everything else stays published. */
+static int dnssd_withdraw_rrs(Manager *m, DnsAnswer *answer) {
+        DnsResourceRecord *rr;
+        DnsScope *scope;
+        Link *l;
+        int r;
+
+        assert(m);
+
+        if (dns_answer_isempty(answer))
+                return 0;
+
+        HASHMAP_FOREACH(l, m->links)
+                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope) {
+                        if (!scope)
+                                continue;
+
+                        /* Withdraw on each scope only what that scope actually serves, mirroring
+                         * dnssd_registered_service_make_goodbye(): a record still being probed for
+                         * uniqueness, withdrawn again after a conflict, or never published here
+                         * (e.g. a MulticastDNS=resolve link) is not ours to goodbye on this link. */
+                        _cleanup_(dns_answer_unrefp) DnsAnswer *scoped = dns_answer_new(dns_answer_size(answer));
+                        if (!scoped)
+                                return -ENOMEM;
+
+                        DnsAnswerItem *item;
+                        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                                DnsZoneItem *i = dns_zone_get(&scope->zone, item->rr);
+                                if (!i || !IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                                        continue;
+
+                                r = dns_answer_add(scoped, item->rr, item->ifindex, item->flags, item->rrsig);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        /* The same MTU/RFC 6762 section 17 bounded, multi-packet emission the
+                         * shutdown goodbye uses: a reload can withdraw many services at once. */
+                        r = dns_scope_emit_announcement(scope, scoped);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to send mDNS withdrawal packets, ignoring: %m");
+
+                        /* Drop the records from the zone even if the goodbye could not be sent:
+                         * the service is going away either way, and peers then age the records
+                         * out over their TTL as before. */
+                        DNS_ANSWER_FOREACH(rr, answer)
+                                dns_zone_remove_rr(&scope->zone, rr);
+                }
+
+        return 0;
+}
+
+int dnssd_registered_service_withdraw(DnssdRegisteredService *s) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        int r;
+
+        assert(s);
+        assert(s->manager);
+
+        r = dnssd_registered_service_collect_withdraw_rrs(s, &answer);
+        if (r < 0)
+                return r;
+
+        return dnssd_withdraw_rrs(s->manager, answer);
+}
+
+/* Snapshot the records of all file-sourced registered services, for reconciling a reload: taken
+ * before the services are cleared, withdrawn — filtered against what came back — afterwards. */
+int dnssd_snapshot_file_service_rrs(Manager *m, DnsAnswer **ret) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnssdRegisteredService *s;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        HASHMAP_FOREACH(s, m->dnssd_registered_services) {
+                if (s->config_source != RESOLVE_CONFIG_SOURCE_FILE)
+                        continue;
+
+                r = dnssd_registered_service_collect_withdraw_rrs(s, &answer);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(answer);
+        return 0;
+}
+
+static bool dnssd_rr_is_published(Manager *m, DnsResourceRecord *rr) {
+        DnssdRegisteredService *s;
+
+        assert(m);
+        assert(rr);
+
+        HASHMAP_FOREACH(s, m->dnssd_registered_services) {
+                DnsResourceRecord *own;
+
+                FOREACH_ARGUMENT(own, s->ptr_rr, s->sub_ptr_rr, s->srv_rr)
+                        if (own && dns_resource_record_equal(own, rr) > 0)
+                                return true;
+
+                LIST_FOREACH(items, txt_data, s->txt_data_items)
+                        if (txt_data->rr && dns_resource_record_equal(txt_data->rr, rr) > 0)
+                                return true;
+        }
+
+        return false;
+}
+
+/* Withdraw the snapshotted records that did not survive a reload. Records a re-loaded service
+ * still publishes identically are left alone, so an unchanged .dnssd file does not flap its
+ * service on every reload. */
+int dnssd_withdraw_stale_rrs(Manager *m, DnsAnswer *old_rrs) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *stale = NULL;
+        DnsAnswerItem *item;
+        int r;
+
+        assert(m);
+
+        DNS_ANSWER_FOREACH_ITEM(item, old_rrs) {
+                if (dnssd_rr_is_published(m, item->rr))
+                        continue;
+
+                r = dns_answer_add_extend_full(&stale, item->rr, item->ifindex, item->flags, item->rrsig, item->until);
+                if (r < 0)
+                        return r;
+        }
+
+        return dnssd_withdraw_rrs(m, stale);
+}
+
 static int dnssd_id_from_path(const char *path, char **ret_id) {
         int r;
 
