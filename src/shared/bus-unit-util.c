@@ -2071,6 +2071,10 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
 
                 path_simplify(source);
 
+                if (!isempty(dest) && streq(field, "ConfigurationDirectory"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Symlink destination is not supported for %s=: '%s'", field, tuple);
+
                 if (isempty(dest) && isempty(flags)) {
                         r = strv_consume(&sources, TAKE_PTR(source));
                         if (r < 0)
@@ -2083,7 +2087,8 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                 } else {
                         ExecDirectoryFlags exec_directory_flags = exec_directory_flags_from_string(flags);
                         if (exec_directory_flags < 0 || (exec_directory_flags & ~_EXEC_DIRECTORY_FLAGS_PUBLIC) != 0)
-                                return log_error_errno(r, "Failed to parse flags for %s=: '%s'", field, flags);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse flags for %s=: '%s'", field, flags);
 
                         if (!isempty(dest)) {
                                 path_simplify(dest);
@@ -2124,9 +2129,10 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                         return bus_log_create_error(r);
         }
 
-        /* For State and Runtime directories we support an optional destination parameter, which
-         * will be used to create a symlink to the source. But it is new so we cannot change the
-         * old DBUS signatures, so append a new message type. */
+        /* For State, Runtime, Cache and Logs directories we support an optional destination parameter,
+         * which will be used to create a symlink to the source. Additionally all directory types support
+         * a flags parameter. But these are new so we cannot change the old D-Bus signatures, hence append
+         * a new message type. */
         if (!strv_isempty(symlinks) || !strv_isempty(symlinks_ro) || !strv_isempty(sources_ro)) {
                 const char *symlink_field;
 
@@ -2142,6 +2148,8 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                         symlink_field = "CacheDirectorySymlink";
                 else if (streq(field, "LogsDirectory"))
                         symlink_field = "LogsDirectorySymlink";
+                else if (streq(field, "ConfigurationDirectory"))
+                        symlink_field = "ConfigurationDirectorySymlink";
                 else
                         assert_not_reached();
 
@@ -2608,7 +2616,6 @@ static const BusProperty execute_properties[] = {
         { "NoExecPaths",                           bus_append_strv                               },
         { "ExecSearchPath",                        bus_append_strv_colon                         },
         { "ExtensionDirectories",                  bus_append_strv                               },
-        { "ConfigurationDirectory",                bus_append_strv                               },
         { "SupplementaryGroups",                   bus_append_strv                               },
         { "SystemCallArchitectures",               bus_append_strv                               },
         { "SyslogLevel",                           bus_append_log_level_from_string              },
@@ -2678,6 +2685,7 @@ static const BusProperty execute_properties[] = {
         { "RuntimeDirectory",                      bus_append_directory                          },
         { "CacheDirectory",                        bus_append_directory                          },
         { "LogsDirectory",                         bus_append_directory                          },
+        { "ConfigurationDirectory",                bus_append_directory                          },
         { "ProtectHostname",                       bus_append_protect_hostname                   },
         { "ProtectHostnameEx",                     bus_append_protect_hostname                   }, /* compat */
         { "PrivateTmp",                            bus_append_boolean_or_ex_string               },
