@@ -241,7 +241,33 @@ testcase_mdns_goodbye_on_stop() {
     # multicasts mDNS goodbye packets (TTL=0) for its published services, so the
     # browser must observe a 'removed' event for them well before the 120s record
     # TTL would otherwise expire them.
-    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl stop systemd-resolved.service
+    # The stop runs in the container's own shell, with registration attempts hammering the bus
+    # beside it: a RegisterService() arriving in the goodbye grace second must be refused with
+    # the dedicated ShuttingDown error -- a service registered then would be gone with the
+    # process while its client believes it published. Attempts landing before the stop signal
+    # merely register a canary the goodbyes then withdraw; attempts after the exit fail with
+    # the bus's own name-gone errors, which is why the specific error name is what is looked for.
+    # The script's variables are the container shell's, hence the single quotes.
+    # shellcheck disable=SC2016
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- bash -ec '
+        systemctl stop systemd-resolved.service &
+        stop_pid=$!
+        seen=0
+        for i in $(seq 1 500); do
+            kill -0 "$stop_pid" 2>/dev/null || break
+            out="$(busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 \
+                       org.freedesktop.resolve1.Manager RegisterService "sssqqqaa{say}" \
+                       "shutdown-canary-$i" "Shutdown Canary $i" _shutdownbye._udp 4711 0 0 0 2>&1)" && continue
+            case "$out" in
+                *org.freedesktop.resolve1.ShuttingDown*) seen=1; break ;;
+            esac
+            sleep 0.01
+        done
+        wait "$stop_pid"
+        if [ "$seen" -ne 1 ]; then
+            echo "No RegisterService() call was refused with org.freedesktop.resolve1.ShuttingDown during the stop" >&2
+            exit 1
+        fi'
 
     # Count distinct withdrawn instances rather than stopping at the first one: the goodbye for the
     # container's 200 published services spans several packets, and a truncated emission would still
