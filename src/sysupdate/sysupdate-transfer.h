@@ -11,6 +11,7 @@ typedef struct Transfer {
         char *id;
 
         char *min_version;
+        char *max_version;
         char **protected_versions;
         char *current_symlink;
         bool verify;
