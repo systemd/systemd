@@ -651,10 +651,10 @@ Path=/var/lib/portables
 MatchPattern=some-component_@v
 CurrentSymlink=some-component
 EOF
-"$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+"$SYSUPDATE" --json=short components | jq -e '.default == false and .components == ["some-component"]' >/dev/null
 varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets | all(.id.class != "host")' >/dev/null
 mkdir /run/sysupdate.d
-"$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+"$SYSUPDATE" --json=short components | jq -e '.default == false and .components == ["some-component"]' >/dev/null
 varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets | all(.id.class != "host")' >/dev/null
 [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -r '.targets[0].id.name') == "some-component" ]]
 
@@ -2108,6 +2108,69 @@ compfeat_source v3
 "$SYSUPDATE" --component-all --verify=no update
 test -f "$CF/target-compx/compx-v3.bin"
 test ! -e "$CF/target-compy/compy-v3.bin"
+
+# ---------------------------------------------------------------------------
+# MaxVersion= in transfers, MinVersion=/MaxVersion=/ProtectVersion= in components
+# ---------------------------------------------------------------------------
+compfeat_reset
+compfeat_source v1
+compfeat_source v2
+compfeat_source v3
+mkdir -p /run/sysupdate.compx.d /run/sysupdate.compy.d /run/sysupdate.compz.d
+compfeat_transfer /run/sysupdate.compx.d/01-compx.transfer compx "$CF/target-compx"
+compfeat_transfer /run/sysupdate.compy.d/01-compy.transfer compy "$CF/target-compy"
+compfeat_transfer /run/sysupdate.compz.d/01-compz.transfer compz "$CF/target-compz"
+
+# compx is capped at v2 by its transfer definition, compy by its component file.
+sed -i '1i [Transfer]\nMaxVersion=v2\n' /run/sysupdate.compx.d/01-compx.transfer
+cat >/run/sysupdate.compy.component <<EOF
+[Component]
+MaxVersion=v2
+EOF
+# compz requires at least v2 and protects v2 from vacuuming, via its component file.
+cat >/run/sysupdate.compz.component <<EOF
+[Component]
+MinVersion=v2
+ProtectVersion=v2
+EOF
+
+for c in compx compy; do
+    # v3 is too new: listed and marked as such, never the candidate, refused when requested explicitly.
+    "$SYSUPDATE" --component="$c" --verify=no list | grep -E "v3 .*available\+too-new" >/dev/null
+    "$SYSUPDATE" --component="$c" --verify=no list | grep -E "v2 .*candidate" >/dev/null
+    "$SYSUPDATE" --component="$c" --verify=no --json=short list v3 | jq -e '.tooNew == true and .newest == true' >/dev/null
+    "$SYSUPDATE" --component="$c" --verify=no --json=short list v2 | jq -e '.tooNew == false' >/dev/null
+    "$SYSUPDATE" --component="$c" --verify=no --json=short check-new | grep -F '{"available":"v2"}' >/dev/null
+    (! "$SYSUPDATE" --component="$c" --verify=no update v3) |& grep -F "newer than permitted" >/dev/null
+    "$SYSUPDATE" --component="$c" --verify=no update
+    test -f "$CF/target-$c/$c-v2.bin"
+    test ! -e "$CF/target-$c/$c-v3.bin"
+    "$SYSUPDATE" --component="$c" --verify=no list | grep -E "v2 .*current" >/dev/null
+    # check-new fails when there is nothing to update to, hence don't pipe it
+    if output="$("$SYSUPDATE" --component="$c" --verify=no --json=short check-new)"; then
+        exit 1
+    fi
+    [[ "$output" == '{"available":null}' ]]
+done
+
+# compz: v1 is obsolete due to the component-level MinVersion=.
+"$SYSUPDATE" --component=compz --verify=no list | grep -E "v1 .*available\+obsolete" >/dev/null
+(! "$SYSUPDATE" --component=compz --verify=no update v1) |& grep -F "is obsolete" >/dev/null
+"$SYSUPDATE" --component=compz --verify=no update v2
+"$SYSUPDATE" --component=compz --verify=no update v3
+compfeat_source v4
+"$SYSUPDATE" --component=compz --verify=no update
+# v2 is protected via the component file, hence v3 had to make room for v4 instead (InstancesMax=2).
+test -f "$CF/target-compz/compz-v2.bin"
+test ! -e "$CF/target-compz/compz-v3.bin"
+test -f "$CF/target-compz/compz-v4.bin"
+
+# The component metadata (including the new settings) is exposed via the JSON output and Varlink.
+"$SYSUPDATE" --json=short components | jq -e '.details[] | select(.name == "compy") | .maxVersion == "v2" and .enabled == true and .suggest == false' >/dev/null
+"$SYSUPDATE" --json=short components | jq -e '.details[] | select(.name == "compz") | .minVersion == "v2" and .protectVersion == ["v2"] and (has("maxVersion") | not)' >/dev/null
+varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '[.targets[] | select(.id.class == "component") | .id.name] == ["compx", "compy", "compz"]' >/dev/null
+varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets[] | select(.id.name == "compz") | .minVersion == "v2" and .protectVersion == ["v2"] and .enabled == true' >/dev/null
+varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '[.targets[] | select(.id.class != "component") | has("enabled")] | any | not' >/dev/null
 
 compfeat_cleanup
 restore_machine_info
