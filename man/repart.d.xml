@@ -141,12 +141,12 @@
               </row>
 
               <row>
-                <entry><constant>root-verity</constant></entry>
+                <entry><constant>root-verity</constant>, <constant>root-vty</constant></entry>
                 <entry>Verity data for the root file system partition for the local architecture</entry>
               </row>
 
               <row>
-                <entry><constant>root-verity-sig</constant></entry>
+                <entry><constant>root-verity-sig</constant>, <constant>root-sig</constant></entry>
                 <entry>Verity signature data for the root file system partition for the local architecture</entry>
               </row>
 
@@ -156,12 +156,12 @@
               </row>
 
               <row>
-                <entry><constant>root-secondary-verity</constant></entry>
+                <entry><constant>root-secondary-verity</constant>, <constant>root-secondary-vty</constant></entry>
                 <entry>Verity data for the root file system partition of the secondary architecture</entry>
               </row>
 
               <row>
-                <entry><constant>root-secondary-verity-sig</constant></entry>
+                <entry><constant>root-secondary-verity-sig</constant>, <constant>root-secondary-sig</constant></entry>
                 <entry>Verity signature data for the root file system partition of the secondary architecture</entry>
               </row>
 
@@ -171,12 +171,12 @@
               </row>
 
               <row>
-                <entry><constant>root-{arch}-verity</constant></entry>
+                <entry><constant>root-{arch}-verity</constant>, <constant>root-{arch}-vty</constant></entry>
                 <entry>Verity data for the root file system partition of the given architecture</entry>
               </row>
 
               <row>
-                <entry><constant>root-{arch}-verity-sig</constant></entry>
+                <entry><constant>root-{arch}-verity-sig</constant>, <constant>root-{arch}-sig</constant></entry>
                 <entry>Verity signature data for the root file system partition of the given architecture</entry>
               </row>
 
@@ -186,12 +186,12 @@
               </row>
 
               <row>
-                <entry><constant>usr-verity</constant></entry>
+                <entry><constant>usr-verity</constant>, <constant>usr-vty</constant></entry>
                 <entry>Verity data for the <filename>/usr/</filename> file system partition for the local architecture</entry>
               </row>
 
               <row>
-                <entry><constant>usr-verity-sig</constant></entry>
+                <entry><constant>usr-verity-sig</constant>, <constant>usr-sig</constant></entry>
                 <entry>Verity signature data for the <filename>/usr/</filename> file system partition for the local architecture</entry>
               </row>
 
@@ -201,12 +201,12 @@
               </row>
 
               <row>
-                <entry><constant>usr-secondary-verity</constant></entry>
+                <entry><constant>usr-secondary-verity</constant>, <constant>usr-secondary-vty</constant></entry>
                 <entry>Verity data for the <filename>/usr/</filename> file system partition of the secondary architecture</entry>
               </row>
 
               <row>
-                <entry><constant>usr-secondary-verity-sig</constant></entry>
+                <entry><constant>usr-secondary-verity-sig</constant>, <constant>usr-secondary-sig</constant></entry>
                 <entry>Verity signature data for the <filename>/usr/</filename> file system partition of the secondary architecture</entry>
               </row>
 
@@ -216,12 +216,12 @@
               </row>
 
               <row>
-                <entry><constant>usr-{arch}-verity</constant></entry>
+                <entry><constant>usr-{arch}-verity</constant>, <constant>usr-{arch}-vty</constant></entry>
                 <entry>Verity data for the <filename>/usr/</filename> file system partition of the given architecture</entry>
               </row>
 
               <row>
-                <entry><constant>usr-{arch}-verity-sig</constant></entry>
+                <entry><constant>usr-{arch}-verity-sig</constant>, <constant>usr-{arch}-sig</constant></entry>
                 <entry>Verity signature data for the <filename>/usr/</filename> file system partition of the given architecture</entry>
               </row>
             </tbody>
@@ -237,6 +237,21 @@
         <constant>s390</constant>, <constant>s390x</constant>, <constant>tilegx</constant>,
         <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).</para>
 
+        <para>As shown in the table above, the <constant>-verity</constant> and
+        <constant>-verity-sig</constant> suffixes may always be abbreviated as <constant>-vty</constant> and
+        <constant>-sig</constant> respectively. Both spellings refer to the same partition type UUID and are
+        accepted everywhere a partition type identifier is expected.</para>
+
+        <para>GPT limits partition labels to 36 characters. The abbreviated identifier is hence the one used
+        for the label automatically derived from the partition type when <varname>Label=</varname> is not
+        specified, i.e. a <constant>usr-x86-64-verity-sig</constant> partition is labelled
+        <literal>usr-x86-64-sig</literal>. It is equally useful when assembling labels manually, for
+        example when a version string has to fit next to the partition type identifier. The canonical (long)
+        spelling remains what is shown when a partition type itself is displayed, for example in the type
+        column of
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        output.</para>
+
         <para>Most of the partition type UUIDs listed above are defined in the <ulink
         url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions
         Specification</ulink>.</para>
@@ -251,7 +266,8 @@
         setting is not used for matching. It is also not used when a label is already set for an existing
         partition. It is thus only used when a partition is newly created or when an existing one had a no
         label set (that is: an empty label). If not specified, a label derived from the partition type is
-        automatically used. Simple specifier expansion is supported, see below.</para>
+        automatically used, using the abbreviated form of the type identifier, see
+        <varname>Type=</varname> above. Simple specifier expansion is supported, see below.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>

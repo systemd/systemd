@@ -11,6 +11,10 @@
 /* maximum length of gpt label */
 #define GPT_LABEL_MAX 36
 
+/* maximum length of a partition type identifier, including the NUL byte. The longest one we know is
+ * "root-loongarch64-verity-sig", i.e. 28 bytes, so this leaves plenty of room. */
+#define GPT_PARTITION_TYPE_NAME_MAX 64
+
 typedef enum PartitionDesignator {
         PARTITION_ROOT, /* Primary architecture */
         PARTITION_USR,
@@ -60,6 +64,13 @@ const char* gpt_partition_type_uuid_to_string_harder(
 
 #define GPT_PARTITION_TYPE_UUID_TO_STRING_HARDER(id) \
         gpt_partition_type_uuid_to_string_harder((id), (char[SD_ID128_UUID_STRING_MAX]) {})
+
+const char* gpt_partition_type_uuid_to_short_string(
+                sd_id128_t id,
+                char buffer[static GPT_PARTITION_TYPE_NAME_MAX]);
+
+#define GPT_PARTITION_TYPE_UUID_TO_SHORT_STRING(id) \
+        gpt_partition_type_uuid_to_short_string((id), (char[GPT_PARTITION_TYPE_NAME_MAX]) {})
 
 Architecture gpt_partition_type_uuid_to_arch(sd_id128_t id) _const_;
 

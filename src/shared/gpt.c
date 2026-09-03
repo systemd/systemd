@@ -244,11 +244,74 @@ const char* gpt_partition_type_uuid_to_string_harder(
         return sd_id128_to_uuid_string(id, buffer);
 }
 
+/* Shorthands for the verity suffixes, accepted for any partition type that carries them, i.e. "root-vty" is
+ * equivalent to "root-verity" and "usr-x86-64-sig" to "usr-x86-64-verity-sig". */
+static const struct {
+        const char *shorthand;
+        const char *suffix;
+} gpt_verity_shorthand_table[] = {
+        { "-vty", "-verity"     },
+        { "-sig", "-verity-sig" },
+};
+
+const char* gpt_partition_type_uuid_to_short_string(
+                sd_id128_t id,
+                char buffer[static GPT_PARTITION_TYPE_NAME_MAX]) {
+
+        const char *s;
+
+        assert(buffer);
+
+        /* Like gpt_partition_type_uuid_to_string(), but abbreviates the verity suffixes. Use this where the
+         * identifier ends up in a GPT partition label, which may not be longer than GPT_LABEL_MAX. */
+
+        s = gpt_partition_type_uuid_to_string(id);
+        if (!s)
+                return NULL;
+
+        FOREACH_ELEMENT(i, gpt_verity_shorthand_table) {
+                const char *e;
+
+                e = endswith(s, i->suffix);
+                if (!e)
+                        continue;
+
+                size_t n = e - s;
+                assert(n + strlen(i->shorthand) < GPT_PARTITION_TYPE_NAME_MAX);
+
+                memcpy(buffer, s, n);
+                strcpy(buffer + n, i->shorthand);
+                return buffer;
+        }
+
+        return s;
+}
+
 int gpt_partition_type_from_string(const char *s, GptPartitionType *ret) {
+        _cleanup_free_ char *expanded = NULL;
         sd_id128_t id = SD_ID128_NULL;
         int r;
 
         assert(s);
+
+        FOREACH_ELEMENT(i, gpt_verity_shorthand_table) {
+                const char *e;
+
+                /* The canonical "-verity-sig" suffix ends in the "-sig" shorthand itself, so leave a name
+                 * that is already spelled out alone. */
+                if (endswith(s, i->suffix))
+                        break;
+
+                e = endswith(s, i->shorthand);
+                if (!e)
+                        continue;
+
+                if (!strextendn(&expanded, s, e - s) || !strextend(&expanded, i->suffix))
+                        return -ENOMEM;
+
+                s = expanded;
+                break;
+        }
 
         FOREACH_ARRAY(t, gpt_partition_type_table, ELEMENTSOF(gpt_partition_type_table) - 1)
                 if (streq(s, t->name)) {
