@@ -16,4 +16,7 @@ typedef enum UpdateSetFlags {
 
 const char* update_set_flags_to_color(UpdateSetFlags flags);
 const char* update_set_flags_to_glyph(UpdateSetFlags flags);
-const char* update_set_flags_to_string(UpdateSetFlags flags);
+
+#define UPDATE_SET_FLAGS_STRING_MAX sizeof("candidate+partial+obsolete+incomplete")
+char* update_set_flags_to_string_buf(UpdateSetFlags flags, char buf[static UPDATE_SET_FLAGS_STRING_MAX]);
+#define FORMAT_UPDATE_SET_FLAGS(flags) update_set_flags_to_string_buf((flags), (char[UPDATE_SET_FLAGS_STRING_MAX]) {})
