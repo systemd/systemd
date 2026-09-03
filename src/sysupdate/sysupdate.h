@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sysupdate-component.h"
 #include "sysupdate-forward.h"
 #include "sysupdate-target.h"
 
@@ -33,12 +34,7 @@ typedef struct Context {
         LoopDevice *loop_device;
         char *mounted_dir;
 
-        char *component_description;
-        char **component_documentation;
-        bool component_enabled;
-
-        int component_suggest;
-        Condition *component_suggest_on;
+        Component component_info; /* Metadata about the component we operate on, if any */
 
         Transfer **transfers;
         size_t n_transfers;

@@ -9,7 +9,6 @@
 
 #include "build.h"
 #include "bus-polkit.h"
-#include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -44,6 +43,7 @@
 #include "strv.h"
 #include "sysupdate.h"
 #include "sysupdate-cleanup.h"
+#include "sysupdate-component.h"
 #include "sysupdate-config.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
@@ -90,14 +90,13 @@ COMMAND(
 
 #define CONTEXT_NULL                                              \
         (Context) {                                               \
-                .component_enabled = true,                        \
+                .component_info = COMPONENT_NULL,                 \
                 .sync = true,                                     \
                 .instances_max = UINT64_MAX,                      \
                 .verify = -1,                                     \
                 .cleanup = -1,                                    \
                 .installdb_fd = -EBADF,                           \
                 .target_identifier.class = _TARGET_CLASS_INVALID, \
-                .component_suggest = -1,                          \
         }
 
 void context_done(Context *c) {
@@ -131,13 +130,11 @@ void context_done(Context *c) {
         c->root = mfree(c->root);
         c->image = mfree(c->image);
         c->component = mfree(c->component);
-        c->component_description = mfree(c->component_description);
-        c->component_documentation = strv_free(c->component_documentation);
+        component_done(&c->component_info);
         c->image_policy = image_policy_free(c->image_policy);
         c->transfer_source = mfree(c->transfer_source);
 
         target_identifier_done(&c->target_identifier);
-        condition_free_list(c->component_suggest_on);
 }
 
 static int context_from_cmdline(Context *ret) {
@@ -347,51 +344,13 @@ static int read_transfers(
 }
 
 static int read_component(Context *c) {
-        int r;
-
         assert(c);
 
         /* Read a component description file, but only if we actually operate on a component */
         if (c->definitions || !c->component)
                 return 0;
 
-        _cleanup_free_ char *j = strjoin("sysupdate.", c->component, ".component");
-        if (!j)
-                return log_oom();
-
-        ConfigTableItem table[] = {
-                { "Component", "Description",                config_parse_string,              0,                             &c->component_description   },
-                { "Component", "Documentation",              config_parse_url_specifiers_many, 0,                             &c->component_documentation },
-                { "Component", "Enabled",                    config_parse_bool,                0,                             &c->component_enabled       },
-                { "Component", "Suggest",                    config_parse_tristate,            0,                             &c->component_suggest       },
-                { "Component", "SuggestOnArchitecture",      config_parse_condition,           CONDITION_ARCHITECTURE,        &c->component_suggest_on    },
-                { "Component", "SuggestOnFirmware",          config_parse_condition,           CONDITION_FIRMWARE,            &c->component_suggest_on    },
-                { "Component", "SuggestOnVirtualization",    config_parse_condition,           CONDITION_VIRTUALIZATION,      &c->component_suggest_on    },
-                { "Component", "SuggestOnHost",              config_parse_condition,           CONDITION_HOST,                &c->component_suggest_on    },
-                { "Component", "SuggestOnFraction",          config_parse_condition,           CONDITION_FRACTION,            &c->component_suggest_on    },
-                { "Component", "SuggestOnKernelCommandLine", config_parse_condition,           CONDITION_KERNEL_COMMAND_LINE, &c->component_suggest_on    },
-                { "Component", "SuggestOnVersion",           config_parse_condition,           CONDITION_VERSION,             &c->component_suggest_on    },
-                { "Component", "SuggestOnCredential",        config_parse_condition,           CONDITION_CREDENTIAL,          &c->component_suggest_on    },
-                { "Component", "SuggestOnSecurity",          config_parse_condition,           CONDITION_SECURITY,            &c->component_suggest_on    },
-                { "Component", "SuggestOnOSRelease",         config_parse_condition,           CONDITION_OS_RELEASE,          &c->component_suggest_on    },
-                { "Component", "SuggestOnMachineTag",        config_parse_condition,           CONDITION_MACHINE_TAG,         &c->component_suggest_on    },
-                {}
-        };
-
-        r = config_parse_standard_file_with_dropins_full(
-                        c->root,
-                        /* root_fd= */ -EBADF,
-                        j,
-                        "Component\0",
-                        config_item_table_lookup, table,
-                        CONFIG_PARSE_WARN,
-                        /* userdata= */ (void *) c->root,
-                        /* ret_stats_by_path= */ NULL,
-                        /* ret_dropin_files= */ NULL);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return component_read_definition(&c->component_info, c->component, c->root);
 }
 
 typedef enum ReadDefinitionsFlags {
@@ -463,7 +422,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                                        "No transfer definitions found.");
         }
 
-        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT) && !c->component_enabled)
+        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT) && !c->component_info.enabled)
                 return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Component is disabled.");
 
         return 0;
@@ -2972,13 +2931,7 @@ static int context_component_is_suggested(Context *c) {
         if (!c->component)
                 return -ENOTTY;
 
-        if (c->component_suggest >= 0)
-                return c->component_suggest;
-
-        if (!c->component_suggest_on) /* no condition → false */
-                return false;
-
-        return condition_test_list(c->component_suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+        return component_is_suggested(&c->component_info);
 }
 
 VERB_NOARG(verb_components, "components",
@@ -3060,8 +3013,8 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
                         r = table_add_many(
                                         t,
-                                        TABLE_BOOLEAN_CHECKMARK, cc.component_enabled,
-                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_enabled));
+                                        TABLE_BOOLEAN_CHECKMARK, cc.component_info.enabled,
+                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_info.enabled));
                         if (r < 0)
                                 return table_log_add_error(r);
 
@@ -3073,12 +3026,12 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         if (r < 0)
                                 return table_log_add_error(r);
 
-                        const char *doc = cc.component_documentation ? cc.component_documentation[0] : NULL;
+                        const char *doc = cc.component_info.documentation ? cc.component_info.documentation[0] : NULL;
 
                         r = table_add_many(
                                         t,
                                         TABLE_STRING, *i,
-                                        TABLE_STRING, cc.component_description,
+                                        TABLE_STRING, cc.component_info.description,
                                         TABLE_STRING, doc,
                                         TABLE_SET_URL, doc);
                         if (r < 0)
