@@ -920,7 +920,14 @@ static int dns_query_try_static_records(DnsQuery *q) {
                 return 0;
 
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        r = manager_static_records_lookup(
+        r = manager_static_record_overrides_lookup(
+                        q->manager,
+                        q->question_bypass ? q->question_bypass->question : q->question_utf8,
+                        &answer);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                r = manager_static_records_lookup(
                         q->manager,
                         q->question_bypass ? q->question_bypass->question : q->question_utf8,
                         &answer);

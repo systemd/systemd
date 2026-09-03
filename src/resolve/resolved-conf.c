@@ -6,6 +6,7 @@
 #include "dns-type.h"
 #include "extract-word.h"
 #include "ordered-set.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
 #include "resolved-conf.h"
 #include "resolved-dns-cache.h"
@@ -16,6 +17,7 @@
 #include "set.h"
 #include "socket-netlink.h"
 #include "string-util.h"
+#include "strv.h"
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
 
@@ -251,6 +253,20 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
                         log_warning_errno(r, "Failed to parse credential provided search domain string '%s', ignoring.", value);
 
                 info->manager->read_resolv_conf = false;
+
+        } else if (streq(key, "systemd.resolved.rr")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                if (!path_is_absolute(value)) {
+                        log_warning("Ignoring relative path in systemd.resolved.rr=: %s", value);
+                        return 0;
+                }
+
+                r = strv_extend(&info->manager->static_record_override_paths, value);
+                if (r < 0)
+                        return log_oom();
         }
 
         return 0;

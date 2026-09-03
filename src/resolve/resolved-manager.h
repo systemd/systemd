@@ -126,9 +126,12 @@ typedef struct Manager {
 
         /* Data from {/etc,/run,/usr/local/lib,/usr/lib}/systemd/resolve/static.d/ */
         Hashmap *static_records;
+        Hashmap *static_record_overrides;
+        char **static_record_override_paths;
         usec_t static_records_last;
         Set *static_records_stat;
         bool read_static_records;
+        bool static_records_loaded;
 
         /* List of refused DNS Record Types */
         Set *refuse_record_types;

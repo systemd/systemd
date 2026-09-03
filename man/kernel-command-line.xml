@@ -622,6 +622,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.resolved.rr=</varname></term>
+        <listitem>
+          <para>Select a file containing local DNS resource records for
+          <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          May be specified more than once. See
+          <citerefentry><refentrytitle>systemd.rr</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>resume=</varname></term>
         <term><varname>resumeflags=</varname></term>
 

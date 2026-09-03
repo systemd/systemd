@@ -139,7 +139,9 @@
       <citerefentry><refentrytitle>systemd.rr</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
       details. Support for this may be disabled with <varname>ReadStaticRecords=no</varname>, see
       <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      </para></listitem>
+      Records from the <varname>network.rr</varname> credential and files selected with
+      <varname>systemd.resolved.rr=</varname> take precedence over these records and are intended for
+      temporary or image-specific redirection.</para></listitem>
 
       <listitem><para>The mappings defined in <filename>/etc/hosts</filename> are resolved to their
       configured addresses and back, but they will not affect lookups for non-address types (like MX).
@@ -466,13 +468,25 @@ search foobar.com barbar.com
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>network.rr</varname></term>
+
+        <listitem><para>Contains one DNS RR object or an array of DNS RR objects in the JSON format described
+        in
+        <citerefentry><refentrytitle>systemd.rr</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        These records take precedence over the static records read from the filesystem. This credential is
+        independent of the <varname>network.dns</varname> and <varname>network.search_domains</varname>
+        credentials.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para><command>systemd-resolved</command> also honours two kernel command line options:</para>
+    <para><command>systemd-resolved</command> also honours the following kernel command line options:</para>
 
     <variablelist class='kernel-commandline-options'>
       <varlistentry>
@@ -489,6 +503,18 @@ search foobar.com barbar.com
         configuration.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>systemd.resolved.rr=</varname></term>
+
+        <listitem><para>Specifies an absolute path to a file containing DNS records in the JSON format
+        described in
+        <citerefentry><refentrytitle>systemd.rr</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        May be specified more than once. Records read from these files take precedence over records from the
+        static record directories and from the <varname>network.rr</varname> credential. This is useful for
+        selecting an alternative set of service endpoints from a boot loader entry.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

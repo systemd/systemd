@@ -55,6 +55,7 @@
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "varlink-util.h"
 
@@ -645,6 +646,7 @@ static void manager_set_defaults(Manager *m) {
                 m->cache_max[p] = DEFAULT_CACHE_MAX;
         m->stale_retention_usec = 0;
         m->refuse_record_types = set_free(m->refuse_record_types);
+        m->static_record_override_paths = strv_free(m->static_record_override_paths);
         m->resolv_conf_stat = (struct stat) {};
 }
 
@@ -871,6 +873,7 @@ Manager* manager_free(Manager *m) {
 #endif
 
         set_free(m->refuse_record_types);
+        strv_free(m->static_record_override_paths);
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
 
