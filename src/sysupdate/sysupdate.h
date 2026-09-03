@@ -57,3 +57,5 @@ typedef struct Context {
 } Context;
 
 void context_done(Context *c);
+
+bool component_version_is_protected(const Context *c, const char *version);

@@ -7,5 +7,7 @@
 CONFIG_PARSER_PROTOTYPE(config_parse_url_specifiers);
 CONFIG_PARSER_PROTOTYPE(config_parse_url_specifiers_many);
 CONFIG_PARSER_PROTOTYPE(config_parse_condition);
+CONFIG_PARSER_PROTOTYPE(config_parse_protect_version);
+CONFIG_PARSER_PROTOTYPE(config_parse_version_bound);
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(suggest_on_type, ConditionType);

@@ -17,6 +17,9 @@ void component_done(Component *c) {
         c->description = mfree(c->description);
         c->documentation = strv_free(c->documentation);
         c->suggest_on = condition_free_list(c->suggest_on);
+        c->min_version = mfree(c->min_version);
+        c->max_version = mfree(c->max_version);
+        c->protected_versions = strv_free(c->protected_versions);
 }
 
 int component_read_definition(Component *c, const char *name, const char *root) {
@@ -45,6 +48,9 @@ int component_read_definition(Component *c, const char *name, const char *root) 
                 { "Component", "SuggestOnSecurity",          config_parse_condition,           CONDITION_SECURITY,            &c->suggest_on    },
                 { "Component", "SuggestOnOSRelease",         config_parse_condition,           CONDITION_OS_RELEASE,          &c->suggest_on    },
                 { "Component", "SuggestOnMachineTag",        config_parse_condition,           CONDITION_MACHINE_TAG,         &c->suggest_on    },
+                { "Component", "MinVersion",                 config_parse_version_bound,       0,                             &c->min_version   },
+                { "Component", "MaxVersion",                 config_parse_version_bound,       0,                             &c->max_version   },
+                { "Component", "ProtectVersion",             config_parse_protect_version,     0,                             &c->protected_versions },
                 {}
         };
 

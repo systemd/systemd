@@ -116,6 +116,33 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MinVersion=</varname></term>
+        <term><varname>MaxVersion=</varname></term>
+
+        <listitem><para>Specifies the minimum resp. maximum version to permit for all transfers of this
+        component, with the same semantics as the settings of the same name in the [Transfer] section of
+        <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>:
+        versions older than <varname>MinVersion=</varname> are considered obsolete, versions newer than
+        <varname>MaxVersion=</varname> are considered too new, and neither are selected for updating. If
+        a transfer of the component specifies its own bounds, the more restrictive one applies. Both
+        settings support specifier expansion.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ProtectVersion=</varname></term>
+
+        <listitem><para>Takes one or more version strings to mark as "protected" for all transfers of
+        this component, with the same semantics as the setting of the same name in the [Transfer] section
+        of <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>:
+        protected versions are never removed while making room for new versions. Versions listed here are
+        added to those a transfer protects on its own. This setting supports specifier expansion.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Suggest=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, this component is suggested for enablement, if
@@ -167,7 +194,8 @@
   <refsect1>
     <title>Specifiers</title>
 
-    <para>Specifiers may be used in the <varname>Documentation=</varname> setting. The following expansions
+    <para>Specifiers may be used in the <varname>Documentation=</varname>, <varname>MinVersion=</varname>,
+    <varname>MaxVersion=</varname> and <varname>ProtectVersion=</varname> settings. The following expansions
     are understood:</para>
 
     <table class='specifiers'>

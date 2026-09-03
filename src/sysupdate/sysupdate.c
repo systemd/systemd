@@ -481,6 +481,63 @@ static int context_load_available_instances(Context *c) {
         return 0;
 }
 
+static const char* component_min_version(const Context *c) {
+        const char *v;
+
+        assert(c);
+
+        /* Returns the effective minimum version of the component we operate on, i.e. the highest of the
+         * minimum versions configured for the component itself and for all of its enabled transfers: a
+         * version older than any of them is obsolete for the component as a whole. */
+
+        v = c->component_info.min_version;
+
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
+                const Transfer *t = *tr;
+
+                if (t->min_version && (!v || strverscmp_improved(t->min_version, v) > 0))
+                        v = t->min_version;
+        }
+
+        return v;
+}
+
+static const char* component_max_version(const Context *c) {
+        const char *v;
+
+        assert(c);
+
+        /* Likewise, the effective maximum version: the lowest of the maximum versions configured for the
+         * component itself and for all of its enabled transfers. */
+
+        v = c->component_info.max_version;
+
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
+                const Transfer *t = *tr;
+
+                if (t->max_version && (!v || strverscmp_improved(t->max_version, v) < 0))
+                        v = t->max_version;
+        }
+
+        return v;
+}
+
+bool component_version_is_protected(const Context *c, const char *version) {
+        assert(c);
+        assert(version);
+
+        /* A version is protected if the component we operate on or any of its enabled transfers lists it */
+
+        if (strv_contains(c->component_info.protected_versions, version))
+                return true;
+
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers)
+                if (strv_contains((*tr)->protected_versions, version))
+                        return true;
+
+        return false;
+}
+
 static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags) {
         _cleanup_free_ char *boundary = NULL;
         bool newest_found = false;
@@ -494,6 +551,8 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
          * the end of this function reinstate a pending/partial installation as candidate if nothing better
          * is available. */
         c->candidate = NULL;
+
+        const char *min_version = component_min_version(c), *max_version = component_max_version(c);
 
         for (;;) {
                 _cleanup_free_ Instance **cursor_instances = NULL;
@@ -580,15 +639,6 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
 
                         cursor_instances[k] = match;
 
-                        if (t->min_version && strverscmp_improved(t->min_version, cursor) > 0)
-                                extra_flags |= UPDATE_OBSOLETE;
-
-                        if (t->max_version && strverscmp_improved(cursor, t->max_version) > 0)
-                                extra_flags |= UPDATE_TOO_NEW;
-
-                        if (strv_contains(t->protected_versions, cursor))
-                                extra_flags |= UPDATE_PROTECTED;
-
                         /* Partial or pending updates by definition are not incomplete, they’re
                          * partial/pending instead. While an individual Instance cannot be both partial and
                          * pending, an UpdateSet as a whole can contain both partial and pending instances. */
@@ -600,6 +650,15 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                         if (match && match->is_pending)
                                 extra_flags = (extra_flags | UPDATE_PENDING) & ~UPDATE_INCOMPLETE;
                 }
+
+                if (min_version && strverscmp_improved(min_version, cursor) > 0)
+                        extra_flags |= UPDATE_OBSOLETE;
+
+                if (max_version && strverscmp_improved(cursor, max_version) > 0)
+                        extra_flags |= UPDATE_TOO_NEW;
+
+                if (component_version_is_protected(c, cursor))
+                        extra_flags |= UPDATE_PROTECTED;
 
                 r = free_and_strdup_warn(&boundary, cursor);
                 if (r < 0)
