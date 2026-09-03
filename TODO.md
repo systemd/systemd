@@ -2649,6 +2649,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   other env vars we might send).
 
 - **sysupdate:**
+  - make each `Documentation=` URL independently clickable in text output
   - add fuzzing to the pattern parser
   - support casync as download mechanism
   - "systemd-sysupdate update --all" support, that iterates through all components
