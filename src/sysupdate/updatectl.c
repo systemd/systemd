@@ -351,6 +351,8 @@ typedef struct DescribeParams {
         bool partial;
         bool pending;
         bool obsolete;
+        bool too_new;
+        bool candidate;
         bool protected;
         bool incomplete;
 } DescribeParams;
@@ -388,6 +390,8 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
                 { "partial",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, partial),       0 },
                 { "pending",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, pending),       0 },
                 { "obsolete",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, obsolete),      0 },
+                { "tooNew",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, too_new),       0 },
+                { "candidate",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, candidate),     0 },
                 { "protected",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, protected),     0 },
                 { "incomplete",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, incomplete),    0 },
                 { "changelogUrls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(DescribeParams, v.changelog),   0 },
@@ -407,6 +411,8 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
         SET_FLAG(p.v.flags, UPDATE_PARTIAL, p.partial);
         SET_FLAG(p.v.flags, UPDATE_PENDING, p.pending);
         SET_FLAG(p.v.flags, UPDATE_OBSOLETE, p.obsolete);
+        SET_FLAG(p.v.flags, UPDATE_TOO_NEW, p.too_new);
+        SET_FLAG(p.v.flags, UPDATE_CANDIDATE, p.candidate);
         SET_FLAG(p.v.flags, UPDATE_PROTECTED, p.protected);
         SET_FLAG(p.v.flags, UPDATE_INCOMPLETE, p.incomplete);
 
