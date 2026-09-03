@@ -27,7 +27,7 @@
 
 #define DNSSD_SERVICE_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/dnssd"))
 
-DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data) {
+DnssdTxtData* dnssd_txtdata_free(DnssdTxtData *txt_data) {
         if (!txt_data)
                 return NULL;
 
@@ -37,7 +37,7 @@ DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data) {
         return mfree(txt_data);
 }
 
-DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data) {
+static DnssdTxtData* dnssd_txtdata_free_all(DnssdTxtData *txt_data) {
         DnssdTxtData *next;
 
         if (!txt_data)
@@ -50,7 +50,7 @@ DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data) {
         return dnssd_txtdata_free_all(next);
 }
 
-DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *service) {
+DnssdRegisteredService* dnssd_registered_service_free(DnssdRegisteredService *service) {
         if (!service)
                 return NULL;
 
@@ -74,10 +74,19 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
         return mfree(service);
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        dnssd_registered_service_hash_ops,
+        char,
+        string_hash_func,
+        string_compare_func,
+        DnssdRegisteredService,
+        dnssd_registered_service_free);
+
 static int dnssd_registered_service_make_goodbye(
                 DnssdRegisteredService *service,
                 DnsScope *scope,
                 DnsAnswer **ret) {
+
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         size_t n_rrs = 3;
         int r;
@@ -263,7 +272,7 @@ static int dnssd_registered_service_load(Manager *manager, const char *path) {
                 TAKE_PTR(txt_data);
         }
 
-        r = hashmap_ensure_put(&manager->dnssd_registered_services, &string_hash_ops, service->id, service);
+        r = hashmap_ensure_put(&manager->dnssd_registered_services, &dnssd_registered_service_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 
@@ -433,10 +442,11 @@ oom:
         return -ENOMEM;
 }
 
-int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtItem **ret_item) {
+static int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtItem **ret_item) {
         size_t length;
         DnsTxtItem *i;
 
+        assert(key);
         assert(ret_item);
 
         length = strlen(key);
@@ -464,6 +474,8 @@ int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t
         size_t length;
         DnsTxtItem *i;
 
+        assert(key);
+        assert(data || size == 0);
         assert(ret_item);
 
         length = strlen(key);
@@ -490,6 +502,8 @@ int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t
 int dnssd_signal_conflict(Manager *manager, const char *name) {
         DnssdRegisteredService *s;
         int r;
+
+        assert(manager);
 
         if (sd_bus_is_ready(manager->bus) <= 0)
                 return 0;

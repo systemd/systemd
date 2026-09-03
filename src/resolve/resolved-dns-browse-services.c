@@ -108,6 +108,8 @@ static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userd
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         int r;
 
+        assert(service->service_browser);
+
         /* Check if the TTL state has reached the maximum value, then revisit
          * cache */
         if (service->rr_ttl_state++ == DNS_RECORD_TTL_STATE_100_PERCENT)
@@ -225,29 +227,38 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
         return 0;
 }
 
-void dns_remove_service(DnsServiceBrowser *sb, DnssdDiscoveredService *service) {
-        assert(sb);
+static DnssdDiscoveredService* dnssd_discovered_service_detach_impl(DnssdDiscoveredService *service) {
         assert(service);
-
-        LIST_REMOVE(dns_services, sb->dns_services, service);
-        dnssd_discovered_service_unref(service);
-}
-
-DnssdDiscoveredService *dns_service_free(DnssdDiscoveredService *service) {
-        if (!service)
-                return NULL;
 
         service->schedule_event = sd_event_source_disable_unref(service->schedule_event);
 
         if (service->query && DNS_TRANSACTION_IS_LIVE(service->query->state))
                 dns_query_complete(service->query, DNS_TRANSACTION_ABORTED);
 
+        if (service->service_browser) {
+                LIST_REMOVE(dns_services, service->service_browser->dns_services, service);
+                service->service_browser = NULL;
+                return service; /* indicate that the service is detached. */
+        }
+
+        return NULL; /* already detached */
+}
+
+static void dnssd_discovered_service_detach(DnssdDiscoveredService *service) {
+        dnssd_discovered_service_unref(dnssd_discovered_service_detach_impl(service));
+}
+
+static DnssdDiscoveredService* dnssd_discovered_service_free(DnssdDiscoveredService *service) {
+        if (!service)
+                return NULL;
+
+        dnssd_discovered_service_detach_impl(service);
         service->rr = dns_resource_record_unref(service->rr);
 
         return mfree(service);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnssdDiscoveredService, dnssd_discovered_service, dns_service_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnssdDiscoveredService, dnssd_discovered_service, dnssd_discovered_service_free);
 
 int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t t, usec_t until) {
         assert(service);
@@ -497,7 +508,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                 /* Capture ifindex before removing the service */
                 ifindex = service->ifindex;
 
-                dns_remove_service(sb, service);
+                dnssd_discovered_service_detach(service);
 
                 log_debug("Remove from the list %s, %s, %s, %s, %d",
                           strna(name),
@@ -804,6 +815,14 @@ void dns_browse_services_restart(Manager *m) {
         }
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        dns_service_browser_hash_ops,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        DnsServiceBrowser,
+        dns_service_browser_detach);
+
 int dns_subscribe_browse_service(
                 Manager *m, sd_varlink *link, const char *domain, const char *type, int ifindex, uint64_t flags) {
 
@@ -880,7 +899,7 @@ int dns_subscribe_browse_service(
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_put(&m->dns_service_browsers, NULL, link, sb);
+        r = hashmap_ensure_put(&m->dns_service_browsers, &dns_service_browser_hash_ops, link, sb);
         if (r < 0)
                 return log_error_errno(r, "Failed to add service browser to the hashmap: %m");
 
@@ -889,25 +908,42 @@ int dns_subscribe_browse_service(
         return 0;
 }
 
-DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb) {
-        DnsQuery *q;
-
-        if (!sb)
-                return NULL;
+static DnsServiceBrowser* dns_service_browser_detach_impl(DnsServiceBrowser *sb) {
+        assert(sb);
 
         while (sb->dns_services)
-                dns_remove_service(sb, sb->dns_services);
+                dnssd_discovered_service_detach(sb->dns_services);
 
         sb->schedule_event = sd_event_source_disable_unref(sb->schedule_event);
 
-        q = sd_varlink_get_userdata(sb->link);
+        DnsQuery *q = sd_varlink_get_userdata(sb->link);
         if (q && DNS_TRANSACTION_IS_LIVE(q->state))
                 dns_query_complete(q, DNS_TRANSACTION_ABORTED);
 
         sb->question_idna = dns_question_unref(sb->question_idna);
         sb->question_utf8 = dns_question_unref(sb->question_utf8);
 
-        sb->link = sd_varlink_unref(sb->link);
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = TAKE_PTR(sb->link);
+
+        if (!sb->manager)
+                return NULL; /* already detached */
+
+        if (vl)
+                hashmap_remove(sb->manager->dns_service_browsers, vl);
+
+        sb->manager = NULL;
+        return sb; /* indicate that the object is detached */
+}
+
+void dns_service_browser_detach(DnsServiceBrowser *sb) {
+        dns_service_browser_unref(dns_service_browser_detach_impl(sb));
+}
+
+static DnsServiceBrowser* dns_service_browser_free(DnsServiceBrowser *sb) {
+        if (!sb)
+                return NULL;
+
+        dns_service_browser_detach_impl(sb);
 
         return mfree(sb);
 }
