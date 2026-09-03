@@ -3,7 +3,7 @@
 #include "bus-polkit.h"
 #include "varlink-io.systemd.SysUpdate.h"
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 TargetClass,
                 SD_VARLINK_FIELD_COMMENT("Container or machine managed by systemd-machined.service(8)."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(machine),
@@ -18,28 +18,28 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Component managed by systemd-sysupdate.service(8)."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(component));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 TargetIdentifier,
                 SD_VARLINK_FIELD_COMMENT("Where the target was enumerated."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(class, TargetClass, 0),
                 SD_VARLINK_FIELD_COMMENT("Name of the target, unique within a class."),
                 SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 ComponentSuccessAction,
                 SD_VARLINK_FIELD_COMMENT("Continue with the next component"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(continue),
                 SD_VARLINK_FIELD_COMMENT("Finish the current update iteration, and start the next one"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(restart));
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 ComponentFailureAction,
                 SD_VARLINK_FIELD_COMMENT("Continue with the next component, but fail at the very end"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(continue),
                 SD_VARLINK_FIELD_COMMENT("Fail immediately"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(fail));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Target,
                 SD_VARLINK_FIELD_COMMENT("Identifier for the target."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(id, TargetIdentifier, 0),
@@ -47,8 +47,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(currentVersion, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("All locally-known versions of the target."),
                 SD_VARLINK_DEFINE_FIELD(allVersions, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
-                SD_VARLINK_FIELD_COMMENT("Whether the current version is installed but pending a reboot to become active."),
-                SD_VARLINK_DEFINE_FIELD(currentVersionIsPending, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether the current version is installed but pending a reboot to become active. Always set when returned by ListTargets(). Not set by component providers, since this is a property of the local installation."),
+                SD_VARLINK_DEFINE_FIELD(currentVersionIsPending, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("URLs to zero or more AppStream catalog XML files describing the target."),
                 SD_VARLINK_DEFINE_FIELD(appStream, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("The following fields carry the metadata of targets of class 'component', mirroring the settings of sysupdate.components(5). They are unset for targets of other classes. A short human readable description of the component."),
@@ -108,7 +108,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(targets, Target, SD_VARLINK_ARRAY));
 
 static SD_VARLINK_DEFINE_ERROR(NoUpdateNeeded);
-static SD_VARLINK_DEFINE_ERROR(NoSuchTarget);
+SD_VARLINK_DEFINE_ERROR(NoSuchTarget);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_SysUpdate,
