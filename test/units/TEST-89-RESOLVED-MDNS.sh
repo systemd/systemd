@@ -170,6 +170,16 @@ run_and_check_services() {
     return 1
 }
 
+# The publishing container's resolved journal since $1, with any further arguments passed on. Every
+# assertion that reads it and every failure that dumps it goes through here, so the unit name, the
+# machine and the "an empty journal is not a shell error" guard have one home.
+publisher_journal() {
+    local since="${1:?}"
+    shift
+
+    journalctl -M "$CONTAINER_2" -u systemd-resolved.service --since "$since" "$@" || :
+}
+
 testcase_all_sequential() {
     : "Test each service type (sequentially)"
     resolvectl flush-caches
@@ -373,6 +383,12 @@ EOF
     # Checkpoint the output: only events produced after the unregister count.
     off="$(wc -c <"$out_file")"
 
+    # Debug logging in the publishing container, to observe the second transmission below. Runtime
+    # state only; the container's resolved is not restarted by this testcase.
+    local since
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- resolvectl log-level debug
+    since="$(systemd-run -M "$CONTAINER_2" --wait --pipe -- date '+%Y-%m-%d %H:%M:%S')"
+
     # Unregister the first canary at runtime. Remove its file first, so a later reload cannot
     # resurrect the unregistered instance.
     systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/unregbye.dnssd
@@ -392,6 +408,35 @@ EOF
     if [[ "$removed" -ne 1 ]]; then
         echo >&2 "The unregistered canary was not removed by its goodbye"
         cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # RFC 6762 section 8.3 asks for the second transmission on this path too. The browser cannot see
+    # it, the first goodbye already removed the service, so observe it in the publisher's log.
+    local retransmits=0
+    for _ in {0..9}; do
+        retransmits="$( publisher_journal "$since" \
+                        | { grep -c "Retransmitting mDNS withdrawal of" || :; })"
+        if [[ "$retransmits" -ge 1 ]]; then break; fi
+        sleep 1
+    done
+    if [[ "$retransmits" -lt 1 ]]; then
+        echo >&2 "The runtime withdrawal was never retransmitted (RFC 6762 §8.3)"
+        publisher_journal "$since" >&2
+        return 1
+    fi
+
+    # And a second after the first transmission, not straight after it -- arming that timer at 0
+    # would satisfy the count above unchanged. Take both timestamps from the journal itself: a
+    # polling loop cannot tell a line that arrived late from one that was looked for late.
+    local gap_msec
+    gap_msec="$( publisher_journal "$since" -o short-unix \
+                 | awk '/mDNS announcement packet\(s\) carrying [1-9]/ { if (!first) first = $1 }
+                        /Retransmitting mDNS withdrawal of/ { last = $1 }
+                        END { if (first && last) printf "%d\n", (last - first) * 1000; else print -1 }')"
+    if [[ "$gap_msec" -lt 900 ]]; then
+        echo >&2 "The withdrawal's two transmissions were ${gap_msec}ms apart, not the RFC 6762 §8.3 second"
+        publisher_journal "$since" >&2
         return 1
     fi
 
@@ -421,6 +466,100 @@ EOF
     if [[ "$ok" -ne 1 ]]; then
         echo >&2 "The type-enumeration PTR went away while a sibling of the type is still published"
         resolvectl query -p mdns -t PTR _services._dns-sd._udp.local >&2 || :
+        return 1
+    fi
+
+    # The retransmission is filtered through the zone: a record the zone stands behind again by the
+    # time the second transmission is due must not be goodbye'd twice, which would withdraw the live
+    # record from every peer until its next announcement. Provoke that from the container's own
+    # shell, so the four steps fit into the second: drop the sibling's file and reload, then put the
+    # file back and reload again. The retransmission line must not appear for this pass, while the
+    # unregister above has shown that it does appear when the records stay gone. Whether the restore
+    # landed inside the second is read off the publisher's reload timestamps; an attempt that missed
+    # is repeated once the retransmission it let through has gone out, and running out of attempts
+    # fails, so the negative is never left unevaluated.
+    local attempt reload_gap_msec
+    for attempt in {1..5}; do
+        if [[ "$attempt" -gt 1 ]]; then
+            sleep 2
+            for _ in {0..14}; do
+                if resolvectl service "Reload Canary" "$service_type" local >/dev/null; then
+                    break
+                fi
+                sleep 1
+            done
+        fi
+        since="$(systemd-run -M "$CONTAINER_2" --wait --pipe -- date '+%Y-%m-%d %H:%M:%S')"
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- bash -ec '
+            cp /etc/systemd/dnssd/reloadbye.dnssd /run/reloadbye.dnssd.bak
+            rm /etc/systemd/dnssd/reloadbye.dnssd
+            systemctl reload systemd-resolved.service
+            mv /run/reloadbye.dnssd.bak /etc/systemd/dnssd/reloadbye.dnssd
+            systemctl reload systemd-resolved.service'
+
+        # Positive control, per attempt: the drop armed the retransmission, so the negative below is
+        # not vacuous. The 'Withdrawing N' line would not do, it counts candidates before the zone
+        # filter; the scheduling line is logged for what was actually queued.
+        ok=0
+        for _ in {0..9}; do
+            if publisher_journal "$since" \
+                   | grep "Scheduling the mDNS withdrawal retransmission" >/dev/null; then
+                ok=1
+                break
+            fi
+            sleep 1
+        done
+        reload_gap_msec="$( publisher_journal "$since" -o short-unix \
+                            | awk '/Config file reloaded/ { n++; if (n == 1) first = $1; if (n == 2) second = $1 }
+                                   END { if (first && second) printf "%d\n", (second - first) * 1000; else print -1 }')"
+        if [[ "$ok" -eq 1 && "$reload_gap_msec" -ge 0 && "$reload_gap_msec" -lt 900 ]]; then
+            break
+        fi
+        echo "Attempt $attempt missed the retransmission window (retransmission armed: $ok, restoring reload ${reload_gap_msec}ms after the withdrawing one), retrying"
+    done
+    if [[ "$ok" -ne 1 || "$reload_gap_msec" -lt 0 || "$reload_gap_msec" -ge 900 ]]; then
+        echo >&2 "Could not land the restoring reload inside the retransmission window in $attempt attempts (last: retransmission armed: $ok, gap ${reload_gap_msec}ms)"
+        publisher_journal "$since" >&2
+        return 1
+    fi
+
+    # The negative, anchored on the daemon's own account of the timer firing: the retransmission
+    # due a second after the drop must have found every record it was to carry back in the zone
+    # and skipped them all -- that line is required, and the retransmission line must not appear.
+    ok=0
+    for _ in {0..9}; do
+        if publisher_journal "$since" \
+               | grep -E "Skipping the retransmission of [1-9][0-9]* withdrawn mDNS record" >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "The retransmission due after the drop never reported skipping the restored canary's records"
+        publisher_journal "$since" >&2
+        return 1
+    fi
+    if publisher_journal "$since" \
+           | grep "Retransmitting mDNS withdrawal of" >/dev/null; then
+        echo >&2 "The restored canary's records were goodbye'd a second time although the zone publishes them again"
+        publisher_journal "$since" >&2
+        return 1
+    fi
+
+    # Give the restored canary time to probe and announce again before its file goes for good
+    # below: a goodbye covers established records only.
+    sleep 2
+    ok=0
+    for _ in {0..14}; do
+        if resolvectl service "Reload Canary" "$service_type" local >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "The restored canary never resolved again"
         return 1
     fi
 
