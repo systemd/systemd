@@ -123,6 +123,12 @@ CHANGES WITH 262 in spe:
           release. The libexecdir path is the backwards compatible way to call
           it.
 
+        * The JSON payload returned by systemd-sysupdated's DescribeFeature()
+          method changed the "name" and "enabled" keys to "id" and
+          "isEnabled", respectively. The "appStream" key is now "appstream",
+          and the "documentation" key is now an array of strings. Consumers
+          of this interface should update their JSON parsing accordingly.
+
         Changes in the system and service manager:
 
         * The manager now embeds a basic set of unit files (basic.target,
