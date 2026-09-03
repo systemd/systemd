@@ -3,13 +3,17 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "sd-journal.h"
+
 #include "argv-util.h"
 #include "chattr-util.h"
+#include "fd-util.h"
 #include "iovec-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
 #include "journal-vacuum.h"
 #include "log.h"
+#include "memfd-util.h"
 #include "rm-rf.h"
 #include "stdio-util.h"
 #include "tests.h"
@@ -179,14 +183,21 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         dual_timestamp ts;
         JournalFile *f;
-        struct iovec iovec;
         Object *o;
         uint64_t p;
         char t[] = "/var/tmp/journal-XXXXXX";
-        char data[2048] = "FIELD=";
+        const char *field = "FIELD";
         bool is_compressed;
 
-        ASSERT_LE(data_size, sizeof(data));
+        size_t field_length = strlen(field);
+        ASSERT_GT(data_size, field_length);
+        ASSERT_LE(data_size, (uint64_t) SIZE_MAX);
+
+        _cleanup_(iovec_done) struct iovec iovec = {};
+        ASSERT_OK(iovec_alloc(data_size, &iovec));
+        char *q = mempcpy(iovec.iov_base, field, field_length);
+        *q++ = '=';
+        memset(q, 'a', data_size - field_length - 1);
 
         ASSERT_NOT_NULL(m = mmap_cache_new());
 
@@ -196,7 +207,6 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         dual_timestamp_now(&ts);
 
-        iovec = IOVEC_MAKE(data, data_size);
         ASSERT_OK_ZERO(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL, NULL));
 
         journal_file_auth_append_tag(f);
@@ -216,6 +226,32 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         }
 
         is_compressed = COMPRESSION_FROM_OBJECT(o) != COMPRESSION_NONE;
+
+        sd_journal_data_flags_t flags;
+        FOREACH_ARGUMENT(flags, 0, SD_JOURNAL_DATA_SKIP_FIELD) {
+                size_t skip = FLAGS_SET(flags, SD_JOURNAL_DATA_SKIP_FIELD) ? field_length + 1 : 0;
+
+                struct iovec v;
+                ASSERT_OK_POSITIVE(journal_file_data_payload_full(f, o, p, field, field_length, flags, SIZE_MAX,
+                                                                  -EBADF, (const void**) &v.iov_base, &v.iov_len));
+                ASSERT_TRUE(iovec_equal(&v, &IOVEC_SHIFT(&iovec, skip)));
+
+                _cleanup_close_ int fd = ASSERT_OK(memfd_new("decompress-blob-to-fd-test"));
+                size_t sz;
+                ASSERT_OK_POSITIVE(journal_file_data_payload_full(f, o, p, field, field_length, flags, SIZE_MAX,
+                                                                  fd, /* ret_data= */ NULL, &sz));
+                ASSERT_EQ((uint64_t) sz, data_size - skip);
+
+                uint64_t sz64;
+                ASSERT_OK(memfd_get_size(fd, &sz64));
+                ASSERT_EQ(sz64, data_size - skip);
+
+                _cleanup_(iovec_done) struct iovec w = {};
+                ASSERT_OK(iovec_alloc(sz, &w));
+
+                ASSERT_OK_EQ_ERRNO(pread(fd, w.iov_base, w.iov_len, 0), (ssize_t) w.iov_len);
+                ASSERT_TRUE(iovec_equal(&w, &IOVEC_SHIFT(&iovec, skip)));
+        }
 
         (void) journal_file_offline_close(f);
 

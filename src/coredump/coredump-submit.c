@@ -726,6 +726,10 @@ int coredump_submit(const CoredumpConfig *config, CoredumpContext *context) {
 
         (void) iovw_put_string_field(&context->iovw, "MESSAGE=", core_message);
 
+        sd_id128_t id;
+        if (sd_id128_randomize(&id) >= 0)
+                (void) iovw_put_string_field(&context->iovw, "COREDUMP_ID=", SD_ID128_TO_STRING(id));
+
         if (filename)
                 (void) iovw_put_string_field(&context->iovw, "COREDUMP_FILENAME=", filename);
         if (truncated)

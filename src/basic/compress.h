@@ -75,6 +75,23 @@ int decompress_blob(Compression compression,
                     const void *src, uint64_t src_size,
                     void **dst, size_t *dst_size, size_t dst_max);
 
+int decompress_blob_to_fd_journal(
+                Compression type,
+                const void *src,
+                uint64_t src_size,
+                int fdt,
+                uint64_t max_bytes,
+                uint64_t skip,
+                size_t *ret_size);
+int decompress_blob_to_fd(
+                Compression type,
+                const void *src,
+                uint64_t src_size,
+                int fdt,
+                uint64_t max_bytes,
+                uint64_t skip,
+                size_t *ret_size);
+
 int decompress_zlib_raw(const void *src, uint64_t src_size,
                         void *dst, size_t dst_size, int wbits);
 
