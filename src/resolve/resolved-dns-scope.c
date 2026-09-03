@@ -1583,7 +1583,7 @@ int dns_scope_send_goodbye(DnsScope *scope, DnsAnswer *answer) {
         return 0;
 }
 
-static int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
+int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
         DnsPacket **packets = NULL;
         size_t n_packets = 0, max_size, fragmented_max;
         unsigned n_sent = 0, n_records = 0;
