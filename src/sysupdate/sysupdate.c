@@ -3017,6 +3017,74 @@ static int context_component_is_suggested(Context *c) {
         return component_is_suggested(&c->component_info);
 }
 
+static int context_component_to_json(Context *base, const char *name, sd_json_variant **ret) {
+        _cleanup_(context_done) Context cc = CONTEXT_NULL;
+        int r;
+
+        assert(base);
+        assert(name);
+        assert(ret);
+
+        /* Loads the specified component in a sub-context of the specified base context, and serializes its
+         * metadata. If the component fails to load, returns 0 with the result set to NULL. */
+
+        r = context_from_base_with_component(base, name, &cc);
+        if (r < 0)
+                return r;
+
+        r = context_load_offline(
+                        &cc,
+                        /* process_image_flags= */ 0,
+                        /* read_definitions_flags= */ 0);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to load component '%s', not reporting its metadata: %m", name);
+                *ret = NULL;
+                return 0;
+        }
+
+        return component_to_json(&cc.component_info, ret);
+}
+
+static int context_components_to_json(Context *base, char **component_names, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
+        int r;
+
+        assert(base);
+        assert(ret);
+
+        /* Serializes the metadata of each of the specified components into an array, each object carrying
+         * the component's name. Components that fail to load are skipped. */
+
+        STRV_FOREACH(i, component_names) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = context_component_to_json(base, *i, &v);
+                if (r < 0)
+                        return r;
+                if (!v)
+                        continue;
+
+                r = sd_json_variant_set_field_string(&v, "name", *i);
+                if (r < 0)
+                        return log_oom();
+
+                r = sd_json_variant_append_array(&l, v);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (!l) {
+                r = sd_json_variant_new_array(&l, NULL, 0);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
 VERB_NOARG(verb_components, "components",
            "Show list of components");
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -3123,10 +3191,15 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
                 return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *details = NULL;
+
+                r = context_components_to_json(&context, component_names, &details);
+                if (r < 0)
+                        return r;
 
                 r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
-                                          SD_JSON_BUILD_PAIR_STRV("components", component_names));
+                                          SD_JSON_BUILD_PAIR_STRV("components", component_names),
+                                          SD_JSON_BUILD_PAIR_VARIANT("details", details));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -3180,11 +3253,31 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
         FOREACH_ARRAY(p, sorted, n) {
                 TargetIdentifier *target_identifier = *p;
                 const char *name = (target_identifier->class != TARGET_HOST) ? target_identifier->name : NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *target = NULL;
 
-                r = sd_json_variant_append_arraybo(&l,
-                                SD_JSON_BUILD_PAIR_OBJECT("id",
-                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target_identifier->class)),
-                                                SD_JSON_BUILD_PAIR_STRING("name", name)));
+                r = sd_json_buildo(&target,
+                                   SD_JSON_BUILD_PAIR_OBJECT("id",
+                                                   JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target_identifier->class)),
+                                                   SD_JSON_BUILD_PAIR_STRING("name", name)));
+                if (r < 0)
+                        return r;
+
+                /* For components, also report their metadata, as further fields of the target object */
+                if (target_identifier->class == TARGET_COMPONENT) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *component = NULL;
+
+                        r = context_component_to_json(&context, target_identifier->name, &component);
+                        if (r < 0)
+                                return r;
+
+                        if (component) {
+                                r = sd_json_variant_merge_object(&target, component);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                r = sd_json_variant_append_array(&l, target);
                 if (r < 0)
                         return r;
         }

@@ -29,3 +29,5 @@ void component_done(Component *c);
 int component_read_definition(Component *c, const char *name, const char *root);
 
 int component_is_suggested(const Component *c);
+
+int component_to_json(const Component *c, sd_json_variant **ret);
