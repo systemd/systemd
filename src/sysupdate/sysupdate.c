@@ -3092,14 +3092,11 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         if (r < 0)
                                 return table_log_add_error(r);
 
-                        const char *doc = cc.component_documentation ? cc.component_documentation[0] : NULL;
-
                         r = table_add_many(
                                         t,
                                         TABLE_STRING, *i,
                                         TABLE_STRING, cc.component_description,
-                                        TABLE_STRING, doc,
-                                        TABLE_SET_URL, doc);
+                                        TABLE_STRV_WRAPPED, cc.component_documentation);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
@@ -3108,8 +3105,9 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
-                                          SD_JSON_BUILD_PAIR_STRV("components", component_names));
+                r = sd_json_buildo(&json,
+                                   SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
+                                   SD_JSON_BUILD_PAIR_STRV("components", component_names));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
