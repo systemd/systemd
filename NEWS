@@ -6,6 +6,12 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * RegisterService() now fails with org.freedesktop.resolve1.ShuttingDown
+          when called while systemd-resolved is already withdrawing its
+          published records on the way down: the registration could never be
+          announced. Clients may retry against the next instance of the
+          service.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and

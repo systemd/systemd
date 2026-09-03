@@ -264,7 +264,26 @@ testcase_mdns_goodbye_on_stop() {
     # for, busctl printing 'Call failed: <message>' and never the error name. --auto-start=no makes
     # the race raceable at all: an ordinary call would enqueue an activation job that cancels the
     # stop. The script's variables are the container shell's, hence the single quotes.
-    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl stop systemd-resolved.service
+    # shellcheck disable=SC2016
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- bash -ec '
+        systemctl stop systemd-resolved.service &
+        stop_pid=$!
+        seen=0
+        for i in $(seq 1 500); do
+            kill -0 "$stop_pid" 2>/dev/null || break
+            out="$(busctl --auto-start=no call org.freedesktop.resolve1 /org/freedesktop/resolve1 \
+                       org.freedesktop.resolve1.Manager RegisterService "sssqqqaa{say}" \
+                       "shutdown-canary-$i" "Shutdown Canary $i" _shutdownbye._udp 4711 0 0 0 2>&1)" && continue
+            case "$out" in
+                *"Refusing to register a DNS-SD service while shutting down"*) seen=1; break ;;
+            esac
+            sleep 0.01
+        done
+        wait "$stop_pid"
+        if [ "$seen" -ne 1 ]; then
+            echo "No RegisterService() call was refused while systemd-resolved was shutting down" >&2
+            exit 1
+        fi'
 
     # Count distinct withdrawn instances rather than stop at the first: the goodbye for 200 services
     # spans several packets, and a truncated emission would still withdraw a random subset.
