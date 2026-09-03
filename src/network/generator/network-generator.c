@@ -1413,6 +1413,9 @@ void context_clear(Context *context) {
         if (!context)
                 return;
 
+        free(context->network_dir);
+        free(context->networkd_conf_dropin_dir);
+
         hashmap_free(context->networks_by_name);
         hashmap_free(context->netdevs_by_name);
         hashmap_free(context->links_by_filename);
