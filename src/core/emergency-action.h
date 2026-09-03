@@ -29,7 +29,8 @@ typedef enum EmergencyActionFlags {
         EMERGENCY_ACTION_IS_WATCHDOG = 1 << 0, /* this action triggered by a watchdog or other kind of timeout */
         EMERGENCY_ACTION_WARN        = 1 << 1, /* log at LOG_WARNING + write to system console */
         EMERGENCY_ACTION_SLEEP_5S    = 1 << 2, /* wait 5s before executing action; only honoured together with EMERGENCY_ACTION_WARN */
-        _EMERGENCY_ACTION_FLAGS_MAX  = (1 << 3) - 1,
+        EMERGENCY_ACTION_IS_FAILURE  = 1 << 3, /* this action is triggered by a failure, hence must not make us exit 0 */
+        _EMERGENCY_ACTION_FLAGS_MAX  = (1 << 4) - 1,
 } EmergencyActionFlags;
 
 void emergency_action(
