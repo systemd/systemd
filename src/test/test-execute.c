@@ -888,6 +888,7 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-failing.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-failing2.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-failing3.service", SIGSYS, CLD_KILLED);
+        test(m, "exec-crash-seccomp-unknown-syscall.service", SIGSYS, CLD_KILLED);
 
         r = find_executable("python3", NULL);
         if (r < 0) {
