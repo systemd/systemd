@@ -2095,7 +2095,10 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                 }
         }
 
-        if (!strv_isempty(sources)) {
+        /* Send the old property if we have plain sources, and also if we parsed nothing at all: an empty
+         * assignment resets the list, and only the old property can express that. */
+        if (!strv_isempty(sources) ||
+            (strv_isempty(symlinks) && strv_isempty(symlinks_ro) && strv_isempty(sources_ro))) {
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
                 if (r < 0)
                         return bus_log_create_error(r);
