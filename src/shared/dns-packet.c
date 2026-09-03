@@ -297,6 +297,8 @@ DnsPacket *dns_packet_unref(DnsPacket *p) {
         return NULL;
 }
 
+DEFINE_POINTER_ARRAY_FREE_FUNC(DnsPacket*, dns_packet_unref);
+
 int dns_packet_validate(DnsPacket *p) {
         assert(p);
 
@@ -636,16 +638,23 @@ int dns_packet_append_name(
 
                 if (allow_compression)
                         n = PTR_TO_SIZE(hashmap_get(p->names, name));
-                if (n > 0) {
+                /* Only pointer-expressible offsets ever go into the map (see the insertion guard
+                 * below), so the range test is the invariant restated -- but as control flow, not
+                 * an assert(): under -Db_ndebug=true (which CI builds, see
+                 * .github/workflows/build-test.sh) assert() is __builtin_unreachable(), and a
+                 * violated invariant would then put 0xC000 | n on the wire truncated to 14 bits,
+                 * i.e. a pointer to an arbitrary earlier offset. Falling through instead emits the labels
+                 * again, which is what this function did before it had a compression map at all,
+                 * and what RFC 1035 section 4.1.4 requires when no pointer can express the
+                 * offset. This layer is shared with unicast DNS, DoT and LLMNR. */
+                if (n > 0 && n <= DNS_PACKET_COMPRESSION_OFFSET_MAX) {
                         assert(n < p->size);
 
-                        if (n < 0x4000) {
-                                r = dns_packet_append_uint16(p, 0xC000 | n, NULL);
-                                if (r < 0)
-                                        goto fail;
+                        r = dns_packet_append_uint16(p, 0xC000 | n, NULL);
+                        if (r < 0)
+                                goto fail;
 
-                                goto done;
-                        }
+                        goto done;
                 }
 
                 r = dns_label_unescape(&name, label, sizeof label, 0);
@@ -656,7 +665,13 @@ int dns_packet_append_name(
                 if (r < 0)
                         goto fail;
 
-                if (allow_compression) {
+                /* Remember the name for compression — but only if this occurrence sits within the
+                 * 14 bits an RFC 1035 pointer can express. An offset beyond that can never be
+                 * referenced, so it doesn't belong in the map: it would only collide with a later
+                 * occurrence of the same name (needlessly failing the whole append with -EEXIST),
+                 * which instead is emitted as labels again, compressed from the first suffix that
+                 * is mapped in range. */
+                if (allow_compression && n <= DNS_PACKET_COMPRESSION_OFFSET_MAX) {
                         _cleanup_free_ char *s = NULL;
 
                         if (!GREEDY_REALLOC(added_entries, n_added_entries + 1)) {
@@ -681,7 +696,7 @@ int dns_packet_append_name(
 
         r = dns_packet_append_uint8(p, 0, NULL);
         if (r < 0)
-                return r;
+                goto fail;
 
 done:
         if (start)
