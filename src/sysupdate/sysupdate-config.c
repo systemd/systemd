@@ -50,6 +50,90 @@ int config_parse_url_specifiers(
         return free_and_replace(*s, resolved);
 }
 
+int config_parse_protect_version(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *resolved = NULL;
+        char ***protected_versions = ASSERT_PTR(data);
+        const char *root = userdata;
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *protected_versions = strv_free(*protected_versions);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in ProtectVersion=, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))  {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "ProtectVersion= string is not valid, ignoring: %s", resolved);
+                return 0;
+        }
+
+        r = strv_extend(protected_versions, resolved);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+int config_parse_version_bound(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *resolved = NULL;
+        char **version = ASSERT_PTR(data);
+        const char *root = userdata;
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *version = mfree(*version);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s= string is not valid, ignoring: %s", lvalue, resolved);
+                return 0;
+        }
+
+        return free_and_replace(*version, resolved);
+}
+
 static const char* const suggest_on_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ARCHITECTURE]        = "SuggestOnArchitecture",
         [CONDITION_FIRMWARE]            = "SuggestOnFirmware",
