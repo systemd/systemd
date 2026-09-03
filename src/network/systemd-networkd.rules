@@ -2,11 +2,12 @@
 // See systemd-networkd.service(8) and polkit(8) for more information.
 
 // Allow systemd-networkd to set timezone, get product UUID,
-// and transient hostname
+// and transient hostname, and control ModemManager
 polkit.addRule(function(action, subject) {
     if ((action.id == "org.freedesktop.hostname1.set-hostname" ||
          action.id == "org.freedesktop.hostname1.get-product-uuid" ||
-         action.id == "org.freedesktop.timedate1.set-timezone") &&
+         action.id == "org.freedesktop.timedate1.set-timezone" ||
+         action.id == "org.freedesktop.ModemManager1.Device.Control") &&
         subject.user == "systemd-network") {
         return polkit.Result.YES;
     }
