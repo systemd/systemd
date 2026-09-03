@@ -25,6 +25,7 @@
 # Otherwise the path is recognized as a test case, and the test run will fail.
 
 import argparse
+import csv
 import datetime
 import enum
 import errno
@@ -61,6 +62,12 @@ isc_dhcpd_pid_file = '/run/networkd-ci/test-isc-dhcpd.pid'
 isc_dhcpd_lease_file = '/run/networkd-ci/test-isc-dhcpd.lease'
 
 radvd_pid_file = '/run/networkd-ci/test-radvd.pid'
+
+kea_dhcp6_conf_file = '/run/networkd-ci/kea/test-kea-dhcp6.conf'
+kea_dhcp6_pid_file = '/run/networkd-ci/test-kea-dhcp6.kea-dhcp6.pid'
+kea_dhcp6_log_file = '/run/networkd-ci/test-kea-dhcp6.log'
+kea_dhcp6_lease_file = '/run/networkd-ci/test-kea-dhcp6.leases'
+kea_dhcp6_process = None
 
 systemd_lib_paths = ['/usr/lib/systemd', '/lib/systemd']
 which_paths = ':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(':').split(':'))
@@ -1055,6 +1062,82 @@ def stop_radvd():
     stop_by_pid_file(radvd_pid_file)
 
 
+def kea_dhcp6_env():
+    return os.environ | {
+        'KEA_PIDFILE_DIR': networkd_ci_temp_dir,
+        'KEA_DHCP_DATA_DIR': networkd_ci_temp_dir,
+    }
+
+
+def start_kea_dhcp6(conf_file):
+    global kea_dhcp6_process
+
+    # The PID file name is derived from the configuration file name and is
+    # "[runstatedir]/kea/[conf name].kea-dhcp6.pid". Therefore, copy the configuration
+    # file to a known name, so that the PID file name is always the same.
+    cp(os.path.join(networkd_ci_temp_dir, 'kea', conf_file), kea_dhcp6_conf_file)
+
+    with open(kea_dhcp6_log_file, mode='w', encoding='utf-8') as log:
+        kea_dhcp6_process = subprocess.Popen(
+            ['kea-dhcp6', '-c', kea_dhcp6_conf_file], env=kea_dhcp6_env(), stdout=log, stderr=log
+        )
+
+    for _ in range(50):
+        if os.path.exists(kea_dhcp6_pid_file):
+            return
+        time.sleep(0.1)
+
+    print('### kea-dhcp6 log BEGIN')
+    with open(kea_dhcp6_log_file, encoding='utf-8') as log:
+        print(log.read())
+    print('### kea-dhcp6 log END')
+    raise TimeoutError('Timed out waiting for kea-dhcp6 to create its PID file')
+
+
+def stop_kea_dhcp6():
+    global kea_dhcp6_process
+
+    stop_by_pid_file(kea_dhcp6_pid_file)
+    if kea_dhcp6_process:
+        kea_dhcp6_process.wait()
+        kea_dhcp6_process = None
+    rm_f(kea_dhcp6_conf_file)
+    rm_f(kea_dhcp6_log_file)
+    rm_f(kea_dhcp6_lease_file)
+
+
+def kea_dhcp6_check_config(conf_file):
+    if not shutil.which('kea-dhcp6'):
+        print('kea-dhcp6 is not installed, assuming the config check failed')
+        return False
+
+    # Note: can't use networkd_ci_temp_dir here, as this command may run before that dir is
+    #       set up (one instance is @unittest.skipX())
+    config_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf/kea', conf_file)
+    with open(config_file_path, encoding='utf-8') as f:
+        config = json.load(f)
+
+    # kea-dhcp6 -t requires any interface mentioned in the config file to exist in the
+    # system. Since this check is executed before the test runs, replace the interface name
+    # with the loopback one which always exists.
+    dhcp6 = config['Dhcp6']
+    if 'interfaces-config' in dhcp6:
+        dhcp6['interfaces-config']['interfaces'] = ['lo']
+    for subnet in dhcp6.get('subnet6', ()):
+        if 'interface' in subnet:
+            subnet['interface'] = 'lo'
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json') as f:
+        json.dump(config, f)
+        f.flush()
+        return call(f'kea-dhcp6 -t {f.name}', env=kea_dhcp6_env()) == 0
+
+
+def read_kea_dhcp6_leases():
+    with open(kea_dhcp6_lease_file, encoding='utf-8') as f:
+        return list(csv.DictReader(f))
+
+
 def start_modem_manager_mock(*additional_options):
     dbus_policy_src = os.path.join(networkd_ci_temp_dir, 'mock-modem-manager.conf')
     cp(dbus_policy_src, '/etc/dbus-1/system.d/mock-modem-manager.conf')
@@ -1230,6 +1313,7 @@ def tear_down_common():
     stop_dnsmasq()
     stop_isc_dhcpd()
     stop_radvd()
+    stop_kea_dhcp6()
 
     # 2. remove modules
     call_quiet('rmmod netdevsim')
@@ -10268,6 +10352,192 @@ Address={ipv6_address}
         check(self, True, False)
         check(self, False, True)
         check(self, False, False)
+
+    @unittest.skipUnless(
+        kea_dhcp6_check_config('kea-dhcp6-addr-reg.conf'),
+        'kea-dhcp6 is not installed or does not support the required configuration',
+    )
+    def test_dhcp6_address_registration(self):
+        # RFC 9686: DHCPv6 Address Registration. radvd announces the M (managed) bit
+        # and a prefix, so that the client runs SLAAC and also starts DHCPv6. The client
+        # has three additional static addresses: two in the same prefix and a ULA.
+        # IPv6PrivacyExtensions is enabled, so the client also gets a temporary address.
+        # When DHCPv6.RegisterAddresses is enabled, the client tries to register all the
+        # global addresses (SLAAC, temporary and static): the server registers them into
+        # its lease database, except for the ULA which is outside of the configured prefix.
+
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-dhcp6-addr-reg-server.network',
+            '25-dhcp6-addr-reg-client.network',
+        )
+        start_networkd()
+        self.wait_online('veth-peer:routable')
+
+        start_kea_dhcp6(conf_file='kea-dhcp6-addr-reg.conf')
+        start_radvd(config_file='addr-reg.conf')
+
+        self.wait_online('veth99:routable')
+
+        # SLAAC address, EUI-64 based
+        self.wait_address('veth99', '2001:db8:1:0:1034:56ff:fe78:9abc/64', ipv='-6')
+
+        # Static addresses configured in the .network file
+        self.wait_address('veth99', '2001:db8:1::4242/64', ipv='-6')
+        self.wait_address('veth99', '2001:db8:1::4343/64', ipv='-6')
+        self.wait_address('veth99', 'fd00::1/64', ipv='-6')
+
+        # DHCPv6 address
+        self.wait_address('veth99', '2001:db8:1::a12/128', ipv='-6')
+
+        # SLAAC temporary address: not predictable, wait for it and extract it
+        self.wait_address(
+            'veth99',
+            r'inet6 2001:db8:1:[0-9a-f:]*/64 .*scope global temporary dynamic',
+            ipv='-6',
+        )
+        output = check_output('ip -6 --json address show dev veth99')
+        temporary_address = None
+        for i in json.loads(output)[0]['addr_info']:
+            if i.get('scope') == 'global' and i.get('temporary', False):
+                temporary_address = i['local']
+                break
+        self.assertIsNotNone(temporary_address, 'Temporary address not found on veth99')
+        print(f'### temporary address: {temporary_address}')
+
+        # Poll the kea lease file until all the expected entries show up.
+        expected_addresses = {
+            '2001:db8:1:0:1034:56ff:fe78:9abc',
+            '2001:db8:1::4242',
+            '2001:db8:1::4343',
+            '2001:db8:1::a12',
+            temporary_address,
+        }
+        leases = []
+        for _ in range(60):
+            if os.path.exists(kea_dhcp6_lease_file):
+                leases = read_kea_dhcp6_leases()
+                found_addresses = {lease['address'] for lease in leases}
+                if expected_addresses.issubset(found_addresses):
+                    break
+            time.sleep(0.5)
+        else:
+            self.fail(f'Timed out waiting for kea DHCPv6 leases: {leases}')
+
+        print('### kea DHCPv6 lease file')
+        for lease in leases:
+            print(lease)
+
+        leases_by_address = {lease['address']: lease for lease in leases}
+
+        # Check the lease state:
+        #  - STATE_DEFAULT    = 0  (address assigned via DHCP)
+        #  - STATE_REGISTERED = 4  (address registered via RFC 9686)
+
+        self.assertEqual(leases_by_address['2001:db8:1::a12']['state'], '0')
+
+        for address in (
+            '2001:db8:1:0:1034:56ff:fe78:9abc',
+            '2001:db8:1::4242',
+            '2001:db8:1::4343',
+            temporary_address,
+        ):
+            self.assertEqual(leases_by_address[address]['state'], '4')
+
+        # The ULA address is not in the prefix served by kea, so it must not be registered.
+        # Wait for networkd to exhaust retransmissions for fd00::1 (proves the attempt
+        # was made and kea did not reply, i.e. the address is outside configured subnets).
+        for _ in range(60):
+            log = read_networkd_log()
+            if 'no reply received for fd00::1' in log:
+                break
+            time.sleep(0.5)
+        else:
+            self.fail('Timed out waiting for fd00::1 registration attempt to complete')
+
+        # Re-read leases after kea had a chance to process the attempt.
+        leases = read_kea_dhcp6_leases()
+        leases_by_address = {lease['address']: lease for lease in leases}
+        self.assertNotIn('fd00::1', leases_by_address)
+
+        # De-registration: remove one of the static addresses from the .network file
+        # and reload.
+        unit = os.path.join(network_unit_dir, '25-dhcp6-addr-reg-client.network')
+        with open(unit, encoding='utf-8') as f:
+            contents = f.read()
+        with open(unit, mode='w', encoding='utf-8') as f:
+            f.write(contents.replace('[Address]\nAddress=2001:db8:1::4242/64\n\n', ''))
+        networkctl_reload()
+        self.wait_online('veth99:routable')
+        self.wait_address_dropped('veth99', '2001:db8:1::4242', ipv='-6')
+
+        deregistered_lease = None
+        for _ in range(60):
+            leases = read_kea_dhcp6_leases()
+            # The de-registered address is stored as a new entry with valid_lifetime 0
+            deregistered_lease = next(
+                (
+                    lease
+                    for lease in leases
+                    if lease['address'] == '2001:db8:1::4242'
+                    and lease['state'] == '4'
+                    and lease['valid_lifetime'] == '0'
+                ),
+                None,
+            )
+
+            if deregistered_lease is not None:
+                break
+            time.sleep(0.5)
+        else:
+            print('### kea DHCPv6 lease file after de-registration')
+            for lease in read_kea_dhcp6_leases():
+                print(lease)
+            self.fail(f'Timed out waiting for kea to de-register 2001:db8:1::4242: {deregistered_lease}')
+
+    @unittest.skipUnless(
+        kea_dhcp6_check_config('kea-dhcp6-no-addr-reg.conf'),
+        'kea-dhcp6 is not installed or does not support the required configuration',
+    )
+    def test_dhcp6_address_registration_not_negotiated(self):
+        # The client enables RegisterAddresses=yes, but the server does not advertise
+        # addr-reg-enable. During DHCPv6 negotiation the client must notice that the
+        # server does not support RFC 9686 and must not attempt any registration.
+
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-dhcp6-addr-reg-server.network',
+            '25-dhcp6-addr-reg-client.network',
+        )
+        start_networkd()
+        self.wait_online('veth-peer:routable')
+
+        start_kea_dhcp6(conf_file='kea-dhcp6-no-addr-reg.conf')
+        start_radvd(config_file='addr-reg.conf')
+
+        self.wait_online('veth99:routable')
+
+        # The reserved address is still assigned normally via DHCPv6 IA_NA.
+        self.wait_address('veth99', '2001:db8:1::a12/128', ipv='-6')
+
+        # Wait for SLAAC and static addresses to be configured, so that we know
+        # the client had a chance to attempt registration.
+        self.wait_address('veth99', '2001:db8:1::4242/64', ipv='-6')
+        self.wait_address('veth99', '2001:db8:1::4343/64', ipv='-6')
+        time.sleep(5)
+
+        leases = read_kea_dhcp6_leases() if os.path.exists(kea_dhcp6_lease_file) else []
+        print('### kea DHCPv6 lease file (no address registration expected)')
+        for lease in leases:
+            print(lease)
+
+        # Only the normal DHCPv6-assigned address must be present; no registered leases.
+        registered = [lease for lease in leases if lease['state'] == '4']
+        self.assertEqual(registered, [], f'Unexpected registered leases: {registered}')
+
+        # Verify the client never attempted registration by checking the logs.
+        log = read_networkd_log()
+        self.assertNotIn('Address registration:', log)
 
 
 class NetworkdDHCPPDTests(unittest.TestCase, Utilities):

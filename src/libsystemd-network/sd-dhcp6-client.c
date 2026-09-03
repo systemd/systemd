@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "device-util.h"
 #include "dhcp-duid-internal.h"
+#include "dhcp6-addr-reg.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
@@ -515,6 +516,29 @@ int sd_dhcp6_client_set_rapid_commit(sd_dhcp6_client *client, int enable) {
         return 0;
 }
 
+int sd_dhcp6_client_set_register_addresses(sd_dhcp6_client *client, int enable) {
+        assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
+
+        client->register_addresses = enable;
+        return 0;
+}
+
+int sd_dhcp6_client_register_address(
+                sd_dhcp6_client *client,
+                const struct in6_addr *address,
+                uint64_t valid_until_usec,
+                uint64_t preferred_until_usec) {
+
+        assert_return(client, -EINVAL);
+        assert_return(client->register_addresses, -EINVAL);
+        assert_return(address, -EINVAL);
+        assert_return(client->ifindex > 0, -EINVAL);
+        assert_return(valid_until_usec == 0 || preferred_until_usec <= valid_until_usec, -EINVAL);
+
+        return dhcp6_client_register_address(client, address, valid_until_usec, preferred_until_usec);
+}
+
 int sd_dhcp6_client_set_send_release(sd_dhcp6_client *client, int enable) {
         assert_return(client, -EINVAL);
 
@@ -681,8 +705,9 @@ static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) 
 
 static int client_append_oro(sd_dhcp6_client *client, uint8_t **buf, size_t *offset) {
         _cleanup_free_ be16_t *p = NULL;
+        be16_t extra[3];
+        size_t n_extra = 0, n;
         be16_t *req_opts;
-        size_t n;
 
         assert(client);
         assert(buf);
@@ -690,38 +715,39 @@ static int client_append_oro(sd_dhcp6_client *client, uint8_t **buf, size_t *off
         assert(offset);
 
         switch (client->state) {
-        case DHCP6_STATE_INFORMATION_REQUEST:
-                n = client->n_req_opts;
-                p = new(be16_t, n + 2);
-                if (!p)
-                        return -ENOMEM;
-
-                memcpy_safe(p, client->req_opts, n * sizeof(be16_t));
-                p[n++] = htobe16(SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME); /* RFC 8415 section 21.23 */
-                p[n++] = htobe16(SD_DHCP6_OPTION_INF_MAX_RT); /* RFC 8415 section 21.25 */
-
-                typesafe_qsort(p, n, be16_compare_func);
-                req_opts = p;
-                break;
-
-        case DHCP6_STATE_SOLICITATION:
-                n = client->n_req_opts;
-                p = new(be16_t, n + 1);
-                if (!p)
-                        return -ENOMEM;
-
-                memcpy_safe(p, client->req_opts, n * sizeof(be16_t));
-                p[n++] = htobe16(SD_DHCP6_OPTION_SOL_MAX_RT); /* RFC 8415 section 21.24 */
-
-                typesafe_qsort(p, n, be16_compare_func);
-                req_opts = p;
-                break;
-
         case DHCP6_STATE_STOPPING:
                 return 0;
 
+        case DHCP6_STATE_INFORMATION_REQUEST:
+                extra[n_extra++] = htobe16(SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME); /* RFC 8415 section 21.23 */
+                extra[n_extra++] = htobe16(SD_DHCP6_OPTION_INF_MAX_RT); /* RFC 8415 section 21.25 */
+                break;
+
+        case DHCP6_STATE_SOLICITATION:
+                extra[n_extra++] = htobe16(SD_DHCP6_OPTION_SOL_MAX_RT); /* RFC 8415 section 21.24 */
+                break;
+
         default:
-                n = client->n_req_opts;
+                break;
+        }
+
+        if (client->register_addresses)
+                extra[n_extra++] = htobe16(SD_DHCP6_OPTION_ADDR_REG_ENABLE);
+
+        n = client->n_req_opts;
+
+        if (n_extra > 0) {
+                p = new(be16_t, n + n_extra);
+                if (!p)
+                        return -ENOMEM;
+
+                memcpy_safe(p, client->req_opts, n * sizeof(be16_t));
+                memcpy(p + n, extra, n_extra * sizeof(be16_t));
+                n += n_extra;
+
+                typesafe_qsort(p, n, be16_compare_func);
+                req_opts = p;
+        } else {
                 req_opts = client->req_opts;
         }
 
@@ -1418,6 +1444,8 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
         client->receive_message = sd_event_source_unref(client->receive_message);
         client->fd = safe_close(client->fd);
 
+        dhcp6_client_addr_reg_flush(client);
+
         return 0;
 }
 
@@ -1542,6 +1570,8 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
 
         sd_dhcp6_lease_unref(client->lease);
 
+        dhcp6_client_addr_reg_flush(client);
+
         sd_event_source_disable_unref(client->receive_message);
         sd_event_source_disable_unref(client->timeout_resend);
         sd_event_source_disable_unref(client->timeout_expire);
@@ -1585,6 +1615,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
                 .fd = -EBADF,
                 .rapid_commit = true,
+                .addr_reg_fd = -EBADF,
         };
 
         *ret = TAKE_PTR(client);

@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth99
+
+[Network]
+DHCP=yes
+IPv6AcceptRA=yes
+IPv6PrivacyExtensions=yes
+
+[Address]
+Address=2001:db8:1::4242/64
+
+[Address]
+Address=2001:db8:1::4343/64
+
+[Address]
+Address=fd00::1/64
+
+[DHCPv6]
+RegisterAddresses=yes
+SendHostname=yes
+Hostname=test-hostname
+DUIDType=vendor
+DUIDRawData=00:00:ab:11:00:11:22:33:44:55:66:77

@@ -3337,6 +3337,21 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>RegisterAddresses=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, the DHCPv6 client sends an ADDR-REG-INFORM message
+          for each IPv6 address with global scope that was not itself obtained via DHCPv6, including
+          statically configured, SLAAC, and temporary (privacy extension) addresses, to inform the
+          DHCPv6 server that the address is in use, as defined in
+          <ulink url="https://www.rfc-editor.org/rfc/rfc9686.html">RFC 9686</ulink>.
+          Registration only takes place when the server indicates support by including the
+          ADDR-REG-ENABLE option in its replies. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
       <!-- How to communicate with the server -->
 
       <varlistentry>
