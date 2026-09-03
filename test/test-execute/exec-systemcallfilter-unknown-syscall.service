@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+
+[Unit]
+Description=Crash seccomp_allows_drop_privileges for unknown syscalls
+
+[Service]
+Type=oneshot
+
+# Condition 1: needs_setuid — triggers the setresuid path
+DynamicUser=yes
+
+# Condition 2: SystemCallFilter — populates c->syscall_filter hashmap
+# Use an allowlist (~ prefix omitted = allowlist) which exercises
+# seccomp_allows_drop_privileges() to check for capget/capset/prctl.
+# Architecture should not support `cacheflush` for this test.
+ConditionArchitecture=x86-64
+SystemCallFilter=cacheflush
+
+ExecStart=/bin/true
