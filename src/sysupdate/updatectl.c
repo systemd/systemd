@@ -451,7 +451,7 @@ static int list_versions_finished(sd_bus_message *reply, void *userdata, sd_bus_
                            TABLE_STRING,    version_link ?: v.version,
                            TABLE_SET_COLOR, color,
                            TABLE_SET_URL,   strv_isempty(v.changelog) ? NULL : v.changelog[0],
-                           TABLE_STRING,    update_set_flags_to_string(v.flags),
+                           TABLE_STRING,    FORMAT_UPDATE_SET_FLAGS(v.flags),
                            TABLE_SET_COLOR, color);
         if (r < 0)
                 return table_log_add_error(r);
@@ -572,7 +572,7 @@ static int describe(sd_bus *bus, const char *target_path, const char *version) {
                ansi_normal(),
                v.version,
                color,
-               update_set_flags_to_string(v.flags),
+               FORMAT_UPDATE_SET_FLAGS(v.flags),
                ansi_normal());
 
         STRV_FOREACH(url, v.changelog) {
