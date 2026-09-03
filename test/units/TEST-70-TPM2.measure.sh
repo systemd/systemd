@@ -71,10 +71,10 @@ EOF
 "$SD_MEASURE" calculate --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha1 --bank=sha256 --bank=sha384 --bank=sha512 --phase=foo -j | diff -u - /tmp/result.json
 
 cat >/tmp/result <<EOF
-11:sha1=8a625cbc3c497b9a86dcf4f6a32582895ce969bb
+11:sha1=da84b7bde93d889d3fe7c3711b203b81e6d0465a
 EOF
 "$SD_MEASURE" calculate \
-              --{linux,osrel,cmdline,initrd,ucode,splash,dtb,dtbauto,uname,sbat,pcrpkey,profile,hwids,efifw}=/tmp/tpmdata1 \
+              --{linux,osrel,cmdline,initrd,ucode,splash,dtb,dtbauto,uname,sbat,pcrpkey,profile,hwids,efifw,mokkeys}=/tmp/tpmdata1 \
               --bank=sha1 --phase=foo | cmp - /tmp/result
 rm /tmp/result /tmp/result.json
 
