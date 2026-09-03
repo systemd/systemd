@@ -1598,6 +1598,11 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
 
                 name = sym_seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
 
+                if (!name) {
+                        log_warning("Architecture does not support system call number: %d", PTR_TO_INT(id) - 1);
+                        continue;
+                }
+
                 if (streq(name, "capget"))
                         have_capget = true;
                 else if (streq(name, "capset"))
