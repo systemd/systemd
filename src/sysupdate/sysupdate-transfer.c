@@ -211,6 +211,19 @@ static int config_parse_current_symlink(
         return free_and_replace(*current_symlink, resolved);
 }
 
+static void transfer_set_instances_max(uint64_t *instances_max, uint64_t i, const char *filename, unsigned line) {
+        assert(instances_max);
+
+        /* 0 means "revert to default logic", see transfer_finalize() */
+
+        if (i > 0 && i < 2) {
+                log_syntax(NULL, LOG_WARNING, filename, line, 0,
+                           "InstancesMax= value must be at least 2, bumping: %" PRIu64, i);
+                *instances_max = 2;
+        } else
+                *instances_max = i;
+}
+
 static int config_parse_instances_max(
                 const char *unit,
                 const char *filename,
@@ -241,12 +254,41 @@ static int config_parse_instances_max(
                 return 0;
         }
 
-        if (i < 2) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "InstancesMax= value must be at least 2, bumping: %s", rvalue);
-                *instances_max = 2;
-        } else
-                *instances_max = i;
+        transfer_set_instances_max(instances_max, i, filename, line);
+        return 0;
+}
+
+static int resource_add_pattern(char ***patterns, bool is_source, const char *pattern, const char *filename, unsigned line) {
+        int r;
+
+        assert(patterns);
+        assert(pattern);
+
+        /* Validates a MatchPattern= expression and adds it to the list. 'filename' and 'line' identify the
+         * definition the pattern stems from, for logging purposes. */
+
+        /* The glob directory prefix on a source MatchPattern= means "match the rest against the
+         * basename" thus the remainder must be a valid filename (no slashes).
+         * Target patterns can not use it. */
+        const char *body = pattern;
+        if (pattern_skip_glob_directory_prefix(&body)) {
+                if (!is_source)
+                        return log_syntax(NULL, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "'**/' prefix is only supported in a source MatchPattern=, refusing: %s", pattern);
+                if (!filename_is_valid(body))
+                        return log_syntax(NULL, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "The pattern after a '**/' prefix must be a valid filename, refusing: %s", pattern);
+        }
+
+        /* The glob directory prefix is not allowed in the remainder and pattern_valid will catch this. */
+        r = pattern_valid(body);
+        if (r <= 0)
+                return log_syntax(NULL, LOG_ERR, filename, line, r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
+                                  "MatchPattern= string is not valid, refusing: %s", pattern);
+
+        r = strv_extend(patterns, pattern);
+        if (r < 0)
+                return log_oom();
 
         return 0;
 }
@@ -277,7 +319,6 @@ static int config_parse_resource_pattern(
 
         for (;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
-                const char *body;
 
                 r = extract_first_word(&rvalue, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
                 if (r < 0) {
@@ -295,32 +336,31 @@ static int config_parse_resource_pattern(
                         return 0;
                 }
 
-                /* The glob directory prefix on a source MatchPattern= means "match the rest against the
-                 * basename" thus the remainder must be a valid filename (no slashes).
-                 * Target patterns can not use it. */
-                body = resolved;
-                if (pattern_skip_glob_directory_prefix(&body)) {
-                        if (!is_source)
-                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
-                                                  "'**/' prefix is only supported in a source MatchPattern=, refusing: %s", resolved);
-                        if (!filename_is_valid(body))
-                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
-                                                  "The pattern after a '**/' prefix must be a valid filename, refusing: %s", resolved);
-                }
-
-                /* The glob directory prefix is not allowed in the remainder and pattern_valid will catch this. */
-                r = pattern_valid(body);
-                if (r <= 0)
-                        return log_syntax(unit, LOG_ERR, filename, line, r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
-                                          "MatchPattern= string is not valid, refusing: %s", resolved);
-
-                r = strv_consume(patterns, TAKE_PTR(resolved));
+                r = resource_add_pattern(patterns, is_source, resolved, filename, line);
                 if (r < 0)
-                        return log_oom();
+                        return r;
         }
 
         strv_uniq(*patterns);
         return 0;
+}
+
+static int resource_set_path(Resource *rr, const char *path) {
+        assert(rr);
+        assert(path);
+
+        /* Note that we don't validate the path as being absolute or normalized here. We'll do that in
+         * transfer_finalize() as we might not know yet whether the path refers to a URL or a file system
+         * path. */
+
+        if (streq(path, "auto")) {
+                rr->path_auto = true;
+                rr->path = mfree(rr->path);
+                return 0;
+        }
+
+        rr->path_auto = false;
+        return free_and_strdup(&rr->path, path);
 }
 
 static int config_parse_resource_path(
@@ -341,12 +381,6 @@ static int config_parse_resource_path(
 
         assert(rvalue);
 
-        if (streq(rvalue, "auto")) {
-                rr->path_auto = true;
-                rr->path = mfree(rr->path);
-                return 0;
-        }
-
         r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
@@ -354,12 +388,11 @@ static int config_parse_resource_path(
                 return 0;
         }
 
-        /* Note that we don't validate the path as being absolute or normalized. We'll do that in
-         * transfer_read_definition() as we might not know yet whether Path refers to a URL or a file system
-         * path. */
+        r = resource_set_path(rr, resolved);
+        if (r < 0)
+                return log_oom();
 
-        rr->path_auto = false;
-        return free_and_replace(rr->path, resolved);
+        return 0;
 }
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType);
@@ -494,6 +527,139 @@ static bool transfer_decide_if_enabled(Transfer *t, Hashmap *known_features) {
         return false;
 }
 
+static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Hashmap *known_features) {
+        assert(t);
+        assert(t->id);
+
+        /* Validates a transfer definition after its settings have been filled in, and derives the settings
+         * that are left unspecified. 'origin' and 'line' identify where the definition came from, for
+         * logging purposes. */
+
+        t->enabled = transfer_decide_if_enabled(t, known_features);
+
+        if (!RESOURCE_IS_SOURCE(t->source.type))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Source Type= must be one of url-file, url-tar, tar, regular-file, directory, subvolume.");
+
+        if (t->target.type < 0) {
+                switch (t->source.type) {
+
+                case RESOURCE_URL_FILE:
+                case RESOURCE_REGULAR_FILE:
+                        t->target.type =
+                                t->target.path && path_startswith(t->target.path, "/dev/") ?
+                                RESOURCE_PARTITION : RESOURCE_REGULAR_FILE;
+                        break;
+
+                case RESOURCE_URL_TAR:
+                case RESOURCE_TAR:
+                case RESOURCE_DIRECTORY:
+                        t->target.type = RESOURCE_DIRECTORY;
+                        break;
+
+                case RESOURCE_SUBVOLUME:
+                        t->target.type = RESOURCE_SUBVOLUME;
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        if (!RESOURCE_IS_TARGET(t->target.type))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Target Type= must be one of partition, regular-file, directory, subvolume.");
+
+        if (t->target.type == RESOURCE_PARTITION && !t->target.partition_type_set) {
+                t->target.partition_type = gpt_partition_type_from_uuid(SD_GPT_LINUX_GENERIC);
+                t->target.partition_type_set = true;
+        }
+
+        if ((IN_SET(t->source.type, RESOURCE_URL_FILE, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE) &&
+             !IN_SET(t->target.type, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE)) ||
+            (IN_SET(t->source.type, RESOURCE_URL_TAR, RESOURCE_TAR, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
+             !IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME)))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Target type '%s' is incompatible with source type '%s', refusing.",
+                                  resource_type_to_string(t->target.type), resource_type_to_string(t->source.type));
+
+        if (!t->source.path && !t->source.path_auto)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Source specification lacks Path=.");
+
+        if (t->source.path_relative_to == PATH_RELATIVE_TO_EXPLICIT && !t->context->transfer_source)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "PathRelativeTo=explicit requires --transfer-source= to be specified.");
+
+        if (t->target.path_relative_to == PATH_RELATIVE_TO_EXPLICIT)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "PathRelativeTo=explicit can only be used in source specifications.");
+
+        if (t->source.path) {
+                if (RESOURCE_IS_FILESYSTEM(t->source.type) || t->source.type == RESOURCE_PARTITION)
+                        if (!path_is_absolute(t->source.path) || !path_is_normalized(t->source.path))
+                                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "Source path is not a normalized, absolute path: %s", t->source.path);
+
+                /* We unofficially support file:// in addition to http:// and https:// for url
+                 * sources. That's mostly for testing, since it relieves us from having to set up a HTTP
+                 * server, and CURL abstracts this away from us thankfully. */
+                if (RESOURCE_IS_URL(t->source.type))
+                        if (!http_url_is_valid(t->source.path) && !file_url_is_valid(t->source.path))
+                                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "Source path is not a valid HTTP or HTTPS URL: %s", t->source.path);
+        }
+
+        if (strv_isempty(t->source.patterns))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Source specification lacks MatchPattern=.");
+
+        if (IN_SET(t->source.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
+            resource_has_glob_directory_pattern(&t->source))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "MatchPattern= with '**/' prefix is not supported for source Type=directory and Type=subvolume, refusing.");
+
+        if (!t->target.path && !t->target.path_auto)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Target specification lacks Path= field.");
+
+        if (t->target.path &&
+            (!path_is_absolute(t->target.path) || !path_is_normalized(t->target.path)))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Target path is not a normalized, absolute path: %s", t->target.path);
+
+        if (strv_isempty(t->target.patterns)) {
+                log_syntax(NULL, LOG_INFO, origin, line, 0, "Target specification lacks MatchPattern= expression. Assuming same value as in source specification.");
+                strv_free(t->target.patterns);
+                t->target.patterns = strv_copy(t->source.patterns);
+                if (!t->target.patterns)
+                        return log_oom();
+
+                /* Strip any glob directory prefix when inheriting from source because it's only used for finding and
+                 * not to replicate the same directory layout at the target, so we don't support it there. */
+                STRV_FOREACH(p, t->target.patterns) {
+                        const char *body = *p;
+
+                        if (pattern_skip_glob_directory_prefix(&body))
+                                memmove(*p, body, strlen(body) + 1);
+                }
+
+                /* Stripping the glob directory prefix can turn distinct source patterns into duplicates,
+                 * so re-uniq for parity with the source side. */
+                strv_uniq(t->target.patterns);
+        }
+
+        if (t->current_symlink && !RESOURCE_IS_FILESYSTEM(t->target.type) && !path_is_absolute(t->current_symlink))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Current symlink must be absolute path if target is partition: %s", t->current_symlink);
+
+        /* When no instance limit is set, use all available partition slots in case of partitions, or 3 in case of fs objects */
+        if (t->instances_max == 0)
+                t->instances_max = t->target.type == RESOURCE_PARTITION ? UINT64_MAX : DEFAULT_FILE_INSTANCES_MAX;
+
+        return 0;
+}
+
 int transfer_read_definition(Transfer *t, const char *path, const char **dirs, Hashmap *known_features) {
         assert(t);
 
@@ -561,129 +727,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         *e = 0; /* Remove the file extension */
         t->id = TAKE_PTR(filename);
 
-        t->enabled = transfer_decide_if_enabled(t, known_features);
-
-        if (!RESOURCE_IS_SOURCE(t->source.type))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Source Type= must be one of url-file, url-tar, tar, regular-file, directory, subvolume.");
-
-        if (t->target.type < 0) {
-                switch (t->source.type) {
-
-                case RESOURCE_URL_FILE:
-                case RESOURCE_REGULAR_FILE:
-                        t->target.type =
-                                t->target.path && path_startswith(t->target.path, "/dev/") ?
-                                RESOURCE_PARTITION : RESOURCE_REGULAR_FILE;
-                        break;
-
-                case RESOURCE_URL_TAR:
-                case RESOURCE_TAR:
-                case RESOURCE_DIRECTORY:
-                        t->target.type = RESOURCE_DIRECTORY;
-                        break;
-
-                case RESOURCE_SUBVOLUME:
-                        t->target.type = RESOURCE_SUBVOLUME;
-                        break;
-
-                default:
-                        assert_not_reached();
-                }
-        }
-
-        if (!RESOURCE_IS_TARGET(t->target.type))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target Type= must be one of partition, regular-file, directory, subvolume.");
-
-        if (t->target.type == RESOURCE_PARTITION && !t->target.partition_type_set) {
-                t->target.partition_type = gpt_partition_type_from_uuid(SD_GPT_LINUX_GENERIC);
-                t->target.partition_type_set = true;
-        }
-
-        if ((IN_SET(t->source.type, RESOURCE_URL_FILE, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE) &&
-             !IN_SET(t->target.type, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE)) ||
-            (IN_SET(t->source.type, RESOURCE_URL_TAR, RESOURCE_TAR, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
-             !IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME)))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target type '%s' is incompatible with source type '%s', refusing.",
-                                  resource_type_to_string(t->target.type), resource_type_to_string(t->source.type));
-
-        if (!t->source.path && !t->source.path_auto)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Source specification lacks Path=.");
-
-        if (t->source.path_relative_to == PATH_RELATIVE_TO_EXPLICIT && !t->context->transfer_source)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "PathRelativeTo=explicit requires --transfer-source= to be specified.");
-
-        if (t->target.path_relative_to == PATH_RELATIVE_TO_EXPLICIT)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "PathRelativeTo=explicit can only be used in source specifications.");
-
-        if (t->source.path) {
-                if (RESOURCE_IS_FILESYSTEM(t->source.type) || t->source.type == RESOURCE_PARTITION)
-                        if (!path_is_absolute(t->source.path) || !path_is_normalized(t->source.path))
-                                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                  "Source path is not a normalized, absolute path: %s", t->source.path);
-
-                /* We unofficially support file:// in addition to http:// and https:// for url
-                 * sources. That's mostly for testing, since it relieves us from having to set up a HTTP
-                 * server, and CURL abstracts this away from us thankfully. */
-                if (RESOURCE_IS_URL(t->source.type))
-                        if (!http_url_is_valid(t->source.path) && !file_url_is_valid(t->source.path))
-                                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                  "Source path is not a valid HTTP or HTTPS URL: %s", t->source.path);
-        }
-
-        if (strv_isempty(t->source.patterns))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Source specification lacks MatchPattern=.");
-
-        if (IN_SET(t->source.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
-            resource_has_glob_directory_pattern(&t->source))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "MatchPattern= with '**/' prefix is not supported for source Type=directory and Type=subvolume, refusing.");
-
-        if (!t->target.path && !t->target.path_auto)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target specification lacks Path= field.");
-
-        if (t->target.path &&
-            (!path_is_absolute(t->target.path) || !path_is_normalized(t->target.path)))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target path is not a normalized, absolute path: %s", t->target.path);
-
-        if (strv_isempty(t->target.patterns)) {
-                log_syntax(NULL, LOG_INFO, path, 1, 0, "Target specification lacks MatchPattern= expression. Assuming same value as in source specification.");
-                strv_free(t->target.patterns);
-                t->target.patterns = strv_copy(t->source.patterns);
-                if (!t->target.patterns)
-                        return log_oom();
-
-                /* Strip any glob directory prefix when inheriting from source because it's only used for finding and
-                 * not to replicate the same directory layout at the target, so we don't support it there. */
-                STRV_FOREACH(p, t->target.patterns) {
-                        const char *body = *p;
-
-                        if (pattern_skip_glob_directory_prefix(&body))
-                                memmove(*p, body, strlen(body) + 1);
-                }
-
-                /* Stripping the glob directory prefix can turn distinct source patterns into duplicates,
-                 * so re-uniq for parity with the source side. */
-                strv_uniq(t->target.patterns);
-        }
-
-        if (t->current_symlink && !RESOURCE_IS_FILESYSTEM(t->target.type) && !path_is_absolute(t->current_symlink))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Current symlink must be absolute path if target is partition: %s", t->current_symlink);
-
-        /* When no instance limit is set, use all available partition slots in case of partitions, or 3 in case of fs objects */
-        if (t->instances_max == 0)
-                t->instances_max = t->target.type == RESOURCE_PARTITION ? UINT64_MAX : DEFAULT_FILE_INSTANCES_MAX;
-
-        return 0;
+        return transfer_finalize(t, path, 1, known_features);
 }
 
 int transfer_resolve_paths(
