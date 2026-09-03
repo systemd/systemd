@@ -566,6 +566,23 @@ static int swap_coldplug(Unit *u) {
         else if (s->from_proc_swaps)
                 new_state = SWAP_ACTIVE;
 
+        /* If /proc/swaps doesn't know this unit, and we couldn't load a fragment for it either, then it is
+         * a leftover of the serialization describing a swap that doesn't exist anymore — typically because
+         * the device link the unit is named after has been repointed at some other device in the meantime.
+         * Don't adopt such a unit: it has no device we could pass to swapoff, and since active units are
+         * never garbage collected it would stick around until the end of time. Note that units with a
+         * fragment are explicitly *not* covered by this, as those are not backed by /proc/swaps to begin
+         * with when their name doesn't match What=.
+         *
+         * Units with a control process still around are left alone too: we want to re-adopt the process
+         * and re-arm the timeout rather than drop both on the floor. Once it is gone the state machine
+         * ends up in dead anyway, as the unit isn't backed by /proc/swaps. */
+        if (!s->from_proc_swaps && u->load_state != UNIT_LOADED && !SWAP_STATE_WITH_PROCESS(new_state)) {
+                log_unit_debug(u, "Not backed by /proc/swaps and has no fragment, ignoring.");
+                unit_add_to_gc_queue(u);
+                return 0;
+        }
+
         if (new_state == s->state)
                 return 0;
 
@@ -855,6 +872,17 @@ static void swap_enter_deactivating(Swap *s) {
         int r;
 
         assert(s);
+
+        /* A swap unit can be active without ever having been loaded, and hence without a device: an
+         * orphaned unit that still has a swapon running is adopted by swap_coldplug() on purpose, and
+         * swap_sigchld_event() moves it to SWAP_ACTIVE once that process exits successfully. There is
+         * nothing to deactivate for such a unit, and calling swapoff without an argument certainly isn't
+         * it — go to dead, like swap_process_proc_swaps() does when a unit disappears from /proc/swaps. */
+        if (isempty(s->what)) {
+                log_unit_warning(UNIT(s), "Swap unit has no device, assuming it is already deactivated.");
+                swap_enter_dead(s, SWAP_SUCCESS);
+                return;
+        }
 
         s->control_command_id = SWAP_EXEC_DEACTIVATE;
         s->control_command = s->exec_command + SWAP_EXEC_DEACTIVATE;
