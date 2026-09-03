@@ -766,7 +766,9 @@
         <replaceable>tty</replaceable>. Additionally, <varname>systemd.tty.term.console</varname> will
         configure the <varname>$TERM</varname> value used by <command>systemd</command> if not set explicitly
         using <varname>TERM</varname> on the kernel command line. The tty name should be specified without
-        the <filename>/dev/</filename> prefix (e.g. <literal>systemd.tty.rows.ttyS0=80</literal>).
+        the <filename>/dev/</filename> prefix (e.g. <literal>systemd.tty.rows.ttyS0=80</literal>). An explicit
+        <varname>systemd.tty.term.<replaceable>tty</replaceable></varname> setting for a concrete tty takes
+        precedence over the terminal type inherited from PID 1 when that tty is also the system console.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
