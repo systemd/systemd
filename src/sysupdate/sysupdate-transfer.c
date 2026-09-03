@@ -64,6 +64,7 @@ Transfer* transfer_free(Transfer *t) {
         free(t->id);
 
         free(t->min_version);
+        free(t->max_version);
         strv_free(t->protected_versions);
         free(t->current_symlink);
         free(t->final_path);
@@ -159,7 +160,7 @@ static int config_parse_protect_version(
         return 0;
 }
 
-static int config_parse_min_version(
+static int config_parse_version_bound(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -186,13 +187,13 @@ static int config_parse_min_version(
         r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in MinVersion=, ignoring: %s", rvalue);
+                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
         if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "MinVersion= string is not valid, ignoring: %s", resolved);
+                           "%s= string is not valid, ignoring: %s", lvalue, resolved);
                 return 0;
         }
 
@@ -544,7 +545,8 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         assert(t);
 
         ConfigTableItem table[] = {
-                { "Transfer",    "MinVersion",              config_parse_min_version,                  0,                    &t->min_version             },
+                { "Transfer",    "MinVersion",              config_parse_version_bound,                0,                    &t->min_version             },
+                { "Transfer",    "MaxVersion",              config_parse_version_bound,                0,                    &t->max_version             },
                 { "Transfer",    "ProtectVersion",          config_parse_protect_version,              0,                    &t->protected_versions      },
                 { "Transfer",    "Verify",                  config_parse_bool,                         0,                    &t->verify                  },
                 { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog               },

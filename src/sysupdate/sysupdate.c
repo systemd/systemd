@@ -489,6 +489,12 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
         assert(c);
         assert(IN_SET(flags, UPDATE_AVAILABLE, UPDATE_INSTALLED));
 
+        /* Versions are visited from newest to oldest below, hence the first eligible available version we
+         * encounter is the newest one, and becomes the candidate. Start afresh in each pass, the rules at
+         * the end of this function reinstate a pending/partial installation as candidate if nothing better
+         * is available. */
+        c->candidate = NULL;
+
         for (;;) {
                 _cleanup_free_ Instance **cursor_instances = NULL;
                 bool skip = false;
@@ -577,6 +583,9 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                         if (t->min_version && strverscmp_improved(t->min_version, cursor) > 0)
                                 extra_flags |= UPDATE_OBSOLETE;
 
+                        if (t->max_version && strverscmp_improved(cursor, t->max_version) > 0)
+                                extra_flags |= UPDATE_TOO_NEW;
+
                         if (strv_contains(t->protected_versions, cursor))
                                 extra_flags |= UPDATE_PROTECTED;
 
@@ -627,11 +636,12 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
 
                         u->flags |= flags | extra_flags;
 
-                        /* If this is the newest installed version, that is incomplete and just became marked
-                         * as available, and if there is no other candidate available, we promote this to be
-                         * the candidate. Ignore partial or pending status on the update set. */
-                        if (FLAGS_SET(u->flags, UPDATE_NEWEST|UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_AVAILABLE) &&
-                            !c->candidate && !FLAGS_SET(u->flags, UPDATE_OBSOLETE))
+                        /* If this is an installed version that is incomplete and just became marked as
+                         * available, and if there is no newer candidate available, we promote this to be the
+                         * candidate. Ignore partial or pending status on the update set. */
+                        if (!c->candidate &&
+                            FLAGS_SET(u->flags, UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_AVAILABLE) &&
+                            (u->flags & (UPDATE_OBSOLETE|UPDATE_TOO_NEW)) == 0)
                                 c->candidate = u;
 
                         skip = true;
@@ -665,9 +675,10 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                 if ((us->flags & (UPDATE_NEWEST|UPDATE_INSTALLED)) == (UPDATE_NEWEST|UPDATE_INSTALLED))
                         c->newest_installed = us;
 
-                /* Remember which is the newest non-obsolete, available (and not installed) version, which we declare the "candidate".
-                 * It may be partial or pending. */
-                if ((us->flags & (UPDATE_NEWEST|UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE)) == (UPDATE_NEWEST|UPDATE_AVAILABLE))
+                /* Remember which is the newest available (and not installed) version that is neither obsolete
+                 * nor too new, which we declare the "candidate". It may be partial or pending. */
+                if (!c->candidate &&
+                    (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_TOO_NEW)) == UPDATE_AVAILABLE)
                         c->candidate = us;
         }
 
@@ -705,6 +716,11 @@ static int context_discover_update_sets(Context *c) {
         }
 
         typesafe_qsort(c->update_sets, c->n_update_sets, update_set_cmp);
+
+        /* Now that the selection is final, mark the candidate, so that the flags tell the whole story */
+        if (c->candidate)
+                c->candidate->flags |= UPDATE_CANDIDATE;
+
         return 0;
 }
 
@@ -969,7 +985,8 @@ static int context_show_version(Context *c, const char *version) {
                        "Installed: %s%s%s%s%s%s%s\n"
                        "Available: %s%s\n"
                        "Protected: %s%s%s\n"
-                       " Obsolete: %s%s%s\n",
+                       " Obsolete: %s%s%s\n"
+                       "  Too new: %s%s%s\n",
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
                        strempty(update_set_flags_to_color(us->flags)), FORMAT_UPDATE_SET_FLAGS(us->flags), ansi_normal(),
                        yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
@@ -977,7 +994,8 @@ static int context_show_version(Context *c, const char *version) {
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PENDING) ? " (pending)" : "", FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PARTIAL) ? " (partial)" : "",
                        yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
-                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
+                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal(),
+                       us->flags & UPDATE_TOO_NEW ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_TOO_NEW), ansi_normal());
 
                 STRV_FOREACH(url, changelog_urls) {
                         _cleanup_free_ char *changelog_link = NULL;
@@ -1003,6 +1021,8 @@ static int context_show_version(Context *c, const char *version) {
                                           SD_JSON_BUILD_PAIR_BOOLEAN("partial", FLAGS_SET(us->flags, UPDATE_PARTIAL)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("pending", FLAGS_SET(us->flags, UPDATE_PENDING)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("tooNew", FLAGS_SET(us->flags, UPDATE_TOO_NEW)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("candidate", FLAGS_SET(us->flags, UPDATE_CANDIDATE)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", FLAGS_SET(us->flags, UPDATE_INCOMPLETE)),
                                           SD_JSON_BUILD_PAIR_STRV("changelogUrls", changelog_urls),
@@ -1555,6 +1575,8 @@ static int context_acquire(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is not available, refusing.", us->version);
         if (FLAGS_SET(us->flags, UPDATE_OBSOLETE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is obsolete, refusing.", us->version);
+        if (FLAGS_SET(us->flags, UPDATE_TOO_NEW))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is newer than permitted, refusing.", us->version);
 
         if (!FLAGS_SET(us->flags, UPDATE_NEWEST))
                 log_notice("Selected update '%s' is not the newest, proceeding anyway.", us->version);
@@ -1665,6 +1687,8 @@ static int context_process_partial_and_pending(
 
         if (FLAGS_SET(us->flags, UPDATE_OBSOLETE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is obsolete, refusing.", us->version);
+        if (FLAGS_SET(us->flags, UPDATE_TOO_NEW))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is newer than permitted, refusing.", us->version);
 
         if (!FLAGS_SET(us->flags, UPDATE_NEWEST))
                 log_notice("Selected update '%s' is not the newest, proceeding anyway.", us->version);
