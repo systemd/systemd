@@ -8,6 +8,7 @@
 #include "chase.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "id128-util.h"
 #include "mkdir.h"
@@ -18,6 +19,7 @@
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "umask-util.h"
 #include "user-util.h"
 
 static const char *arg_test_dir = NULL;
@@ -1103,6 +1105,86 @@ TEST(use_chase_as_mkdir_p) {
         ASSERT_OK(path_extract_directory(ff, &fff));
 
         ASSERT_OK(rm_rf(fff, REMOVE_PHYSICAL));
+}
+
+TEST(chase_mode) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ char *a = NULL, *b = NULL, *f = NULL, *l = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK_ERRNO(chmod(t, 0755));
+        ASSERT_OK_ERRNO(tfd = open(t, O_PATH|O_DIRECTORY|O_CLOEXEC));
+
+        ASSERT_NOT_NULL(a = path_join(t, "a"));
+        ASSERT_NOT_NULL(b = path_join(t, "a/b"));
+        ASSERT_NOT_NULL(f = path_join(t, "a/b/f"));
+        ASSERT_NOT_NULL(l = path_join(t, "a/l"));
+
+        WITH_UMASK(0022) {
+                ASSERT_OK(mkdir_p(b, 0755));
+                ASSERT_OK(write_string_file(f, "x", WRITE_STRING_FILE_CREATE));
+                ASSERT_OK_ERRNO(symlink("b/f", l));
+        }
+
+        /* Both flags are mutually exclusive within their group */
+        ASSERT_ERROR(chaseat(tfd, tfd, "a", CHASE_DIR_0755|CHASE_DIR_0700, NULL, NULL), EBADSLT);
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_FILE_0644|CHASE_FILE_0600, NULL, NULL), EBADSLT);
+
+        /* 0755 directories all the way down to a 0644 file pass, a symlink on the way is not checked */
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_DIR_0755|CHASE_FILE_0644, NULL, NULL));
+        ASSERT_OK(chaseat(tfd, tfd, "a/l", CHASE_DIR_0755|CHASE_FILE_0644, NULL, NULL));
+        ASSERT_OK(chase("a/b/f", t, CHASE_PREFIX_ROOT|CHASE_DIR_0755|CHASE_FILE_0644, NULL, NULL));
+        ASSERT_OK(fd = chase_and_openat(tfd, tfd, "a/b/f", CHASE_DIR_0755|CHASE_FILE_0644,
+                                        O_RDONLY|O_CLOEXEC, /* ret_path= */ NULL));
+        fd = safe_close(fd);
+
+        /* The modes must match exactly, stricter is not accepted either */
+        ASSERT_OK_ERRNO(chmod(b, 0750));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_DIR_0755|CHASE_FILE_0644, NULL, NULL), ENOLINK);
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "a/b/f", CHASE_DIR_0755, O_RDONLY|O_CLOEXEC, NULL), ENOLINK);
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_FILE_0644, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(b, 0755));
+
+        ASSERT_OK_ERRNO(chmod(f, 0600));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_DIR_0755|CHASE_FILE_0644, NULL, NULL), ENOLINK);
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_DIR_0755|CHASE_FILE_0600, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(f, 0664));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_FILE_0644, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(f, 0644));
+
+        /* A symlink as the final component is not checked when it is not followed */
+        ASSERT_OK(chaseat(tfd, tfd, "a/l", CHASE_NOFOLLOW|CHASE_DIR_0755|CHASE_FILE_0600, NULL, NULL));
+
+        /* The starting directory is the caller's trust anchor and not checked, like / at 0555, neither when
+         * ".." leads back to it */
+        ASSERT_OK_ERRNO(chmod(t, 0555));
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_DIR_0755|CHASE_FILE_0644, NULL, NULL));
+        ASSERT_OK(chase("a/b/f", t, CHASE_PREFIX_ROOT|CHASE_DIR_0755|CHASE_FILE_0644, NULL, NULL));
+        ASSERT_OK(chaseat(tfd, tfd, "a/../a/b/f", CHASE_DIR_0755|CHASE_FILE_0644, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(t, 0755));
+
+        /* And so does the parent walked through with ".." */
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/../b/f", CHASE_DIR_0755|CHASE_FILE_0644, NULL, NULL));
+        ASSERT_OK_ERRNO(chmod(a, 0700));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/../b/f", CHASE_DIR_0755|CHASE_FILE_0644, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(a, 0755));
+
+        /* 0700 throughout */
+        ASSERT_OK_ERRNO(chmod(t, 0700));
+        ASSERT_OK_ERRNO(chmod(a, 0700));
+        ASSERT_OK_ERRNO(chmod(b, 0700));
+        ASSERT_OK_ERRNO(chmod(f, 0600));
+        ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_DIR_0700|CHASE_FILE_0600, NULL, NULL));
+        ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_DIR_0755|CHASE_FILE_0600, NULL, NULL), ENOLINK);
+        ASSERT_OK_ERRNO(chmod(t, 0755));
+        ASSERT_OK_ERRNO(chmod(a, 0755));
+        ASSERT_OK_ERRNO(chmod(b, 0755));
+
+        /* Directories created on the way are 0755 and pass */
+        WITH_UMASK(0022)
+                ASSERT_OK(chaseat(tfd, tfd, "n/m", CHASE_MKDIR_0755|CHASE_DIR_0755, NULL, NULL));
+        ASSERT_OK(chaseat(tfd, tfd, "n/m", CHASE_DIR_0755, NULL, NULL));
 }
 
 static int intro(void) {
