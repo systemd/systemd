@@ -8,9 +8,9 @@ typedef struct Component {
         char *description;
         char **documentation;
 
-        bool enabled;
+        int enabled; /* tristate, unset means enabled */
 
-        int suggest;
+        int suggest; /* tristate */
         Condition *suggest_on;
 
         char *min_version;
@@ -20,7 +20,7 @@ typedef struct Component {
 
 #define COMPONENT_NULL                          \
         (Component) {                           \
-                .enabled = true,                \
+                .enabled = -1,                  \
                 .suggest = -1,                  \
         }
 
@@ -31,3 +31,4 @@ int component_read_definition(Component *c, const char *name, const char *root);
 int component_is_suggested(const Component *c);
 
 int component_to_json(const Component *c, sd_json_variant **ret);
+int component_from_json(Component *c, sd_json_variant *v, const char *origin);
