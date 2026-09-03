@@ -749,6 +749,25 @@ def combine_signatures(pcrsigs: list[dict[str, str]]) -> str:
     return json.dumps(combined)
 
 
+def apply_pcr_signatures(pcrsig: dict[str, Any], signatures: dict[str, Any]) -> None:
+    for (bank, policies), (input_bank, input_policies) in itertools.product(
+        pcrsig.items(), signatures.items()
+    ):
+        if input_bank != bank:
+            continue
+        for policy, input_policy in itertools.product(policies, input_policies):
+            if 'dig' in policy and 'dig' in input_policy:
+                match = policy['dig'] == input_policy['dig']
+            else:
+                match = (policy['pol'], policy.get('ref')) == (
+                    input_policy['pol'],
+                    input_policy.get('ref'),
+                )
+
+            if match:
+                policy['sig'] = input_policy['sig']
+
+
 def key_path_groups(
     opts: UkifyConfig,
     include_extra: bool,
@@ -1136,14 +1155,7 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
                     .rstrip(b'\x00')
                     .decode()
                 )
-                for (bank, sigs), (input_bank, input_sigs) in itertools.product(
-                    j.items(), signatures.items()
-                ):
-                    if input_bank != bank:
-                        continue
-                    for sig, input_sig in itertools.product(sigs, input_sigs):
-                        if (sig['pol'], sig.get('ref')) == (input_sig['pol'], input_sig.get('ref')):
-                            sig['sig'] = input_sig['sig']
+                apply_pcr_signatures(j, signatures)
 
                 encoded = json.dumps(j).encode()
                 if len(encoded) > section.SizeOfRawData:

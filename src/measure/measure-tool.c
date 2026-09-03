@@ -1009,16 +1009,16 @@ static int build_policy_digest(bool sign) {
                         if (r < 0)
                                 return log_error_errno(r, "Could not calculate PolicyPCR digest: %m");
 
+                        _cleanup_(iovec_done) struct iovec tbs_data = {};
+                        r = tpm2_make_policy_authorize_tbs_data(&pcr_policy_digest, arg_policyref, &tbs_data);
+                        if (r < 0)
+                                return r;
+
                         _cleanup_free_ void *sig = NULL;
                         size_t ss = 0;
                         if (privkey) {
                                 /* We always use SHA256 for signing currently. Regardless of the bank. */
                                 const EVP_MD *sha256 = ASSERT_PTR(sym_EVP_get_digestbyname("sha256"));
-
-                                _cleanup_(iovec_done) struct iovec tbs_data = {};
-                                r = tpm2_make_policy_authorize_tbs_data(&pcr_policy_digest, arg_policyref, &tbs_data);
-                                if (r < 0)
-                                        return r;
 
                                 r = digest_and_sign(sha256, privkey, tbs_data.iov_base, tbs_data.iov_len, &sig, &ss);
                                 if (r == -EADDRNOTAVAIL)
@@ -1045,7 +1045,8 @@ static int build_policy_digest(bool sign) {
                                            SD_JSON_BUILD_PAIR_VARIANT("pcrs", a),                                                   /* PCR mask */
                                            SD_JSON_BUILD_PAIR_CONDITION(pubkey_fp_size > 0, "pkfp", SD_JSON_BUILD_HEX(pubkey_fp, pubkey_fp_size)), /* SHA256 fingerprint of public key (DER) used for the signature */
                                            SD_JSON_BUILD_PAIR_CONDITION(!isempty(arg_policyref), "ref", SD_JSON_BUILD_STRING(arg_policyref)), /* TPM2 policy reference */
-                                           SD_JSON_BUILD_PAIR_HEX("pol", pcr_policy_digest.buffer, pcr_policy_digest.size),         /* TPM2 policy hash that is signed */
+                                           SD_JSON_BUILD_PAIR_HEX("pol", pcr_policy_digest.buffer, pcr_policy_digest.size),         /* TPM2 PolicyPCR digest */
+                                           SD_JSON_BUILD_PAIR_CONDITION(!sign, "dig", SD_JSON_BUILD_HEX(tbs_data.iov_base, tbs_data.iov_len)), /* data to sign offline */
                                            SD_JSON_BUILD_PAIR_CONDITION(ss > 0, "sig", SD_JSON_BUILD_BASE64(sig, ss)));                            /* signature data */
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON object: %m");
