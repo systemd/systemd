@@ -1140,7 +1140,9 @@
         semantics. <option>exit</option> causes the manager to exit following the normal shutdown procedure,
         and <option>exit-force</option> causes it terminate without shutting down services. When
         <option>exit</option> or <option>exit-force</option> is used by default the exit status of the main
-        process of the unit (if this applies) is returned from the service manager. However, this may be
+        process of the unit (if this applies) is returned from the service manager. If there is no such
+        status, <varname>FailureAction=</varname> returns 255 instead, while
+        <varname>SuccessAction=</varname> leaves the exit status unchanged. However, this may be
         overridden with
         <varname>FailureActionExitStatus=</varname>/<varname>SuccessActionExitStatus=</varname>, see below.
         <option>soft-reboot</option> will trigger a userspace reboot operation.
