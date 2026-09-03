@@ -697,7 +697,7 @@ int config_parse_dhcp4_user_class(
         }
 }
 
-int config_parse_dhcp6_user_or_vendor_class(
+int config_parse_dhcp6_user_class(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -740,6 +740,110 @@ int config_parse_dhcp6_user_or_vendor_class(
                 if (r < 0)
                         return log_oom();
         }
+}
+
+int config_parse_dhcp6_vendor_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        OrderedHashmap **vendor_class = ASSERT_PTR(data);
+        _cleanup_free_ char *maybe_enterprise_identifier = NULL;
+        _cleanup_strv_free_ char **vendor_class_data = NULL;
+        uint32_t enterprise_identifier = SYSTEMD_PEN;
+        const char *p = rvalue;
+        int r;
+
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *vendor_class = ordered_hashmap_free(*vendor_class);
+                return 0;
+        }
+
+        /* Extract the optional PEN prefix. */
+        r = extract_first_word(&p, &maybe_enterprise_identifier, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+        /* The rvalue starts with ':', doesn't contain a ':' or the whole string contains one ':' at the end. */
+        if (isempty(maybe_enterprise_identifier) || isempty(p))
+                p = rvalue;
+        else {
+                /* The rvalue could start with PEN and contain more data. */
+                r = safe_atou32(maybe_enterprise_identifier, &enterprise_identifier);
+                if (r < 0) {
+                        /* The prefix is non-numeric or not an uint32  */
+                        log_syntax(unit, LOG_NOTICE, filename, line, r,
+                                   "Invalid DHCPv6 enterprise identifier '%s', using default value '%"PRIu32"': %s",
+                                   maybe_enterprise_identifier, (uint32_t) SYSTEMD_PEN, rvalue);
+                        p = rvalue;
+                } else if (enterprise_identifier < 1 || enterprise_identifier >= UINT32_MAX) {
+                        /* The enterprise identifier is outside the allowed range (RFC 9371) */
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid DHCPv6 enterprise identifier, valid range is 1-%"PRIu32", using default value '%"PRIu32"': %s",
+                                   UINT32_MAX - 1, (uint32_t) SYSTEMD_PEN, rvalue);
+                        enterprise_identifier = SYSTEMD_PEN;
+                        p = rvalue;
+                }
+        }
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                if (r == 0)
+                        break;
+
+                size_t len = strlen(word);
+                if (len > UINT16_MAX || len == 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "The length of the %s entry '%s' for enterprise identifier %"PRIu32" is not in the range 1…65535, ignoring.",
+                                   lvalue, word, enterprise_identifier);
+                        continue;
+                }
+
+                r = strv_consume(&vendor_class_data, TAKE_PTR(word));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (strv_isempty(vendor_class_data))
+                return 0;
+
+        /* Merge entries with the same enterprise identifier. */
+        char **old_entry = ordered_hashmap_get(*vendor_class, UINT32_TO_PTR(enterprise_identifier));
+        if (old_entry) {
+                r = strv_extend_strv(&old_entry, vendor_class_data, false);
+                if (r < 0)
+                        return log_oom();
+
+                return ordered_hashmap_update(*vendor_class, UINT32_TO_PTR(enterprise_identifier), old_entry);
+        }
+
+        r = ordered_hashmap_ensure_put(vendor_class, &dhcp6_vendor_class_hash_ops,
+                                       UINT32_TO_PTR(enterprise_identifier), vendor_class_data);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(vendor_class_data);
+        return 0;
 }
 
 int config_parse_dhcp6_send_option(

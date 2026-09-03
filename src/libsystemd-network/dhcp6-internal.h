@@ -64,7 +64,7 @@ struct sd_dhcp6_client {
         char *fqdn;
         char *mudurl;
         char **user_class;
-        char **vendor_class;
+        OrderedHashmap *vendor_class;
         OrderedHashmap *extra_options;
         OrderedSet *vendor_options;
         bool rapid_commit;

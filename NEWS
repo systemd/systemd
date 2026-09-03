@@ -315,6 +315,17 @@ CHANGES WITH 262 in spe:
           Assigning an empty string clears all previously assigned stacked
           netdevs.
 
+        * The VendorClass= setting in the [DHCPv6] section of .network files
+          now accepts values prefixed with an optional enterprise identifier
+          (PEN), allowing the client to send vendor class information under
+          multiple enterprise identifiers. If no enterprise identifier is
+          specified, systemd's own enterprise identifier is used. Specifying
+          this setting multiple times merges values that share the same
+          enterprise identifier. To send data that itself starts with
+          "number:", prefix your data with systemd's own enterprise identifier
+          explicitly e.g. 43793:32473:foo, so the leading number is not
+          misinterpreted as an enterprise identifier.
+
         Changes in systemd-journald and journalctl:
 
         * Journal readers now attempt to salvage intact entries from active
