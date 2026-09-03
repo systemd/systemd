@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netinet/ip6.h>
 #include <netinet/tcp.h>
 
 #include "sd-event.h"
@@ -162,6 +163,14 @@ DnsScope* dns_scope_free(DnsScope *s) {
         sd_event_source_disable_unref(s->announce_event_source);
 
         sd_event_source_disable_unref(s->mdns_goodbye_event_source);
+
+        /* A scope torn down inside the retransmission window takes its queued second goodbye with
+         * it: the link is going away, or lost its mDNS, so there is nothing to emit it on. The one
+         * transmission that went out stands. */
+        if (!dns_answer_isempty(s->pending_withdrawals))
+                log_debug("Dropping %zu mDNS withdrawal(s) awaiting retransmission with the scope.",
+                          dns_answer_size(s->pending_withdrawals));
+        dns_answer_unref(s->pending_withdrawals);
 
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
@@ -1598,7 +1607,7 @@ static int dns_scope_flush_announcement_packet(DnsScope *scope, DnsPacket **p, u
         return r;
 }
 
-int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
+static int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         size_t max_size, fragmented_max;
         unsigned n_answer = 0;
@@ -1622,7 +1631,7 @@ int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
          * oversized-RR fallback below. A fragmented IPv6 datagram additionally carries an 8-byte
          * Fragment extension header (RFC 8200 § 4.5) that counts against the ceiling. */
         fragmented_max = MDNS_PACKET_FRAGMENTED_SIZE_MAX - udp_header_size(scope->family) -
-                (scope->family == AF_INET6 ? 8 : 0);
+                (scope->family == AF_INET6 ? sizeof(struct ip6_frag) : 0);
 
         /* An unsolicited DNS-SD announcement (or goodbye) covers the whole zone, which easily outgrows
          * both the compression pointer range that dns_packet_append_name() can address and the interface
@@ -1750,7 +1759,7 @@ bool dns_scope_rr_is_host_record(DnsScope *scope, DnsResourceRecord *rr) {
  * items under re-verification: only initial establishment goes through probing, so a VERIFYING item
  * was announced before, and a re-verification in flight — e.g. right after a configuration reload —
  * must not exempt it from withdrawal. */
-static bool dns_scope_wants_announce_item(DnsZoneItem *i, bool goodbye) {
+static bool dns_scope_wants_announce_item(DnsZoneItem *i, bool goodbye, bool exclude_host_records) {
         assert(i);
 
         if (!goodbye)
@@ -1763,8 +1772,12 @@ static bool dns_scope_wants_announce_item(DnsZoneItem *i, bool goodbye) {
          * the validity of its address records — typically outlives its resolver (think daemon
          * restart), and flushing those from peer caches would needlessly break resolution of the
          * still-present host until the next announcement. Runtime goodbyes (link teardown, service
-         * unregistration) are not affected. */
-        if (i->scope->manager->mdns_withdrawing && dns_scope_rr_is_host_record(i->scope, i->rr))
+         * unregistration) are not affected, except for one that lands inside the shutdown's grace
+         * second -- a link torn down there is excluded too, which is the same trade as above: the
+         * peers on a link that just went away cannot reach the host over it either way, and the
+         * daemon is a second from exiting. The exclusion is a parameter rather than the manager's
+         * withdrawing flag so that the shutdown decision can be taken before the flag is set. */
+        if (exclude_host_records && dns_scope_rr_is_host_record(i->scope, i->rr))
                 return false;
 
         return true;
@@ -1781,10 +1794,87 @@ bool dns_scope_shutdown_goodbye_has_content(DnsScope *scope) {
 
         HASHMAP_FOREACH(z, scope->zone.by_key)
                 LIST_FOREACH(by_key, i, z)
-                        if (dns_scope_wants_announce_item(i, /* goodbye= */ true))
+                        if (dns_scope_wants_announce_item(i, /* goodbye= */ true,
+                                                          /* exclude_host_records= */ true))
                                 return true;
 
         return false;
+}
+
+/* Emit this scope's queued withdrawal once more and clear the queue (RFC 6762 section 8.3). A second
+ * has passed since the first transmission and the zone may have moved on: a service re-registered in
+ * the meantime — or whose .dnssd file a reload restored — is published again, and repeating its
+ * goodbye would withdraw the live record from every peer, with a cache-flush bit, until the next
+ * announcement. So retransmit only what the zone still does not stand behind. */
+void dns_scope_flush_pending_withdrawals(DnsScope *scope) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *pending = NULL, *gone = NULL;
+        DnsAnswerItem *item;
+        int r;
+
+        assert(scope);
+
+        pending = TAKE_PTR(scope->pending_withdrawals);
+        if (dns_answer_isempty(pending))
+                return;
+
+        DNS_ANSWER_FOREACH_ITEM(item, pending) {
+                if (dns_zone_get(&scope->zone, item->rr))
+                        continue;
+
+                r = dns_answer_add_extend_full(&gone, item->rr, item->ifindex,
+                                               item->flags, item->rrsig, item->until);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to collect pending mDNS withdrawal, ignoring: %m");
+                        break;
+                }
+        }
+
+        if (dns_answer_isempty(gone))
+                return;
+
+        log_debug("Retransmitting mDNS withdrawal of %zu record(s) on scope %s.",
+                  dns_answer_size(gone), dns_scope_ifname(scope) ?: "*");
+
+        r = dns_scope_emit_announcement(scope, gone);
+        if (r < 0)
+                log_debug_errno(r, "Failed to retransmit mDNS withdrawal, ignoring: %m");
+}
+
+/* Withdraw the given records from this scope: multicast a goodbye for the subset that the scope's
+ * zone actually stands behind — same filter as the shutdown goodbye, so records still probing or
+ * conflict-withdrawn are never goodbye'd (RFC 6762 section 8.1: their uniqueness was not verified,
+ * a TTL=0 cache-flush could evict a legitimate owner's records) — and drop the records from the
+ * zone regardless, even when collecting or emitting fails: they are going away either way, and
+ * peers then age them out over their TTL. The emitted subset is queued on the scope for its RFC
+ * 6762 section 8.3 one-second retransmission, so it goes out again exactly where it was valid. */
+int dns_scope_withdraw_rrs(DnsScope *scope, DnsAnswer *candidates) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *subset = NULL;
+        DnsResourceRecord *rr;
+        int r, ret = 0;
+
+        assert(scope);
+
+        DNS_ANSWER_FOREACH(rr, candidates) {
+                DnsZoneItem *i;
+
+                i = dns_zone_get(&scope->zone, rr);
+                if (i && dns_scope_wants_announce_item(i, /* goodbye= */ true,
+                                                       /* exclude_host_records= */ false)) {
+                        r = dns_answer_add_extend(&subset, rr, /* ifindex= */ 0,
+                                                  dns_scope_announce_flags(rr->key, /* goodbye= */ true),
+                                                  /* rrsig= */ NULL);
+                        RET_GATHER(ret, r);
+                }
+
+                dns_zone_remove_rr(&scope->zone, rr);
+        }
+
+        if (!dns_answer_isempty(subset)) {
+                RET_GATHER(ret, dns_scope_emit_announcement(scope, subset));
+                RET_GATHER(ret, dns_answer_extend(&scope->pending_withdrawals, subset));
+        }
+
+        return ret;
 }
 
 int dns_scope_announce(DnsScope *scope, bool goodbye) {
@@ -1834,10 +1924,16 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 
         /* Calculate answer's size. */
         HASHMAP_FOREACH(z, scope->zone.by_key) {
-                if (!dns_scope_wants_announce_item(z, goodbye))
+                if (!dns_scope_wants_announce_item(z, goodbye, scope->manager->mdns_withdrawing))
                         continue;
 
-                if (z->rr->key->type == DNS_TYPE_PTR &&
+                /* Positive announcements only. A PTR whose target has no live zone item is exactly
+                 * what a goodbye has to carry — the instance is going away — and worse, the branch
+                 * marks the item WITHDRAWN, which dns_scope_wants_announce_item() then rejects, so
+                 * the second transmission a second later (RFC 6762 § 8.3) would drop every record
+                 * the first one touched. */
+                if (!goodbye &&
+                    z->rr->key->type == DNS_TYPE_PTR &&
                     !dns_zone_contains_name(&scope->zone, z->rr->ptr.name)) {
                         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
@@ -1874,7 +1970,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 LIST_FOREACH (by_key, i, z) {
                         DnsAnswerFlags flags;
 
-                        if (!dns_scope_wants_announce_item(i, goodbye))
+                        if (!dns_scope_wants_announce_item(i, goodbye, scope->manager->mdns_withdrawing))
                                 continue;
 
                         flags = dns_scope_announce_flags(i->rr->key, goodbye);
@@ -1888,16 +1984,9 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         SET_FOREACH(service_type, types) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
-                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
-                                                  "_services._dns-sd._udp.local");
-                if (!rr)
+                r = mdns_enumeration_service_ptr_new(service_type, &rr);
+                if (r < 0)
                         return log_oom();
-
-                rr->ptr.name = strdup(service_type);
-                if (!rr->ptr.name)
-                        return log_oom();
-
-                rr->ttl = MDNS_DEFAULT_TTL;
 
                 r = dns_zone_put(&scope->zone, scope, rr, false);
                 if (r < 0)

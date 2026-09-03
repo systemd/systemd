@@ -25,3 +25,5 @@ int manager_mdns_ipv6_fd(Manager *m);
 void manager_mdns_stop(Manager *m);
 void manager_mdns_maybe_stop(Manager *m);
 int manager_mdns_start(Manager *m);
+
+int mdns_enumeration_service_ptr_new(const char *service_type, DnsResourceRecord **ret);
