@@ -281,6 +281,105 @@ TEST(query_term_for_tty) {
         }
 }
 
+TEST(proc_cmdline_tty_term) {
+        ASSERT_OK_ZERO_ERRNO(putenv((char*)
+                                   "SYSTEMD_PROC_CMDLINE=systemd.tty.term.ttyS0=linux "
+                                   "systemd.tty.term.ttyS1= systemd.tty.term.sclp_line0=linux "
+                                   "systemd.tty.term.ttyS3 systemd.tty.term.ttyS4=unknown "
+                                   "systemd.tty.term.ttyS5=xterm:bad "
+                                   "systemd.tty.term.ttyS6=screen.xterm-256color "
+                                   "systemd.tty.term.ttyS7=foo+bar "
+                                   "systemd.tty.term.tty-S8=linux systemd.tty.term.console=vt220 "
+                                   "systemd.tty.term.pts/0=linux systemd.tty.term.foo/bar=linux "
+                                   "systemd.tty.term.ttyS9=a=linux"));
+
+        /* Matching key with a non-empty value, with and without the /dev/ prefix. */
+        FOREACH_STRING(s, "ttyS0", "/dev/ttyS0") {
+                _cleanup_free_ char *term = NULL;
+                ASSERT_OK_POSITIVE(proc_cmdline_tty_term(s, &term));
+                ASSERT_STREQ(term, "linux");
+        }
+
+        /* Device names containing an underscore are valid, too. */
+        _cleanup_free_ char *sclp_term = NULL;
+        ASSERT_OK_POSITIVE(proc_cmdline_tty_term("sclp_line0", &sclp_term));
+        ASSERT_STREQ(sclp_term, "linux");
+
+        /* Device names containing a hyphen are valid, too. */
+        _cleanup_free_ char *hyphen_term = NULL;
+        ASSERT_OK_POSITIVE(proc_cmdline_tty_term("tty-S8", &hyphen_term));
+        ASSERT_STREQ(hyphen_term, "linux");
+
+        /* '-' and '_' are equivalent in kernel command line option names. */
+        _cleanup_free_ char *sclp_hyphen_term = NULL, *hyphen_underscore_term = NULL;
+        ASSERT_OK_POSITIVE(proc_cmdline_tty_term("sclp-line0", &sclp_hyphen_term));
+        ASSERT_STREQ(sclp_hyphen_term, "linux");
+        ASSERT_OK_POSITIVE(proc_cmdline_tty_term("tty_S8", &hyphen_underscore_term));
+        ASSERT_STREQ(hyphen_underscore_term, "linux");
+
+        /* The literal console name is looked up as-is. */
+        _cleanup_free_ char *console_term = NULL;
+        ASSERT_OK_POSITIVE(proc_cmdline_tty_term("/dev/console", &console_term));
+        ASSERT_STREQ(console_term, "vt220");
+
+        /* Absent key → 0, output is initialized. */
+        char absent[] = "unchanged";
+        char *absentp = absent;
+        ASSERT_OK_ZERO(proc_cmdline_tty_term("notconfigured0", &absentp));
+        ASSERT_NULL(absentp);
+
+        /* Present but empty value → 0, output is initialized (no empty $TERM). */
+        char empty[] = "unchanged";
+        char *emptyp = empty;
+        ASSERT_OK_ZERO(proc_cmdline_tty_term("ttyS1", &emptyp));
+        ASSERT_NULL(emptyp);
+
+        /* A value-less key is ignored, while invalid TERM values are reported as EINVAL. */
+        _cleanup_free_ char *valueless = NULL, *invalid_charset = NULL;
+        char invalid[] = "unchanged";
+        char *invalidp = invalid;
+        ASSERT_OK_ZERO(proc_cmdline_tty_term("ttyS3", &valueless));
+        ASSERT_NULL(valueless);
+        ASSERT_ERROR(proc_cmdline_tty_term("ttyS4", &invalidp), EINVAL);
+        ASSERT_STREQ(invalidp, "unchanged");
+        ASSERT_ERROR(proc_cmdline_tty_term("ttyS5", &invalid_charset), EINVAL);
+        ASSERT_NULL(invalid_charset);
+
+        /* Valid terminal names may contain '-', '_', '.' and '+'. */
+        _cleanup_free_ char *valid_charset = NULL, *valid_plus = NULL;
+        ASSERT_OK_POSITIVE(proc_cmdline_tty_term("ttyS6", &valid_charset));
+        ASSERT_STREQ(valid_charset, "screen.xterm-256color");
+        ASSERT_OK_POSITIVE(proc_cmdline_tty_term("ttyS7", &valid_plus));
+        ASSERT_STREQ(valid_plus, "foo+bar");
+
+        /* The last duplicate key wins, including an empty value. */
+        ASSERT_OK_ZERO_ERRNO(putenv((char*)
+                                   "SYSTEMD_PROC_CMDLINE=systemd.tty.term.ttyS0=linux "
+                                   "systemd.tty.term.ttyS0="));
+        _cleanup_free_ char *duplicate = NULL;
+        ASSERT_OK_ZERO(proc_cmdline_tty_term("ttyS0", &duplicate));
+        ASSERT_NULL(duplicate);
+
+        /* A non-empty value in the last duplicate wins. */
+        ASSERT_OK_ZERO_ERRNO(putenv((char*)
+                                   "SYSTEMD_PROC_CMDLINE=systemd.tty.term.ttyS0= "
+                                   "systemd.tty.term.ttyS0=vt220"));
+        ASSERT_OK_POSITIVE(proc_cmdline_tty_term("ttyS0", &duplicate));
+        ASSERT_STREQ(duplicate, "vt220");
+
+        /* pts/ and non-alphanumeric names can't carry a key → 0, no crash. */
+        char pts[] = "unchanged", weird[] = "unchanged", confusing[] = "unchanged";
+        char *ptsp = pts, *weirdp = weird, *confusingp = confusing;
+        ASSERT_OK_ZERO(proc_cmdline_tty_term("/dev/pts/0", &ptsp));
+        ASSERT_NULL(ptsp);
+        ASSERT_OK_ZERO(proc_cmdline_tty_term("foo/bar", &weirdp));
+        ASSERT_NULL(weirdp);
+        ASSERT_OK_ZERO(proc_cmdline_tty_term("ttyS9=a", &confusingp));
+        ASSERT_NULL(confusingp);
+
+        ASSERT_OK_ZERO_ERRNO(unsetenv("SYSTEMD_PROC_CMDLINE"));
+}
+
 TEST(terminal_is_pty_fd) {
         int r;
 
