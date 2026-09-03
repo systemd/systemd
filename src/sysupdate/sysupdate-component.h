@@ -50,3 +50,5 @@ int component_is_suggested(const Component *c);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_component_success_action);
 CONFIG_PARSER_PROTOTYPE(config_parse_component_failure_action);
+
+int component_to_json(const Component *c, sd_json_variant **ret);

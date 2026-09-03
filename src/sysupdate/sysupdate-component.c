@@ -2,9 +2,12 @@
 
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "condition.h"
 #include "conf-parser.h"
+#include "json-util.h"
 #include "log.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -90,7 +93,7 @@ static const char* const component_success_action_table[_COMPONENT_SUCCESS_ACTIO
         [COMPONENT_SUCCESS_RESTART]  = "restart",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(component_success_action, ComponentSuccessAction);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(component_success_action, ComponentSuccessAction);
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_component_success_action, component_success_action, ComponentSuccessAction);
 
@@ -99,6 +102,36 @@ static const char* const component_failure_action_table[_COMPONENT_FAILURE_ACTIO
         [COMPONENT_FAILURE_FAIL]     = "fail",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(component_failure_action, ComponentFailureAction);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(component_failure_action, ComponentFailureAction);
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_component_failure_action, component_failure_action, ComponentFailureAction);
+
+int component_to_json(const Component *c, sd_json_variant **ret) {
+        int suggested, r;
+
+        assert(c);
+        assert(ret);
+
+        /* Serializes the component metadata, with the effective enablement and suggestion state. The field
+         * names match the settings in sysupdate.components(5). */
+
+        suggested = component_is_suggested(c);
+        if (suggested < 0)
+                return log_error_errno(suggested, "Failed to determine if component is suggested: %m");
+
+        r = sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("description", c->description),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", c->documentation),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("enabled", c->enabled),
+                        JSON_BUILD_PAIR_ENUM("successAction", component_success_action_to_string(c->success_action)),
+                        JSON_BUILD_PAIR_ENUM("failureAction", component_failure_action_to_string(c->failure_action)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("suggested", suggested > 0),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("minVersion", c->min_version),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("maxVersion", c->max_version),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("protectVersion", c->protected_versions));
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
