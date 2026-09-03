@@ -553,11 +553,13 @@ testcase_second_unreachable() {
     # preceding testcase restarts the second container's resolved. Flush until the cache
     # stays clean of that container (bounded: the stragglers are only whatever queued up
     # before host0 went down, but on slow sanitizer runners draining it can take a while).
-    local clean=0
+    local clean=0 cache_dump
     for _ in {0..29}; do  # ~60s: the same budget the goodbye-detection loop grants slow runners
         resolvectl flush-caches
         sleep 1
-        if ! resolvectl show-cache | grep "$CONTAINER_2" >/dev/null; then
+        # Capture the dump first: under pipefail a failing resolvectl would make the negated
+        # pipeline pass and declare a clean cache on what was really a transient dump error.
+        if cache_dump="$(resolvectl show-cache)" && ! grep "$CONTAINER_2" >/dev/null <<<"$cache_dump"; then
             clean=1
             break
         fi
