@@ -1629,7 +1629,7 @@ static int dns_scope_flush_announcement_packet(DnsScope *scope, DnsPacket **p, u
         return r;
 }
 
-static int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
+int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         size_t max_size, fragmented_max;
         unsigned n_answer = 0;
