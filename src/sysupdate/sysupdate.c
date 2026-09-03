@@ -737,7 +737,7 @@ static int context_show_table(Context *c) {
                                    TABLE_SET_COLOR, color,
                                    TABLE_STRING,    glyph_check_mark_space(FLAGS_SET(us->flags, UPDATE_AVAILABLE)),
                                    TABLE_SET_COLOR, color,
-                                   TABLE_STRING,    update_set_flags_to_string(us->flags),
+                                   TABLE_STRING,    FORMAT_UPDATE_SET_FLAGS(us->flags),
                                    TABLE_SET_COLOR, color);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -971,7 +971,7 @@ static int context_show_version(Context *c, const char *version) {
                        "Protected: %s%s%s\n"
                        " Obsolete: %s%s%s\n",
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
-                       strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
+                       strempty(update_set_flags_to_color(us->flags)), FORMAT_UPDATE_SET_FLAGS(us->flags), ansi_normal(),
                        yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? ansi_highlight_yellow() : "", FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? " (incomplete)" : "", ansi_normal(),
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PENDING) ? " (pending)" : "", FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PARTIAL) ? " (partial)" : "",
