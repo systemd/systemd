@@ -889,6 +889,9 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-failing2.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-failing3.service", SIGSYS, CLD_KILLED);
 
+        if (native_architecture() == ARCHITECTURE_X86_64)
+                test(m, "exec-systemcallfilter-unknown-syscall.service", SIGSYS, CLD_KILLED);
+
         r = find_executable("python3", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping remaining tests in %s, could not find python3 binary: %m", __func__);
