@@ -50,6 +50,7 @@
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
+#include "varlink-io.systemd.ResourceProvider.h"
 #include "varlink-io.systemd.Shutdown.h"
 #include "varlink-io.systemd.StorageProvider.h"
 #include "varlink-io.systemd.SysInstall.h"
@@ -231,6 +232,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Resolve,
                 &vl_interface_io_systemd_Resolve_Hook,
                 &vl_interface_io_systemd_Resolve_Monitor,
+                &vl_interface_io_systemd_ResourceProvider,
                 &vl_interface_io_systemd_Shutdown,
                 &vl_interface_io_systemd_StorageProvider,
                 &vl_interface_io_systemd_SysInstall,
