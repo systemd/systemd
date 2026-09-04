@@ -265,34 +265,92 @@ static void test_in_addr_prefix_range_one(
 
         log_debug("/* %s(%s, prefixlen=%u) */", __func__, in, prefixlen);
 
-        assert_se(in_addr_from_string(family, in, &a) >= 0);
-        assert_se((in_addr_prefix_range(family, &a, prefixlen, &s, &e) >= 0) == !!expected_start);
+        ASSERT_OK(in_addr_from_string(family, in, &a));
+
+        if (!expected_start) {
+                ASSERT_ERROR(in_addr_prefix_range(family, &a, prefixlen, NULL, NULL), EINVAL);
+                ASSERT_ERROR(in_addr_prefix_range(family, &a, prefixlen, &s, NULL), EINVAL);
+                ASSERT_ERROR(in_addr_prefix_range(family, &a, prefixlen, NULL, &e), EINVAL);
+                ASSERT_ERROR(in_addr_prefix_range(family, &a, prefixlen, &s, &e), EINVAL);
+                return;
+        }
+
+        ASSERT_OK(in_addr_prefix_range(family, &a, prefixlen, NULL, NULL));
+        ASSERT_OK(in_addr_prefix_range(family, &a, prefixlen, &s, NULL));
+        ASSERT_OK(in_addr_prefix_range(family, &a, prefixlen, NULL, &e));
+        ASSERT_OK(in_addr_prefix_range(family, &a, prefixlen, &s, &e));
 
         if (expected_start) {
                 union in_addr_union es;
 
-                assert_se(in_addr_from_string(family, expected_start, &es) >= 0);
-                assert_se(in_addr_equal(family, &s, &es) > 0);
+                ASSERT_OK(in_addr_from_string(family, expected_start, &es));
+                ASSERT_OK_POSITIVE(in_addr_equal(family, &s, &es));
         }
         if (expected_end) {
                 union in_addr_union ee;
 
-                assert_se(in_addr_from_string(family, expected_end, &ee) >= 0);
-                assert_se(in_addr_equal(family, &e, &ee) > 0);
+                ASSERT_OK(in_addr_from_string(family, expected_end, &ee));
+                ASSERT_OK_POSITIVE(in_addr_equal(family, &e, &ee));
         }
 }
 
 TEST(in_addr_prefix_range) {
-        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 24, "192.168.123.0", "192.168.124.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123",  0, "0.0.0.0", "0.0.0.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123",  1, "128.0.0.0", "0.0.0.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123",  2, "192.0.0.0", "0.0.0.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123",  3, "192.0.0.0", "224.0.0.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123",  4, "192.0.0.0", "208.0.0.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123",  5, "192.0.0.0", "200.0.0.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123",  6, "192.0.0.0", "196.0.0.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123",  7, "192.0.0.0", "194.0.0.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123",  8, "192.0.0.0", "193.0.0.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123",  9, "192.128.0.0", "193.0.0.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 10, "192.128.0.0", "192.192.0.0");
         test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 16, "192.168.0.0", "192.169.0.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 24, "192.168.123.0", "192.168.124.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 32, "192.168.123.123", "192.168.123.124");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 33, NULL, NULL);
 
-        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::", 64, "dead:beef::", "dead:beef:0:1::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",   0, "::", "::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",   1, "8000::", "::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",   2, "c000::", "::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",   3, "c000::", "e000::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",   4, "d000::", "e000::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",   7, "de00::", "e000::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",   8, "de00::", "df00::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",   9, "de80::", "df00::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  16, "dead:0000::", "deae:0000::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  17, "dead:8000::", "deae:0000::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  18, "dead:8000::", "dead:c000::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  19, "dead:a000::", "dead:c000::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  20, "dead:b000::", "dead:c000::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  21, "dead:b800::", "dead:c000::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  28, "dead:bee0::", "dead:bef0::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  29, "dead:bee8::", "dead:bef0::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  30, "dead:beec::", "dead:bef0::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  31, "dead:beee::", "dead:bef0::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  32, "dead:beef::", "dead:bef0::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  33, "dead:beef::", "dead:beef:8000::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::",  64, "dead:beef::", "dead:beef:0:1::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::", 128, "dead:beef::", "dead:beef::1");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::", 129, NULL, NULL);
+
         test_in_addr_prefix_range_one(AF_INET6, "dead:0:0:beef::", 64, "dead:0:0:beef::", "dead:0:0:bef0::");
+
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",   0, "::", "::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",   1, "::", "8000::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",   2, "::", "4000::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",   3, "2000::", "4000::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",   4, "2000::", "3000::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",   8, "2000::", "2100::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",  16, "2001::", "2002::");
         test_in_addr_prefix_range_one(AF_INET6, "2001::",  48, "2001::", "2001:0:1::");
         test_in_addr_prefix_range_one(AF_INET6, "2001::",  56, "2001::", "2001:0:0:0100::");
         test_in_addr_prefix_range_one(AF_INET6, "2001::",  65, "2001::", "2001::8000:0:0:0");
         test_in_addr_prefix_range_one(AF_INET6, "2001::",  66, "2001::", "2001::4000:0:0:0");
         test_in_addr_prefix_range_one(AF_INET6, "2001::", 127, "2001::", "2001::2");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::", 128, "2001::", "2001::1");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::", 129, NULL, NULL);
 }
 
 static void test_in_addr_to_string_one(int f, const char *addr) {
