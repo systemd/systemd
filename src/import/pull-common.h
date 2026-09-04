@@ -27,6 +27,7 @@ int pull_make_auxiliary_job(
                 int (*strip_suffixes)(const char *name, char **ret),
                 const char *suffix,
                 ImportVerify verify,
+                sd_event *event,
                 CurlGlue *glue,
                 PullJobOpenDisk on_open_disk,
                 PullJobFinished on_finished,
@@ -36,6 +37,7 @@ int pull_make_verification_jobs(
                 PullJob **ret_signature_job,
                 ImportVerify verify,
                 const char *url,
+                sd_event *event,
                 CurlGlue *glue,
                 PullJobFinished on_finished,
                 void *userdata);
