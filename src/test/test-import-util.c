@@ -19,6 +19,11 @@ TEST(import_url_last_component) {
         test_import_url_last_component_one("https://foobar", NULL, -EADDRNOTAVAIL);
         test_import_url_last_component_one("https://foobar/waldo/quux?foo=bar", "quux", 0);
         test_import_url_last_component_one("https://foobar/waldo/quux/?foo=bar", "quux", 0);
+        test_import_url_last_component_one("https://[::1]:8080/waldo/quux", "quux", 0);
+        test_import_url_last_component_one("provider:[/run/foobar]/waldo", "waldo", 0);
+        test_import_url_last_component_one("provider:[/run/foobar]/waldo/quux", "quux", 0);
+        test_import_url_last_component_one("provider:[/run/foobar]/", NULL, -EADDRNOTAVAIL);
+        test_import_url_last_component_one("provider:[/run/foobar", NULL, -EINVAL);
         test_import_url_last_component_one("https://foobar/waldo/quux/?foo=bar#piep", "quux", 0);
         test_import_url_last_component_one("https://foobar/waldo/quux/#piep", "quux", 0);
         test_import_url_last_component_one("https://foobar/waldo/quux#piep", "quux", 0);
@@ -57,6 +62,11 @@ TEST(import_url_change_suffix) {
         test_import_url_change_suffix_one("x:y/z/", 0, "wuff", "x:y/z/wuff", 0);
         test_import_url_change_suffix_one("x:y/z/", 1, "wuff", "x:y/wuff", 0);
         test_import_url_change_suffix_one("x:y/z/", 2, "wuff", "x:y/wuff", 0);
+        test_import_url_change_suffix_one("https://[::1]:8080/waldo/quux", 1, "wuff", "https://[::1]:8080/waldo/wuff", 0);
+        test_import_url_change_suffix_one("provider:[/run/foobar]/waldo", 1, "SHA256SUMS", "provider:[/run/foobar]/SHA256SUMS", 0);
+        test_import_url_change_suffix_one("provider:[/run/foobar]/waldo", 0, "SHA256SUMS", "provider:[/run/foobar]/waldo/SHA256SUMS", 0);
+        test_import_url_change_suffix_one("provider:[/run/foobar]/waldo/quux", 1, "wuff", "provider:[/run/foobar]/waldo/wuff", 0);
+        test_import_url_change_suffix_one("provider:[/run/foobar]/waldo", 5, "wuff", "provider:[/run/foobar]/wuff", 0);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
