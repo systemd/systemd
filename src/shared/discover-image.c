@@ -1725,7 +1725,7 @@ static int unprivileged_clone(Image *i, const char *new_path) {
                         /* flags= */ 0,
                         &new_fd);
         if (r < 0)
-                return 0;
+                return r;
 
         /* Mount new image */
         _cleanup_close_ int target_fd = -EBADF;
