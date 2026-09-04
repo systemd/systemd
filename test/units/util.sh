@@ -306,7 +306,10 @@ kernel_supports_lsm() {
 machine_supports_verity_keyring() {
     # Requires kernel built with certain kconfigs, as listed in README:
     # https://oracle.github.io/kconfigs/?config=UTS_RELEASE&config=DM_VERITY_VERIFY_ROOTHASH_SIG&config=DM_VERITY_VERIFY_ROOTHASH_SIG_SECONDARY_KEYRING&config=DM_VERITY_VERIFY_ROOTHASH_SIG_PLATFORM_KEYRING&config=IMA_ARCH_POLICY&config=INTEGRITY_MACHINE_KEYRING
-    if grep -q "$(openssl x509 -noout -subject -in /usr/share/mkosi.crt | sed 's/^.*CN=//')" /proc/keys && \
+    # Only the keyrings dm-verity consults count, .fs-verity holds the same certificate without implying
+    # verity signature support
+    if { keyctl list %:.dm-verity; keyctl list %:.platform; keyctl list %:.machine; keyctl list %:.secondary_trusted_keys; :; } 2>/dev/null |
+            grep -F "$(openssl x509 -noout -subject -in /usr/share/mkosi.crt | sed 's/^.*CN=//')" >/dev/null && \
             ( . /etc/os-release; [ "$ID" != "centos" ] || systemd-analyze compare-versions "$VERSION_ID" ge 10 ) && \
             ( . /etc/os-release; [ "$ID" != "debian" ] || [ -z "${VERSION_ID:-}" ] || systemd-analyze compare-versions "$VERSION_ID" ge 13 ) && \
             ( . /etc/os-release; [ "$ID" != "ubuntu" ] || systemd-analyze compare-versions "$VERSION_ID" ge 24.04 ) && \

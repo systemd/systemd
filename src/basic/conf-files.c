@@ -130,8 +130,24 @@ static bool conf_files_need_stat(ConfFilesFlags flags) {
         return (flags & (CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR | CONF_FILES_DIRECTORY | CONF_FILES_EXECUTABLE)) != 0;
 }
 
+/* The flags handed through to chaseat() */
+#define CONF_FILES_CHASE_MASK                                           \
+        (CONF_FILES_CHASE_SAFE |                                        \
+         CONF_FILES_CHASE_DIR_0755 |                                    \
+         CONF_FILES_CHASE_DIR_0700 |                                    \
+         CONF_FILES_CHASE_FILE_0644 |                                   \
+         CONF_FILES_CHASE_FILE_0600)
+
+static ChaseFlags conf_files_extra_chase_flags(ConfFilesFlags flags) {
+        return (FLAGS_SET(flags, CONF_FILES_CHASE_SAFE) ? CHASE_SAFE : 0) |
+                (FLAGS_SET(flags, CONF_FILES_CHASE_DIR_0755) ? CHASE_DIR_0755 : 0) |
+                (FLAGS_SET(flags, CONF_FILES_CHASE_DIR_0700) ? CHASE_DIR_0700 : 0) |
+                (FLAGS_SET(flags, CONF_FILES_CHASE_FILE_0644) ? CHASE_FILE_0644 : 0) |
+                (FLAGS_SET(flags, CONF_FILES_CHASE_FILE_0600) ? CHASE_FILE_0600 : 0);
+}
+
 static ChaseFlags conf_files_chase_flags(ConfFilesFlags flags) {
-        ChaseFlags chase_flags = 0;
+        ChaseFlags chase_flags = conf_files_extra_chase_flags(flags);
 
         if (!conf_files_need_stat(flags) || FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK))
                 /* Even if no verification is requested, let's unconditionally call chaseat(),
@@ -631,7 +647,8 @@ static int conf_files_list_impl(
         root = empty_to_root(root);
 
         if (replacement) {
-                r = conf_file_new_at(replacement, root, rfd, flags & CONF_FILES_WARN, &c);
+                r = conf_file_new_at(replacement, root, rfd,
+                                     flags & (CONF_FILES_WARN|CONF_FILES_CHASE_MASK), &c);
                 if (r < 0)
                         return r;
         }
@@ -640,7 +657,7 @@ static int conf_files_list_impl(
                 _cleanup_closedir_ DIR *dir = NULL;
                 _cleanup_free_ char *path = NULL;
 
-                r = chase_and_opendirat(rfd, rfd, *p, 0, &path, &dir);
+                r = chase_and_opendirat(rfd, rfd, *p, conf_files_extra_chase_flags(flags), &path, &dir);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_full_errno(conf_files_log_level(flags), r,

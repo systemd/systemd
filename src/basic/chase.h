@@ -28,6 +28,13 @@ typedef enum ChaseFlags {
         CHASE_MUST_BE_DIRECTORY  = 1 << 13, /* Fail if returned inode fd is not a dir */
         CHASE_MUST_BE_REGULAR    = 1 << 14, /* Fail if returned inode fd is not a regular file */
         CHASE_MUST_BE_SOCKET     = 1 << 15, /* Fail if returned inode fd is not a socket */
+        CHASE_DIR_0755           = 1 << 16, /* Return -ENOLINK if a directory the walk enters does not have
+                                             * mode 0755 exactly. The root and the starting directory are
+                                             * not checked, symlinks never. */
+        CHASE_DIR_0700           = 1 << 17, /* Likewise for mode 0700 */
+        CHASE_FILE_0644          = 1 << 18, /* Return -ENOLINK if the final regular file does not have mode
+                                             * 0644 exactly */
+        CHASE_FILE_0600          = 1 << 19, /* Likewise for mode 0600 */
 } ChaseFlags;
 
 int statx_unsafe_transition(const struct statx *a, const struct statx *b);
