@@ -762,6 +762,100 @@ set -e
 [[ $rc -ne 134 ]]
 grep -F "Manifest hash at line 1 decoded to 31 bytes" "$WORKDIR/malformed-manifest/check-new.log" >/dev/null
 
+# Check that a version with some pending resources and some missing resources is
+# treated as incomplete, rather than as fully pending. Otherwise, installing the
+# pending version would try to move non-existent pending files into place.
+rm -rf "$WORKDIR/pending-missing"
+mkdir -p "$WORKDIR/pending-missing/definitions" "$WORKDIR/pending-missing/source" "$WORKDIR/pending-missing/target"
+printf 'first source\n' >"$WORKDIR/pending-missing/source/first-v1.bin"
+printf 'second source\n' >"$WORKDIR/pending-missing/source/second-v1.bin"
+printf 'first pending\n' >"$WORKDIR/pending-missing/target/.sysupdate.pending.first-v1.bin"
+cat >"$WORKDIR/pending-missing/definitions/01-first.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/pending-missing/source
+MatchPattern=first-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/pending-missing/target
+MatchPattern=first-@v.bin
+InstancesMax=2
+EOF
+cat >"$WORKDIR/pending-missing/definitions/02-second.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/pending-missing/source
+MatchPattern=second-@v.bin
+
+[Target]
+Type=regular-file
+Path=$WORKDIR/pending-missing/target
+MatchPattern=second-@v.bin
+InstancesMax=2
+EOF
+"$SYSUPDATE" --definitions="$WORKDIR/pending-missing/definitions" --verify=no --offline list v1 | grep -F "current+incomplete" >/dev/null
+(! "$SYSUPDATE" --definitions="$WORKDIR/pending-missing/definitions" --verify=no --offline update) |& grep -F "Selected update 'v1' is incomplete, refusing. Run a non-offline update to repair it." >/dev/null
+"$SYSUPDATE" --definitions="$WORKDIR/pending-missing/definitions" --verify=no --sync=no update
+printf 'first pending\n' | cmp - "$WORKDIR/pending-missing/target/first-v1.bin"
+cmp "$WORKDIR/pending-missing/source/second-v1.bin" "$WORKDIR/pending-missing/target/second-v1.bin"
+
+# Check that a pending partition in an otherwise incomplete update keeps its
+# partition information when the missing resource is acquired and installed.
+rm -rf "$WORKDIR/partition-pending-missing"
+mkdir -p "$WORKDIR/partition-pending-missing/definitions" "$WORKDIR/partition-pending-missing/source"
+PARTITION_BACKING_FILE="$BACKING_FILE"
+truncate -s $((512 * 2048 * 4 + 1024 * 1024 * 2)) "$PARTITION_BACKING_FILE"
+if [[ -e /dev/loop-control ]]; then
+    partition_blockdev="$(losetup --find --show --sector-size 512 "$PARTITION_BACKING_FILE")"
+else
+    partition_blockdev="$PARTITION_BACKING_FILE"
+fi
+sfdisk "$partition_blockdev" <<EOF
+label: gpt
+unit: sectors
+sector-size: 512
+
+size=2048, type=4f68bce3-e8cd-4db1-96e7-fbcaf984b709, name=_empty
+size=2048, type=4f68bce3-e8cd-4db1-96e7-fbcaf984b709, name=_empty
+size=2048, type=4f68bce3-e8cd-4db1-96e7-fbcaf984b709, name=_empty
+size=2048, type=4f68bce3-e8cd-4db1-96e7-fbcaf984b709, name=_empty
+EOF
+dd if=/dev/urandom of="$WORKDIR/partition-pending-missing/source/first-v1.raw" bs=512 count=2048
+dd if=/dev/urandom of="$WORKDIR/partition-pending-missing/source/second-v1.raw" bs=512 count=2048
+cat >"$WORKDIR/partition-pending-missing/definitions/01-first.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/partition-pending-missing/source
+MatchPattern=first-@v.raw
+
+[Target]
+Type=partition
+Path=$partition_blockdev
+MatchPattern=first-@v
+MatchPartitionType=root-x86-64
+EOF
+"$SYSUPDATE" --definitions="$WORKDIR/partition-pending-missing/definitions" --verify=no acquire v1
+cat >"$WORKDIR/partition-pending-missing/definitions/02-second.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$WORKDIR/partition-pending-missing/source
+MatchPattern=second-@v.raw
+
+[Target]
+Type=partition
+Path=$partition_blockdev
+MatchPattern=second-@v
+MatchPartitionType=root-x86-64
+EOF
+"$SYSUPDATE" --definitions="$WORKDIR/partition-pending-missing/definitions" --verify=no --offline list v1 | grep -F "current+incomplete" >/dev/null
+(! "$SYSUPDATE" --definitions="$WORKDIR/partition-pending-missing/definitions" --verify=no --offline update) |& grep -F "Selected update 'v1' is incomplete, refusing. Run a non-offline update to repair it." >/dev/null
+"$SYSUPDATE" --definitions="$WORKDIR/partition-pending-missing/definitions" --verify=no --sync=no update
+dd if="$partition_blockdev" bs=512 skip=2048 count=2048 | cmp "$WORKDIR/partition-pending-missing/source/first-v1.raw"
+dd if="$partition_blockdev" bs=512 skip=4096 count=2048 | cmp "$WORKDIR/partition-pending-missing/source/second-v1.raw"
+[[ ! -b "$partition_blockdev" ]] || losetup --detach "$partition_blockdev"
+rm -f "$PARTITION_BACKING_FILE"
+
 # Check the "cleanup" verb and the underlying install database. A successful
 # update must record an install database entry for every transfer that installs
 # into the file system, and those entries must cover all installed resources
