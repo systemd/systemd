@@ -341,6 +341,14 @@ SuggestOnVirtualization=!vm
     message is logged. The default component (i.e. <filename>sysupdate.d/</filename>) is always taken from
     the file system.</para>
 
+    <para>A provider may also serve the resources its transfers refer to itself, instead of pointing to a
+    web server: for that it implements the generic <constant>io.systemd.ResourceProvider</constant> Varlink
+    interface (typically on the same socket), and uses URLs of the form
+    <literal>provider:[/run/systemd/sysupdate/provider/<replaceable>name</replaceable>]/<replaceable>resource</replaceable></literal>
+    in the <varname>Path=</varname> field of the sources of its transfers, see
+    <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
+
     <para>Since the definitions of provider-backed components do not live in the file system, the
     <command>enable-component</command>, <command>disable-component</command>,
     <command>enable-feature</command> and <command>disable-feature</command> commands of

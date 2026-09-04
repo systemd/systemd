@@ -607,9 +607,9 @@ static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Has
                  * sources. That's mostly for testing, since it relieves us from having to set up a HTTP
                  * server, and CURL abstracts this away from us thankfully. */
                 if (RESOURCE_IS_URL(t->source.type))
-                        if (!http_url_is_valid(t->source.path) && !file_url_is_valid(t->source.path))
+                        if (!http_url_is_valid(t->source.path) && !file_url_is_valid(t->source.path) && !provider_url_is_valid(t->source.path))
                                 return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
-                                                  "Source path is not a valid HTTP or HTTPS URL: %s", t->source.path);
+                                                  "Source path is not a valid HTTP, HTTPS or provider URL: %s", t->source.path);
         }
 
         if (strv_isempty(t->source.patterns))
