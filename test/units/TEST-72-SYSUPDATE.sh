@@ -66,6 +66,12 @@ at_exit() {
     rm -f /run/systemd/system/test-sysupdate-notify-recorder.socket \
           /run/systemd/system/test-sysupdate-notify-recorder@.service
 
+    systemctl stop test-sysupdate-provider-a.socket test-sysupdate-provider-b.socket
+    rm -f /run/systemd/system/test-sysupdate-provider-{a,b}.socket \
+          /run/systemd/system/test-sysupdate-provider-{a,b}@.service
+    systemctl stop test-sysupdate-provider-c.service
+    rm -rf /run/systemd/sysupdate/provider /tmp/test-sysupdate-provider-c /etc/sysupdate.bonly.d /run/sysupdate.bonly.component
+
     losetup -n --output NAME --associated "$BACKING_FILE" | while read -r loop_dev; do
         losetup --detach "$loop_dev"
     done
@@ -2171,6 +2177,262 @@ test -f "$CF/target-compz/compz-v4.bin"
 varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '[.targets[] | select(.id.class == "component") | .id.name] == ["compx", "compy", "compz"]' >/dev/null
 varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets[] | select(.id.name == "compz") | .minVersion == "v2" and .protectVersion == ["v2"] and .enabled == true' >/dev/null
 varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '[.targets[] | select(.id.class != "component") | has("enabled")] | any | not' >/dev/null
+
+# ---------------------------------------------------------------------------
+# Component providers: io.systemd.SysUpdate.Provider
+# ---------------------------------------------------------------------------
+# Component definitions may also be acquired from services that bind a Varlink socket into
+# /run/systemd/sysupdate/provider/. We run two such providers via socket activation (plus a third one that
+# runs unprivileged, which is fine), all backed by a tiny Python implementation serving a JSON fixture.
+compfeat_reset
+compfeat_source v1
+compfeat_source v2
+compfeat_source v3
+for v in v1 v2 v3; do
+    for n in pcomp extra shared bonly cunpriv; do
+        echo "$n-$v-$RANDOM" >"$CF/source/$n-$v.bin"
+    done
+done
+mkdir -p "$CF/target-pcomp" "$CF/target-shared" "$CF/target-bonly" "$CF/target-cunpriv"
+
+PROVIDER_DIR=/run/systemd/sysupdate/provider
+mkdir -p "$PROVIDER_DIR"
+
+cat >"$WORKDIR/provider.py" <<'EOF'
+#!/usr/bin/env python3
+# Minimal io.systemd.SysUpdate.Provider implementation serving a JSON fixture.
+# Usage: provider.py FIXTURE [SOCKET]   (without SOCKET: serve one connection on stdin/stdout)
+import json, os, socket, sys
+
+def handle(fixture, req):
+    method = req.get("method")
+    params = req.get("parameters") or {}
+    if method == "io.systemd.SysUpdate.Provider.ListTargets":
+        return {"parameters": {"targets": fixture["targets"]}}
+    if method == "io.systemd.SysUpdate.Provider.DescribeTarget":
+        tid = params.get("id") or {}
+        d = fixture["definitions"].get(tid.get("name")) if tid.get("class") == "component" else None
+        if d is None:
+            return {"error": "io.systemd.SysUpdate.Provider.NoSuchTarget", "parameters": {}}
+        return {"parameters": d}
+    return {"error": "org.varlink.service.MethodNotFound", "parameters": {"method": method}}
+
+def serve(fixture, rfd, wfd):
+    buf = b""
+    while True:
+        c = os.read(rfd, 4096)
+        if not c:
+            return
+        buf += c
+        while b"\0" in buf:
+            msg, buf = buf.split(b"\0", 1)
+            os.write(wfd, json.dumps(handle(fixture, json.loads(msg))).encode() + b"\0")
+
+fixture = json.load(open(sys.argv[1]))
+if len(sys.argv) > 2:
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.bind(sys.argv[2])
+    s.listen(16)
+    while True:
+        conn, _ = s.accept()
+        if os.fork() == 0:
+            serve(fixture, conn.fileno(), conn.fileno())
+            os._exit(0)
+        conn.close()
+else:
+    serve(fixture, 0, 1)
+EOF
+chmod +x "$WORKDIR/provider.py"
+
+# Emit a regular-file transfer definition in JSON form, the equivalent of compfeat_transfer().
+provider_transfer() {
+    local id="${1:?}" pat="${2:?}" tgt="${3:?}" feature="${4:-}"
+    local features=""
+    if [[ -n "$feature" ]]; then
+        features=", \"features\": [\"$feature\"]"
+    fi
+    printf '{"id": "%s"%s, "source": {"type": "regular_file", "path": "%s", "matchPattern": ["%s-@v.bin"]}, "target": {"type": "regular_file", "path": "%s", "matchPattern": ["%s-@v.bin"], "instancesMax": 2}}' \
+           "$id" "$features" "$CF/source" "$pat" "$tgt" "$pat"
+}
+
+# Provider A: pcomp (capped at v2, with a disabled optional feature), shared, and compx (which also exists
+# in the file system, and must hence be taken from there).
+cat >"$WORKDIR/provider-a.json" <<EOF
+{
+  "targets": [
+    {"id": {"class": "component", "name": "pcomp"}, "description": "Provided component", "enabled": true, "suggest": true, "maxVersion": "v2"},
+    {"id": {"class": "component", "name": "shared"}, "description": "From provider A"},
+    {"id": {"class": "component", "name": "compx"}, "description": "From provider A"}
+  ],
+  "definitions": {
+    "pcomp": {
+      "target": {"id": {"class": "component", "name": "pcomp"}, "description": "Provided component", "enabled": true, "suggest": true, "maxVersion": "v2"},
+      "features": [{"id": "extra", "description": "Extra feature", "enabled": false}],
+      "transfers": [$(provider_transfer 01-main pcomp "$CF/target-pcomp"), $(provider_transfer 02-extra extra "$CF/target-pcomp" extra)]
+    },
+    "shared": {
+      "target": {"id": {"class": "component", "name": "shared"}, "description": "From provider A"},
+      "features": [],
+      "transfers": [$(provider_transfer 01-shared shared "$CF/target-shared")]
+    },
+    "compx": {
+      "target": {"id": {"class": "component", "name": "compx"}, "description": "From provider A"},
+      "features": [],
+      "transfers": [$(provider_transfer 01-compx compx "$CF/target-compx")]
+    }
+  }
+}
+EOF
+# Provider B: shared (loses against A, whose socket name sorts first) and bonly.
+cat >"$WORKDIR/provider-b.json" <<EOF
+{
+  "targets": [
+    {"id": {"class": "component", "name": "shared"}, "description": "From provider B"},
+    {"id": {"class": "component", "name": "bonly"}}
+  ],
+  "definitions": {
+    "shared": {
+      "target": {"id": {"class": "component", "name": "shared"}, "description": "From provider B"},
+      "features": [],
+      "transfers": [$(provider_transfer 01-shared shared "$CF/target-shared")]
+    },
+    "bonly": {
+      "target": {"id": {"class": "component", "name": "bonly"}},
+      "features": [],
+      "transfers": [$(provider_transfer 01-bonly bonly "$CF/target-bonly")]
+    }
+  }
+}
+EOF
+# Provider C: runs unprivileged, and just contributes one more component.
+cat >"$WORKDIR/provider-c.json" <<EOF
+{
+  "targets": [{"id": {"class": "component", "name": "cunpriv"}}],
+  "definitions": {
+    "cunpriv": {"target": {"id": {"class": "component", "name": "cunpriv"}}, "features": [], "transfers": [$(provider_transfer 01-cunpriv cunpriv "$CF/target-cunpriv")]}
+  }
+}
+EOF
+
+for p in a b; do
+    cat >"/run/systemd/system/test-sysupdate-provider-$p.socket" <<EOF
+[Socket]
+ListenStream=$PROVIDER_DIR/io.test.Provider${p^^}
+Accept=yes
+EOF
+    cat >"/run/systemd/system/test-sysupdate-provider-$p@.service" <<EOF
+[Service]
+ExecStart=$WORKDIR/provider.py $WORKDIR/provider-$p.json
+StandardInput=socket
+StandardOutput=socket
+EOF
+done
+systemctl daemon-reload
+systemctl start test-sysupdate-provider-a.socket test-sysupdate-provider-b.socket
+
+# The unprivileged provider listens elsewhere, root symlinks its socket into the directory.
+mkdir -p /tmp/test-sysupdate-provider-c
+install -m 0755 "$WORKDIR/provider.py" /tmp/test-sysupdate-provider-c/provider.py
+install -m 0644 "$WORKDIR/provider-c.json" /tmp/test-sysupdate-provider-c/fixture.json
+chmod 0777 /tmp/test-sysupdate-provider-c
+systemd-run --unit=test-sysupdate-provider-c --uid=nobody --gid=nobody \
+    /tmp/test-sysupdate-provider-c/provider.py /tmp/test-sysupdate-provider-c/fixture.json /tmp/test-sysupdate-provider-c/sock
+timeout 10 bash -c 'until test -S /tmp/test-sysupdate-provider-c/sock; do sleep .1; done'
+ln -s /tmp/test-sysupdate-provider-c/sock "$PROVIDER_DIR/io.test.ProviderC"
+
+# compx exists in the file system as well; that definition must win over provider A's.
+mkdir -p /run/sysupdate.compx.d
+compfeat_transfer /run/sysupdate.compx.d/01-compx.transfer compx "$CF/target-compx"
+cat >/run/sysupdate.compx.component <<EOF
+[Component]
+Description=From the file system
+EOF
+
+# The component list is the union of file system and providers.
+"$SYSUPDATE" --json=short components | jq -e '.components == ["bonly", "compx", "cunpriv", "pcomp", "shared"]' >/dev/null
+"$SYSUPDATE" --json=short components | jq -e '.providers == {"pcomp": "io.test.ProviderA", "shared": "io.test.ProviderA", "bonly": "io.test.ProviderB", "cunpriv": "io.test.ProviderC"}' >/dev/null
+"$SYSUPDATE" --json=short components | jq -e '.details[] | select(.name == "compx") | .description == "From the file system"' >/dev/null
+"$SYSUPDATE" --json=short components | jq -e '.details[] | select(.name == "shared") | .description == "From provider A"' >/dev/null
+"$SYSUPDATE" --json=short components | jq -e '.details[] | select(.name == "pcomp") | .maxVersion == "v2" and .suggest == true' >/dev/null
+"$SYSUPDATE" --no-legend components | grep -F "Provided component" >/dev/null
+varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets | map(.id.name) | index("pcomp") != null and index("bonly") != null and index("cunpriv") != null' >/dev/null
+varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets[] | select(.id.name == "pcomp") | .maxVersion == "v2" and .suggest == true' >/dev/null
+
+# Providers are only consulted when operating on the host.
+"$SYSUPDATE" --root=/ --json=short components | jq -e '.components == ["compx"] and (has("providers") | not)' >/dev/null
+
+# An existing but empty directory in the file system defines nothing, hence the provider's definition is
+# still used for the component.
+mkdir -p /etc/sysupdate.bonly.d
+"$SYSUPDATE" --json=short components | jq -e '.components == ["bonly", "compx", "cunpriv", "pcomp", "shared"] and .providers.bonly == "io.test.ProviderB"' >/dev/null
+"$SYSUPDATE" --component=bonly --verify=no list | grep -E "v3 .*candidate" >/dev/null
+rmdir /etc/sysupdate.bonly.d
+# A component file on its own is a definition in the file system though, and hence masks the provider's.
+echo "[Component]" >/run/sysupdate.bonly.component
+"$SYSUPDATE" --json=short components | jq -e '.components == ["bonly", "compx", "cunpriv", "pcomp", "shared"] and (.providers | has("bonly") | not)' >/dev/null
+(! "$SYSUPDATE" --component=bonly --verify=no list) |& grep -F "No transfer definitions" >/dev/null
+rm -f /run/sysupdate.bonly.component
+
+# The provider-supplied definition is used like one from the file system, including MaxVersion= and
+# optional features.
+"$SYSUPDATE" --component=pcomp --verify=no list | grep -E "v3 .*available\+too-new" >/dev/null
+"$SYSUPDATE" --component=pcomp features | grep -F "Extra feature" >/dev/null
+"$SYSUPDATE" --component=pcomp --verify=no update
+test -f "$CF/target-pcomp/pcomp-v2.bin"
+test ! -e "$CF/target-pcomp/pcomp-v3.bin"
+test ! -e "$CF/target-pcomp/extra-v2.bin"   # feature disabled
+"$SYSUPDATE" --component=shared --verify=no update
+test -f "$CF/target-shared/shared-v3.bin"
+
+# The enablement state of provider-backed components and their features lives with the provider.
+(! "$SYSUPDATE" enable-component pcomp) |& grep -F "cannot change its enablement state" >/dev/null
+(! "$SYSUPDATE" --component=pcomp enable-feature extra) |& grep -F "cannot change the enablement state" >/dev/null
+test ! -e "$(feat_enable_dropin_comp pcomp extra)"
+# ... while in the "all" modes they are skipped, and the file system components are still handled.
+"$SYSUPDATE" --component-all disable-component
+assert_dropin "$(comp_enable_dropin compx)" no
+test ! -e "$(comp_enable_dropin pcomp)"
+"$SYSUPDATE" --component-all enable-component
+"$SYSUPDATE" --component-all enable-feature --feature-all
+
+# update --component-all covers provider-backed components too, including the unprivileged provider's.
+"$SYSUPDATE" --component-all --verify=no update
+test -f "$CF/target-bonly/bonly-v3.bin"
+test -f "$CF/target-compx/compx-v3.bin"
+test -f "$CF/target-cunpriv/cunpriv-v3.bin"
+
+if [[ -x "$SYSUPDATED" ]]; then
+    systemctl start systemd-sysupdated
+    updatectl list | grep -F "pcomp" >/dev/null
+fi
+
+# A provider that fails to answer must not make its components look removed: cleanup must leave the
+# installed files alone (and fail), and only proceed once the provider answers again.
+installdb_count_pcomp() { find /var/lib/systemd/sysupdate/installdb.pcomp -mindepth 1 -maxdepth 1 -type l 2>/dev/null | wc -l; }
+[[ "$(installdb_count_pcomp)" -ge 1 ]]
+mv "$WORKDIR/provider-a.json" "$WORKDIR/provider-a.json.bak"   # makes the service die without replying
+(! "$SYSUPDATE" cleanup --component-all)
+test -f "$CF/target-pcomp/pcomp-v2.bin"
+[[ "$(installdb_count_pcomp)" -ge 1 ]]
+(! "$SYSUPDATE" --component=pcomp --verify=no update)
+(! "$SYSUPDATE" --component-all --verify=no --cleanup=yes update)
+test -f "$CF/target-pcomp/pcomp-v2.bin"
+mv "$WORKDIR/provider-a.json.bak" "$WORKDIR/provider-a.json"
+"$SYSUPDATE" cleanup --component-all
+test -f "$CF/target-pcomp/pcomp-v2.bin"
+# Once the provider properly denies knowing the component, cleanup removes what's left of it.
+jq 'del(.targets[] | select(.id.name == "pcomp")) | del(.definitions.pcomp)' "$WORKDIR/provider-a.json" >"$WORKDIR/provider-a.json.new"
+mv "$WORKDIR/provider-a.json.new" "$WORKDIR/provider-a.json"
+"$SYSUPDATE" --json=short components | jq -e '.components == ["bonly", "compx", "cunpriv", "shared"]' >/dev/null
+"$SYSUPDATE" cleanup --component-all
+test ! -e "$CF/target-pcomp/pcomp-v2.bin"
+[[ "$(installdb_count_pcomp)" -eq 0 ]]
+
+systemctl stop test-sysupdate-provider-a.socket test-sysupdate-provider-b.socket test-sysupdate-provider-c.service
+rm -f /run/systemd/system/test-sysupdate-provider-{a,b}.socket /run/systemd/system/test-sysupdate-provider-{a,b}@.service
+systemctl daemon-reload
+rm -rf "$PROVIDER_DIR" /tmp/test-sysupdate-provider-c /run/sysupdate.compx.component
+rm -f "$WORKDIR/provider.py" "$WORKDIR"/provider-*.json
 
 compfeat_cleanup
 restore_machine_info
