@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "condition.h"
 #include "conf-parser.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
 #include "string-util.h"
@@ -58,6 +59,7 @@ int component_read_definition(Component *c, const char *name, const char *root) 
                 {}
         };
 
+        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
         r = config_parse_standard_file_with_dropins_full(
                         root,
                         /* root_fd= */ -EBADF,
@@ -66,12 +68,13 @@ int component_read_definition(Component *c, const char *name, const char *root) 
                         config_item_table_lookup, table,
                         CONFIG_PARSE_WARN,
                         /* userdata= */ (void *) root,
-                        /* ret_stats_by_path= */ NULL,
+                        &stats_by_path,
                         /* ret_dropin_files= */ NULL);
         if (r < 0)
                 return r;
 
-        return 0;
+        /* Returns > 0 if a definition file (or drop-in) was found */
+        return !hashmap_isempty(stats_by_path);
 }
 
 int component_is_suggested(const Component *c) {

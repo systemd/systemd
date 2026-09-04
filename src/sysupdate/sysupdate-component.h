@@ -26,7 +26,7 @@ typedef struct Component {
 
 void component_done(Component *c);
 
-int component_read_definition(Component *c, const char *name, const char *root);
+int component_read_definition(Component *c, const char *name, const char *root); /* returns > 0 if a file was found */
 
 int component_is_suggested(const Component *c);
 

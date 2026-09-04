@@ -47,6 +47,7 @@
 #include "sysupdate-config.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
+#include "sysupdate-provider.h"
 #include "sysupdate-target.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
@@ -116,6 +117,8 @@ void context_done(Context *c) {
         c->n_disabled_transfers = 0;
 
         c->features = hashmap_free(c->features);
+        c->provider_components = hashmap_free(c->provider_components);
+        c->component_provider = mfree(c->component_provider);
 
         FOREACH_ARRAY(us, c->update_sets, c->n_update_sets)
                 update_set_free(*us);
@@ -349,6 +352,86 @@ static int read_transfers(
         return 0;
 }
 
+static bool context_operates_on_host(const Context *c) {
+        assert(c);
+
+        /* Component providers describe the running system, hence only consult them if we operate on the
+         * host, and not when an explicit definitions directory was specified. */
+        return !c->root && !c->image && !c->definitions;
+}
+
+static int context_read_definitions_from_provider(Context *c, const char *node) {
+        int r;
+
+        assert(c);
+        assert(c->component);
+
+        /* Acquires the definition of the component we operate on from a component provider, the equivalent
+         * of read_component(), read_features() and read_transfers() for the file system. Returns 0 if no
+         * provider offers the component, > 0 if the definition was loaded. */
+
+        _cleanup_free_ char *provider = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *target = NULL, *features = NULL, *transfers = NULL;
+        r = provider_describe_component(c->component, &provider, &target, &features, &transfers);
+        if (r == -ENOENT) {
+                log_debug("No component provider offers component '%s'.", c->component);
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *origin = path_join(VARLINK_DIR_SYSUPDATE_PROVIDER, provider);
+        if (!origin)
+                return log_oom();
+
+        r = component_from_json(&c->component_info, target, origin);
+        if (r < 0)
+                return r;
+
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, features) {
+                _cleanup_(feature_unrefp) Feature *f = feature_new();
+                if (!f)
+                        return log_oom();
+
+                r = feature_from_json(f, e, origin);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_ensure_put(&c->features, &feature_hash_ops, f->id, f);
+                if (r == -EEXIST)
+                        return log_error_errno(r, "Feature '%s' of component '%s' defined more than once by provider '%s', refusing.", f->id, c->component, provider);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to insert feature '%s' into map: %m", f->id);
+
+                TAKE_PTR(f);
+        }
+
+        JSON_VARIANT_ARRAY_FOREACH(e, transfers) {
+                _cleanup_(transfer_freep) Transfer *t = transfer_new(c);
+                if (!t)
+                        return log_oom();
+
+                r = transfer_from_json(t, e, origin, c->features);
+                if (r < 0)
+                        return r;
+
+                r = transfer_resolve_paths(t, c->root, node);
+                if (r < 0)
+                        return r;
+
+                r = context_add_transfer(c, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
+        }
+
+        log_debug("Loaded definition of component '%s' from provider '%s'.", c->component, provider);
+
+        c->component_provider = TAKE_PTR(provider);
+        return 1;
+}
+
 static int read_component(Context *c) {
         assert(c);
 
@@ -398,6 +481,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
         r = read_component(c);
         if (r < 0)
                 return r;
+        bool component_file_found = r > 0;
 
         r = read_features(c, (const char**) dirs);
         if (r < 0)
@@ -415,6 +499,17 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
 
                 if (c->n_transfers + c->n_disabled_transfers > 0)
                         log_warning("As of v257, transfer definitions should have the '.transfer' extension.");
+        }
+
+        /* If the file system defines nothing for the component (i.e. we loaded neither a component file
+         * nor any feature or transfer definitions above), ask the component providers. */
+        if (c->component && context_operates_on_host(c) &&
+            !component_file_found &&
+            hashmap_isempty(c->features) &&
+            c->n_transfers + c->n_disabled_transfers == 0) {
+                r = context_read_definitions_from_provider(c, node);
+                if (r < 0)
+                        return r;
         }
 
         if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS) &&
@@ -2322,6 +2417,11 @@ static int context_enable_feature(
                 return 0;
         }
 
+        if (c->component_provider)
+                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                       "Component '%s' is provided by '%s', cannot change the enablement state of its features from the file system.",
+                                       c->component, c->component_provider);
+
         _cleanup_free_ char *dropin_dir = NULL;
         r = make_dropin_dir(c, &dropin_dir);
         if (r < 0)
@@ -2435,6 +2535,12 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
                                         /* read_definitions_flags= */ 0);
                         if (r < 0) {
                                 RET_GATHER(ret, r);
+                                continue;
+                        }
+
+                        if (cc.component_provider) {
+                                log_notice("Component '%s' is provided by '%s', skipping since the enablement state of its features cannot be changed from the file system.",
+                                           *name, cc.component_provider);
                                 continue;
                         }
 
@@ -2907,6 +3013,12 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
                                         &component_context,
                                         /* process_image_flags= */ 0,
                                         /* read_definitions_flags= */ 0);
+                        if (r == -EHOSTUNREACH) {
+                                /* We cannot tell whether the component still exists, hence better not
+                                 * clean up after it, but continue with the other components. */
+                                RET_GATHER(ret, r);
+                                continue;
+                        }
                         if (r < 0)
                                 return r;
 
@@ -2999,6 +3111,33 @@ static int context_list_components(Context *context, char ***ret_component_names
         if (r < 0)
                 return r;
 
+        if (ret_component_names && context_operates_on_host(context)) {
+                ProviderComponent *pc;
+
+                /* Also ask the component providers, but only once per context */
+                if (!context->provider_components_loaded) {
+                        r = provider_list_components(&context->provider_components);
+                        if (r < 0)
+                                return r;
+
+                        context->provider_components_loaded = true;
+
+                        /* Components defined in the file system take precedence over those offered by providers */
+                        HASHMAP_FOREACH(pc, context->provider_components)
+                                if (strv_contains(z, pc->name)) {
+                                        log_debug("Component '%s' is defined in the file system, ignoring the definition offered by provider '%s'.",
+                                                  pc->name, pc->provider);
+                                        provider_component_free(hashmap_remove(context->provider_components, pc->name));
+                                }
+                }
+
+                HASHMAP_FOREACH(pc, context->provider_components)
+                        if (strv_extend(&z, pc->name) < 0)
+                                return log_oom();
+
+                strv_sort(z);
+        }
+
         if (ret_component_names)
                 *ret_component_names = TAKE_PTR(z);
 
@@ -3023,7 +3162,7 @@ static int context_component_is_suggested(Context *c) {
         return component_is_suggested(&c->component_info);
 }
 
-static int context_component_to_json(Context *base, const char *name, sd_json_variant **ret) {
+static int context_component_to_json(Context *base, const char *name, sd_json_variant **ret, char **ret_provider) {
         _cleanup_(context_done) Context cc = CONTEXT_NULL;
         int r;
 
@@ -3032,7 +3171,8 @@ static int context_component_to_json(Context *base, const char *name, sd_json_va
         assert(ret);
 
         /* Loads the specified component in a sub-context of the specified base context, and serializes its
-         * metadata. If the component fails to load, returns 0 with the result set to NULL. */
+         * metadata. If the component fails to load, returns 0 with the result set to NULL. Optionally, also
+         * returns the name of the provider the component was loaded from, if any. */
 
         r = context_from_base_with_component(base, name, &cc);
         if (r < 0)
@@ -3047,26 +3187,42 @@ static int context_component_to_json(Context *base, const char *name, sd_json_va
         if (r < 0) {
                 log_debug_errno(r, "Failed to load component '%s', not reporting its metadata: %m", name);
                 *ret = NULL;
+                if (ret_provider)
+                        *ret_provider = NULL;
                 return 0;
         }
 
-        return component_to_json(&cc.component_info, ret);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = component_to_json(&cc.component_info, &v);
+        if (r < 0)
+                return r;
+
+        if (ret_provider) {
+                r = strdup_to(ret_provider, cc.component_provider);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
 }
 
-static int context_components_to_json(Context *base, char **component_names, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
+static int context_components_to_json(Context *base, char **component_names, sd_json_variant **ret, sd_json_variant **ret_providers) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL, *providers = NULL;
         int r;
 
         assert(base);
         assert(ret);
 
         /* Serializes the metadata of each of the specified components into an array, each object carrying
-         * the component's name. Components that fail to load are skipped. */
+         * the component's name. Components that fail to load are skipped. Optionally, also returns an object
+         * mapping the names of the components loaded from a provider to the provider's name. */
 
         STRV_FOREACH(i, component_names) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_free_ char *provider = NULL;
 
-                r = context_component_to_json(base, *i, &v);
+                r = context_component_to_json(base, *i, &v, &provider);
                 if (r < 0)
                         return r;
                 if (!v)
@@ -3079,6 +3235,12 @@ static int context_components_to_json(Context *base, char **component_names, sd_
                 r = sd_json_variant_append_array(&l, v);
                 if (r < 0)
                         return log_oom();
+
+                if (provider) {
+                        r = sd_json_variant_set_field_string(&providers, *i, provider);
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         if (!l) {
@@ -3086,6 +3248,9 @@ static int context_components_to_json(Context *base, char **component_names, sd_
                 if (r < 0)
                         return log_oom();
         }
+
+        if (ret_providers)
+                *ret_providers = TAKE_PTR(providers);
 
         *ret = TAKE_PTR(l);
         return 0;
@@ -3197,15 +3362,16 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
                 return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *details = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *details = NULL, *providers = NULL;
 
-                r = context_components_to_json(&context, component_names, &details);
+                r = context_components_to_json(&context, component_names, &details, &providers);
                 if (r < 0)
                         return r;
 
                 r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
                                           SD_JSON_BUILD_PAIR_STRV("components", component_names),
-                                          SD_JSON_BUILD_PAIR_VARIANT("details", details));
+                                          SD_JSON_BUILD_PAIR_VARIANT("details", details),
+                                          JSON_BUILD_PAIR_VARIANT_NON_NULL("providers", providers));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -3272,7 +3438,7 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
                 if (target_identifier->class == TARGET_COMPONENT) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *component = NULL;
 
-                        r = context_component_to_json(&context, target_identifier->name, &component);
+                        r = context_component_to_json(&context, target_identifier->name, &component, /* ret_provider= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -3357,14 +3523,34 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
         switch (context.component_select) {
 
         case SELECT_EXPLICIT:
-                STRV_FOREACH(name, arguments)
+                STRV_FOREACH(name, arguments) {
                         if (!strv_contains(component_names, *name))
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Component not found: %s", *name);
+
+                        ProviderComponent *pc = hashmap_get(context.provider_components, *name);
+                        if (pc)
+                                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                                       "Component '%s' is provided by '%s', cannot change its enablement state from the file system.",
+                                                       *name, pc->provider);
+                }
                 break;
 
         case SELECT_ALL:
                 assert(!arguments);
-                arguments = component_names;
+
+                STRV_FOREACH(name, component_names) {
+                        ProviderComponent *pc = hashmap_get(context.provider_components, *name);
+                        if (pc) {
+                                log_notice("Component '%s' is provided by '%s', skipping since its enablement state cannot be changed from the file system.",
+                                           *name, pc->provider);
+                                continue;
+                        }
+
+                        if (strv_extend(&suggested, *name) < 0)
+                                return log_oom();
+                }
+
+                arguments = suggested;
                 break;
 
         case SELECT_SUGGESTED:
@@ -3390,6 +3576,12 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
                         }
                         if (r == 0) {
                                 log_debug("Component '%s' is not suggested, skipping.", *name);
+                                continue;
+                        }
+
+                        if (cc.component_provider) {
+                                log_notice("Component '%s' is provided by '%s', skipping since its enablement state cannot be changed from the file system.",
+                                           *name, cc.component_provider);
                                 continue;
                         }
 
