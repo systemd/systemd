@@ -426,26 +426,68 @@ int in_addr_prefix_range(
                 union in_addr_union *ret_start,
                 union in_addr_union *ret_end) {
 
-        union in_addr_union start, end;
         int r;
+
+        /* Note, on overflow, e.g. input is 255.255.255.255, then ret_end will be a NULL address. */
 
         assert(in);
 
-        if (!IN_SET(family, AF_INET, AF_INET6))
+        switch (family) {
+        case AF_INET:
+                if (prefixlen > 32)
+                        return -EINVAL;
+                break;
+        case AF_INET6:
+                if (prefixlen > 128)
+                        return -EINVAL;
+                break;
+        default:
                 return -EAFNOSUPPORT;
-
-        if (ret_start) {
-                start = *in;
-                r = in_addr_prefix_nth(family, &start, prefixlen, 0);
-                if (r < 0)
-                        return r;
         }
 
-        if (ret_end) {
-                end = *in;
-                r = in_addr_prefix_nth(family, &end, prefixlen, 1);
-                if (r < 0)
-                        return r;
+        if (prefixlen == 0) {
+                /* shortcut for trivial case */
+                if (ret_start)
+                        *ret_start = IN_ADDR_NULL;
+                if (ret_end)
+                        *ret_end = IN_ADDR_NULL;
+                return 0;
+        }
+
+        union in_addr_union start = *in;
+        r = in_addr_mask(family, &start, prefixlen);
+        if (r < 0)
+                return r;
+
+        union in_addr_union end;
+        switch (family) {
+        case AF_INET: {
+                uint32_t n = be32toh(start.in.s_addr);
+                uint32_t x = UINT32_C(1) << (32 - prefixlen);
+                if (x > UINT32_MAX - n)
+                        end = IN_ADDR_NULL;
+                else
+                        end = (union in_addr_union) {
+                                .in.s_addr = htobe32(n + x),
+                        };
+                break;
+        }
+        case AF_INET6: {
+                end = start;
+
+                uint8_t add = UINT8_C(1) << ((128 - prefixlen) % 8);
+                for (unsigned i = DIV_ROUND_UP(prefixlen, 8); i-- > 0;)
+                        if (add > UINT8_MAX - end.in6.s6_addr[i]) {
+                                end.in6.s6_addr[i] = 0;
+                                add = 1;
+                        } else {
+                                end.in6.s6_addr[i] += add;
+                                break;
+                        }
+                break;
+        }
+        default:
+                assert_not_reached();
         }
 
         if (ret_start)
