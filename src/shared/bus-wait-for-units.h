@@ -26,6 +26,11 @@ typedef enum BusWaitForUnitsFlags {
  * ownership of its contents via TAKE_STRUCT(). */
 typedef void (*bus_wait_for_units_unit_callback_t)(BusWaitForUnits *d, const char *unit, bool good, UnitResult *result, void *userdata);
 
+/* Invoked once all asynchronous setup operations completed, i.e. once we are subscribed to all relevant
+ * signals and have retrieved the initial state of all units added so far. From that point on no relevant state
+ * change will go unnoticed. */
+typedef void (*bus_wait_for_units_ready_callback_t)(BusWaitForUnits *d, void *userdata);
+
 int bus_wait_for_units_new(sd_bus *bus, BusWaitForUnits **ret);
 
 BusWaitForUnits* bus_wait_for_units_free(BusWaitForUnits *d);
@@ -36,6 +41,11 @@ int bus_wait_for_units_add_unit(
                 const char *unit,
                 BusWaitForUnitsFlags flags,
                 bus_wait_for_units_unit_callback_t callback,
+                void *userdata);
+
+void bus_wait_for_units_set_ready_callback(
+                BusWaitForUnits *d,
+                bus_wait_for_units_ready_callback_t callback,
                 void *userdata);
 
 int bus_wait_for_units_run(BusWaitForUnits *d);
