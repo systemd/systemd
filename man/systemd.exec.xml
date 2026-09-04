@@ -1672,6 +1672,12 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         flag without a destination symlink, the second parameter can be empty, for example:
         <programlisting>ConfigurationDirectory=foo::ro</programlisting></para>
 
+        <para>Because <literal>:</literal> separates the parameters, a directory name that contains a
+        literal colon must have it escaped as <literal>\:</literal>. Note that when these settings are
+        passed over D-Bus when creating a transient unit instead, for example with
+        <command>systemd-run --property=</command>, the value is unescaped once more by the client, so a
+        literal colon requires <literal>\\:</literal> there.</para>
+
         <para>The directories defined by these options are always created under the standard paths used by systemd
         (<filename>/var/</filename>, <filename>/run/</filename>, <filename>/etc/</filename>, …). If the service needs
         directories in a different location, a different mechanism has to be used to create them.</para>

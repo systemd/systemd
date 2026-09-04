@@ -18,7 +18,8 @@ at_exit() {
     set +e
 
     systemctl --user stop test-execdir-flags.service
-    rm -fr "$HOME"/.local/state/waldo
+    rm -fr "$HOME"/.config/corge "$HOME"/.config/link "$HOME"/.config/quux* \
+           "$HOME"/.local/state/bar "$HOME"/.local/state/private "$HOME"/.local/state/waldo
 }
 
 trap at_exit EXIT
@@ -76,9 +77,25 @@ test -L "$HOME"/.local/state/bar
 rm "$HOME"/.local/state/foo
 rmdir "$HOME"/.config/foo
 
+# ConfigurationDirectory= accepts the flags field too, but no symlink destination
+( ! systemd-run --user -p ConfigurationDirectory=quux::ro --wait bash -c "echo foo >$HOME/.config/quux/baz")
+test -d "$HOME"/.config/quux
+( ! test -f "$HOME"/.config/quux/baz)
+( ! systemd-run --user -p ConfigurationDirectory=quux:link --wait true)
+
+# A 'private' source is refused by the manager
+( ! systemd-run --user -p StateDirectory=private/waldo::ro --wait true)
+( ! test -e "$HOME"/.local/state/private)
+
+# An empty assignment resets the list, so nothing is created below
+systemd-run --user -p ConfigurationDirectory=corge -p ConfigurationDirectory= --wait true
+( ! test -e "$HOME"/.config/corge)
+
 # A flags field without a symlink destination must round-trip through the transient
 # unit, i.e. it must not end up serialized with a literal "(null)" destination
-systemd-run --user --unit=test-execdir-flags -p StateDirectory=waldo::ro sleep infinity
+systemd-run --user --unit=test-execdir-flags -p StateDirectory=waldo::ro -p ConfigurationDirectory=quux::ro sleep infinity
 systemctl --user cat test-execdir-flags.service | grep "^StateDirectory=waldo::ro$" >/dev/null
+systemctl --user cat test-execdir-flags.service | grep "^ConfigurationDirectory=quux::ro$" >/dev/null
 systemctl --user daemon-reload
 assert_eq "$(systemctl --user show -P StateDirectorySymlink test-execdir-flags.service)" "waldo::ro"
+assert_eq "$(systemctl --user show -P ConfigurationDirectorySymlink test-execdir-flags.service)" "quux::ro"
