@@ -29,8 +29,7 @@ bool ratelimit_below_at(RateLimit *rl, usec_t ts) {
 bool ratelimit_below(RateLimit *rl) {
         assert(rl);
 
-        /* Don't read the clock if we are not going to use it. */
-        if (!ratelimit_configured(rl))
+        if (!ratelimit_configured(rl)) /* Don't read the clock if we won't use it */
                 return true;
 
         return ratelimit_below_at(rl, now(CLOCK_BOOTTIME));

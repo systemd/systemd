@@ -1140,9 +1140,8 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         if (r < 0)
                 return r;
 
-        /* Read the clock once for the whole sweep: next_beyond_location() rate-limits its tail timestamp
-         * refresh, and doing that per file means one clock read per file for every single entry we
-         * iterate over. */
+        /* Read the clock once for the whole sweep: next_beyond_location() rate-limits its tail
+         * timestamp refresh, which would otherwise be one clock read per file for every entry. */
         usec_t ts = now(CLOCK_BOOTTIME);
 
         FOREACH_ARRAY(_f, files, n_files) {
