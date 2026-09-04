@@ -42,6 +42,11 @@ typedef struct WaitForItem {
          * because we might have missed state changes in the meantime. */
         bool requery:1;
 
+        /* Set while the PropertiesChanged match installation resp. the GetAll() query are in progress, see
+         * BusWaitForUnits.n_pending */
+        bool pending_match:1;
+        bool pending_query:1;
+
         UnitResult result;
 } WaitForItem;
 
@@ -59,7 +64,39 @@ typedef struct BusWaitForUnits {
         bool has_failed:1;
         bool subscribed:1;  /* We successfully called Subscribe(), hence we should Unsubscribe() when done */
         bool reloading:1;   /* The service manager is currently reloading/reexecuting */
+        bool ready:1;       /* All asynchronous setup operations completed at least once */
+
+        /* Number of asynchronous setup operations (signal match installations, Subscribe(), initial GetAll()
+         * queries) that are still in progress. Once this drops to zero we consider ourselves fully set up,
+         * i.e. we'll get told about any relevant change from then on, and invoke the ready callback. */
+        unsigned n_pending;
+        bus_wait_for_units_ready_callback_t ready_callback;
+        void *ready_userdata;
 } BusWaitForUnits;
+
+static void bus_wait_for_units_pending_inc(BusWaitForUnits *d) {
+        assert(d);
+
+        d->n_pending++;
+}
+
+static void bus_wait_for_units_pending_dec(BusWaitForUnits *d) {
+        assert(d);
+        assert(d->n_pending > 0);
+
+        d->n_pending--;
+
+        if (d->n_pending > 0 || d->ready)
+                return;
+
+        if (!d->bus) /* Disconnected or being torn down? Then don't bother. */
+                return;
+
+        d->ready = true;
+
+        if (d->ready_callback)
+                d->ready_callback(d, d->ready_userdata);
+}
 
 static WaitForItem* wait_for_item_free(WaitForItem *item) {
         int r;
@@ -84,6 +121,13 @@ static WaitForItem* wait_for_item_free(WaitForItem *item) {
                 }
 
                 assert_se(hashmap_remove_value(item->parent->items, item->bus_path, item));
+
+                /* If we are freed while setup operations are still in progress, their callbacks will never
+                 * be called, hence account for them here. */
+                if (item->pending_match)
+                        bus_wait_for_units_pending_dec(item->parent);
+                if (item->pending_query)
+                        bus_wait_for_units_pending_dec(item->parent);
         }
 
         sd_bus_slot_unref(item->slot_properties_changed);
@@ -323,43 +367,56 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
 
 static int on_get_all_properties(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         WaitForItem *item = ASSERT_PTR(userdata);
+        BusWaitForUnits *d = ASSERT_PTR(item->parent);
         const sd_bus_error *e;
         int r;
+
+        /* Note that we only decrease the pending counter at the very end of this function, since doing so
+         * might invoke the ready callback, which might free the item (or even the whole object). Hence
+         * don't touch the item anymore after that. */
+        bool was_pending = item->pending_query;
+        item->pending_query = false;
 
         e = sd_bus_message_get_error(m);
         if (e) {
                 r = sd_bus_error_get_errno(e);
 
-                if (item->parent->reloading) {
+                if (d->reloading) {
                         /* The service manager is reloading or reexecuting right now, and might have dropped
                          * our request on the floor. Let's try again once it is done. */
                         log_debug_errno(r, "GetAll() failed for %s while service manager is reloading, retrying later: %s",
                                         item->bus_path, bus_error_message(e, r));
                         item->requery = true;
-                        return 0;
+                        goto finish;
                 }
 
                 log_debug_errno(r, "GetAll() failed for %s: %s",
                                 item->bus_path, bus_error_message(e, r));
 
                 wait_for_item_fail(item);
-                return 0;
+                goto finish;
         }
 
         r = wait_for_item_parse_properties(item, m);
         if (r < 0)
                 log_debug_errno(r, "Failed to process GetAll method reply: %m");
 
+finish:
+        if (was_pending)
+                bus_wait_for_units_pending_dec(d);
+
         return 0;
 }
 
 static int wait_for_item_query(WaitForItem *item) {
+        int r;
+
         assert(item);
         assert(item->parent);
 
         item->slot_get_all = sd_bus_slot_unref(item->slot_get_all);
 
-        return sd_bus_call_method_async(
+        r = sd_bus_call_method_async(
                         item->parent->bus,
                         &item->slot_get_all,
                         "org.freedesktop.systemd1",
@@ -369,6 +426,49 @@ static int wait_for_item_query(WaitForItem *item) {
                         on_get_all_properties,
                         item,
                         "s", FLAGS_SET(item->flags, BUS_WAIT_FOR_MAINTENANCE_END) ? NULL : "org.freedesktop.systemd1.Unit");
+        if (r < 0)
+                return r;
+
+        if (!item->pending_query) {
+                item->pending_query = true;
+                bus_wait_for_units_pending_inc(item->parent);
+        }
+
+        return 0;
+}
+
+static int on_item_match_installed(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+        WaitForItem *item = ASSERT_PTR(userdata);
+        const sd_bus_error *e;
+
+        assert(m);
+
+        e = sd_bus_message_get_error(m);
+        if (e)
+                log_debug_errno(sd_bus_error_get_errno(e), "Failed to install PropertiesChanged match for %s, ignoring: %s",
+                                item->bus_path, bus_error_message(e, 0));
+
+        if (item->pending_match) {
+                item->pending_match = false;
+                bus_wait_for_units_pending_dec(item->parent);
+        }
+
+        return 0;
+}
+
+static int on_match_installed(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+        BusWaitForUnits *d = ASSERT_PTR(userdata);
+        const sd_bus_error *e;
+
+        assert(m);
+
+        e = sd_bus_message_get_error(m);
+        if (e)
+                log_debug_errno(sd_bus_error_get_errno(e), "Failed to install signal match, ignoring: %s",
+                                bus_error_message(e, 0));
+
+        bus_wait_for_units_pending_dec(d);
+        return 0;
 }
 
 static int on_unit_new(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
@@ -498,11 +598,10 @@ static int on_subscribe(sd_bus_message *m, void *userdata, sd_bus_error *reterr_
                         log_debug_errno(r, "Failed to subscribe to service manager signals, ignoring: %s",
                                         bus_error_message(e, r));
                 }
+        } else
+                d->subscribed = true;
 
-                return 0;
-        }
-
-        d->subscribed = true;
+        bus_wait_for_units_pending_dec(d);
         return 0;
 }
 
@@ -533,17 +632,27 @@ int bus_wait_for_units_new(sd_bus *bus, BusWaitForUnits **ret) {
         if (r < 0)
                 return r;
 
-        r = bus_match_signal_async(bus, &d->slot_unit_new, bus_systemd_mgr, "UnitNew", on_unit_new, NULL, d);
-        if (r < 0)
-                return r;
+        /* Note that the install callbacks are only ever invoked on bus client connections, since only there
+         * matches are installed server-side. Hence only count them on such connections. */
+        bool bus_client = sd_bus_is_bus_client(bus) > 0;
 
-        r = bus_match_signal_async(bus, &d->slot_unit_removed, bus_systemd_mgr, "UnitRemoved", on_unit_removed, NULL, d);
+        r = bus_match_signal_async(bus, &d->slot_unit_new, bus_systemd_mgr, "UnitNew", on_unit_new, bus_client ? on_match_installed : NULL, d);
         if (r < 0)
                 return r;
+        if (bus_client)
+                bus_wait_for_units_pending_inc(d);
 
-        r = bus_match_signal_async(bus, &d->slot_reloading, bus_systemd_mgr, "Reloading", on_reloading, NULL, d);
+        r = bus_match_signal_async(bus, &d->slot_unit_removed, bus_systemd_mgr, "UnitRemoved", on_unit_removed, bus_client ? on_match_installed : NULL, d);
         if (r < 0)
                 return r;
+        if (bus_client)
+                bus_wait_for_units_pending_inc(d);
+
+        r = bus_match_signal_async(bus, &d->slot_reloading, bus_systemd_mgr, "Reloading", on_reloading, bus_client ? on_match_installed : NULL, d);
+        if (r < 0)
+                return r;
+        if (bus_client)
+                bus_wait_for_units_pending_inc(d);
 
         /* The Reloading signal is only sent to subscribed clients on the API bus, hence subscribe. (The
          * UnitNew/UnitRemoved signals are also sent to clients holding a reference on the unit, which we
@@ -551,9 +660,25 @@ int bus_wait_for_units_new(sd_bus *bus, BusWaitForUnits **ret) {
         r = bus_call_method_async(bus, &d->slot_subscribe, bus_systemd_mgr, "Subscribe", on_subscribe, d, NULL);
         if (r < 0)
                 return r;
+        bus_wait_for_units_pending_inc(d);
 
         *ret = TAKE_PTR(d);
         return 0;
+}
+
+void bus_wait_for_units_set_ready_callback(
+                BusWaitForUnits *d,
+                bus_wait_for_units_ready_callback_t callback,
+                void *userdata) {
+
+        assert(d);
+
+        d->ready_callback = callback;
+        d->ready_userdata = userdata;
+
+        /* If we are already fully set up, tell the caller right-away. */
+        if (d->ready && d->bus && callback)
+                callback(d, userdata);
 }
 
 BusWaitForUnits* bus_wait_for_units_free(BusWaitForUnits *d) {
@@ -629,6 +754,15 @@ int bus_wait_for_units_add_unit(
                 item->flags |= BUS_WAIT_REFFED;
         }
 
+        r = hashmap_ensure_put(&d->items, &string_hash_ops, item->bus_path, item);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+
+        item->parent = d;
+
+        bool bus_client = sd_bus_is_bus_client(d->bus) > 0;
+
         r = sd_bus_match_signal_async(
                         d->bus,
                         &item->slot_properties_changed,
@@ -637,17 +771,15 @@ int bus_wait_for_units_add_unit(
                         "org.freedesktop.DBus.Properties",
                         "PropertiesChanged",
                         on_properties_changed,
-                        NULL,
+                        bus_client ? on_item_match_installed : NULL,
                         item);
         if (r < 0)
                 return log_debug_errno(r, "Failed to request match for PropertiesChanged signal: %m");
 
-        r = hashmap_ensure_put(&d->items, &string_hash_ops, item->bus_path, item);
-        if (r < 0)
-                return r;
-        assert(r > 0);
-
-        item->parent = d;
+        if (bus_client) {
+                item->pending_match = true;
+                bus_wait_for_units_pending_inc(d);
+        }
 
         r = wait_for_item_query(item);
         if (r < 0)
