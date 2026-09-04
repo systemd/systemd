@@ -553,6 +553,8 @@ def main() -> None:
         'TEST_MATCH_TESTCASE',
         'TEST_SKIP_SUBTESTS',
         'TEST_SKIP_TESTCASES',
+        'TEST_MATCH_SCENARIO',
+        'TEST_SKIP_SCENARIOS',
     ):
         if os.getenv(env):
             dropin += forward_test_filter(env)
