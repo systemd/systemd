@@ -25,7 +25,10 @@ int hostname_setup(bool really);
 int hostname_pick_word(sd_id128_t mid, size_t pos, char **ret);
 int hostname_substitute_wildcards(const char *name, char **ret);
 
-char* get_default_hostname(void);
+/* Returns the default hostname with '?'/'$' wildcards expanded, or a negative errno if the expansion
+ * fails. get_default_hostname_or_fallback() hides such failures behind FALLBACK_HOSTNAME instead. */
+int get_default_hostname(char **ret);
+char* get_default_hostname_or_fallback(void);
 
 typedef enum GetHostnameFlags {
         GET_HOSTNAME_ALLOW_LOCALHOST  = 1 << 0, /* accepts "localhost" or friends. */

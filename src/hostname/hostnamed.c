@@ -801,7 +801,7 @@ static int context_update_kernel_hostname(
 
         /* ... and the ultimate fallback */
         } else {
-                hn = _hn_free = get_default_hostname();
+                hn = _hn_free = get_default_hostname_or_fallback();
                 if (!hn)
                         return log_oom();
 
@@ -1069,7 +1069,7 @@ static int property_get_hostname(
                 if (r != -ENXIO)
                         return r;
 
-                hn = get_default_hostname();
+                hn = get_default_hostname_or_fallback();
                 if (!hn)
                         return -ENOMEM;
         }
@@ -1104,7 +1104,7 @@ static int property_get_default_hostname(
 
         _cleanup_free_ char *hn = NULL;
 
-        hn = get_default_hostname();
+        hn = get_default_hostname_or_fallback();
         if (!hn)
                 return log_oom();
 
@@ -1964,7 +1964,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         context_read_os_release(c);
         context_determine_hostname_source(c);
 
-        dhn = get_default_hostname();
+        dhn = get_default_hostname_or_fallback();
         if (!dhn)
                 return log_oom();
 
