@@ -23,6 +23,8 @@ typedef enum ConsoleMode {
         CONSOLE_NATIVE,         /* qemu's native TTY handling */
         CONSOLE_GUI,            /* qemu's graphical UI */
         CONSOLE_HEADLESS,       /* no console */
+        CONSOLE_BROKER,         /* acquire a PTY from ptybrokerd, frontend output is discarded/monitored */
+        CONSOLE_BROKER_LOG,     /* acquire a PTY from ptybrokerd, frontend output is written to the logs */
         _CONSOLE_MODE_MAX,
         _CONSOLE_MODE_INVALID = -EINVAL,
 } ConsoleMode;
