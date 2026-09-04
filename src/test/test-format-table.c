@@ -8,8 +8,9 @@
 #include "env-util.h"
 #include "format-table.h"
 #include "json-util.h"
-#include "terminal-util.h"
 #include "string-util.h"
+#include "strv.h"
+#include "terminal-util.h"
 #include "tests.h"
 #include "time-util.h"
 
@@ -43,13 +44,11 @@ TEST(invalid_utf8_cell) {
          * if it were fine, and then failed inside ellipsize() as a bogus -ENOMEM, but only once the
          * column happened to be narrow enough to require truncation. */
 
-        const char *x;
-
-        FOREACH_ARGUMENT(x,
-                         "\xed\xa0\x80",             /* UTF-16 surrogate */
-                         "\xc0\xaf",                 /* overlong '/' */
-                         "\xef\xb7\x90",             /* noncharacter U+FDD0 */
-                         "\xf8\x88\x80\x80\x80")     /* obsolete five byte form */
+        FOREACH_STRING(x,
+                       "\xed\xa0\x80",          /* UTF-16 surrogate */
+                       "\xc0\xaf",              /* overlong '/' */
+                       "\xef\xb7\x90",          /* noncharacter U+FDD0 */
+                       "\xf8\x88\x80\x80\x80")  /* obsolete five byte form */
                 for (size_t w = 8; w <= 40; w += 8) {
                         _cleanup_(table_unrefp) Table *table = NULL;
                         _cleanup_free_ char *formatted = NULL, *cell = NULL;
