@@ -9,6 +9,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "utf8.h"
 #include "version.h"
 
 TEST(ellipsize_mem_ansi_short) {
@@ -20,6 +21,23 @@ TEST(ellipsize_mem_ansi_short) {
 
         _cleanup_free_ char *c = ellipsize_mem("\x1b[m", 3, 1, 50);
         assert_se(c);
+}
+
+TEST(ellipsize_mem_tab) {
+        /* unichar_console_width() counts a tab as eight character cells. Callers such as
+         * format-table.c measure a field with utf8_console_width() and then ask ellipsize() to fit it
+         * into that many columns, so ellipsize() must not count a tab as a single cell: the result
+         * would still overflow the column that the measurement had just asked us to fit. */
+
+        const char *x;
+
+        FOREACH_ARGUMENT(x, "\t", "a\tb", "ab\tcd", "\t\t\t", "a\tb\tc\td\te")
+                for (size_t w = 1; w <= 24; w++) {
+                        _cleanup_free_ char *e = NULL;
+
+                        assert_se(e = ellipsize(x, w, 50));
+                        assert_se(utf8_console_width(e) <= w);
+                }
 }
 
 TEST(xsprintf) {

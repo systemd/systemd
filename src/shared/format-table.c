@@ -2090,7 +2090,7 @@ static char* align_string_mem(const char *str, const char *url, size_t new_lengt
                 }
 
                 p = utf8_next_char(p);
-                w += unichar_iswide(c) ? 2 : 1;
+                w += unichar_console_width(c);
         }
 
         /* Already wider than the target, if so, don't do anything */
