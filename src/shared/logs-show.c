@@ -1254,9 +1254,8 @@ int journal_entry_to_json(
         if (!h)
                 return log_oom();
 
-        /* A typical entry has on the order of twenty fields, and we build a fresh hashmap for every
-         * single one of them. Size it up front, so that we don't rehash everything we inserted so far
-         * several times per entry. */
+        /* A typical entry has around twenty fields and this hashmap is built fresh for each one, so
+         * size it up front rather than rehashing repeatedly while filling it. */
         r = hashmap_reserve(h, 32);
         if (r < 0)
                 return log_oom();
