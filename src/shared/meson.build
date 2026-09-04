@@ -280,7 +280,6 @@ shared_sources = files(
         'vsock-util.c',
         'wall.c',
         'watchdog.c',
-        'web-util.c',
         'wifi-util.c',
         'xml.c',
 )
