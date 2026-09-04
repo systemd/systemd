@@ -181,6 +181,17 @@ if lsattr -d /var/lib/machines >/dev/null; then
     [[ "$(machinectl show-image --property=ReadOnly --value clone2)" == yes ]]
     machinectl read-only clone2 no
     [[ "$(machinectl show-image --property=ReadOnly --value clone2)" == no ]]
+
+    # Foreign-UID cloning also needs mountfsd/nsresourced and user namespace delegation.
+    if can_do_rootless_nspawn; then
+        mkdir /var/lib/machines/foreign-source
+        chown 2147352576:2147352576 /var/lib/machines/foreign-source
+        machinectl clone --read-only foreign-source foreign-clone
+        [[ "$(machinectl show-image --property=ReadOnly --value foreign-clone)" == yes ]]
+        machinectl remove foreign-clone foreign-source
+    else
+        echo "Skipping foreign-UID read-only clone test: rootless nspawn prerequisites not met"
+    fi
 fi
 machinectl remove clone2
 for i in {0..4}; do
