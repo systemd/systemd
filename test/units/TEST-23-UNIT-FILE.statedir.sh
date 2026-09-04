@@ -17,9 +17,12 @@ export XDG_RUNTIME_DIR=/run/user/0
 at_exit() {
     set +e
 
-    systemctl --user stop test-execdir-flags.service
-    rm -fr "$HOME"/.config/corge "$HOME"/.config/link "$HOME"/.config/quux* \
-           "$HOME"/.local/state/bar "$HOME"/.local/state/private "$HOME"/.local/state/waldo
+    systemctl --user stop test-execdir-flags.service test-execdir-colon.service \
+                          test-execdir-quote.service
+    rm -fr "$HOME"/.config/corge "$HOME"/.config/foo "$HOME"/.config/link \
+           "$HOME"/.config/quux* "$HOME"/.local/state/bar "$HOME"/.local/state/foo \
+           "$HOME"/.local/state/grault* "$HOME"/.local/state/private \
+           "$HOME"/.local/state/quotedir* "$HOME"/.local/state/waldo
 }
 
 trap at_exit EXIT
@@ -100,3 +103,23 @@ systemctl --user cat test-execdir-flags.service | grep "^ConfigurationDirectory=
 systemctl --user daemon-reload
 assert_eq "$(systemctl --user show -P StateDirectorySymlink test-execdir-flags.service)" "waldo::ro"
 assert_eq "$(systemctl --user show -P ConfigurationDirectorySymlink test-execdir-flags.service)" "quux::ro"
+
+# A literal colon in a directory name must survive the transient drop-in round-trip
+systemd-run --user --unit=test-execdir-colon -p 'StateDirectory=grault\\:garply' sleep infinity
+assert_eq "$(systemctl --user show -P StateDirectory test-execdir-colon.service)" "grault:garply"
+systemctl --user daemon-reload
+assert_eq "$(systemctl --user show -P StateDirectory test-execdir-colon.service)" "grault:garply"
+
+# A double quote in a directory name must survive the round-trip too. systemd-run
+# refuses to parse one, so go through the bus directly.
+busctl --user call org.freedesktop.systemd1 /org/freedesktop/systemd1 \
+       org.freedesktop.systemd1.Manager StartTransientUnit "ssa(sv)a(sa(sv))" \
+       test-execdir-quote.service fail 3 \
+       StateDirectory as 1 'quotedir"x' \
+       RemainAfterExit b true \
+       ExecStart "a(sasb)" 1 /bin/true 1 /bin/true true \
+       0 >/dev/null
+quoted="$(systemctl --user show -P StateDirectory test-execdir-quote.service)"
+test -n "$quoted"
+systemctl --user daemon-reload
+assert_eq "$(systemctl --user show -P StateDirectory test-execdir-quote.service)" "$quoted"

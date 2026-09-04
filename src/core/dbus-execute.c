@@ -3755,16 +3755,27 @@ int bus_exec_context_set_transient_property(
                                 exec_directory_done(d);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
+                                _cleanup_strv_free_ char **escaped = NULL;
                                 _cleanup_free_ char *joined = NULL;
 
                                 STRV_FOREACH(source, l) {
                                         r = exec_directory_add(d, *source, /* symlink= */ NULL, /* flags= */ 0);
                                         if (r < 0)
                                                 return log_oom();
+
+                                        /* Need to store them in the unit with the escapes, so that they can
+                                         * be parsed again */
+                                        _cleanup_free_ char *source_escaped = xescape(*source, ":\"");
+                                        if (!source_escaped)
+                                                return -ENOMEM;
+
+                                        r = strv_consume(&escaped, TAKE_PTR(source_escaped));
+                                        if (r < 0)
+                                                return -ENOMEM;
                                 }
                                 exec_directory_sort(d);
 
-                                joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS);
+                                joined = unit_concat_strv(escaped, UNIT_ESCAPE_SPECIFIERS);
                                 if (!joined)
                                         return -ENOMEM;
 
@@ -4269,11 +4280,11 @@ int bus_exec_context_set_transient_property(
                                         return r;
 
                                 /* Need to store them in the unit with the escapes, so that they can be parsed again */
-                                source_escaped = xescape(source, ":");
+                                source_escaped = xescape(source, ":\"");
                                 if (!source_escaped)
                                         return -ENOMEM;
                                 if (destination) {
-                                        destination_escaped = xescape(destination, ":");
+                                        destination_escaped = xescape(destination, ":\"");
                                         if (!destination_escaped)
                                                 return -ENOMEM;
                                 }
