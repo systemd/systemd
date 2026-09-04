@@ -414,8 +414,10 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 
         bool has_ansi_seq = string_has_ansi_sequence(s, old_length);
 
-        /* If no multibyte characters or ANSI sequences, use ascii_ellipsize_mem for speed */
-        if (!has_ansi_seq && ascii_is_valid_n(s, old_length))
+        /* If no multibyte characters or ANSI sequences, use ascii_ellipsize_mem for speed. It equates
+         * bytes with character cells, which holds for ASCII except for the tab, which
+         * unichar_console_width() counts as 8 cells. */
+        if (!has_ansi_seq && ascii_is_valid_n(s, old_length) && !memchr(s, '\t', old_length))
                 return ascii_ellipsize_mem(s, old_length, new_length, percent);
 
         x = (new_length - 1) * percent / 100;
@@ -436,7 +438,7 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                 char32_t c;
                 assert_se(utf8_encoded_to_unichar(i, &c) == r);
 
-                int w = unichar_iswide(c) ? 2 : 1;
+                int w = unichar_console_width(c);
                 if (k + w > x)
                         break;
 
@@ -467,7 +469,7 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                 if (!tt)
                         return NULL;
 
-                w = unichar_iswide(c) ? 2 : 1;
+                w = unichar_console_width(c);
                 if (k + w > new_length)
                         break;
 
