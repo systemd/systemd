@@ -51,8 +51,10 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 int dlopen_tpm2(int log_level) _dlopen_loader_;
 
 /* tpm2_unseal() returns a bunch of different errors for various flavours of PCR issues, let's group them.
- * Kept outside the HAVE_TPM2 guard as callers switch on these errnos even in builds without TPM2. */
-#define ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r) IN_SET(r, -EREMCHG, -ENOANO, -EUCLEAN, -EPERM)
+ * Kept outside the HAVE_TPM2 guard as callers switch on these errnos even in builds without TPM2. Note that
+ * -EUCLEAN is not part of this: when returned by tpm2_unseal() it means a PCR was continuously extended
+ * while unsealing, which says nothing about whether the PCR state matches the policy. */
+#define ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r) IN_SET(r, -EREMCHG, -ENOANO, -EPERM)
 
 /* Errors that mean the tried TPM2 token does not match the boot state, be it due to wrong PCR state, a
  * different PCR signing key/policy, a different TPM, or an unusable NV index. The caller should keep trying
@@ -338,6 +340,9 @@ int tpm2_make_policy_session(Tpm2Context *c, const Tpm2Handle *primary, const Tp
 int tpm2_policy_auth_value(Tpm2Context *c, const Tpm2Handle *session, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_nv_written(Tpm2Context *c, const Tpm2Handle *session, bool written_set, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_authorize_nv(Tpm2Context *c, const Tpm2Handle *session, const Tpm2Handle *nv_handle, TPM2B_DIGEST **ret_policy_digest);
+/* Note: tpm2_policy_pcr() and tpm2_policy_super_pcr() return -EUCLEAN if the TPM's global PCR update counter
+ * moved while the policy was submitted, i.e. if something extended a PCR in the meantime. That's transient,
+ * callers are supposed to restart the policy session and try again. */
 int tpm2_policy_pcr(Tpm2Context *c, const Tpm2Handle *session, const TPML_PCR_SELECTION *pcr_selection, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_or(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_super_pcr(Tpm2Context *c, const Tpm2Handle *session, const Tpm2PCRPrediction *prediction, uint16_t algorithm);

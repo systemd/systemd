@@ -177,6 +177,8 @@ int acquire_tpm2_key(
                         return log_warning_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
                 if (r == -EADDRNOTAVAIL)
                         return log_warning_errno(r, "NV index referenced by token is missing, unwritten, or unusable, it could be for another system.");
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "PCR values kept changing while unsealing the TPM2 secret, giving up. Something on this system extends a PCR continuously.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
                         log_warning_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                         /* Normalize to -EPERM so callers don't confuse it with -ENOANO's "needs PIN" meaning. */
@@ -257,6 +259,8 @@ int acquire_tpm2_key(
                         return log_warning_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
                 if (r == -EADDRNOTAVAIL)
                         return log_warning_errno(r, "NV index referenced by token is missing, unwritten, or unusable, it could be for another system.");
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "PCR values kept changing while unsealing the TPM2 secret, giving up. Something on this system extends a PCR continuously.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
                         log_warning_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                         /* Normalize to -EPERM so callers don't confuse it with -ENOANO's "needs PIN" meaning. */

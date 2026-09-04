@@ -1376,6 +1376,8 @@ int decrypt_credential_and_warn(
                 r = tpm2_load_pcr_signature(tpm2_signature_path, &signature_json);
                 if (r == -ENOENT)
                         return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Couldn't find PCR signature file: %m");
+                if (r == -EUCLEAN)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR signature file is malformed.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to load PCR signature: %m");
         }
@@ -1524,6 +1526,8 @@ int decrypt_credential_and_warn(
                         return log_error_errno(r, "TPM key integrity check failed. Key most likely does not belong to this TPM.");
                 if (r == -EADDRNOTAVAIL)
                         return log_error_errno(r, "NV index referenced by key is missing, unwritten, or unusable, it could be for another system.");
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "PCR values kept changing while unsealing the TPM2 secret, giving up. Something on this system extends a PCR continuously.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
                         return log_error_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                 if (r < 0)
@@ -1975,7 +1979,8 @@ static const CredentialsVarlinkError credentials_varlink_error_table[] = {
         { "io.systemd.Credentials.NullKeyNotAllowed",      EHWPOISON,    "The key was encrypted with a null key, but that's not allowed during decryption." },
         { "io.systemd.Credentials.KeyBelongsToOtherTPM",   EREMOTE,      "The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted." },
         { "io.systemd.Credentials.TPMInDictionaryLockout", ENOLCK,       "The TPM is in dictionary lockout mode, cannot operate." },
-        { "io.systemd.Credentials.UnexpectedPCRState" ,    EUCLEAN,      "Unexpected TPM PCR state of the system." },
+        { "io.systemd.Credentials.UnexpectedPCRState",     EPERM,        "Unexpected TPM PCR state of the system." },
+        { "io.systemd.Credentials.PCRsKeptChanging",       EUCLEAN,      "PCR values kept changing while unsealing the TPM2 secret, something on this system extends a PCR continuously." },
         { "io.systemd.Credentials.NVIndexUnusable",        EADDRNOTAVAIL, "The NV index referenced by the key is missing, unwritten, or unusable, it could be for another system." },
 };
 

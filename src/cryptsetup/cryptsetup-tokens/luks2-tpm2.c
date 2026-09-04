@@ -135,6 +135,8 @@ int acquire_luks2_key(
                 return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Bad %s.", argon2id ? "password" : "PIN");
         if (r == -ENOLCK)
                 return log_error_errno(r, "TPM is in dictionary attack lock-out mode.");
+        if (r == -EUCLEAN)
+                return log_error_errno(r, "PCR values kept changing while unsealing the TPM2 secret, giving up. Something on this system extends a PCR continuously.");
         if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
                 log_warning_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                 /* Normalize to -EPERM so callers don't confuse it with -ENOANO's "needs PIN" meaning. */
