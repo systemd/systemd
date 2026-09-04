@@ -44,7 +44,9 @@
     <para>The
     <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     command reads these files and uses them to determine which local resources should be updated, and then
-    executes the update.</para>
+    executes the update. Transfer definitions for components may also be acquired dynamically from component
+    providers, see
+    <citerefentry><refentrytitle>sysupdate.components</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Both the remote HTTP/HTTPS source and the local target typically exist in multiple, concurrent
     versions, in order to implement flexible update schemes, e.g. A/B updating (or a superset thereof,
