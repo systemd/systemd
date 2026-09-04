@@ -58,6 +58,7 @@ systemctl daemon-reload
 
 SIGTEST_GPGHOME=
 SIGTEST_OTHERHOME=
+RPTEST_GPGHOME=
 
 at_exit() {
     set +e
@@ -71,6 +72,14 @@ at_exit() {
           /run/systemd/system/test-sysupdate-provider-{a,b}@.service
     systemctl stop test-sysupdate-provider-c.service
     rm -rf /run/systemd/sysupdate/provider /tmp/test-sysupdate-provider-c /etc/sysupdate.bonly.d /run/sysupdate.bonly.component
+    systemctl stop test-sysupdate-resource-provider.socket test-sysupdate-provider-d.socket
+    rm -f /run/systemd/system/test-sysupdate-resource-provider.socket \
+          /run/systemd/system/test-sysupdate-resource-provider@.service \
+          /run/systemd/system/test-sysupdate-provider-d.socket \
+          /run/systemd/system/test-sysupdate-provider-d@.service
+    if [ "${RPTEST_GPGHOME:-}" != "" ]; then
+        gpgconf --homedir "$RPTEST_GPGHOME" --kill all 2>/dev/null
+    fi
 
     losetup -n --output NAME --associated "$BACKING_FILE" | while read -r loop_dev; do
         losetup --detach "$loop_dev"
@@ -2432,7 +2441,244 @@ systemctl stop test-sysupdate-provider-a.socket test-sysupdate-provider-b.socket
 rm -f /run/systemd/system/test-sysupdate-provider-{a,b}.socket /run/systemd/system/test-sysupdate-provider-{a,b}@.service
 systemctl daemon-reload
 rm -rf "$PROVIDER_DIR" /tmp/test-sysupdate-provider-c /run/sysupdate.compx.component
-rm -f "$WORKDIR/provider.py" "$WORKDIR"/provider-*.json
+rm -f "$WORKDIR"/provider-*.json
+
+# ---------------------------------------------------------------------------
+# Resource providers: provider:[socket]/resource URLs and io.systemd.ResourceProvider
+# ---------------------------------------------------------------------------
+# systemd-pull (and hence systemd-sysupdate) can acquire resources from a local Varlink service instead
+# of a web server. We run one such service, serving files from a directory, via socket activation.
+RES="$WORKDIR/resources"
+RES_SOCK=/run/test-sysupdate-resource-provider
+rm -rf "$RES"
+mkdir -p "$RES/pool"
+
+cat >"$WORKDIR/resprov.py" <<'EOF'
+#!/usr/bin/env python3
+# Minimal io.systemd.ResourceProvider implementation serving files from a directory over stdin/stdout.
+# A resource named "trunc/<name>" announces the real size but sends only half of the data.
+import json, os, sys
+root = sys.argv[1]
+
+def reply(obj):
+    os.write(1, json.dumps(obj).encode() + b"\0")
+
+buf = b""
+while b"\0" not in buf:
+    c = os.read(0, 4096)
+    if not c:
+        sys.exit(0)
+    buf += c
+req = json.loads(buf.split(b"\0", 1)[0])
+name = (req.get("parameters") or {}).get("name", "")
+if req.get("method") != "io.systemd.ResourceProvider.AcquireResource":
+    reply({"error": "org.varlink.service.MethodNotFound", "parameters": {"method": req.get("method")}})
+    sys.exit(0)
+if not req.get("upgrade"):
+    reply({"error": "org.varlink.service.ExpectedUpgrade", "parameters": {}})
+    sys.exit(0)
+trunc = name.startswith("trunc/")
+path = os.path.join(root, name[6:] if trunc else name)
+if not os.path.isfile(path):
+    reply({"error": "io.systemd.ResourceProvider.NoSuchResource", "parameters": {}})
+    sys.exit(0)
+data = open(path, "rb").read()
+reply({"parameters": {"size": len(data)}})
+if trunc:
+    data = data[: len(data) // 2]
+while data:
+    n = os.write(1, data)
+    data = data[n:]
+EOF
+chmod +x "$WORKDIR/resprov.py"
+
+cat >/run/systemd/system/test-sysupdate-resource-provider.socket <<EOF
+[Socket]
+ListenStream=$RES_SOCK
+Accept=yes
+EOF
+cat >/run/systemd/system/test-sysupdate-resource-provider@.service <<EOF
+[Service]
+ExecStart=$WORKDIR/resprov.py $RES
+StandardInput=socket
+StandardOutput=socket
+EOF
+systemctl daemon-reload
+systemctl start test-sysupdate-resource-provider.socket
+
+dd if=/dev/urandom of="$RES/blob.raw" bs=1024 count=64 status=none
+BLOB_HASH="$(sha256sum "$RES/blob.raw" | cut -d' ' -f1)"
+PULL=/usr/lib/systemd/systemd-pull
+
+# systemd-pull acquires resources via the provider, with and without checksum verification.
+"$PULL" raw --direct --verify=no "provider:[$RES_SOCK]/blob.raw" "$WORKDIR/blob-out.raw"
+cmp "$RES/blob.raw" "$WORKDIR/blob-out.raw"
+rm -f "$WORKDIR/blob-out.raw"
+"$PULL" raw --direct --verify="$BLOB_HASH" "provider:[$RES_SOCK]/blob.raw" "$WORKDIR/blob-out.raw"
+cmp "$RES/blob.raw" "$WORKDIR/blob-out.raw"
+rm -f "$WORKDIR/blob-out.raw"
+(! "$PULL" raw --direct --verify=0000000000000000000000000000000000000000000000000000000000000000 "provider:[$RES_SOCK]/blob.raw" "$WORKDIR/blob-out.raw")
+rm -f "$WORKDIR/blob-out.raw"
+# Unknown resources and truncated transfers are detected.
+(! "$PULL" raw --direct --verify=no "provider:[$RES_SOCK]/nope.raw" "$WORKDIR/blob-out.raw") |& grep -F "does not exist" >/dev/null
+(! "$PULL" raw --direct --verify=no "provider:[$RES_SOCK]/trunc/blob.raw" "$WORKDIR/blob-out.raw") |& grep -F "truncated" >/dev/null
+rm -f "$WORKDIR/blob-out.raw"
+# A manifest is fetched and written to stdout like from a web server, and a .sha256/SHA256SUMS lookup works.
+(cd "$RES" && sha256sum blob.raw >SHA256SUMS)
+[[ "$("$PULL" raw --direct --verify=no "provider:[$RES_SOCK]/SHA256SUMS" - 2>/dev/null)" == "$(cat "$RES/SHA256SUMS")" ]]
+"$PULL" raw --direct --verify=checksum "provider:[$RES_SOCK]/blob.raw" "$WORKDIR/blob-out.raw"
+cmp "$RES/blob.raw" "$WORKDIR/blob-out.raw"
+rm -f "$WORKDIR/blob-out.raw"
+
+# A sysupdate transfer whose source lives with the provider: the manifest and the payloads are fetched
+# from it, and verified against the manifest like with a web server.
+for v in v1 v2 v3; do
+    dd if=/dev/urandom of="$RES/pool/res-$v.bin" bs=1024 count=4 status=none
+done
+(cd "$RES/pool" && sha256sum -- *.bin >SHA256SUMS)
+echo corrupted >>"$RES/pool/res-v3.bin"   # no longer matches the manifest
+RPDEFS="$WORKDIR/rp-defs"
+RPTARGET="$WORKDIR/rp-target"
+rm -rf "$RPDEFS" "$RPTARGET"
+mkdir -p "$RPDEFS" "$RPTARGET"
+cat >"$RPDEFS/01-res.transfer" <<EOF
+[Transfer]
+Verify=no
+
+[Source]
+Type=url-file
+Path=provider:[$RES_SOCK]/pool
+MatchPattern=res-@v.bin
+
+[Target]
+Type=regular-file
+Path=$RPTARGET
+MatchPattern=res-@v.bin
+InstancesMax=2
+EOF
+"$SYSUPDATE" --definitions="$RPDEFS" list | grep -E "v3 .*candidate" >/dev/null
+"$SYSUPDATE" --definitions="$RPDEFS" list | grep -E "v1 .*available" >/dev/null
+# The corrupted payload is rejected...
+(! "$SYSUPDATE" --definitions="$RPDEFS" update v3)
+test ! -e "$RPTARGET/res-v3.bin"
+rm -f "$RES/pool/res-v3.bin"
+(cd "$RES/pool" && sha256sum -- *.bin >SHA256SUMS)
+# ... while an intact one is installed.
+"$SYSUPDATE" --definitions="$RPDEFS" update v2
+cmp "$RES/pool/res-v2.bin" "$RPTARGET/res-v2.bin"
+"$SYSUPDATE" --definitions="$RPDEFS" list | grep -E "v2 .*installed|v2 .*current" >/dev/null
+# provider: URLs are only valid for URL sources.
+cat >"$RPDEFS/02-bad.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=provider:[$RES_SOCK]/pool
+MatchPattern=res-@v.bin
+
+[Target]
+Type=regular-file
+Path=$RPTARGET
+MatchPattern=res-@v.bin
+EOF
+(! "$SYSUPDATE" --definitions="$RPDEFS" list)
+rm -f "$RPDEFS/02-bad.transfer"
+
+# The same URLs work through systemd-importd, i.e. via importctl.
+if command -v importctl >/dev/null; then
+    rm -rf /var/lib/confexts/rptest-raw.raw /var/lib/confexts/rptest-tar
+    importctl pull-raw --verify=no --class=confext "provider:[$RES_SOCK]/blob.raw" rptest-raw
+    cmp "$RES/blob.raw" /var/lib/confexts/rptest-raw.raw
+    tar czf "$RES/tree.tar.gz" -C "$RES" pool
+    importctl pull-tar --verify=no --class=confext "provider:[$RES_SOCK]/tree.tar.gz" rptest-tar
+    cmp "$RES/pool/res-v1.bin" /var/lib/confexts/rptest-tar/pool/res-v1.bin
+    (! importctl pull-raw --verify=no --class=confext "provider:[$RES_SOCK]/nope.raw" rptest-nope)
+    test ! -e /var/lib/confexts/rptest-nope.raw
+    rm -rf /var/lib/confexts/rptest-raw.raw /var/lib/confexts/rptest-tar "$RES/tree.tar.gz"
+fi
+
+# With Verify=yes (the default) the provider must also serve the detached signature of the manifest.
+provider_resources_signed() {
+    if ! command -v gpg >/dev/null; then
+        echo "gpg not available, skipping signed resource provider test"
+        return 0
+    fi
+    local gpg_version gpg_rest
+    gpg_version="$(gpg --version | sed -n '1p' | awk '{print $NF}')"
+    gpg_rest="${gpg_version#*.}"
+    if [ "${gpg_version%%.*}" -lt 2 ] || { [ "${gpg_version%%.*}" -eq 2 ] && [ "${gpg_rest%%.*}" -lt 4 ]; }; then
+        echo "gpg $gpg_version too old (need >= 2.4), skipping signed resource provider test"
+        return 0
+    fi
+
+    local gpghome="$WORKDIR/rp-gpghome" keyring="$WORKDIR/rp-keyring"
+    RPTEST_GPGHOME="$gpghome"
+    mkdir -p "$gpghome"
+    chmod 700 "$gpghome"
+    GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-gen-key 'Resource Provider Test Key <rp@example.com>' rsa2048 cert,sign never
+    GNUPGHOME="$gpghome" gpg --export --output "$keyring"
+
+    # Without a signature the update must be refused...
+    sed -i '/^Verify=no$/d' "$RPDEFS/01-res.transfer"
+    rm -f "$RES/pool/SHA256SUMS.gpg"
+    dd if=/dev/urandom of="$RES/pool/res-v4.bin" bs=1024 count=4 status=none
+    (cd "$RES/pool" && sha256sum -- *.bin >SHA256SUMS)
+    (! SYSTEMD_OPENPGP_KEYRING="$keyring" "$SYSUPDATE" --definitions="$RPDEFS" update)
+    test ! -e "$RPTARGET/res-v4.bin"
+
+    # ... and accepted once the provider serves a valid one.
+    GNUPGHOME="$gpghome" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$RES/pool/SHA256SUMS.gpg" "$RES/pool/SHA256SUMS"
+    SYSTEMD_OPENPGP_KEYRING="$keyring" "$SYSUPDATE" --definitions="$RPDEFS" update
+    cmp "$RES/pool/res-v4.bin" "$RPTARGET/res-v4.bin"
+
+    gpgconf --homedir "$gpghome" --kill all 2>/dev/null || :
+    RPTEST_GPGHOME=""
+}
+provider_resources_signed
+
+# Finally, a component provider whose transfers point at the resource provider, so that both the definition
+# and the payloads come from local services.
+mkdir -p "$PROVIDER_DIR" "$CF/target-rcomp"
+cat >"$WORKDIR/provider-d.json" <<EOF
+{
+  "targets": [{"id": {"class": "component", "name": "rcomp"}, "description": "Component with provider-served resources"}],
+  "definitions": {
+    "rcomp": {
+      "target": {"id": {"class": "component", "name": "rcomp"}, "description": "Component with provider-served resources"},
+      "features": [],
+      "transfers": [{"id": "01-res", "verify": false,
+                     "source": {"type": "url_file", "path": "provider:[$RES_SOCK]/pool", "matchPattern": ["res-@v.bin"]},
+                     "target": {"type": "regular_file", "path": "$CF/target-rcomp", "matchPattern": ["res-@v.bin"], "instancesMax": 2}}]
+    }
+  }
+}
+EOF
+cat >/run/systemd/system/test-sysupdate-provider-d.socket <<EOF
+[Socket]
+ListenStream=$PROVIDER_DIR/io.test.ProviderD
+Accept=yes
+EOF
+cat >/run/systemd/system/test-sysupdate-provider-d@.service <<EOF
+[Service]
+ExecStart=$WORKDIR/provider.py $WORKDIR/provider-d.json
+StandardInput=socket
+StandardOutput=socket
+EOF
+systemctl daemon-reload
+systemctl start test-sysupdate-provider-d.socket
+
+"$SYSUPDATE" --json=short components | jq -e '.providers == {"rcomp": "io.test.ProviderD"}' >/dev/null
+"$SYSUPDATE" --component=rcomp update
+newest="$(ls "$RES/pool"/res-*.bin | sort -V | tail -n1)"
+cmp "$newest" "$CF/target-rcomp/$(basename "$newest")"
+
+systemctl stop test-sysupdate-provider-d.socket test-sysupdate-resource-provider.socket
+rm -f /run/systemd/system/test-sysupdate-provider-d.socket /run/systemd/system/test-sysupdate-provider-d@.service \
+      /run/systemd/system/test-sysupdate-resource-provider.socket /run/systemd/system/test-sysupdate-resource-provider@.service
+systemctl daemon-reload
+rm -rf "$PROVIDER_DIR" "$RES" "$RPDEFS" "$RPTARGET" "$WORKDIR/rp-gpghome" "$WORKDIR/rp-keyring"
+rm -f "$WORKDIR/provider.py" "$WORKDIR/provider-d.json" "$WORKDIR/resprov.py"
 
 compfeat_cleanup
 restore_machine_info
