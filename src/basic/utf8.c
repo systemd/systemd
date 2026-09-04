@@ -109,6 +109,38 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newlin
                 int encoded_len;
                 char32_t val;
 
+                /* Almost all input is plain printable ASCII, so test eight bytes of it at once.
+                 * Anything else falls through to the per-character paths below. */
+                while (length >= sizeof(uint64_t)) {
+                        uint64_t w, x;
+
+                        memcpy(&w, p, sizeof(w));
+                        x = w ^ UINT64_C(0x7f7f7f7f7f7f7f7f);
+
+                        if (((w & UINT64_C(0x8080808080808080)) |         /* >= 0x80 */
+                             ((w - UINT64_C(0x2020202020202020)) & ~w) |  /* < 0x20 */
+                             ((x - UINT64_C(0x0101010101010101)) & ~x)) & /* == 0x7f */
+                            UINT64_C(0x8080808080808080))
+                                break;
+
+                        length -= sizeof(uint64_t);
+                        p += sizeof(uint64_t);
+                }
+
+                if (length == 0)
+                        break;
+
+                /* utf8_encoded_valid_unichar() accepts every ASCII byte, so for those the only
+                 * question left is whether it is a control character, and we needn't decode twice. */
+                if ((uint8_t) *p < 0x80) {
+                        if (unichar_is_control((char32_t) *p) || (!allow_newline && *p == '\n'))
+                                return false;
+
+                        length--;
+                        p++;
+                        continue;
+                }
+
                 encoded_len = utf8_encoded_valid_unichar(p, length);
                 if (encoded_len < 0)
                         return false;

@@ -1254,6 +1254,12 @@ int journal_entry_to_json(
         if (!h)
                 return log_oom();
 
+        /* A typical entry has around twenty fields and this hashmap is built fresh for each one, so
+         * size it up front rather than rehashing repeatedly while filling it. */
+        r = hashmap_reserve(h, 32);
+        if (r < 0)
+                return log_oom();
+
         r = update_json_data(h, flags, "__CURSOR", cursor, SIZE_MAX);
         if (r < 0)
                 return r;
