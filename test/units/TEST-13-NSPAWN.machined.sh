@@ -195,6 +195,24 @@ test -d /var/lib/machines/.hidden1
 machinectl clean
 test ! -d /var/lib/machines/.hidden1
 
+if can_do_rootless_nspawn; then
+    mkdir /var/lib/machines/foreign-error-source
+    chown foreign-0:foreign-0 /var/lib/machines/foreign-error-source
+
+    # A regular file without an image suffix is not discovered as an image, but still prevents
+    # mountfsd from creating the clone directory. The clone operation must report this failure.
+    echo "existing file" >/var/lib/machines/foreign-error-target
+    (! machinectl show-image foreign-error-target)
+    (! machinectl clone foreign-error-source foreign-error-target)
+    assert_eq "$(</var/lib/machines/foreign-error-target)" "existing file"
+
+    rm /var/lib/machines/foreign-error-target
+    machinectl clone foreign-error-source foreign-error-target
+    machinectl remove foreign-error-target foreign-error-source
+else
+    echo "Skipping foreign-UID clone error test: rootless nspawn prerequisites not met"
+fi
+
 # Prepare a simple raw container
 mkdir -p /tmp/mnt
 truncate -s 384M /var/tmp/container.raw
