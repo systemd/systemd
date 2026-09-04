@@ -5,6 +5,7 @@ basic_sources = files(
         'af-list.c',
         'alloc-util.c',
         'ansi-color.c',
+        'ansi-seq.c',
         'architecture.c',
         'argv-util.c',
         'arphrd-util.c',
