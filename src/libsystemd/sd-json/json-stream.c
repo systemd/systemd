@@ -1348,8 +1348,12 @@ int json_stream_read(JsonStream *s) {
                 }
         }
 
+        /* Rescan the trailing delimiter prefix so a split multi-byte delimiter can match once the
+         * next read() appends the missing suffix. */
+        size_t rescan = MIN(s->input_buffer_size, json_stream_delimiter_size(s) - 1);
+
         s->input_buffer_size += n;
-        s->input_buffer_unscanned += n;
+        s->input_buffer_unscanned = rescan + n;
 
         return 1;
 }

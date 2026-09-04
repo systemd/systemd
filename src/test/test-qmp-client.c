@@ -215,6 +215,27 @@ TEST(qmp_basic) {
         run_qmp_test(mock_qmp_basic_fiber, qmp_client_basic_fiber);
 }
 
+TEST(json_stream_split_crlf_delimiter) {
+        _cleanup_(json_stream_done) JsonStream s = {};
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        const char part1[] = "{\"ok\":true}\r";
+        const char part2[] = "\n";
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fds));
+        mock_qmp_init(&s, TAKE_FD(fds[0]));
+
+        ASSERT_OK_EQ_ERRNO(write(fds[1], part1, strlen(part1)), (ssize_t) strlen(part1));
+        ASSERT_OK_POSITIVE(json_stream_read(&s));
+        ASSERT_OK_ZERO(json_stream_parse(&s, &v));
+        ASSERT_NULL(v);
+
+        ASSERT_OK_EQ_ERRNO(write(fds[1], part2, strlen(part2)), (ssize_t) strlen(part2));
+        ASSERT_OK_POSITIVE(json_stream_read(&s));
+        ASSERT_OK_POSITIVE(json_stream_parse(&s, &v));
+        ASSERT_TRUE(sd_json_variant_boolean(sd_json_variant_by_key(v, "ok")));
+}
+
 static int mock_qmp_eof_fiber(void *userdata) {
         _cleanup_(json_stream_done) JsonStream s = {};
 
