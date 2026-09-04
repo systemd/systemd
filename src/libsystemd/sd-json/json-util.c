@@ -26,6 +26,7 @@
 #include "time-util.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "web-util.h"
 
 int json_dispatch_unhex_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_free_ void *buffer = NULL;
@@ -433,6 +434,46 @@ int json_dispatch_filename(const char *name, sd_json_variant *variant, sd_json_d
                 return json_log_oom(variant, flags);
 
         return 0;
+}
+
+int json_dispatch_http_url(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **s = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        if (!http_url_is_valid(sd_json_variant_string(variant)))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid HTTP URL.", strna(name));
+
+        if (free_and_strdup(s, sd_json_variant_string(variant)) < 0)
+                return json_log_oom(variant, flags);
+
+        return 0;
+}
+
+int json_dispatch_http_urls(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        char ***s = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        r = sd_json_dispatch_strv(name, variant, flags, &l);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, l)
+                if (!http_url_is_valid(*i))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains an invalid HTTP URL: %s", strna(name), *i);
+
+        return strv_free_and_replace(*s, l);
 }
 
 int json_dispatch_const_version(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
