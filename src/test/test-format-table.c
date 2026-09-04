@@ -13,6 +13,7 @@
 #include "terminal-util.h"
 #include "tests.h"
 #include "time-util.h"
+#include "utf8.h"
 
 TEST(issue_9549) {
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -65,6 +66,59 @@ TEST(invalid_utf8_cell) {
 
                         ASSERT_ERROR(table_format(table, &formatted), EINVAL);
                 }
+}
+
+TEST(tab_in_cell) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        /* A tab takes up eight character cells, so the padding align_string_mem() adds has to be
+         * computed with unichar_console_width() too, or the column comes out too wide.
+         *
+         * Note that unichar_console_width() charges a tab a flat eight cells, while a terminal
+         * advances to the next multiple of eight instead. The two only agree if the tab itself starts
+         * on a multiple of eight, hence the eight characters in front of it here: that way the
+         * expected output below is what a terminal really renders, too. */
+
+        ASSERT_NOT_NULL((table = table_new("name", "value")));
+        ASSERT_OK(table_add_many(table,
+                                 TABLE_STRING, "aaaaaaaa\tb",
+                                 TABLE_STRING, "1",
+                                 TABLE_STRING, "wide enough to pad the tab cell",
+                                 TABLE_STRING, "2"));
+
+        table_set_width(table, 40);
+        ASSERT_OK(table_format(table, &formatted));
+
+        printf("%s\n", formatted);
+        ASSERT_STREQ(formatted,
+                     "NAME                             VALUE\n"
+                     "aaaaaaaa\tb                1\n"
+                     "wide enough to pad the tab cell  2\n");
+
+        /* And the case the two passes have to agree on: a cell whose tab makes it the widest one in
+         * its column, in a table pinned narrower than that. The cell drives the requested column width
+         * and is then handed to ellipsize(), which used to believe the tab was a single cell and so
+         * returned something that still overflowed the column it had just been asked to fit into. */
+
+        _cleanup_(table_unrefp) Table *narrow = NULL;
+        _cleanup_free_ char *narrow_formatted = NULL;
+        _cleanup_strv_free_ char **lines = NULL;
+
+        ASSERT_NOT_NULL((narrow = table_new("name", "value")));
+        ASSERT_OK(table_add_many(narrow,
+                                 TABLE_STRING, "aaaaaaaa\tbbbbbbbb",
+                                 TABLE_STRING, "1",
+                                 TABLE_STRING, "short",
+                                 TABLE_STRING, "2"));
+
+        table_set_width(narrow, 20);
+        ASSERT_OK(table_format(narrow, &narrow_formatted));
+
+        printf("%s\n", narrow_formatted);
+        ASSERT_NOT_NULL((lines = strv_split_newlines(narrow_formatted)));
+        STRV_FOREACH(l, lines)
+                ASSERT_LE(utf8_console_width(*l), (size_t) 20);
 }
 
 TEST(multiline) {
