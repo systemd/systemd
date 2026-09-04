@@ -490,7 +490,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                         continue;
                         }
 
-                        v->next_elapse += random_offset;
+                        v->next_elapse = usec_add(v->next_elapse, random_offset);
 
                         if (rebase_after_boot_time) {
                                 /* To make the delay due to RandomizedDelaySec= work even at boot, if the scheduled
