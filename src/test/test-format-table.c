@@ -64,6 +64,30 @@ TEST(invalid_utf8_cell) {
                 }
 }
 
+TEST(tab_in_cell) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        /* A tab takes up eight character cells, so the padding align_string_mem() adds has to be
+         * computed with unichar_console_width() too, or the column comes out too wide. */
+
+        ASSERT_NOT_NULL((table = table_new("name", "value")));
+        ASSERT_OK(table_add_many(table,
+                                 TABLE_STRING, "a\tb",
+                                 TABLE_STRING, "1",
+                                 TABLE_STRING, "wide enough to pad the tab cell",
+                                 TABLE_STRING, "2"));
+
+        table_set_width(table, 40);
+        ASSERT_OK(table_format(table, &formatted));
+
+        printf("%s\n", formatted);
+        ASSERT_STREQ(formatted,
+                     "NAME                             VALUE\n"
+                     "a\tb                       1\n"
+                     "wide enough to pad the tab cell  2\n");
+}
+
 TEST(multiline) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;

@@ -29,15 +29,30 @@ TEST(ellipsize_mem_tab) {
          * into that many columns, so ellipsize() must not count a tab as a single cell: the result
          * would still overflow the column that the measurement had just asked us to fit. */
 
-        const char *x;
-
-        FOREACH_ARGUMENT(x, "\t", "a\tb", "ab\tcd", "\t\t\t", "a\tb\tc\td\te")
+        FOREACH_STRING(x,
+                       "\t",
+                       "a\tb",
+                       "ab\tcd",
+                       "\t\t\t",
+                       "a\tb\tc\td\te",
+                       "a\t你\tb")  /* tabs mixed with a wide character */
                 for (size_t w = 1; w <= 24; w++) {
-                        _cleanup_free_ char *e = NULL;
+                        _cleanup_free_ char *e = ASSERT_NOT_NULL(ellipsize(x, w, 50));
 
-                        assert_se(e = ellipsize(x, w, 50));
-                        assert_se(utf8_console_width(e) <= w);
+                        ASSERT_LE(utf8_console_width(e), w);
+
+                        /* And don't truncate what already fits. */
+                        if (utf8_console_width(x) <= w)
+                                ASSERT_STREQ(e, x);
                 }
+
+        /* Pin a couple of concrete results, so that a change to the assumed tab width or to where the
+         * ellipsis lands shows up in the diff. */
+        _cleanup_free_ char *a = ASSERT_NOT_NULL(ellipsize("a\tb", 10, 50));
+        ASSERT_STREQ(a, "a\tb");
+
+        _cleanup_free_ char *b = ASSERT_NOT_NULL(ellipsize("a\tb", 9, 50));
+        ASSERT_STREQ(b, "a…b");
 }
 
 TEST(xsprintf) {
