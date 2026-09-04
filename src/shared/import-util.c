@@ -25,6 +25,17 @@ static const char *skip_protocol_and_hostname(const char *url) {
         /* Skip slashes after colon */
         d += strspn(d, "/");
 
+        /* A bracketed host (IPv6 literal, or the socket path of a "provider:[…]/…" URL) may contain
+         * slashes, hence skip it as a whole first */
+        if (*d == '[') {
+                const char *e = strchr(d, ']');
+                if (!e)
+                        return NULL;
+
+                d = e + 1;
+                return d + strcspn(d, "/?#");
+        }
+
         /* Skip everything till next slash or end */
         n = strcspn(d, "/?#");
         if (n == 0)
