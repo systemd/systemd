@@ -17,9 +17,11 @@ export XDG_RUNTIME_DIR=/run/user/0
 at_exit() {
     set +e
 
-    systemctl --user stop test-execdir-flags.service
-    rm -fr "$HOME"/.config/corge "$HOME"/.config/link "$HOME"/.config/quux* \
-           "$HOME"/.local/state/bar "$HOME"/.local/state/private "$HOME"/.local/state/waldo
+    systemctl --user stop test-execdir-flags.service test-execdir-colon.service
+    rm -fr "$HOME"/.config/corge "$HOME"/.config/foo "$HOME"/.config/link \
+           "$HOME"/.config/quux* "$HOME"/.local/state/bar "$HOME"/.local/state/foo \
+           "$HOME"/.local/state/grault* "$HOME"/.local/state/private \
+           "$HOME"/.local/state/waldo
 }
 
 trap at_exit EXIT
@@ -100,3 +102,9 @@ systemctl --user cat test-execdir-flags.service | grep "^ConfigurationDirectory=
 systemctl --user daemon-reload
 assert_eq "$(systemctl --user show -P StateDirectorySymlink test-execdir-flags.service)" "waldo::ro"
 assert_eq "$(systemctl --user show -P ConfigurationDirectorySymlink test-execdir-flags.service)" "quux::ro"
+
+# A literal colon in a directory name must survive the transient drop-in round-trip
+systemd-run --user --unit=test-execdir-colon -p 'StateDirectory=grault\\:garply' sleep infinity
+assert_eq "$(systemctl --user show -P StateDirectory test-execdir-colon.service)" "grault:garply"
+systemctl --user daemon-reload
+assert_eq "$(systemctl --user show -P StateDirectory test-execdir-colon.service)" "grault:garply"
