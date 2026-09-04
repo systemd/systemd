@@ -7,6 +7,8 @@
 #include "utf8.h"
 
 TEST(utf8_is_printable) {
+        static const char interesting[] = { '\r', '\177', '\001', '\033', '\t', '\n' };
+
         assert_se(utf8_is_printable("ascii is valid\tunicode", 22));
         assert_se(utf8_is_printable("\342\204\242", 3));
         assert_se(!utf8_is_printable("\341\204", 2));
@@ -14,6 +16,30 @@ TEST(utf8_is_printable) {
         assert_se(!utf8_is_printable("\r", 1));
         assert_se(utf8_is_printable("\n", 1));
         assert_se(utf8_is_printable("\t", 1));
+        ASSERT_TRUE(utf8_is_printable("", 0));
+
+        /* DEL and the C1 range */
+        ASSERT_FALSE(utf8_is_printable("\177", 1));
+        ASSERT_FALSE(utf8_is_printable("\302\233", 2));
+
+        /* Lengths around the eight byte word the fast path works on: an exact multiple of it, one
+         * short of it, and a multi-byte character straddling its end. */
+        ASSERT_TRUE(utf8_is_printable("abcdefgh", 8));
+        ASSERT_TRUE(utf8_is_printable("abcdefg", 7));
+        ASSERT_TRUE(utf8_is_printable("aaaaaaa\342\204\242aaaaa", 15));
+        ASSERT_FALSE(utf8_is_printable("aaaaaaa\342\204", 9));
+
+        /* Put each of the interesting bytes at each offset of a longer string, so that a fast path
+         * that mishandles a single byte position doesn't go unnoticed. */
+        char buf[16];
+        FOREACH_ELEMENT(c, interesting)
+                for (size_t i = 0; i < sizeof(buf); i++) {
+                        memset(buf, 'a', sizeof(buf));
+                        buf[i] = *c;
+
+                        ASSERT_EQ(utf8_is_printable(buf, sizeof(buf)), IN_SET(*c, '\t', '\n'));
+                        ASSERT_EQ(utf8_is_printable_newline(buf, sizeof(buf), false), *c == '\t');
+                }
 }
 
 TEST(utf8_n_is_valid) {
