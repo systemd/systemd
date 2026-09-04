@@ -1375,6 +1375,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("LogsDirectoryAccounting", "b", bus_property_get_bool, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].exec_quota.quota_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectoryQuota", "(tus)", property_get_exec_quota, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].exec_quota), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConfigurationDirectorySymlink", "a(sst)", property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfigurationDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfigurationDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutCleanUSec", "t", bus_property_get_usec, offsetof(ExecContext, timeout_clean_usec), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3754,16 +3755,27 @@ int bus_exec_context_set_transient_property(
                                 exec_directory_done(d);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
+                                _cleanup_strv_free_ char **escaped = NULL;
                                 _cleanup_free_ char *joined = NULL;
 
                                 STRV_FOREACH(source, l) {
                                         r = exec_directory_add(d, *source, /* symlink= */ NULL, /* flags= */ 0);
                                         if (r < 0)
                                                 return log_oom();
+
+                                        /* Need to store them in the unit with the escapes, so that they can
+                                         * be parsed again */
+                                        _cleanup_free_ char *source_escaped = xescape(*source, ":\"");
+                                        if (!source_escaped)
+                                                return -ENOMEM;
+
+                                        r = strv_consume(&escaped, TAKE_PTR(source_escaped));
+                                        if (r < 0)
+                                                return -ENOMEM;
                                 }
                                 exec_directory_sort(d);
 
-                                joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS);
+                                joined = unit_concat_strv(escaped, UNIT_ESCAPE_SPECIFIERS);
                                 if (!joined)
                                         return -ENOMEM;
 
@@ -4219,7 +4231,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink")) {
+        } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink", "ConfigurationDirectorySymlink")) {
                 char *source, *destination;
                 ExecDirectory *directory;
                 uint64_t symlink_flags;
@@ -4241,9 +4253,17 @@ int bus_exec_context_set_transient_property(
                                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is absolute.", source);
                         if (!path_is_normalized(source))
                                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
+                        if (path_startswith(source, "private"))
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is 'private'.", source);
                         if (isempty(destination))
                                 destination = NULL;
                         else {
+                                /* Symlinks are not supported for ConfigurationDirectory=, matching what the
+                                 * unit file parser accepts. The flags field is still useful there, though. */
+                                if (i == EXEC_DIRECTORY_CONFIGURATION)
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                                 "Symlink destination is not supported for %s=.",
+                                                                 exec_directory_type_to_string(i));
                                 if (!path_is_valid(destination))
                                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not valid.", destination);
                                 if (path_is_absolute(destination))
@@ -4260,11 +4280,11 @@ int bus_exec_context_set_transient_property(
                                         return r;
 
                                 /* Need to store them in the unit with the escapes, so that they can be parsed again */
-                                source_escaped = xescape(source, ":");
+                                source_escaped = xescape(source, ":\"");
                                 if (!source_escaped)
                                         return -ENOMEM;
                                 if (destination) {
-                                        destination_escaped = xescape(destination, ":");
+                                        destination_escaped = xescape(destination, ":\"");
                                         if (!destination_escaped)
                                                 return -ENOMEM;
                                 }
@@ -4275,7 +4295,7 @@ int bus_exec_context_set_transient_property(
                                                 exec_directory_type_to_string(i),
                                                 source_escaped,
                                                 destination_escaped || FLAGS_SET(symlink_flags, EXEC_DIRECTORY_READ_ONLY) ? ":" : "",
-                                                destination_escaped,
+                                                strempty(destination_escaped),
                                                 FLAGS_SET(symlink_flags, EXEC_DIRECTORY_READ_ONLY) ? ":ro" : "");
                         }
                 }
