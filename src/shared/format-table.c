@@ -2079,18 +2079,20 @@ static char* align_string_mem(const char *str, const char *url, size_t new_lengt
         } else
                 clickable_length = old_length;
 
-        /* Determine current width on screen */
+        /* Determine current width on screen. Use the same helper the measuring pass uses, so that we
+         * cannot end up with a second, more permissive idea of both validity and width here. */
         p = str;
         while (p < str + old_length) {
-                char32_t c;
+                int n;
 
-                if (utf8_encoded_to_unichar(p, &c) < 0) {
+                n = utf8_char_console_width(p);
+                if (n < 0) {
                         p++, w++; /* count invalid chars as 1 */
                         continue;
                 }
 
                 p = utf8_next_char(p);
-                w += unichar_iswide(c) ? 2 : 1;
+                w += n;
         }
 
         /* Already wider than the target, if so, don't do anything */

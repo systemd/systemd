@@ -9,6 +9,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "utf8.h"
 #include "version.h"
 
 TEST(ellipsize_mem_ansi_short) {
@@ -20,6 +21,41 @@ TEST(ellipsize_mem_ansi_short) {
 
         _cleanup_free_ char *c = ellipsize_mem("\x1b[m", 3, 1, 50);
         assert_se(c);
+}
+
+TEST(ellipsize_mem_tab) {
+        /* unichar_console_width() counts a tab as eight character cells. Callers such as
+         * format-table.c measure a field with utf8_console_width() and then ask ellipsize() to fit it
+         * into that many columns, so ellipsize() must not count a tab as a single cell: the result
+         * would still overflow the column that the measurement had just asked us to fit. */
+
+        FOREACH_STRING(x,
+                       "\t",
+                       "a\tb",
+                       "ab\tcd",
+                       "\t\t\t",
+                       "a\tb\tc\td\te",
+                       "a\t你\tb")  /* tabs mixed with a wide character */
+                for (size_t w = 1; w <= 24; w++) {
+                        _cleanup_free_ char *e = ASSERT_NOT_NULL(ellipsize(x, w, 50));
+
+                        ASSERT_LE(utf8_console_width(e), w);
+
+                        /* And don't truncate what already fits. */
+                        if (utf8_console_width(x) <= w)
+                                ASSERT_STREQ(e, x);
+                }
+
+        /* Pin a couple of concrete results, so that a change to the assumed tab width or to where the
+         * ellipsis lands shows up in the diff. Note that these are in terms of the flat eight cells
+         * unichar_console_width() charges a tab, which is what our callers measure with; a terminal
+         * instead advances to the next multiple of eight, and hence needs one column less for "a\tb"
+         * at the start of a line. */
+        _cleanup_free_ char *a = ASSERT_NOT_NULL(ellipsize("a\tb", 10, 50));
+        ASSERT_STREQ(a, "a\tb");
+
+        _cleanup_free_ char *b = ASSERT_NOT_NULL(ellipsize("a\tb", 9, 50));
+        ASSERT_STREQ(b, "a…b");
 }
 
 TEST(xsprintf) {
