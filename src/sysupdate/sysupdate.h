@@ -44,6 +44,10 @@ typedef struct Context {
 
         Hashmap *features; /* Defined features, keyed by ID */
 
+        Hashmap *provider_components; /* Components offered by component providers (and not defined in the file system), keyed by name */
+        bool provider_components_loaded;
+        char *component_provider; /* If the component we operate on came from a provider, the provider's socket name */
+
         UpdateSet **update_sets;
         size_t n_update_sets;
 
