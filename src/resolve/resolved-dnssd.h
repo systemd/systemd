@@ -55,6 +55,9 @@ void dnssd_registered_service_unregister(DnssdRegisteredService *service);
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);
 DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
 void dnssd_registered_service_clear_on_reload(Hashmap *services);
+int dnssd_registered_service_withdraw(DnssdRegisteredService *s);
+int dnssd_snapshot_file_service_rrs(Manager *m, DnsAnswer **ret);
+int dnssd_withdraw_filtered(Manager *m, DnsAnswer *candidates, DnssdRegisteredService *except);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdRegisteredService*, dnssd_registered_service_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdTxtData*, dnssd_txtdata_free);
