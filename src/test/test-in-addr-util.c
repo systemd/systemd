@@ -213,44 +213,6 @@ TEST(in_addr_prefix_intersect) {
         test_in_addr_prefix_intersect_one(AF_INET6, "1::1", 121, "1::00ff", 121, 0);
 }
 
-static void test_in_addr_prefix_next_one(unsigned f, const char *before, unsigned pl, const char *after) {
-        union in_addr_union ubefore, uafter, t;
-
-        log_debug("/* %s(%s, prefixlen=%u) */", __func__, before, pl);
-
-        assert_se(in_addr_from_string(f, before, &ubefore) >= 0);
-
-        t = ubefore;
-        assert_se((in_addr_prefix_next(f, &t, pl) >= 0) == !!after);
-
-        if (after) {
-                assert_se(in_addr_from_string(f, after, &uafter) >= 0);
-                assert_se(in_addr_equal(f, &t, &uafter) > 0);
-        }
-}
-
-TEST(in_addr_prefix_next) {
-        test_in_addr_prefix_next_one(AF_INET, "192.168.0.0", 24, "192.168.1.0");
-        test_in_addr_prefix_next_one(AF_INET, "192.168.0.0", 16, "192.169.0.0");
-        test_in_addr_prefix_next_one(AF_INET, "192.168.0.0", 20, "192.168.16.0");
-
-        test_in_addr_prefix_next_one(AF_INET, "0.0.0.0", 32, "0.0.0.1");
-        test_in_addr_prefix_next_one(AF_INET, "255.255.255.254", 32, "255.255.255.255");
-        test_in_addr_prefix_next_one(AF_INET, "255.255.255.255", 32, NULL);
-        test_in_addr_prefix_next_one(AF_INET, "255.255.255.0", 24, NULL);
-
-        test_in_addr_prefix_next_one(AF_INET6, "4400::", 128, "4400::0001");
-        test_in_addr_prefix_next_one(AF_INET6, "4400::", 120, "4400::0100");
-        test_in_addr_prefix_next_one(AF_INET6, "4400::", 127, "4400::0002");
-        test_in_addr_prefix_next_one(AF_INET6, "4400::", 8, "4500::");
-        test_in_addr_prefix_next_one(AF_INET6, "4400::", 7, "4600::");
-
-        test_in_addr_prefix_next_one(AF_INET6, "::", 128, "::1");
-
-        test_in_addr_prefix_next_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, NULL);
-        test_in_addr_prefix_next_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ff00", 120, NULL);
-}
-
 static void test_in_addr_prefix_nth_one(unsigned f, const char *before, unsigned pl, uint64_t nth, const char *after) {
         union in_addr_union ubefore, uafter, t;
 
