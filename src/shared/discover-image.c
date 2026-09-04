@@ -1687,7 +1687,7 @@ static int get_pool_directory(
         return 0;
 }
 
-static int unprivileged_clone(Image *i, const char *new_path) {
+static int unprivileged_clone(Image *i, const char *new_path, bool read_only) {
         int r;
 
         assert(i);
@@ -1741,7 +1741,15 @@ static int unprivileged_clone(Image *i, const char *new_path) {
         link = sd_varlink_unref(link);
 
         /* Fork off child that moves into userns and does the copying */
-        return copy_tree_at_foreign(tree_fd, target_fd, userns_fd);
+        r = copy_tree_at_foreign(tree_fd, target_fd, userns_fd);
+        if (r < 0)
+                return r;
+
+        /* Match the best-effort immutable bit handling of ordinary directory clones. */
+        if (read_only)
+                (void) chattr_fd(new_fd, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
+
+        return 0;
 }
 
 int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope) {
@@ -1784,7 +1792,7 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
                         return r;
 
                 if (i->foreign_uid_owned)
-                        r = unprivileged_clone(i, new_path);
+                        r = unprivileged_clone(i, new_path, read_only);
                 else {
                         r = btrfs_subvol_snapshot_at(
                                         AT_FDCWD, i->path,
