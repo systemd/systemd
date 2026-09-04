@@ -51,6 +51,7 @@ static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_IDLE_CLIENT]               = "idle-client",
         [VARLINK_AWAITING_REPLY]            = "awaiting-reply",
         [VARLINK_AWAITING_REPLY_MORE]       = "awaiting-reply-more",
+        [VARLINK_AWAITING_REPLY_UPGRADE]    = "awaiting-reply-upgrade",
         [VARLINK_CALLING]                   = "calling",
         [VARLINK_CALLED]                    = "called",
         [VARLINK_COLLECTING]                = "collecting",
@@ -104,7 +105,7 @@ static JsonStreamPhase varlink_phase(void *userdata) {
 
         /* Client side reading a reply with the per-call deadline in force. */
         if (IN_SET(v->state,
-                   VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE,
+                   VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_AWAITING_REPLY_UPGRADE,
                    VARLINK_CALLING, VARLINK_COLLECTING) &&
             !v->current)
                 return JSON_STREAM_PHASE_AWAITING_REPLY;
@@ -736,7 +737,7 @@ static int varlink_write(sd_varlink *v) {
 static int varlink_read(sd_varlink *v) {
         assert(v);
 
-        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING, VARLINK_IDLE_SERVER))
+        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_AWAITING_REPLY_UPGRADE, VARLINK_CALLING, VARLINK_COLLECTING, VARLINK_IDLE_SERVER))
                 return 0;
         if (v->current)
                 return 0;
@@ -853,7 +854,7 @@ static int varlink_dispatch_reply(sd_varlink *v) {
 
         assert(v);
 
-        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING))
+        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_AWAITING_REPLY_UPGRADE, VARLINK_CALLING, VARLINK_COLLECTING))
                 return 0;
         if (!v->current)
                 return 0;
@@ -909,7 +910,9 @@ static int varlink_dispatch_reply(sd_varlink *v) {
 
         v->current_reply_flags = flags;
 
-        if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE)) {
+        if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_AWAITING_REPLY_UPGRADE)) {
+                bool upgrade = v->state == VARLINK_AWAITING_REPLY_UPGRADE;
+
                 varlink_set_state(v, VARLINK_PROCESSING_REPLY);
 
                 if (v->reply_callback) {
@@ -922,6 +925,24 @@ static int varlink_dispatch_reply(sd_varlink *v) {
 
                 if (v->state == VARLINK_PROCESSING_REPLY) {
                         assert(v->n_pending > 0);
+
+                        if (upgrade) {
+                                assert(v->n_pending == 1);
+                                v->n_pending--;
+
+                                if (error) {
+                                        /* The server refused the upgrade, hence the connection stays in the
+                                         * Varlink protocol and can be used further. */
+                                        json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, false);
+                                        varlink_set_state(v, VARLINK_IDLE_CLIENT);
+                                } else
+                                        /* The server accepted the upgrade. The fds are handed to the upgrade
+                                         * callback on the next dispatch, see varlink_dispatch_upgrade(), so
+                                         * that we don't invoke two callbacks in one go. */
+                                        varlink_set_state(v, VARLINK_UPGRADING);
+
+                                return 1;
+                        }
 
                         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES))
                                 v->n_pending--;
@@ -1491,6 +1512,10 @@ static int varlink_dispatch_upgrade(sd_varlink *v) {
 
         assert(v);
 
+        /* Completes a protocol upgrade, both for servers (after sd_varlink_respond_and_upgrade()) and
+         * clients (after the reply to sd_varlink_invoke_and_upgrade() arrived): hands the connection's fds
+         * to the upgrade callback, once everything has been written out. */
+
         if (v->state != VARLINK_UPGRADING)
                 return 0;
 
@@ -1947,6 +1972,64 @@ _public_ int sd_varlink_invokeb(sd_varlink *v, const char *method, ...) {
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         return sd_varlink_invoke(v, method, parameters);
+}
+
+_public_ int sd_varlink_invoke_and_upgrade(sd_varlink *v, const char *method, sd_json_variant *parameters) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
+        /* Unlike for regular method calls we do not allow pipelining here: once the reply arrives the
+         * connection leaves the Varlink protocol, hence no other calls may be pending. */
+        if (v->state != VARLINK_IDLE_CLIENT)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
+
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR_STRING("method", method),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("upgrade", true));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        /* Make sure we don't consume any data of the upgraded protocol that might follow the reply */
+        json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, true);
+
+        r = varlink_enqueue(v, m);
+        if (r < 0) {
+                json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, false);
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+        }
+
+        varlink_set_state(v, VARLINK_AWAITING_REPLY_UPGRADE);
+        v->n_pending++;
+        json_stream_mark_activity(&v->stream);
+
+        return 0;
+}
+
+_public_ int sd_varlink_invoke_and_upgradeb(sd_varlink *v, const char *method, ...) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        va_start(ap, method);
+        r = sd_json_buildv(&parameters, ap);
+        va_end(ap);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        return sd_varlink_invoke_and_upgrade(v, method, parameters);
 }
 
 _public_ int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_variant *parameters) {

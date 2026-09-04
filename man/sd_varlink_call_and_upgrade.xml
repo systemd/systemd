@@ -19,6 +19,9 @@
     <refname>sd_varlink_call_and_upgrade</refname>
     <refname>sd_varlink_call_and_upgradeb</refname>
     <refname>sd_varlink_call_and_upgradebo</refname>
+    <refname>sd_varlink_invoke_and_upgrade</refname>
+    <refname>sd_varlink_invoke_and_upgradeb</refname>
+    <refname>sd_varlink_invoke_and_upgradebo</refname>
 
     <refpurpose>Invoke a Varlink method and take over the connection for a raw protocol</refpurpose>
   </refnamediv>
@@ -57,6 +60,27 @@
         <paramdef>const char **<parameter>ret_error_id</parameter></paramdef>
         <paramdef>int *<parameter>ret_input_fd</parameter></paramdef>
         <paramdef>int *<parameter>ret_output_fd</parameter></paramdef>
+        <paramdef>…</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_invoke_and_upgrade</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>const char *<parameter>method</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>parameters</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_invoke_and_upgradeb</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>const char *<parameter>method</parameter></paramdef>
+        <paramdef>…</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_invoke_and_upgradebo</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>const char *<parameter>method</parameter></paramdef>
         <paramdef>…</paramdef>
       </funcprototype>
     </funcsynopsis>
@@ -111,14 +135,35 @@
     relationship mirrors that of
     <citerefentry><refentrytitle>sd_varlink_call</refentrytitle><manvolnum>3</manvolnum></citerefentry> and its
     <function>sd_varlink_callb()</function>/<function>sd_varlink_callbo()</function> variants.</para>
+
+    <para><function>sd_varlink_invoke_and_upgrade()</function> is the asynchronous counterpart of
+    <function>sd_varlink_call_and_upgrade()</function>, for connections attached to an event loop with
+    <citerefentry><refentrytitle>sd_varlink_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    It enqueues the method call with the upgrade request and returns immediately. Once the reply arrives it
+    is passed to the reply callback installed with
+    <citerefentry><refentrytitle>sd_varlink_bind_reply</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    If the server replied with a Varlink error, the connection stays in the Varlink protocol and may be used
+    further. Otherwise the connection is upgraded on the next dispatch after the reply callback returned
+    (i.e. the next invocation of <function>sd_varlink_process()</function>, typically by the event loop):
+    it is detached from the event loop, disconnected from the Varlink
+    protocol, and the underlying file descriptors are passed to the upgrade callback installed with
+    <citerefentry><refentrytitle>sd_varlink_bind_upgrade</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    with the same semantics as the descriptors returned by <function>sd_varlink_call_and_upgrade()</function>.
+    The callback takes ownership of both descriptors. Unlike with regular method calls, no further method
+    calls may be enqueued on the connection while an upgrade request is pending, since the connection leaves
+    the Varlink protocol once it is answered. <function>sd_varlink_invoke_and_upgradeb()</function> and
+    <function>sd_varlink_invoke_and_upgradebo()</function> relate to <function>sd_varlink_invoke_and_upgrade()</function>
+    like the <function>…b()</function> and <function>…bo()</function> variants described above.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return a positive integer if the connection was upgraded, or zero if the
-    server returned a Varlink error and <parameter>ret_error_id</parameter> was set to it. On failure, they
-    return a negative errno-style error code.</para>
+    <para>On success, <function>sd_varlink_call_and_upgrade()</function> and its variants return a positive
+    integer if the connection was upgraded, or zero if the server returned a Varlink error and
+    <parameter>ret_error_id</parameter> was set to it. <function>sd_varlink_invoke_and_upgrade()</function>
+    and its variants return zero once the request has been enqueued. On failure, they return a negative
+    errno-style error code.</para>
 
     <refsect2>
       <title>Errors</title>
@@ -136,6 +181,13 @@
           <term><constant>-ENOTCONN</constant></term>
 
           <listitem><para>The Varlink connection object is not connected.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBUSY</constant></term>
+
+          <listitem><para>Another method call is pending on the connection (only returned by
+          <function>sd_varlink_invoke_and_upgrade()</function> and its variants).</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -159,8 +211,11 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_varlink_call_and_upgrade()</function> was added in version 261.</para>
-    <para><function>sd_varlink_call_and_upgradeb()</function> and
-    <function>sd_varlink_call_and_upgradebo()</function> were added in version 262.</para>
+    <para><function>sd_varlink_call_and_upgradeb()</function>,
+    <function>sd_varlink_call_and_upgradebo()</function>,
+    <function>sd_varlink_invoke_and_upgrade()</function>,
+    <function>sd_varlink_invoke_and_upgradeb()</function> and
+    <function>sd_varlink_invoke_and_upgradebo()</function> were added in version 262.</para>
   </refsect1>
 
   <refsect1>

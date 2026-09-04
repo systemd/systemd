@@ -56,6 +56,10 @@
     shall always be updated synchronously with something else; use a feature (or simply additional transfer
     files in the same directory) for those cases.</para>
 
+    <para>Besides being defined in the file system, components may also be provided dynamically by
+    <emphasis>component providers</emphasis>, i.e. services implementing a Varlink interface, see below.
+    Components defined in the file system always take precedence over those offered by providers.</para>
+
     <para>A component does not require a <filename>*.component</filename> file: as soon as a matching
     <filename>sysupdate.<replaceable>component</replaceable>.d/</filename> directory with transfer definitions
     exists, the component is available for updating. The <filename>*.component</filename> file described here
@@ -116,6 +120,33 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MinVersion=</varname></term>
+        <term><varname>MaxVersion=</varname></term>
+
+        <listitem><para>Specifies the minimum resp. maximum version to permit for all transfers of this
+        component, with the same semantics as the settings of the same name in the [Transfer] section of
+        <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>:
+        versions older than <varname>MinVersion=</varname> are considered obsolete, versions newer than
+        <varname>MaxVersion=</varname> are considered too new, and neither are selected for updating. If
+        a transfer of the component specifies its own bounds, the more restrictive one applies. Both
+        settings support specifier expansion.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ProtectVersion=</varname></term>
+
+        <listitem><para>Takes one or more version strings to mark as "protected" for all transfers of
+        this component, with the same semantics as the setting of the same name in the [Transfer] section
+        of <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>:
+        protected versions are never removed while making room for new versions. Versions listed here are
+        added to those a transfer protects on its own. This setting supports specifier expansion.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Suggest=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, this component is suggested for enablement, if
@@ -167,7 +198,8 @@
   <refsect1>
     <title>Specifiers</title>
 
-    <para>Specifiers may be used in the <varname>Documentation=</varname> setting. The following expansions
+    <para>Specifiers may be used in the <varname>Documentation=</varname>, <varname>MinVersion=</varname>,
+    <varname>MaxVersion=</varname> and <varname>ProtectVersion=</varname> settings. The following expansions
     are understood:</para>
 
     <table class='specifiers'>
@@ -277,6 +309,54 @@ SuggestOnVirtualization=!vm
       <command>systemd-sysupdate --component-suggested …</command>) and enable them as appropriate. On bare
       metal the <literal>firmware</literal> component is suggested; inside a VM it is not.</para>
     </example>
+  </refsect1>
+
+  <refsect1>
+    <title>Component Providers</title>
+
+    <para>In addition to the component definitions found in the file system,
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    acquires component definitions from <emphasis>component providers</emphasis>: services that bind an
+    <constant>AF_UNIX</constant> stream socket into the <filename>/run/systemd/sysupdate/provider/</filename>
+    directory (directly or via a symlink) and implement the <constant>io.systemd.SysUpdate.Provider</constant>
+    <ulink url="https://varlink.org/">Varlink</ulink> interface on it. It is recommended to name the socket
+    after the service implementing it, in reverse domain name notation. A provider may define additional
+    components, each carrying the same kind of information as the component definition files described
+    above, and the feature and transfer definition files described in
+    <citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    Note that, unlike in the configuration files, no specifier expansion is applied to strings returned by
+    a provider, and the <varname>SuggestOn…=</varname> conditions are not available. Providers are only
+    consulted while operating on the host (i.e. unless <option>--root=</option>, <option>--image=</option>
+    or <option>--definitions=</option> are used). Providers may run unprivileged: whoever is able to
+    place a socket in the directory is trusted.</para>
+
+    <para>The set of components <command>systemd-sysupdate</command> operates on is the union of the
+    components defined in the file system and those defined by providers. Components defined in the file
+    system take precedence: if the file system defines a component — i.e. a
+    <filename>sysupdate.<replaceable>component</replaceable>.component</filename> file, or any feature or
+    transfer definition file in <filename>sysupdate.<replaceable>component</replaceable>.d/</filename>
+    exists — a provider's definition of a component by the same name is ignored. If multiple providers
+    define the same component, the definition of the provider whose socket name sorts first is used, and a
+    message is logged. The default component (i.e. <filename>sysupdate.d/</filename>) is always taken from
+    the file system.</para>
+
+    <para>A provider may also serve the resources its transfers refer to itself, instead of pointing to a
+    web server: for that it implements the generic <constant>io.systemd.ResourceProvider</constant> Varlink
+    interface (typically on the same socket), and uses URLs of the form
+    <literal>provider:[/run/systemd/sysupdate/provider/<replaceable>name</replaceable>]/<replaceable>resource</replaceable></literal>
+    in the <varname>Path=</varname> field of the sources of its transfers, see
+    <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
+
+    <para>Since the definitions of provider-backed components do not live in the file system, the
+    <command>enable-component</command>, <command>disable-component</command>,
+    <command>enable-feature</command> and <command>disable-feature</command> commands of
+    <command>systemd-sysupdate</command> refuse to operate on them; it is up to the provider to expose the
+    enablement state it deems appropriate. If a provider that is present cannot be queried successfully
+    (for example because it fails or times out), <command>systemd-sysupdate</command> treats the
+    components it might define as being of unknown state rather than as removed, so that the
+    <command>cleanup</command> command does not remove resources belonging to them.</para>
   </refsect1>
 
   <refsect1>

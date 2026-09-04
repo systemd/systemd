@@ -9,7 +9,6 @@
 
 #include "build.h"
 #include "bus-polkit.h"
-#include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -44,9 +43,11 @@
 #include "strv.h"
 #include "sysupdate.h"
 #include "sysupdate-cleanup.h"
+#include "sysupdate-component.h"
 #include "sysupdate-config.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
+#include "sysupdate-provider.h"
 #include "sysupdate-target.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
@@ -90,14 +91,13 @@ COMMAND(
 
 #define CONTEXT_NULL                                              \
         (Context) {                                               \
-                .component_enabled = true,                        \
+                .component_info = COMPONENT_NULL,                 \
                 .sync = true,                                     \
                 .instances_max = UINT64_MAX,                      \
                 .verify = -1,                                     \
                 .cleanup = -1,                                    \
                 .installdb_fd = -EBADF,                           \
                 .target_identifier.class = _TARGET_CLASS_INVALID, \
-                .component_suggest = -1,                          \
         }
 
 void context_done(Context *c) {
@@ -117,6 +117,8 @@ void context_done(Context *c) {
         c->n_disabled_transfers = 0;
 
         c->features = hashmap_free(c->features);
+        c->provider_components = hashmap_free(c->provider_components);
+        c->component_provider = mfree(c->component_provider);
 
         FOREACH_ARRAY(us, c->update_sets, c->n_update_sets)
                 update_set_free(*us);
@@ -131,13 +133,11 @@ void context_done(Context *c) {
         c->root = mfree(c->root);
         c->image = mfree(c->image);
         c->component = mfree(c->component);
-        c->component_description = mfree(c->component_description);
-        c->component_documentation = strv_free(c->component_documentation);
+        component_done(&c->component_info);
         c->image_policy = image_policy_free(c->image_policy);
         c->transfer_source = mfree(c->transfer_source);
 
         target_identifier_done(&c->target_identifier);
-        condition_free_list(c->component_suggest_on);
 }
 
 static int context_from_cmdline(Context *ret) {
@@ -243,8 +243,6 @@ static void server_done(Server *s) {
         s->system_bus = sd_bus_flush_close_unref(s->system_bus);
 }
 
-static DEFINE_POINTER_ARRAY_FREE_FUNC(Transfer*, transfer_free);
-
 static int read_features(
                 Context *c,
                 const char **dirs) {
@@ -288,6 +286,25 @@ static int read_features(
         return 0;
 }
 
+static int context_add_transfer(Context *c, Transfer *t) {
+        Transfer **appended;
+
+        assert(c);
+        assert(t);
+
+        /* Adds the transfer to the context, sorting it into the enabled or disabled list. Consumes the
+         * transfer on success. */
+
+        if (t->enabled)
+                appended = GREEDY_REALLOC_APPEND(c->transfers, c->n_transfers, &t, 1);
+        else
+                appended = GREEDY_REALLOC_APPEND(c->disabled_transfers, c->n_disabled_transfers, &t, 1);
+        if (!appended)
+                return log_oom();
+
+        return 0;
+}
+
 static int read_transfers(
                 Context *c,
                 const char **dirs,
@@ -295,13 +312,10 @@ static int read_transfers(
                 const char *node) {
 
         ConfFile **files = NULL;
-        Transfer **transfers = NULL, **disabled = NULL;
-        size_t n_files = 0, n_transfers = 0, n_disabled = 0;
+        size_t n_files = 0;
         int r;
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_array);
-        CLEANUP_ARRAY(transfers, n_transfers, transfer_free_array);
-        CLEANUP_ARRAY(disabled, n_disabled, transfer_free_array);
 
         assert(c);
         assert(dirs);
@@ -315,7 +329,6 @@ static int read_transfers(
 
         FOREACH_ARRAY(i, files, n_files) {
                 _cleanup_(transfer_freep) Transfer *t = NULL;
-                Transfer **appended;
                 ConfFile *e = *i;
 
                 t = transfer_new(c);
@@ -330,68 +343,103 @@ static int read_transfers(
                 if (r < 0)
                         return r;
 
-                if (t->enabled)
-                        appended = GREEDY_REALLOC_APPEND(transfers, n_transfers, &t, 1);
-                else
-                        appended = GREEDY_REALLOC_APPEND(disabled, n_disabled, &t, 1);
-                if (!appended)
-                        return log_oom();
+                r = context_add_transfer(c, t);
+                if (r < 0)
+                        return r;
                 TAKE_PTR(t);
         }
 
-        c->transfers = TAKE_PTR(transfers);
-        c->n_transfers = n_transfers;
-        c->disabled_transfers = TAKE_PTR(disabled);
-        c->n_disabled_transfers = n_disabled;
         return 0;
 }
 
-static int read_component(Context *c) {
+static bool context_operates_on_host(const Context *c) {
+        assert(c);
+
+        /* Component providers describe the running system, hence only consult them if we operate on the
+         * host, and not when an explicit definitions directory was specified. */
+        return !c->root && !c->image && !c->definitions;
+}
+
+static int context_read_definitions_from_provider(Context *c, const char *node) {
         int r;
 
+        assert(c);
+        assert(c->component);
+
+        /* Acquires the definition of the component we operate on from a component provider, the equivalent
+         * of read_component(), read_features() and read_transfers() for the file system. Returns 0 if no
+         * provider offers the component, > 0 if the definition was loaded. */
+
+        _cleanup_free_ char *provider = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *target = NULL, *features = NULL, *transfers = NULL;
+        r = provider_describe_component(c->component, &provider, &target, &features, &transfers);
+        if (r == -ENOENT) {
+                log_debug("No component provider offers component '%s'.", c->component);
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *origin = path_join(VARLINK_DIR_SYSUPDATE_PROVIDER, provider);
+        if (!origin)
+                return log_oom();
+
+        r = component_from_json(&c->component_info, target, origin);
+        if (r < 0)
+                return r;
+
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, features) {
+                _cleanup_(feature_unrefp) Feature *f = feature_new();
+                if (!f)
+                        return log_oom();
+
+                r = feature_from_json(f, e, origin);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_ensure_put(&c->features, &feature_hash_ops, f->id, f);
+                if (r == -EEXIST)
+                        return log_error_errno(r, "Feature '%s' of component '%s' defined more than once by provider '%s', refusing.", f->id, c->component, provider);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to insert feature '%s' into map: %m", f->id);
+
+                TAKE_PTR(f);
+        }
+
+        JSON_VARIANT_ARRAY_FOREACH(e, transfers) {
+                _cleanup_(transfer_freep) Transfer *t = transfer_new(c);
+                if (!t)
+                        return log_oom();
+
+                r = transfer_from_json(t, e, origin, c->features);
+                if (r < 0)
+                        return r;
+
+                r = transfer_resolve_paths(t, c->root, node);
+                if (r < 0)
+                        return r;
+
+                r = context_add_transfer(c, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
+        }
+
+        log_debug("Loaded definition of component '%s' from provider '%s'.", c->component, provider);
+
+        c->component_provider = TAKE_PTR(provider);
+        return 1;
+}
+
+static int read_component(Context *c) {
         assert(c);
 
         /* Read a component description file, but only if we actually operate on a component */
         if (c->definitions || !c->component)
                 return 0;
 
-        _cleanup_free_ char *j = strjoin("sysupdate.", c->component, ".component");
-        if (!j)
-                return log_oom();
-
-        ConfigTableItem table[] = {
-                { "Component", "Description",                config_parse_string,              0,                             &c->component_description   },
-                { "Component", "Documentation",              config_parse_url_specifiers_many, 0,                             &c->component_documentation },
-                { "Component", "Enabled",                    config_parse_bool,                0,                             &c->component_enabled       },
-                { "Component", "Suggest",                    config_parse_tristate,            0,                             &c->component_suggest       },
-                { "Component", "SuggestOnArchitecture",      config_parse_condition,           CONDITION_ARCHITECTURE,        &c->component_suggest_on    },
-                { "Component", "SuggestOnFirmware",          config_parse_condition,           CONDITION_FIRMWARE,            &c->component_suggest_on    },
-                { "Component", "SuggestOnVirtualization",    config_parse_condition,           CONDITION_VIRTUALIZATION,      &c->component_suggest_on    },
-                { "Component", "SuggestOnHost",              config_parse_condition,           CONDITION_HOST,                &c->component_suggest_on    },
-                { "Component", "SuggestOnFraction",          config_parse_condition,           CONDITION_FRACTION,            &c->component_suggest_on    },
-                { "Component", "SuggestOnKernelCommandLine", config_parse_condition,           CONDITION_KERNEL_COMMAND_LINE, &c->component_suggest_on    },
-                { "Component", "SuggestOnVersion",           config_parse_condition,           CONDITION_VERSION,             &c->component_suggest_on    },
-                { "Component", "SuggestOnCredential",        config_parse_condition,           CONDITION_CREDENTIAL,          &c->component_suggest_on    },
-                { "Component", "SuggestOnSecurity",          config_parse_condition,           CONDITION_SECURITY,            &c->component_suggest_on    },
-                { "Component", "SuggestOnOSRelease",         config_parse_condition,           CONDITION_OS_RELEASE,          &c->component_suggest_on    },
-                { "Component", "SuggestOnMachineTag",        config_parse_condition,           CONDITION_MACHINE_TAG,         &c->component_suggest_on    },
-                {}
-        };
-
-        r = config_parse_standard_file_with_dropins_full(
-                        c->root,
-                        /* root_fd= */ -EBADF,
-                        j,
-                        "Component\0",
-                        config_item_table_lookup, table,
-                        CONFIG_PARSE_WARN,
-                        /* userdata= */ (void *) c->root,
-                        /* ret_stats_by_path= */ NULL,
-                        /* ret_dropin_files= */ NULL);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return component_read_definition(&c->component_info, c->component, c->root);
 }
 
 typedef enum ReadDefinitionsFlags {
@@ -433,6 +481,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
         r = read_component(c);
         if (r < 0)
                 return r;
+        bool component_file_found = r > 0;
 
         r = read_features(c, (const char**) dirs);
         if (r < 0)
@@ -452,6 +501,17 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                         log_warning("As of v257, transfer definitions should have the '.transfer' extension.");
         }
 
+        /* If the file system defines nothing for the component (i.e. we loaded neither a component file
+         * nor any feature or transfer definitions above), ask the component providers. */
+        if (c->component && context_operates_on_host(c) &&
+            !component_file_found &&
+            hashmap_isempty(c->features) &&
+            c->n_transfers + c->n_disabled_transfers == 0) {
+                r = context_read_definitions_from_provider(c, node);
+                if (r < 0)
+                        return r;
+        }
+
         if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS) &&
             c->n_transfers + (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS) ? 0 : c->n_disabled_transfers) == 0) {
                 if (c->component)
@@ -463,7 +523,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                                        "No transfer definitions found.");
         }
 
-        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT) && !c->component_enabled)
+        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT) && c->component_info.enabled == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Component is disabled.");
 
         return 0;
@@ -481,7 +541,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify != 0,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -492,7 +552,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify != 0,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -513,13 +573,70 @@ static int context_load_available_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->source,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify != 0,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
         }
 
         return 0;
+}
+
+static const char* component_min_version(const Context *c) {
+        const char *v;
+
+        assert(c);
+
+        /* Returns the effective minimum version of the component we operate on, i.e. the highest of the
+         * minimum versions configured for the component itself and for all of its enabled transfers: a
+         * version older than any of them is obsolete for the component as a whole. */
+
+        v = c->component_info.min_version;
+
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
+                const Transfer *t = *tr;
+
+                if (t->min_version && (!v || strverscmp_improved(t->min_version, v) > 0))
+                        v = t->min_version;
+        }
+
+        return v;
+}
+
+static const char* component_max_version(const Context *c) {
+        const char *v;
+
+        assert(c);
+
+        /* Likewise, the effective maximum version: the lowest of the maximum versions configured for the
+         * component itself and for all of its enabled transfers. */
+
+        v = c->component_info.max_version;
+
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
+                const Transfer *t = *tr;
+
+                if (t->max_version && (!v || strverscmp_improved(t->max_version, v) < 0))
+                        v = t->max_version;
+        }
+
+        return v;
+}
+
+bool component_version_is_protected(const Context *c, const char *version) {
+        assert(c);
+        assert(version);
+
+        /* A version is protected if the component we operate on or any of its enabled transfers lists it */
+
+        if (strv_contains(c->component_info.protected_versions, version))
+                return true;
+
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers)
+                if (strv_contains((*tr)->protected_versions, version))
+                        return true;
+
+        return false;
 }
 
 static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags) {
@@ -529,6 +646,14 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
 
         assert(c);
         assert(IN_SET(flags, UPDATE_AVAILABLE, UPDATE_INSTALLED));
+
+        /* Versions are visited from newest to oldest below, hence the first eligible available version we
+         * encounter is the newest one, and becomes the candidate. Start afresh in each pass, the rules at
+         * the end of this function reinstate a pending/partial installation as candidate if nothing better
+         * is available. */
+        c->candidate = NULL;
+
+        const char *min_version = component_min_version(c), *max_version = component_max_version(c);
 
         for (;;) {
                 _cleanup_free_ Instance **cursor_instances = NULL;
@@ -615,12 +740,6 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
 
                         cursor_instances[k] = match;
 
-                        if (t->min_version && strverscmp_improved(t->min_version, cursor) > 0)
-                                extra_flags |= UPDATE_OBSOLETE;
-
-                        if (strv_contains(t->protected_versions, cursor))
-                                extra_flags |= UPDATE_PROTECTED;
-
                         /* Partial or pending updates by definition are not incomplete, they’re
                          * partial/pending instead. While an individual Instance cannot be both partial and
                          * pending, an UpdateSet as a whole can contain both partial and pending instances. */
@@ -632,6 +751,15 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                         if (match && match->is_pending)
                                 extra_flags = (extra_flags | UPDATE_PENDING) & ~UPDATE_INCOMPLETE;
                 }
+
+                if (min_version && strverscmp_improved(min_version, cursor) > 0)
+                        extra_flags |= UPDATE_OBSOLETE;
+
+                if (max_version && strverscmp_improved(cursor, max_version) > 0)
+                        extra_flags |= UPDATE_TOO_NEW;
+
+                if (component_version_is_protected(c, cursor))
+                        extra_flags |= UPDATE_PROTECTED;
 
                 r = free_and_strdup_warn(&boundary, cursor);
                 if (r < 0)
@@ -668,11 +796,12 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
 
                         u->flags |= flags | extra_flags;
 
-                        /* If this is the newest installed version, that is incomplete and just became marked
-                         * as available, and if there is no other candidate available, we promote this to be
-                         * the candidate. Ignore partial or pending status on the update set. */
-                        if (FLAGS_SET(u->flags, UPDATE_NEWEST|UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_AVAILABLE) &&
-                            !c->candidate && !FLAGS_SET(u->flags, UPDATE_OBSOLETE))
+                        /* If this is an installed version that is incomplete and just became marked as
+                         * available, and if there is no newer candidate available, we promote this to be the
+                         * candidate. Ignore partial or pending status on the update set. */
+                        if (!c->candidate &&
+                            FLAGS_SET(u->flags, UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_AVAILABLE) &&
+                            (u->flags & (UPDATE_OBSOLETE|UPDATE_TOO_NEW)) == 0)
                                 c->candidate = u;
 
                         skip = true;
@@ -706,9 +835,10 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                 if ((us->flags & (UPDATE_NEWEST|UPDATE_INSTALLED)) == (UPDATE_NEWEST|UPDATE_INSTALLED))
                         c->newest_installed = us;
 
-                /* Remember which is the newest non-obsolete, available (and not installed) version, which we declare the "candidate".
-                 * It may be partial or pending. */
-                if ((us->flags & (UPDATE_NEWEST|UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE)) == (UPDATE_NEWEST|UPDATE_AVAILABLE))
+                /* Remember which is the newest available (and not installed) version that is neither obsolete
+                 * nor too new, which we declare the "candidate". It may be partial or pending. */
+                if (!c->candidate &&
+                    (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_TOO_NEW)) == UPDATE_AVAILABLE)
                         c->candidate = us;
         }
 
@@ -746,6 +876,11 @@ static int context_discover_update_sets(Context *c) {
         }
 
         typesafe_qsort(c->update_sets, c->n_update_sets, update_set_cmp);
+
+        /* Now that the selection is final, mark the candidate, so that the flags tell the whole story */
+        if (c->candidate)
+                c->candidate->flags |= UPDATE_CANDIDATE;
+
         return 0;
 }
 
@@ -778,7 +913,7 @@ static int context_show_table(Context *c) {
                                    TABLE_SET_COLOR, color,
                                    TABLE_STRING,    glyph_check_mark_space(FLAGS_SET(us->flags, UPDATE_AVAILABLE)),
                                    TABLE_SET_COLOR, color,
-                                   TABLE_STRING,    update_set_flags_to_string(us->flags),
+                                   TABLE_STRING,    FORMAT_UPDATE_SET_FLAGS(us->flags),
                                    TABLE_SET_COLOR, color);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -1010,15 +1145,17 @@ static int context_show_version(Context *c, const char *version) {
                        "Installed: %s%s%s%s%s%s%s\n"
                        "Available: %s%s\n"
                        "Protected: %s%s%s\n"
-                       " Obsolete: %s%s%s\n",
+                       " Obsolete: %s%s%s\n"
+                       "  Too new: %s%s%s\n",
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
-                       strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
+                       strempty(update_set_flags_to_color(us->flags)), FORMAT_UPDATE_SET_FLAGS(us->flags), ansi_normal(),
                        yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? ansi_highlight_yellow() : "", FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? " (incomplete)" : "", ansi_normal(),
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PENDING) ? " (pending)" : "", FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PARTIAL) ? " (partial)" : "",
                        yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
-                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
+                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal(),
+                       us->flags & UPDATE_TOO_NEW ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_TOO_NEW), ansi_normal());
 
                 STRV_FOREACH(url, changelog_urls) {
                         _cleanup_free_ char *changelog_link = NULL;
@@ -1044,6 +1181,8 @@ static int context_show_version(Context *c, const char *version) {
                                           SD_JSON_BUILD_PAIR_BOOLEAN("partial", FLAGS_SET(us->flags, UPDATE_PARTIAL)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("pending", FLAGS_SET(us->flags, UPDATE_PENDING)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("tooNew", FLAGS_SET(us->flags, UPDATE_TOO_NEW)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("candidate", FLAGS_SET(us->flags, UPDATE_CANDIDATE)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", FLAGS_SET(us->flags, UPDATE_INCOMPLETE)),
                                           SD_JSON_BUILD_PAIR_STRV("changelogUrls", changelog_urls),
@@ -1596,6 +1735,8 @@ static int context_acquire(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is not available, refusing.", us->version);
         if (FLAGS_SET(us->flags, UPDATE_OBSOLETE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is obsolete, refusing.", us->version);
+        if (FLAGS_SET(us->flags, UPDATE_TOO_NEW))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is newer than permitted, refusing.", us->version);
 
         if (!FLAGS_SET(us->flags, UPDATE_NEWEST))
                 log_notice("Selected update '%s' is not the newest, proceeding anyway.", us->version);
@@ -1706,6 +1847,8 @@ static int context_process_partial_and_pending(
 
         if (FLAGS_SET(us->flags, UPDATE_OBSOLETE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is obsolete, refusing.", us->version);
+        if (FLAGS_SET(us->flags, UPDATE_TOO_NEW))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is newer than permitted, refusing.", us->version);
 
         if (!FLAGS_SET(us->flags, UPDATE_NEWEST))
                 log_notice("Selected update '%s' is not the newest, proceeding anyway.", us->version);
@@ -2274,6 +2417,11 @@ static int context_enable_feature(
                 return 0;
         }
 
+        if (c->component_provider)
+                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                       "Component '%s' is provided by '%s', cannot change the enablement state of its features from the file system.",
+                                       c->component, c->component_provider);
+
         _cleanup_free_ char *dropin_dir = NULL;
         r = make_dropin_dir(c, &dropin_dir);
         if (r < 0)
@@ -2387,6 +2535,12 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
                                         /* read_definitions_flags= */ 0);
                         if (r < 0) {
                                 RET_GATHER(ret, r);
+                                continue;
+                        }
+
+                        if (cc.component_provider) {
+                                log_notice("Component '%s' is provided by '%s', skipping since the enablement state of its features cannot be changed from the file system.",
+                                           *name, cc.component_provider);
                                 continue;
                         }
 
@@ -2859,6 +3013,12 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
                                         &component_context,
                                         /* process_image_flags= */ 0,
                                         /* read_definitions_flags= */ 0);
+                        if (r == -EHOSTUNREACH) {
+                                /* We cannot tell whether the component still exists, hence better not
+                                 * clean up after it, but continue with the other components. */
+                                RET_GATHER(ret, r);
+                                continue;
+                        }
                         if (r < 0)
                                 return r;
 
@@ -2951,6 +3111,33 @@ static int context_list_components(Context *context, char ***ret_component_names
         if (r < 0)
                 return r;
 
+        if (ret_component_names && context_operates_on_host(context)) {
+                ProviderComponent *pc;
+
+                /* Also ask the component providers, but only once per context */
+                if (!context->provider_components_loaded) {
+                        r = provider_list_components(&context->provider_components);
+                        if (r < 0)
+                                return r;
+
+                        context->provider_components_loaded = true;
+
+                        /* Components defined in the file system take precedence over those offered by providers */
+                        HASHMAP_FOREACH(pc, context->provider_components)
+                                if (strv_contains(z, pc->name)) {
+                                        log_debug("Component '%s' is defined in the file system, ignoring the definition offered by provider '%s'.",
+                                                  pc->name, pc->provider);
+                                        provider_component_free(hashmap_remove(context->provider_components, pc->name));
+                                }
+                }
+
+                HASHMAP_FOREACH(pc, context->provider_components)
+                        if (strv_extend(&z, pc->name) < 0)
+                                return log_oom();
+
+                strv_sort(z);
+        }
+
         if (ret_component_names)
                 *ret_component_names = TAKE_PTR(z);
 
@@ -2972,13 +3159,101 @@ static int context_component_is_suggested(Context *c) {
         if (!c->component)
                 return -ENOTTY;
 
-        if (c->component_suggest >= 0)
-                return c->component_suggest;
+        return component_is_suggested(&c->component_info);
+}
 
-        if (!c->component_suggest_on) /* no condition → false */
-                return false;
+static int context_component_to_json(Context *base, const char *name, sd_json_variant **ret, char **ret_provider) {
+        _cleanup_(context_done) Context cc = CONTEXT_NULL;
+        int r;
 
-        return condition_test_list(c->component_suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+        assert(base);
+        assert(name);
+        assert(ret);
+
+        /* Loads the specified component in a sub-context of the specified base context, and serializes its
+         * metadata. If the component fails to load, returns 0 with the result set to NULL. Optionally, also
+         * returns the name of the provider the component was loaded from, if any. */
+
+        r = context_from_base_with_component(base, name, &cc);
+        if (r < 0)
+                return r;
+
+        r = context_load_offline(
+                        &cc,
+                        /* process_image_flags= */ 0,
+                        /* read_definitions_flags= */ 0);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to load component '%s', not reporting its metadata: %m", name);
+                *ret = NULL;
+                if (ret_provider)
+                        *ret_provider = NULL;
+                return 0;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = component_to_json(&cc.component_info, &v);
+        if (r < 0)
+                return r;
+
+        if (ret_provider) {
+                r = strdup_to(ret_provider, cc.component_provider);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int context_components_to_json(Context *base, char **component_names, sd_json_variant **ret, sd_json_variant **ret_providers) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL, *providers = NULL;
+        int r;
+
+        assert(base);
+        assert(ret);
+
+        /* Serializes the metadata of each of the specified components into an array, each object carrying
+         * the component's name. Components that fail to load are skipped. Optionally, also returns an object
+         * mapping the names of the components loaded from a provider to the provider's name. */
+
+        STRV_FOREACH(i, component_names) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_free_ char *provider = NULL;
+
+                r = context_component_to_json(base, *i, &v, &provider);
+                if (r < 0)
+                        return r;
+                if (!v)
+                        continue;
+
+                r = sd_json_variant_set_field_string(&v, "name", *i);
+                if (r < 0)
+                        return log_oom();
+
+                r = sd_json_variant_append_array(&l, v);
+                if (r < 0)
+                        return log_oom();
+
+                if (provider) {
+                        r = sd_json_variant_set_field_string(&providers, *i, provider);
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        if (!l) {
+                r = sd_json_variant_new_array(&l, NULL, 0);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (ret_providers)
+                *ret_providers = TAKE_PTR(providers);
+
+        *ret = TAKE_PTR(l);
+        return 0;
 }
 
 VERB_NOARG(verb_components, "components",
@@ -3060,8 +3335,8 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
                         r = table_add_many(
                                         t,
-                                        TABLE_BOOLEAN_CHECKMARK, cc.component_enabled,
-                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_enabled));
+                                        TABLE_BOOLEAN_CHECKMARK, cc.component_info.enabled != 0,
+                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_info.enabled != 0));
                         if (r < 0)
                                 return table_log_add_error(r);
 
@@ -3073,12 +3348,12 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         if (r < 0)
                                 return table_log_add_error(r);
 
-                        const char *doc = cc.component_documentation ? cc.component_documentation[0] : NULL;
+                        const char *doc = cc.component_info.documentation ? cc.component_info.documentation[0] : NULL;
 
                         r = table_add_many(
                                         t,
                                         TABLE_STRING, *i,
-                                        TABLE_STRING, cc.component_description,
+                                        TABLE_STRING, cc.component_info.description,
                                         TABLE_STRING, doc,
                                         TABLE_SET_URL, doc);
                         if (r < 0)
@@ -3087,10 +3362,16 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
                 return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *details = NULL, *providers = NULL;
+
+                r = context_components_to_json(&context, component_names, &details, &providers);
+                if (r < 0)
+                        return r;
 
                 r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
-                                          SD_JSON_BUILD_PAIR_STRV("components", component_names));
+                                          SD_JSON_BUILD_PAIR_STRV("components", component_names),
+                                          SD_JSON_BUILD_PAIR_VARIANT("details", details),
+                                          JSON_BUILD_PAIR_VARIANT_NON_NULL("providers", providers));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -3144,11 +3425,31 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
         FOREACH_ARRAY(p, sorted, n) {
                 TargetIdentifier *target_identifier = *p;
                 const char *name = (target_identifier->class != TARGET_HOST) ? target_identifier->name : NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *target = NULL;
 
-                r = sd_json_variant_append_arraybo(&l,
-                                SD_JSON_BUILD_PAIR_OBJECT("id",
-                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target_identifier->class)),
-                                                SD_JSON_BUILD_PAIR_STRING("name", name)));
+                r = sd_json_buildo(&target,
+                                   SD_JSON_BUILD_PAIR_OBJECT("id",
+                                                   JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target_identifier->class)),
+                                                   SD_JSON_BUILD_PAIR_STRING("name", name)));
+                if (r < 0)
+                        return r;
+
+                /* For components, also report their metadata, as further fields of the target object */
+                if (target_identifier->class == TARGET_COMPONENT) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *component = NULL;
+
+                        r = context_component_to_json(&context, target_identifier->name, &component, /* ret_provider= */ NULL);
+                        if (r < 0)
+                                return r;
+
+                        if (component) {
+                                r = sd_json_variant_merge_object(&target, component);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                r = sd_json_variant_append_array(&l, target);
                 if (r < 0)
                         return r;
         }
@@ -3222,14 +3523,34 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
         switch (context.component_select) {
 
         case SELECT_EXPLICIT:
-                STRV_FOREACH(name, arguments)
+                STRV_FOREACH(name, arguments) {
                         if (!strv_contains(component_names, *name))
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Component not found: %s", *name);
+
+                        ProviderComponent *pc = hashmap_get(context.provider_components, *name);
+                        if (pc)
+                                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                                       "Component '%s' is provided by '%s', cannot change its enablement state from the file system.",
+                                                       *name, pc->provider);
+                }
                 break;
 
         case SELECT_ALL:
                 assert(!arguments);
-                arguments = component_names;
+
+                STRV_FOREACH(name, component_names) {
+                        ProviderComponent *pc = hashmap_get(context.provider_components, *name);
+                        if (pc) {
+                                log_notice("Component '%s' is provided by '%s', skipping since its enablement state cannot be changed from the file system.",
+                                           *name, pc->provider);
+                                continue;
+                        }
+
+                        if (strv_extend(&suggested, *name) < 0)
+                                return log_oom();
+                }
+
+                arguments = suggested;
                 break;
 
         case SELECT_SUGGESTED:
@@ -3255,6 +3576,12 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
                         }
                         if (r == 0) {
                                 log_debug("Component '%s' is not suggested, skipping.", *name);
+                                continue;
+                        }
+
+                        if (cc.component_provider) {
+                                log_notice("Component '%s' is provided by '%s', skipping since its enablement state cannot be changed from the file system.",
+                                           *name, cc.component_provider);
                                 continue;
                         }
 

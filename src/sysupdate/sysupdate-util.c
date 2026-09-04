@@ -76,16 +76,32 @@ int get_component_list(const char *root, char ***ret) {
         if (r < 0)
                 return r;
 
+        /* A component is defined by a sysupdate.<name>.d/ directory or a sysupdate.<name>.component file */
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
+
+        r = conf_files_list_strv_full(
+                        ".component",
+                        root,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
+                        (const char * const *) CONF_PATHS_STRV(""),
+                        &files,
+                        &n_files);
+        if (r < 0)
+                return r;
+
         _cleanup_set_free_ Set *names = NULL;
 
-        FOREACH_ARRAY(i, directories, n_directories) {
-                ConfFile *e = *i;
+        for (size_t k = 0; k < n_directories + n_files; k++) {
+                ConfFile *e = k < n_directories ? directories[k] : files[k - n_directories];
+                const char *suffix = k < n_directories ? ".d" : ".component";
 
                 const char *s = startswith(e->filename, "sysupdate.");
                 if (!s)
                         continue;
 
-                const char *a = endswith(s, ".d");
+                const char *a = endswith(s, suffix);
                 if (!a)
                         continue;
 
