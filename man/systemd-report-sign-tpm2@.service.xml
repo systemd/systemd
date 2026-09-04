@@ -44,21 +44,36 @@
     TPM2 device to generate a set of signed attestations that also bind the report digest passed to it,
     together providing a verifier with evidence about the state of the system that produced the report.</para>
 
-    <para>The returned report consists of several signed components, each carrying a JSON encoded
-    attestation structure and its corresponding signature. The signature is provided as a JSON encoded
-    <constant>TPMT_SIGNATURE</constant> structure and in PEM encoded form. The signed component types are:</para>
+    <para>The returned report consists of several components. Some of these carry a JSON encoded attestation
+    structure (<constant>TPMS_ATTEST</constant>) and its corresponding signature. The signature is provided as
+    a JSON encoded <constant>TPMT_SIGNATURE</constant> structure and in PEM encoded form. The components are:</para>
 
     <itemizedlist>
-      <listitem><para>A PCR quote, generated with <constant>TPM2_Quote</constant></para></listitem>
+      <listitem><para>A PCR quote, generated with <constant>TPM2_Quote</constant>. This contains the JSON
+      encoded attestation and the corresponding signature.</para></listitem>
 
       <listitem><para>One attestation per NvPCR, generated with <constant>TPM2_NV_Certify</constant>. Each
-      component also includes the readable name of the NvPCR, the NV index public area (as a JSON encoded
+      of these contain the JSON encoded attestation structure and its signature. In addition to this, each
+      one also includes the readable name of the NvPCR, the NV index public area (as a JSON encoded
       <constant>TPMS_NV_PUBLIC</constant> structure), and a JSON blob of authenticated data (the NvPCR name
       and priority) that is digested and supplied as the qualifying data to the certify command.</para></listitem>
 
+      <listitem><para>One component per reported TPM property, generated with <constant>TPM2_GetCapability</constant>.
+      Each of these contain the property and its value as a JSON encoded <constant>TPMS_TAGGED_PROPERTY</constant>
+      structure, as well as a boolean indicating the value of the <constant>moreData</constant> parameter returned
+      from the TPM. These components contain no signature of their own, but the response is included in the
+      audit session digest.</para></listitem>
+
+      <listitem><para>One component per reported TPM permanant handle authorization policy, generated with
+      <constant>TPM2_GetCapability</constant>. Each of these contain the handle and the policy digest as a JSON
+      encoded <constant>TPMS_TAGGED_POLICY</constant> structure, as well as a boolean indicating the value of the
+      <constant>moreData</constant> parameter returned from the TPM. These components contain no signature of
+      their own, but the response is included in the audit session digest.</para></listitem>
+
       <listitem><para>An audit session attestation, generated with
       <constant>TPM2_GetSessionAuditDigest</constant>. This is always the last component. The report digest
-      passed in via Varlink is supplied as its qualifying data.</para></listitem>
+      passed in via Varlink is supplied as its qualifying data. All other components are generated using this
+      audit session.</para></listitem>
     </itemizedlist>
 
     <para>The report additionally includes the measurement event log, and the public area of the signing key.
@@ -71,9 +86,11 @@
     single, consistent snapshot of the system, with no other TPM commands interleaved while it was
     generated.</para>
 
-    <para>The set of attested PCRs and NvPCRs is currently fixed. It covers all firmware PCRs except PCR 6,
-    all other S-RTM PCRs except the IMA PCR (which is not useful without the IMA log), and all defined
-    NvPCRs.</para>
+    <para>The set of attested PCRs, NvPCRs, TPM properties and permanent handle auhtorization policies is
+    currently fixed. It covers all firmware PCRs except PCR 6, all other S-RTM PCRs except the IMA PCR (which is
+    not useful without the IMA log), all defined NvPCRs, the TPM_PT_PERMANENT, TPM_PT_MAX_AUTH_FAIL,
+    TPM_PT_LOCKOUT_INTERVAL and TPM_PT_LOCKOUT_RECOVERY TPM properties, and the authorization policies for the
+    storage, endorsement and lockout hierarchies.</para>
   </refsect1>
 
   <refsect1>
