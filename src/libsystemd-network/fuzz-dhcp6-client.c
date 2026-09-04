@@ -90,7 +90,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(sd_dhcp6_client_set_fqdn(client, "example.com") == 1);
         assert_se(sd_dhcp6_client_set_request_mud_url(client, "https://www.example.com/mudfile.json") >= 0);
         assert_se(sd_dhcp6_client_set_request_user_class(client, STRV_MAKE("u1", "u2", "u3")) >= 0);
-        assert_se(sd_dhcp6_client_set_request_vendor_class(client, STRV_MAKE("v1", "v2", "v3")) >= 0);
+        assert_se(sd_dhcp6_client_set_request_vendor_class(client, STRV_MAKE("v1", "v2", "v3"), SYSTEMD_PEN) >= 0);
         assert_se(sd_dhcp6_client_set_prefix_delegation_hint(client, 48, &hint) >= 0);
         assert_se(sd_dhcp6_option_new(123, v1_data, strlen(v1_data), 12345, &v1) >= 0);
         assert_se(sd_dhcp6_option_new(456, v2_data, strlen(v2_data), 45678, &v2) >= 0);
