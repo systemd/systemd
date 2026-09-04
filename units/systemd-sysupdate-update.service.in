@@ -19,13 +19,13 @@ Type=simple
 NotifyAccess=main
 ExecStart={{LIBEXECDIR}}/systemd-sysupdate update --component-all --cleanup=yes
 
-# Keep this sandboxing synchronised with systemd-sysupdated.service
+# Keep this sandboxing synchronised with systemd-sysupdate@.service
 CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD CAP_SETFCAP CAP_SYS_ADMIN CAP_SETPCAP CAP_DAC_OVERRIDE CAP_LINUX_IMMUTABLE
 NoNewPrivileges=yes
 MemoryDenyWriteExecute=yes
 ProtectHostname=yes
 RestrictRealtime=yes
-RestrictNamespaces=net
+RestrictNamespaces=net mnt
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 SystemCallFilter=@system-service @mount
 SystemCallErrorNumber=EPERM

@@ -17,7 +17,7 @@ Before=shutdown.target
 [Service]
 ExecStart=-{{LIBEXECDIR}}/systemd-sysupdate
 
-# Keep this sandboxing synchronised with systemd-sysupdated.service
+# Keep this sandboxing synchronised with systemd-sysupdate-update.service
 CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD CAP_SETFCAP CAP_SYS_ADMIN CAP_SETPCAP CAP_DAC_OVERRIDE CAP_LINUX_IMMUTABLE
 NoNewPrivileges=yes
 MemoryDenyWriteExecute=yes
