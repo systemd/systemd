@@ -996,7 +996,7 @@ static int next_with_matches(
                               direction, ret, ret_offset);
 }
 
-static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction) {
+static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction, usec_t ts) {
         Object *c;
         uint64_t cp, n_entries;
         int r;
@@ -1008,7 +1008,7 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
          * O(N x files) volatile mmap overhead that makes large 'journalctl -n N' queries unusably
          * slow. Periodic refresh keeps cross-boot ordering reasonably fresh and provides a fallback
          * for any missed inotify events. */
-        if (ratelimit_below(&f->tail_timestamp_ratelimit))
+        if (ratelimit_below_at(&f->tail_timestamp_ratelimit, ts))
                 (void) journal_file_read_tail_timestamp(j, f);
 
         n_entries = le64toh(f->header->n_entries);
@@ -1140,11 +1140,16 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         if (r < 0)
                 return r;
 
+        /* Read the clock once for the whole sweep: next_beyond_location() rate-limits its tail timestamp
+         * refresh, and doing that per file means one clock read per file for every single entry we
+         * iterate over. */
+        usec_t ts = now(CLOCK_BOOTTIME);
+
         FOREACH_ARRAY(_f, files, n_files) {
                 JournalFile *f = (JournalFile*) *_f;
                 bool found;
 
-                r = next_beyond_location(j, f, direction);
+                r = next_beyond_location(j, f, direction, ts);
                 if (r < 0) {
                         log_debug_errno(r, "Can't iterate through %s, ignoring: %m", f->path);
                         remove_file_real(j, f);
