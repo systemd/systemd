@@ -839,10 +839,6 @@ int manager_start(Manager *m) {
 }
 
 Manager* manager_free(Manager *m) {
-        Link *l;
-        DnssdRegisteredService *s;
-        DnsServiceBrowser *sb;
-
         if (!m)
                 return NULL;
 
@@ -850,9 +846,7 @@ Manager* manager_free(Manager *m) {
         dns_server_unlink_all(m->fallback_dns_servers);
         dns_search_domain_unlink_all(m->search_domains);
 
-        while ((l = hashmap_first(m->links)))
-               link_free(l);
-
+        m->links = hashmap_free(m->links);
         m->delegates = hashmap_free(m->delegates);
 
         while (m->dns_queries)
@@ -871,7 +865,6 @@ Manager* manager_free(Manager *m) {
 #endif
 
         set_free(m->refuse_record_types);
-        hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
 
         sd_event_source_unref(m->network_event_source);
@@ -915,16 +908,12 @@ Manager* manager_free(Manager *m) {
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
 
-        while ((s = hashmap_first(m->dnssd_registered_services)))
-               dnssd_registered_service_free(s);
         hashmap_free(m->dnssd_registered_services);
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
         manager_static_records_flush(m);
 
-        while ((sb = hashmap_first(m->dns_service_browsers)))
-                dns_service_browser_free(sb);
         hashmap_free(m->dns_service_browsers);
 
         hashmap_free(m->hooks);
