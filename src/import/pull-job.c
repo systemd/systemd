@@ -321,94 +321,17 @@ static int pull_job_begin_running(PullJob *j) {
         return 0;
 }
 
-static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *userdata) {
-        PullJob *j = ASSERT_PTR(userdata);
-        char *scheme = NULL;
-        CURLcode code;
+static int pull_job_complete(PullJob *j) {
         int r;
 
-        if (IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
-                return 0;
+        assert(j);
 
-        code = sym_curl_easy_getinfo(curl, CURLINFO_SCHEME, &scheme);
-        if (code != CURLE_OK || !scheme)
-                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve URL scheme."));
-
-        if (strcaseeq(scheme, "FILE") && result == CURLE_FILE_COULDNT_READ_FILE && j->on_not_found) {
-                _cleanup_free_ char *new_url = NULL;
-
-                /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
-                r = j->on_not_found(j, &new_url);
-                if (r < 0)
-                        return pull_job_finish(j, r);
-                if (r > 0) { /* A new url to use */
-                        assert(new_url);
-
-                        r = pull_job_restart(j, new_url);
-                        if (r < 0)
-                                return pull_job_finish(j, r);
-
-                        return 0;
-                }
-
-                /* if this didn't work, handle like any other error below */
-        }
-
-        if (result != CURLE_OK)
-                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Transfer failed: %s", sym_curl_easy_strerror(result)));
-
-        if (STRCASE_IN_SET(scheme, "HTTP", "HTTPS")) {
-                long status;
-
-                code = sym_curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
-                if (code != CURLE_OK)
-                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
-
-                if (http_status_etag_exists(status)) {
-                        log_info("Image already downloaded. Skipping download.");
-                        j->etag_exists = true;
-                        return pull_job_finish(j, 0);
-                } else if (http_status_need_authentication(status)) {
-                        log_info("Access to image requires authentication.");
-                        return pull_job_finish(j, -ENOKEY);
-                } else if (status >= 300) {
-
-                        if (status == 404 && j->on_not_found) {
-                                _cleanup_free_ char *new_url = NULL;
-
-                                /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
-                                r = j->on_not_found(j, &new_url);
-                                if (r < 0)
-                                        return pull_job_finish(j, r);
-
-                                if (r > 0) { /* A new url to use */
-                                        assert(new_url);
-
-                                        r = pull_job_restart(j, new_url);
-                                        if (r < 0)
-                                                return pull_job_finish(j, r);
-
-                                        code = sym_curl_easy_getinfo(curl_slot_get_easy(j->slot), CURLINFO_RESPONSE_CODE, &status);
-                                        if (code != CURLE_OK)
-                                                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
-
-                                        if (status == 0)
-                                                return 0;
-                                }
-                        }
-
-                        return pull_job_finish(j, log_notice_errno(
-                                        status == 404 ? SYNTHETIC_ERRNO(ENOMEDIUM) : SYNTHETIC_ERRNO(EIO), /* Make the most common error recognizable */
-                                        "HTTP request to %s failed with code %li.", j->url, status));
-                } else if (status < 200)
-                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "HTTP request to %s finished with unexpected code %li.", j->url, status));
-        }
+        /* Called once the transport delivered all data of the download: finalizes decompression, verifies
+         * the size and checksum, and finishes off the target file. Returns 0 like pull_job_finish(). */
 
         if (j->state == PULL_JOB_ANALYZING) {
-                /* When curl finished the download while we were still looking for a compression magic
-                 * header the content isn't compressed but should be written out as is. */
-                assert(result == CURLE_OK);
-
+                /* When the transfer finished while we were still looking for a compression magic header
+                 * the content isn't compressed but should be written out as is. */
                 r = decompressor_force_off(&j->compress);
                 if (r < 0)
                         return pull_job_finish(j, r);
@@ -511,6 +434,92 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
         return pull_job_finish(j, 0);
 }
 
+static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *userdata) {
+        PullJob *j = ASSERT_PTR(userdata);
+        char *scheme = NULL;
+        CURLcode code;
+        int r;
+
+        if (IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
+                return 0;
+
+        code = sym_curl_easy_getinfo(curl, CURLINFO_SCHEME, &scheme);
+        if (code != CURLE_OK || !scheme)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve URL scheme."));
+
+        if (strcaseeq(scheme, "FILE") && result == CURLE_FILE_COULDNT_READ_FILE && j->on_not_found) {
+                _cleanup_free_ char *new_url = NULL;
+
+                /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
+                r = j->on_not_found(j, &new_url);
+                if (r < 0)
+                        return pull_job_finish(j, r);
+                if (r > 0) { /* A new url to use */
+                        assert(new_url);
+
+                        r = pull_job_restart(j, new_url);
+                        if (r < 0)
+                                return pull_job_finish(j, r);
+
+                        return 0;
+                }
+
+                /* if this didn't work, handle like any other error below */
+        }
+
+        if (result != CURLE_OK)
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Transfer failed: %s", sym_curl_easy_strerror(result)));
+
+        if (STRCASE_IN_SET(scheme, "HTTP", "HTTPS")) {
+                long status;
+
+                code = sym_curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+                if (code != CURLE_OK)
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
+
+                if (http_status_etag_exists(status)) {
+                        log_info("Image already downloaded. Skipping download.");
+                        j->etag_exists = true;
+                        return pull_job_finish(j, 0);
+                } else if (http_status_need_authentication(status)) {
+                        log_info("Access to image requires authentication.");
+                        return pull_job_finish(j, -ENOKEY);
+                } else if (status >= 300) {
+
+                        if (status == 404 && j->on_not_found) {
+                                _cleanup_free_ char *new_url = NULL;
+
+                                /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
+                                r = j->on_not_found(j, &new_url);
+                                if (r < 0)
+                                        return pull_job_finish(j, r);
+
+                                if (r > 0) { /* A new url to use */
+                                        assert(new_url);
+
+                                        r = pull_job_restart(j, new_url);
+                                        if (r < 0)
+                                                return pull_job_finish(j, r);
+
+                                        code = sym_curl_easy_getinfo(curl_slot_get_easy(j->slot), CURLINFO_RESPONSE_CODE, &status);
+                                        if (code != CURLE_OK)
+                                                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
+
+                                        if (status == 0)
+                                                return 0;
+                                }
+                        }
+
+                        return pull_job_finish(j, log_notice_errno(
+                                        status == 404 ? SYNTHETIC_ERRNO(ENOMEDIUM) : SYNTHETIC_ERRNO(EIO), /* Make the most common error recognizable */
+                                        "HTTP request to %s failed with code %li.", j->url, status));
+                } else if (status < 200)
+                        return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "HTTP request to %s finished with unexpected code %li.", j->url, status));
+        }
+
+        return pull_job_complete(j);
+}
+
 static int pull_job_detect_compression(PullJob *j) {
         int r;
 
@@ -527,6 +536,33 @@ static int pull_job_detect_compression(PullJob *j) {
         return pull_job_begin_running(j);
 }
 
+static int pull_job_process_data(PullJob *j, const void *p, size_t sz) {
+        assert(j);
+        assert(p || sz == 0);
+
+        /* Feeds a chunk of downloaded data into the job, regardless of the transport it arrived through */
+
+        switch (j->state) {
+
+        case PULL_JOB_ANALYZING:
+                /* Let's first check what it actually is */
+                if (!iovec_append(&j->payload, &IOVEC_MAKE((void*) p, sz)))
+                        return log_oom();
+
+                return pull_job_detect_compression(j);
+
+        case PULL_JOB_RUNNING:
+                return pull_job_write_compressed(j, &IOVEC_MAKE((void*) p, sz));
+
+        case PULL_JOB_DONE:
+        case PULL_JOB_FAILED:
+                return -ESTALE;
+
+        default:
+                assert_not_reached();
+        }
+}
+
 static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
         PullJob *j = ASSERT_PTR(userdata);
         size_t sz = size * nmemb;
@@ -534,42 +570,13 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
 
         assert(contents);
 
-        switch (j->state) {
-
-        case PULL_JOB_ANALYZING:
-                /* Let's first check what it actually is */
-                if (!iovec_append(&j->payload, &IOVEC_MAKE(contents, sz))) {
-                        r = log_oom();
-                        goto fail;
-                }
-
-                r = pull_job_detect_compression(j);
-                if (r < 0)
-                        goto fail;
-
-                break;
-
-        case PULL_JOB_RUNNING:
-                r = pull_job_write_compressed(j, &IOVEC_MAKE(contents, sz));
-                if (r < 0)
-                        goto fail;
-
-                break;
-
-        case PULL_JOB_DONE:
-        case PULL_JOB_FAILED:
-                r = -ESTALE;
-                goto fail;
-
-        default:
-                assert_not_reached();
+        r = pull_job_process_data(j, contents, sz);
+        if (r < 0) {
+                pull_job_finish(j, r);
+                return 0;
         }
 
         return sz;
-
-fail:
-        pull_job_finish(j, r);
-        return 0;
 }
 
 static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
@@ -693,32 +700,36 @@ fail:
         return 0;
 }
 
-static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
-        PullJob *j = ASSERT_PTR(userdata);
+static void pull_job_report_progress(PullJob *j, uint64_t total, uint64_t current) {
         unsigned percent;
         usec_t n;
 
-        if (dltotal <= 0)
-                return 0;
+        assert(j);
 
-        percent = ((100 * dlnow) / dltotal);
+        /* Reports download progress, regardless of the transport. 'total' may be UINT64_MAX or zero if the
+         * total size is unknown, in which case nothing is reported. */
+
+        if (total <= 0 || total == UINT64_MAX || current > total)
+                return;
+
+        percent = ((100 * current) / total);
         n = now(CLOCK_MONOTONIC);
 
         if (n > j->last_status_usec + USEC_PER_SEC &&
             percent != j->progress_percent &&
-            dlnow < dltotal) {
+            current < total) {
 
-                if (n - j->start_usec > USEC_PER_SEC && dlnow > 0) {
+                if (n - j->start_usec > USEC_PER_SEC && current > 0) {
                         usec_t left, done;
 
                         done = n - j->start_usec;
-                        left = (usec_t) (((double) done * (double) dltotal) / dlnow) - done;
+                        left = (usec_t) (((double) done * (double) total) / current) - done;
 
                         log_info("Got %u%% of %s. %s left at %s/s.",
                                  percent,
                                  pull_job_description(j),
                                  FORMAT_TIMESPAN(left, USEC_PER_SEC),
-                                 FORMAT_BYTES((uint64_t) ((double) dlnow / ((double) done / (double) USEC_PER_SEC))));
+                                 FORMAT_BYTES((uint64_t) ((double) current / ((double) done / (double) USEC_PER_SEC))));
                 } else
                         log_info("Got %u%% of %s.", percent, pull_job_description(j));
 
@@ -728,7 +739,15 @@ static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_o
                 if (j->on_progress)
                         j->on_progress(j);
         }
+}
 
+static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+        PullJob *j = ASSERT_PTR(userdata);
+
+        if (dltotal <= 0 || dlnow < 0)
+                return 0;
+
+        pull_job_report_progress(j, (uint64_t) dltotal, (uint64_t) dlnow);
         return 0;
 }
 
