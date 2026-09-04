@@ -219,11 +219,7 @@ void link_ntp_settings_clear(Link *link) {
 }
 
 void link_dns_settings_clear(Link *link) {
-        if (link->n_dns != UINT_MAX)
-                for (unsigned i = 0; i < link->n_dns; i++)
-                        in_addr_full_free(link->dns[i]);
-        link->dns = mfree(link->dns);
-        link->n_dns = UINT_MAX;
+        link_set_dns(link, /* dns= */ NULL, /* n_dns= */ UINT_MAX);
 
         link->search_domains = ordered_set_free(link->search_domains);
         link->route_domains = ordered_set_free(link->route_domains);
@@ -3173,4 +3169,15 @@ bool link_has_local_lease_domain(Link *link) {
                 link->network &&
                 link->network->dhcp_server_local_lease_domain &&
                 !dns_name_is_root(link->network->dhcp_server_local_lease_domain);
+}
+
+void link_set_dns(Link *link, struct in_addr_full **dns, unsigned n_dns) {
+        assert(link);
+
+        if (link->n_dns != UINT_MAX)
+                FOREACH_ARRAY(d, link->dns, link->n_dns)
+                        in_addr_full_free(*d);
+
+        free_and_replace(link->dns, dns);
+        link->n_dns = n_dns;
 }

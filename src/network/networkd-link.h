@@ -263,3 +263,5 @@ void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *r
 AddressFamily link_required_family_for_online(Link *link);
 
 bool link_has_local_lease_domain(Link *link);
+
+void link_set_dns(Link *link, struct in_addr_full **dns, unsigned n_dns);
