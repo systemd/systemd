@@ -8,6 +8,7 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
+#include "gunicode.h"
 #include "hashmap.h"
 #include "log.h"
 #include "memory-util.h"
@@ -1281,13 +1282,14 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                                 in_prefix = false;
                         }
 
-                        char32_t c;
-                        int n = utf8_encoded_to_unichar(p, &c);
-                        if (n < 0)
-                                return log_debug_errno(n, "Line to break contains invalid UTF-8, refusing: %m");
-
-                        int cw = unichar_console_width(c);
-                        assert(cw >= 0);
+                        /* Measure with the same helper utf8_console_width() uses. Our callers mix the
+                         * two: sd-varlink-idl.c and verbs.c size their indent with utf8_console_width()
+                         * and then break the body here, so if we accepted and measured what that one
+                         * refuses we'd be computing a single width from two ideas of what valid UTF-8
+                         * is. */
+                        int cw = utf8_char_console_width(p);
+                        if (cw < 0)
+                                return log_debug_errno(cw, "Line to break contains invalid UTF-8, refusing: %m");
 
                         w += cw;
 
@@ -1312,7 +1314,7 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                                 continue;
                         }
 
-                        p += n;
+                        p = utf8_next_char(p);
                 }
 
                 /* Process rest of the line, except if all that's left after the last newline we already
