@@ -9,6 +9,7 @@
 #include "format-table.h"
 #include "json-util.h"
 #include "terminal-util.h"
+#include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
 
@@ -33,6 +34,35 @@ TEST(issue_9549) {
         ASSERT_STREQ(formatted,
                      "NAME  TYPE RO  USAGE CREATED                    MODIFIED\n"
                      "foooo raw  no 673.6M Wed 2018-07-11 00:10:33 J… Wed 2018-07-11 00:16:00 JST\n");
+}
+
+TEST(invalid_utf8_cell) {
+        /* A cell that is not valid UTF-8 must be refused the same way whatever the column width is.
+         * The width was previously determined with a more permissive decoder than the one ellipsize()
+         * uses, so a surrogate, overlong, noncharacter or obsolete five byte sequence was measured as
+         * if it were fine, and then failed inside ellipsize() as a bogus -ENOMEM, but only once the
+         * column happened to be narrow enough to require truncation. */
+
+        const char *x;
+
+        FOREACH_ARGUMENT(x,
+                         "\xed\xa0\x80",             /* UTF-16 surrogate */
+                         "\xc0\xaf",                 /* overlong '/' */
+                         "\xef\xb7\x90",             /* noncharacter U+FDD0 */
+                         "\xf8\x88\x80\x80\x80")     /* obsolete five byte form */
+                for (size_t w = 8; w <= 40; w += 8) {
+                        _cleanup_(table_unrefp) Table *table = NULL;
+                        _cleanup_free_ char *formatted = NULL, *cell = NULL;
+
+                        ASSERT_NOT_NULL((table = table_new("name", "value")));
+                        ASSERT_NOT_NULL((cell = strjoin("aaaaaaaaaaaaaaaa", x, "aaaaaaaaaaaaaaaa")));
+                        ASSERT_OK(table_add_many(table,
+                                                 TABLE_STRING, cell,
+                                                 TABLE_STRING, "second"));
+                        table_set_width(table, w);
+
+                        ASSERT_ERROR(table_format(table, &formatted), EINVAL);
+                }
 }
 
 TEST(multiline) {
