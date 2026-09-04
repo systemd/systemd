@@ -264,15 +264,6 @@ int in_addr_prefix_intersect(
         return -EAFNOSUPPORT;
 }
 
-int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen) {
-        assert(u);
-
-        /* Increases the network part of an address by one. Returns 0 if that succeeds, or -ERANGE if
-         * this overflows. */
-
-        return in_addr_prefix_nth(family, u, prefixlen, 1);
-}
-
 /*
  * Calculates the nth prefix of size prefixlen starting from the address denoted by u.
  *
