@@ -426,27 +426,49 @@ int in_addr_prefix_range(
                 union in_addr_union *ret_start,
                 union in_addr_union *ret_end) {
 
-        union in_addr_union start, end;
         int r;
 
         assert(in);
 
-        if (!IN_SET(family, AF_INET, AF_INET6))
+        /* Note, on overflow, e.g. input is 255.255.255.255, then ret_end will be a null address. */
+
+        switch (family) {
+        case AF_INET:
+                if (prefixlen > 32)
+                        return -EINVAL;
+                break;
+        case AF_INET6:
+                if (prefixlen > 128)
+                        return -EINVAL;
+                break;
+        default:
                 return -EAFNOSUPPORT;
-
-        if (ret_start) {
-                start = *in;
-                r = in_addr_prefix_nth(family, &start, prefixlen, 0);
-                if (r < 0)
-                        return r;
         }
 
-        if (ret_end) {
-                end = *in;
-                r = in_addr_prefix_nth(family, &end, prefixlen, 1);
-                if (r < 0)
-                        return r;
+        if (prefixlen == 0) {
+                /* shortcut for trivial case */
+                if (ret_start)
+                        *ret_start = IN_ADDR_NULL;
+                if (ret_end)
+                        *ret_end = IN_ADDR_NULL;
+                return 0;
         }
+
+        union in_addr_union start = *in;
+        r = in_addr_mask(family, &start, prefixlen);
+        if (r < 0)
+                return r;
+
+        union in_addr_union end = start;
+        uint8_t add = UINT8_C(1) << ((FAMILY_ADDRESS_SIZE(family) * 8 - prefixlen) % 8);
+        for (unsigned i = DIV_ROUND_UP(prefixlen, 8); i-- > 0;)
+                if (add > UINT8_MAX - end.bytes[i]) {
+                        end.bytes[i] = 0;
+                        add = 1;
+                } else {
+                        end.bytes[i] += add;
+                        break;
+                }
 
         if (ret_start)
                 *ret_start = start;
