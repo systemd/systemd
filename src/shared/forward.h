@@ -94,6 +94,7 @@ typedef struct Tpm2Context Tpm2Context;
 typedef struct Tpm2Handle Tpm2Handle;
 typedef struct Tpm2PCRValue Tpm2PCRValue;
 typedef struct UnitInfo UnitInfo;
+typedef struct UnitResult UnitResult;
 typedef struct UserRecord UserRecord;
 typedef struct Verb Verb;
 typedef struct VeritySettings VeritySettings;
