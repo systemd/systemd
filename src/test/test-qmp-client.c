@@ -2,6 +2,7 @@
 
 #include <sys/eventfd.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include "sd-event.h"
 #include "sd-future.h"
@@ -213,6 +214,41 @@ static int qmp_client_basic_fiber(void *userdata) {
 
 TEST(qmp_basic) {
         run_qmp_test(mock_qmp_basic_fiber, qmp_client_basic_fiber);
+}
+
+TEST(json_stream_split_crlf_delimiter) {
+        const JsonStreamParams params = {
+                .delimiter = "\r\n",
+                .phase = mock_qmp_phase,
+                .dispatch = mock_qmp_dispatch,
+        };
+        _cleanup_(json_stream_done) JsonStream s = {};
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        const char part1[] = "{\"ok\":true}\r";
+        const char part2[] = "\n{\"two\":2}\r\n";
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fds));
+        ASSERT_OK(json_stream_init(&s, &params));
+        int fd = TAKE_FD(fds[0]);
+        ASSERT_OK(json_stream_connect_fd_pair(&s, fd, fd));
+
+        ASSERT_OK_EQ_ERRNO(write(fds[1], part1, strlen(part1)), (ssize_t) strlen(part1));
+        ASSERT_OK_POSITIVE(json_stream_read(&s));
+        ASSERT_OK_ZERO(json_stream_parse(&s, &v));
+        ASSERT_NULL(v);
+
+        ASSERT_OK_EQ_ERRNO(write(fds[1], part2, strlen(part2)), (ssize_t) strlen(part2));
+        ASSERT_OK_POSITIVE(json_stream_read(&s));
+        ASSERT_OK_POSITIVE(json_stream_parse(&s, &v));
+        sd_json_variant *ok = ASSERT_NOT_NULL(sd_json_variant_by_key(v, "ok"));
+        ASSERT_TRUE(sd_json_variant_boolean(ok));
+
+        v = sd_json_variant_unref(v);
+        ASSERT_OK_POSITIVE(json_stream_parse(&s, &v));
+        sd_json_variant *two = ASSERT_NOT_NULL(sd_json_variant_by_key(v, "two"));
+        ASSERT_EQ(sd_json_variant_unsigned(two), 2U);
+        ASSERT_FALSE(json_stream_has_buffered_input(&s));
 }
 
 static int mock_qmp_eof_fiber(void *userdata) {
