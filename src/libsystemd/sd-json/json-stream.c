@@ -1348,8 +1348,12 @@ int json_stream_read(JsonStream *s) {
                 }
         }
 
+        /* Also rescan the last delimiter_size - 1 bytes already buffered, so a delimiter split
+         * across reads can be found. */
+        size_t rescan = MIN(s->input_buffer_size, json_stream_delimiter_size(s) - 1);
+
         s->input_buffer_size += n;
-        s->input_buffer_unscanned += n;
+        s->input_buffer_unscanned = rescan + n;
 
         return 1;
 }
