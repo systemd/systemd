@@ -871,7 +871,10 @@ static int ndisc_option_parse_flags_extension(Set **options, size_t offset, size
         if (opt[0] != SD_NDISC_OPTION_FLAGS_EXTENSION)
                 return -EBADMSG;
 
-        uint64_t flags = (unaligned_read_be64(opt) & UINT64_C(0xffffffffffff0000)) >> 8;
+        uint64_t flags = 0;
+        for (size_t i = 2; i < 8; i++)
+                flags |= ((uint64_t) opt[i]) << ((i - 1) * 8);
+
         return ndisc_option_add_flags_extension(options, offset, flags);
 }
 
@@ -884,9 +887,11 @@ static int ndisc_option_build_flags_extension(const sd_ndisc_option *option, uin
         if (!buf)
                 return -ENOMEM;
 
-        unaligned_write_be64(buf, (option->extended_flags & UINT64_C(0x00ffffffffffff00)) << 8);
         buf[0] = SD_NDISC_OPTION_FLAGS_EXTENSION;
         buf[1] = 1;
+
+        for (size_t i = 2; i < 8; i++)
+                buf[i] = (option->extended_flags >> ((i - 1) * 8)) & 0xff;
 
         *ret = TAKE_PTR(buf);
         return 0;
