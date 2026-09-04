@@ -3,7 +3,6 @@
 #include <fcntl.h>
 #include <sched.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
@@ -26,7 +25,6 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "siphash24.h"
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -399,7 +397,6 @@ static int pick_word_linear_scan(const char *words, size_t size, size_t offset, 
 int hostname_pick_word(sd_id128_t mid, size_t pos, char **ret) {
         static const sd_id128_t word_key = SD_ID128_MAKE(2d,9f,1c,7a,4b,8e,43,11,9a,6d,5f,02,c8,77,e3,14);
         _cleanup_fclose_ FILE *f = NULL;
-        struct stat st;
         int r;
 
         assert(pos >= 1);
@@ -413,15 +410,10 @@ int hostname_pick_word(sd_id128_t mid, size_t pos, char **ret) {
         if (r < 0)
                 return r;
 
-        if (fstat(fileno(f), &st) < 0)
-                return -errno;
-        r = stat_verify_regular(&st);
-        if (r < 0)
-                return r;
-
         _cleanup_free_ char *words = NULL;
         size_t size;
-        r = read_full_stream(f, &words, &size);
+        r = read_full_stream_full(f, /* filename= */ NULL, /* offset= */ UINT64_MAX, /* size= */ SIZE_MAX,
+                                  READ_FULL_FILE_VERIFY_REGULAR, &words, &size);
         if (r < 0)
                 return r;
         if (size == 0)

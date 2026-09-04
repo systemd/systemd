@@ -400,7 +400,7 @@ executables += [
                 'timeout' : 180,
         },
         test_template + {
-                'sources': files('test-hostname-pick-word.c'),
+                'sources' : files('test-hostname-pick-word.c'),
                 'type' : 'manual',
         },
         test_template + {
