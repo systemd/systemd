@@ -475,7 +475,6 @@ typedef struct Unit {
 
         /* Remember which unit state files we created */
         bool exported_invocation_id:1;
-        bool exported_log_level_max:1;
         bool exported_log_extra_fields:1;
         bool exported_log_ratelimit_interval:1;
         bool exported_log_ratelimit_burst:1;
@@ -972,6 +971,7 @@ int unit_patch_contexts(Unit *u);
 ExecContext* unit_get_exec_context(const Unit *u) _pure_;
 KillContext* unit_get_kill_context(const Unit *u) _pure_;
 CGroupContext* unit_get_cgroup_context(const Unit *u) _pure_;
+int unit_effective_log_level_max(const Unit *u) _pure_;
 
 ExecRuntime* unit_get_exec_runtime(const Unit *u) _pure_;
 CGroupRuntime* unit_get_cgroup_runtime(const Unit *u) _pure_;

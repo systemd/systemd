@@ -4,4 +4,5 @@
 #include "journald-forward.h"
 
 int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup);
+void client_context_read_log_level_max(ClientContext *c, const char *cgroup);
 int client_context_check_keep_log(ClientContext *c, const char *message, size_t len);

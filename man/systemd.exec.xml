@@ -3638,6 +3638,13 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         might prohibit messages of higher log levels to be stored on disk, even though the per-unit
         <varname>LogLevelMax=</varname> permitted it to be processed.</para>
 
+        <para>Note that the journal applies the lowest log level max found on the unit and on any units
+        enclosing it: a <varname>LogLevelMax=</varname> set on an enclosing unit, e.g. on
+        <filename>user@.service</filename> for all units of a user session, cannot be loosened for a unit
+        below it. In particular, setting <varname>LogLevelMax=</varname><option>debug</option> on a unit
+        only raises its own ceiling, it does not lift a stricter limit configured on an enclosing
+        unit.</para>
+
         <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
@@ -3683,6 +3690,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         to messages written that way (but it will be enforced for messages generated via
         <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         and similar functions).</para>
+
+        <para>Note that this functionality is currently only available in system services, not in per-user
+        services.</para>
 
         <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
