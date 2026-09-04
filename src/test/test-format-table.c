@@ -69,11 +69,16 @@ TEST(tab_in_cell) {
         _cleanup_free_ char *formatted = NULL;
 
         /* A tab takes up eight character cells, so the padding align_string_mem() adds has to be
-         * computed with unichar_console_width() too, or the column comes out too wide. */
+         * computed with unichar_console_width() too, or the column comes out too wide.
+         *
+         * Note that unichar_console_width() charges a tab a flat eight cells, while a terminal
+         * advances to the next multiple of eight instead. The two only agree if the tab itself starts
+         * on a multiple of eight, hence the eight characters in front of it here: that way the
+         * expected output below is what a terminal really renders, too. */
 
         ASSERT_NOT_NULL((table = table_new("name", "value")));
         ASSERT_OK(table_add_many(table,
-                                 TABLE_STRING, "a\tb",
+                                 TABLE_STRING, "aaaaaaaa\tb",
                                  TABLE_STRING, "1",
                                  TABLE_STRING, "wide enough to pad the tab cell",
                                  TABLE_STRING, "2"));
@@ -84,7 +89,7 @@ TEST(tab_in_cell) {
         printf("%s\n", formatted);
         ASSERT_STREQ(formatted,
                      "NAME                             VALUE\n"
-                     "a\tb                       1\n"
+                     "aaaaaaaa\tb                1\n"
                      "wide enough to pad the tab cell  2\n");
 }
 

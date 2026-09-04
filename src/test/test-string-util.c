@@ -47,7 +47,10 @@ TEST(ellipsize_mem_tab) {
                 }
 
         /* Pin a couple of concrete results, so that a change to the assumed tab width or to where the
-         * ellipsis lands shows up in the diff. */
+         * ellipsis lands shows up in the diff. Note that these are in terms of the flat eight cells
+         * unichar_console_width() charges a tab, which is what our callers measure with; a terminal
+         * instead advances to the next multiple of eight, and hence needs one column less for "a\tb"
+         * at the start of a line. */
         _cleanup_free_ char *a = ASSERT_NOT_NULL(ellipsize("a\tb", 10, 50));
         ASSERT_STREQ(a, "a\tb");
 
