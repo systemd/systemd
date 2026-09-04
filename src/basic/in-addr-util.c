@@ -295,54 +295,63 @@ int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, u
                 return -ERANGE;
 
         if (family == AF_INET) {
-                uint32_t c, n, t;
-
                 if (prefixlen > 32)
                         return -ERANGE;
 
-                c = be32toh(u->in.s_addr);
+                unsigned shift = 32 - prefixlen;
 
-                t = nth << (32 - prefixlen);
+                /* Do the arithmetic on the network number rather than on the address, so that a 'nth'
+                 * too large to be shifted into place cannot silently wrap around. */
+                uint64_t net = be32toh(u->in.s_addr) >> shift;
+                uint64_t max = (UINT64_C(1) << prefixlen) - 1;
 
-                /* Check for wrap */
-                if (c > UINT32_MAX - t)
+                if (nth > max - net)
                         return -ERANGE;
 
-                n = c + t;
-
-                n &= UINT32_C(0xFFFFFFFF) << (32 - prefixlen);
-                u->in.s_addr = htobe32(n);
+                u->in.s_addr = htobe32((uint32_t) ((net + nth) << shift));
                 return 0;
         }
 
         if (family == AF_INET6) {
-                bool overflow = false;
+                unsigned carry = 0;
 
                 if (prefixlen > 128)
                         return -ERANGE;
 
+                /* Add 'nth' to the network number, walking the address from its least significant byte
+                 * upwards and propagating the carry. The bits of 'nth' are consumed as we go: whatever is
+                 * left over once we run out of address does not fit, and neither does a carry out of the
+                 * most significant byte. */
+
                 for (unsigned i = 16; i > 0; i--) {
                         unsigned t, j = i - 1, p = j * 8;
+                        uint8_t addend;
 
                         if (p >= prefixlen) {
+                                /* Entirely below the prefix: host bits, always cleared. */
                                 u->in6.s6_addr[j] = 0;
                                 continue;
                         }
 
                         if (prefixlen - p < 8) {
-                                u->in6.s6_addr[j] &= 0xff << (8 - (prefixlen - p));
-                                t = u->in6.s6_addr[j] + ((nth & 0xff) << (8 - (prefixlen - p)));
-                                nth >>= prefixlen - p;
+                                /* The byte the prefix ends in. It carries the lowest bits of the network
+                                 * number in its high bits, so take only as many bits off 'nth' as fit. */
+                                unsigned k = prefixlen - p;
+
+                                u->in6.s6_addr[j] &= 0xff << (8 - k);
+                                addend = (nth & ((UINT64_C(1) << k) - 1)) << (8 - k);
+                                nth >>= k;
                         } else {
-                                t = u->in6.s6_addr[j] + (nth & 0xff) + overflow;
+                                addend = nth & 0xff;
                                 nth >>= 8;
                         }
 
-                        overflow = t > UINT8_MAX;
-                        u->in6.s6_addr[j] = (uint8_t) (t & 0xff);
+                        t = u->in6.s6_addr[j] + addend + carry;
+                        u->in6.s6_addr[j] = (uint8_t) t;
+                        carry = t >> 8;
                 }
 
-                if (overflow || nth != 0)
+                if (carry != 0 || nth != 0)
                         return -ERANGE;
 
                 return 0;

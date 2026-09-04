@@ -290,6 +290,39 @@ TEST(in_addr_prefix_nth) {
         test_in_addr_prefix_nth_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, 1, NULL);
         test_in_addr_prefix_nth_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0, 1, NULL);
         test_in_addr_prefix_nth_one(AF_INET6, "1234:5678:90ab:cdef:1234:5678:90ab:cdef", 12, 1, "1240::");
+
+        /* An 'nth' that does not fit the prefix must be refused, not silently truncated into a
+         * wrap-around. With a /1 there are exactly two prefixes, so anything above 1 is out of range. */
+        test_in_addr_prefix_nth_one(AF_INET, "0.0.0.0", 1, 1, "128.0.0.0");
+        test_in_addr_prefix_nth_one(AF_INET, "0.0.0.0", 1, 2, NULL);
+        test_in_addr_prefix_nth_one(AF_INET, "0.0.0.0", 1, 3, NULL);
+        test_in_addr_prefix_nth_one(AF_INET, "0.0.0.0", 1, UINT64_C(1) << 32, NULL);
+        test_in_addr_prefix_nth_one(AF_INET, "0.0.0.0", 24, UINT64_C(0x1000000), NULL);
+        test_in_addr_prefix_nth_one(AF_INET, "0.0.0.0", 24, UINT64_C(0x1000001), NULL);
+        test_in_addr_prefix_nth_one(AF_INET, "0.0.0.0", 32, UINT64_MAX, NULL);
+        test_in_addr_prefix_nth_one(AF_INET, "0.0.0.0", 24, 0xffffff, "255.255.255.0");
+
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 1, 1, "8000::");
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 1, 2, NULL);
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 1, 3, NULL);
+
+        /* Prefix lengths that do not end on a byte boundary: the low bits of 'nth' go into the byte the
+         * prefix ends in, the rest into the bytes above it. */
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 9, 1, "80::");
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 9, 2, "100::");
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 9, 3, "180::");
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 9, 255, "7f80::");
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 9, 511, "ff80::");
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 9, 512, NULL);
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 12, 16, "100::");
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 12, 0xfff, "fff0::");
+        test_in_addr_prefix_nth_one(AF_INET6, "::", 12, 0x1000, NULL);
+        test_in_addr_prefix_nth_one(AF_INET6, "2001:db8::", 60, 0x11, "2001:db8:0:110::");
+        test_in_addr_prefix_nth_one(AF_INET6, "2001:db8::", 63, 4, "2001:db8:0:8::");
+
+        /* Carry out of the byte the prefix ends in must propagate into the bytes above it. */
+        test_in_addr_prefix_nth_one(AF_INET6, "0080::", 9, 1, "100::");
+        test_in_addr_prefix_nth_one(AF_INET6, "ff80::", 9, 1, NULL);
 }
 
 static void test_in_addr_prefix_range_one(
