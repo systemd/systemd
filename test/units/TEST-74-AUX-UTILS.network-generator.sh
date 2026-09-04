@@ -12,7 +12,7 @@ at_exit() {
     rm -f /run/systemd/networkd.conf.d/50-testme.conf
     rm -f /run/systemd/network/50-testme.network
     rm -f /run/systemd/system/systemd-network-generator.service.d/50-testme.conf
-    rm -rf "$ROOT"
+    rm -rf "${ROOT:?}"
 }
 
 trap at_exit EXIT
