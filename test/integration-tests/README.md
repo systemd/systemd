@@ -131,16 +131,17 @@ containers, where loop devices and udev are not available.
 
 `TEST_MATCH_SUBTEST=subtest`:  If the test makes use of `run_subtests` use this
 variable to provide a POSIX extended regex to run only subtests matching the
-expression.
+expression. A test in which the expression matches nothing reports itself as
+skipped rather than passed.
 
 `TEST_MATCH_TESTCASE=testcase`: Same as $TEST_MATCH_SUBTEST but for subtests
 that make use of `run_testcases`.
 
 `TEST_SKIP`: takes a space separated list of tests to skip.
 
-`TEST_SKIP_SUBTEST=subtest`: takes a space separated list of subtests to skip.
+`TEST_SKIP_SUBTESTS=subtest`: takes a space separated list of POSIX extended regexes (matched unanchored, like `$TEST_MATCH_SUBTEST`) naming subtests to skip.
 
-`TEST_SKIP_TESTCASE=testcase`: takes a space separated list of testcases to skip.
+`TEST_SKIP_TESTCASES=testcase`: takes a space separated list of POSIX extended regexes (matched unanchored) naming testcases to skip.
 
 `TEST_SAVE_JOURNAL=0|1|fail`: When `0`, journal file will be removed on exit.
 When `1`, journal file will be saved at `$BUILD_DIR/test/journal`. When `fail`,
