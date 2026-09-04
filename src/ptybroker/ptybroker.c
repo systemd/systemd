@@ -208,6 +208,9 @@ static int start_shell(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate shell unit name from PTY name '%s': %m", pty->name);
 
+        /* Mirror the unit file syntax, where "~" refers to the home directory of the user */
+        bool working_directory_home = streq_ptr(working_directory, "~");
+
         _cleanup_strv_free_ char **patched_environment = NULL;
         if (!strv_env_get(environment, "XDG_SESSION_CLASS") && lightweight >= 0) {
                 bool is_root = STRPTR_IN_SET(user, "root", "0") || (!user && m->scope == RUNTIME_SCOPE_SYSTEM);
@@ -316,7 +319,10 @@ static int start_shell(
                                                                            SD_JSON_BUILD_PAIR_STRING("TTYPath", pty->backend_path),
                                                                            JSON_BUILD_PAIR_STRING_NON_EMPTY("User", user),
                                                                            JSON_BUILD_PAIR_STRING_NON_EMPTY("Group", group),
-                                                                           JSON_BUILD_PAIR_STRING_NON_EMPTY("WorkingDirectory", working_directory),
+                                                                           SD_JSON_BUILD_PAIR_CONDITION(!!working_directory, "WorkingDirectory",
+                                                                                                        SD_JSON_BUILD_OBJECT(
+                                                                                                                        SD_JSON_BUILD_PAIR_CONDITION(!working_directory_home, "path", SD_JSON_BUILD_STRING(working_directory)),
+                                                                                                                        SD_JSON_BUILD_PAIR_CONDITION(working_directory_home, "home", SD_JSON_BUILD_BOOLEAN(true)))),
                                                                            JSON_BUILD_PAIR_STRV_NON_EMPTY("Environment", environment),
                                                                            SD_JSON_BUILD_PAIR_BOOLEAN("IgnoreSIGPIPE", false))))),
                         SD_JSON_BUILD_PAIR_STRING("mode", "replace"));

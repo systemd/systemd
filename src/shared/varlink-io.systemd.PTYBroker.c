@@ -53,7 +53,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(user, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("For shell backend: group to run the shell as"),
                 SD_VARLINK_DEFINE_INPUT(group, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("For shell backend: initial directory for the shell"),
+                SD_VARLINK_FIELD_COMMENT("For shell backend: initial directory for the shell, as an absolute path, or \"~\" to refer to the home directory of the user"),
                 SD_VARLINK_DEFINE_INPUT(workingDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("For shell backend: environment variables for the shell, as a list of assignments in the usual VAR=VALUE syntax"),
                 SD_VARLINK_DEFINE_INPUT(environment, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
