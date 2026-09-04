@@ -39,6 +39,11 @@ typedef struct PullJob {
         CurlSlot *slot;
         struct curl_slist *request_header;
 
+        /* For provider:[…]/… URLs, which are transported via a Varlink connection instead of curl */
+        sd_varlink *provider_link;
+        int provider_fd;
+        sd_event_source *provider_source;
+
         char *etag;
         char **old_etags;
         bool etag_exists;
