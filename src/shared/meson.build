@@ -253,6 +253,7 @@ shared_sources = files(
         'varlink-io.systemd.Resolve.c',
         'varlink-io.systemd.Resolve.Hook.c',
         'varlink-io.systemd.Resolve.Monitor.c',
+        'varlink-io.systemd.ResourceProvider.c',
         'varlink-io.systemd.Shutdown.c',
         'varlink-io.systemd.StorageProvider.c',
         'varlink-io.systemd.SysInstall.c',
