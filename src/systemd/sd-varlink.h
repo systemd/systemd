@@ -162,6 +162,15 @@ int sd_varlink_invokeb(sd_varlink *v, const char *method, ...);
 #define sd_varlink_invokebo(v, method, ...)                                \
         sd_varlink_invokeb((v), (method), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
+/* Enqueue method call with upgrade request. The reply is delivered to the reply callback. If the server
+ * accepted the upgrade, the connection is disconnected from the Varlink protocol afterwards and its fds are
+ * handed to the upgrade callback, see sd_varlink_bind_upgrade(). The asynchronous counterpart of
+ * sd_varlink_call_and_upgrade(). */
+int sd_varlink_invoke_and_upgrade(sd_varlink *v, const char *method, sd_json_variant *parameters);
+int sd_varlink_invoke_and_upgradeb(sd_varlink *v, const char *method, ...);
+#define sd_varlink_invoke_and_upgradebo(v, method, ...)                    \
+        sd_varlink_invoke_and_upgradeb((v), (method), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
+
 /* Enqueue method call, expect a reply now, and possibly more later, which are all delivered to the reply callback */
 int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_variant *parameters);
 int sd_varlink_observeb(sd_varlink *v, const char *method, ...);
