@@ -401,6 +401,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CatchUp=</varname></term>
+
+        <listitem>
+          <para>Takes a boolean argument. If <constant>true</constant>, the timer will "catch up" after reload
+          or wake-up from suspend. That is, the associated service is triggered immediately if it would have
+          been triggered at least once since the last time. If <constant>false</constant>, no "catch up" is
+          done; instead, the next activation time is recomputed from current time. Note that this setting only
+          has an effect on timers configured with <varname>OnCalendar=</varname>. Defaults to
+          <constant>true</constant>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>WakeSystem=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, an elapsing timer will cause the system to resume
