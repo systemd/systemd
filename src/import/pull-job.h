@@ -4,6 +4,9 @@
 #include <sys/stat.h>
 #include <sys/uio.h>
 
+#include "sd-event.h"
+#include "sd-varlink.h"
+
 #include "pull-forward.h"
 
 typedef enum PullJobState {
@@ -38,6 +41,11 @@ typedef struct PullJob {
         CurlGlue *glue;
         CurlSlot *slot;
         struct curl_slist *request_header;
+
+        /* For provider:[…]/… URLs, which are transported via a Varlink connection instead of curl */
+        sd_varlink *provider_link;
+        int provider_fd;
+        sd_event_source *provider_source;
 
         char *etag;
         char **old_etags;
