@@ -167,11 +167,12 @@
     <orderedlist>
 
       <listitem><para>Resources of type <literal>url-file</literal> encapsulate a file on a web server,
-      referenced via a HTTP or HTTPS URL. When an update takes place, the file is downloaded and decompressed
-      and then written to the target file or partition. This resource type is only available for sources, not
-      for targets. The list of available versions of resources of this type is encoded in
-      <filename>SHA256SUMS</filename> manifest files, accompanied by
-      <filename>SHA256SUMS.gpg</filename> detached signatures.</para></listitem>
+      referenced via a HTTP or HTTPS URL, or a resource offered by a local resource provider service,
+      referenced via a <literal>provider:</literal> URL (see <varname>Path=</varname> below). When an update
+      takes place, the file is downloaded and decompressed and then written to the target file or
+      partition. This resource type is only available for sources, not for targets. The list of available
+      versions of resources of this type is encoded in <filename>SHA256SUMS</filename> manifest files,
+      accompanied by <filename>SHA256SUMS.gpg</filename> detached signatures.</para></listitem>
 
       <listitem><para>The <literal>url-tar</literal> resource type is similar, but the file must be a
       <filename>.tar</filename> archive. When an update takes place, the file is decompressed and unpacked
@@ -638,6 +639,21 @@
         <filename>/SHA256SUMS.gpg</filename> to acquire the detached signature file for it, and with the file
         names listed in the manifest file in case an update is executed and a resource shall be
         downloaded.</para>
+
+        <para>Alternatively, for these two source types a URL of the form
+        <literal>provider:[<replaceable>socket</replaceable>]/<replaceable>resource</replaceable></literal>
+        may be specified, which refers to a resource offered by a local service implementing the
+        <constant>io.systemd.ResourceProvider</constant> Varlink interface on the
+        <constant>AF_UNIX</constant> socket <replaceable>socket</replaceable> (an absolute path). The
+        <replaceable>resource</replaceable> part is an opaque name the service understands, which may contain
+        slashes, but no <literal>.</literal> or <literal>..</literal> components. Such URLs are suffixed and
+        otherwise treated exactly like HTTP/HTTPS URLs: <filename>/SHA256SUMS</filename>,
+        <filename>/SHA256SUMS.gpg</filename> and the file names from the manifest are appended to the
+        <replaceable>resource</replaceable> part and requested from the service via that interface.
+        Verification hence works the same way as for HTTP/HTTPS sources; in particular
+        <varname>Verify=yes</varname> requires the service to offer the signature file too. This is
+        primarily useful in combination with component providers, see
+        <citerefentry><refentrytitle>sysupdate.components</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
         <para>For all other source resource types this must be a local path in the file system, referring to
         a local directory to find the versions of this resource in.</para>
