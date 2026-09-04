@@ -813,7 +813,7 @@ int raw_pull_start(
         assert(!(flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) || !(flags & IMPORT_DIRECT));
         assert(!(flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) || !iovec_is_set(checksum));
 
-        if (!http_url_is_valid(url) && !file_url_is_valid(url))
+        if (!http_url_is_valid(url) && !file_url_is_valid(url) && !provider_url_is_valid(url))
                 return -EINVAL;
 
         if (local && !pull_validate_local(local, flags))

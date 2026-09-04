@@ -723,7 +723,7 @@ int tar_pull_start(
         assert(!(flags & IMPORT_PULL_SETTINGS) || !(flags & IMPORT_DIRECT));
         assert(!(flags & IMPORT_PULL_SETTINGS) || !iovec_is_set(checksum));
 
-        if (!http_url_is_valid(url) && !file_url_is_valid(url))
+        if (!http_url_is_valid(url) && !file_url_is_valid(url) && !provider_url_is_valid(url))
                 return -EINVAL;
 
         if (local && !pull_validate_local(local, flags))
