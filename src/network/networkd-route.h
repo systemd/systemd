@@ -78,6 +78,7 @@ DECLARE_TRIVIAL_REF_UNREF_FUNC(Route, route);
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Route, route_unref);
 
 void route_detach(Route *route);
+int route_attach(Manager *manager, Route *route);
 
 int route_new(Route **ret);
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret);
