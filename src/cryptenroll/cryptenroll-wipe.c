@@ -120,7 +120,7 @@ static int find_slots_by_mask(
                         continue;
                 }
 
-                t = luks2_token_type_from_string(sd_json_variant_string(w));
+                t = luks2_token_type_from_json(v);
 
                 w = sd_json_variant_by_key(v, "keyslots");
                 if (!w || !sd_json_variant_is_array(w)) {

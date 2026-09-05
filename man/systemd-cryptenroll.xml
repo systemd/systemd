@@ -388,11 +388,11 @@
         <term><option>--prompt-suppress=<replaceable>TYPE</replaceable>…</option></term>
 
         <listitem><para>Takes a comma-separated list of slot types, out of <literal>password</literal>,
-        <literal>recovery</literal>, <literal>pkcs11</literal>, <literal>fido2</literal> and
-        <literal>tpm2</literal>. Only useful together with <option>--firstboot</option>: if a slot of any of
-        the listed types is already enrolled on the volume, the wizard does nothing and exits successfully.
-        This is useful to hook the wizard into the boot process while ensuring it stays quiet once suitable
-        credentials have been set up.</para>
+        <literal>recovery</literal>, <literal>pkcs11</literal>, <literal>fido2</literal>,
+        <literal>tpm2</literal> and <literal>tpm2+fido2</literal>. Only useful together with
+        <option>--firstboot</option>: if a slot of any of the listed types is already enrolled on the volume,
+        the wizard does nothing and exits successfully. This is useful to hook the wizard into the boot
+        process while ensuring it stays quiet once suitable credentials have been set up.</para>
 
         <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
@@ -485,6 +485,12 @@
         <option>fido2-device=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
 
         <programlisting>myvolume /dev/sda1 none fido2-device=auto</programlisting>
+
+        <para>If <option>--tpm2-device=</option> is also declared, the unlock mechanism will use the TPM2
+        together with the FIDO2. The TPM2 policy will include the FIDO2's <literal>hmac-secret</literal> in
+        the policy. In this combined mode at most a single PIN is used for both mechanisms: if the FIDO2
+        token has a client PIN configured, that same PIN is reused as the TPM2 PIN; otherwise a newly chosen
+        TPM2 PIN (if any) applies to the TPM2 alone.</para>
 
         <para>See
         <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
@@ -598,6 +604,12 @@
 
         <para>Use <option>--tpm2-pcrs=</option> (see below) to configure which TPM2 PCR indexes to bind the
         enrollment to.</para>
+
+        <para>If <option>--fido2-device=</option> is also declared, the unlock mechanism will use the TPM2
+        together with the FIDO2. The TPM2 policy will include the FIDO2's <literal>hmac-secret</literal> in
+        the policy. In this combined mode at most a single PIN is used for both mechanisms: if the FIDO2
+        token has a client PIN configured, that same PIN is reused as the TPM2 PIN; otherwise a newly chosen
+        TPM2 PIN (if any) applies to the TPM2 alone.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
@@ -844,10 +856,12 @@
         <literal>recovery</literal> (for wiping all key slots that are unlocked by a recovery key),
         <literal>pkcs11</literal> (for wiping all key slots that are unlocked by a PKCS#11 token),
         <literal>fido2</literal> (for wiping all key slots that are unlocked by a FIDO2 token),
-        <literal>tpm2</literal> (for wiping all key slots that are unlocked by a TPM2 chip), or any
-        combination of these strings or numeric indexes, in which case all slots matching either are
-        wiped. As safety precaution an operation that wipes all slots without exception (so that the volume
-        cannot be unlocked at all anymore, unless the volume key is known) is refused.</para>
+        <literal>tpm2</literal> (for wiping all key slots that are unlocked by a TPM2 chip),
+        <literal>tpm2+fido2</literal> (for wiping all key slots that are unlocked by a TPM2 chip in
+        combination with a FIDO2 token), or any combination of these strings or numeric indexes, in which
+        case all slots matching either are wiped. As safety precaution an operation that wipes all slots
+        without exception (so that the volume cannot be unlocked at all anymore, unless the volume key is
+        known) is refused.</para>
 
         <para>This switch may be used alone, in which case only the requested wipe operation is executed. It
         may also be used in combination with any of the enrollment options listed above, in which case the
