@@ -796,6 +796,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PartitionZeroFill=</varname></term>
+
+        <listitem><para>Takes a boolean. When the target <varname>Type=</varname> is picked as
+        <constant>partition</constant>, controls whether the remainder of the partition is overwritten with
+        zeroes after the payload has been written into it. If disabled, only as much of the partition is
+        written as the payload is large, and whatever data was previously stored in the rest of the partition
+        remains in place. If enabled, everything from the end of the payload up to the end of the partition
+        is zeroed out, so that no remnants of an earlier, larger payload survive. On block devices this is
+        offloaded to the kernel and hence the storage device where possible.</para>
+
+        <para>If not specified, defaults to on for Verity signature partitions (i.e. if
+        <varname>MatchPartitionType=</varname> selects one of the <literal>*-verity-sig</literal> types) and
+        off for all other partition types. Verity signature partitions carry a JSON object that must be
+        followed by zero bytes only, up to the end of the partition, while the artifacts installed into them
+        (for example as generated via the <option>--split=</option> mode of
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+        generally do not carry this padding.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ReadOnly=</varname></term>
 
         <listitem><para>Controls whether to mark the resulting file, subvolume or partition read-only. If the
