@@ -121,6 +121,9 @@ executables += [
                 'sources' : files('test-dns-question.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-mdns-announce.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-resolved-etc-hosts.c'),
         },
         resolve_test_template + {
