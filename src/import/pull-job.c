@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "hexdecoct.h"
+#include "import-common.h"
 #include "io-util.h"
 #include "log.h"
 #include "parse-util.h"
@@ -456,6 +457,12 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
                 if (iovec_is_set(&j->expected_checksum) &&
                     !iovec_equal(&j->checksum, &j->expected_checksum))
                         return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes."));
+        }
+
+        if (j->disk_fd >= 0 && j->zero_fill) {
+                r = import_zero_fill(j->disk_fd, j->offset, j->uncompressed_max, j->written_uncompressed);
+                if (r < 0)
+                        return pull_job_finish(j, r);
         }
 
         /* Do a couple of finishing disk operations, but only if we are the sole owner of the file (i.e. no
