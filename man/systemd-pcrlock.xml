@@ -278,7 +278,7 @@
         automatically generate a pcrlock file from the policy discovered.</para>
 
         <para>This writes/removes the file
-        <filename>/var/lib/pcrlock.d/230-secureboot-policy.pcrlock.d/generated.pcrlock</filename>.</para>
+        <filename>/var/lib/pcrlock.d/240-secureboot-policy.pcrlock.d/generated.pcrlock</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
@@ -621,6 +621,47 @@
     <title>Exit status</title>
 
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Secure Boot Update Prediction</title>
+
+    <para>The <interfacename>io.systemd.PCRLock</interfacename> Varlink interface provides the privileged
+    <function>NotifySecureBootUpdate()</function> method for software that updates Secure Boot variables.
+    The accepted target literals are <literal>pk</literal> (<varname>PK</varname>), <literal>kek</literal>
+    (<varname>KEK</varname>), <literal>db</literal>, <literal>dbx</literal>, <literal>dbt</literal>, and
+    <literal>dbr</literal>. The method is to be called after the EFI variable write was performed. It returns
+    <literal>io.systemd.PCRLock.UpdateNotApplied</literal> if the requested write is not yet reflected in the
+    EFI variable. For
+    <literal>db</literal> and <literal>dbx</literal>, the raw authenticated-variable update bytes encoded in
+    Base64 are required and limited to 1 MiB. The update bytes are optional and ignored for the other variables.</para>
+
+    <para>The resulting Secure Boot variables and the event log are used to derive host-specific variants
+    for the policy and, where possible, authority measurements of the next boot. Only automatically
+    generated Secure Boot components that are already active are updated. The resulting files are installed
+    alongside the current variants. The optional <varname>regenerate</varname> parameter controls whether the
+    TPM policy is regenerated before the method returns and defaults to true. If false, the component files
+    are updated but the TPM policy remains unchanged and must be regenerated separately.</para>
+
+    <para>Prediction files in
+    <filename>/var/lib/pcrlock.d/240-secureboot-policy.pcrlock.d/</filename> and
+    <filename>/var/lib/pcrlock.d/620-secureboot-authority.pcrlock.d/</filename> use the reserved
+    <filename>generated-prediction-*.pcrlock</filename> pattern and include the current boot identifier, a
+    random update identifier, and a content hash in their names. Files matching this pattern are managed
+    exclusively by <command>systemd-pcrlock</command>, other variant names are left untouched. A subsequent
+    update in the same boot replaces earlier policy predictions with the current variable state. Authority
+    predictions are retained across policy-only updates, and replaced or removed by updates that affect the
+    authority component. Predictions from previous boots are removed before policy generation and when the
+    default Secure Boot components are regenerated. Unlocking a component removes all of its prediction
+    files.</para>
+
+    <para>If the update format or authority outcome cannot be predicted safely, the method falls back by
+    removing the generated file and prediction variants for only the affected automatically generated
+    component. If <varname>regenerate</varname> is true, the TPM policy is then regenerated without that
+    component. Operational failures while changing files or regenerating the policy fail the method and
+    restore the previous state.</para>
+
+    <xi:include href="version-info.xml" xpointer="v262"/>
   </refsect1>
 
   <refsect1>

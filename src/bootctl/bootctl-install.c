@@ -19,6 +19,7 @@
 #include "crypto-util.h"
 #include "dirent-util.h"
 #include "efi-api.h"
+#include "efi-signature-util.h"
 #include "efi.h"
 #include "efivars.h"
 #include "env-file.h"
@@ -44,7 +45,6 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
-#include "utf8.h"
 #include "varlink-util.h"
 
 typedef enum InstallOperation {
@@ -1113,19 +1113,14 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
         if (r < 0)
                 return log_error_errno(r, "Failed to chase /loader/keys/auto/ below '%s': %m", j);
 
-        uint32_t siglistsz = offsetof(EFI_SIGNATURE_LIST, Signatures) + offsetof(EFI_SIGNATURE_DATA, SignatureData) + dercertsz;
-        /* We use malloc0() to zero-initialize the SignatureOwner field of Signatures[0]. */
-        _cleanup_free_ EFI_SIGNATURE_LIST *siglist = malloc0(siglistsz);
-        if (!siglist)
-                return log_oom();
-
-        *siglist = (EFI_SIGNATURE_LIST) {
-                .SignatureType = EFI_CERT_X509_GUID,
-                .SignatureListSize = siglistsz,
-                .SignatureSize = offsetof(EFI_SIGNATURE_DATA, SignatureData) + dercertsz,
-        };
-
-        memcpy(siglist->Signatures[0].SignatureData, dercert, dercertsz);
+        _cleanup_(iovec_done) struct iovec siglist = {};
+        r = efi_signature_list_new(
+                        EFI_CERT_X509,
+                        /* owner= */ SD_ID128_NULL,
+                        &IOVEC_MAKE(dercert, dercertsz),
+                        &siglist);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build secure boot auto-enrollment signature list: %m");
 
         EFI_TIME timestamp;
         r = efi_timestamp(&timestamp);
@@ -1139,62 +1134,20 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
                 EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
 
         FOREACH_STRING(db, "PK", "KEK", "db") {
-                _cleanup_(BIO_freep) BIO *bio = NULL;
+                _cleanup_(iovec_done) struct iovec auth = {};
+                sd_id128_t vendor = STR_IN_SET(db, "PK", "KEK") ? EFI_VENDOR_GLOBAL : EFI_VENDOR_DATABASE;
 
-                bio = sym_BIO_new(sym_BIO_s_mem());
-                if (!bio)
-                        return log_oom();
-
-                _cleanup_free_ char16_t *db16 = utf8_to_utf16(db, SIZE_MAX);
-                if (!db16)
-                        return log_oom();
-
-                /* Don't count the trailing NUL terminator. */
-                if (sym_BIO_write(bio, db16, char16_strsize(db16) - sizeof(char16_t)) < 0)
-                        return log_openssl_errors(LOG_ERR, "Failed to write variable name to bio");
-
-                EFI_GUID *guid = STR_IN_SET(db, "PK", "KEK") ? &(EFI_GUID) EFI_GLOBAL_VARIABLE : &(EFI_GUID) EFI_IMAGE_SECURITY_DATABASE_GUID;
-
-                if (sym_BIO_write(bio, guid, sizeof(*guid)) < 0)
-                        return log_openssl_errors(LOG_ERR, "Failed to write variable GUID to bio");
-
-                if (sym_BIO_write(bio, &attrs, sizeof(attrs)) < 0)
-                        return log_openssl_errors(LOG_ERR, "Failed to write variable attributes to bio");
-
-                if (sym_BIO_write(bio, &timestamp, sizeof(timestamp)) < 0)
-                        return log_openssl_errors(LOG_ERR, "Failed to write timestamp to bio");
-
-                if (sym_BIO_write(bio, siglist, siglistsz) < 0)
-                        return log_openssl_errors(LOG_ERR, "Failed to write signature list to bio");
-
-                _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-                p7 = sym_PKCS7_sign(c->secure_boot_certificate, c->secure_boot_private_key, /* certs= */ NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
-                if (!p7)
-                        return log_openssl_errors(LOG_ERR, "Failed to calculate PKCS7 signature");
-
-                _cleanup_free_ uint8_t *sig = NULL;
-                int sigsz = sym_i2d_PKCS7(p7, &sig);
-                if (sigsz < 0)
-                        return log_openssl_errors(LOG_ERR, "Failed to convert PKCS7 signature to DER");
-
-                size_t authsz = offsetof(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo.CertData) + sigsz;
-                _cleanup_free_ EFI_VARIABLE_AUTHENTICATION_2 *auth = malloc(authsz);
-                if (!auth)
-                        return log_oom();
-
-                *auth = (EFI_VARIABLE_AUTHENTICATION_2) {
-                        .TimeStamp = timestamp,
-                        .AuthInfo = {
-                                .Hdr = {
-                                        .dwLength = offsetof(WIN_CERTIFICATE_UEFI_GUID, CertData) + sigsz,
-                                        .wRevision = 0x0200,
-                                        .wCertificateType = 0x0EF1, /* WIN_CERT_TYPE_EFI_GUID */
-                                },
-                                .CertType = EFI_CERT_TYPE_PKCS7_GUID,
-                        }
-                };
-
-                memcpy(auth->AuthInfo.CertData, sig, sigsz);
+                r = efi_authenticated_variable_sign(
+                                vendor,
+                                db,
+                                attrs,
+                                &timestamp,
+                                &siglist,
+                                c->secure_boot_certificate,
+                                c->secure_boot_private_key,
+                                &auth);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to sign secure boot auto-enrollment variable '%s': %m", db);
 
                 _cleanup_free_ char *filename = strjoin(db, ".auth");
                 if (!filename)
@@ -1207,13 +1160,9 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
 
                 CLEANUP_TMPFILE_AT(keys_fd, t);
 
-                r = loop_write(fd, auth, authsz);
+                r = loop_write(fd, auth.iov_base, auth.iov_len);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to write authentication descriptor to secure boot auto-enrollment file: %m");
-
-                r = loop_write(fd, siglist, siglistsz);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write signature list to secure boot auto-enrollment file: %m");
+                        return log_error_errno(r, "Failed to write authenticated secure boot auto-enrollment variable: %m");
 
                 r = link_tmpfile_at(fd, keys_fd, t, filename, LINK_TMPFILE_SYNC);
                 if (r < 0)
