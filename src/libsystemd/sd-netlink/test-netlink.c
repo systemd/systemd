@@ -443,6 +443,93 @@ TEST(dump_addresses) {
         }
 }
 
+TEST(partial_dispatch) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *req2 = NULL;
+        unsigned n_messages = 0;
+        bool done = false;
+        int r;
+
+        ASSERT_OK(sd_netlink_open(&rtnl));
+
+        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &req, RTM_GETROUTE, AF_INET, RTPROT_UNSPEC));
+        ASSERT_OK(sd_netlink_message_set_request_dump(req, true));
+
+        ASSERT_OK(netlink_set_partial_dispatch(rtnl, true));
+
+        /* In partial dispatch mode the messages of a dump are never registered by serial, so the
+         * synchronous and asynchronous request helpers cannot work, and must be refused up front. */
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &req2, RTM_GETLINK, 0));
+        ASSERT_ERROR(sd_netlink_call(rtnl, req2, 0, NULL), EOPNOTSUPP);
+        ASSERT_ERROR(sd_netlink_call_async(rtnl, NULL, req2, link_handler, NULL, NULL, 0, NULL),
+                     EOPNOTSUPP);
+
+        ASSERT_OK(sd_netlink_send(rtnl, req, NULL));
+
+        /* In partial dispatch mode the dump is terminated by the NLMSG_DONE message. */
+        for (;;) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+                uint16_t type;
+
+                r = netlink_wait_for_message(rtnl, 5 * USEC_PER_SEC);
+                if (r == -ETIMEDOUT)
+                        break;
+                ASSERT_OK(r);
+
+                ASSERT_OK_EQ(sd_netlink_process(rtnl, &m), 1);
+                ASSERT_NOT_NULL(m);
+
+                /* Every message of the dump is delivered on its own. */
+                ASSERT_NULL(sd_netlink_message_next(m));
+
+                ASSERT_OK(sd_netlink_message_get_type(m, &type));
+
+                n_messages++;
+                if (type == NLMSG_DONE) {
+                        done = true;
+                        break;
+                }
+
+                ASSERT_TRUE(IN_SET(type, RTM_NEWROUTE, NLMSG_ERROR));
+        }
+
+        ASSERT_TRUE(done);
+        ASSERT_GE(n_messages, 1U); /* at least the terminating NLMSG_DONE */
+
+        /* A partial dump can be abandoned early by simply destroying the connection, which makes the
+         * kernel cancel the rest of the dump. */
+        ASSERT_NULL(rtnl = sd_netlink_unref(rtnl));
+        ASSERT_NULL(req = sd_netlink_message_unref(req));
+
+        ASSERT_OK(sd_netlink_open(&rtnl));
+
+        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &req, RTM_GETROUTE, AF_INET, RTPROT_UNSPEC));
+        ASSERT_OK(sd_netlink_message_set_request_dump(req, true));
+
+        ASSERT_OK(netlink_set_partial_dispatch(rtnl, true));
+
+        ASSERT_OK(sd_netlink_send(rtnl, req, NULL));
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        uint16_t type;
+
+        for (;;) {
+                r = netlink_wait_for_message(rtnl, 5 * USEC_PER_SEC);
+                if (r == -ETIMEDOUT)
+                        break;
+                ASSERT_OK(r);
+
+                ASSERT_OK_EQ(sd_netlink_process(rtnl, &m), 1);
+                ASSERT_NOT_NULL(m);
+                ASSERT_NULL(sd_netlink_message_next(m));
+
+                ASSERT_OK(sd_netlink_message_get_type(m, &type));
+                ASSERT_TRUE(IN_SET(type, RTM_NEWROUTE, NLMSG_DONE, NLMSG_ERROR));
+
+                break; /* read only a single message of the dump, then abandon it */
+        }
+}
+
 TEST(sd_netlink_message_get_errno) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
