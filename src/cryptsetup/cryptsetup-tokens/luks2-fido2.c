@@ -39,6 +39,17 @@ int acquire_luks2_key(
                         return crypt_log_oom(cd);
         }
 
+        /* Before we report that we need a PIN, check if a token actually is plugged in. Otherwise we'd
+         * ask for the PIN already when no device is around, which is confusing. This matters even more
+         * here than in the non-plugin codepath: libcryptsetup ranks -ENOANO above -EAGAIN when it
+         * aggregates the results of all tokens, hence a single PIN-requiring token would otherwise hide
+         * the "no token plugged in" state of all the other ones. */
+        r = fido2_have_device(device);
+        if (r < 0)
+                return r;
+        if (r == 0) /* no device found, return EAGAIN so that caller will wait/watch udev */
+                return -EAGAIN;
+
         /* configured to use pin but none was provided */
         if ((required & FIDO2ENROLL_PIN) && strv_isempty(pins))
                 return -ENOANO;
