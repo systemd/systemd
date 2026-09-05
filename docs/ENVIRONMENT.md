@@ -162,6 +162,15 @@ All tools:
   invoked unconditionally as a child process by another tool, such as package
   managers running it in a postinstall script.
 
+Tools that assemble a mount stack, i.e. `systemd-nspawn`, `systemd-mstack` and the service manager:
+
+* `$SYSTEMD_MSTACK_ASSUME_NO_CAPS=1` — if set, assume overlayfs will not accept a layer passed as
+  a file descriptor, and name layers by path instead, as on kernels before 6.13. Only useful for
+  testing that path, which is otherwise unreachable on a kernel that takes fds. Note this is the
+  only capability the mount stack code probes for, so it does not force the subsystem's other
+  compatibility path — the joined `lowerdir=` fallback, which is taken reactively when an
+  incrementally built `lowerdir+` stack fails to realize.
+
 `systemd-nspawn`:
 
 * `$SYSTEMD_NSPAWN_API_VFS_WRITABLE=1` — if set, make `/sys/`, `/proc/sys/`,
