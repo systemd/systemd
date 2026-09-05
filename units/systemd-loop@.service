@@ -20,5 +20,5 @@ After=modprobe@loop.service
 Type=oneshot
 RemainAfterExit=yes
 TimeoutSec=infinity
-ExecStart=systemd-dissect --attach --loop-ref-auto --quiet %f
+ExecStart=systemd-dissect --attach --relax --loop-ref-auto --quiet %f
 ExecStop=systemd-dissect --detach %f
