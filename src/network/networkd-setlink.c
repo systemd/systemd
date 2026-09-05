@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if_arp.h>
+#include <linux/if_bridge.h>
 #include <linux/ipv6.h>
 #include <netinet/in.h>
 
@@ -13,6 +14,7 @@
 #include "netif-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
+#include "networkd-bridge-vlan-tunnel.h"
 #include "networkd-can.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
@@ -125,6 +127,10 @@ static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m,
 }
 
 static int link_del_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
+}
+
+static int link_set_bridge_vlan_tunnel_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
 }
 
@@ -383,6 +389,29 @@ static int link_configure_fill_message(
                 if (r < 0)
                         return r;
                 break;
+        case REQUEST_TYPE_SET_LINK_BRIDGE_VLAN_TUNNEL:
+                r = sd_rtnl_message_link_set_family(req, AF_BRIDGE);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
+                if (r < 0)
+                        return r;
+
+                if (link->master_ifindex <= 0 || streq_ptr(link->kind, "bridge")) {
+                        r = sd_netlink_message_append_u16(req, IFLA_BRIDGE_FLAGS, BRIDGE_FLAGS_SELF);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = bridge_vlan_tunnel_append_info(link, req);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_close_container(req);
+                if (r < 0)
+                        return r;
+                break;
         case REQUEST_TYPE_SET_LINK_CAN:
                 r = can_set_netlink_message(link, req);
                 if (r < 0)
@@ -558,6 +587,14 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
 
         case REQUEST_TYPE_DEL_LINK_BRIDGE_VLAN:
                 return link->bridge_vlan_set;
+
+        case REQUEST_TYPE_SET_LINK_BRIDGE_VLAN_TUNNEL:
+                if (!link->master_set)
+                        return false;
+
+                if (link->network->keep_master && link->master_ifindex <= 0 && !streq_ptr(link->kind, "bridge"))
+                        return false;
+                break;
 
         case REQUEST_TYPE_SET_LINK_CAN:
                 /* Do not check link->set_flags_messages here, as it is ok even if link->flags
@@ -822,9 +859,12 @@ int link_request_to_set_bridge_vlan(Link *link) {
         assert(link);
         assert(link->network);
 
+        bool has_bridge_vlan = !memeqzero(link->network->bridge_vlan_bitmap, BRIDGE_VLAN_BITMAP_LEN * sizeof(uint32_t)) ||
+                               link->network->bridge_vlan_pvid != BRIDGE_VLAN_KEEP_PVID;
+        bool has_bridge_vlan_tunnel = link_has_bridge_vlan_tunnel(link);
+
         /* If nothing configured, use the default vlan ID. */
-        if (memeqzero(link->network->bridge_vlan_bitmap, BRIDGE_VLAN_BITMAP_LEN * sizeof(uint32_t)) &&
-            link->network->bridge_vlan_pvid == BRIDGE_VLAN_KEEP_PVID)
+        if (!has_bridge_vlan && !has_bridge_vlan_tunnel)
                 return 0;
 
         if (!link->network->bridge && !streq_ptr(link->kind, "bridge")) {
@@ -840,19 +880,29 @@ int link_request_to_set_bridge_vlan(Link *link) {
                         return 0;
         }
 
-        link->bridge_vlan_set = false;
+        if (has_bridge_vlan) {
+                link->bridge_vlan_set = false;
 
-        r = link_request_set_link(link, REQUEST_TYPE_SET_LINK_BRIDGE_VLAN,
-                                  link_set_bridge_vlan_handler,
-                                  NULL);
-        if (r < 0)
-                return r;
+                r = link_request_set_link(link, REQUEST_TYPE_SET_LINK_BRIDGE_VLAN,
+                                          link_set_bridge_vlan_handler,
+                                          NULL);
+                if (r < 0)
+                        return r;
 
-        r = link_request_set_link(link, REQUEST_TYPE_DEL_LINK_BRIDGE_VLAN,
-                                  link_del_bridge_vlan_handler,
-                                  NULL);
-        if (r < 0)
-                return r;
+                r = link_request_set_link(link, REQUEST_TYPE_DEL_LINK_BRIDGE_VLAN,
+                                          link_del_bridge_vlan_handler,
+                                          NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (has_bridge_vlan_tunnel) {
+                r = link_request_set_link(link, REQUEST_TYPE_SET_LINK_BRIDGE_VLAN_TUNNEL,
+                                          link_set_bridge_vlan_tunnel_handler,
+                                          NULL);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
