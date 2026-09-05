@@ -23,6 +23,9 @@ jobs:
       matrix:
         sanitizer: [address, undefined, memory]
     steps:
+    # ClusterFuzzLite @v1 decides whether to pivot to the OSS-Fuzz base OS
+    # before it extracts PR sources itself, so check out the repo first.
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
     - name: Build Fuzzers
       id: build
       uses: google/clusterfuzzlite/actions/build_fuzzers@v1
