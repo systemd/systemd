@@ -218,16 +218,20 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
         if (!fn)
                 return log_oom();
 
+        /* Encrypted credentials are stored as Base64, unlike the plaintext credentials checked above. */
         r = read_full_file_full(
                         AT_FDCWD, fn,
-                        UINT64_MAX, SIZE_MAX,
-                        READ_FULL_FILE_SECURE,
+                        UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
                         NULL,
                         (char**) &data, &sz);
         if (r == -ENOENT)
                 goto not_found;
+        if (r == -E2BIG)
+                return log_error_errno(r, "Encrypted credential '%s' exceeds the size limit.", name);
         if (r < 0)
-                return log_error_errno(r, "Failed to read encrypted credential data: %m");
+                return log_error_errno(
+                                r, "Failed to read or Base64-decode encrypted credential '%s': %m", name);
 
         if (geteuid() != 0)
                 r = ipc_decrypt_credential(
@@ -249,6 +253,12 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
                                 &ret_iovec);
         if (r < 0)
                 return r;
+
+        /* Match read_credential(): without a size output, the caller expects a string. */
+        if (!ret_size && ret_iovec.iov_len > 0 && memchr(ret_iovec.iov_base, 0, ret_iovec.iov_len))
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EBADMSG),
+                                "Decrypted credential '%s' contains embedded NUL bytes, refusing.", name);
 
         if (ret)
                 *ret = TAKE_PTR(ret_iovec.iov_base);
