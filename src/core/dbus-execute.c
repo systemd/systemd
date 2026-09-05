@@ -4254,6 +4254,8 @@ int bus_exec_context_set_transient_property(
                                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is absolute.", source);
                         if (!path_is_normalized(source))
                                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
+                        if (path_startswith(source, "private"))
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is 'private'.", source);
                         if (isempty(destination))
                                 destination = NULL;
                         else {
@@ -4263,6 +4265,9 @@ int bus_exec_context_set_transient_property(
                                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is absolute.", destination);
                                 if (!path_is_normalized(destination))
                                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
+                                if (path_startswith(destination, "private"))
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                                 "Destination path %s is 'private'.", destination);
                         }
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {

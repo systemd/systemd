@@ -1,5 +1,14 @@
 systemd System and Service Manager
 
+CHANGES WITH 263 in spe:
+
+        Feature Removals and Incompatible Changes:
+
+        * The *DirectorySymlink D-Bus properties now reject source and
+          destination paths equal to or below private/, which is reserved for
+          DynamicUser= directories. Unit files reject these symlink destinations
+          too, matching the existing restriction on source paths.
+
 CHANGES WITH 262 in spe:
 
         Feature Removals and Incompatible Changes:
