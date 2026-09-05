@@ -37,6 +37,7 @@ typedef struct Transfer {
         int no_auto;
         int read_only;
         int growfs;
+        int zero_fill;
 
         /* If we create a new file/dir/subvol in the fs, the temporary and final path we create it under, as well as the read-only flag for it */
         char *temporary_partial_path;
