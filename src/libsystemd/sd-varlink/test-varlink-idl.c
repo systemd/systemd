@@ -18,6 +18,7 @@
 #include "test-varlink-idl-util.h"
 #include "varlink-idl-util.h"
 #include "varlink-io.systemd.h"
+#include "varlink-io.systemd.Analyze.h"
 #include "varlink-io.systemd.AskPassword.h"
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-io.systemd.Credentials.h"
@@ -198,6 +199,7 @@ static void test_parse_format_one(const sd_varlink_interface *iface) {
 TEST(parse_format) {
         const sd_varlink_interface* const list[] = {
                 &vl_interface_io_systemd,
+                &vl_interface_io_systemd_Analyze,
                 &vl_interface_io_systemd_AskPassword,
                 &vl_interface_io_systemd_BootControl,
                 &vl_interface_io_systemd_Credentials,

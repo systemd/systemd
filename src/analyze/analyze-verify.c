@@ -60,6 +60,7 @@ static int process_aliases(char *argv[], char *tempdir, char ***ret) {
 }
 
 int verb_verify(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(verify_units_result_done) VerifyUnitsResult result = {};
         _cleanup_strv_free_ char **filenames = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tempdir = NULL;
         int r;
@@ -72,5 +73,20 @@ int verb_verify(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Couldn't process aliases: %m");
 
-        return verify_units(filenames, arg_runtime_scope, arg_man, arg_generators, arg_recursive_errors, arg_root);
+        const VerifyUnitsParameters parameters = {
+                .filenames = filenames,
+                .runtime_scope = arg_runtime_scope,
+                .recursive_errors = arg_recursive_errors,
+                .root = arg_root,
+                .instance = arg_instance,
+                .check_man = arg_man,
+                .run_unit_generators = arg_generators,
+                .run_environment_generators = true,
+        };
+
+        r = verify_units(&parameters, &result);
+        if (r < 0)
+                return r;
+
+        return result.legacy_status;
 }

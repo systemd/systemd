@@ -105,7 +105,7 @@ static int verify_conditions(char **lines, RuntimeScope scope, const char *unit,
         if (unit) {
                 _cleanup_free_ char *prepared = NULL;
 
-                r = verify_prepare_filename(unit, &prepared);
+                r = verify_prepare_filename(unit, arg_instance, &prepared);
                 if (r < 0)
                         return log_error_errno(r, "Failed to prepare filename %s: %m", unit);
 

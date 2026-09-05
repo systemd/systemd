@@ -22,6 +22,37 @@ static bool job_matters_to_anchor(Job *job);
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
 static void transaction_find_jobs_that_matter_to_anchor(Transaction *tr, unsigned generation);
 
+_printf_(4, 5)
+static void transaction_dispatch_diagnostic(
+                const Job *j,
+                int priority,
+                const char *message_id,
+                const char *format, ...) {
+
+        assert(j);
+        assert(j->manager);
+        assert(message_id);
+        assert(format);
+
+        if (!j->manager->test_run_diagnostic_callback)
+                return;
+
+        char buffer[LINE_MAX];
+        PROTECT_ERRNO;
+        va_list ap;
+
+        va_start(ap, format);
+        (void) vsnprintf(buffer, sizeof buffer, format, ap);
+        va_end(ap);
+
+        manager_dispatch_test_run_diagnostic(j->manager, &(ManagerDiagnostic) {
+                        .priority = priority,
+                        .message = buffer,
+                        .unit = j->unit->id,
+                        .message_id = message_id,
+                });
+}
+
 static void transaction_delete_job(Transaction *tr, Job *j, bool delete_dependencies) {
         assert(tr);
         assert(j);
@@ -468,11 +499,19 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 }
 
                 /* logging for j not k here to provide a consistent narrative */
-                if (cycle_path_text)
+                if (cycle_path_text) {
+                        transaction_dispatch_diagnostic(
+                                        j,
+                                        LOG_ERR,
+                                        SD_MESSAGE_UNIT_ORDERING_CYCLE_STR,
+                                        "%s",
+                                        cycle_path_text);
+
                         log_struct(LOG_ERR,
                                    LOG_UNIT_MESSAGE(j->unit, "%s", cycle_path_text),
                                    LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
                                    LOG_ITEM("%s", strempty(unit_ids)));
+                }
 
                 if (set_size(j->manager->transactions_with_cycle) >= CYCLIC_TRANSACTIONS_MAX)
                         log_warning("Too many transactions with ordering cycle, suppressing record.");
@@ -487,6 +526,16 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 if (delete) {
                         const char *status;
                         /* logging for j not k here to provide a consistent narrative */
+                        transaction_dispatch_diagnostic(
+                                        j,
+                                        LOG_WARNING,
+                                        SD_MESSAGE_DELETING_JOB_BECAUSE_ORDERING_CYCLE_STR,
+                                        "Job %s/%s deleted to break ordering cycle starting with %s/%s",
+                                        delete->unit->id,
+                                        job_type_to_string(delete->type),
+                                        j->unit->id,
+                                        job_type_to_string(j->type));
+
                         log_struct(LOG_WARNING,
                                    LOG_UNIT_MESSAGE(j->unit,
                                                     "Job %s/%s deleted to break ordering cycle starting with %s/%s",
@@ -510,6 +559,14 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         transaction_delete_unit(tr, delete->unit);
                         return -EAGAIN;
                 }
+
+                transaction_dispatch_diagnostic(
+                                j,
+                                LOG_ERR,
+                                SD_MESSAGE_CANT_BREAK_ORDERING_CYCLE_STR,
+                                "Unable to break cycle starting with %s/%s",
+                                j->unit->id,
+                                job_type_to_string(j->type));
 
                 log_struct(LOG_ERR,
                            LOG_UNIT_MESSAGE(j->unit, "Unable to break cycle starting with %s/%s",

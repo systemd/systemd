@@ -1088,6 +1088,19 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         return 0;
 }
 
+void manager_dispatch_test_run_diagnostic(Manager *m, const ManagerDiagnostic *record) {
+        assert(m);
+        assert(record);
+        assert(record->message);
+
+        if (!m->test_run_diagnostic_callback)
+                return;
+
+        PROTECT_ERRNO;
+
+        m->test_run_diagnostic_callback(record, m->test_run_diagnostic_userdata);
+}
+
 static int manager_setup_notify(Manager *m) {
         int r;
 

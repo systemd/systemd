@@ -148,6 +148,18 @@ typedef enum ManagerTestRunFlags {
 
 assert_cc((MANAGER_TEST_FULL & UINT8_MAX) == MANAGER_TEST_FULL);
 
+typedef struct ManagerDiagnostic {
+        int priority;
+        const char *message;
+        const char *unit;
+        const char *configuration_file;
+        unsigned configuration_line;
+        const char *message_id;
+} ManagerDiagnostic;
+
+/* The record and its strings are borrowed and only valid for the duration of the callback. */
+typedef void (*ManagerDiagnosticCallback)(const ManagerDiagnostic *record, void *userdata);
+
 /* Various defaults for unit file settings. */
 typedef struct UnitDefaults {
         ExecOutput std_output, std_error;
@@ -415,6 +427,9 @@ typedef struct Manager {
 
         ManagerTestRunFlags test_run_flags;
 
+        ManagerDiagnosticCallback test_run_diagnostic_callback;
+        void *test_run_diagnostic_userdata;
+
         /* If non-zero, exit with the following value when the systemd
          * process terminate. Useful for containers: systemd-nspawn could get
          * the return value. */
@@ -575,6 +590,8 @@ usec_t manager_default_timeout(RuntimeScope scope);
 int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **ret);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+
+void manager_dispatch_test_run_diagnostic(Manager *m, const ManagerDiagnostic *record);
 
 /* One entry parsed out of the upstream "systemd-fdstore-mapping" memfd. Pairs the numeric index from the
  * JSON map to the (unit-id, original fdname) the fd was originally stored as. */

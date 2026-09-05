@@ -2758,7 +2758,7 @@ static int offline_security_checks(
 
                 log_debug("Handling %s...", *filename);
 
-                k = verify_prepare_filename(*filename, &prepared);
+                k = verify_prepare_filename(*filename, arg_instance, &prepared);
                 if (k < 0) {
                         log_warning_errno(k, "Failed to prepare filename %s: %m", *filename);
                         RET_GATHER(r, k);
