@@ -457,8 +457,13 @@ void manager_process_audit_message(
         if (IN_SET(nl->nlmsg_type, NLMSG_NOOP, NLMSG_ERROR))
                 return;
 
-        /* Except AUDIT_USER, all messages below AUDIT_FIRST_USER_MSG are control messages, let's ignore those */
-        if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG && nl->nlmsg_type != AUDIT_USER)
+        /* AUDIT_USER (deprecated) and AUDIT_LOGIN (loginuid transition) are events allocated in the
+         * 1000-1099 range that is otherwise reserved for audit netlink control messages (rule
+         * management, daemon configuration). All other types in that range are control messages we
+         * should ignore. */
+        if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG &&
+            nl->nlmsg_type != AUDIT_USER &&
+            nl->nlmsg_type != AUDIT_LOGIN)
                 return;
 
         process_audit_string(m, nl->nlmsg_type, NLMSG_DATA(nl), nl->nlmsg_len - ALIGN(sizeof(struct nlmsghdr)));
