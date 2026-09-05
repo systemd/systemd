@@ -104,6 +104,9 @@ Transfer* transfer_new(Context *ctx) {
                 .read_only = -1,
                 .growfs = -1,
 
+                /* whether to fill up the rest of the partition with zeroes, as configured by the user */
+                .zero_fill = -1,
+
                 /* the read only flag, as ultimately determined */
                 .install_read_only = -1,
 
@@ -564,6 +567,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Target",      "PartitionFlags",          config_parse_partition_flags,              0,                    t                           },
                 { "Target",      "PartitionNoAuto",         config_parse_tristate,                     0,                    &t->no_auto                 },
                 { "Target",      "PartitionGrowFileSystem", config_parse_tristate,                     0,                    &t->growfs                  },
+                { "Target",      "PartitionZeroFill",       config_parse_tristate,                     0,                    &t->zero_fill               },
                 { "Target",      "ReadOnly",                config_parse_tristate,                     0,                    &t->read_only               },
                 { "Target",      "Mode",                    config_parse_mode,                         0,                    &t->mode                    },
                 { "Target",      "TriesLeft",               config_parse_uint64,                       0,                    &t->tries_left              },
@@ -1326,6 +1330,25 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
         return 0;
 }
 
+static bool transfer_zero_fill(const Transfer *t) {
+        assert(t);
+        assert(t->target.type == RESOURCE_PARTITION);
+        assert(t->target.partition_type_set);
+
+        /* Returns whether to fill up the rest of the partition with zeroes after writing the payload. If
+         * configured explicitly, use that. Otherwise, do so for verity signature partitions only: they carry
+         * a JSON object that must be followed by NUL bytes only, up to the end of the partition. The
+         * artifacts we install there generally come without that padding though (repart's --split= mode
+         * trims it, so that the file is a plain JSON text file), hence without zero filling the tail of a
+         * previous, longer signature would survive right after the new one. These partitions are tiny, hence
+         * this is cheap. */
+
+        if (t->zero_fill >= 0)
+                return t->zero_fill;
+
+        return partition_designator_is_verity_sig(t->target.partition_type.designator);
+}
+
 int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
         _cleanup_free_ char *digest = NULL;
         char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
@@ -1449,6 +1472,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                "--direct",          /* just copy/unpack the specified file, don't do anything else */
                                                "--offset", offset,
                                                "--size-max", max_size,
+                                               transfer_zero_fill(t) ? "--zero-fill=yes" : "--zero-fill=no",
                                                t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->target.path),
@@ -1528,6 +1552,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                "--verify", digest,      /* validate by explicit SHA256 sum */
                                                "--offset", offset,
                                                "--size-max", max_size,
+                                               transfer_zero_fill(t) ? "--zero-fill=yes" : "--zero-fill=no",
                                                t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->target.path),
