@@ -35,10 +35,8 @@
 #include "escape.h"
 #include "event-util.h"
 #include "exec-util.h"
-#include "exit-status.h"
 #include "fd-util.h"
 #include "fork-notify.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
@@ -52,11 +50,9 @@
 #include "pidref.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
-#include "process-util.h"
 #include "ptyfwd.h"
 #include "run-polkit.h"
 #include "runtime-scope.h"
-#include "signal-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -65,6 +61,7 @@
 #include "time-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
+#include "unit-result.h"
 #include "user-util.h"
 #include "verbs.h"
 #include "virt.h"
@@ -1625,22 +1622,10 @@ typedef struct RunContext {
         sd_event_source *retry_timer;
 
         /* Current state of the unit */
-        char *active_state;
         char *job;
 
-        /* The exit data of the unit */
-        uint64_t inactive_exit_usec;
-        uint64_t inactive_enter_usec;
-        char *result;
-        uint64_t cpu_usage_nsec;
-        uint64_t memory_peak;
-        uint64_t memory_swap_peak;
-        uint64_t ip_ingress_bytes;
-        uint64_t ip_egress_bytes;
-        uint64_t io_read_bytes;
-        uint64_t io_write_bytes;
-        uint32_t exit_code;
-        uint32_t exit_status;
+        /* The final state and exit data of the unit */
+        UnitResult result;
 } RunContext;
 
 static int run_context_update(RunContext *c);
@@ -1658,9 +1643,9 @@ static void run_context_done(RunContext *c) {
         c->forward = pty_forward_free(c->forward);
         c->event = sd_event_unref(c->event);
 
-        free(c->active_state);
+        unit_result_done(&c->result);
+
         free(c->job);
-        free(c->result);
         free(c->unit);
         free(c->bus_path);
         free(c->start_job);
@@ -1762,7 +1747,7 @@ static int run_context_check_started(RunContext *c) {
                 return r;
         }
 
-        if (STRPTR_IN_SET(c->active_state, "inactive", "failed"))
+        if (STRPTR_IN_SET(c->result.active_state, "inactive", "failed"))
                 return 0; /* Already finished or failed? */
 
         /* Notify our caller that the service is now running, just in case. */
@@ -1778,7 +1763,7 @@ static void run_context_check_done(RunContext *c) {
 
         assert(c);
 
-        if (!STRPTR_IN_SET(c->active_state, "inactive", "failed") ||
+        if (!STRPTR_IN_SET(c->result.active_state, "inactive", "failed") ||
             c->start_job ||   /* our start job */
             c->job)           /* any other job */
                 return;
@@ -1820,24 +1805,12 @@ static int map_job(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_er
 static int run_context_update(RunContext *c) {
 
         static const struct bus_properties_map map[] = {
-                { "ActiveState",                     "s",    NULL,    offsetof(RunContext, active_state)        },
-                { "InactiveExitTimestampMonotonic",  "t",    NULL,    offsetof(RunContext, inactive_exit_usec)  },
-                { "InactiveEnterTimestampMonotonic", "t",    NULL,    offsetof(RunContext, inactive_enter_usec) },
-                { "Result",                          "s",    NULL,    offsetof(RunContext, result)              },
-                { "ExecMainCode",                    "i",    NULL,    offsetof(RunContext, exit_code)           },
-                { "ExecMainStatus",                  "i",    NULL,    offsetof(RunContext, exit_status)         },
-                { "CPUUsageNSec",                    "t",    NULL,    offsetof(RunContext, cpu_usage_nsec)      },
-                { "MemoryPeak",                      "t",    NULL,    offsetof(RunContext, memory_peak)         },
-                { "MemorySwapPeak",                  "t",    NULL,    offsetof(RunContext, memory_swap_peak)    },
-                { "IPIngressBytes",                  "t",    NULL,    offsetof(RunContext, ip_ingress_bytes)    },
-                { "IPEgressBytes",                   "t",    NULL,    offsetof(RunContext, ip_egress_bytes)     },
-                { "IOReadBytes",                     "t",    NULL,    offsetof(RunContext, io_read_bytes)       },
-                { "IOWriteBytes",                    "t",    NULL,    offsetof(RunContext, io_write_bytes)      },
-                { "Job",                             "(uo)", map_job, offsetof(RunContext, job)                 },
+                { "Job", "(uo)", map_job, offsetof(RunContext, job) },
                 {}
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(c);
@@ -1850,8 +1823,14 @@ static int run_context_update(RunContext *c) {
                         map,
                         BUS_MAP_STRDUP,
                         &error,
-                        NULL,
+                        &reply,
                         c);
+        if (r >= 0) {
+                /* Pick the final state and exit data from the same GetAll() reply */
+                r = sd_bus_message_rewind(reply, /* complete= */ true);
+                if (r >= 0)
+                        r = bus_message_map_all_properties(reply, unit_result_property_map, BUS_MAP_STRDUP, &error, &c->result);
+        }
         if (r < 0) {
                 /* If this is a connection error, then try to reconnect. This might be because the service
                  * manager is being restarted. Handle this gracefully. */
@@ -2148,142 +2127,6 @@ static int run_context_setup_ptyfwd(RunContext *c) {
         return 0;
 }
 
-static int run_context_show_result(RunContext *c) {
-        int r;
-
-        assert(c);
-
-        _cleanup_(table_unrefp) Table *t = table_new_vertical();
-        if (!t)
-                return log_oom();
-
-        if (!isempty(c->result)) {
-                r = table_add_many(
-                                t,
-                                TABLE_FIELD, "Finished with result",
-                                TABLE_STRING, c->result,
-                                TABLE_SET_COLOR, streq(c->result, "success") ? ansi_highlight_green() : ansi_highlight_red());
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (c->exit_code > 0) {
-                r = table_add_cell(
-                                t,
-                                /* ret_cell= */ NULL,
-                                TABLE_FIELD,
-                                "Main processes terminated with");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(
-                                t,
-                                /* ret_cell= */ NULL,
-                                "code=%s, status=%u/%s",
-                                sigchld_code_to_string(c->exit_code),
-                                c->exit_status,
-                                strna(c->exit_code == CLD_EXITED ?
-                                      exit_status_to_string(c->exit_status, EXIT_STATUS_FULL) :
-                                      signal_to_string(c->exit_status)));
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (timestamp_is_set(c->inactive_enter_usec) &&
-            timestamp_is_set(c->inactive_exit_usec) &&
-            c->inactive_enter_usec > c->inactive_exit_usec) {
-                r = table_add_many(
-                                t,
-                                TABLE_FIELD, "Service runtime",
-                                TABLE_TIMESPAN_MSEC, c->inactive_enter_usec - c->inactive_exit_usec);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (c->cpu_usage_nsec != NSEC_INFINITY) {
-                r = table_add_many(
-                                t,
-                                TABLE_FIELD, "CPU time consumed",
-                                TABLE_TIMESPAN_MSEC, DIV_ROUND_UP(c->cpu_usage_nsec, NSEC_PER_USEC));
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (c->memory_peak != UINT64_MAX) {
-                const char *swap;
-
-                if (c->memory_swap_peak != UINT64_MAX)
-                        swap = strjoina(" (swap: ", FORMAT_BYTES(c->memory_swap_peak), ")");
-                else
-                        swap = "";
-
-                r = table_add_cell(
-                                t,
-                                /* ret_cell= */ NULL,
-                                TABLE_FIELD, "Memory peak");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(
-                                t,
-                                /* ret_cell= */ NULL,
-                                "%s%s",
-                                FORMAT_BYTES(c->memory_peak), swap);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        const char *ip_ingress = NULL, *ip_egress = NULL;
-        if (!IN_SET(c->ip_ingress_bytes, 0, UINT64_MAX))
-                ip_ingress = strjoina("received ", FORMAT_BYTES(c->ip_ingress_bytes));
-        if (!IN_SET(c->ip_egress_bytes, 0, UINT64_MAX))
-                ip_egress = strjoina("sent ", FORMAT_BYTES(c->ip_egress_bytes));
-
-        if (ip_ingress || ip_egress) {
-                r = table_add_cell(
-                                t,
-                                /* ret_cell= */ NULL,
-                                TABLE_FIELD, "IP Traffic");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(
-                                t,
-                                /* ret_cell= */ NULL,
-                                "%s%s%s", strempty(ip_ingress), ip_ingress && ip_egress ? ", " : "", strempty(ip_egress));
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        const char *io_read = NULL, *io_write = NULL;
-        if (!IN_SET(c->io_read_bytes, 0, UINT64_MAX))
-                io_read = strjoina("read ", FORMAT_BYTES(c->io_read_bytes));
-        if (!IN_SET(c->io_write_bytes, 0, UINT64_MAX))
-                io_write = strjoina("written ", FORMAT_BYTES(c->io_write_bytes));
-
-        if (io_read || io_write) {
-                r = table_add_cell(
-                                t,
-                                /* ret_cell= */ NULL,
-                                TABLE_FIELD, "IO Bytes");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(
-                                t,
-                                /* ret_cell= */ NULL,
-                                "%s%s%s", strempty(io_read), io_read && io_write ? ", " : "", strempty(io_write));
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        r = table_print_full(t, stderr, /* flush= */ true);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
-}
-
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2299,15 +2142,7 @@ static int start_transient_service(sd_bus *bus) {
 
         _cleanup_(run_context_done) RunContext c = {
                 .pty_fd = -EBADF,
-                .cpu_usage_nsec = NSEC_INFINITY,
-                .memory_peak = UINT64_MAX,
-                .memory_swap_peak = UINT64_MAX,
-                .ip_ingress_bytes = UINT64_MAX,
-                .ip_egress_bytes = UINT64_MAX,
-                .io_read_bytes = UINT64_MAX,
-                .io_write_bytes = UINT64_MAX,
-                .inactive_exit_usec = USEC_INFINITY,
-                .inactive_enter_usec = USEC_INFINITY,
+                .result = UNIT_RESULT_INIT,
         };
 
         if (arg_stdio == ARG_STDIO_PTY) {
@@ -2489,17 +2324,10 @@ static int start_transient_service(sd_bus *bus) {
                 fork_notify_terminate(&journal_pid);
 
                 if (arg_wait && !arg_quiet)
-                        run_context_show_result(&c);
+                        (void) unit_result_show(&c.result, stderr, arg_json_format_flags);
 
-                /* Try to propagate the service's return value. But if the service defines
-                 * e.g. SuccessExitStatus, honour this, and return 0 to mean "success". */
-                if (streq_ptr(c.result, "success"))
-                        return EXIT_SUCCESS;
-                if (streq_ptr(c.result, "exit-code") && c.exit_status > 0)
-                        return c.exit_status;
-                if (streq_ptr(c.result, "signal"))
-                        return EXIT_EXCEPTION;
-                return EXIT_FAILURE;
+                /* Try to propagate the service's return value */
+                return unit_result_to_exit_status(&c.result);
         }
 
         return EXIT_SUCCESS;
