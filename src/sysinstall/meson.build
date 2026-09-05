@@ -5,7 +5,10 @@ executables += [
                 'name' : 'systemd-sysinstall',
                 'public' : true,
                 'conditions' : ['ENABLE_SYSINSTALL'],
-                'sources' : files('sysinstall.c'),
+                'sources' : files(
+                        'sysinstall.c',
+                        'sysinstall-auto-device.c',
+                ),
         },
 ]
 
