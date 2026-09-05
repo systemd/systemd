@@ -328,12 +328,8 @@
     <filename>50-coredump.conf</filename> alone does <emphasis>not</emphasis> override the default
     <varname>kernel.core_pattern</varname> on such systems, since <filename>60-coredump.conf</filename> will
     still take effect. To set a custom <varname>kernel.core_pattern</varname> of your own on a system where
-    <filename>systemd-coredumpd.service</filename> is available, you must additionally stop (if currently
-    running) and mask <filename>systemd-coredumpd.service</filename>:
-    <programlisting>systemctl mask --now systemd-coredumpd.service</programlisting>
-    Masking <filename>systemd-coredumpd.service</filename> also prevents
-    <filename>systemd-coredump-register.service</filename>, which is bound to it, from running and writing
-    <filename>60-coredump.conf</filename>.</para>
+    <filename>systemd-coredumpd.service</filename> is active, stop and disable it:
+    <programlisting>systemctl disable --now systemd-coredumpd.service</programlisting></para>
 
     <para>In order to be used in the <option>--backtrace</option> mode, an appropriate backtrace
     handler must be installed on the sender side. For example, in case of
