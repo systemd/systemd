@@ -18,10 +18,18 @@ typedef enum BusWaitForUnitsFlags {
         BUS_WAIT_FOR_INACTIVE        = 1 << 1, /* Wait until the unit is back in inactive or dead state */
         BUS_WAIT_NO_JOB              = 1 << 2, /* Wait until there's no more job pending */
         BUS_WAIT_REFFED              = 1 << 3, /* The unit is already reffed with RefUnit() */
+        BUS_WAIT_COLLECT_RESULT      = 1 << 4, /* Query the unit's final state and resource usage once done, and pass it to the callback */
         _BUS_WAIT_FOR_TARGET         = BUS_WAIT_FOR_MAINTENANCE_END|BUS_WAIT_FOR_INACTIVE|BUS_WAIT_NO_JOB,
 } BusWaitForUnitsFlags;
 
-typedef void (*bus_wait_for_units_unit_callback_t)(BusWaitForUnits *d, const char *unit_path, bool good, void *userdata);
+/* Note: 'result' is non-NULL only if BUS_WAIT_COLLECT_RESULT was set for the unit. The callback may take
+ * ownership of its contents via TAKE_STRUCT(). */
+typedef void (*bus_wait_for_units_unit_callback_t)(BusWaitForUnits *d, const char *unit, bool good, UnitResult *result, void *userdata);
+
+/* Invoked once all asynchronous setup operations completed, i.e. once we are subscribed to all relevant
+ * signals and have retrieved the initial state of all units added so far. From that point on no relevant state
+ * change will go unnoticed. */
+typedef void (*bus_wait_for_units_ready_callback_t)(BusWaitForUnits *d, void *userdata);
 
 int bus_wait_for_units_new(sd_bus *bus, BusWaitForUnits **ret);
 
@@ -33,6 +41,11 @@ int bus_wait_for_units_add_unit(
                 const char *unit,
                 BusWaitForUnitsFlags flags,
                 bus_wait_for_units_unit_callback_t callback,
+                void *userdata);
+
+void bus_wait_for_units_set_ready_callback(
+                BusWaitForUnits *d,
+                bus_wait_for_units_ready_callback_t callback,
                 void *userdata);
 
 int bus_wait_for_units_run(BusWaitForUnits *d);
