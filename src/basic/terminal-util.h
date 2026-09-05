@@ -82,6 +82,7 @@ int terminal_vhangup(const char *tty);
 
 int terminal_set_size_fd(int fd, const char *ident, unsigned rows, unsigned cols);
 int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_cols);
+int proc_cmdline_tty_term(const char *tty, char **ret);
 
 int chvt(int vt);
 

@@ -281,6 +281,44 @@ TEST(query_term_for_tty) {
         }
 }
 
+TEST(proc_cmdline_tty_term) {
+        int r;
+
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=systemd.tty.term.ttyS0=linux systemd.tty.term.ttyS1= systemd.tty.term.console=vt220") == 0);
+
+        /* Matching key with a non-empty value, with and without the /dev/ prefix. */
+        FOREACH_STRING(s, "ttyS0", "/dev/ttyS0") {
+                _cleanup_free_ char *term = NULL;
+                r = proc_cmdline_tty_term(s, &term);
+                assert_se(r == 1);
+                ASSERT_STREQ(term, "linux");
+        }
+
+        /* The literal console name is looked up as-is. */
+        _cleanup_free_ char *console_term = NULL;
+        assert_se(proc_cmdline_tty_term("/dev/console", &console_term) == 1);
+        ASSERT_STREQ(console_term, "vt220");
+
+        /* Absent key → 0, output untouched. */
+        _cleanup_free_ char *absent = NULL;
+        assert_se(proc_cmdline_tty_term("ttyS2", &absent) == 0);
+        ASSERT_NULL(absent);
+
+        /* Present but empty value → 0, output untouched (no empty $TERM). */
+        _cleanup_free_ char *empty = NULL;
+        assert_se(proc_cmdline_tty_term("ttyS1", &empty) == 0);
+        ASSERT_NULL(empty);
+
+        /* pts/ and non-alphanumeric names can't carry a key → 0, output untouched, no crash. */
+        _cleanup_free_ char *pts = NULL, *weird = NULL;
+        assert_se(proc_cmdline_tty_term("/dev/pts/0", &pts) == 0);
+        ASSERT_NULL(pts);
+        assert_se(proc_cmdline_tty_term("foo/bar", &weird) == 0);
+        ASSERT_NULL(weird);
+
+        assert_se(unsetenv("SYSTEMD_PROC_CMDLINE") == 0);
+}
+
 TEST(terminal_is_pty_fd) {
         int r;
 
