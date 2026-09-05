@@ -264,93 +264,6 @@ int in_addr_prefix_intersect(
         return -EAFNOSUPPORT;
 }
 
-int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen) {
-        assert(u);
-
-        /* Increases the network part of an address by one. Returns 0 if that succeeds, or -ERANGE if
-         * this overflows. */
-
-        return in_addr_prefix_nth(family, u, prefixlen, 1);
-}
-
-/*
- * Calculates the nth prefix of size prefixlen starting from the address denoted by u.
- *
- * On success 0 will be returned and the calculated prefix will be available in
- * u. In case the calculation cannot be performed (invalid prefix length,
- * overflows would occur) -ERANGE is returned. If the address family given isn't
- * supported -EAFNOSUPPORT will be returned.
- *
- * Examples:
- *   - in_addr_prefix_nth(AF_INET, 192.168.0.0, 24, 2), returns 0, writes 192.168.2.0 to u
- *   - in_addr_prefix_nth(AF_INET, 192.168.0.0, 24, 0), returns 0, no data written
- *   - in_addr_prefix_nth(AF_INET, 255.255.255.0, 24, 1), returns -ERANGE, no data written
- *   - in_addr_prefix_nth(AF_INET, 255.255.255.0, 0, 1), returns -ERANGE, no data written
- *   - in_addr_prefix_nth(AF_INET6, 2001:db8, 64, 0xff00) returns 0, writes 2001:0db8:0000:ff00:: to u
- */
-int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, uint64_t nth) {
-        assert(u);
-
-        if (prefixlen <= 0)
-                return -ERANGE;
-
-        if (family == AF_INET) {
-                uint32_t c, n, t;
-
-                if (prefixlen > 32)
-                        return -ERANGE;
-
-                c = be32toh(u->in.s_addr);
-
-                t = nth << (32 - prefixlen);
-
-                /* Check for wrap */
-                if (c > UINT32_MAX - t)
-                        return -ERANGE;
-
-                n = c + t;
-
-                n &= UINT32_C(0xFFFFFFFF) << (32 - prefixlen);
-                u->in.s_addr = htobe32(n);
-                return 0;
-        }
-
-        if (family == AF_INET6) {
-                bool overflow = false;
-
-                if (prefixlen > 128)
-                        return -ERANGE;
-
-                for (unsigned i = 16; i > 0; i--) {
-                        unsigned t, j = i - 1, p = j * 8;
-
-                        if (p >= prefixlen) {
-                                u->in6.s6_addr[j] = 0;
-                                continue;
-                        }
-
-                        if (prefixlen - p < 8) {
-                                u->in6.s6_addr[j] &= 0xff << (8 - (prefixlen - p));
-                                t = u->in6.s6_addr[j] + ((nth & 0xff) << (8 - (prefixlen - p)));
-                                nth >>= prefixlen - p;
-                        } else {
-                                t = u->in6.s6_addr[j] + (nth & 0xff) + overflow;
-                                nth >>= 8;
-                        }
-
-                        overflow = t > UINT8_MAX;
-                        u->in6.s6_addr[j] = (uint8_t) (t & 0xff);
-                }
-
-                if (overflow || nth != 0)
-                        return -ERANGE;
-
-                return 0;
-        }
-
-        return -EAFNOSUPPORT;
-}
-
 int in_addr_random_prefix(
                 int family,
                 union in_addr_union *u,
@@ -435,26 +348,48 @@ int in_addr_prefix_range(
                 union in_addr_union *ret_start,
                 union in_addr_union *ret_end) {
 
-        union in_addr_union start, end;
         int r;
+
+        /* Note, on overflow, e.g. input is 255.255.255.255, then ret_end will be a NULL address. */
 
         assert(in);
 
-        if (!IN_SET(family, AF_INET, AF_INET6))
+        switch (family) {
+        case AF_INET:
+                if (prefixlen > 32)
+                        return -EINVAL;
+                break;
+        case AF_INET6:
+                if (prefixlen > 128)
+                        return -EINVAL;
+                break;
+        default:
                 return -EAFNOSUPPORT;
-
-        if (ret_start) {
-                start = *in;
-                r = in_addr_prefix_nth(family, &start, prefixlen, 0);
-                if (r < 0)
-                        return r;
         }
 
-        if (ret_end) {
-                end = *in;
-                r = in_addr_prefix_nth(family, &end, prefixlen, 1);
-                if (r < 0)
-                        return r;
+        if (prefixlen == 0) {
+                /* shortcut for trivial case */
+                if (ret_start)
+                        *ret_start = IN_ADDR_NULL;
+                if (ret_end)
+                        *ret_end = IN_ADDR_NULL;
+                return 0;
+        }
+
+        union in_addr_union start = *in;
+        r = in_addr_mask(family, &start, prefixlen);
+        if (r < 0)
+                return r;
+
+        union in_addr_union end = start;
+        uint8_t add = UINT8_C(1) << ((FAMILY_ADDRESS_SIZE(family) * 8 - prefixlen) % 8);
+        for (unsigned i = DIV_ROUND_UP(prefixlen, 8); i-- > 0;)
+        if (add > UINT8_MAX - end.bytes[i]) {
+                end.bytes[i] = 0;
+                add = 1;
+        } else {
+                end.bytes[i] += add;
+                break;
         }
 
         if (ret_start)
