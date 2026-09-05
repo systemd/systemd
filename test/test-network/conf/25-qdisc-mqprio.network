@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+
+[MultiQueuePriorityQDisc]
+Parent=root
+Handle=3a
+NumberOfTrafficClasses=3
+PriorityMap=0 0 1 2 0 0 0 0 0 0 0 0 0 0 0 0
+Queues=2@0 1@2 1@3
+HardwareOffload=0
