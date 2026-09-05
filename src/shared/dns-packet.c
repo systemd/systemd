@@ -297,6 +297,8 @@ DnsPacket *dns_packet_unref(DnsPacket *p) {
         return NULL;
 }
 
+DEFINE_POINTER_ARRAY_FREE_FUNC(DnsPacket*, dns_packet_unref);
+
 int dns_packet_validate(DnsPacket *p) {
         assert(p);
 
