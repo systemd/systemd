@@ -33,7 +33,7 @@ For more details on the APIs provided by machine consult [the bus API interface 
 
 ## Guest OS Integration
 
-As container virtualization is much less comprehensive, and the guest is less isolated from the host, there are a number of interfaces defined how the container manager can set up the environment for systemd running inside a container. These Interfaces are documented in [Container Interface of systemd](/CONTAINER_INTERFACE).
+As container virtualization is much less comprehensive, and the guest is less isolated from the host, there are a number of interfaces defined how the container manager can set up the environment for systemd running inside a container. These Interfaces are documented in [Container Interface of systemd](https://systemd.io/CONTAINER_INTERFACE).
 
 VM virtualization is more comprehensive and fewer integration APIs are available compared to containers.
 See [The VM Interface](/VM_INTERFACE) for the full list of integration points, which includes system credentials via SMBIOS Type 11 vendor strings, readiness notification via `AF_VSOCK`, SSH access via `AF_VSOCK`, machine ID initialization from SMBIOS Product UUID, and kernel command line extension.
