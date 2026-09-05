@@ -221,7 +221,7 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
         r = read_full_file_full(
                         AT_FDCWD, fn,
                         UINT64_MAX, SIZE_MAX,
-                        READ_FULL_FILE_SECURE,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_UNBASE64,
                         NULL,
                         (char**) &data, &sz);
         if (r == -ENOENT)
