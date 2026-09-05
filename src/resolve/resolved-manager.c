@@ -440,7 +440,7 @@ static char* fallback_hostname(void) {
          * to be "localhost" even if that's the default hostname. In this case, let's revert to "linux"
          * instead. */
 
-        _cleanup_free_ char *n = get_default_hostname();
+        _cleanup_free_ char *n = get_default_hostname_or_fallback();
         if (!n)
                 return NULL;
 

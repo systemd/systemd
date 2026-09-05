@@ -203,6 +203,10 @@ int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret) {
         return read_etc_hostname_stream(f, substitute_wildcards, ret);
 }
 
+static const char* run_default_hostname_path(void) {
+        return secure_getenv("SYSTEMD_RUN_DEFAULT_HOSTNAME_PATH") ?: "/run/systemd/default-hostname";
+}
+
 void hostname_update_source_hint(const char *hostname, HostnameSource source) {
         int r;
 
@@ -212,13 +216,15 @@ void hostname_update_source_hint(const char *hostname, HostnameSource source) {
          * notice if somebody sets the hostname directly (not going through hostnamed).
          */
 
+        const char *path = run_default_hostname_path();
+
         if (source == HOSTNAME_DEFAULT) {
-                r = write_string_file("/run/systemd/default-hostname", hostname,
+                r = write_string_file(path, hostname,
                                       WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to create \"/run/systemd/default-hostname\", ignoring: %m");
+                        log_warning_errno(r, "Failed to create \"%s\", ignoring: %m", path);
         } else
-                (void) unlink_or_warn("/run/systemd/default-hostname");
+                (void) unlink_or_warn(path);
 }
 
 int hostname_setup(bool really) {
@@ -248,22 +254,48 @@ int hostname_setup(bool really) {
         }
 
         if (!hn) {
-                /* Don't override the hostname if it is already set and not explicitly configured */
-
+                /* Don't override the hostname if it is already set and not explicitly configured. However,
+                 * update it if it was set by us in the initrd, so that '?' and '$' patterns are derived from
+                 * the real machine ID, not from the random one of the initrd. */
                 r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &hn);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r >= 0) {
-                        log_debug("No hostname configured, leaving existing hostname <%s> in place.", hn);
-                        goto finish;
-                }
+                        _cleanup_free_ char *default_hostname = NULL;
 
-                if (enoent)
+                        const char *path = run_default_hostname_path();
+
+                        r = read_one_line_file(path, &default_hostname);
+                        if (r < 0 && r != -ENOENT)
+                                log_warning_errno(r, "Failed to read \"%s\", ignoring: %m", path);
+
+                        if (!streq_ptr(default_hostname, hn)) {
+                                log_debug("No hostname configured, leaving existing hostname <%s> in place.",
+                                          hn);
+                                goto finish;
+                        }
+
+                        log_debug("Existing hostname <%s> matches the default we recorded earlier, re-deriving it.",
+                                  hn);
+
+                        /* Now re-derive the hostname but only use it on success, otherwise keep the old */
+                        _cleanup_free_ char *rederived = NULL;
+                        r = get_default_hostname(&rederived);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to re-derive default hostname, leaving existing hostname <%s> in place: %m",
+                                                  hn);
+                                goto finish;
+                        }
+
+                        free_and_replace(hn, rederived);
+                } else if (enoent)
                         log_info("No hostname configured, using default hostname.");
 
-                hn = get_default_hostname();
-                if (!hn)
-                        return log_oom();
+                if (!hn) {
+                        hn = get_default_hostname_or_fallback();
+                        if (!hn)
+                                return log_oom();
+                }
 
                 source = HOSTNAME_DEFAULT;
         }
@@ -530,27 +562,41 @@ int hostname_substitute_wildcards(const char *name, char **ret) {
         return 0;
 }
 
-char* get_default_hostname(void) {
+int get_default_hostname(char **ret) {
         int r;
+
+        assert(ret);
 
         _cleanup_free_ char *h = get_default_hostname_raw();
         if (!h)
-                return NULL;
+                return -ENOMEM;
 
         _cleanup_free_ char *substituted = NULL;
         r = hostname_substitute_wildcards(h, &substituted);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to substitute wildcards in hostname, falling back to built-in name: %m");
-                return strdup(FALLBACK_HOSTNAME);
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to substitute wildcards in hostname '%s': %m", h);
 
         /* Each token expands to a whole word, so the concrete name may exceed the length limit. */
-        if (!hostname_is_valid(substituted, VALID_HOSTNAME_TRAILING_DOT)) {
-                log_debug("Substituted hostname '%s' is invalid, falling back to built-in name.", substituted);
+        if (!hostname_is_valid(substituted, VALID_HOSTNAME_TRAILING_DOT))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Substituted hostname '%s' is invalid.", substituted);
+
+        *ret = TAKE_PTR(substituted);
+        return 0;
+}
+
+char* get_default_hostname_or_fallback(void) {
+        _cleanup_free_ char *h = NULL;
+
+        int r = get_default_hostname(&h);
+        if (r == -ENOMEM)
+                return NULL;
+        if (r < 0) {
+                log_debug_errno(r, "Falling back to built-in hostname: %m");
                 return strdup(FALLBACK_HOSTNAME);
         }
 
-        return TAKE_PTR(substituted);
+        return TAKE_PTR(h);
 }
 
 int gethostname_full(GetHostnameFlags flags, char **ret) {
@@ -570,7 +616,7 @@ int gethostname_full(GetHostnameFlags flags, char **ret) {
                 if (!FLAGS_SET(flags, GET_HOSTNAME_FALLBACK_DEFAULT))
                         return -ENXIO;
 
-                s = fallback = get_default_hostname();
+                s = fallback = get_default_hostname_or_fallback();
                 if (!s)
                         return -ENOMEM;
 
