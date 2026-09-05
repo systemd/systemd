@@ -807,12 +807,16 @@ int config_parse_dhcp6_send_option(
         }
 
         r = safe_atou16(word, &u16);
-        if (r < 0) {
+        if (r == -ERANGE) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid DHCP option, valid range is 1-65535, ignoring assignment: %s", rvalue);
+                return 0;
+        } else if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid DHCP option, ignoring assignment: %s", rvalue);
                 return 0;
         }
-        if (u16 < 1 || u16 >= UINT16_MAX) {
+        if (u16 < 1) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid DHCP option, valid range is 1-65535, ignoring assignment: %s", rvalue);
                 return 0;
@@ -1159,9 +1163,11 @@ int config_parse_dhcp_request_options(
                         continue;
                 }
 
-                if (i < 1 || i >= UINT8_MAX) {
+                uint32_t option_max = ltype == AF_INET ? UINT8_MAX - 1 : UINT16_MAX;
+                if (i < 1 || i > option_max) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "DHCP request option is invalid, valid range is 1-254, ignoring assignment: %s", n);
+                                   "DHCP request option is invalid, valid range is 1-%"PRIu32", ignoring assignment: %s",
+                                   option_max, n);
                         continue;
                 }
 
