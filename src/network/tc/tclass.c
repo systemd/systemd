@@ -20,6 +20,7 @@
 #include "string-util.h"
 #include "tc-util.h"
 #include "tclass.h"
+#include "tfilter.h"
 
 const TClassVTable * const tclass_vtable[_TCLASS_KIND_MAX] = {
         [TCLASS_KIND_DRR] = &drr_tclass_vtable,
@@ -325,6 +326,7 @@ static void log_tclass_debug(TClass *tclass, Link *link, const char *str) {
 }
 
 void tclass_mark_recursive(TClass *tclass) {
+        TFilter *tfilter;
         QDisc *qdisc;
 
         assert(tclass);
@@ -341,6 +343,14 @@ void tclass_mark_recursive(TClass *tclass) {
                         continue;
 
                 qdisc_mark_recursive(qdisc);
+        }
+
+        /* Also mark all filters attached to the class. */
+        SET_FOREACH(tfilter, tclass->link->tfilters) {
+                if (tfilter->parent != tclass->classid)
+                        continue;
+
+                tfilter_mark(tfilter);
         }
 }
 
@@ -373,7 +383,9 @@ static void tclass_drop(TClass *tclass) {
 
         tclass_mark_recursive(tclass);
 
-        /* link_tclass_drop_marked() may invalidate tclass, so run link_qdisc_drop_marked() first. */
+        /* link_tclass_drop_marked() may invalidate tclass, so run link_tfilter_drop_marked()
+         * and link_qdisc_drop_marked() first. */
+        link_tfilter_drop_marked(tclass->link);
         link_qdisc_drop_marked(tclass->link);
         link_tclass_drop_marked(tclass->link);
 }

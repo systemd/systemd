@@ -4,6 +4,7 @@
 #include <linux/if_addrlabel.h>
 #include <linux/if_bridge.h>
 #include <linux/nexthop.h>
+#include <linux/pkt_sched.h>
 
 #include "sd-netlink.h"
 
@@ -43,7 +44,8 @@ static bool rtnl_message_type_is_routing_policy_rule(uint16_t type) {
 static bool rtnl_message_type_is_traffic_control(uint16_t type) {
         return IN_SET(type,
                       RTM_NEWQDISC, RTM_DELQDISC, RTM_GETQDISC,
-                      RTM_NEWTCLASS, RTM_DELTCLASS, RTM_GETTCLASS);
+                      RTM_NEWTCLASS, RTM_DELTCLASS, RTM_GETTCLASS,
+                      RTM_NEWTFILTER, RTM_DELTFILTER, RTM_GETTFILTER);
 }
 
 static bool rtnl_message_type_is_mdb(uint16_t type) {
@@ -221,6 +223,37 @@ DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(flags, flags, uint32_t);
 DEFINE_RTNL_MESSAGE_TRAFFIC_CONTROL_GETTER(tcm_ifindex, ifindex, int);
 DEFINE_RTNL_MESSAGE_TRAFFIC_CONTROL_GETTER(tcm_handle, handle, uint32_t);
 DEFINE_RTNL_MESSAGE_TRAFFIC_CONTROL_GETTER(tcm_parent, parent, uint32_t);
+
+/* tcm_info encodes protocol and priority, only meaningful for RTM_*TFILTER messages. */
+int sd_rtnl_message_traffic_control_set_info(sd_netlink_message *m, uint16_t protocol, uint16_t priority) {
+        struct tcmsg *tcm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_traffic_control(m->hdr->nlmsg_type), -EINVAL);
+
+        tcm = NLMSG_DATA(m->hdr);
+        tcm->tcm_info = TC_H_MAKE(((uint32_t) priority) << 16, htobe16(protocol));
+
+        return 0;
+}
+
+int sd_rtnl_message_traffic_control_get_info(sd_netlink_message *m, uint16_t *ret_protocol, uint16_t *ret_priority) {
+        struct tcmsg *tcm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_traffic_control(m->hdr->nlmsg_type), -EINVAL);
+
+        tcm = NLMSG_DATA(m->hdr);
+
+        if (ret_protocol)
+                *ret_protocol = be16toh(TC_H_MIN(tcm->tcm_info));
+        if (ret_priority)
+                *ret_priority = (uint16_t) (TC_H_MAJ(tcm->tcm_info) >> 16);
+
+        return 0;
+}
 
 int sd_rtnl_message_new_route(
                 sd_netlink *rtnl,
@@ -493,7 +526,7 @@ int sd_rtnl_message_new_traffic_control(
         r = message_new(rtnl,
                         ret,
                         nlmsg_type,
-                        NLM_F_REQUEST | NLM_F_ACK | (IN_SET(nlmsg_type, RTM_NEWQDISC, RTM_NEWTCLASS) ? NLM_F_CREATE | NLM_F_REPLACE : 0));
+                        NLM_F_REQUEST | NLM_F_ACK | (IN_SET(nlmsg_type, RTM_NEWQDISC, RTM_NEWTCLASS, RTM_NEWTFILTER) ? NLM_F_CREATE | NLM_F_REPLACE : 0));
         if (r < 0)
                 return r;
 
