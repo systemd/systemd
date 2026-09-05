@@ -7,7 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Frequently Asked Questions
 
-Also check out the [Tips & Tricks](/TIPS_AND_TRICKS)!
+Also check out the [Tips & Tricks](https://systemd.io/TIPS_AND_TRICKS)!
 
 **Q: How do I change the current runlevel?**
 
@@ -92,12 +92,12 @@ A: Use:
 
 **Q: Whenever my service tries to acquire RT scheduling for one of its threads this is refused with EPERM even though my service is running with full privileges. This works fine on my non-systemd system!**
 
-A: By default, systemd places all systemd daemons in their own cgroup in the "cpu" hierarchy. Unfortunately, due to a kernel limitation, this has the effect of disallowing RT entirely for the service. See [My Service Can't Get Realtime!](/MY_SERVICE_CANT_GET_REALTIME) for a longer discussion and what to do about this.
+A: By default, systemd places all systemd daemons in their own cgroup in the "cpu" hierarchy. Unfortunately, due to a kernel limitation, this has the effect of disallowing RT entirely for the service. See [My Service Can't Get Realtime!](https://systemd.io/MY_SERVICE_CANT_GET_REALTIME) for a longer discussion and what to do about this.
 
 **Q: My service is ordered after `network.target` but at boot it is still called before the network is up. What's going on?**
 
-A: That's a long story, and that's why we have a wiki page of its own about this: [Running Services After the Network is up](/NETWORK_ONLINE)
+A: That's a long story, and that's why we have a wiki page of its own about this: [Running Services After the Network is up](https://systemd.io/NETWORK_ONLINE)
 
 **Q: My systemd system always comes up with `/tmp` as a tiny `tmpfs`. How do I get rid of this?**
 
-A: That's also a long story, please have a look on [API File Systems](/API_FILE_SYSTEMS)
+A: That's also a long story, please have a look on [API File Systems](https://systemd.io/API_FILE_SYSTEMS)
