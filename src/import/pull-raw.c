@@ -810,6 +810,7 @@ int raw_pull_start(
         assert((verify < 0) || !iovec_is_set(checksum));
         assert(!(flags & ~IMPORT_PULL_FLAGS_MASK_RAW));
         assert(offset == UINT64_MAX || FLAGS_SET(flags, IMPORT_DIRECT));
+        assert(!FLAGS_SET(flags, IMPORT_ZERO_FILL) || (offset != UINT64_MAX && size_max != UINT64_MAX));
         assert(!(flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) || !(flags & IMPORT_DIRECT));
         assert(!(flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) || !iovec_is_set(checksum));
 
@@ -859,6 +860,7 @@ int raw_pull_start(
                 p->raw_job->uncompressed_max = size_max;
         if (offset != UINT64_MAX)
                 p->raw_job->offset = p->offset = offset;
+        p->raw_job->zero_fill = FLAGS_SET(flags, IMPORT_ZERO_FILL);
 
         if (!FLAGS_SET(flags, IMPORT_DIRECT)) {
                 r = pull_find_old_etags(url, p->image_root, DT_REG, ".raw-", ".raw", &p->raw_job->old_etags);
