@@ -718,7 +718,12 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, const DnsAnswer
         if (r < 0)
                 goto fail;
 
-        class = flags & DNS_ANSWER_CACHE_FLUSH ? k->class | MDNS_RR_CACHE_FLUSH_OR_QU : k->class;
+        /* Bit 15 of the CLASS field is the cache-flush bit in mDNS only, see RFC 6762, section 10.2. In
+         * unicast DNS it is part of the class value itself, hence never set it there, regardless of the
+         * flags of the answer this RR originates from (it might come from our mDNS zone, but be sent out
+         * via the DNS stub). */
+        class = p->protocol == DNS_PROTOCOL_MDNS && FLAGS_SET(flags, DNS_ANSWER_CACHE_FLUSH) ?
+                        k->class | MDNS_RR_CACHE_FLUSH_OR_QU : k->class;
         r = dns_packet_append_uint16(p, class, NULL);
         if (r < 0)
                 goto fail;
