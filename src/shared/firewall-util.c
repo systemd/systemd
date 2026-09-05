@@ -856,12 +856,7 @@ int nft_set_element_modify_iprange(
         assert(nfproto_is_valid(nfproto));
         assert(table);
         assert(set);
-
-        if (!source || source_prefixlen == 0)
-                return -EINVAL;
-
-        if (af == AF_INET6 && source_prefixlen < 8)
-                return -EINVAL;
+        assert(source);
 
         r = sd_nfnl_nft_message_new_setelems(nfnl, &m, add, nfproto, table, set);
         if (r < 0)
@@ -966,6 +961,7 @@ int fw_nftables_add_masquerade(
 
         assert(nfnl);
         assert(IN_SET(af, AF_INET, AF_INET6));
+        assert(source);
 
         if (!socket_ipv6_is_supported() && af == AF_INET6)
                 return -EOPNOTSUPP;
