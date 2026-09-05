@@ -80,6 +80,7 @@ typedef struct Manager {
         bool send_watchdog;
         bool sent_notify_ready;
         bool sync_scheduled;
+        bool exit;
 
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
