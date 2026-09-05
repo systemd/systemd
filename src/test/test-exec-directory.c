@@ -9,7 +9,6 @@
 #include "execute.h"
 #include "fd-util.h"
 #include "fdset.h"
-#include "fileio.h"
 #include "load-fragment.h"
 #include "manager.h"
 #include "string-util.h"
