@@ -7,6 +7,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "compress.h"
 #include "copy.h"
 #include "fd-util.h"
@@ -216,6 +217,18 @@ static int raw_import_finish(RawImport *i) {
 
         assert(i);
         assert(i->output_fd >= 0);
+
+        if (FLAGS_SET(i->flags, IMPORT_ZERO_FILL)) {
+                assert(i->offset != UINT64_MAX);
+                assert(i->size_max != UINT64_MAX);
+                assert(i->written_uncompressed <= i->size_max);
+
+                /* Fill up whatever is left of the destination range with zeroes, so that no remnants of
+                 * previous, larger contents survive after our data. */
+                r = blockdev_zero_out(i->output_fd, i->offset + i->written_uncompressed, i->size_max - i->written_uncompressed);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to fill up destination with zeroes: %m");
+        }
 
         /* Nothing of what is below applies to block devices */
         if (S_ISBLK(i->output_stat.st_mode)) {
@@ -510,6 +523,7 @@ int raw_import_start(
         assert(local);
         assert(!(flags & ~IMPORT_FLAGS_MASK_RAW));
         assert(offset == UINT64_MAX || FLAGS_SET(flags, IMPORT_DIRECT));
+        assert(!FLAGS_SET(flags, IMPORT_ZERO_FILL) || (offset != UINT64_MAX && size_max != UINT64_MAX));
 
         if (!import_validate_local(local, flags))
                 return -EINVAL;

@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "compress.h"
 #include "crypto-util.h"
 #include "curl-util.h"
@@ -456,6 +457,18 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
                 if (iovec_is_set(&j->expected_checksum) &&
                     !iovec_equal(&j->checksum, &j->expected_checksum))
                         return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes."));
+        }
+
+        if (j->disk_fd >= 0 && j->zero_fill) {
+                assert(j->offset != UINT64_MAX);
+                assert(j->uncompressed_max != UINT64_MAX);
+                assert(j->written_uncompressed <= j->uncompressed_max);
+
+                /* Fill up whatever is left of the destination range with zeroes, so that no remnants of
+                 * previous, larger contents survive after our data. */
+                r = blockdev_zero_out(j->disk_fd, j->offset + j->written_uncompressed, j->uncompressed_max - j->written_uncompressed);
+                if (r < 0)
+                        return pull_job_finish(j, log_error_errno(r, "Failed to fill up destination with zeroes: %m"));
         }
 
         /* Do a couple of finishing disk operations, but only if we are the sole owner of the file (i.e. no
