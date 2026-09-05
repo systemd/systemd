@@ -1375,6 +1375,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("LogsDirectoryAccounting", "b", bus_property_get_bool, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].exec_quota.quota_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectoryQuota", "(tus)", property_get_exec_quota, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].exec_quota), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConfigurationDirectorySymlink", "a(sst)", property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfigurationDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfigurationDirectory", "as", property_get_exec_dir, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutCleanUSec", "t", bus_property_get_usec, offsetof(ExecContext, timeout_clean_usec), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -4232,7 +4233,7 @@ int bus_exec_context_set_transient_property(
 
         } else if (STR_IN_SET(name,
                               "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink",
-                              "LogsDirectorySymlink")) {
+                              "LogsDirectorySymlink", "ConfigurationDirectorySymlink")) {
                 char *source, *destination;
                 ExecDirectory *directory;
                 uint64_t symlink_flags;
@@ -4259,6 +4260,12 @@ int bus_exec_context_set_transient_property(
                         if (isempty(destination))
                                 destination = NULL;
                         else {
+                                /* Symlinks are not supported for ConfigurationDirectory=, matching what the
+                                 * unit file parser accepts. The flags field is still useful there, though. */
+                                if (i == EXEC_DIRECTORY_CONFIGURATION)
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                                 "Symlink destination is not supported for %s=.",
+                                                                 exec_directory_type_to_string(i));
                                 if (!path_is_valid(destination))
                                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not valid.", destination);
                                 if (path_is_absolute(destination))

@@ -2102,7 +2102,7 @@ static int print_property(
                         return 1;
                 } else if (STR_IN_SET(name,
                                       "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink",
-                                      "LogsDirectorySymlink")) {
+                                      "LogsDirectorySymlink", "ConfigurationDirectorySymlink")) {
                         const char *a, *p;
                         uint64_t symlink_flags;
 
