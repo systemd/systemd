@@ -374,6 +374,8 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPv6Client,
+                SD_VARLINK_FIELD_COMMENT("State of the DHCPv6 client (information-request, solicitation, request, bound, renew, rebind, stopping, etc.)"),
+                SD_VARLINK_DEFINE_FIELD(State, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DHCPv6 lease information including timestamps and timeouts"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Lease, DHCPLease, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Delegated prefixes received from DHCPv6 server"),
