@@ -125,6 +125,46 @@ typedef struct Manager {
 
         Hashmap *tuntap_fds_by_name;
 
+        /* OVS support (lazy-initialized when OVS configs are present) */
+        OVSDBClient *ovsdb;
+        unsigned ovs_use_count;
+        char *ovs_socket_path;          /* [OVS] Socket= */
+        bool ovs_clear_on_boot;         /* [OVS] ClearDatabaseOnBoot= */
+        sd_event_source *ovs_reconnect_timer;
+        usec_t ovs_reconnect_delay;
+        /* Number of in-flight transacts we have sent but not yet received the
+         * server reply for. Each successful transact also produces an update2
+         * notification on the same connection; on_update would re-enter
+         * manager_ovs_reconcile() and emit an idempotent re-UPDATE, the server would
+         * echo another update2, and so on — back-to-back transact storm. While
+         * this counter is non-zero, on_update suppresses the re-reconcile and
+         * trusts ovs_reconcile_done to drain the queue. */
+        unsigned ovs_inflight_transacts;
+        /* Set when manager_ovs_reconcile() was called while another transact was
+         * in flight, and skipped the work. The next *_done callback that
+         * drains the in-flight queue picks up this flag and re-runs
+         * reconcile, ensuring no scheduled work is lost. Coalesces:
+         *   - per-link reload hooks (one transact per N OVS-attached links
+         *     instead of N redundant full-DB transacts)
+         *   - reload concurrent with ClearDatabaseOnBoot
+         *   - the post-clear reconcile that was previously its own bool */
+        bool ovs_reconcile_pending;
+        /* Set when the last OVS-related .netdev/.network was removed and we owe
+         * the OVSDB server a final delete-only reconcile to sweep our managed
+         * rows before tearing down the client. Cleared once the drain completes
+         * in ovs_reconcile_done or when the client is unrefed for any other
+         * reason. Without this, removing the last OVS config silently leaves
+         * the bridges/ports we created live in OVSDB. */
+        bool ovs_pending_teardown;
+        /* Deferred client unref. manager_ovs_schedule_reconnect() and the teardown drain are
+         * usually reached from inside the OVSDB client's own dispatch (FAILED state callback,
+         * transact/monitor reply), where ovsdb_client_unref() would free the client — and the
+         * JsonStream embedded in it — while json_stream_io_callback() is still on the stack. Such
+         * sites stash the client in ovs_dying and run the actual unref from ovs_client_drop_defer,
+         * after the dispatch call stack has unwound. */
+        OVSDBClient *ovs_dying;
+        sd_event_source *ovs_client_drop_defer;
+
         unsigned reloading;
 
         int serialization_fd;

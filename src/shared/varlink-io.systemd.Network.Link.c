@@ -83,6 +83,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_NextHop,
                 &vl_type_NextHopGroup,
                 &vl_type_NTP,
+                &vl_type_OVSFailMode,
+                &vl_type_OVSPortType,
                 &vl_type_Pref64,
                 &vl_type_PrivateOption,
                 &vl_type_Route,

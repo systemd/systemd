@@ -46,6 +46,16 @@ libsystemd_network_sources = files(
         'tlv-util.c',
 )
 
+libsystemd_network_ovsdb_sources = files(
+        'ovsdb/ovsdb-client.c',
+        'ovsdb/ovsdb-monitor.c',
+        'ovsdb/ovsdb-ops.c',
+        'ovsdb/ovsdb-rpc.c',
+        'ovsdb/ovsdb-schema.c',
+)
+
+libsystemd_network_sources += libsystemd_network_ovsdb_sources
+
 sources += libsystemd_network_sources
 
 libsystemd_network = static_library(
@@ -128,6 +138,25 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-tlv-util.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-schema.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-ops.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-rpc.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-monitor.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-client.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ovsdb-integration.c'),
+                'type' : 'manual',
         },
         network_fuzz_template + {
                 'sources' : files('fuzz-dhcp-client.c'),
