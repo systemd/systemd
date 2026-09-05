@@ -3420,7 +3420,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         system object to standard input. An absolute path following the <literal>:</literal> character is expected,
         which may refer to a regular file, a FIFO or special file. If an <constant>AF_UNIX</constant> socket in the
         file system is specified, a stream socket is connected to it. The latter is useful for connecting standard
-        input of processes to arbitrary system services.</para>
+        input of processes to arbitrary system services. Note that the file system object is opened by the
+        service manager before the executable is invoked; see the note on the security context this
+        happens in for <varname>StandardOutput=</varname> below.</para>
 
         <para>The <option>socket</option> option is valid in socket-activated services only, and requires the relevant
         socket unit file (see
@@ -3514,6 +3516,21 @@ SystemCallErrorNumber=EPERM</programlisting>
         only one process runs at a time, such as services with a single <varname>ExecStart=</varname> and no
         <varname>ExecStartPost=</varname>, <varname>ExecReload=</varname>, <varname>ExecStop=</varname> or
         similar.</para>
+
+        <para>Note that for <option>file:<replaceable>path</replaceable></option>,
+        <option>append:<replaceable>path</replaceable></option> and
+        <option>truncate:<replaceable>path</replaceable></option> of <varname>StandardOutput=</varname>,
+        <varname>StandardError=</varname> or <varname>StandardInput=</varname>, the target path is opened
+        by the service manager before the executable is invoked — and hence before
+        <varname>SELinuxContext=</varname> or any policy-defined transition takes effect. The resulting
+        descriptor is then inherited across that transition into the unit's own domain.</para>
+
+        <para>If the unit's domain is not itself permitted the same access to the path that the manager's
+        domain needed to open it, the failure is silent rather than denied: at the point of transition the
+        descriptor is replaced with one pointing at the null device, so the write that follows succeeds,
+        the unit reports no error, and — unlike every other SELinux denial — no audit record of any kind
+        is produced. The only symptom is that the target path stays empty; <command>ausearch</command> and
+        <command>audit2allow</command> have nothing to show for it.</para>
 
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>
