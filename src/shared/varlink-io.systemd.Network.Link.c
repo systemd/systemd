@@ -41,7 +41,89 @@ static SD_VARLINK_DEFINE_METHOD(
                 VARLINK_NETWORK_INTERFACE_INPUTS,
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DNSParameters,
+                SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
+                SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("DNS server IP address"),
+                SD_VARLINK_DEFINE_FIELD(Address, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("DNS server port number"),
+                SD_VARLINK_DEFINE_FIELD(Port, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface index for link-local DNS servers"),
+                SD_VARLINK_DEFINE_FIELD(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DNS server hostname for DoT/DoH"),
+                SD_VARLINK_DEFINE_FIELD(ServerName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNS,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("DNS servers to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(Servers, DNSParameters, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DomainParameters,
+                SD_VARLINK_FIELD_COMMENT("DNS search or route domain name"),
+                SD_VARLINK_DEFINE_FIELD(Domain, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Indicates if this is a routing-only domain."),
+                SD_VARLINK_DEFINE_FIELD(RouteOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDomains,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("DNS search or route domains to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(Domains, DomainParameters, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSDefaultRoute,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Whether this link can be used as a default route for DNS lookups"),
+                SD_VARLINK_DEFINE_INPUT(DefaultRoute, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetLLMNR,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("LLMNR mode to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT(Mode, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetMulticastDNS,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("mDNS mode to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT(Mode, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSOverTLS,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT(Mode, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSSEC,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("DNSSEC mode to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT(Mode, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSSECNegativeTrustAnchors,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("DNSSEC negative trust anchors to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT(NegativeTrustAnchors, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_METHOD(
+                RevertDNS,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 static SD_VARLINK_DEFINE_ERROR(InterfaceUnmanaged);
+static SD_VARLINK_DEFINE_ERROR(InterfaceIsLoopback);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Network_Link,
@@ -58,8 +140,28 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Reconfigure,
                 SD_VARLINK_SYMBOL_COMMENT("Describe the specified link by index or name."),
                 &vl_method_Describe,
+                SD_VARLINK_SYMBOL_COMMENT("Set the DNS servers on the specified link."),
+                &vl_method_SetDNS,
+                SD_VARLINK_SYMBOL_COMMENT("Set the DNS search or route domains on the specified link."),
+                &vl_method_SetDomains,
+                SD_VARLINK_SYMBOL_COMMENT("Set the DNSDefaultRoute mode on the specified link."),
+                &vl_method_SetDNSDefaultRoute,
+                SD_VARLINK_SYMBOL_COMMENT("Set the LLMNR mode on the specified link."),
+                &vl_method_SetLLMNR,
+                SD_VARLINK_SYMBOL_COMMENT("Set the mDNS mode on the specified link."),
+                &vl_method_SetMulticastDNS,
+                SD_VARLINK_SYMBOL_COMMENT("Set the DNSOverTLS mode on the specified link."),
+                &vl_method_SetDNSOverTLS,
+                SD_VARLINK_SYMBOL_COMMENT("Set the DNSSEC mode on the specified link."),
+                &vl_method_SetDNSSEC,
+                SD_VARLINK_SYMBOL_COMMENT("Set the DNSSEC negative trust anchors on the specified link."),
+                &vl_method_SetDNSSECNegativeTrustAnchors,
+                SD_VARLINK_SYMBOL_COMMENT("Revert DNS settings on the specified link."),
+                &vl_method_RevertDNS,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is not managed by systemd-networkd."),
                 &vl_error_InterfaceUnmanaged,
+                SD_VARLINK_SYMBOL_COMMENT("The specified interface is a loopback interface."),
+                &vl_error_InterfaceIsLoopback,
                 &vl_type_Address,
                 &vl_type_BitRates,
                 &vl_type_DHCPLease,
@@ -69,9 +171,11 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_DHCPv6ClientPD,
                 &vl_type_DHCPv6ClientVendorOption,
                 &vl_type_DNS,
+                &vl_type_DNSParameters,
                 &vl_type_DNSSECNegativeTrustAnchor,
                 &vl_type_DNSSetting,
                 &vl_type_Domain,
+                &vl_type_DomainParameters,
                 &vl_type_Interface,
                 &vl_type_LinkState,
                 &vl_type_LinkAddressState,
