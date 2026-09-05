@@ -2083,7 +2083,8 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                 } else {
                         ExecDirectoryFlags exec_directory_flags = exec_directory_flags_from_string(flags);
                         if (exec_directory_flags < 0 || (exec_directory_flags & ~_EXEC_DIRECTORY_FLAGS_PUBLIC) != 0)
-                                return log_error_errno(r, "Failed to parse flags for %s=: '%s'", field, flags);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse flags for %s=: '%s'", field, flags);
 
                         if (!isempty(dest)) {
                                 path_simplify(dest);
@@ -2095,7 +2096,11 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                 }
         }
 
-        if (!strv_isempty(sources)) {
+        bool have_new = !strv_isempty(symlinks) || !strv_isempty(symlinks_ro) || !strv_isempty(sources_ro);
+
+        /* Send the old property if we have plain sources, and also if we parsed nothing at all: an empty
+         * assignment resets the list, and only the old property can express that. */
+        if (!strv_isempty(sources) || !have_new) {
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -2121,26 +2126,16 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                         return bus_log_create_error(r);
         }
 
-        /* For State and Runtime directories we support an optional destination parameter, which
-         * will be used to create a symlink to the source. But it is new so we cannot change the
-         * old DBUS signatures, so append a new message type. */
-        if (!strv_isempty(symlinks) || !strv_isempty(symlinks_ro) || !strv_isempty(sources_ro)) {
-                const char *symlink_field;
+        /* For State, Runtime, Cache and Logs directories we support an optional destination parameter,
+         * which will be used to create a symlink to the source. Additionally all directory types support
+         * a flags parameter. But these are new so we cannot change the old D-Bus signatures, hence append
+         * a new message type. */
+        if (have_new) {
+                const char *symlink_field = strjoina(field, "Symlink");
 
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
                 if (r < 0)
                         return bus_log_create_error(r);
-
-                if (streq(field, "StateDirectory"))
-                        symlink_field = "StateDirectorySymlink";
-                else if (streq(field, "RuntimeDirectory"))
-                        symlink_field = "RuntimeDirectorySymlink";
-                else if (streq(field, "CacheDirectory"))
-                        symlink_field = "CacheDirectorySymlink";
-                else if (streq(field, "LogsDirectory"))
-                        symlink_field = "LogsDirectorySymlink";
-                else
-                        assert_not_reached();
 
                 r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, symlink_field);
                 if (r < 0)
