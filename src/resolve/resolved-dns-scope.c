@@ -1533,10 +1533,57 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
         return 0;
 }
 
-int dns_scope_send_goodbye(DnsScope *scope, DnsAnswer *answer) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        int r;
+static int dns_scope_emit_announcement(DnsScope *scope, DnsAnswer *answer) {
+        size_t max_size, fragmented_max;
+        unsigned n_sent = 0, n_records = 0;
+        int r, ret = 0;
 
+        assert(scope);
+        assert(scope->protocol == DNS_PROTOCOL_MDNS);
+
+        /* Once the loop is finished the mDNS sockets are gone, and opening one would register I/O
+         * on it. Guarded here, in the one emitter every announcement and withdrawal goes through. */
+        r = sd_event_get_state(scope->manager->event);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get event loop state: %m");
+        if (r == SD_EVENT_FINISHED)
+                return 0;
+
+        /* An mDNS scope always belongs to a link; its MTU may still be unknown (0) this early. */
+        assert(scope->link);
+        mdns_announcement_max_sizes(scope->family, scope->link->mtu, &max_size, &fragmented_max);
+
+        DnsPacket **packets = NULL;
+        size_t n_packets = 0;
+        CLEANUP_ARRAY(packets, n_packets, dns_packet_unref_array);
+
+        r = mdns_announcement_packetize(answer, max_size, fragmented_max, &packets, &n_packets);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                /* Warn, not debug: a withdrawal's caller drops these from the zone regardless, so a
+                 * record skipped here is never withdrawn and peers keep it for its full TTL. */
+                log_warning("Cannot fit %i mDNS record(s) into any packet on scope %s, not sending them.",
+                            r, dns_scope_ifname(scope) ?: "*");
+
+        /* Best effort per packet, so one failed send does not withhold the rest. Each packet also
+         * takes its own token from the scope's multicast rate limit, which bounds datagrams. */
+        FOREACH_ARRAY(p, packets, n_packets) {
+                r = dns_scope_emit_udp(scope, /* fd= */ -EBADF, AF_UNSPEC, *p);
+                RET_GATHER(ret, r);
+                if (r >= 0) {
+                        n_sent++;
+                        n_records += DNS_PACKET_ANCOUNT(*p);
+                }
+        }
+
+        log_debug("Emitted %u mDNS announcement packet(s) carrying %u record(s) on scope %s.",
+                  n_sent, n_records, dns_scope_ifname(scope) ?: "*");
+
+        return ret;
+}
+
+int dns_scope_send_goodbye(DnsScope *scope, DnsAnswer *answer) {
         assert(scope);
         assert(answer);
 
@@ -1546,32 +1593,14 @@ int dns_scope_send_goodbye(DnsScope *scope, DnsAnswer *answer) {
         if (scope->protocol != DNS_PROTOCOL_MDNS)
                 return 0;
 
-        r = sd_event_get_state(scope->manager->event);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get event loop state: %m");
-
-        /* If this is called on exit, through manager_free() -> link_free(), then we cannot announce. */
-        if (r == SD_EVENT_FINISHED)
-                return 0;
-
         if (dns_answer_isempty(answer))
                 return 0;
 
-        r = dns_scope_make_reply_packet(scope, /* id= */ 0, DNS_RCODE_SUCCESS, /* q= */ NULL, answer,
-                                        /* soa= */ NULL, /* tentative= */ false, &p);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to build reply packet: %m");
-
-        r = dns_scope_emit_udp(scope, -EBADF, AF_UNSPEC, p);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to send reply packet: %m");
-
-        return 0;
+        return dns_scope_emit_announcement(scope, answer);
 }
 
 int dns_scope_announce(DnsScope *scope, bool goodbye) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         _cleanup_set_free_ Set *types = NULL;
         DnsZoneItem *z;
         unsigned size = 0;
@@ -1679,13 +1708,14 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         if (dns_answer_isempty(answer))
                 return 0;
 
-        r = dns_scope_make_reply_packet(scope, 0, DNS_RCODE_SUCCESS, NULL, answer, NULL, false, &p);
+        /* Emission is best effort per packet, so a single failed send (a rate limit, a transient
+         * -ENOBUFS) does not cost the announcement its second transmission below. That repetition
+         * is scheduled by a pass that finds the scope unannounced -- its first, and any after the
+         * scope's records were re-added -- and is the only retry a lost packet gets: a send that
+         * fails on a pass that schedules nothing is logged and not repeated. */
+        r = dns_scope_emit_announcement(scope, answer);
         if (r < 0)
-                return log_debug_errno(r, "Failed to build reply packet: %m");
-
-        r = dns_scope_emit_udp(scope, -1, AF_UNSPEC, p);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to send reply packet: %m");
+                log_debug_errno(r, "Failed to emit some announcement packets, ignoring: %m");
 
         /* In section 8.3 of RFC6762: "The Multicast DNS responder MUST send at least two unsolicited
          * responses, one second apart." */
