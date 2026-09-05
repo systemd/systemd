@@ -358,7 +358,7 @@ CHANGES WITH 262 in spe:
           kernel.core_pattern. Older kernels continue to use the per-coredump
           systemd-coredump@.service path. Changes to coredump.conf require
           reloading systemd-coredumpd.service, and deployments that set a
-          custom kernel.core_pattern should mask or stop that service.
+          custom kernel.core_pattern should stop and disable that service.
 
         * The coredumpctl dump and debug commands now honor --json= and include
           the selected coredump's metadata in the requested JSON format.
