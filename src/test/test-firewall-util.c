@@ -56,14 +56,14 @@ TEST(v4) {
 
         ASSERT_NOT_NULL(nfnl);
 
-        ASSERT_ERROR(fw_nftables_add_masquerade(nfnl, true, AF_INET, NULL, 0), EINVAL);
-        ASSERT_ERROR(fw_nftables_add_masquerade(nfnl, true, AF_INET, parse_addr("10.1.2.0", &u), 0), EINVAL);
-
         ASSERT_OK_OR(r = fw_nftables_add_masquerade(nfnl, true, AF_INET, parse_addr("10.1.2.3", &u), 32),
                      -EPERM, -EOPNOTSUPP, -ENOPROTOOPT);
         if (r < 0)
                 return (void) log_tests_skipped_errno(r, "Failed to add IPv4 masquerade");
 
+        ASSERT_OK(fw_nftables_add_masquerade(nfnl, true, AF_INET, parse_addr("10.1.2.0", &u), 0));
+        ASSERT_ERROR(fw_nftables_add_masquerade(nfnl, true, AF_INET, parse_addr("10.0.2.0", &u), 28), EEXIST);
+        ASSERT_OK(fw_nftables_add_masquerade(nfnl, false, AF_INET, parse_addr("10.1.2.0", &u), 0));
         ASSERT_OK(fw_nftables_add_masquerade(nfnl, true, AF_INET, parse_addr("10.0.2.0", &u), 28));
         ASSERT_OK(fw_nftables_add_masquerade(nfnl, false, AF_INET, parse_addr("10.0.2.0", &u), 28));
         ASSERT_OK(fw_nftables_add_masquerade(nfnl, false, AF_INET, parse_addr("10.1.2.3", &u), 32));
