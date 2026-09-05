@@ -624,6 +624,9 @@ executables += [
                 'dependencies' : common_test_dependencies,
         },
         core_test_template + {
+                'sources' : files('test-exec-directory.c'),
+        },
+        core_test_template + {
                 'sources' : files('test-execute.c'),
                 'dependencies' : common_test_dependencies,
                 'type' : meson.is_cross_build() ? 'manual' : '',
