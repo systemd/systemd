@@ -191,6 +191,9 @@ rpm:
 run:
   - changed-files:
     - any-glob-to-any-file: ['src/run/*', 'man/systemd-run*']
+rust:
+  - changed-files:
+    - any-glob-to-any-file: ['src/rust/**', '**/*.rs']
 sd-boot/sd-stub/bootctl:
   - changed-files:
     - any-glob-to-any-file: ['src/boot/**/*', 'src/bootctl/*', 'man/bootctl*', 'man/systemd-boot.xml']

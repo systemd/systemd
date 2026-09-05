@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+msrv = "1.85"
+check-private-items = true
+
+[[disallowed-methods]]
+path = "std::process::exit"
+reason = "return the error from the function define_main!() wraps, main_finalize() has to run"
+
+[[disallowed-methods]]
+path = "std::process::abort"
+reason = "panic!() instead, the panic hook logs where and why before aborting"

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option('rust-target', type : 'string', value : '1.85',
+       description : 'oldest rustc the generated bindings must compile with, passed to bindgen as --rust-target')
+option('libc', type : 'string', value : 'glibc',
+       description : 'the src/include/ directory of the C library the tree is built for')
+option('tests', type : 'boolean', value : true,
+       description : 'register unit tests')
