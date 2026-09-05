@@ -126,6 +126,14 @@
 
       <listitem><para>An optional <literal>.pcrpkey</literal> section with a public key in the PEM format
       matching the signature data in the <literal>.pcrsig</literal> section.</para></listitem>
+
+      <listitem><para>An optional <literal>.mokkeys</literal> section with one or more concatenated
+      <constant>EFI_SIGNATURE_LIST</constant> structures holding X.509 certificates, one list per
+      certificate, of signature type <constant>EFI_CERT_X509_GUID</constant> and with a zero owner GUID.
+      The section is written by the <option>--mokkeys=</option> option of
+      <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Like the
+      other sections listed here it is covered by the signature over the whole UKI, and is measured into
+      PCR 11.</para></listitem>
     </itemizedlist>
 
     <!-- FIXME: how does .dtauto/.hwids matching interact with profiles? -->

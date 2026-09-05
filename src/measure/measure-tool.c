@@ -262,8 +262,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                  "Path to HWIDs file (→ .hwids)"): {}
                 OPTION_LONG_DATA("efifw", "PATH", UNIFIED_SECTION_EFIFW,
                                  "Path to EFI firmware file (→ .efifw)"): {}
+                OPTION_LONG_DATA("mokkeys", "PATH", UNIFIED_SECTION_MOKKEYS,
+                                 "Path to machine owner key signature lists (→ .mokkeys)"): {}
                         /* Make sure that if new sections are added, the list here is updated. */
-                        assert_cc(UNIFIED_SECTION_EFIFW + 1 == _UNIFIED_SECTION_MAX);
+                        assert_cc(UNIFIED_SECTION_MOKKEYS + 1 == _UNIFIED_SECTION_MAX);
                         assert(opts.opt->data < _UNIFIED_SECTION_MAX);
 
                         r = parse_path_argument(opts.arg, /* suppress_root= */ false, arg_sections + opts.opt->data);

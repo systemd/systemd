@@ -24,5 +24,6 @@ const char* const unified_sections[_UNIFIED_SECTION_MAX + 1] = {
         [UNIFIED_SECTION_DTBAUTO] = ".dtbauto",
         [UNIFIED_SECTION_HWIDS]   = ".hwids",
         [UNIFIED_SECTION_EFIFW]   = ".efifw",
+        [UNIFIED_SECTION_MOKKEYS] = ".mokkeys",
         NULL,
 };
