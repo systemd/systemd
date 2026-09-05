@@ -109,6 +109,7 @@ static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 static bool arg_all = false;
 static uid_t arg_uid_base = UID_INVALID;
 static bool arg_quiet = false;
+static bool arg_relax = false;
 static ImageFilter *arg_image_filter = NULL;
 static int arg_copy_ownership = -1;
 
@@ -353,6 +354,10 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("loop-ref-auto", NULL, "Derive reference string from image file name"):
                         arg_loop_ref = mfree(arg_loop_ref);
                         arg_loop_ref_auto = true;
+                        break;
+
+                OPTION_LONG("relax", NULL, "Skip DDI validation, attach image as it is"):
+                        arg_relax = true;
                         break;
 
                 OPTION_LONG("image-policy", "POLICY", "Specify image dissection policy"):
@@ -706,6 +711,10 @@ static int parse_argv(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
         }
+
+        if (arg_relax && arg_action != ACTION_ATTACH)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --relax switch is only supported in combination with --attach.");
 
         SET_FLAG(arg_flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH, isatty_safe(STDIN_FILENO));
 
@@ -1809,19 +1818,16 @@ static int action_discover(void) {
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
-static int action_attach(DissectedImage *m, LoopDevice *d) {
+static int action_attach(LoopDevice *d) {
         int r;
 
-        assert(m);
         assert(d);
 
         r = loop_device_set_autoclear(d, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to disable auto-clear logic on loopback device: %m");
 
-        r = dissected_image_relinquish(m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
+        loop_device_relinquish(d);
 
         if (!arg_quiet)
                 puts(d->node);
@@ -1997,7 +2003,7 @@ static int run(int argc, char *argv[]) {
                 ;
         }
 
-        if (arg_image) {
+        if (arg_image && !arg_relax) {
                 r = verity_settings_load(
                                 &arg_verity_settings,
                                 arg_image,
@@ -2053,19 +2059,26 @@ static int run(int argc, char *argv[]) {
                                                 log_warning_errno(r, "Failed to set loop reference string to '%s', ignoring: %m", arg_loop_ref);
                                 }
 
-                                r = dissect_loop_device_and_warn(
-                                                d,
-                                                &arg_verity_settings,
-                                                /* mount_options= */ NULL,
-                                                arg_image_policy,
-                                                arg_image_filter,
-                                                arg_flags,
-                                                &m);
-                                if (r < 0)
-                                        return r;
+                                /* Unless --relax is specified we insist that the image qualifies as DDI:
+                                 * dissecting it validates it against the image policy and waits until the
+                                 * kernel created the per-partition block devices, so that callers may
+                                 * access them immediately after we return. With --relax we skip dissection
+                                 * entirely, and attach the image as it is. */
+                                if (!arg_relax) {
+                                        r = dissect_loop_device_and_warn(
+                                                        d,
+                                                        &arg_verity_settings,
+                                                        /* mount_options= */ NULL,
+                                                        arg_image_policy,
+                                                        arg_image_filter,
+                                                        arg_flags,
+                                                        &m);
+                                        if (r < 0)
+                                                return r;
+                                }
 
                                 if (arg_action == ACTION_ATTACH)
-                                        return action_attach(m, d);
+                                        return action_attach(d);
 
                                 r = dissected_image_load_verity_sig_partition(
                                                 m,
