@@ -843,6 +843,14 @@ static int link_status_one(
                 }
         }
 
+        if (info->dhcp4_client_state) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DHCPv4 Client State",
+                                   TABLE_STRING, info->dhcp4_client_state);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         if (sd_dhcp_client_id_is_set(&info->dhcp_client_id)) {
                 _cleanup_free_ char *id = NULL;
 
@@ -854,6 +862,22 @@ static int link_status_one(
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
+        }
+
+        if (info->dhcp4_lease_timestamp != USEC_INFINITY) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DHCPv4 Lease Timestamp",
+                                   TABLE_TIMESTAMP, info->dhcp4_lease_timestamp);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (info->dhcp6_client_state) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DHCPv6 Client State",
+                                   TABLE_STRING, info->dhcp6_client_state);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
         r = sd_network_link_get_dhcp6_client_iaid_string(info->ifindex, &iaid);
@@ -870,6 +894,14 @@ static int link_status_one(
                 r = table_add_many(table,
                                    TABLE_FIELD, "DHCPv6 Client DUID",
                                    TABLE_STRING, duid);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (info->dhcp6_lease_timestamp != USEC_INFINITY) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DHCPv6 Lease Timestamp",
+                                   TABLE_TIMESTAMP, info->dhcp6_lease_timestamp);
                 if (r < 0)
                         return table_log_add_error(r);
         }
