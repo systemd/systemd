@@ -742,7 +742,6 @@ int session_activate(Session *s) {
         unsigned num_pending;
 
         assert(s);
-        assert(s->user);
 
         if (!s->seat)
                 return -EOPNOTSUPP;
