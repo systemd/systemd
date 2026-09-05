@@ -2879,6 +2879,39 @@ static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t) {
         return 0;
 }
 
+/* Evaluate the delegation type expressed in a transaction */
+static int dns_delegation_is_secure(DnsTransaction *t) {
+        int r;
+
+        assert(t);
+
+        /* Check that this is an answer to a query for a DS record */
+        if (dns_transaction_key(t)->type != DNS_TYPE_DS)
+                return -EBADMSG;
+
+        r = dns_answer_match_key(t->answer, dns_transaction_key(t), /* ret_flags = */ NULL);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return true; /* Secure as DS record present */
+
+        /* The answer didn't contain a DS record, check for proof of an NS record */
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ns =
+                dns_resource_key_new(dns_transaction_key(t)->class, DNS_TYPE_NS, dns_resource_key_name(dns_transaction_key(t)));
+        if (!ns)
+                return -ENOMEM;
+
+        DnssecNsecResult nsec_result;
+        r = dnssec_nsec_test(t->answer, ns, &nsec_result, /* authenticated = */ NULL, /* ttl = */ NULL, /* find_glue = */ true);
+        if (r < 0)
+                return r;
+
+        if (IN_SET(nsec_result, DNSSEC_NSEC_FOUND, DNSSEC_NSEC_OPTOUT))
+                return false; /* Insecure as NS records are present */
+
+        return -EBADMSG; /* Not a delegation as neither DS or NS records are present */
+}
+
 static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *rr) {
         int r;
 
@@ -2931,7 +2964,11 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                         if (!FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                                 return false;
 
-                        return dns_answer_match_key(dt->answer, dns_transaction_key(dt), NULL);
+                        r = dns_delegation_is_secure(dt);
+                        if (r < 0)
+                                return r;
+
+                        return r;
                 }
 
                 /* We found nothing that proves this is safe to leave
@@ -2985,7 +3022,11 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
 
                         /* We expect this to be signed when the DS record exists, and don't expect it to be
                          * signed when the DS record is proven not to exist. */
-                        return dns_answer_match_key(dt->answer, dns_transaction_key(dt), NULL);
+                        r = dns_delegation_is_secure(dt);
+                        if (r < 0)
+                                return r;
+
+                        return r;
                 }
 
                 return true;
@@ -3013,7 +3054,11 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
 
                         /* We expect this to be signed when the DS record exists, and don't expect it to be
                          * signed when the DS record is proven not to exist. */
-                        return dns_answer_match_key(dt->answer, dns_transaction_key(dt), NULL);
+                        r = dns_delegation_is_secure(dt);
+                        if (r < 0)
+                                return r;
+
+                        return r;
                 }
 
                 return true;
@@ -3137,7 +3182,10 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
 
                 /* We expect this to be signed when the DS record exists, and don't expect it to be signed
                  * when the DS record is proven not to exist. */
-                return dns_answer_match_key(dt->answer, dns_transaction_key(dt), NULL);
+                r = dns_delegation_is_secure(dt);
+                if (r < 0)
+                        return r;
+                return r;
         }
 
         /* If in doubt, require NSEC/NSEC3 */
@@ -3737,7 +3785,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 bool authenticated = false;
 
                 /* Bummer! Let's check NSEC/NSEC3 */
-                r = dnssec_nsec_test(t->answer, dns_transaction_key(t), &nr, &authenticated, &t->answer_nsec_ttl);
+                r = dnssec_nsec_test(t->answer, dns_transaction_key(t), &nr, &authenticated, &t->answer_nsec_ttl, /* find_glue = */ false);
                 if (r < 0)
                         return r;
 
