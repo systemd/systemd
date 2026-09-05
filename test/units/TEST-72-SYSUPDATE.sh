@@ -254,7 +254,10 @@ verify_version_current() {
 verify_object_fields() {
     local updatectl_output="${1:?}"
 
-    [[ "${updatectl_output}" != *"Unrecognized object field"* ]]
+    [[ "${updatectl_output}" != *"Unexpected object field"* &&
+       "${updatectl_output}" != *"Missing object field"* &&
+       "${updatectl_output}" != *"Failed to dispatch JSON"* &&
+       "${updatectl_output}" != *"Failed to parse JSON"* ]]
 }
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
@@ -397,6 +400,26 @@ EOF
     cat >"$CONFIGDIR/optional.feature" <<EOF
 [Feature]
 Description=Optional Feature
+Documentation=https://example.com/optional
+Documentation=https://example.com/optional-more
+AppStream=https://example.com/optional.appstream.xml
+EOF
+
+    cat >"$CONFIGDIR/undocumented.feature" <<EOF
+[Feature]
+Description=Feature Without Documentation
+EOF
+
+    cat >"$CONFIGDIR/malformed.feature" <<EOF
+[Feature]
+Description=Feature With Invalid Suggest Condition
+SuggestOnFirmware=smbios-field(malformed)
+EOF
+
+    cat >"$CONFIGDIR/suggested.feature" <<EOF
+[Feature]
+Description=Suggested Feature
+Suggest=yes
 EOF
 
     cat >"$CONFIGDIR/99-optional.transfer" <<EOF
@@ -476,6 +499,31 @@ EOF
         exit 1
     fi
 
+    feature_json="$("$SYSUPDATE" --json=short features optional)"
+    jq -e '.id == "optional"' <<<"$feature_json" >/dev/null
+    jq -e '
+        .documentation == [
+            "https://example.com/optional",
+            "https://example.com/optional-more"
+        ]
+    ' <<<"$feature_json" >/dev/null
+    jq -e '.isEnabled == false' <<<"$feature_json" >/dev/null
+    jq -e '.suggested == false' <<<"$feature_json" >/dev/null
+    jq -e '.appstream == "https://example.com/optional.appstream.xml"' <<<"$feature_json" >/dev/null
+
+    suggested_json="$("$SYSUPDATE" --json=short features suggested)"
+    jq -e '.id == "suggested" and .suggested == true' <<<"$suggested_json" >/dev/null
+
+    undocumented_json="$("$SYSUPDATE" --json=short features undocumented)"
+    jq -e '.id == "undocumented" and (.documentation == null)' <<<"$undocumented_json" >/dev/null
+    "$SYSUPDATE" features undocumented | grep -F "Feature Without Documentation" >/dev/null
+
+    malformed_json="$("$SYSUPDATE" --json=short features malformed)"
+    jq -e '.id == "malformed" and (has("suggested") | not)' <<<"$malformed_json" >/dev/null
+    "$SYSUPDATE" features malformed | grep -F "error (Invalid argument)" >/dev/null
+    all_features_output="$("$SYSUPDATE" features)"
+    grep -F "malformed" <<<"$all_features_output" >/dev/null
+
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
     mkdir "$CONFIGDIR/optional.feature.d"
     echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
@@ -521,9 +569,24 @@ EOF
     if [[ -x "$UPDATECTL" ]]; then
         mkdir -p /run/sysupdate.test.d/
         cp "$CONFIGDIR/01-first.transfer" /run/sysupdate.test.d/01-first.transfer
-        verify_object_fields "$("$UPDATECTL" list 2>&1)"
-        verify_object_fields "$("$UPDATECTL" list host 2>&1)"
-        verify_object_fields "$("$UPDATECTL" list host@v6 2>&1)"
+        updatectl_output="$("$UPDATECTL" list 2>&1)"
+        verify_object_fields "$updatectl_output"
+        updatectl_output="$("$UPDATECTL" list host 2>&1)"
+        verify_object_fields "$updatectl_output"
+        updatectl_output="$("$UPDATECTL" list host@v6 2>&1)"
+        verify_object_fields "$updatectl_output"
+        features_output="$("$UPDATECTL" features)"
+        grep "optional" <<<"$features_output" >/dev/null
+        grep "undocumented" <<<"$features_output" >/dev/null
+        feature_output="$("$UPDATECTL" features optional)"
+        grep "Optional Feature" <<<"$feature_output" >/dev/null
+        grep "Suggested: no" <<<"$feature_output" >/dev/null
+        grep "https://example.com/optional-more" <<<"$feature_output" >/dev/null
+        grep "https://example.com/optional.appstream.xml" <<<"$feature_output" >/dev/null
+        grep "malformed" <<<"$features_output" >/dev/null
+        verify_object_fields "$features_output"
+        malformed_feature_output="$("$UPDATECTL" features malformed)"
+        (! grep -F "Suggested:" <<<"$malformed_feature_output")
         "$UPDATECTL" check
         rm -r /run/sysupdate.test.d
     fi
@@ -635,6 +698,11 @@ done
 # that a ‘default’ component is only listed by sysupdate if it’s fully configured
 mv "$CONFIGDIR" "$CONFIGDIR.backup"
 mkdir -p /run/sysupdate.some-component.d
+cat >/run/sysupdate.some-component.component <<EOF
+[Component]
+Documentation=https://example.com/some-component
+Documentation=https://example.com/some-component-more
+EOF
 tee /run/sysupdate.some-component.d/portable.transfer << EOF
 [Transfer]
 ChangeLog=https://example.com/changelog/@v
@@ -651,10 +719,19 @@ Path=/var/lib/portables
 MatchPattern=some-component_@v
 CurrentSymlink=some-component
 EOF
-"$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+component_json="$("$SYSUPDATE" --json=short components)"
+jq -e '
+        .default == false and
+        .components == ["some-component"] and
+        .componentDocumentation[0].id == "some-component" and
+        .componentDocumentation[0].documentation == [
+                "https://example.com/some-component",
+                "https://example.com/some-component-more"
+        ]' <<<"$component_json" >/dev/null
 varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets | all(.id.class != "host")' >/dev/null
 mkdir /run/sysupdate.d
-"$SYSUPDATE" --json=short components | grep -F '{"default":false,"components":["some-component"]}' >/dev/null
+component_json="$("$SYSUPDATE" --json=short components)"
+jq -e '(.default == false and .components == ["some-component"] and (.componentDocumentation[0].documentation | length == 2))' <<<"$component_json" >/dev/null
 varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.targets | all(.id.class != "host")' >/dev/null
 [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -r '.targets[0].id.name') == "some-component" ]]
 
@@ -670,6 +747,7 @@ varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -e '.tar
 # Clean up regression test
 rmdir /run/sysupdate.d
 rm -rf /run/sysupdate.some-component.d
+rm -f /run/sysupdate.some-component.component
 mv "$CONFIGDIR.backup" "$CONFIGDIR"
 
 # Make sure the processing of compressed streams still handles uncompressed streams shorter than
@@ -1950,7 +2028,8 @@ compfeat_source v1
 mkdir -p /run/sysupdate.d
 compfeat_transfer /run/sysupdate.d/01-base.transfer base "$CF/target-default"
 # feata: suggested (Suggest=yes); featb: not suggested (Suggest=no);
-# featc: suggested on a machine tag we will set below.
+# featc: suggested on a machine tag we will set below; featd: malformed
+# suggestion condition, which should be skipped without aborting the operation.
 cat >/run/sysupdate.d/feata.feature <<EOF
 [Feature]
 Suggest=yes
@@ -1963,18 +2042,24 @@ cat >/run/sysupdate.d/featc.feature <<EOF
 [Feature]
 SuggestOnMachineTag=sysupdate-test-tag
 EOF
+cat >/run/sysupdate.d/featd.feature <<EOF
+[Feature]
+SuggestOnFirmware=smbios-field(malformed)
+EOF
 
 # --feature-all operates on every known feature.
 "$SYSUPDATE" enable-feature --feature-all
 assert_dropin "$(feat_enable_dropin_default feata)" yes
 assert_dropin "$(feat_enable_dropin_default featb)" yes
 assert_dropin "$(feat_enable_dropin_default featc)" yes
+assert_dropin "$(feat_enable_dropin_default featd)" yes
 
 # ... and so does 'disable-feature --feature-all', in the other direction.
 "$SYSUPDATE" disable-feature --feature-all
 assert_dropin "$(feat_enable_dropin_default feata)" no
 assert_dropin "$(feat_enable_dropin_default featb)" no
 assert_dropin "$(feat_enable_dropin_default featc)" no
+assert_dropin "$(feat_enable_dropin_default featd)" no
 
 # --feature-suggested (no machine tag): only the Suggest=yes feature is picked.
 rm -rf /etc/sysupdate.d
@@ -1983,6 +2068,7 @@ set_machine_tags unrelated
 assert_dropin "$(feat_enable_dropin_default feata)" yes
 test ! -e "$(feat_enable_dropin_default featb)"
 test ! -e "$(feat_enable_dropin_default featc)"
+test ! -e "$(feat_enable_dropin_default featd)"
 
 # --feature-suggested with the machine tag set: feata + featc are picked.
 rm -rf /etc/sysupdate.d
@@ -1991,6 +2077,7 @@ set_machine_tags sysupdate-test-tag
 assert_dropin "$(feat_enable_dropin_default feata)" yes
 assert_dropin "$(feat_enable_dropin_default featc)" yes
 test ! -e "$(feat_enable_dropin_default featb)"
+test ! -e "$(feat_enable_dropin_default featd)"
 
 # 'disable-feature --feature-suggested' selects the same features as the enable
 # above, i.e. it undoes it and leaves the non-suggested featb untouched.
@@ -1998,6 +2085,7 @@ test ! -e "$(feat_enable_dropin_default featb)"
 assert_dropin "$(feat_enable_dropin_default feata)" no
 assert_dropin "$(feat_enable_dropin_default featc)" no
 test ! -e "$(feat_enable_dropin_default featb)"
+test ! -e "$(feat_enable_dropin_default featd)"
 
 # The same two step reconciliation for features: disable all of them, then
 # enable the suggested ones, leaving the non-suggested featb explicitly off.
