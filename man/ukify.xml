@@ -998,7 +998,7 @@ ID=factory-reset' \
       <para>Then, sign the PCR digests offline and insert them in the JSON blob:</para>
 
       <programlisting>#!/usr/bin/python3
-import base64, hashlib, json, subprocess
+import base64, json, subprocess
 
 priv_key = '/home/zbyszek/src/systemd/tpm2-pcr-private.pem'
 base_file = 'base.pcrs'
@@ -1007,11 +1007,9 @@ base = json.load(open(base_file))
 
 for bank,policies in base.items():
     for policy in policies:
-        to_sign = base64.b16decode(policy['pol'].upper())
-        if policyref := policy.get('ref'):
-            to_sign += hashlib.sha256(policyref.encode()).digest()
-        call = subprocess.run(['openssl', 'dgst', f'-{bank}', '-sign', priv_key],
-                              input=to_sign,
+        dig = base64.b16decode(policy['dig'].upper())
+        call = subprocess.run(['openssl', 'dgst', '-sha256', '-sign', priv_key],
+                              input=dig,
                               check=True,
                               capture_output=True)
         sig = base64.b64encode(call.stdout).decode()
