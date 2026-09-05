@@ -589,6 +589,8 @@ int enroll_tpm2(const EnrollContext *c,
                                 n_policy_hash,
                                 &srk,
                                 &secret2);
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "PCR values kept changing while unsealing the TPM2 secret, giving up. Something on this system extends a PCR continuously.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
