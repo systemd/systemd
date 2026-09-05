@@ -57,3 +57,6 @@ SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service @mount
 TimeoutStopSec=6min
 {{SERVICE_WATCHDOG}}
+
+[Install]
+WantedBy=sysinit.target
