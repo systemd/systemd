@@ -29,6 +29,69 @@ TEST(specifier_escape) {
         test_specifier_escape_one("%%%%%", "%%%%%%%%%%");
 }
 
+static void test_mount_options_escape_one(const char *a, const char *b) {
+        _cleanup_free_ char *x = NULL;
+
+        x = mount_options_escape(a);
+        ASSERT_STREQ(x, b);
+}
+
+TEST(mount_options_escape) {
+        test_mount_options_escape_one(NULL, NULL);
+        test_mount_options_escape_one("", "");
+        test_mount_options_escape_one("%", "%%");
+        test_mount_options_escape_one("foo bar", "foo bar");
+        test_mount_options_escape_one("foo%bar", "foo%%bar");
+        test_mount_options_escape_one("%%%%%", "%%%%%%%%%%");
+        test_mount_options_escape_one("\\", "\\\\");
+        test_mount_options_escape_one("foo\\bar", "foo\\\\bar");
+        test_mount_options_escape_one("foo\\%bar", "foo\\\\%%bar");
+        test_mount_options_escape_one("\\%", "\\\\%%");
+}
+
+
+static char* mount_options_unescape(const char *string) {
+        /* This performs the same unescaping with config_parse_unit_mount_options_printf */
+        _cleanup_free_ char *s = NULL;
+
+        s = strreplace(string, "%%", "%");
+        if (!s)
+                return NULL;
+
+        return strreplace(s, "\\\\", "\\");
+}
+
+static void test_mount_options_escape_roundtrip_one(const char *input) {
+        _cleanup_free_ char *escaped = NULL, *unescaped = NULL;
+
+        escaped = mount_options_escape(input);
+        assert_se(escaped);
+
+        if (isempty(escaped)) {
+                assert_se(isempty(input));
+                return;
+        }
+
+        unescaped = mount_options_unescape(escaped);
+        assert_se(unescaped);
+
+        ASSERT_STREQ(unescaped, input);
+}
+
+TEST(mount_options_escape_roundtrip) {
+        test_mount_options_escape_roundtrip_one("");
+        test_mount_options_escape_roundtrip_one("foo");
+        test_mount_options_escape_roundtrip_one("\\");
+        test_mount_options_escape_roundtrip_one("foo\\bar");
+        test_mount_options_escape_roundtrip_one("foo\\\\bar");
+        test_mount_options_escape_roundtrip_one("trailing\\");
+        test_mount_options_escape_roundtrip_one("%");
+        test_mount_options_escape_roundtrip_one("foo%bar");
+        test_mount_options_escape_roundtrip_one("%%%%%");
+        test_mount_options_escape_roundtrip_one("foo\\%bar");
+        test_mount_options_escape_roundtrip_one("\\%");
+}
+
 static void test_specifier_escape_strv_one(char **a, char **b) {
         _cleanup_strv_free_ char **x = NULL;
 

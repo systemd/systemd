@@ -3,12 +3,10 @@
 [Unit]
 Documentation=man:fstab(5) man:systemd-fstab-generator(8)
 SourcePath=/etc/fstab
-Requires=foo.service
-After=foo.service
 Before=local-fs.target
-After=blockdev@dev-sdx5.target
+After=blockdev@dev-sdx17.target
 
 [Mount]
-What=/dev/sdx5
-Where=/mnt/requires
-Options=x-systemd.requires=foo.service
+What=/dev/sdx17
+Where=/mnt/automountop1
+Options=x-systemd.automount,x-systemd.automount-options=op
