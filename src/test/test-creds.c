@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-id128.h"
+
 #include "creds-util.h"
+#include "env-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "hexdecoct.h"
@@ -71,6 +74,102 @@ TEST(read_credential_strings) {
                 ASSERT_OK_ERRNO(setenv("CREDENTIALS_DIRECTORY", saved, /* override= */ 1));
         else
                 ASSERT_OK_ERRNO(unsetenv("CREDENTIALS_DIRECTORY"));
+}
+
+TEST(read_credential_with_decryption) {
+        _cleanup_(rm_rf_physical_and_freep) char *plain_dir = NULL, *encrypted_dir = NULL;
+        _cleanup_free_ char *saved_plain = NULL, *saved_encrypted = NULL;
+        _cleanup_free_ char *plain_path = NULL, *encrypted_path = NULL;
+        _cleanup_(iovec_done_erase) struct iovec data = {};
+        char marker = 0;
+        void *missing = &marker;
+        size_t missing_size = SIZE_MAX;
+
+        ASSERT_OK(free_and_strdup(&saved_plain, getenv("CREDENTIALS_DIRECTORY")));
+        ASSERT_OK(free_and_strdup(&saved_encrypted, getenv("ENCRYPTED_CREDENTIALS_DIRECTORY")));
+        ASSERT_OK(mkdtemp_malloc(NULL, &plain_dir));
+        ASSERT_OK(mkdtemp_malloc(NULL, &encrypted_dir));
+        ASSERT_OK_ERRNO(setenv("CREDENTIALS_DIRECTORY", plain_dir, /* overwrite= */ true));
+        ASSERT_OK_ERRNO(setenv("ENCRYPTED_CREDENTIALS_DIRECTORY", encrypted_dir, /* overwrite= */ true));
+
+        ASSERT_OK_ZERO(read_credential_with_decryption("missing", &missing, &missing_size));
+        ASSERT_NULL(missing);
+        ASSERT_EQ(missing_size, 0U);
+
+        ASSERT_NOT_NULL(encrypted_path = path_join(encrypted_dir, "foo"));
+        ASSERT_OK(write_string_file(encrypted_path, "!", WRITE_STRING_FILE_CREATE));
+        ASSERT_LT(read_credential_with_decryption("foo", &data.iov_base, &data.iov_len), 0);
+
+        /* Plaintext takes precedence over the invalid encrypted credential and is not Base64-decoded. */
+        ASSERT_NOT_NULL(plain_path = path_join(plain_dir, "foo"));
+        ASSERT_OK(write_string_file(plain_path, "Zm9v",
+                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
+        ASSERT_OK_EQ(read_credential_with_decryption("foo", &data.iov_base, &data.iov_len), 1);
+        ASSERT_EQ(data.iov_len, STRLEN("Zm9v"));
+        ASSERT_STREQ(data.iov_base, "Zm9v");
+
+        ASSERT_OK(set_unset_env("CREDENTIALS_DIRECTORY", saved_plain, /* overwrite= */ true));
+        ASSERT_OK(set_unset_env("ENCRYPTED_CREDENTIALS_DIRECTORY", saved_encrypted, /* overwrite= */ true));
+}
+
+TEST(read_credential_with_decryption_encrypted) {
+        static const struct iovec plaintext = CONST_IOVEC_MAKE_STRING("foo\0bar\n");
+        _cleanup_(rm_rf_physical_and_freep) char *plain_dir = NULL, *encrypted_dir = NULL;
+        _cleanup_free_ char *saved_plain = NULL, *saved_encrypted = NULL, *saved_secret = NULL;
+        _cleanup_free_ char *secret_path = NULL, *credential_path = NULL;
+        _cleanup_(iovec_done_erase) struct iovec encrypted = {};
+        int r;
+
+        if (!HAVE_OPENSSL)
+                return (void) log_tests_skipped("OpenSSL support is disabled");
+        if (geteuid() != 0)
+                return (void) log_tests_skipped("reading encrypted credentials directly requires root");
+
+        r = sd_id128_get_machine(NULL);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_tests_skipped("machine ID is not initialized");
+        ASSERT_OK(r);
+
+        ASSERT_OK(free_and_strdup(&saved_plain, getenv("CREDENTIALS_DIRECTORY")));
+        ASSERT_OK(free_and_strdup(&saved_encrypted, getenv("ENCRYPTED_CREDENTIALS_DIRECTORY")));
+        ASSERT_OK(free_and_strdup(&saved_secret, getenv("SYSTEMD_CREDENTIAL_SECRET")));
+        ASSERT_OK(mkdtemp_malloc(NULL, &plain_dir));
+        ASSERT_OK(mkdtemp_malloc(NULL, &encrypted_dir));
+        ASSERT_NOT_NULL(secret_path = path_join(encrypted_dir, "secret"));
+        ASSERT_NOT_NULL(credential_path = path_join(encrypted_dir, "foo"));
+        ASSERT_OK_ERRNO(setenv("CREDENTIALS_DIRECTORY", plain_dir, /* overwrite= */ true));
+        ASSERT_OK_ERRNO(setenv("ENCRYPTED_CREDENTIALS_DIRECTORY", encrypted_dir, /* overwrite= */ true));
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_CREDENTIAL_SECRET", secret_path, /* overwrite= */ true));
+
+        ASSERT_OK(encrypt_credential_and_warn(
+                        CRED_AES256_GCM_BY_HOST,
+                        "foo",
+                        /* timestamp= */ USEC_INFINITY,
+                        /* not_after= */ USEC_INFINITY,
+                        /* tpm2_device= */ NULL,
+                        /* tpm2_hash_pcr_mask= */ 0,
+                        /* tpm2_pubkey_path= */ NULL,
+                        /* tpm2_pubkey_pcr_mask= */ 0,
+                        /* uid= */ UID_INVALID,
+                        &plaintext,
+                        /* flags= */ 0,
+                        &encrypted));
+
+        /* Exercise both single-line Base64 and the line wrapping used by systemd-creds. */
+        FOREACH_ELEMENT(line_break, ((const size_t[]) { SIZE_MAX, 79 })) {
+                _cleanup_(erase_and_freep) char *encoded = NULL;
+                _cleanup_(iovec_done_erase) struct iovec result = {};
+
+                ASSERT_OK(base64mem_full(encrypted.iov_base, encrypted.iov_len, *line_break, &encoded));
+                ASSERT_OK(write_string_file(credential_path, encoded,
+                                            WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+                ASSERT_OK_EQ(read_credential_with_decryption("foo", &result.iov_base, &result.iov_len), 1);
+                ASSERT_TRUE(iovec_equal(&plaintext, &result));
+        }
+
+        ASSERT_OK(set_unset_env("CREDENTIALS_DIRECTORY", saved_plain, /* overwrite= */ true));
+        ASSERT_OK(set_unset_env("ENCRYPTED_CREDENTIALS_DIRECTORY", saved_encrypted, /* overwrite= */ true));
+        ASSERT_OK(set_unset_env("SYSTEMD_CREDENTIAL_SECRET", saved_secret, /* overwrite= */ true));
 }
 
 TEST(credential_name_valid) {
