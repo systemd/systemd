@@ -62,7 +62,8 @@ int timer_context_build_json(sd_json_variant **ret, const char *name, void *user
                         SD_JSON_BUILD_PAIR_BOOLEAN("Persistent", t->persistent),
                         SD_JSON_BUILD_PAIR_BOOLEAN("WakeSystem", t->wake_system),
                         SD_JSON_BUILD_PAIR_BOOLEAN("RemainAfterElapse", t->remain_after_elapse),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("DeferReactivation", t->defer_reactivation));
+                        SD_JSON_BUILD_PAIR_BOOLEAN("DeferReactivation", t->defer_reactivation),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CatchUp", t->catch_up));
 }
 
 int timer_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {

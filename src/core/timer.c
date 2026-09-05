@@ -44,6 +44,7 @@ static void timer_init(Unit *u) {
         t->next_elapse_realtime = USEC_INFINITY;
         t->accuracy_usec = u->manager->defaults.timer_accuracy_usec;
         t->remain_after_elapse = true;
+        t->catch_up = true;
 }
 
 void timer_free_values(Timer *t) {
@@ -369,6 +370,80 @@ static void add_random_delay(Timer *t, usec_t *v) {
         log_unit_debug(UNIT(t), "Adding %s random time.", FORMAT_TIMESPAN(add, 0));
 }
 
+static void calculate_next_elapse_base(Timer *t,
+                triple_timestamp *ts,
+                Unit *trigger,
+                usec_t *ret_base,
+                usec_t *ret_random_offset,
+                usec_t *ret_boot_monotonic,
+                bool *ret_rebase_after_boot_time) {
+        bool rebase_after_boot_time = false;
+        usec_t b, random_offset = 0;
+        usec_t boot_monotonic = UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
+
+        assert(ret_base);
+        assert(ret_random_offset);
+        assert(ret_boot_monotonic);
+        assert(ret_rebase_after_boot_time);
+
+        if (t->random_offset_usec != 0)
+                random_offset = timer_get_fixed_delay_hash(t) % t->random_offset_usec;
+
+        /* If DeferReactivation= is enabled, schedule the job based on the last time
+            * the trigger unit entered inactivity. Otherwise, if we know the last time
+            * this was triggered, schedule the job based relative to that. If we don't,
+            * just start from the activation time or realtime. */
+        if (t->defer_reactivation &&
+            dual_timestamp_is_set(&trigger->inactive_enter_timestamp)) {
+                if (dual_timestamp_is_set(&t->last_trigger))
+                        b = MAX(trigger->inactive_enter_timestamp.realtime,
+                                t->last_trigger.realtime);
+                else
+                        b = trigger->inactive_enter_timestamp.realtime;
+        } else if (dual_timestamp_is_set(&t->last_trigger)) {
+                b = t->last_trigger.realtime;
+
+                /* Check if the last_trigger timestamp is older than the current machine
+                    * boot. If so, this means the timestamp came from a stamp file of a
+                    * persistent timer and we need to rebase it to make RandomizedDelaySec=
+                    * work (see below). */
+                if (t->last_trigger.monotonic < boot_monotonic)
+                        rebase_after_boot_time = true;
+        } else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
+                b = UNIT(t)->inactive_exit_timestamp.realtime;
+        else {
+                b = ts->realtime;
+                rebase_after_boot_time = true;
+        }
+
+        if (b > ts->realtime) {
+                /* The base we picked is in the future relative to the current realtime. This
+                 * happens when the wall clock is set backwards while the timer is already
+                 * waiting: the base was recorded from the old, later time. Feeding a future
+                 * base to calendar_spec_next_usec() would schedule the next elapse relative to
+                 * that stale time instead of now, so systemctl list-timers keeps showing the
+                 * pre-adjustment elapse and the timer never catches up (see #6036). Clamp to
+                 * now so we recalculate from the current time. */
+                log_unit_debug(UNIT(t),
+                                "Calendar timer base time %s is in the future, recalculating from the current time.",
+                                FORMAT_TIMESTAMP(b));
+                b = ts->realtime;
+        }
+
+        /* We always subtract random_offset from the base time because
+         * calendar_spec_next_usec() finds the next calendar event, and then we add the
+         * offset back afterwards (see below). The base time needs to be in "pre-offset"
+         * space so the next calendar match is computed correctly. Without this, a timer
+         * that fires late (e.g. persistent catch-up) would skip the next scheduled
+         * activation. */
+        b = usec_sub_unsigned(b, random_offset);
+
+        *ret_base = b;
+        *ret_random_offset = random_offset;
+        *ret_boot_monotonic = boot_monotonic;
+        *ret_rebase_after_boot_time = rebase_after_boot_time;
+}
+
 static void timer_enter_waiting(Timer *t, bool time_change) {
         bool found_monotonic = false, found_realtime = false;
         bool leave_around = false;
@@ -392,67 +467,30 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         continue;
 
                 if (v->base == TIMER_CALENDAR) {
-                        bool rebase_after_boot_time = false;
-                        usec_t b, random_offset = 0;
-                        usec_t boot_monotonic = UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
+                        bool rebase_after_boot_time;
+                        usec_t b, random_offset, boot_monotonic;
 
-                        if (t->random_offset_usec != 0)
-                                random_offset = timer_get_fixed_delay_hash(t) % t->random_offset_usec;
-
-                        /* If DeferReactivation= is enabled, schedule the job based on the last time
-                         * the trigger unit entered inactivity. Otherwise, if we know the last time
-                         * this was triggered, schedule the job based relative to that. If we don't,
-                         * just start from the activation time or realtime. */
-                        if (t->defer_reactivation &&
-                            dual_timestamp_is_set(&trigger->inactive_enter_timestamp)) {
-                                if (dual_timestamp_is_set(&t->last_trigger))
-                                        b = MAX(trigger->inactive_enter_timestamp.realtime,
-                                                t->last_trigger.realtime);
-                                else
-                                        b = trigger->inactive_enter_timestamp.realtime;
-                        } else if (dual_timestamp_is_set(&t->last_trigger)) {
-                                b = t->last_trigger.realtime;
-
-                                /* Check if the last_trigger timestamp is older than the current machine
-                                 * boot. If so, this means the timestamp came from a stamp file of a
-                                 * persistent timer and we need to rebase it to make RandomizedDelaySec=
-                                 * work (see below). */
-                                if (t->last_trigger.monotonic < boot_monotonic)
-                                        rebase_after_boot_time = true;
-                        } else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
-                                b = UNIT(t)->inactive_exit_timestamp.realtime;
-                        else {
-                                b = ts.realtime;
-                                rebase_after_boot_time = true;
-                        }
-
-                        if (b > ts.realtime) {
-                                /* The base we picked is in the future relative to the current realtime. This
-                                 * happens when the wall clock is set backwards while the timer is already
-                                 * waiting: the base was recorded from the old, later time. Feeding a future
-                                 * base to calendar_spec_next_usec() would schedule the next elapse relative to
-                                 * that stale time instead of now, so systemctl list-timers keeps showing the
-                                 * pre-adjustment elapse and the timer never catches up (see #6036). Clamp to
-                                 * now so we recalculate from the current time. */
-                                log_unit_debug(UNIT(t),
-                                               "Calendar timer base time %s is in the future, recalculating from the current time.",
-                                               FORMAT_TIMESTAMP(b));
-                                b = ts.realtime;
-                        }
-
-                        /* We always subtract random_offset from the base time because
-                         * calendar_spec_next_usec() finds the next calendar event, and then we add the
-                         * offset back afterwards (see below). The base time needs to be in "pre-offset"
-                         * space so the next calendar match is computed correctly. Without this, a timer
-                         * that fires late (e.g. persistent catch-up) would skip the next scheduled
-                         * activation. */
-                        b = usec_sub_unsigned(b, random_offset);
+                        calculate_next_elapse_base(
+                                        t,
+                                        &ts,
+                                        trigger,
+                                        &b,
+                                        &random_offset,
+                                        &boot_monotonic,
+                                        &rebase_after_boot_time);
 
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
                                 continue;
 
-                        v->next_elapse += random_offset;
+                        if (!t->catch_up && v->next_elapse <= ts.realtime) {
+                                /* Don't catch up with past events */
+                                r = calendar_spec_next_usec(v->calendar_spec, ts.realtime, &v->next_elapse);
+                                if (r < 0)
+                                        continue;
+                        }
+
+                        v->next_elapse = usec_add(v->next_elapse, random_offset);
 
                         if (rebase_after_boot_time) {
                                 /* To make the delay due to RandomizedDelaySec= work even at boot, if the scheduled
