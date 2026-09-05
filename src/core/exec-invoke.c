@@ -88,6 +88,7 @@
 #include "uid-range.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
+#include "virt.h"
 #include "vpick.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
@@ -5078,6 +5079,59 @@ static void prepare_terminal(
                 (void) osc_context_open_service(p->unit_id, p->invocation_id, /* ret_seq= */ NULL);
 }
 
+static int apply_console_backing_term(char ***env, const char *tty_path) {
+        int r;
+
+        assert(env);
+        assert(tty_path);
+
+        /* For a service on /dev/console, prefer an explicit per-device setting over inheriting the terminal
+         * type from PID 1. A non-VC backing-device key such as systemd.tty.term.ttyS0= is more specific than
+         * systemd.tty.term.console= and lets an interactive console service use a richer terminal type than
+         * PID 1 does, e.g. systemd.tty.term.console=dumb for a fast boot (PID 1 skips the ANSI reset) while
+         * the login shell on ttyS0 still gets TERM=linux. PID 1 and its console services may therefore
+         * intentionally differ.
+         * We skip all of this outside /dev/console and inside containers, where the container manager owns
+         * $TERM and resolving /dev/console would inspect the host's /sys/. Returns 1 if $TERM was set, 0
+         * otherwise, negative on failure. */
+
+        if (!tty_is_console(tty_path) || detect_container() > 0)
+                return 0;
+
+        /* A global TERM= wins, matching fixup_environment(), which treats any TERM= as authoritative for
+         * PID 1 (a bare, empty TERM= counts too). */
+        _cleanup_free_ char *global_term = NULL;
+        r = proc_cmdline_get_key("TERM", /* flags= */ 0, &global_term);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read 'TERM' from cmdline, ignoring: %m");
+        if (r > 0)
+                return 0;
+
+        /* Apply a per-device key for the concrete device backing the console (e.g. ttyS0). This is checked
+         * before the PID 1 inheritance and the generic systemd.tty.term.console= lookup that follow, so it
+         * takes precedence over both. */
+        _cleanup_free_ char *resolved = NULL;
+        r = resolve_dev_console(&resolved);
+        if (r < 0)
+                log_debug_errno(r, "Failed to resolve /dev/console, ignoring: %m");
+        /* tty0 resolves to the currently active virtual console, which is not a stable backing device. */
+        else if (!tty_is_vc(resolved)) {
+                _cleanup_free_ char *term = NULL;
+                r = proc_cmdline_tty_term(resolved, &term);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        r = strv_env_assign(env, "TERM", term);
+                        if (r < 0)
+                                return r;
+
+                        return 1;
+                }
+        }
+
+        return 0;
+}
+
 static int setup_term_environment(const ExecContext *context, char ***env) {
         int r;
 
@@ -5094,6 +5148,10 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
 
         const char *tty_path = exec_context_tty_path(context);
         if (tty_path) {
+                r = apply_console_backing_term(env, tty_path);
+                if (r != 0)
+                        return r;
+
                 /* If we are forked off PID 1 and we are supposed to operate on /dev/console, then let's try
                  * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
                  * container manager passes to PID 1 ends up all the way in the console login shown.
@@ -5120,21 +5178,13 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
 
                                 return 1;
                         }
-
                 } else {
-                        if (in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
-                                _cleanup_free_ char *key = NULL, *cmdline = NULL;
-
-                                key = strjoin("systemd.tty.term.", skip_dev_prefix(tty_path));
-                                if (!key)
-                                        return -ENOMEM;
-
-                                r = proc_cmdline_get_key(key, /* flags= */ 0, &cmdline);
-                                if (r > 0)
-                                        return strv_env_assign(env, "TERM", cmdline);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to read '%s' from kernel cmdline, ignoring: %m", key);
-                        }
+                        _cleanup_free_ char *term = NULL;
+                        r = proc_cmdline_tty_term(tty_path, &term);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return strv_env_assign(env, "TERM", term);
 
                         /* This handles real virtual terminals (returning "linux") and
                          * any terminals which support the DCS +q query sequence. */
