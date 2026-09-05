@@ -623,8 +623,127 @@ void varlink_unit_send_change_signal(Unit *u) {
                         SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, u));
 }
 
+static int job_notification_build(Job *j, bool with_runtime, sd_json_variant **ret) {
+        assert(j);
+        assert(ret);
+
+        if (with_runtime)
+                return sd_json_buildo(
+                                ret,
+                                SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j),
+                                SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, j->unit));
+
+        return sd_json_buildo(ret, SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+}
+
+/* Notify SubscribeJobs subscribers of a job state change. Subscribers that opted into
+ * withRuntime (hashmap value 2) get a unit runtime snapshot on finished notifications. */
+static void varlink_job_broadcast_change(Job *j, bool finished) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *plain = NULL, *enriched = NULL;
+        _cleanup_free_ sd_varlink **dead = NULL;
+        size_t n_dead = 0;
+        Manager *m;
+        sd_varlink *link;
+        void *value;
+        int r;
+
+        assert(j);
+        m = ASSERT_PTR(j->manager);
+
+        HASHMAP_FOREACH_KEY(value, link, m->varlink_job_subscribers) {
+                if (mac_selinux_unit_access_check_varlink(j->unit, link, "status") < 0)
+                        continue; /* silently skip jobs the subscriber may not see */
+
+                /* Built at most once per event and shared by all subscribers: the runtime
+                 * build reads cgroupfs/BPF accounting, too costly to redo per subscriber. */
+                bool with_runtime = finished && PTR_TO_UINT(value) == VARLINK_JOB_SUBSCRIBER_WITH_RUNTIME;
+                sd_json_variant **v = with_runtime ? &enriched : &plain;
+                if (!*v) {
+                        r = job_notification_build(j, with_runtime, v);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to build job notification, ignoring: %m");
+                                continue;
+                        }
+                }
+
+                r = sd_varlink_notify(link, *v);
+                if (r < 0) {
+                        /* Overflowed (ENOBUFS) or broken subscriber: drop it rather than
+                         * keep buffering for a client that cannot receive. */
+                        log_debug_errno(r, "Failed to notify job subscriber, disconnecting: %m");
+                        if (GREEDY_REALLOC(dead, n_dead + 1))
+                                dead[n_dead++] = link;
+                        else {
+                                /* Cannot defer the disconnect — drop the subscriber inline (removing
+                                 * the current entry during iteration is safe). */
+                                if (hashmap_remove(m->varlink_job_subscribers, link))
+                                        sd_varlink_unref(link);
+                                sd_varlink_close(link);
+                        }
+                }
+        }
+
+        /* Deregister before closing so vl_disconnect() cannot unref a second time. */
+        FOREACH_ARRAY(d, dead, n_dead) {
+                if (hashmap_remove(m->varlink_job_subscribers, *d))
+                        sd_varlink_unref(*d);
+                sd_varlink_close(*d);
+        }
+}
+
+int vl_method_subscribe_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "withRuntime", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, 0, SD_JSON_NULLABLE },
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        int with_runtime = -1;
+        Job *j;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        /* SD_VARLINK_REQUIRES_MORE in the IDL rejects non-streaming callers before we get here */
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &with_runtime);
+        if (r != 0)
+                return r;
+
+        /* Snapshot current jobs before registering, so that subscribing before enqueuing
+         * cannot miss a transition. */
+        HASHMAP_FOREACH(j, m->jobs) {
+                if (mac_selinux_unit_access_check_varlink(j->unit, link, "status") < 0)
+                        continue;
+
+                r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+                if (r < 0)
+                        return r;
+        }
+
+        /* The ready ack concludes the snapshot. Registration below happens in the same
+         * dispatch, before any other connection's message is processed, so a client that
+         * has seen it cannot race a subsequently enqueued job. */
+        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("ready", true));
+        if (r < 0)
+                return r;
+
+        VarlinkJobSubscriberKind kind =
+                with_runtime > 0 ? VARLINK_JOB_SUBSCRIBER_WITH_RUNTIME : VARLINK_JOB_SUBSCRIBER_PLAIN;
+        r = hashmap_ensure_put(&m->varlink_job_subscribers, NULL, link, UINT_TO_PTR(kind));
+        if (r < 0)
+                return r;
+
+        sd_varlink_ref(link);
+        return 1;
+}
+
 void varlink_job_send_change_signal(Job *j) {
         assert(j);
+
+        varlink_job_broadcast_change(j, /* finished= */ false);
 
         if (!j->varlink || !j->varlink_notify_job_changes)
                 return;
@@ -636,6 +755,8 @@ void varlink_job_send_change_signal(Job *j) {
 
 void varlink_job_send_removed_signal(Job *j) {
         assert(j);
+
+        varlink_job_broadcast_change(j, /* finished= */ true);
 
         if (!j->varlink)
                 return;
