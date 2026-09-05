@@ -53,7 +53,9 @@
     is disabled, effectively uninstalling it.</para>
 
     <para>Optional Features are described by <filename>sysupdate.d/*.feature</filename> files, which are
-    defined below.
+    defined below. For components acquired from component providers (see
+    <citerefentry><refentrytitle>sysupdate.components</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+    the equivalent information is part of the component definition returned by the provider.
     Transfers can declare that they belong to a feature via the <varname>Features=</varname> setting.
     Feature definitions support drop-in files, which are most commonly used to override the
     <varname>Enabled=</varname> setting.

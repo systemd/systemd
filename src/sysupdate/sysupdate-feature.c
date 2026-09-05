@@ -2,10 +2,13 @@
 
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "condition.h"
 #include "conf-parser.h"
 #include "hash-funcs.h"
+#include "json-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "sysupdate-config.h"
@@ -107,6 +110,51 @@ int feature_read_definition(Feature *f, const char *root, const char *path, cons
                 return r;
 
         f->id = TAKE_PTR(id);
+
+        return 0;
+}
+
+static int dispatch_feature_id(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **id = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        if (!feature_name_valid(sd_json_variant_string(variant)))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid feature name.", strna(name));
+
+        if (free_and_strdup(id, sd_json_variant_string(variant)) < 0)
+                return json_log_oom(variant, flags);
+
+        return 0;
+}
+
+int feature_from_json(Feature *f, sd_json_variant *v, const char *origin) {
+        int r;
+
+        assert(f);
+        assert(origin);
+
+        /* Fills in a feature definition from a JSON object, as acquired from a component provider, the
+         * equivalent of feature_read_definition() for .feature files. Note that in contrast to the
+         * configuration files no specifier expansion takes place, and no conditions are supported. 'origin'
+         * identifies where the data came from, for logging purposes. */
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id",            SD_JSON_VARIANT_STRING,  dispatch_feature_id,       offsetof(Feature, id),            SD_JSON_MANDATORY },
+                { "description",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, description),   0 },
+                { "documentation", SD_JSON_VARIANT_STRING,  json_dispatch_http_url,    offsetof(Feature, documentation), 0 },
+                { "appStream",     SD_JSON_VARIANT_STRING,  json_dispatch_http_url,    offsetof(Feature, appstream),     0 },
+                { "enabled",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Feature, enabled),       0 },
+                { "suggest",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Feature, suggest),       0 },
+                {},
+        };
+
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_LOG, f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse feature definition from %s: %m", origin);
 
         return 0;
 }

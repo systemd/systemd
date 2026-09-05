@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "sd-id128.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build-path.h"
@@ -21,6 +22,7 @@
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "install-file.h"
+#include "json-util.h"
 #include "mkdir.h"
 #include "notify-recv.h"
 #include "parse-helpers.h"
@@ -64,6 +66,7 @@ Transfer* transfer_free(Transfer *t) {
         free(t->id);
 
         free(t->min_version);
+        free(t->max_version);
         strv_free(t->protected_versions);
         free(t->current_symlink);
         free(t->final_path);
@@ -93,11 +96,11 @@ Transfer* transfer_new(Context *ctx) {
         *t = (Transfer) {
                 .source.type = _RESOURCE_TYPE_INVALID,
                 .target.type = _RESOURCE_TYPE_INVALID,
-                .remove_temporary = true,
+                .remove_temporary = -1,
                 .mode = MODE_INVALID,
                 .tries_left = UINT64_MAX,
                 .tries_done = UINT64_MAX,
-                .verify = true,
+                .verify = -1,
 
                 /* the three flags, as configured by the user */
                 .no_auto = -1,
@@ -115,7 +118,7 @@ Transfer* transfer_new(Context *ctx) {
         return t;
 }
 
-static int config_parse_protect_version(
+static int config_parse_transfer_protect_version(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -127,39 +130,14 @@ static int config_parse_protect_version(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *resolved = NULL;
-        char ***protected_versions = ASSERT_PTR(data);
         Transfer *t = ASSERT_PTR(userdata);
-        int r;
 
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *protected_versions = strv_free(*protected_versions);
-                return 0;
-        }
-
-        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in ProtectVersion=, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))  {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "ProtectVersion= string is not valid, ignoring: %s", resolved);
-                return 0;
-        }
-
-        r = strv_extend(protected_versions, resolved);
-        if (r < 0)
-                return log_oom();
-
-        return 0;
+        /* Here we expect userdata to point to our Transfer object, but config_parse_protect_version() wants
+         * the root directory as userdata, hence let's pass that on. */
+        return config_parse_protect_version(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, t->context->root);
 }
 
-static int config_parse_min_version(
+static int config_parse_transfer_version_bound(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -171,32 +149,10 @@ static int config_parse_min_version(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *resolved = NULL;
-        char **version = ASSERT_PTR(data);
         Transfer *t = ASSERT_PTR(userdata);
-        int r;
 
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *version = mfree(*version);
-                return 0;
-        }
-
-        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in MinVersion=, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "MinVersion= string is not valid, ignoring: %s", resolved);
-                return 0;
-        }
-
-        return free_and_replace(*version, resolved);
+        /* Ditto */
+        return config_parse_version_bound(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, t->context->root);
 }
 
 static int config_parse_transfer_url_specifiers_many(
@@ -257,6 +213,19 @@ static int config_parse_current_symlink(
         return free_and_replace(*current_symlink, resolved);
 }
 
+static void transfer_set_instances_max(uint64_t *instances_max, uint64_t i, const char *filename, unsigned line) {
+        assert(instances_max);
+
+        /* 0 means "revert to default logic", see transfer_finalize() */
+
+        if (i > 0 && i < 2) {
+                log_syntax(NULL, LOG_WARNING, filename, line, 0,
+                           "InstancesMax= value must be at least 2, bumping: %" PRIu64, i);
+                *instances_max = 2;
+        } else
+                *instances_max = i;
+}
+
 static int config_parse_instances_max(
                 const char *unit,
                 const char *filename,
@@ -287,12 +256,41 @@ static int config_parse_instances_max(
                 return 0;
         }
 
-        if (i < 2) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "InstancesMax= value must be at least 2, bumping: %s", rvalue);
-                *instances_max = 2;
-        } else
-                *instances_max = i;
+        transfer_set_instances_max(instances_max, i, filename, line);
+        return 0;
+}
+
+static int resource_add_pattern(char ***patterns, bool is_source, const char *pattern, const char *filename, unsigned line) {
+        int r;
+
+        assert(patterns);
+        assert(pattern);
+
+        /* Validates a MatchPattern= expression and adds it to the list. 'filename' and 'line' identify the
+         * definition the pattern stems from, for logging purposes. */
+
+        /* The glob directory prefix on a source MatchPattern= means "match the rest against the
+         * basename" thus the remainder must be a valid filename (no slashes).
+         * Target patterns can not use it. */
+        const char *body = pattern;
+        if (pattern_skip_glob_directory_prefix(&body)) {
+                if (!is_source)
+                        return log_syntax(NULL, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "'**/' prefix is only supported in a source MatchPattern=, refusing: %s", pattern);
+                if (!filename_is_valid(body))
+                        return log_syntax(NULL, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "The pattern after a '**/' prefix must be a valid filename, refusing: %s", pattern);
+        }
+
+        /* The glob directory prefix is not allowed in the remainder and pattern_valid will catch this. */
+        r = pattern_valid(body);
+        if (r <= 0)
+                return log_syntax(NULL, LOG_ERR, filename, line, r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
+                                  "MatchPattern= string is not valid, refusing: %s", pattern);
+
+        r = strv_extend(patterns, pattern);
+        if (r < 0)
+                return log_oom();
 
         return 0;
 }
@@ -323,7 +321,6 @@ static int config_parse_resource_pattern(
 
         for (;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
-                const char *body;
 
                 r = extract_first_word(&rvalue, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
                 if (r < 0) {
@@ -341,32 +338,31 @@ static int config_parse_resource_pattern(
                         return 0;
                 }
 
-                /* The glob directory prefix on a source MatchPattern= means "match the rest against the
-                 * basename" thus the remainder must be a valid filename (no slashes).
-                 * Target patterns can not use it. */
-                body = resolved;
-                if (pattern_skip_glob_directory_prefix(&body)) {
-                        if (!is_source)
-                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
-                                                  "'**/' prefix is only supported in a source MatchPattern=, refusing: %s", resolved);
-                        if (!filename_is_valid(body))
-                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
-                                                  "The pattern after a '**/' prefix must be a valid filename, refusing: %s", resolved);
-                }
-
-                /* The glob directory prefix is not allowed in the remainder and pattern_valid will catch this. */
-                r = pattern_valid(body);
-                if (r <= 0)
-                        return log_syntax(unit, LOG_ERR, filename, line, r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
-                                          "MatchPattern= string is not valid, refusing: %s", resolved);
-
-                r = strv_consume(patterns, TAKE_PTR(resolved));
+                r = resource_add_pattern(patterns, is_source, resolved, filename, line);
                 if (r < 0)
-                        return log_oom();
+                        return r;
         }
 
         strv_uniq(*patterns);
         return 0;
+}
+
+static int resource_set_path(Resource *rr, const char *path) {
+        assert(rr);
+        assert(path);
+
+        /* Note that we don't validate the path as being absolute or normalized here. We'll do that in
+         * transfer_finalize() as we might not know yet whether the path refers to a URL or a file system
+         * path. */
+
+        if (streq(path, "auto")) {
+                rr->path_auto = true;
+                rr->path = mfree(rr->path);
+                return 0;
+        }
+
+        rr->path_auto = false;
+        return free_and_strdup(&rr->path, path);
 }
 
 static int config_parse_resource_path(
@@ -387,12 +383,6 @@ static int config_parse_resource_path(
 
         assert(rvalue);
 
-        if (streq(rvalue, "auto")) {
-                rr->path_auto = true;
-                rr->path = mfree(rr->path);
-                return 0;
-        }
-
         r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
@@ -400,12 +390,11 @@ static int config_parse_resource_path(
                 return 0;
         }
 
-        /* Note that we don't validate the path as being absolute or normalized. We'll do that in
-         * transfer_read_definition() as we might not know yet whether Path refers to a URL or a file system
-         * path. */
+        r = resource_set_path(rr, resolved);
+        if (r < 0)
+                return log_oom();
 
-        rr->path_auto = false;
-        return free_and_replace(rr->path, resolved);
+        return 0;
 }
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType);
@@ -540,13 +529,147 @@ static bool transfer_decide_if_enabled(Transfer *t, Hashmap *known_features) {
         return false;
 }
 
+static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Hashmap *known_features) {
+        assert(t);
+        assert(t->id);
+
+        /* Validates a transfer definition after its settings have been filled in, and derives the settings
+         * that are left unspecified. 'origin' and 'line' identify where the definition came from, for
+         * logging purposes. */
+
+        t->enabled = transfer_decide_if_enabled(t, known_features);
+
+        if (!RESOURCE_IS_SOURCE(t->source.type))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Source Type= must be one of url-file, url-tar, tar, regular-file, directory, subvolume.");
+
+        if (t->target.type < 0) {
+                switch (t->source.type) {
+
+                case RESOURCE_URL_FILE:
+                case RESOURCE_REGULAR_FILE:
+                        t->target.type =
+                                t->target.path && path_startswith(t->target.path, "/dev/") ?
+                                RESOURCE_PARTITION : RESOURCE_REGULAR_FILE;
+                        break;
+
+                case RESOURCE_URL_TAR:
+                case RESOURCE_TAR:
+                case RESOURCE_DIRECTORY:
+                        t->target.type = RESOURCE_DIRECTORY;
+                        break;
+
+                case RESOURCE_SUBVOLUME:
+                        t->target.type = RESOURCE_SUBVOLUME;
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        if (!RESOURCE_IS_TARGET(t->target.type))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Target Type= must be one of partition, regular-file, directory, subvolume.");
+
+        if (t->target.type == RESOURCE_PARTITION && !t->target.partition_type_set) {
+                t->target.partition_type = gpt_partition_type_from_uuid(SD_GPT_LINUX_GENERIC);
+                t->target.partition_type_set = true;
+        }
+
+        if ((IN_SET(t->source.type, RESOURCE_URL_FILE, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE) &&
+             !IN_SET(t->target.type, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE)) ||
+            (IN_SET(t->source.type, RESOURCE_URL_TAR, RESOURCE_TAR, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
+             !IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME)))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Target type '%s' is incompatible with source type '%s', refusing.",
+                                  resource_type_to_string(t->target.type), resource_type_to_string(t->source.type));
+
+        if (!t->source.path && !t->source.path_auto)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Source specification lacks Path=.");
+
+        if (t->source.path_relative_to == PATH_RELATIVE_TO_EXPLICIT && !t->context->transfer_source)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "PathRelativeTo=explicit requires --transfer-source= to be specified.");
+
+        if (t->target.path_relative_to == PATH_RELATIVE_TO_EXPLICIT)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "PathRelativeTo=explicit can only be used in source specifications.");
+
+        if (t->source.path) {
+                if (RESOURCE_IS_FILESYSTEM(t->source.type) || t->source.type == RESOURCE_PARTITION)
+                        if (!path_is_absolute(t->source.path) || !path_is_normalized(t->source.path))
+                                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "Source path is not a normalized, absolute path: %s", t->source.path);
+
+                /* We unofficially support file:// in addition to http:// and https:// for url
+                 * sources. That's mostly for testing, since it relieves us from having to set up a HTTP
+                 * server, and CURL abstracts this away from us thankfully. */
+                if (RESOURCE_IS_URL(t->source.type))
+                        if (!http_url_is_valid(t->source.path) && !file_url_is_valid(t->source.path) && !provider_url_is_valid(t->source.path))
+                                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "Source path is not a valid HTTP, HTTPS or provider URL: %s", t->source.path);
+        }
+
+        if (strv_isempty(t->source.patterns))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Source specification lacks MatchPattern=.");
+
+        if (IN_SET(t->source.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
+            resource_has_glob_directory_pattern(&t->source))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "MatchPattern= with '**/' prefix is not supported for source Type=directory and Type=subvolume, refusing.");
+
+        if (!t->target.path && !t->target.path_auto)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Target specification lacks Path= field.");
+
+        if (t->target.path &&
+            (!path_is_absolute(t->target.path) || !path_is_normalized(t->target.path)))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Target path is not a normalized, absolute path: %s", t->target.path);
+
+        if (strv_isempty(t->target.patterns)) {
+                log_syntax(NULL, LOG_INFO, origin, line, 0, "Target specification lacks MatchPattern= expression. Assuming same value as in source specification.");
+                strv_free(t->target.patterns);
+                t->target.patterns = strv_copy(t->source.patterns);
+                if (!t->target.patterns)
+                        return log_oom();
+
+                /* Strip any glob directory prefix when inheriting from source because it's only used for finding and
+                 * not to replicate the same directory layout at the target, so we don't support it there. */
+                STRV_FOREACH(p, t->target.patterns) {
+                        const char *body = *p;
+
+                        if (pattern_skip_glob_directory_prefix(&body))
+                                memmove(*p, body, strlen(body) + 1);
+                }
+
+                /* Stripping the glob directory prefix can turn distinct source patterns into duplicates,
+                 * so re-uniq for parity with the source side. */
+                strv_uniq(t->target.patterns);
+        }
+
+        if (t->current_symlink && !RESOURCE_IS_FILESYSTEM(t->target.type) && !path_is_absolute(t->current_symlink))
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Current symlink must be absolute path if target is partition: %s", t->current_symlink);
+
+        /* When no instance limit is set, use all available partition slots in case of partitions, or 3 in case of fs objects */
+        if (t->instances_max == 0)
+                t->instances_max = t->target.type == RESOURCE_PARTITION ? UINT64_MAX : DEFAULT_FILE_INSTANCES_MAX;
+
+        return 0;
+}
+
 int transfer_read_definition(Transfer *t, const char *path, const char **dirs, Hashmap *known_features) {
         assert(t);
 
         ConfigTableItem table[] = {
-                { "Transfer",    "MinVersion",              config_parse_min_version,                  0,                    &t->min_version             },
-                { "Transfer",    "ProtectVersion",          config_parse_protect_version,              0,                    &t->protected_versions      },
-                { "Transfer",    "Verify",                  config_parse_bool,                         0,                    &t->verify                  },
+                { "Transfer",    "MinVersion",              config_parse_transfer_version_bound,       0,                    &t->min_version             },
+                { "Transfer",    "MaxVersion",              config_parse_transfer_version_bound,       0,                    &t->max_version             },
+                { "Transfer",    "ProtectVersion",          config_parse_transfer_protect_version,     0,                    &t->protected_versions      },
+                { "Transfer",    "Verify",                  config_parse_tristate,                     0,                    &t->verify                  },
                 { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog               },
                 { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0,                    &t->appstream               },
                 { "Transfer",    "Features",                config_parse_strv,                         0,                    &t->features                },
@@ -569,7 +692,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Target",      "TriesLeft",               config_parse_uint64,                       0,                    &t->tries_left              },
                 { "Target",      "TriesDone",               config_parse_uint64,                       0,                    &t->tries_done              },
                 { "Target",      "InstancesMax",            config_parse_instances_max,                0,                    &t->instances_max           },
-                { "Target",      "RemoveTemporary",         config_parse_bool,                         0,                    &t->remove_temporary        },
+                { "Target",      "RemoveTemporary",         config_parse_tristate,                     0,                    &t->remove_temporary        },
                 { "Target",      "CurrentSymlink",          config_parse_current_symlink,              0,                    &t->current_symlink         },
                 {}
         };
@@ -606,129 +729,252 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         *e = 0; /* Remove the file extension */
         t->id = TAKE_PTR(filename);
 
-        t->enabled = transfer_decide_if_enabled(t, known_features);
+        return transfer_finalize(t, path, 1, known_features);
+}
 
-        if (!RESOURCE_IS_SOURCE(t->source.type))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Source Type= must be one of url-file, url-tar, tar, regular-file, directory, subvolume.");
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_resource_type, ResourceType, resource_type_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_path_relative_to, PathRelativeTo, path_relative_to_from_string);
 
-        if (t->target.type < 0) {
-                switch (t->source.type) {
+typedef struct TransferJsonContext {
+        Transfer *transfer;
+        const char *origin;
+} TransferJsonContext;
 
-                case RESOURCE_URL_FILE:
-                case RESOURCE_REGULAR_FILE:
-                        t->target.type =
-                                t->target.path && path_startswith(t->target.path, "/dev/") ?
-                                RESOURCE_PARTITION : RESOURCE_REGULAR_FILE;
-                        break;
+static int dispatch_resource_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Resource *rr = ASSERT_PTR(userdata);
 
-                case RESOURCE_URL_TAR:
-                case RESOURCE_TAR:
-                case RESOURCE_DIRECTORY:
-                        t->target.type = RESOURCE_DIRECTORY;
-                        break;
+        assert(variant);
 
-                case RESOURCE_SUBVOLUME:
-                        t->target.type = RESOURCE_SUBVOLUME;
-                        break;
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-                default:
-                        assert_not_reached();
-                }
-        }
-
-        if (!RESOURCE_IS_TARGET(t->target.type))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target Type= must be one of partition, regular-file, directory, subvolume.");
-
-        if (t->target.type == RESOURCE_PARTITION && !t->target.partition_type_set) {
-                t->target.partition_type = gpt_partition_type_from_uuid(SD_GPT_LINUX_GENERIC);
-                t->target.partition_type_set = true;
-        }
-
-        if ((IN_SET(t->source.type, RESOURCE_URL_FILE, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE) &&
-             !IN_SET(t->target.type, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE)) ||
-            (IN_SET(t->source.type, RESOURCE_URL_TAR, RESOURCE_TAR, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
-             !IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME)))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target type '%s' is incompatible with source type '%s', refusing.",
-                                  resource_type_to_string(t->target.type), resource_type_to_string(t->source.type));
-
-        if (!t->source.path && !t->source.path_auto)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Source specification lacks Path=.");
-
-        if (t->source.path_relative_to == PATH_RELATIVE_TO_EXPLICIT && !t->context->transfer_source)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "PathRelativeTo=explicit requires --transfer-source= to be specified.");
-
-        if (t->target.path_relative_to == PATH_RELATIVE_TO_EXPLICIT)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "PathRelativeTo=explicit can only be used in source specifications.");
-
-        if (t->source.path) {
-                if (RESOURCE_IS_FILESYSTEM(t->source.type) || t->source.type == RESOURCE_PARTITION)
-                        if (!path_is_absolute(t->source.path) || !path_is_normalized(t->source.path))
-                                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                  "Source path is not a normalized, absolute path: %s", t->source.path);
-
-                /* We unofficially support file:// in addition to http:// and https:// for url
-                 * sources. That's mostly for testing, since it relieves us from having to set up a HTTP
-                 * server, and CURL abstracts this away from us thankfully. */
-                if (RESOURCE_IS_URL(t->source.type))
-                        if (!http_url_is_valid(t->source.path) && !file_url_is_valid(t->source.path))
-                                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                  "Source path is not a valid HTTP or HTTPS URL: %s", t->source.path);
-        }
-
-        if (strv_isempty(t->source.patterns))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Source specification lacks MatchPattern=.");
-
-        if (IN_SET(t->source.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
-            resource_has_glob_directory_pattern(&t->source))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "MatchPattern= with '**/' prefix is not supported for source Type=directory and Type=subvolume, refusing.");
-
-        if (!t->target.path && !t->target.path_auto)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target specification lacks Path= field.");
-
-        if (t->target.path &&
-            (!path_is_absolute(t->target.path) || !path_is_normalized(t->target.path)))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target path is not a normalized, absolute path: %s", t->target.path);
-
-        if (strv_isempty(t->target.patterns)) {
-                log_syntax(NULL, LOG_INFO, path, 1, 0, "Target specification lacks MatchPattern= expression. Assuming same value as in source specification.");
-                strv_free(t->target.patterns);
-                t->target.patterns = strv_copy(t->source.patterns);
-                if (!t->target.patterns)
-                        return log_oom();
-
-                /* Strip any glob directory prefix when inheriting from source because it's only used for finding and
-                 * not to replicate the same directory layout at the target, so we don't support it there. */
-                STRV_FOREACH(p, t->target.patterns) {
-                        const char *body = *p;
-
-                        if (pattern_skip_glob_directory_prefix(&body))
-                                memmove(*p, body, strlen(body) + 1);
-                }
-
-                /* Stripping the glob directory prefix can turn distinct source patterns into duplicates,
-                 * so re-uniq for parity with the source side. */
-                strv_uniq(t->target.patterns);
-        }
-
-        if (t->current_symlink && !RESOURCE_IS_FILESYSTEM(t->target.type) && !path_is_absolute(t->current_symlink))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Current symlink must be absolute path if target is partition: %s", t->current_symlink);
-
-        /* When no instance limit is set, use all available partition slots in case of partitions, or 3 in case of fs objects */
-        if (t->instances_max == 0)
-                t->instances_max = t->target.type == RESOURCE_PARTITION ? UINT64_MAX : DEFAULT_FILE_INSTANCES_MAX;
+        if (resource_set_path(rr, sd_json_variant_string(variant)) < 0)
+                return json_log_oom(variant, flags);
 
         return 0;
+}
+
+static int dispatch_resource_patterns_full(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata, bool is_source) {
+        _cleanup_strv_free_ char **l = NULL;
+        Resource *rr = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        r = sd_json_dispatch_strv(name, variant, flags, &l);
+        if (r < 0)
+                return r;
+
+        rr->patterns = strv_free(rr->patterns);
+
+        STRV_FOREACH(i, l) {
+                r = resource_add_pattern(&rr->patterns, is_source, *i, /* filename= */ NULL, /* line= */ 0);
+                if (r < 0)
+                        return r;
+        }
+
+        strv_uniq(rr->patterns);
+        return 0;
+}
+
+static int dispatch_source_patterns(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        return dispatch_resource_patterns_full(name, variant, flags, userdata, /* is_source= */ true);
+}
+
+static int dispatch_target_patterns(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        return dispatch_resource_patterns_full(name, variant, flags, userdata, /* is_source= */ false);
+}
+
+static int dispatch_partition_type(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Resource *rr = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                rr->partition_type = (GptPartitionType) {};
+                rr->partition_type_set = false;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        r = gpt_partition_type_from_string(sd_json_variant_string(variant), &rr->partition_type);
+        if (r < 0)
+                return json_log(variant, flags, r, "JSON field '%s' is not a valid partition type: %m", strna(name));
+
+        rr->partition_type_set = true;
+        return 0;
+}
+
+static int dispatch_partition_uuid(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Transfer *t = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                t->partition_uuid = SD_ID128_NULL;
+                t->partition_uuid_set = false;
+                return 0;
+        }
+
+        r = sd_json_dispatch_id128(name, variant, flags, &t->partition_uuid);
+        if (r < 0)
+                return r;
+
+        t->partition_uuid_set = true;
+        return 0;
+}
+
+static int dispatch_partition_flags(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Transfer *t = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                t->partition_flags = 0;
+                t->partition_flags_set = false;
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint64(name, variant, flags, &t->partition_flags);
+        if (r < 0)
+                return r;
+
+        t->partition_flags_set = true;
+        return 0;
+}
+
+static int dispatch_instances_max(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint64_t *instances_max = ASSERT_PTR(userdata), u;
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *instances_max = 0; /* Revert to default logic */
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint64(name, variant, flags, &u);
+        if (r < 0)
+                return r;
+
+        transfer_set_instances_max(instances_max, u, /* filename= */ NULL, /* line= */ 0);
+        return 0;
+}
+
+static int dispatch_current_symlink(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_free_ char *p = NULL;
+        char **current_symlink = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *current_symlink = mfree(*current_symlink);
+                return 0;
+        }
+
+        r = sd_json_dispatch_string(name, variant, flags, &p);
+        if (r < 0)
+                return r;
+
+        r = path_simplify_and_warn(p, 0, /* unit= */ NULL, /* filename= */ NULL, /* line= */ 0, name);
+        if (r < 0)
+                return r;
+
+        return free_and_replace(*current_symlink, p);
+}
+
+static int dispatch_transfer_source(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Transfer *t = ASSERT_PTR(userdata);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "type",           SD_JSON_VARIANT_STRING, dispatch_resource_type,    offsetof(Transfer, source.type),             SD_JSON_MANDATORY },
+                { "path",           SD_JSON_VARIANT_STRING, dispatch_resource_path,    offsetof(Transfer, source),                  SD_JSON_MANDATORY },
+                { "pathRelativeTo", SD_JSON_VARIANT_STRING, dispatch_path_relative_to, offsetof(Transfer, source.path_relative_to), 0 },
+                { "matchPattern",   SD_JSON_VARIANT_ARRAY,  dispatch_source_patterns,  offsetof(Transfer, source),                  SD_JSON_MANDATORY },
+                {},
+        };
+
+        assert(variant);
+
+        return sd_json_dispatch(variant, dispatch_table, flags, t);
+}
+
+static int dispatch_transfer_target(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Transfer *t = ASSERT_PTR(userdata);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "type",                    SD_JSON_VARIANT_STRING,        dispatch_resource_type,    offsetof(Transfer, target.type),             0 },
+                { "path",                    SD_JSON_VARIANT_STRING,        dispatch_resource_path,    offsetof(Transfer, target),                  SD_JSON_MANDATORY },
+                { "pathRelativeTo",          SD_JSON_VARIANT_STRING,        dispatch_path_relative_to, offsetof(Transfer, target.path_relative_to), 0 },
+                { "matchPattern",            SD_JSON_VARIANT_ARRAY,         dispatch_target_patterns,  offsetof(Transfer, target),                  0 },
+                { "matchPartitionType",      SD_JSON_VARIANT_STRING,        dispatch_partition_type,   offsetof(Transfer, target),                  0 },
+                { "partitionUUID",           SD_JSON_VARIANT_STRING,        dispatch_partition_uuid,   0,                                           0 },
+                { "partitionFlags",          _SD_JSON_VARIANT_TYPE_INVALID, dispatch_partition_flags,  0,                                           0 },
+                { "partitionNoAuto",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, no_auto),                 0 },
+                { "partitionGrowFileSystem", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, growfs),                  0 },
+                { "readOnly",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, read_only),               0 },
+                { "mode",                    _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, offsetof(Transfer, mode),                    0 },
+                { "triesLeft",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,   offsetof(Transfer, tries_left),              0 },
+                { "triesDone",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,   offsetof(Transfer, tries_done),              0 },
+                { "instancesMax",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_instances_max,    offsetof(Transfer, instances_max),           0 },
+                { "removeTemporary",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, remove_temporary),        0 },
+                { "currentSymlink",          SD_JSON_VARIANT_STRING,        dispatch_current_symlink,  offsetof(Transfer, current_symlink),         0 },
+                {},
+        };
+
+        assert(variant);
+
+        return sd_json_dispatch(variant, dispatch_table, flags, t);
+}
+
+int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hashmap *known_features) {
+        int r;
+
+        assert(t);
+        assert(origin);
+
+        /* Fills in a transfer definition from a JSON object, as acquired from a component provider, the
+         * equivalent of transfer_read_definition() for .transfer files. Note that in contrast to the
+         * configuration files no specifier expansion takes place. 'origin' identifies where the data came
+         * from, for logging purposes. */
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "id",                SD_JSON_VARIANT_STRING,  json_dispatch_filename,    offsetof(Transfer, id),                 SD_JSON_MANDATORY },
+                { "minVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, min_version),        0 },
+                { "maxVersion",        SD_JSON_VARIANT_STRING,  json_dispatch_version,     offsetof(Transfer, max_version),        0 },
+                { "protectVersion",    SD_JSON_VARIANT_ARRAY,   json_dispatch_versions,    offsetof(Transfer, protected_versions), 0 },
+                { "verify",            SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Transfer, verify),             0 },
+                { "changeLog",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, changelog),          0 },
+                { "appStream",         SD_JSON_VARIANT_ARRAY,   json_dispatch_http_urls,   offsetof(Transfer, appstream),          0 },
+                { "features",          SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, features),           0 },
+                { "requisiteFeatures", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Transfer, requisite_features), 0 },
+                { "source",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_source,  0,                                      SD_JSON_MANDATORY },
+                { "target",            SD_JSON_VARIANT_OBJECT,  dispatch_transfer_target,  0,                                      SD_JSON_MANDATORY },
+                {},
+        };
+
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_LOG, t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse transfer definition from %s: %m", origin);
+
+        /* The enum dispatcher maps null to the invalid value, revert to the default in that case */
+        if (t->source.path_relative_to < 0)
+                t->source.path_relative_to = PATH_RELATIVE_TO_ROOT;
+        if (t->target.path_relative_to < 0)
+                t->target.path_relative_to = PATH_RELATIVE_TO_ROOT;
+
+        _cleanup_free_ char *o = path_join(origin, t->id);
+        if (!o)
+                return log_oom();
+
+        return transfer_finalize(t, o, /* line= */ 0, known_features);
 }
 
 int transfer_resolve_paths(
@@ -762,7 +1008,7 @@ static void transfer_remove_temporary(Transfer *t) {
 
         assert(t);
 
-        if (!t->remove_temporary)
+        if (t->remove_temporary == 0)
                 return;
 
         if (!IN_SET(t->target.type, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME))
@@ -885,7 +1131,7 @@ int transfer_vacuum(
                  * In future, we will also want to keep partial protected versions, but that’s only useful
                  * once we support resuming downloads. */
                 if (instance->is_pending &&
-                    (strv_contains(t->protected_versions, instance->metadata.version) ||
+                    (component_version_is_protected(t->context, instance->metadata.version) ||
                      (extra_protected_version && streq(extra_protected_version, instance->metadata.version)))) {
                         log_debug("Version '%s' is pending but protected, not removing.", instance->metadata.version);
                         i++;
@@ -975,7 +1221,7 @@ int transfer_vacuum(
                         assert(oldest);
 
                         /* If this is listed among the protected versions, then let's not remove it */
-                        if (!strv_contains(t->protected_versions, oldest->metadata.version) &&
+                        if (!component_version_is_protected(t->context, oldest->metadata.version) &&
                             (!extra_protected_version || !streq(extra_protected_version, oldest->metadata.version)))
                                 break;
 
