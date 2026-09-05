@@ -21,6 +21,7 @@
     <refname>systemd-pcrphase-sysinit.service</refname>
     <refname>systemd-pcrphase-initrd.service</refname>
     <refname>systemd-pcrmachine.service</refname>
+    <refname>systemd-pcrcredential.service</refname>
     <refname>systemd-pcrosseparator.service</refname>
     <refname>systemd-pcrproduct.service</refname>
     <refname>systemd-pcrlogin@.service</refname>
@@ -30,7 +31,7 @@
     <refname>systemd-pcrphase-factory-reset.service</refname>
     <refname>systemd-pcrphase-storage-target-mode.service</refname>
     <refname>systemd-pcrextend</refname>
-    <refpurpose>Measure boot phases, machine ID, product UUID, user records and file system identity into TPM PCRs and NvPCRs</refpurpose>
+    <refpurpose>Measure boot phases, machine ID, product UUID, credentials, user records and file system identity into TPM PCRs and NvPCRs</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -38,6 +39,7 @@
     <para><filename>systemd-pcrphase-sysinit.service</filename></para>
     <para><filename>systemd-pcrphase-initrd.service</filename></para>
     <para><filename>systemd-pcrmachine.service</filename></para>
+    <para><filename>systemd-pcrcredential.service</filename></para>
     <para><filename>systemd-pcrosseparator.service</filename></para>
     <para><filename>systemd-pcrproduct.service</filename></para>
     <para><filename>systemd-pcrlogin@.service</filename></para>
@@ -50,6 +52,7 @@
     <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--file-system=<replaceable>PATH</replaceable></option></para>
     <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--machine-id</option></para>
     <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--product-id</option></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--interactive-credentials</option></para>
     <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--login=<replaceable>UID</replaceable>|<replaceable>USER</replaceable></option></para>
   </refsynopsisdiv>
 
@@ -73,6 +76,26 @@
     <para><filename>systemd-pcrproduct.service</filename> is a system service that measures the firmware
     product UUID (as provided by one of SMBIOS, Devicetree, …) into a NvPCR named
     <literal>hardware</literal>.</para>
+
+    <para><filename>systemd-pcrcredential.service</filename> is an initrd system service that measures
+    credentials entered interactively in <command>systemd-boot</command> into a NvPCR named
+    <literal>interactive-credentials</literal>. Credential names are processed in ascending,
+    locale-independent, byte-wise <function>strcmp()</function> order. For each credential, let
+    <replaceable>N</replaceable> be its name and <replaceable>V</replaceable> the exact value bytes stored in
+    <filename>/run/credentials/@system/<replaceable>N</replaceable></filename>. The name is C-escaped with
+    <literal>:</literal> included in the set of characters to escape, and <replaceable>S</replaceable> is the
+    UTF-8 string <literal>credential:</literal> followed by that escaped name. The digest extended into the
+    NvPCR is <literal>HMAC-ALG(key=V, data=S)</literal>, where <literal>ALG</literal> is the hash algorithm
+    configured for the NvPCR. The userspace event-log record has event type <literal>credential</literal> and
+    description <replaceable>S</replaceable>. Thus neither <replaceable>V</replaceable> nor its plain hash is
+    written to the event log.</para>
+
+    <para>After all credentials have been measured, the UTF-8 string
+    <literal>credentials-done:</literal> followed by the decimal number of credentials is measured with a
+    plain <literal>Hash-ALG</literal>, not an HMAC. This closing record also has event type
+    <literal>credential</literal> and is distinguished from per-credential records by its
+    <literal>credentials-done:</literal> description. It makes both an empty credential set and successful
+    completion of a non-empty set attestable. The service runs at most once per boot.</para>
 
     <para><filename>systemd-pcrlogin@.service</filename> is a template service that measures the (reduced,
     canonical JSON) user record of the user indicated by its instance identifier (a UID) into a NvPCR named
@@ -198,10 +221,10 @@
         <term><option>--pcr=</option></term>
 
         <listitem><para>Takes the index of the PCR to extend. If <option>--machine-id</option> or
-        <option>--file-system=</option> are specified defaults to 15, otherwise (and unless
-        <option>--product-id</option> is specified) defaults to 11. May be specified multiple times, in order
-        to measure to multiple PCRs at the same time. May not be combined with
-        <option>--nvpcr=</option>.</para>
+        <option>--file-system=</option> are specified defaults to 15. If <option>--product-id</option>,
+        <option>--interactive-credentials</option>, or <option>--login=</option> are specified no regular PCR is selected.
+        Otherwise defaults to 11. May be specified multiple times, in order to measure to multiple PCRs at
+        the same time. May not be combined with <option>--nvpcr=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -211,8 +234,9 @@
 
         <listitem><para>Takes a name of an NvPCR to extend. NvPCRs are additional PCRs implemented via TPM NV
         indexes. The name should be a short string such as <literal>hardware</literal> or
-        <literal>disk-encryption</literal>. If <option>--product-id</option> is specified defaults
-        <literal>hardware</literal>. May not be combined with <option>--pcr=</option>.</para>
+        <literal>disk-encryption</literal>. If <option>--product-id</option> is specified defaults to
+        <literal>hardware</literal>; if <option>--interactive-credentials</option> is specified defaults to
+        <literal>interactive-credentials</literal>. May not be combined with <option>--pcr=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
@@ -258,6 +282,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--interactive-credentials</option></term>
+
+        <listitem><para>Measure the interactive boot credentials accepted by PID 1 into a NvPCR named
+        <literal>interactive-credentials</literal>. This option is intended for use in the initrd by
+        <filename>systemd-pcrcredential.service</filename>. Credential names are measured in ascending,
+        locale-independent, byte-wise order. Each value is used as an HMAC key and is never included directly
+        in the event log. See above for the precise measurement format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--login=</option></term>
 
         <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure the
@@ -287,7 +323,8 @@
         <listitem><para>Set the event log event type for this measurement. Pass <literal>help</literal> for a
         list of currently defined identifiers. Defaults to an appropriate value for
         <option>--machine-id</option>, <option>--product-id</option>, <option>--file-system=</option>,
-        <option>--login=</option>, and otherwise to <literal>phase</literal>.</para>
+        <option>--interactive-credentials</option>, <option>--login=</option>, and otherwise to
+        <literal>phase</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>

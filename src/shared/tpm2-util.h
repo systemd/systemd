@@ -185,6 +185,7 @@ typedef enum Tpm2UserspaceEventType {
         TPM2_EVENT_IMDS_USERDATA,
         TPM2_EVENT_OS_SEPARATOR,
         TPM2_EVENT_LOGIN,
+        TPM2_EVENT_CREDENTIAL,
         _TPM2_USERSPACE_EVENT_TYPE_MAX,
         _TPM2_USERSPACE_EVENT_TYPE_INVALID = -EINVAL,
 } Tpm2UserspaceEventType;

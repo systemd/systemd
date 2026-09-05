@@ -54,6 +54,7 @@ executables += [
 if conf.get('ENABLE_BOOTLOADER') == 1 and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_TPM2') == 1
         nvpcrs = [ 'cryptsetup',
                    'hardware',
+                   'interactive-credentials',
                    'login',
                    'verity']
         foreach n : nvpcrs

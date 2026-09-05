@@ -427,9 +427,12 @@
     <para>Also note that the Linux kernel will measure all initrds it receives into TPM PCR 9. This means
     every type of initrd (of the selected UKI profile) will possibly be measured two or three times: the
     initrds embedded in the kernel image will be measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized
-    from credentials (and the one synthesized from configuration extensions) will be measured to both PCR 9
-    and PCR 12; the initrd synthesized from system extensions will be measured to both PCR 4 and PCR 9. Let's
-    summarize the OS resources and the PCRs they are measured to:</para>
+    from credential files on the ESP (and the one synthesized from configuration extensions) will be
+    measured to both PCR 9 and PCR 12; the initrd synthesized from system extensions will be measured to both
+    PCR 4 and PCR 9. Credentials entered interactively in <command>systemd-boot</command> are passed to
+    userspace via a volatile runtime EFI variable instead and are measured separately into the
+    <literal>interactive-credentials</literal> NvPCR. Let's summarize the OS resources and the PCRs they are measured
+    to:</para>
 
     <table>
       <title>OS Resource PCR Summary</title>

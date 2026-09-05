@@ -11,6 +11,7 @@
 #include "constants.h"
 #include "creds-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hashmap.h"

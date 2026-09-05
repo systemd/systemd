@@ -4,6 +4,7 @@
 #include "bootspec.h"
 #include "console.h"
 #include "cpio.h"
+#include "credential-util.h"
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "drivers.h"
@@ -65,6 +66,7 @@ typedef enum LoaderType {
         LOADER_UKI_URL,       /* Boot loader spec type #1 entries with "uki-url" line */
         LOADER_TYPE2_UKI,     /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
+        LOADER_CLEAR_CREDENTIALS,
         LOADER_BAD,           /* Marker: this boot loader spec type #1 entry is invalid */
         LOADER_IGNORE,        /* Marker: this boot loader spec type #1 entry does not match local host */
         LOADER_REBOOT,
@@ -92,7 +94,10 @@ typedef enum LoaderType {
 #define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_AUTO, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 /* Whether this item is implemented fully inside of systemd-boot */
-#define LOADER_TYPE_IS_INTERNAL(t) IN_SET(t, LOADER_SECURE_BOOT_KEYS, LOADER_REBOOT, LOADER_POWEROFF, LOADER_FWSETUP)
+#define LOADER_TYPE_IS_INTERNAL(t) IN_SET(t, LOADER_SECURE_BOOT_KEYS, LOADER_CLEAR_CREDENTIALS, LOADER_REBOOT, LOADER_POWEROFF, LOADER_FWSETUP)
+
+/* Which loader types can consume credentials entered in the boot menu */
+#define LOADER_TYPE_SUPPORTS_CREDENTIALS(t) IN_SET(t, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 typedef enum {
         REBOOT_NO,
@@ -136,9 +141,15 @@ typedef struct BootEntry {
         unsigned profile;
 } BootEntry;
 
+typedef struct InteractiveCredential {
+        char16_t *name;
+        char16_t *value;
+} InteractiveCredential;
+
 typedef struct {
         BootEntry **entries;
         size_t n_entries;
+        struct iovec interactive_credentials;
         size_t idx_default;
         size_t idx_default_efivar;
         uint64_t timeout_sec; /* Actual timeout used (efi_main() override > smbios > efivar > config). */
@@ -173,6 +184,54 @@ typedef struct {
         int64_t console_mode_efivar;
 } Config;
 
+static InteractiveCredential* interactive_credentials_data(const Config *config) {
+        assert(config);
+        assert(iovec_is_valid(&config->interactive_credentials));
+        assert(config->interactive_credentials.iov_len % sizeof(InteractiveCredential) == 0);
+
+        return config->interactive_credentials.iov_base;
+}
+
+static size_t interactive_credentials_count(const Config *config) {
+        (void) interactive_credentials_data(config);
+
+        return config->interactive_credentials.iov_len / sizeof(InteractiveCredential);
+}
+
+static BootEntry* boot_entry_free(BootEntry *entry) {
+        if (!entry)
+                return NULL;
+
+        free(entry->id);
+        free(entry->id_without_profile);
+        free(entry->title_show);
+        free(entry->title);
+        free(entry->sort_key);
+        free(entry->version);
+        free(entry->machine_id);
+        free(entry->loader);
+        free(entry->url);
+        free(entry->devicetree);
+        free(entry->options);
+        strv_free(entry->initrd);
+        strv_free(entry->extras);
+        free(entry->directory);
+        free(entry->current_name);
+        free(entry->next_name);
+
+        return mfree(entry);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(BootEntry *, boot_entry_free);
+
+static void config_remove_last_entry(Config *config) {
+        assert(config);
+        assert(config->n_entries > 0);
+
+        config->n_entries--;
+        config->entries[config->n_entries] = boot_entry_free(config->entries[config->n_entries]);
+}
+
 /* These values have been chosen so that the transitions the user sees could employ unsigned over-/underflow
  * like this:
  * efivar unset ↔ force menu ↔ no timeout/skip menu ↔ 1 s ↔ 2 s ↔ …
@@ -201,6 +260,20 @@ enum {
         IDX_INVALID,
 };
 
+static void config_add_entry(Config *config, BootEntry *entry) {
+        assert(config);
+        assert(entry);
+
+        /* This is just for paranoia. */
+        assert(config->n_entries < IDX_MAX);
+
+        if ((config->n_entries & 15) == 0)
+                config->entries = xrealloc(
+                                config->entries,
+                                sizeof(void *) * config->n_entries,
+                                sizeof(void *) * (config->n_entries + 16));
+        config->entries[config->n_entries++] = entry;
+}
 
 static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
         assert(config);
@@ -392,6 +465,10 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                 printf("        console-mode (EFI var): %" PRIi64 "\n", config->console_mode_efivar);
 
         printf("                     log-level: %s\n", log_level_to_string(log_get_max_level()));
+        FOREACH_ARRAY(credential,
+                      interactive_credentials_data(config),
+                      interactive_credentials_count(config))
+                printf("               credential name: %ls value: %ls\n", credential->name, credential->value);
 
         if (!ps_continue())
                 return;
@@ -490,6 +567,216 @@ static EFI_STATUS call_reboot_into_firmware(const BootEntry *entry, EFI_FILE *ro
         return call_reboot_system(entry, root_dir, parent_image);
 }
 
+static bool credential_name_valid16(const char16_t *name) {
+        size_t n;
+
+        assert(name);
+
+        n = strlen16(name);
+        if (n == 0 || n > CREDENTIAL_NAME_MAX || name[0] == '.')
+                return false;
+
+        for (const char16_t *p = name; *p; p++)
+                if (*p < ' ' || *p >= 127 || IN_SET(*p, ':', '/'))
+                        return false;
+
+        return true;
+}
+
+static void interactive_credentials_done(Config *config) {
+        assert(config);
+
+        FOREACH_ARRAY(credential,
+                      interactive_credentials_data(config),
+                      interactive_credentials_count(config)) {
+                explicit_bzero_safe(credential->name, strsize16(credential->name));
+                explicit_bzero_safe(credential->value, strsize16(credential->value));
+                free(credential->name);
+                free(credential->value);
+        }
+
+        iovec_done(&config->interactive_credentials);
+}
+
+static void config_add_clear_credentials_entry(Config *config) {
+        assert(config);
+        assert(iovec_is_set(&config->interactive_credentials));
+
+        BootEntry *entry = xnew(BootEntry, 1);
+        *entry = (BootEntry) {
+                .id = xstrdup16(u"auto-clear-runtime-credentials"),
+                .title = xstrdup16(u"Clear Runtime Credentials"),
+                .title_show = xstrdup16(u"Clear Runtime Credentials"),
+                .type = LOADER_CLEAR_CREDENTIALS,
+                .tries_done = -1,
+                .tries_left = -1,
+        };
+        config_add_entry(config, entry);
+}
+
+static void config_clear_interactive_credentials(Config *config) {
+        assert(config);
+
+        interactive_credentials_done(config);
+        (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderInteractiveCredentials", 0);
+}
+
+static EFI_STATUS store_interactive_credentials(Config *config) {
+        _cleanup_free_ char16_t *interactive_creds = NULL;
+        size_t interactive_creds_size = 0;
+        uint64_t ignored_maximum_storage_size, ignored_remaining_storage_size, maximum_variable_size;
+        EFI_STATUS err, query_err;
+
+        assert(config);
+
+        if (!iovec_is_set(&config->interactive_credentials)) {
+                err = efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderInteractiveCredentials", 0);
+                return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
+        }
+
+        query_err = RT->QueryVariableInfo(
+                        EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS,
+                        &ignored_maximum_storage_size,
+                        &ignored_remaining_storage_size,
+                        &maximum_variable_size);
+
+        FOREACH_ARRAY(credential,
+                      interactive_credentials_data(config),
+                      interactive_credentials_count(config)) {
+                size_t name_size = strlen16(credential->name) + 1;
+                size_t value_size = strlen16(credential->value) + 1;
+
+                if (!ADD_SAFE(&interactive_creds_size, interactive_creds_size, name_size) ||
+                    !ADD_SAFE(&interactive_creds_size, interactive_creds_size, value_size))
+                        return EFI_BAD_BUFFER_SIZE;
+        }
+
+        size_t interactive_creds_bytes, variable_name_size = strsize16(u"LoaderInteractiveCredentials");
+        if (!MUL_SAFE(&interactive_creds_bytes, interactive_creds_size, sizeof(char16_t)))
+                return EFI_BAD_BUFFER_SIZE;
+
+        if (query_err == EFI_SUCCESS &&
+            (maximum_variable_size < variable_name_size ||
+             interactive_creds_bytes > maximum_variable_size - variable_name_size))
+                return EFI_BAD_BUFFER_SIZE;
+
+        interactive_creds = xnew(char16_t, interactive_creds_size);
+        CLEANUP_ERASE_PTR(&interactive_creds, interactive_creds_bytes);
+
+        size_t offset = 0;
+        FOREACH_ARRAY(credential,
+                      interactive_credentials_data(config),
+                      interactive_credentials_count(config)) {
+                size_t name_size = strlen16(credential->name) + 1;
+                size_t value_size = strlen16(credential->value) + 1;
+
+                strcpy16(interactive_creds + offset, credential->name);
+                offset += name_size;
+                strcpy16(interactive_creds + offset, credential->value);
+                offset += value_size;
+        }
+
+        err = efivar_set_raw(
+                        MAKE_GUID_PTR(LOADER),
+                        u"LoaderInteractiveCredentials",
+                        interactive_creds,
+                        interactive_creds_bytes,
+                        /* flags= */ 0);
+        if (err == EFI_SUCCESS)
+                return EFI_SUCCESS;
+
+        EFI_STATUS clear_err = efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderInteractiveCredentials", 0);
+        if (!IN_SET(clear_err, EFI_SUCCESS, EFI_NOT_FOUND))
+                log_error_status(clear_err, "Error clearing stale LoaderInteractiveCredentials: %m");
+
+        return err;
+}
+
+static EFI_STATUS update_interactive_credentials(Config *config, const BootEntry *entry) {
+        EFI_STATUS err;
+
+        assert(config);
+        assert(entry);
+
+        if (LOADER_TYPE_SUPPORTS_CREDENTIALS(entry->type))
+                return store_interactive_credentials(config);
+
+        err = efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderInteractiveCredentials", 0);
+        return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
+}
+
+static char16_t* menu_prompt_interactive_credential(
+                Config *config,
+                const BootEntry *entry,
+                size_t x_max,
+                size_t y_status,
+                const char16_t *clearline,
+                bool *ret_new_entry) {
+
+        _cleanup_free_ char16_t *name = NULL, *value = NULL;
+
+        assert(config);
+        assert(entry);
+        assert(clearline);
+        assert(ret_new_entry);
+
+        if (!config->editor)
+                return xstrdup16(u"Interactive credential input is disabled.");
+        if (!LOADER_TYPE_SUPPORTS_CREDENTIALS(entry->type))
+                return xstrdup16(u"Entry does not support synthesizing credentials.");
+
+        /* In CVMs the serial console is under the control of the cloud provider. */
+        if (is_confidential_vm())
+                return xstrdup16(u"Synthesizing credentials is not allowed in confidential VMs.");
+
+        /* The edit line may end up on the last line of the screen. And even though we're not telling the
+         * firmware to advance the line, it still does in this one case, causing a scroll to happen that
+         * screws with our beautiful boot loader output. Since we cannot paint the last character of the edit
+         * line, we simply start at x-offset 1 for symmetry. */
+        print_at(1, y_status - 1, COLOR_HIGHLIGHT, clearline + 2);
+        print_at(1, y_status - 1, COLOR_HIGHLIGHT, u"Credential name:");
+        print_at(1, y_status, COLOR_EDIT, clearline + 2);
+        if (!line_edit(&name, x_max - 2, y_status))
+                return NULL;
+        if (isempty(name))
+                return xstrdup16(u"Credential name cannot be empty.");
+        if (!credential_name_valid16(name))
+                return xstrdup16(u"Credential name is invalid.");
+
+        print_at(1, y_status - 1, COLOR_HIGHLIGHT, clearline + 2);
+        print_at(1, y_status - 1, COLOR_HIGHLIGHT, u"Credential value:");
+        print_at(1, y_status, COLOR_EDIT, clearline + 2);
+        if (!line_edit(&value, x_max - 2, y_status))
+                return NULL;
+        if (isempty(value))
+                return xstrdup16(u"Credential value cannot be empty.");
+
+        _cleanup_free_ char16_t *status = xasprintf("Credential '%ls' added.", name);
+
+        size_t n_credentials = interactive_credentials_count(config);
+        size_t old_size = config->interactive_credentials.iov_len, new_size;
+        assert_se(ADD_SAFE(&new_size, old_size, sizeof(InteractiveCredential)));
+
+        config->interactive_credentials.iov_base = xrealloc(
+                        config->interactive_credentials.iov_base,
+                        old_size,
+                        new_size);
+        InteractiveCredential *credentials = config->interactive_credentials.iov_base;
+        credentials[n_credentials] = (InteractiveCredential) {
+                .name = TAKE_PTR(name),
+                .value = TAKE_PTR(value),
+        };
+        config->interactive_credentials.iov_len = new_size;
+
+        if (n_credentials == 0) {
+                config_add_clear_credentials_entry(config);
+                *ret_new_entry = true;
+        } else
+                *ret_new_entry = false;
+
+        return TAKE_PTR(status);
+}
+
 static bool menu_run(
                 Config *config,
                 BootEntry **chosen_entry,
@@ -537,7 +824,30 @@ static bool menu_run(
         }
 
         size_t line_width = 0, entry_padding = 3;
-        while (IN_SET(action, ACTION_CONTINUE, ACTION_FIRMWARE_SETUP)) {
+        while (IN_SET(action, ACTION_CONTINUE, ACTION_FIRMWARE_SETUP, ACTION_RUN)) {
+                if (action == ACTION_RUN) {
+                        if (config->entries[idx_highlight]->type == LOADER_CLEAR_CREDENTIALS) {
+                                config_clear_interactive_credentials(config);
+                                config_remove_last_entry(config);
+                                idx_highlight = config->idx_default;
+
+                                status = xstrdup16(u"Runtime credentials cleared.");
+                                action = ACTION_CONTINUE;
+                                new_mode = clear = refresh = true;
+                                highlight = false;
+                        } else {
+                                err = update_interactive_credentials(config, config->entries[idx_highlight]);
+
+                                if (err == EFI_SUCCESS)
+                                        break;
+
+                                /* Do not boot with a stale value if updating the variable failed. */
+                                free(status);
+                                status = xasprintf_status(err, "Error updating LoaderInteractiveCredentials: %m");
+                                action = ACTION_CONTINUE;
+                        }
+                }
+
                 uint64_t key;
 
                 if (new_mode) {
@@ -688,15 +998,24 @@ static bool menu_run(
                 if (err == EFI_TIMEOUT) {
                         assert(timeout_remain > 0);
                         timeout_remain--;
-                        if (timeout_remain == 0) {
-                                action = ACTION_RUN;
+                        if (timeout_remain > 0)
+                                continue;
+
+                        /* Fall through with EFI_TIMEOUT to update credentials and boot below. */
+                }
+                if (err != EFI_SUCCESS) {
+                        if (config->entries[idx_highlight]->type == LOADER_CLEAR_CREDENTIALS)
+                                idx_highlight = config->idx_default;
+
+                        err = update_interactive_credentials(config, config->entries[idx_highlight]);
+                        if (err != EFI_SUCCESS) {
+                                log_error_status(
+                                                err,
+                                                "Error updating LoaderInteractiveCredentials, refusing to boot: %m");
+                                action = ACTION_QUIT;
                                 break;
                         }
 
-                        /* update status */
-                        continue;
-                }
-                if (err != EFI_SUCCESS) {
                         action = ACTION_RUN;
                         break;
                 }
@@ -778,7 +1097,7 @@ static bool menu_run(
                 case KEYPRESS(0, 0, 'H'):
                 case KEYPRESS(0, 0, '?'):
                         /* This must stay below 80 characters! Q/v/Ctrl+l/f deliberately not advertised. */
-                        status = xasprintf("(d)efault (t/T)imeout (e)dit (r/R)esolution (p)rint %s%s(h)elp",
+                        status = xasprintf("(d)efault (t/T)imeout (e)dit (r/R)es (p)rint %s%s(c)red (h)elp",
                                            config->auto_poweroff ? "" : "(O)ff ",
                                            config->auto_reboot ? "" : "re(B)oot ");
                         break;
@@ -787,8 +1106,29 @@ static bool menu_run(
                         action = ACTION_QUIT;
                         break;
 
+                case KEYPRESS(0, 0, 'c'): {
+                        bool new_entry = false;
+
+                        status = menu_prompt_interactive_credential(
+                                        config,
+                                        config->entries[idx_highlight],
+                                        x_max,
+                                        y_status,
+                                        clearline,
+                                        &new_entry);
+                        print_at(1, y_status - 1, COLOR_NORMAL, clearline + 2);
+                        print_at(1, y_status, COLOR_NORMAL, clearline + 2);
+                        new_mode = new_entry;
+                        break;
+                }
+
                 /* Set/unset the preferred entry */
                 case KEYPRESS(0, 0, 'd'):
+                        if (config->entries[idx_highlight]->type == LOADER_CLEAR_CREDENTIALS) {
+                                status = xstrdup16(u"Clear credentials cannot be made the preferred entry.");
+                                break;
+                        }
+
                         if (config->idx_default_efivar != idx_highlight) {
                                 free(config->entry_preferred_efivar);
                                 config->entry_preferred_efivar = xstrdup16(config->entries[idx_highlight]->id);
@@ -807,6 +1147,11 @@ static bool menu_run(
 
                 /* Set/unset the default entry */
                 case KEYPRESS(0, 0, 'D'):
+                        if (config->entries[idx_highlight]->type == LOADER_CLEAR_CREDENTIALS) {
+                                status = xstrdup16(u"Clear credentials cannot be made the default entry.");
+                                break;
+                        }
+
                         if (config->idx_default_efivar != idx_highlight) {
                                 free(config->entry_default_efivar);
                                 config->entry_default_efivar = xstrdup16(config->entries[idx_highlight]->id);
@@ -1023,47 +1368,6 @@ static bool menu_run(
         clear_screen(COLOR_NORMAL);
         return action == ACTION_RUN;
 }
-
-static void config_add_entry(Config *config, BootEntry *entry) {
-        assert(config);
-        assert(entry);
-
-        /* This is just for paranoia. */
-        assert(config->n_entries < IDX_MAX);
-
-        if ((config->n_entries & 15) == 0)
-                config->entries = xrealloc(
-                                config->entries,
-                                sizeof(void *) * config->n_entries,
-                                sizeof(void *) * (config->n_entries + 16));
-        config->entries[config->n_entries++] = entry;
-}
-
-static BootEntry* boot_entry_free(BootEntry *entry) {
-        if (!entry)
-                return NULL;
-
-        free(entry->id);
-        free(entry->id_without_profile);
-        free(entry->title_show);
-        free(entry->title);
-        free(entry->sort_key);
-        free(entry->version);
-        free(entry->machine_id);
-        free(entry->loader);
-        free(entry->url);
-        free(entry->devicetree);
-        free(entry->options);
-        strv_free(entry->initrd);
-        strv_free(entry->extras);
-        free(entry->directory);
-        free(entry->current_name);
-        free(entry->next_name);
-
-        return mfree(entry);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(BootEntry *, boot_entry_free);
 
 static EFI_STATUS config_timeout_sec_from_string(const char *value, uint64_t *dst) {
         assert(dst);
@@ -3147,6 +3451,7 @@ static void config_free(Config *config) {
         free(config->entry_oneshot);
         free(config->entry_saved);
         free(config->entry_sysfail);
+        interactive_credentials_done(config);
 }
 
 static void config_write_entries_to_variable(Config *config) {
@@ -3284,6 +3589,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS |
                 EFI_LOADER_FEATURE_KEYBOARD_LAYOUT |
                 EFI_LOADER_FEATURE_SMBIOS_MEASURED |
+                EFI_LOADER_FEATURE_INTERACTIVE_CREDENTIALS |
                 0;
 
         assert(loaded_image);
