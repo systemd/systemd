@@ -156,6 +156,41 @@ TEST(iovec_append) {
         assert_se(iovec_memcmp(&iov, &IOVEC_MAKE_STRING("waldoquuxp")) == 0);
 }
 
+TEST(iovec_reduce) {
+        _cleanup_(iovec_done) struct iovec iov = {};
+
+        ASSERT_NULL(iovec_reduce(NULL, 0));
+
+        /* Reducing by zero is a NOP, even on an unset iovec */
+        ASSERT_PTR_EQ(iovec_reduce(&iov, 0), &iov);
+        ASSERT_NULL(iovec_reduce(&iov, 1));
+
+        ASSERT_PTR_EQ(iovec_append(&iov, &IOVEC_MAKE_STRING("foobarwaldo")), &iov);
+
+        /* Reducing by more than the length fails, and leaves the iovec unmodified */
+        ASSERT_NULL(iovec_reduce(&iov, 12));
+        ASSERT_EQ(iovec_memcmp(&iov, &IOVEC_MAKE_STRING("foobarwaldo")), 0);
+
+        ASSERT_PTR_EQ(iovec_reduce(&iov, 0), &iov);
+        ASSERT_EQ(iovec_memcmp(&iov, &IOVEC_MAKE_STRING("foobarwaldo")), 0);
+
+        ASSERT_PTR_EQ(iovec_reduce(&iov, 3), &iov);
+        ASSERT_EQ(iovec_memcmp(&iov, &IOVEC_MAKE_STRING("barwaldo")), 0);
+
+        ASSERT_PTR_EQ(iovec_reduce(&iov, 3), &iov);
+        ASSERT_EQ(iovec_memcmp(&iov, &IOVEC_MAKE_STRING("waldo")), 0);
+
+        /* Reducing by the full remaining length empties the iovec, but keeps the buffer allocated */
+        ASSERT_PTR_EQ(iovec_reduce(&iov, 5), &iov);
+        ASSERT_EQ(iov.iov_len, 0U);
+        ASSERT_NOT_NULL(iov.iov_base);
+        ASSERT_FALSE(iovec_is_set(&iov));
+
+        /* ... and zero-length reductions on the now empty iovec continue to succeed */
+        ASSERT_PTR_EQ(iovec_reduce(&iov, 0), &iov);
+        ASSERT_NULL(iovec_reduce(&iov, 1));
+}
+
 TEST(iovec_make_byte) {
         struct iovec x = IOVEC_MAKE_BYTE('x');
 

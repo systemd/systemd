@@ -87,6 +87,8 @@ typedef enum ConsoleMode {
         CONSOLE_READ_ONLY,
         CONSOLE_PASSIVE,
         CONSOLE_PIPE,
+        CONSOLE_BROKER,     /* Hand the console pty to ptybrokerd, which discards its output */
+        CONSOLE_BROKER_LOG, /* Hand the console pty to ptybrokerd, which additionally logs its output */
         _CONSOLE_MODE_MAX,
         _CONSOLE_MODE_INVALID = -EINVAL,
 } ConsoleMode;
