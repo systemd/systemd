@@ -3,6 +3,11 @@
 integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
+                'vm' : true,
+                'cmdline' : [
+                        'console=ttyS0',
+                        'systemd.tty.term.ttyS0=linux',
+                ],
                 'configuration' : integration_test_template['configuration'] + {
                         'service' : integration_test_template['configuration']['service'] + {
                                 'NotifyAccess' : 'all',
