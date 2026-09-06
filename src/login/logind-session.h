@@ -123,6 +123,8 @@ typedef struct Session {
         char *desktop;
         char **extra_device_access;
 
+        bool can_secure_lock;
+
         char *scope;
         char *scope_job;
 

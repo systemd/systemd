@@ -121,7 +121,8 @@ static int parse_argv(
                 const char **inhibit_why,
                 bool *debug,
                 uint64_t *default_capability_bounding_set,
-                uint64_t *default_capability_ambient_set) {
+                uint64_t *default_capability_ambient_set,
+                bool *secure_lock) {
 
         int r;
 
@@ -177,6 +178,13 @@ static int parse_argv(
                         r = parse_caps(pamh, p, default_capability_ambient_set);
                         if (r < 0)
                                 sym_pam_syslog(pamh, LOG_WARNING, "Failed to parse default-capability-ambient-set= argument, ignoring: %s", p);
+
+                } else if ((p = startswith(argv[i], "can-secure-lock="))) {
+                        r = parse_boolean(p);
+                        if (r < 0)
+                                sym_pam_syslog(pamh, LOG_WARNING, "Failed to parse can-secure-lock= argument, ignoring: %s", p);
+                        else if (secure_lock)
+                                *secure_lock = r;
 
                 } else
                         sym_pam_syslog(pamh, LOG_WARNING, "Unknown parameter '%s', ignoring.", argv[i]);
@@ -832,6 +840,7 @@ typedef struct SessionContext {
         const char *runtime_max_sec;
         const char *area;
         bool incomplete;
+        bool secure_lock;
 } SessionContext;
 
 static void session_context_done(SessionContext *c) {
@@ -848,6 +857,7 @@ static int create_session_message(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int pidfd = -EBADF;
+        uint64_t flags = 0;
         int r;
 
         assert(bus);
@@ -885,11 +895,17 @@ static int create_session_message(
         if (r < 0)
                 return r;
 
+        if (context->secure_lock)
+                flags |= SD_LOGIND_ENABLE_SECURE_LOCK;
+
         if (pidfd >= 0) {
-                r = sd_bus_message_append(m, "t", UINT64_C(0));
+                r = sd_bus_message_append(m, "t", flags);
                 if (r < 0)
                         return r;
-        }
+        } else if (flags != 0)
+                /* Either logind is out-of-date on this machine, or the kernel is compiled w/o PIDFD support. Either way, it's
+                 * not the end of the world but the admin should really look into it... */
+                sym_pam_syslog(pamh, LOG_NOTICE, "Cannot pass requested flags to legacy CreateSession method, ignoring.");
 
         r = sd_bus_message_open_container(m, 'a', "(sv)");
         if (r < 0)
@@ -1347,6 +1363,11 @@ static int register_session(
                 if (r != PAM_SUCCESS)
                         return r;
         }
+
+        log_debug("Attempting to update pam SYSTEMD_CAN_SECURE_LOCK to: %d", c->secure_lock);
+        r = update_environment(pamh, "SYSTEMD_CAN_SECURE_LOCK", one_zero(c->secure_lock));
+        if (r != PAM_SUCCESS)
+                return r;
 
         /* Don't set $XDG_RUNTIME_DIR if the user we now authenticated for does not match the
          * original user of the session. We do this in order not to result in privileged apps
@@ -1817,6 +1838,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         uint64_t default_capability_bounding_set = CAP_MASK_UNSET, default_capability_ambient_set = CAP_MASK_UNSET;
         const char *class_pam = NULL, *type_pam = NULL, *desktop_pam = NULL, *area_pam = NULL, *inhibit_what = NULL, *inhibit_why = NULL;
         bool debug = false;
+        bool secure_lock = false;
         if (parse_argv(pamh,
                        argc, argv,
                        &class_pam,
@@ -1827,7 +1849,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        &inhibit_why,
                        &debug,
                        &default_capability_bounding_set,
-                       &default_capability_ambient_set) < 0)
+                       &default_capability_ambient_set,
+                       &secure_lock) < 0)
                 return PAM_SESSION_ERR;
 
         pam_debug_syslog(pamh, debug, "pam-systemd: initializing...");
@@ -1857,6 +1880,15 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         c.incomplete = getenv_harder_bool(pamh, "XDG_SESSION_INCOMPLETE", false);
         inhibit_what = getenv_harder(pamh, "XDG_SESSION_INHIBIT", inhibit_what);
         inhibit_why = getenv_harder(pamh, "XDG_SESSION_INHIBIT_WHY", inhibit_why);
+
+        if (getenv_harder(pamh, "SYSTEMD_HOME_SUSPEND", NULL)) { /* Backwards compat */
+                sym_pam_syslog(pamh, LOG_NOTICE, "$SYSTEMD_HOME_SUSPEND is deprecated, please use $SYSTEMD_CAN_SECURE_LOCK instead!");
+                c.secure_lock = getenv_harder_bool(pamh, "SYSTEMD_HOME_SUSPEND", secure_lock);
+        }
+        c.secure_lock = getenv_harder_bool(pamh, "SYSTEMD_CAN_SECURE_LOCK", secure_lock);
+        pam_debug_syslog(pamh, debug, "Pam got secure-lock: %d", c.secure_lock);
+        log_debug("Pam got secure-lock: %d", c.secure_lock);
+
 
         const char *extra_device_access = getenv_harder(pamh, "XDG_SESSION_EXTRA_DEVICE_ACCESS", NULL);
         if (extra_device_access) {
@@ -1911,6 +1943,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 int argc, const char **argv) {
 
         bool debug = false;
+        bool secure_lock = false;
         const char *id;
         int r;
 
@@ -1932,7 +1965,8 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                        /* inhibit_why= */ NULL,
                        &debug,
                        /* default_capability_bounding_set= */ NULL,
-                       /* default_capability_ambient_set= */ NULL) < 0)
+                       /* default_capability_ambient_set= */ NULL,
+                       &secure_lock) < 0)
                 return PAM_SESSION_ERR;
 
         pam_debug_syslog(pamh, debug, "pam-systemd: shutting down...");
