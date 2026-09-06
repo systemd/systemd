@@ -52,8 +52,9 @@ char* getusername_malloc(void);
 const char* default_root_shell_at(int rfd);
 const char* default_root_shell(const char *root);
 
-bool is_nologin_shell(const char *shell) _pure_;
-bool shell_is_placeholder(const char *shell) _pure_;
+const char* nologin_shell(void);
+bool is_nologin_shell(const char *shell);
+bool shell_is_placeholder(const char *shell);
 
 typedef enum UserCredsFlags {
         USER_CREDS_PREFER_NSS           = 1 << 0,  /* if set, only synthesize user records if database lacks them. Normally we bypass the userdb entirely for the records we can synthesize */
