@@ -302,7 +302,7 @@ static int synthesize_user_creds(
             synthesize_nobody())
                 return return_user_creds(NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY,
                                          FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : "/",
-                                         FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : NOLOGIN,
+                                         FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : nologin_shell(),
                                          ret_username,
                                          ret_uid, ret_gid,
                                          ret_home,
@@ -678,7 +678,7 @@ int get_shell(char **ret) {
                 goto found;
         }
         if (u == UID_NOBODY && synthesize_nobody()) {
-                e = NOLOGIN;
+                e = nologin_shell();
                 goto found;
         }
 
