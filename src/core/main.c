@@ -1722,7 +1722,7 @@ static int fixup_environment(void) {
                 }
         } else {
                 /* If no $TERM is set then look for the per-tty variable instead */
-                r = proc_cmdline_get_key("systemd.tty.term.console", 0, &term);
+                r = proc_cmdline_tty_term("/dev/console", &term);
                 if (r < 0)
                         return r;
         }
