@@ -686,7 +686,7 @@ int dns_packet_append_name(
 
         r = dns_packet_append_uint8(p, 0, NULL);
         if (r < 0)
-                return r;
+                goto fail;
 
 done:
         if (start)
