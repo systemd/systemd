@@ -6252,7 +6252,11 @@ int exec_invoke(
 
         _cleanup_free_ char *executable = NULL;
         _cleanup_close_ int executable_fd = -EBADF;
-        r = find_executable_full(path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
+        if (strv_isempty(context->exec_search_path)) {
+                r = find_executable_full(path, /* root= */ NULL, params->fallback_exec_search_path, false, &executable, &executable_fd);
+        } else {
+                r = find_executable_full(path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
+        }
         if (r < 0) {
                 *exit_status = EXIT_EXEC;
                 log_struct_errno(LOG_NOTICE, r,

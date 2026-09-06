@@ -1249,6 +1249,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
+        r = serialize_strv(f, "exec-parameters-fallback-exec-search-path", p->fallback_exec_search_path);
+        if (r < 0)
+                return r;
+
         fputc('\n', f); /* End marker */
 
         return 0;
@@ -1525,6 +1529,10 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 return r;
 
                         p->debug_invocation = r;
+                } else if ((val = startswith(l, "exec-parameters-fallback-exec-search-path="))) {
+                        r = deserialize_strv(val, &p->fallback_exec_search_path);
+                        if (r < 0)
+                                return r;
                 } else
                         log_warning("Failed to parse serialized line, ignoring: %s", l);
         }

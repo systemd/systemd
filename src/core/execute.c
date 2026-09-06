@@ -1160,6 +1160,7 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 fprintf(f, "%sOpenFile: %s %s", prefix, file->path, open_file_flags_to_string(file->flags));
 
         strv_dump(f, prefix, "FilesEnv", p->files_env);
+        strv_dump(f, prefix, "FallbackExecSearchPath", p->fallback_exec_search_path);
 }
 
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
@@ -3030,6 +3031,8 @@ void exec_params_deep_clear(ExecParameters *p) {
         open_file_free_many(&p->open_files);
 
         p->fallback_smack_process_label = mfree(p->fallback_smack_process_label);
+
+        p->fallback_exec_search_path = strv_free(p->fallback_exec_search_path);
 
         exec_params_shallow_clear(p);
 }

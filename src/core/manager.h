@@ -178,6 +178,8 @@ typedef struct UnitDefaults {
         char *smack_process_label;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
+
+        char **exec_search_path;
 } UnitDefaults;
 
 typedef struct Manager {
