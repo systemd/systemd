@@ -156,7 +156,36 @@ char* getusername_malloc(void) {
         return uid_to_name(getuid());
 }
 
+const char* nologin_shell(void) {
+        static const char *cached = NULL;
+
+        /* Returns the path of the nologin shell, i.e. the compile-time default unless overridden via
+         * $SYSTEMD_NOLOGIN_PATH. The override is subject to the same validation as any other shell path, as
+         * it ends up in /etc/passwd verbatim. */
+
+        if (!cached) {
+                const char *e = secure_getenv("SYSTEMD_NOLOGIN_PATH");
+                if (!isempty(e)) {
+                        _cleanup_free_ char *p = strdup(e);
+                        if (!p)
+                                log_oom_debug();
+                        else if (!valid_shell(path_simplify(p)))
+                                log_once(LOG_WARNING, "$SYSTEMD_NOLOGIN_PATH is not a valid shell path, ignoring: %s", e);
+                        else
+                                cached = TAKE_PTR(p);
+                }
+
+                if (!cached)
+                        cached = NOLOGIN;
+        }
+
+        return cached;
+}
+
 bool is_nologin_shell(const char *shell) {
+        if (path_equal(shell, nologin_shell()))
+                return true;
+
         return PATH_IN_SET(shell,
                            /* 'nologin' is the friendliest way to disable logins for a user account. It prints a nice
                             * message and exits. Different distributions place the binary at different places though,
