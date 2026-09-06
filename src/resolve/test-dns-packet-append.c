@@ -1565,4 +1565,67 @@ TEST(packet_append_rr_beyond_compression_pointer_range) {
         }
 }
 
+/* A packet with room for the labels but not the root byte, with one name and with two. */
+TEST(packet_append_name_rolls_back_on_failure) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        size_t before;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0,
+                                 /* max_size= */ DNS_PACKET_HEADER_SIZE + 4));
+        before = packet->size;
+
+        ASSERT_ERROR(dns_packet_append_name(packet, "abc",
+                                            /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                            NULL), EMSGSIZE);
+
+        /* Nothing of the half-written name is left on the wire... */
+        ASSERT_EQ(packet->size, before);
+
+        /* ...and, the point of the rollback, no compression entry either: the label was mapped
+         * before the root byte failed, and an entry surviving here would name an offset that no
+         * longer holds what it claims. */
+        ASSERT_EQ(hashmap_size(packet->names), 0u);
+
+        /* Positive control: one more byte of budget and the same name fits, so the shortfall above
+         * is the root byte and not a label -- the root byte being the append under test here. */
+        packet = dns_packet_unref(packet);
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0,
+                                 /* max_size= */ DNS_PACKET_HEADER_SIZE + 5));
+        ASSERT_OK(dns_packet_append_name(packet, "abc",
+                                         /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                         NULL));
+
+        /* Two labels, so more than one entry has to come back out: "a" and "b" fill the packet
+         * exactly and the root byte fails, with the map holding "a.b" and "b". */
+        packet = dns_packet_unref(packet);
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0,
+                                 /* max_size= */ DNS_PACKET_HEADER_SIZE + 4));
+        before = packet->size;
+
+        ASSERT_ERROR(dns_packet_append_name(packet, "a.b",
+                                            /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                            NULL), EMSGSIZE);
+        ASSERT_EQ(packet->size, before);
+        ASSERT_EQ(hashmap_size(packet->names), 0u);
+
+        /* Only this call's entries come out. The map owns the keys, so removing one an earlier call
+         * inserted would free a key the map still holds -- and a wholesale clear would satisfy the
+         * assertions above, which never have anything else in the map. */
+        packet = dns_packet_unref(packet);
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0,
+                                 /* max_size= */ DNS_PACKET_HEADER_SIZE + 7));
+        ASSERT_OK(dns_packet_append_name(packet, "ab",
+                                         /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                         NULL));
+        ASSERT_EQ(hashmap_size(packet->names), 1u);
+        before = packet->size;
+
+        ASSERT_ERROR(dns_packet_append_name(packet, "cd",
+                                            /* allow_compression= */ true, /* canonical_candidate= */ false,
+                                            NULL), EMSGSIZE);
+        ASSERT_EQ(packet->size, before);
+        ASSERT_EQ(hashmap_size(packet->names), 1u);
+        ASSERT_EQ(PTR_TO_SIZE(hashmap_get(packet->names, "ab")), (size_t) DNS_PACKET_HEADER_SIZE);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
