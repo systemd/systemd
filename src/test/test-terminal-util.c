@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/kd.h>
+#include <linux/vt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -370,6 +373,49 @@ TEST(terminal_reset_defensive) {
         r = terminal_reset_defensive(STDOUT_FILENO, /* flags= */ 0);
         if (r < 0)
                 log_notice_errno(r, "Failed to reset terminal: %m");
+}
+
+TEST(make_console_stdio) {
+        _cleanup_free_ char *path = NULL;
+        _cleanup_close_ int tty0_fd = -EBADF, tty_fd = -EBADF;
+        int number, mode, r;
+
+        tty0_fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (tty0_fd < 0 || ioctl(tty0_fd, VT_OPENQRY, &number) < 0 || number <= 0)
+                return (void) log_tests_skipped("No unused virtual console available.");
+
+        ASSERT_OK_ERRNO(asprintf(&path, "/dev/tty%d", number));
+        tty_fd = ASSERT_OK(open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC));
+        ASSERT_OK_ERRNO(ioctl(tty_fd, KDGETMODE, &mode));
+
+        /* Use an inactive VT and a private /dev/console without changing the caller's stdio. */
+        r = pidref_safe_fork("test-console-stdio",
+                            FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
+                            /* ret= */ NULL);
+        if (r == 0) {
+                ASSERT_OK_ERRNO(mount(path, "/dev/console", /* fstype= */ NULL, MS_BIND, /* data= */ NULL));
+                ASSERT_OK_ERRNO(setsid());
+                ASSERT_OK_ERRNO(ioctl(tty_fd, KDSETMODE, KD_GRAPHICS));
+
+                ASSERT_OK(make_console_stdio(/* switch_to_text= */ false));
+                ASSERT_OK_ERRNO(ioctl(STDIN_FILENO, KDGETMODE, &mode));
+                ASSERT_EQ(mode, KD_GRAPHICS);
+
+                ASSERT_OK(make_console_stdio(/* switch_to_text= */ true));
+                ASSERT_OK_ERRNO(ioctl(STDIN_FILENO, KDGETMODE, &mode));
+                ASSERT_EQ(mode, KD_TEXT);
+                _exit(EXIT_SUCCESS);
+        }
+
+        /* The child's controlling terminal is hung up on exit. Reopen it before restoring its mode. */
+        tty_fd = safe_close(tty_fd);
+        tty_fd = ASSERT_OK(open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC));
+        ASSERT_OK_ERRNO(ioctl(tty_fd, KDSETMODE, mode));
+        tty_fd = safe_close(tty_fd);
+        ASSERT_OK(vt_disallocate(path));
+        if (r < 0 && ERRNO_IS_PRIVILEGE(r))
+                return (void) log_tests_skipped("Cannot create a private mount namespace.");
+        ASSERT_OK(r);
 }
 
 TEST(pty_open_peer) {
