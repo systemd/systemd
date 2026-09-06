@@ -466,6 +466,11 @@ All tools:
   as a child process by another tool, such as package managers running it in a
   postinstall script.
 
+* `$SYSTEMD_NOLOGIN_PATH` — if set to an absolute path, use it instead of the
+  compile-time default (usually `/usr/sbin/nologin`) as the login shell for
+  users created without an explicit shell. This can be useful in combination
+  with `--root` or `--image` when the target system uses a different path.
+
 systemd tests:
 
 * `$SYSTEMD_TEST_DATA` — override the location of test data. This is useful if
