@@ -644,7 +644,8 @@ static int run(int argc, char *argv[]) {
                         argv[0] = (char*) "/shutdown";
 
                         (void) setsid();
-                        (void) make_console_stdio();
+                        /* Preserve a graphical splash retained across the exitrd handoff. */
+                        (void) make_console_stdio(/* switch_to_text= */ false);
 
                         log_info("Successfully changed into root pivot.\n"
                                  "Entering exitrd...");
