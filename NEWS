@@ -137,6 +137,17 @@ CHANGES WITH 262 in spe:
           release. The libexecdir path is the backwards compatible way to call
           it.
 
+        * systemd-sysext/systemd-confext now match IMAGE_ID= and
+          IMAGE_VERSION= fields from extension-release files against the host
+          os-release. If an extension declares IMAGE_ID= or IMAGE_VERSION=, the
+          host must declare the same field with a matching value, or the
+          extension is rejected. Previously these fields were ignored during
+          validation and could appear in extension-release files as harmless
+          descriptive metadata. Extensions that set IMAGE_ID= or IMAGE_VERSION=
+          without intending them as host constraints should remove these fields
+          or prefix them with SYSEXT_/CONFEXT_ to describe the extension
+          itself.
+
         Changes in the system and service manager:
 
         * The manager now embeds a basic set of unit files (basic.target,

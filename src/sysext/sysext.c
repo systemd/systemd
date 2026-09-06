@@ -1965,6 +1965,7 @@ static int merge_subprocess(
 
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL,
                         *host_os_release_version_id = NULL, *host_os_release_api_level = NULL,
+                        *host_os_release_image_id = NULL, *host_os_release_image_version = NULL,
                         *filename = NULL, *old_origin_content = NULL,
                         *extensions_origin_content = NULL, *root_resolved = NULL;
         _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
@@ -2010,7 +2011,9 @@ static int merge_subprocess(
                         "ID", &host_os_release_id,
                         "ID_LIKE", &host_os_release_id_like,
                         "VERSION_ID", &host_os_release_version_id,
-                        image_class_info[c->image_class].level_env, &host_os_release_api_level);
+                        image_class_info[c->image_class].level_env, &host_os_release_api_level,
+                        "IMAGE_ID", &host_os_release_image_id,
+                        "IMAGE_VERSION", &host_os_release_image_version);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(c->root));
         if (isempty(host_os_release_id))
@@ -2168,6 +2171,8 @@ static int merge_subprocess(
                                         host_os_release_id_like,
                                         host_os_release_version_id,
                                         host_os_release_api_level,
+                                        host_os_release_image_id,
+                                        host_os_release_image_version,
                                         is_initrd ? "initrd" : "system",
                                         image_extension_release(img, c->image_class),
                                         c->image_class);
