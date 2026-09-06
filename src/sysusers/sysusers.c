@@ -469,6 +469,24 @@ static int putsgent_with_members(
 }
 #endif
 
+static const char* nologin_shell(void) {
+        static const char *cached = NULL;
+
+        if (cached)
+                return cached;
+
+        const char *e = secure_getenv("SYSTEMD_NOLOGIN_PATH");
+
+        if (!isempty(e)) {
+                if (path_is_absolute(e) && path_is_valid(e))
+                        return (cached = e);
+
+                log_warning("$SYSTEMD_NOLOGIN_PATH is not set to a valid absolute path, ignoring: %s", e);
+        }
+
+        return (cached = NOLOGIN);
+}
+
 static const char* pick_shell(const Item *i) {
         assert(i);
 
@@ -478,7 +496,7 @@ static const char* pick_shell(const Item *i) {
                 return i->shell;
         if (i->uid_set && i->uid == 0)
                 return default_root_shell(arg_root);
-        return NOLOGIN;
+        return nologin_shell();
 }
 
 static int read_shell_credential(const Item *i, char **ret) {
