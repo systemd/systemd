@@ -914,6 +914,7 @@ static int parse_config_file(void) {
                 { "Manager", "EventLoopRateLimitBurst",           config_parse_unsigned,              0,                        &arg_event_loop_ratelimit_burst                        },
                 { "Manager", "DefaultMemoryZSwapWriteback",       config_parse_bool,                  0,                        &arg_defaults.memory_zswap_writeback                   },
                 { "Manager", "MinimumUptimeSec",                  config_parse_sec,                   0,                        &arg_minimum_uptime_usec                               },
+                { "Manager", "DefaultExecSearchPath",             config_parse_colon_separated_paths, 0,                        &arg_defaults.exec_search_path                         },
 #if ENABLE_SMACK
                 { "Manager", "DefaultSmackProcessLabel",          config_parse_string,                0,                        &arg_defaults.smack_process_label                      },
 #else

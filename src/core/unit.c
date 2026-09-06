@@ -5711,6 +5711,8 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->debug_invocation = u->debug_invocation;
 
+        p->fallback_exec_search_path = u->manager->defaults.exec_search_path;
+
         return 0;
 }
 
