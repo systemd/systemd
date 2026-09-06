@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/ipv6.h>
 #include <netinet/in.h>
+#include <netinet/ip6.h>
 
 #include "sd-event.h"
 
@@ -297,6 +299,12 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to look up key: %m");
 
+                /* This runs during the shutdown grace second too: losing a tiebreak has to
+                 * suppress our reply (RFC 6762 section 8.2, the loser defers), or a peer probing
+                 * for a name we are still probing ourselves would see a spurious conflict from a
+                 * daemon about to exit. A loss still withdraws the record locally as well; only
+                 * what would follow — the conflict signal, a hostname change, re-publication — is
+                 * held back then, inside dns_zone_item_conflict(). */
                 if (tentative && DNS_PACKET_NSCOUNT(p) > 0) {
                         /*
                          * A race condition detected with the probe packet from
@@ -320,6 +328,27 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
 
                                 continue;
                         }
+                }
+
+                /* We are on the way out and our published records have been goodbye'd: answering
+                 * for them now would re-populate the peer caches the goodbyes just cleaned. The
+                 * host's own records are not withdrawn, so those are still answered -- a peer
+                 * probing for our host name in this window has to see it defended (RFC 6762
+                 * section 8.1), and it still resolves for everyone else meanwhile. */
+                if (dns_scope_mdns_withdrawing(s)) {
+                        _cleanup_(dns_answer_unrefp) DnsAnswer *kept = NULL;
+
+                        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                                if (!dns_scope_rr_is_host_record(s, item->rr))
+                                        continue;
+
+                                r = dns_answer_add_extend_full(&kept, item->rr, item->ifindex,
+                                                               item->flags, item->rrsig, item->until);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to keep host record: %m");
+                        }
+
+                        DNS_ANSWER_REPLACE(answer, TAKE_PTR(kept));
                 }
 
                 if (dns_answer_isempty(answer))
@@ -368,6 +397,30 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to send reply packet: %m");
 
+        return 0;
+}
+
+/* The RFC 6763 section 9 type-enumeration PTR for a service type. One constructor for the
+ * announce and the withdrawal paths, which must build byte-identical records for zone removal
+ * and cache matching to work. */
+int mdns_enumeration_service_ptr_new(const char *service_type, DnsResourceRecord **ret) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        assert(service_type);
+        assert(ret);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
+                                          "_services._dns-sd._udp.local");
+        if (!rr)
+                return -ENOMEM;
+
+        rr->ptr.name = strdup(service_type);
+        if (!rr->ptr.name)
+                return -ENOMEM;
+
+        rr->ttl = MDNS_DEFAULT_TTL;
+
+        *ret = TAKE_PTR(rr);
         return 0;
 }
 
@@ -698,4 +751,205 @@ int manager_mdns_ipv6_fd(Manager *m) {
         (void) sd_event_source_set_description(m->mdns_ipv6_event_source, "mdns-ipv6");
 
         return m->mdns_ipv6_fd = TAKE_FD(s);
+}
+
+static int mdns_announcement_packet_new(size_t max_size, DnsPacket **ret) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        int r;
+
+        assert(ret);
+
+        r = dns_packet_new(&p, DNS_PROTOCOL_MDNS, /* min_alloc_dsize= */ 0, max_size);
+        if (r < 0)
+                return r;
+
+        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
+                                                              1 /* qr */,
+                                                              0 /* opcode */,
+                                                              1 /* aa, see RFC 6762, section 18.4 */,
+                                                              0 /* tc */,
+                                                              0 /* (tentative) */,
+                                                              0 /* (ra) */,
+                                                              0 /* (ad) */,
+                                                              0 /* (cd) */,
+                                                              DNS_RCODE_SUCCESS));
+
+        *ret = TAKE_PTR(p);
+        return 0;
+}
+
+/* Append one record to the packet under construction, creating it first if there is none, and
+ * count it in the packet's own header. Returns -EMSGSIZE when the record does not fit, which the
+ * caller answers by sealing what it has (or by widening the packet), exactly as it would for a bare
+ * dns_packet_append_rr(). */
+static int mdns_announcement_packet_append(DnsPacket **p, size_t max_size, DnsAnswerItem *item) {
+        int r;
+
+        assert(p);
+        assert(item);
+
+        if (!*p) {
+                r = mdns_announcement_packet_new(max_size, p);
+                if (r < 0)
+                        return r;
+        }
+
+        r = dns_packet_append_rr(*p, item->rr, item->flags,
+                                 /* start= */ NULL, /* rdata_start= */ NULL);
+        if (r < 0)
+                return r;
+
+        DNS_PACKET_HEADER(*p)->ancount = htobe16(DNS_PACKET_ANCOUNT(*p) + 1);
+        return 0;
+}
+
+static unsigned mdns_announcement_packet_count(DnsPacket *p) {
+        return p ? DNS_PACKET_ANCOUNT(p) : 0;
+}
+
+/* Push the announcement packet under construction onto the result array; its ancount has been kept
+ * current by every append. A no-op without a packet or without any RRs appended yet. */
+static int mdns_announcement_packet_seal(
+                DnsPacket ***packets,
+                size_t *n_packets,
+                DnsPacket **p) {
+
+        assert(packets);
+        assert(n_packets);
+        assert(p);
+
+        if (mdns_announcement_packet_count(*p) == 0)
+                return 0;
+
+        if (!GREEDY_REALLOC(*packets, *n_packets + 1))
+                return -ENOMEM;
+
+        (*packets)[(*n_packets)++] = TAKE_PTR(*p);
+
+        return 0;
+}
+
+/* Derive the two size bounds an announcement is packed to, from the address family and the link MTU
+ * (0 while the link's MTU is not known yet, or too small to carry a packet).
+ *
+ * RFC 6762 section 17's hard ceiling -- "even when fragmentation is used, a Multicast DNS packet,
+ * including IP and UDP headers, MUST NOT exceed 9000 bytes" -- binds every packet we emit, so it caps
+ * the MTU-derived size on jumbo-frame links just as much as it caps the lone oversized-RR fallback.
+ * A fragmented IPv6 datagram additionally carries an 8-byte Fragment extension header (RFC 8200
+ * section 4.5) that counts against the ceiling. */
+void mdns_announcement_max_sizes(
+                int family,
+                size_t link_mtu,
+                size_t *ret_max_size,
+                size_t *ret_fragmented_max) {
+
+        size_t header_size, fragmented_max, max_size;
+
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(ret_max_size);
+        assert(ret_fragmented_max);
+
+        header_size = udp_header_size(family);
+        fragmented_max = MDNS_PACKET_FRAGMENTED_SIZE_MAX - header_size -
+                (family == AF_INET6 ? sizeof(struct ip6_frag) : 0);
+
+        /* An unsolicited DNS-SD announcement (or goodbye) covers the whole zone, which easily outgrows
+         * both the compression pointer range that dns_packet_append_name() can address and the interface
+         * MTU that RFC 6762 section 17 expects multicast DNS messages to fit into. Instead of emitting
+         * one oversized datagram, split the RRset across as many MTU-sized packets as needed. */
+        if (link_mtu > header_size + DNS_PACKET_HEADER_SIZE)
+                max_size = link_mtu - header_size;
+        else
+                /* No usable MTU -- IFLA_MTU not read yet, or too small to carry a packet. The section 17
+                 * ceiling is the wrong fallback: it is the bound for a datagram deliberately
+                 * fragmented to carry one oversized record, and packing an announcement to it would
+                 * put dozens of records into a datagram that any ordinary link fragments, which the
+                 * same section allows for a single record only. Fall back to the conservative
+                 * bound instead: the datagram size every host of the family must be able to accept
+                 * (RFC 791 section 3.1 for IPv4, RFC 8200 section 5's minimum link MTU for IPv6,
+                 * which additionally guarantees no link fragments one that size). */
+                max_size = (family == AF_INET6 ? IPV6_MIN_MTU : MDNS_PACKET_UNKNOWN_MTU_IPV4) - header_size;
+
+        *ret_max_size = MIN(max_size, fragmented_max);
+        *ret_fragmented_max = fragmented_max;
+}
+
+/* Pack the answer's records into as many announcement packets of at most max_size bytes as needed,
+ * in answer order, each with its ancount finalized. A single record that does not fit any packet
+ * on its own is retried alone within fragmented_max -- RFC 6762 section 17 allows a lone resource
+ * record
+ * to rely on IP fragmentation, up to a hard 9000-byte ceiling including headers — and dropped if
+ * even that bound cannot accommodate it, as is a record that cannot be encoded at any size. */
+int mdns_announcement_packetize(
+                DnsAnswer *answer,
+                size_t max_size,
+                size_t fragmented_max,
+                DnsPacket ***ret_packets,
+                size_t *ret_n_packets) {
+
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsPacket **packets = NULL;
+        size_t n_packets = 0;
+        DnsAnswerItem *item;
+        int r;
+
+        assert(max_size <= fragmented_max);
+        assert(ret_packets);
+        assert(ret_n_packets);
+
+        CLEANUP_ARRAY(packets, n_packets, dns_packet_unref_array);
+
+        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                r = mdns_announcement_packet_append(&p, max_size, item);
+                if (r == -EMSGSIZE && mdns_announcement_packet_count(p) > 0) {
+                        /* Packet full — seal it and retry this RR in a fresh one. */
+                        r = mdns_announcement_packet_seal(&packets, &n_packets, &p);
+                        if (r < 0)
+                                return r;
+
+                        r = mdns_announcement_packet_append(&p, max_size, item);
+                }
+                if (r == -EMSGSIZE && max_size < fragmented_max) {
+                        /* A single RR larger than the MTU. Emit it alone in an oversized packet
+                         * within the section 17 fragmented-packet ceiling. */
+                        p = dns_packet_unref(p);
+
+                        r = mdns_announcement_packet_append(&p, fragmented_max, item);
+                        if (r >= 0) {
+                                /* Sealed alone: nothing that follows may be packed to this bound. */
+                                r = mdns_announcement_packet_seal(&packets, &n_packets, &p);
+                                if (r < 0)
+                                        return r;
+
+                                continue;
+                        }
+                }
+                /* The record goes on the wire in none of the packets we may build for it: too large
+                 * even for section 17's fragmented ceiling (-EMSGSIZE), or not encodable at any size
+                 * at all (a label or character string past its limit, -E2BIG; -ENOSPC, for an rdata
+                 * of 64KiB or more, is defensive -- no bound we pack to lets a packet grow far
+                 * enough for dns_packet_append_rr() to reach it).
+                 * Classified here, after the retries, so that it does not matter which attempt
+                 * surfaced it: dns_packet_append_rr() rolls the packet back on every failure, so the
+                 * neighbours are untouched either way. Skip the record rather than failing the rest of
+                 * the announcement. Records already accumulated stay; a packet holding none is
+                 * dropped, since the fragmented retry may have built it to a bound the records that
+                 * follow must not be packed to. */
+                if (IN_SET(r, -EMSGSIZE, -ENOSPC, -E2BIG)) {
+                        log_debug_errno(r, "Skipping resource record that does not fit an mDNS packet: %m");
+                        if (mdns_announcement_packet_count(p) == 0)
+                                p = dns_packet_unref(p);
+                        continue;
+                }
+                if (r < 0)
+                        return r;
+        }
+
+        r = mdns_announcement_packet_seal(&packets, &n_packets, &p);
+        if (r < 0)
+                return r;
+
+        *ret_n_packets = n_packets;
+        *ret_packets = TAKE_PTR(packets);
+        return 0;
 }

@@ -462,6 +462,10 @@ node /org/freedesktop/resolve1 {
       that prior to version 262, due to a bug, the client's connection was not tracked and services
       registered via this method stayed registered until the daemon exited.</para>
 
+      <para>While <filename>systemd-resolved</filename> is shutting down the method fails with
+      <constant>org.freedesktop.resolve1.ShuttingDown</constant>: the records could no longer be
+      announced before the daemon exits. Clients may retry against the next instance.</para>
+
       <para>The <function>UnregisterService()</function> method undoes the effect of
       <function>RegisterService()</function> and deletes a DNS-SD service previously created via IPC
       again.</para>

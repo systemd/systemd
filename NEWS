@@ -38,6 +38,12 @@ CHANGES WITH 262 in spe:
           soon as the tool exits. To register a DNS-SD service independently
           of a client's lifetime, use *.dnssd files, see systemd.dnssd(5).
 
+        * RegisterService() now fails with org.freedesktop.resolve1.ShuttingDown
+          when called while systemd-resolved is already withdrawing its
+          published records on the way down: the registration could never be
+          announced. Clients may retry against the next instance of the
+          service.
+
         * Meson options '-Dlibiptc=' (deprecated in v259), '-Dlibidn=',
           '-Drc-local=', '-Dsysvinit-path=', and '-Dsysvrcnd-path=' (deprecated
           in v260) have been removed.
@@ -364,6 +370,16 @@ CHANGES WITH 262 in spe:
           the selected coredump's metadata in the requested JSON format.
 
         Changes in systemd-resolved and resolvectl:
+
+        * systemd-resolved now sends mDNS goodbye announcements (RFC 6762
+          section 10.1) for the DNS-SD services it publishes when they are
+          withdrawn — when the daemon is stopped, and when a *.dnssd file is
+          removed and the daemon reloaded — so peers drop them right away
+          instead of waiting out the record TTL. To let the goodbye of a
+          stopping daemon reach the network (and be repeated once, as that
+          section requires), stopping the daemon now takes about a second
+          longer on hosts that publish any such service. Hosts publishing none
+          are unaffected.
 
         * 'resolvectl openpgp' and 'resolvectl tlsa' now support --json= when
           querying their implied record types. Mismatched explicit --type=
