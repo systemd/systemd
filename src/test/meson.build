@@ -293,6 +293,11 @@ executables += [
                 ],
         },
         test_template + {
+                'sources' : files('test-console-stdio.c'),
+                'type' : 'unsafe',
+                'parallel' : false,
+        },
+        test_template + {
                 'sources' : files('test-coredump-stacktrace.c'),
                 'type' : 'manual',
                 # This test intentionally crashes with SIGSEGV by dereferencing a NULL pointer
