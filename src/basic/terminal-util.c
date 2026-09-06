@@ -1046,7 +1046,7 @@ int lock_dev_console(void) {
         return TAKE_FD(fd);
 }
 
-int make_console_stdio(void) {
+int make_console_stdio(bool switch_to_text) {
         int fd, r;
 
         /* Make /dev/console the controlling terminal and stdin/stdout/stderr, if we can. If we can't use
@@ -1062,7 +1062,7 @@ int make_console_stdio(void) {
                         return log_error_errno(r, "Failed to make /dev/null stdin/stdout/stderr: %m");
 
         } else {
-                reset_dev_console_fd(fd, /* switch_to_text= */ true);
+                reset_dev_console_fd(fd, switch_to_text);
 
                 r = rearrange_stdio(fd, fd, fd); /* This invalidates 'fd' both on success and on failure. */
                 if (r < 0)
