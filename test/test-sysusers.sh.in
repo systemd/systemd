@@ -120,6 +120,27 @@ rm -rf "${TESTDIR:?}/etc"
 
 compare "$SOURCE/inline" "(--inline)"
 
+# test $SYSTEMD_NOLOGIN_PATH
+echo "*** Testing \$SYSTEMD_NOLOGIN_PATH override"
+prepare_testdir "$SOURCE/nologin-override"
+SYSTEMD_NOLOGIN_PATH=/opt/nologin "$SYSUSERS" --root="$TESTDIR" --inline "u u1 222"
+
+compare "$SOURCE/nologin-override" "(SYSTEMD_NOLOGIN_PATH=/opt/nologin)"
+
+echo "*** Testing \$SYSTEMD_NOLOGIN_PATH with an invalid value"
+prepare_testdir "$SOURCE/nologin"
+SYSTEMD_NOLOGIN_PATH=relative/nologin "$SYSUSERS" --root="$TESTDIR" --inline "u u1 222" 2>"$TESTDIR/err"
+grep -F 'SYSTEMD_NOLOGIN_PATH is not a valid shell path' "$TESTDIR/err" >/dev/null
+
+compare "$SOURCE/nologin" "(SYSTEMD_NOLOGIN_PATH=relative/nologin)"
+
+echo "*** Testing \$SYSTEMD_NOLOGIN_PATH set to an empty string"
+prepare_testdir "$SOURCE/nologin"
+SYSTEMD_NOLOGIN_PATH= "$SYSUSERS" --root="$TESTDIR" --inline "u u1 222" 2>"$TESTDIR/err"
+(! grep -F 'SYSTEMD_NOLOGIN_PATH' "$TESTDIR/err" >/dev/null)
+
+compare "$SOURCE/nologin" "(SYSTEMD_NOLOGIN_PATH=)"
+
 rm -f "$TESTDIR"/etc/sysusers.d/* "$TESTDIR"/usr/lib/sysusers.d/*
 
 cat >"$TESTDIR/etc/login.defs" <<EOF
