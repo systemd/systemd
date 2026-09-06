@@ -814,6 +814,24 @@
   </refsect1>
 
   <refsect1>
+    <title>Paths</title>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>DefaultExecSearch=</varname></term>
+
+        <listitem><para>Conigures the default <varname>ExecSearch=</varname> path for all units.</para>
+
+        <para>Takes a colon separated list of absolute paths relative to which the executable used by the
+        <varname>Exec*=</varname> (e.g. <varname>ExecStart=</varname>,<varname>ExecStop=</varname>, etc.)
+        properties can be found.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Specifiers</title>
 
     <para>Specifiers may be used in the <varname>DefaultEnvironment=</varname> and

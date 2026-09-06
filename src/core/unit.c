@@ -4540,6 +4540,16 @@ int unit_patch_contexts(Unit *u) {
 
                 FOREACH_ARRAY(d, ec->directories, _EXEC_DIRECTORY_TYPE_MAX)
                         exec_directory_sort(d);
+
+                if (u->manager->defaults.exec_search_path) {
+                        if (ec->exec_search_path) {
+                                r = strv_extend_strv(&ec->exec_search_path, u->manager->defaults.exec_search_path, true);
+                                if (r < 0)
+                                        return -ENOMEM;
+                        } else {
+                                ec->exec_search_path = strv_copy(u->manager->defaults.exec_search_path);
+                        }
+                }
         }
 
         cc = unit_get_cgroup_context(u);

@@ -4671,6 +4671,10 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         rlimit_free_all(m->defaults.rlimit);
         memcpy(m->defaults.rlimit, rlimit, sizeof(struct rlimit*) * _RLIMIT_MAX);
 
+        if (defaults->exec_search_path) {
+                m->defaults.exec_search_path = strv_copy(defaults->exec_search_path);
+        }
+
         return 0;
 }
 
@@ -5587,6 +5591,7 @@ void unit_defaults_done(UnitDefaults *defaults) {
         assert(defaults);
 
         defaults->smack_process_label = mfree(defaults->smack_process_label);
+        defaults->exec_search_path = strv_free(defaults->exec_search_path);
         rlimit_free_all(defaults->rlimit);
 }
 

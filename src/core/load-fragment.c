@@ -470,7 +470,7 @@ int config_parse_colon_separated_paths(
                 void *userdata) {
 
         char ***sv = ASSERT_PTR(data);
-        const Unit *u = ASSERT_PTR(userdata);
+        const Unit *u = userdata;
         int r;
 
         assert(filename);
@@ -496,11 +496,15 @@ int config_parse_colon_separated_paths(
                 if (r == 0)
                         break;
 
-                r = unit_path_printf(u, word, &k);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to resolve unit specifiers in '%s', ignoring: %m", word);
-                        return 0;
+                if (u) {
+                        r = unit_path_printf(u, word, &k);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                           "Failed to resolve unit specifiers in '%s', ignoring: %m", word);
+                                continue;
+                        }
+                } else {
+                        k = TAKE_PTR(word);
                 }
 
                 r = path_simplify_and_warn(k, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
