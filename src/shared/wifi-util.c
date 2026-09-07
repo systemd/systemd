@@ -155,6 +155,8 @@ static const char * const nl80211_iftype_table[NUM_NL80211_IFTYPES] = {
         [NL80211_IFTYPE_P2P_DEVICE] = "p2p-device",
         [NL80211_IFTYPE_OCB]        = "ocb",
         [NL80211_IFTYPE_NAN]        = "nan",
+        [NL80211_IFTYPE_NAN_DATA]   = "nan-data",
+        [NL80211_IFTYPE_PD]         = "pd",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl80211_iftype, enum nl80211_iftype);
@@ -243,7 +245,7 @@ static const char * const nl80211_cmd_table[__NL80211_CMD_AFTER_LAST] = {
         [NL80211_CMD_TDLS_OPER]                    = "tdls_oper",
         [NL80211_CMD_TDLS_MGMT]                    = "tdls_mgmt",
         [NL80211_CMD_UNEXPECTED_FRAME]             = "unexpected_frame",
-        [NL80211_CMD_PROBE_CLIENT]                 = "probe_client",
+        [NL80211_CMD_PROBE_PEER]                   = "probe_peer",
         [NL80211_CMD_REGISTER_BEACONS]             = "register_beacons",
         [NL80211_CMD_UNEXPECTED_4ADDR_FRAME]       = "unexpected_4addr_frame",
         [NL80211_CMD_SET_NOACK_MAP]                = "set_noack_map",
@@ -305,6 +307,28 @@ static const char * const nl80211_cmd_table[__NL80211_CMD_AFTER_LAST] = {
         [NL80211_CMD_COLOR_CHANGE_STARTED]         = "color_change_started",
         [NL80211_CMD_COLOR_CHANGE_ABORTED]         = "color_change_aborted",
         [NL80211_CMD_COLOR_CHANGE_COMPLETED]       = "color_change_completed",
+        [NL80211_CMD_SET_FILS_AAD]                 = "set_fils_aad",
+        [NL80211_CMD_ASSOC_COMEBACK]               = "assoc_comeback",
+        [NL80211_CMD_ADD_LINK]                     = "add_link",
+        [NL80211_CMD_REMOVE_LINK]                  = "remove_link",
+        [NL80211_CMD_ADD_LINK_STA]                 = "add_link_sta",
+        [NL80211_CMD_MODIFY_LINK_STA]              = "modify_link_sta",
+        [NL80211_CMD_REMOVE_LINK_STA]              = "remove_link_sta",
+        [NL80211_CMD_SET_HW_TIMESTAMP]             = "set_hw_timestamp",
+        [NL80211_CMD_LINKS_REMOVED]                = "links_removed",
+        [NL80211_CMD_SET_TID_TO_LINK_MAPPING]      = "set_tid_to_link_mapping",
+        [NL80211_CMD_ASSOC_MLO_RECONF]             = "assoc_mlo_reconf",
+        [NL80211_CMD_EPCS_CFG]                     = "epcs_cfg",
+        [NL80211_CMD_NAN_NEXT_DW_NOTIFICATION]     = "nan_next_dw_notification",
+        [NL80211_CMD_NAN_CLUSTER_JOINED]           = "nan_cluster_joined",
+        [NL80211_CMD_INCUMBENT_SIGNAL_DETECT]      = "incumbent_signal_detect",
+        [NL80211_CMD_NAN_SET_LOCAL_SCHED]          = "nan_set_local_sched",
+        [NL80211_CMD_NAN_SCHED_UPDATE_DONE]        = "nan_sched_update_done",
+        [NL80211_CMD_NAN_SET_PEER_SCHED]           = "nan_set_peer_sched",
+        [NL80211_CMD_NAN_ULW_UPDATE]               = "nan_ulw_update",
+        [NL80211_CMD_NAN_CHANNEL_EVAC]             = "nan_channel_evac",
+        [NL80211_CMD_START_PD]                     = "start_pd",
+        [NL80211_CMD_STOP_PD]                      = "stop_pd",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(nl80211_cmd, int);

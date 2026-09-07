@@ -2888,7 +2888,8 @@ Ports=eth2</programlisting>
           <literal>station</literal>, <literal>ap</literal>, <literal>ap-vlan</literal>,
           <literal>wds</literal>, <literal>monitor</literal>, <literal>mesh-point</literal>,
           <literal>p2p-client</literal>, <literal>p2p-go</literal>, <literal>p2p-device</literal>,
-          <literal>ocb</literal>, and <literal>nan</literal>. This option is mandatory.</para>
+          <literal>ocb</literal>, <literal>nan</literal>, <literal>nan-data</literal> and
+          <literal>pd</literal>. This option is mandatory.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
