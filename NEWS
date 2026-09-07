@@ -4,6 +4,15 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * ConfigurationDirectory= passed to systemd-run --property= now uses
+          the same directory:symlink:flags parser as the other *Directory=
+          settings, allowing the read-only flag with an empty symlink field.
+          Literal colons need an additional level of escaping in the client
+          value. For example, use the shell-quoted argument
+          --property='ConfigurationDirectory=foo\\:bar' for a directory named
+          foo:bar. Unit file syntax and the plain D-Bus string array property
+          are unchanged.
+
         * The *DirectorySymlink D-Bus properties now reject source and
           destination paths equal to or below private/, which is reserved for
           DynamicUser= directories. Unit files reject these symlink destinations

@@ -2071,6 +2071,10 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
 
                 path_simplify(source);
 
+                if (!isempty(dest) && streq(field, "ConfigurationDirectory"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Symlink destination is not supported for %s=: '%s'", field, tuple);
+
                 if (isempty(dest) && isempty(flags)) {
                         r = strv_consume(&sources, TAKE_PTR(source));
                         if (r < 0)
@@ -2600,7 +2604,6 @@ static const BusProperty execute_properties[] = {
         { "NoExecPaths",                           bus_append_strv                               },
         { "ExecSearchPath",                        bus_append_strv_colon                         },
         { "ExtensionDirectories",                  bus_append_strv                               },
-        { "ConfigurationDirectory",                bus_append_strv                               },
         { "SupplementaryGroups",                   bus_append_strv                               },
         { "SystemCallArchitectures",               bus_append_strv                               },
         { "SyslogLevel",                           bus_append_log_level_from_string              },
@@ -2670,6 +2673,7 @@ static const BusProperty execute_properties[] = {
         { "RuntimeDirectory",                      bus_append_directory                          },
         { "CacheDirectory",                        bus_append_directory                          },
         { "LogsDirectory",                         bus_append_directory                          },
+        { "ConfigurationDirectory",                bus_append_directory                          },
         { "ProtectHostname",                       bus_append_protect_hostname                   },
         { "ProtectHostnameEx",                     bus_append_protect_hostname                   }, /* compat */
         { "PrivateTmp",                            bus_append_boolean_or_ex_string               },
