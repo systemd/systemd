@@ -789,6 +789,11 @@ static int mount_overlayfs(
         if (!isempty(mount_options) && !strextend(&options, ",", mount_options))
                 return log_oom();
 
+        /* A refresh mounts the new overlay while the old one still uses the same upperdir and overlayfs only
+         * permits that with index=off. So append it to the overridden mount options if not set. */
+        if (upper_dir && !strstr(mount_options, "index=") && !strextend(&options, ",index=off"))
+                return log_oom();
+
         /* Now mount the actual overlayfs */
         r = mount_nofollow_verbose(LOG_ERR, image_class_info[image_class].short_identifier, where, "overlay", flags, options);
         if (r < 0)
