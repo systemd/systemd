@@ -1021,6 +1021,15 @@ if default_user_path != ''
         conf.set_quoted('DEFAULT_USER_PATH', default_user_path)
 endif
 
+default_exec_search_path = get_option('default-exec-search-path')
+if default_exec_search_path != ''
+        if not default_exec_search_path.startswith('/')
+                error(f'Default exec search path is not absolute: "@default_exec_search_path@"')
+        endif
+        default_exec_search_path = f':@default_exec_search_path@'
+endif
+conf.set_quoted('DEFAULT_EXEC_SEARCH_PATH', default_exec_search_path)
+
 #####################################################################
 
 libm = cc.find_library('m')
