@@ -438,6 +438,11 @@ All tools:
   default. Mutable hierarchies have the following mount options added by
   default: `redirect_dir=on,noatime,metacopy=off,index=off`.
 
+* `$SYSTEMD_SYSEXT_MOUNT_BENEATH` — this boolean variable may be used in tests
+  to not attempt to mount a new `overlayfs` instance beneath the existing one
+  when refreshing, but unmount the existing one first and mount the new one in
+  its place, as done on kernels that do not support mounting beneath.
+
 `systemd-tmpfiles`:
 
 * `$SYSTEMD_TMPFILES_FORCE_SUBVOL` — if unset, `v`/`q`/`Q` lines will create
