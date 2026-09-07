@@ -482,4 +482,68 @@ TEST(conf_files_list) {
         inserted = mfree(inserted);
 }
 
+TEST(conf_files_list_chase_flags) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_strv_free_ char **result = NULL;
+        const char *a, *b, *c;
+
+        ASSERT_OK(tfd = mkdtemp_open("/tmp/test-conf-files-XXXXXX", O_PATH, &t));
+
+        FOREACH_STRING(p, "dir1", "dir2") {
+                ASSERT_OK_ERRNO(mkdirat(tfd, p, 0755));
+                ASSERT_OK_ERRNO(fchmodat(tfd, p, 0755, 0));
+        }
+        FOREACH_STRING(p, "dir1/a.conf", "dir1/b.conf", "dir2/c.conf") {
+                ASSERT_OK(write_string_file_at(tfd, p, "x", WRITE_STRING_FILE_CREATE));
+                ASSERT_OK_ERRNO(fchmodat(tfd, p, 0644, 0));
+        }
+
+        a = strjoina(t, "/dir1/a.conf");
+        b = strjoina(t, "/dir1/b.conf");
+        c = strjoina(t, "/dir2/c.conf");
+
+        ConfFilesFlags flags = CONF_FILES_CHASE_SAFE|CONF_FILES_CHASE_MAX_MODE;
+
+        ASSERT_OK(conf_files_list_strv(&result, ".conf", t, flags, STRV_MAKE_CONST("/dir1/", "/dir2/")));
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(a, b, c)));
+        result = strv_free(result);
+
+        /* A file writable by others is dropped */
+        ASSERT_OK_ERRNO(fchmodat(tfd, "dir1/b.conf", 0666, 0));
+        ASSERT_OK(conf_files_list_strv(&result, ".conf", t, flags, STRV_MAKE_CONST("/dir1/", "/dir2/")));
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(a, c)));
+        result = strv_free(result);
+
+        /* Without the flags it is listed */
+        ASSERT_OK(conf_files_list_strv(&result, ".conf", t, 0, STRV_MAKE_CONST("/dir1/", "/dir2/")));
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(a, b, c)));
+        result = strv_free(result);
+
+        /* An executable file is dropped as well */
+        ASSERT_OK_ERRNO(fchmodat(tfd, "dir1/b.conf", 0755, 0));
+        ASSERT_OK(conf_files_list_strv(&result, ".conf", t, flags, STRV_MAKE_CONST("/dir1/", "/dir2/")));
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(a, c)));
+        result = strv_free(result);
+
+        /* A stricter mode is fine */
+        ASSERT_OK_ERRNO(fchmodat(tfd, "dir1/b.conf", 0600, 0));
+        ASSERT_OK(conf_files_list_strv(&result, ".conf", t, flags, STRV_MAKE_CONST("/dir1/", "/dir2/")));
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(a, b, c)));
+        result = strv_free(result);
+        ASSERT_OK_ERRNO(fchmodat(tfd, "dir1/b.conf", 0644, 0));
+
+        /* A directory writable by others is skipped, the other one is still listed */
+        ASSERT_OK_ERRNO(fchmodat(tfd, "dir1", 0775, 0));
+        ASSERT_OK(conf_files_list_strv(&result, ".conf", t, flags, STRV_MAKE_CONST("/dir1/", "/dir2/")));
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(c)));
+        result = strv_free(result);
+
+        /* A stricter directory is fine */
+        ASSERT_OK_ERRNO(fchmodat(tfd, "dir1", 0700, 0));
+        ASSERT_OK(conf_files_list_strv(&result, ".conf", t, flags, STRV_MAKE_CONST("/dir1/", "/dir2/")));
+        ASSERT_TRUE(strv_equal(result, STRV_MAKE(a, b, c)));
+        result = strv_free(result);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

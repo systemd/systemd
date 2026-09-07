@@ -34,7 +34,8 @@
          CHASE_STEP |                                   \
          CHASE_PROHIBIT_SYMLINKS |                      \
          CHASE_PARENT |                                 \
-         CHASE_MKDIR_0755)
+         CHASE_MKDIR_0755 |                             \
+         CHASE_MAX_MODE)
 
 #define CHASE_MUST_BE_ANY \
         (CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_SOCKET)
@@ -205,6 +206,68 @@ static int log_unsafe_transition(int a, int b, const char *path, ChaseFlags flag
         return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
                                  "Detected unsafe path transition %s (owned by %s) %s %s (owned by %s) during canonicalization of %s.",
                                  strna(n1), strna(user_a), glyph(GLYPH_ARROW_RIGHT), strna(n2), strna(user_b), path);
+}
+
+static int log_unexpected_mode(int fd, mode_t mode, mode_t max, const char *path, ChaseFlags flags) {
+        _cleanup_free_ char *n = NULL;
+
+        if (!FLAGS_SET(flags, CHASE_WARN))
+                return -ENOLINK;
+
+        (void) fd_get_path(fd, &n);
+
+        return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
+                                 "Detected mode %04o exceeding %04o on %s during canonicalization of %s.",
+                                 mode, max, strna(n), path);
+}
+
+/* Add CHASE_MAX_MODE enforcing that directories may not exceed 0755. The s{u,g}id and sticky bits are
+ * ignored. Regular files may not exceed 0644 and the special bits are included in this. The root and
+ * starting directory are exempt as they are treated as root of trust in the lookup chain. Symlinks aren't
+ * checked as their mode is irrelevant. */
+static int chase_verify_mode(
+                int fd,
+                const struct statx *stx,
+                const struct statx *start_stx,
+                const struct statx *root_stx, /* NULL if the host's root directory is the root */
+                const char *path,
+                ChaseFlags flags) {
+
+        mode_t mode, max;
+        int r;
+
+        assert(stx);
+        assert(start_stx);
+
+        if (!FLAGS_SET(flags, CHASE_MAX_MODE))
+                return 0;
+
+        if (S_ISDIR(stx->stx_mode)) {
+                if (statx_inode_same(stx, start_stx))
+                        return 0;
+                if (root_stx) {
+                        if (statx_inode_same(stx, root_stx))
+                                return 0;
+                } else {
+                        r = dir_fd_is_root(fd);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return 0;
+                }
+
+                mode = stx->stx_mode & 0777;
+                max = 0755;
+        } else if (S_ISREG(stx->stx_mode)) {
+                mode = stx->stx_mode & 07777;
+                max = 0644;
+        } else
+                return 0;
+
+        if ((mode & ~max) != 0)
+                return log_unexpected_mode(fd, mode, max, path, flags);
+
+        return 0;
 }
 
 static int log_autofs_mount_point(int fd, const char *path, ChaseFlags flags) {
@@ -424,6 +487,9 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                 }
         }
 
+        /* The mode flags exempt the starting directory and the root */
+        const struct statx start_stx = stx, *anchor_root = root_fd != XAT_FDROOT ? &root_stx : NULL;
+
         _cleanup_free_ char *buffer = strdup(path);
         if (!buffer)
                 return -ENOMEM;
@@ -543,6 +609,10 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                         return log_unsafe_transition(fd, fd_parent, path, flags);
                         }
 
+                        r = chase_verify_mode(fd_parent, &stx_parent, &start_stx, anchor_root, path, flags);
+                        if (r < 0)
+                                return r;
+
                         /* If the path ends on a "..", and CHASE_PARENT is specified then our current 'fd' is
                          * the child of the returned normalized path, not the parent as requested. To correct
                          * this we have to go *two* levels up. */
@@ -565,6 +635,11 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                         if (r > 0)
                                                 return log_unsafe_transition(fd_parent, fd_grandparent, path, flags);
                                 }
+
+                                r = chase_verify_mode(fd_grandparent, &stx_grandparent, &start_stx,
+                                                      anchor_root, path, flags);
+                                if (r < 0)
+                                        return r;
 
                                 stx = stx_grandparent;
                                 close_and_replace(fd, fd_grandparent);
@@ -681,6 +756,10 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
 
                         continue;
                 }
+
+                r = chase_verify_mode(child, &stx_child, &start_stx, anchor_root, path, flags);
+                if (r < 0)
+                        return r;
 
                 /* If this is not a symlink, then let's just add the name we read to what we already verified. */
                 if (!path_extend(&done, first))
