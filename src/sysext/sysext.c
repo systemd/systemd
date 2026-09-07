@@ -330,6 +330,12 @@ static int context_from_cmdline(Context *ret, ImageClass image_class) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine %s hierarchies: %m", image_class_info[image_class].short_identifier);
 
+        /* Each hierarchy is processed once, also if listed repeatedly in the environment variable (possibly
+         * with a trailing slash, which the normalization check allows) */
+        STRV_FOREACH(h, c.hierarchies)
+                path_simplify(*h);
+        strv_uniq(c.hierarchies);
+
         parse_env_image_class_config(&c);
 
         if (arg_mutable_argv_set) {
