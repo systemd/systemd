@@ -2661,7 +2661,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - download multiple arbitrary patterns from same source
   - SHA256SUMS format with bearer tokens for each resource to download
   - decrypt SHA256SUMS with key from tpm
-  - turn http backend stuff int plugin via varlink
   - for each transfer support looking at multiple sources,
     pick source with newest entry. If multiple sources have the same entry, use
     first configured source. Usecase: "sideload" components from local dirs,
@@ -2669,8 +2668,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - support "revoked" items, which cause the client to
     downgrade/upgrade
   - introduce per-user version that can update per-user installed dDIs
-  - make transport pluggable, so people can plug casync or
-    similar behind it, instead of http.
 
 - sysusers: allow specifying a path to an inode *and* a literal UID in the UID
   column, so that if the inode exists it is used, and if not the literal UID is

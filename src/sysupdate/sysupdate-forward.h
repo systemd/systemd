@@ -5,6 +5,7 @@
 
 #include "forward.h" /* IWYU pragma: export */
 
+typedef struct Component Component;
 typedef struct Context Context;
 typedef struct Instance Instance;
 typedef struct InstanceMetadata InstanceMetadata;
