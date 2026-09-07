@@ -16,16 +16,17 @@ typedef enum ImportFlags {
         IMPORT_DIRECT                  = 1 <<  6, /* import without rename games */
         IMPORT_SYNC                    = 1 <<  7, /* fsync() right before we are done */
         IMPORT_FOREIGN_UID             = 1 <<  8, /* tar: go via nsresourced/mountfsd and make owned by foreign UID */
+        IMPORT_ZERO_FILL               = 1 <<  9, /* raw: fill up the remainder of the destination range (as defined by offset/size max) with zeroes */
 
         /* When pulling these flags are defined too */
-        IMPORT_PULL_SETTINGS           = 1 <<  9, /* download .nspawn settings file */
-        IMPORT_PULL_ROOTHASH           = 1 << 10, /* only for raw: download .roothash file for verity */
-        IMPORT_PULL_ROOTHASH_SIGNATURE = 1 << 11, /* only for raw: download .roothash.p7s file for verity */
-        IMPORT_PULL_VERITY             = 1 << 12, /* only for raw: download .verity file for verity */
+        IMPORT_PULL_SETTINGS           = 1 << 10, /* download .nspawn settings file */
+        IMPORT_PULL_ROOTHASH           = 1 << 11, /* only for raw: download .roothash file for verity */
+        IMPORT_PULL_ROOTHASH_SIGNATURE = 1 << 12, /* only for raw: download .roothash.p7s file for verity */
+        IMPORT_PULL_VERITY             = 1 << 13, /* only for raw: download .verity file for verity */
 
         /* The supported flags for the tar and raw importing */
         IMPORT_FLAGS_MASK_TAR          = IMPORT_FORCE|IMPORT_READ_ONLY|IMPORT_BTRFS_SUBVOL|IMPORT_BTRFS_QUOTA|IMPORT_DIRECT|IMPORT_SYNC|IMPORT_FOREIGN_UID,
-        IMPORT_FLAGS_MASK_RAW          = IMPORT_FORCE|IMPORT_READ_ONLY|IMPORT_CONVERT_QCOW2|IMPORT_DIRECT|IMPORT_SYNC,
+        IMPORT_FLAGS_MASK_RAW          = IMPORT_FORCE|IMPORT_READ_ONLY|IMPORT_CONVERT_QCOW2|IMPORT_DIRECT|IMPORT_SYNC|IMPORT_ZERO_FILL,
 
         /* The supported flags for the tar, raw, oci pulling */
         IMPORT_PULL_FLAGS_MASK_TAR     = IMPORT_FLAGS_MASK_TAR|IMPORT_PULL_KEEP_DOWNLOAD|IMPORT_PULL_SETTINGS,
