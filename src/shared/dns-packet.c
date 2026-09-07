@@ -632,31 +632,36 @@ int dns_packet_append_name(
         while (!dns_name_is_root(name)) {
                 const char *z = name;
                 char label[DNS_LABEL_MAX+1];
-                size_t n = 0;
+                size_t n = 0, offset;
 
                 if (allow_compression)
                         n = PTR_TO_SIZE(hashmap_get(p->names, name));
-                if (n > 0) {
-                        assert(n < p->size);
+                /* Only pointer-expressible offsets of already-appended labels enter the map below,
+                 * so both bounds should hold. Control flow and not assert(), which is no check at
+                 * all under -Db_ndebug=true, for bounds that decide what goes on the wire.
+                 * saved_size, not p->size: RFC 1035 § 4.1.4 allows a pointer only to a prior
+                 * occurrence, which is what dns_packet_read_name() enforces on the way in. */
+                if (n > 0 && n <= DNS_COMPRESSION_OFFSET_MAX && n < saved_size) {
+                        r = dns_packet_append_uint16(p, DNS_COMPRESSION_POINTER_FLAG | n, NULL);
+                        if (r < 0)
+                                goto fail;
 
-                        if (n < 0x4000) {
-                                r = dns_packet_append_uint16(p, 0xC000 | n, NULL);
-                                if (r < 0)
-                                        goto fail;
-
-                                goto done;
-                        }
+                        goto done;
                 }
 
                 r = dns_label_unescape(&name, label, sizeof label, 0);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_label(p, label, r, canonical_candidate, &n);
+                r = dns_packet_append_label(p, label, r, canonical_candidate, &offset);
                 if (r < 0)
                         goto fail;
 
-                if (allow_compression) {
+                /* Remember the name for compression -- but only if this occurrence sits within the
+                 * 14 bits an RFC 1035 pointer can express. An offset beyond that can never be
+                 * referenced, so it doesn't belong in the map: it would only collide with a later
+                 * occurrence of the same name, needlessly failing the whole append with -EEXIST. */
+                if (allow_compression && offset <= DNS_COMPRESSION_OFFSET_MAX) {
                         _cleanup_free_ char *s = NULL;
 
                         if (!GREEDY_REALLOC(added_entries, n_added_entries + 1)) {
@@ -670,7 +675,7 @@ int dns_packet_append_name(
                                 goto fail;
                         }
 
-                        r = hashmap_ensure_put(&p->names, &dns_name_hash_ops, s, SIZE_TO_PTR(n));
+                        r = hashmap_ensure_put(&p->names, &dns_name_hash_ops, s, SIZE_TO_PTR(offset));
                         if (r < 0)
                                 goto fail;
 
@@ -681,7 +686,7 @@ int dns_packet_append_name(
 
         r = dns_packet_append_uint8(p, 0, NULL);
         if (r < 0)
-                return r;
+                goto fail;
 
 done:
         if (start)
@@ -1626,7 +1631,7 @@ int dns_packet_read_name(
                                 return -EBADMSG;
 
                         continue;
-                } else if (allow_compression && FLAGS_SET(c, 0xc0)) {
+                } else if (allow_compression && FLAGS_SET(c, DNS_COMPRESSION_POINTER_FLAG >> 8)) {
                         uint16_t ptr;
 
                         /* Pointer */
@@ -1634,7 +1639,7 @@ int dns_packet_read_name(
                         if (r < 0)
                                 return r;
 
-                        ptr = (uint16_t) (c & ~0xc0) << 8 | (uint16_t) d;
+                        ptr = (uint16_t) (c & ~(DNS_COMPRESSION_POINTER_FLAG >> 8)) << 8 | (uint16_t) d;
                         if (ptr < DNS_PACKET_HEADER_SIZE || ptr >= jump_barrier)
                                 return -EBADMSG;
 
