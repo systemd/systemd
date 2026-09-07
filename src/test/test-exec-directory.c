@@ -67,7 +67,7 @@ static void test_transient_directory_one(
 
         ASSERT_OK(sd_bus_message_new(bus, &message, SD_BUS_MESSAGE_METHOD_CALL));
         if (tuple)
-                ASSERT_OK(sd_bus_message_append(message, "a(sst)", 1, source, strempty(destination), UINT64_C(1)));
+                ASSERT_OK(sd_bus_message_append(message, "a(sst)", 1, source, strempty(destination), (uint64_t) EXEC_DIRECTORY_READ_ONLY));
         else
                 ASSERT_OK(sd_bus_message_append(message, "as", 1, source));
         ASSERT_OK(sd_bus_message_seal(message, 1, 0));
