@@ -28,6 +28,7 @@
 #include "efivars.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1420,15 +1421,17 @@ int condition_test(Condition *c, char **env) {
         return condition_test_impl(c, env, table);
 }
 
-static bool condition_test_list_impl(
+static int condition_test_list_impl(
                 Condition *first,
                 char **env,
                 condition_to_string_t to_string,
                 condition_test_logger_t logger,
                 condition_test_func_t tester,
+                bool propagate_errors,
                 void *userdata) {
 
-        int triggered = -1;
+        int non_trigger_error = 0, trigger_error = 0;
+        bool has_trigger = false, trigger_success = false;
 
         /* If the condition list is empty, then it is true */
         if (!first)
@@ -1440,16 +1443,19 @@ static bool condition_test_list_impl(
         LIST_FOREACH(conditions, c, first) {
                 int r;
 
+                has_trigger = has_trigger || c->trigger;
+
                 r = tester(c, env);
 
                 if (logger) {
                         if (r < 0)
                                 logger(userdata, LOG_WARNING, r, PROJECT_FILE, __LINE__, __func__,
-                                       "Couldn't determine result for %s=%s%s%s, assuming failed: %m",
+                                       "Couldn't determine result for %s=%s%s%s%s: %m",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
-                                       c->parameter);
+                                       c->parameter,
+                                       propagate_errors ? "" : ", assuming failed");
                         else
                                 logger(userdata, LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__,
                                        "%s=%s%s%s %s.",
@@ -1460,14 +1466,33 @@ static bool condition_test_list_impl(
                                        condition_result_to_string(c->result));
                 }
 
-                if (!c->trigger && r <= 0)
+                if (r < 0) {
+                        if (!propagate_errors) {
+                                if (!c->trigger)
+                                        return false;
+
+                                continue;
+                        }
+
+                        if (c->trigger)
+                                RET_GATHER(trigger_error, r);
+                        else
+                                RET_GATHER(non_trigger_error, r);
+
+                        continue;
+                }
+
+                if (!c->trigger && r == 0)
                         return false;
 
-                if (c->trigger && triggered <= 0)
-                        triggered = r > 0;
+                if (c->trigger && r > 0)
+                        trigger_success = true;
         }
 
-        return triggered != 0;
+        if (!has_trigger || trigger_success)
+                return non_trigger_error < 0 ? non_trigger_error : true;
+
+        return trigger_error < 0 ? trigger_error : false;
 }
 
 bool condition_test_list_net(
@@ -1477,7 +1502,8 @@ bool condition_test_list_net(
                 condition_test_logger_t logger,
                 void *userdata) {
 
-        return condition_test_list_impl(first, env, to_string, logger, condition_test_net, userdata);
+        return condition_test_list_impl(first, env, to_string, logger, condition_test_net,
+                                        /* propagate_errors= */ false, userdata) > 0;
 }
 
 bool condition_test_list(
@@ -1487,7 +1513,19 @@ bool condition_test_list(
                 condition_test_logger_t logger,
                 void *userdata) {
 
-        return condition_test_list_impl(first, env, to_string, logger, condition_test, userdata);
+        return condition_test_list_impl(first, env, to_string, logger, condition_test,
+                                        /* propagate_errors= */ false, userdata) > 0;
+}
+
+int condition_test_list_errno(
+                Condition *first,
+                char **env,
+                condition_to_string_t to_string,
+                condition_test_logger_t logger,
+                void *userdata) {
+
+        return condition_test_list_impl(first, env, to_string, logger, condition_test,
+                                        /* propagate_errors= */ true, userdata);
 }
 
 void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string) {

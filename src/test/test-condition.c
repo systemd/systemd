@@ -44,6 +44,79 @@
 #include "user-util.h"
 #include "virt.h"
 
+TEST(condition_test_list_errno) {
+        Condition *condition, *sibling;
+        Architecture other_arch;
+
+        ASSERT_OK_POSITIVE(condition_test_list_errno(NULL, environ, NULL, NULL, NULL));
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
+        ASSERT_FALSE(condition_test_list(condition, environ, NULL, NULL, NULL));
+        ASSERT_ERROR(condition_test_list_errno(condition, environ, NULL, NULL, NULL), EINVAL);
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(native_architecture()), true, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_TRUE(condition_test_list(condition, environ, NULL, NULL, NULL));
+        ASSERT_OK_POSITIVE(condition_test_list_errno(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(native_architecture()), true, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_TRUE(condition_test_list(condition, environ, NULL, NULL, NULL));
+        ASSERT_OK_POSITIVE(condition_test_list_errno(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
+        ASSERT_ERROR(condition_test_list_errno(condition, environ, NULL, NULL, NULL), EINVAL);
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_ZERO(condition_test_list_errno(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_ERROR(condition_test_list_errno(condition, environ, NULL, NULL, NULL), EINVAL);
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_ZERO(condition_test_list_errno(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_ZERO(condition_test_list_errno(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(native_architecture()), false, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_POSITIVE(condition_test_list_errno(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(native_architecture()), true, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_ERROR(condition_test_list_errno(condition, environ, NULL, NULL, NULL), EINVAL);
+        condition_free_list(condition);
+
+        other_arch = native_architecture() == ARCHITECTURE_X86_64 ? ARCHITECTURE_X86 : ARCHITECTURE_X86_64;
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
+        ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(other_arch), true, false)));
+        LIST_APPEND(conditions, condition, sibling);
+        ASSERT_OK_ZERO(condition_test_list_errno(condition, environ, NULL, NULL, NULL));
+        condition_free_list(condition);
+}
+
 TEST(condition_test_path) {
         Condition *condition;
 
