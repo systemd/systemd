@@ -81,10 +81,10 @@ rm "$HOME"/.local/state/foo
 rmdir "$HOME"/.config/foo
 
 # ConfigurationDirectory= accepts the flags field too, but no symlink destination
-( ! systemd-run --user -p ConfigurationDirectory=quux::ro --wait bash -c "echo foo >$HOME/.config/quux/baz")
+assert_fail systemd-run --user -p ConfigurationDirectory=quux::ro --wait bash -c "echo foo >$HOME/.config/quux/baz"
 test -d "$HOME"/.config/quux
 ( ! test -f "$HOME"/.config/quux/baz)
-( ! systemd-run --user -p ConfigurationDirectory=quux:link --wait true)
+assert_fail systemd-run --user -p ConfigurationDirectory=quux:link --wait true
 
 # Bypass the client parser to exercise the manager-side validation. Include a valid
 # ExecStart= so an unrelated missing-command error cannot make the test pass.
@@ -101,7 +101,7 @@ fi
 [[ "$output" == *'Symlink destination is not supported for ConfigurationDirectory='* ]]
 
 # A 'private' source is refused by the manager
-( ! systemd-run --user -p StateDirectory=private/waldo::ro --wait true)
+assert_fail systemd-run --user -p StateDirectory=private/waldo::ro --wait true
 ( ! test -e "$HOME"/.local/state/private)
 
 # The reserved directory must not be created through a symlink destination either.
