@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "cgroup.h"
@@ -9,8 +11,10 @@
 #include "execute.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "fileio.h"
 #include "load-fragment.h"
 #include "manager.h"
+#include "service.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -39,6 +43,7 @@ static void assert_directory(
 
 static void test_transient_directory_one(
                 sd_bus *bus,
+                Manager *manager,
                 ExecDirectoryType type,
                 const char *source,
                 const char *destination,
@@ -50,13 +55,15 @@ static void test_transient_directory_one(
         _cleanup_(exec_context_done) ExecContext context = {};
         _cleanup_(exec_directory_done) ExecDirectory parsed = {};
         _cleanup_free_ char *text = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        Manager manager = { .runtime_scope = RUNTIME_SCOPE_USER };
-        Unit unit = { .type = UNIT_SERVICE, .manager = &manager, .last_section_private = 1 };
+        _cleanup_(unit_freep) Unit *unit = NULL;
         size_t size = 0;
+        FILE *f;
 
-        ASSERT_NOT_NULL(f = open_memstream(&text, &size));
-        unit.transient_file = f;
+        ASSERT_NOT_NULL(unit = unit_new(manager, sizeof(Service)));
+        unit->type = UNIT_SERVICE;
+        unit->last_section_private = 1;
+        ASSERT_NOT_NULL(f = open_memstream_unlocked(&text, &size));
+        unit->transient_file = f;
 
         ASSERT_OK(sd_bus_message_new(bus, &message, SD_BUS_MESSAGE_METHOD_CALL));
         if (tuple)
@@ -67,7 +74,7 @@ static void test_transient_directory_one(
         ASSERT_OK(sd_bus_message_rewind(message, true));
 
         ASSERT_EQ(bus_exec_context_set_transient_property(
-                          &unit, &context,
+                          unit, &context,
                           tuple ? exec_directory_type_symlink_to_string(type) : exec_directory_type_to_string(type),
                           message, UNIT_RUNTIME, &error), expected);
         if (expected < 0) {
@@ -82,26 +89,41 @@ static void test_transient_directory_one(
         delete_trailing_chars(value, "\n");
         ASSERT_OK(config_parse_exec_directories(
                           "test.service", "test.conf", 1, "Service", 1,
-                          exec_directory_type_to_string(type), 0, value, &parsed, &unit));
+                          exec_directory_type_to_string(type), 0, value, &parsed, unit));
         assert_directory(&parsed, source, destination, tuple ? EXEC_DIRECTORY_READ_ONLY : 0);
 }
 
 TEST(transient_directory_roundtrip) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        int r;
 
         ASSERT_OK(sd_bus_new(&bus));
         bus->state = BUS_RUNNING; /* Only construct messages locally; no bus connection is needed. */
 
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &manager);
+        if (manager_errno_skip_test(r)) {
+                log_notice_errno(r, "Skipping test: manager_new: %m");
+                return;
+        }
+        ASSERT_OK(r);
+        ASSERT_OK(manager_startup(manager, NULL, NULL, NULL, NULL));
+
         for (ExecDirectoryType type = 0; type < _EXEC_DIRECTORY_TYPE_MAX; type++) {
                 FOREACH_ELEMENT(path, paths) {
-                        test_transient_directory_one(bus, type, *path, NULL, false, 1);
-                        test_transient_directory_one(bus, type, *path, NULL, true, 1);
-                        test_transient_directory_one(bus, type, "source", *path, true,
+                        test_transient_directory_one(bus, manager, type, *path,
+                                                     /* destination= */ NULL, /* tuple= */ false, 1);
+                        test_transient_directory_one(bus, manager, type, *path,
+                                                     /* destination= */ NULL, /* tuple= */ true, 1);
+                        test_transient_directory_one(bus, manager, type, "source", *path,
+                                                     /* tuple= */ true,
                                                      type == EXEC_DIRECTORY_CONFIGURATION ? -EINVAL : 1);
                 }
                 FOREACH_STRING(path, "private", "private/nested") {
-                        test_transient_directory_one(bus, type, path, NULL, true, -EINVAL);
-                        test_transient_directory_one(bus, type, "source", path, true, -EINVAL);
+                        test_transient_directory_one(bus, manager, type, path,
+                                                     /* destination= */ NULL, /* tuple= */ true, -EINVAL);
+                        test_transient_directory_one(bus, manager, type, "source", path,
+                                                     /* tuple= */ true, -EINVAL);
                 }
         }
 }
@@ -143,8 +165,19 @@ TEST(executor_directory_roundtrip) {
 }
 
 TEST(fragment_private_destination) {
-        Manager manager = { .runtime_scope = RUNTIME_SCOPE_USER };
-        Unit unit = { .type = UNIT_SERVICE, .manager = &manager };
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(unit_freep) Unit *unit = NULL;
+        int r;
+
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &manager);
+        if (manager_errno_skip_test(r)) {
+                log_notice_errno(r, "Skipping test: manager_new: %m");
+                return;
+        }
+        ASSERT_OK(r);
+        ASSERT_OK(manager_startup(manager, NULL, NULL, NULL, NULL));
+        ASSERT_NOT_NULL(unit = unit_new(manager, sizeof(Service)));
+        unit->type = UNIT_SERVICE;
 
         for (ExecDirectoryType type = 0; type < _EXEC_DIRECTORY_TYPE_MAX; type++)
                 FOREACH_STRING(value, "source:private", "source:private/nested") {
@@ -152,7 +185,7 @@ TEST(fragment_private_destination) {
 
                         ASSERT_OK(config_parse_exec_directories(
                                           "test.service", "test.conf", 1, "Service", 1,
-                                          exec_directory_type_to_string(type), 0, value, &directory, &unit));
+                                          exec_directory_type_to_string(type), 0, value, &directory, unit));
                         ASSERT_EQ(directory.n_items, 0U);
                 }
 }
