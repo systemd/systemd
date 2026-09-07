@@ -722,7 +722,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         tzset();
 
         /* 3. Tell the kernel our timezone */
-        r = clock_set_timezone(NULL);
+        r = clock_set_timezone(c->local_rtc, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to tell kernel about timezone, ignoring: %m");
 
@@ -798,7 +798,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         }
 
         /* 2. Tell the kernel our timezone */
-        r = clock_set_timezone(NULL);
+        r = clock_set_timezone(c->local_rtc, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to tell kernel about timezone, ignoring: %m");
 
