@@ -218,16 +218,18 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
         if (!fn)
                 return log_oom();
 
+        /* Encrypted credentials are stored as Base64, unlike the plaintext credentials checked above. */
         r = read_full_file_full(
                         AT_FDCWD, fn,
-                        UINT64_MAX, SIZE_MAX,
-                        READ_FULL_FILE_SECURE,
+                        UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
                         NULL,
                         (char**) &data, &sz);
         if (r == -ENOENT)
                 goto not_found;
         if (r < 0)
-                return log_error_errno(r, "Failed to read encrypted credential data: %m");
+                return log_error_errno(r,
+                                       "Failed to read or Base64-decode encrypted credential '%s': %m", name);
 
         if (geteuid() != 0)
                 r = ipc_decrypt_credential(
