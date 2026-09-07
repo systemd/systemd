@@ -2049,6 +2049,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - lock image configured with RootDirectory=/RootImage= using the usual nspawn semantics while the unit is up
   - find a way how we can reload unit file configuration for
     specific units only, without reloading the whole of systemd
+  - figure out why 'systemctl set-property --runtime avahi-daemon.service TimeoutStartSec=150'
+    fails with org.freedesktop.DBus.Error.PropertyReadOnly
+  - report org.freedesktop.DBus.Error.PropertyReadOnly better than
+    "Cannot set property JobTimeoutUSec, or unknown property."
+  - allow 'systemctl start --property=…' ?
 
 - **PidRef conversion work:**
   - cg_pid_get_xyz()
