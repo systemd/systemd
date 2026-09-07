@@ -55,6 +55,7 @@
 #include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "runtime-scope.h"
 #include "selinux-util.h"
@@ -865,8 +866,10 @@ static int work_dir_for_hierarchy(
         f = hierarchy_as_single_path_component(hierarchy);
         if (!f)
                 return log_oom();
-        dir_name = strjoin(".systemd-", f, "-workdir");
-        if (!dir_name)
+
+        /* Use a unique name per merge, so that a refresh never reuses the work dir of the overlayfs
+         * instance that is still mounted while the new one is set up. */
+        if (asprintf(&dir_name, ".systemd-%s-workdir-%016" PRIx64, f, random_u64()) < 0)
                 return log_oom();
 
         free(f);
@@ -1708,10 +1711,12 @@ static int merge_hierarchy(
                 const char *origin_content,
                 const char *meta_path,
                 const char *overlay_path,
-                const char *workspace_path) {
+                const char *workspace_path,
+                char **ret_work_dir) {
 
         _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
         _cleanup_strv_free_ char **used_paths = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *work_dir = NULL;
         size_t extensions_used = 0;
         int r;
 
@@ -1721,6 +1726,7 @@ static int merge_hierarchy(
         assert(meta_path);
         assert(overlay_path);
         assert(workspace_path);
+        assert(ret_work_dir);
 
         mac_selinux_init();
 
@@ -1728,8 +1734,10 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        if (extensions_used == 0 && c->mutable == MUTABLE_NO) /* No extension with files in this hierarchy? Then don't do anything. */
+        if (extensions_used == 0 && c->mutable == MUTABLE_NO) { /* No extension with files in this hierarchy? Then don't do anything. */
+                *ret_work_dir = NULL;
                 return 0;
+        }
 
         r = overlayfs_paths_new(c, hierarchy, workspace_path, &op);
         if (r < 0)
@@ -1748,6 +1756,13 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
+        /* The work directory is created below, remove it again if we fail (it may be on persistent storage) */
+        if (op->work_dir) {
+                work_dir = strdup(op->work_dir);
+                if (!work_dir)
+                        return log_oom();
+        }
+
         r = mount_overlayfs_with_op(op, c->image_class, c->noexec, overlay_path, meta_path, c->overlayfs_mount_options);
         if (r < 0)
                 return r;
@@ -1759,6 +1774,8 @@ static int merge_hierarchy(
         r = make_mounts_read_only(c->image_class, overlay_path, op->upper_dir && op->work_dir);
         if (r < 0)
                 return r;
+
+        *ret_work_dir = TAKE_PTR(work_dir);
 
         return 1;
 }
@@ -2010,6 +2027,22 @@ static int unmerge(const Context *c) {
         return 0;
 }
 
+typedef struct WorkDirs {
+        char **paths;
+        bool keep;
+} WorkDirs;
+
+static void work_dirs_done(WorkDirs *w) {
+        assert(w);
+
+        /* Removes the work directories we created, unless the merge succeeded and they are in use now. */
+        if (!w->keep)
+                STRV_FOREACH(p, w->paths)
+                        (void) rm_rf(*p, REMOVE_ROOT|REMOVE_MISSING_OK|REMOVE_PHYSICAL);
+
+        w->paths = strv_free(w->paths);
+}
+
 static int merge_subprocess(
                 const Context *c,
                 Hashmap *images,
@@ -2022,6 +2055,7 @@ static int merge_subprocess(
         _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *extensions_origin_entries = NULL,
                         *extensions_origin_json = NULL, *mutable_dir_entries = NULL;
+        _cleanup_(work_dirs_done) WorkDirs work_dirs = {};
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
         Image *img;
@@ -2486,6 +2520,7 @@ static int merge_subprocess(
                 if (!submounts_path)
                         return log_oom();
 
+                _cleanup_free_ char *work_dir = NULL;
                 r = merge_hierarchy(
                                 c,
                                 *h,
@@ -2494,9 +2529,13 @@ static int merge_subprocess(
                                 extensions_origin_content,
                                 meta_path,
                                 overlay_path,
-                                merge_hierarchy_workspace);
+                                merge_hierarchy_workspace,
+                                &work_dir);
                 if (r < 0)
                         return r;
+
+                if (work_dir && strv_consume(&work_dirs.paths, TAKE_PTR(work_dir)) < 0)
+                        return log_oom();
 
                 /* After the new hierarchy is set up, move the submounts from the original hierarchy into
                  * place. */
@@ -2535,6 +2574,9 @@ static int merge_subprocess(
 
                 log_info("Merged extensions into '%s'.", resolved);
         }
+
+        /* Success, the work directories are in use by the mounted overlays now */
+        work_dirs.keep = true;
 
         return MERGE_MOUNTED;
 }
