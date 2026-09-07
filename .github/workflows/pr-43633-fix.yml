@@ -1,0 +1,93 @@
+name: Apply PR 43633 review fixes
+
+on:
+  push:
+    branches:
+      - fix/configuration-directory-flags-dbus
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Apply review fixes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          p = Path("src/core/dbus-execute.c")
+          s = p.read_text()
+          old = 'escaped = xescape(*source, ":\\\"\' ");'
+          new = 'escaped = xescape(*source, ":\\\"");'
+          if old not in s:
+              raise SystemExit("dbus-execute escape pattern not found")
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          p = Path("NEWS")
+          s = p.read_text()
+          old = """CHANGES WITH 263 in spe:
+
+        Feature Removals and Incompatible Changes:
+
+        * ConfigurationDirectory= passed to systemd-run --property= now uses
+          the same directory:symlink:flags parser as the other *Directory=
+          settings, allowing the read-only flag with an empty symlink field.
+          Literal colons need an additional level of escaping in the client
+          value. For example, use the shell-quoted argument
+          --property='ConfigurationDirectory=foo\\\\:bar' for a directory named
+          foo:bar. Unit file syntax and the plain D-Bus string array property
+          are unchanged.
+
+        * The *DirectorySymlink D-Bus properties now reject source and
+          destination paths equal to or below private/, which is reserved for
+          DynamicUser= directories. Unit files reject these symlink destinations
+          too, matching the existing restriction on source paths.
+
+CHANGES WITH 262 in spe:
+
+        Feature Removals and Incompatible Changes:
+"""
+          new = """CHANGES WITH 262 in spe:
+
+        Feature Removals and Incompatible Changes:
+
+        * ConfigurationDirectory= set as a transient unit property over D-Bus
+          now uses the same directory:symlink:flags parser as the other
+          *Directory= settings, allowing the read-only flag with an empty symlink
+          field. Literal colons need an additional level of escaping in the
+          client value. For example, with systemd-run use the shell-quoted
+          argument --property='ConfigurationDirectory=foo\\\\:bar' for a
+          directory named foo:bar. Unit file syntax and the plain D-Bus string
+          array property are unchanged.
+
+        * Empty RuntimeDirectory=, StateDirectory=, CacheDirectory=,
+          LogsDirectory=, and ConfigurationDirectory= transient property
+          assignments now send an empty D-Bus string array and reset the
+          corresponding list instead of being silently ignored.
+
+        * The *DirectorySymlink D-Bus properties now reject source and
+          destination paths equal to or below private/, which is reserved for
+          DynamicUser= directories. Unit files reject these symlink destinations
+          too, matching the existing restriction on source paths.
+"""
+          if old not in s:
+              raise SystemExit("NEWS header block not found")
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
+          rm .github/workflows/pr-43633-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add NEWS src/core/dbus-execute.c .github/workflows/pr-43633-fix.yml
+          git commit -m "core: address directory property review feedback"
+          git push origin HEAD:fix/configuration-directory-flags-dbus
