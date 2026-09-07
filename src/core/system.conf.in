@@ -91,3 +91,4 @@
 #EventLoopRateLimitIntervalSec=1s
 #EventLoopRateLimitBurst=50000
 #DefaultMemoryZSwapWriteback=yes
+#DefaultExecSearchPath=
