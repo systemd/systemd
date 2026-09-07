@@ -3574,6 +3574,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) ConfigurationDirectorySymlink = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u ConfigurationDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as ConfigurationDirectory = ['...', ...];
@@ -4208,8 +4210,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
-
-    <!--property ConfigurationDirectory is not documented!-->
 
     <!--property TimeoutCleanUSec is not documented!-->
 
@@ -4967,6 +4967,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ConfigurationDirectorySymlink"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ConfigurationDirectoryMode"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ConfigurationDirectory"/>
@@ -5202,6 +5204,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <programlisting>
 #define SD_EXEC_DIRECTORY_READ_ONLY            (UINT64_C(1) &lt;&lt; 0)
 </programlisting>
+
+      <para><varname>ConfigurationDirectory</varname> lists the configuration directories of the unit, as
+      configured by the unit file setting of the same name, and
+      <varname>ConfigurationDirectorySymlink</varname> exposes the same <varname>flags</varname> parameter
+      for them. Unlike the other directory types, <varname>ConfigurationDirectory</varname> does not
+      support symlinks, so the destination member of <varname>ConfigurationDirectorySymlink</varname>
+      must be left empty and is always returned as an empty string.</para>
 
       <para><varname>ExtraFileDescriptorNames</varname> contains file descriptor names passed to the service via
       the <varname>ExtraFileDescriptors</varname> property in the <function>StartTransientUnit()</function>
@@ -5884,6 +5893,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) ConfigurationDirectorySymlink = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u ConfigurationDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as ConfigurationDirectory = ['...', ...];
@@ -6530,8 +6541,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
-
-    <!--property ConfigurationDirectory is not documented!-->
 
     <!--property TimeoutCleanUSec is not documented!-->
 
@@ -7264,6 +7273,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuota"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ConfigurationDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ConfigurationDirectoryMode"/>
 
@@ -8010,6 +8021,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) ConfigurationDirectorySymlink = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u ConfigurationDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as ConfigurationDirectory = ['...', ...];
@@ -8580,8 +8593,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
-
-    <!--property ConfigurationDirectory is not documented!-->
 
     <!--property TimeoutCleanUSec is not documented!-->
 
@@ -9216,6 +9227,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuota"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ConfigurationDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ConfigurationDirectoryMode"/>
 
@@ -10084,6 +10097,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as LogsDirectory = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) ConfigurationDirectorySymlink = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u ConfigurationDirectoryMode = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as ConfigurationDirectory = ['...', ...];
@@ -10636,8 +10651,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property LogsDirectoryQuota is not documented!-->
 
     <!--property ConfigurationDirectoryMode is not documented!-->
-
-    <!--property ConfigurationDirectory is not documented!-->
 
     <!--property TimeoutCleanUSec is not documented!-->
 
@@ -11254,6 +11267,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectoryQuota"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogsDirectory"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ConfigurationDirectorySymlink"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ConfigurationDirectoryMode"/>
 
@@ -13013,6 +13028,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>OOMRules</varname> were added in version 261.</para>
       <para><varname>LUOSession</varname> was added in version 262.</para>
       <para><varname>RestartRandomizedDelayUSec</varname> was added in version 262.</para>
+      <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -13092,6 +13108,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>XAttrEntryPoint</varname>,
       <varname>XAttrListen</varname>, and
       <varname>XAttrAccept</varname> were added in version 262.</para>
+      <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -13163,6 +13180,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
+      <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -13232,6 +13250,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
+      <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
