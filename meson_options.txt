@@ -580,3 +580,6 @@ option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
 
 option('default-oci-registry', type : 'string', value : 'docker.io',
        description : 'Default OCI registry name')
+
+option('default-exec-search-path', type : 'string',
+       description : 'Colon separated list of absolute paths relative to which executables are searched for')
