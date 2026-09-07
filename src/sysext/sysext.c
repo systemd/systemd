@@ -353,8 +353,9 @@ static int context_from_cmdline(Context *ret, ImageClass image_class) {
         return 0;
 }
 
-static int is_our_mount_point(
+static int is_our_mount_point_at(
                 ImageClass image_class,
+                int fd,
                 const char *p) {
 
         _cleanup_free_ char *buf = NULL, *f = NULL;
@@ -362,13 +363,10 @@ static int is_our_mount_point(
         dev_t dev;
         int r;
 
+        assert(fd >= 0);
         assert(p);
 
-        r = path_is_mount_point(p);
-        if (r == -ENOENT) {
-                log_debug_errno(r, "Hierarchy '%s' doesn't exist.", p);
-                return false;
-        }
+        r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m", p);
         if (r == 0) {
@@ -384,11 +382,11 @@ static int is_our_mount_point(
          * confused if people tar up one of our merged trees and untar them elsewhere where we might mistake
          * them for a live sysext tree. */
 
-        f = path_join(p, image_class_info[image_class].dot_directory_name, "dev");
+        f = path_join(image_class_info[image_class].dot_directory_name, "dev");
         if (!f)
                 return log_oom();
 
-        r = read_one_line_file(f, &buf);
+        r = read_one_line_file_at(fd, f, &buf);
         if (r == -ENOENT) {
                 log_debug("Hierarchy '%s' does not carry a %s/dev file, not a merged tree.", p, image_class_info[image_class].dot_directory_name);
                 return false;
@@ -400,7 +398,7 @@ static int is_our_mount_point(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse device major/minor stored in '%s/dev' file on '%s': %m", image_class_info[image_class].dot_directory_name, p);
 
-        if (lstat(p, &st) < 0)
+        if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", p);
 
         if (st.st_dev != dev) {
@@ -409,6 +407,27 @@ static int is_our_mount_point(
         }
 
         return true;
+}
+
+static int is_our_mount_point(
+                ImageClass image_class,
+                const char *p) {
+
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(p);
+
+        fd = open(p, O_PATH|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (fd < 0) {
+                if (IN_SET(errno, ENOENT, ENOTDIR)) {
+                        log_debug_errno(errno, "Hierarchy '%s' doesn't exist or is not a directory.", p);
+                        return false;
+                }
+
+                return log_error_errno(errno, "Failed to open '%s': %m", p);
+        }
+
+        return is_our_mount_point_at(image_class, fd, p);
 }
 
 static int split_unit_string(const char *s, const char *field, const char *extension, Set **units) {
