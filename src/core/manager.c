@@ -4611,6 +4611,7 @@ int manager_get_effective_environment(Manager *m, char ***ret) {
 
 int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         _cleanup_free_ char *label = NULL;
+        _cleanup_strv_free_ char **exec_search_path = NULL;
         struct rlimit *rlimit[_RLIMIT_MAX];
         int r;
 
@@ -4670,6 +4671,13 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         free_and_replace(m->defaults.smack_process_label, label);
         rlimit_free_all(m->defaults.rlimit);
         memcpy(m->defaults.rlimit, rlimit, sizeof(struct rlimit*) * _RLIMIT_MAX);
+
+        if (defaults->exec_search_path) {
+                exec_search_path = strv_copy(defaults->exec_search_path);
+                if (!exec_search_path)
+                        return -ENOMEM;
+        }
+        strv_free_and_replace(m->defaults.exec_search_path, exec_search_path);
 
         return 0;
 }
@@ -5587,6 +5595,7 @@ void unit_defaults_done(UnitDefaults *defaults) {
         assert(defaults);
 
         defaults->smack_process_label = mfree(defaults->smack_process_label);
+        defaults->exec_search_path = strv_free(defaults->exec_search_path);
         rlimit_free_all(defaults->rlimit);
 }
 

@@ -470,6 +470,8 @@ typedef struct ExecParameters {
 
         bool debug_invocation;
         bool selinux_context_net;
+
+        char **fallback_exec_search_path;
 } ExecParameters;
 
 #define EXEC_PARAMETERS_INIT(_flags)              \
