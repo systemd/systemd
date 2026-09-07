@@ -2227,10 +2227,37 @@ bool link_multicast_enabled(Link *link) {
         return FLAGS_SET(link->flags, IFF_MULTICAST);
 }
 
-#define FLAG_STRING(string, flag, old, new)                      \
-        (((old ^ new) & flag)                                    \
-         ? ((old & flag) ? (" -" string) : (" +" string))        \
-         : "")
+#define _FLAG_STRING(old_flags, new_flags, string, flag)                        \
+        ({                                                                      \
+                unsigned _old_flags = (old_flags), _new_flags = (new_flags);    \
+                                                                                \
+                (((_old_flags ^ _new_flags) & flag)                             \
+                 ? ((_old_flags & flag) ? (" -" string) : (" +" string))        \
+                 : "");                                                         \
+        })
+#define FLAG_STRING(old_flags, new_flags, name)                                 \
+        _FLAG_STRING(old_flags, new_flags, STRINGIFY(name), IFF_##name)
+
+#define KNOWN_IFF_FLAGS                         \
+        (IFF_UP |                               \
+         IFF_BROADCAST |                        \
+         IFF_DEBUG |                            \
+         IFF_LOOPBACK |                         \
+         IFF_POINTOPOINT |                      \
+         IFF_NOTRAILERS |                       \
+         IFF_RUNNING |                          \
+         IFF_NOARP |                            \
+         IFF_PROMISC |                          \
+         IFF_ALLMULTI |                         \
+         IFF_MASTER |                           \
+         IFF_SLAVE |                            \
+         IFF_MULTICAST |                        \
+         IFF_PORTSEL |                          \
+         IFF_AUTOMEDIA |                        \
+         IFF_DYNAMIC |                          \
+         IFF_LOWER_UP |                         \
+         IFF_DORMANT |                          \
+         IFF_ECHO)
 
 static int link_update_flags(Link *link, sd_netlink_message *message) {
         bool link_was_admin_up, had_carrier;
@@ -2256,42 +2283,34 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
                 return 0;
 
         if (link->flags != flags) {
-                unsigned unknown_flags, unknown_flags_added, unknown_flags_removed;
-
                 log_link_debug(link, "Flags change:%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
-                               FLAG_STRING("LOOPBACK", IFF_LOOPBACK, link->flags, flags),
-                               FLAG_STRING("MASTER", IFF_MASTER, link->flags, flags),
-                               FLAG_STRING("SLAVE", IFF_SLAVE, link->flags, flags),
-                               FLAG_STRING("UP", IFF_UP, link->flags, flags),
-                               FLAG_STRING("DORMANT", IFF_DORMANT, link->flags, flags),
-                               FLAG_STRING("LOWER_UP", IFF_LOWER_UP, link->flags, flags),
-                               FLAG_STRING("RUNNING", IFF_RUNNING, link->flags, flags),
-                               FLAG_STRING("MULTICAST", IFF_MULTICAST, link->flags, flags),
-                               FLAG_STRING("BROADCAST", IFF_BROADCAST, link->flags, flags),
-                               FLAG_STRING("POINTOPOINT", IFF_POINTOPOINT, link->flags, flags),
-                               FLAG_STRING("PROMISC", IFF_PROMISC, link->flags, flags),
-                               FLAG_STRING("ALLMULTI", IFF_ALLMULTI, link->flags, flags),
-                               FLAG_STRING("PORTSEL", IFF_PORTSEL, link->flags, flags),
-                               FLAG_STRING("AUTOMEDIA", IFF_AUTOMEDIA, link->flags, flags),
-                               FLAG_STRING("DYNAMIC", IFF_DYNAMIC, link->flags, flags),
-                               FLAG_STRING("NOARP", IFF_NOARP, link->flags, flags),
-                               FLAG_STRING("NOTRAILERS", IFF_NOTRAILERS, link->flags, flags),
-                               FLAG_STRING("DEBUG", IFF_DEBUG, link->flags, flags),
-                               FLAG_STRING("ECHO", IFF_ECHO, link->flags, flags));
+                               FLAG_STRING(link->flags, flags, UP),
+                               FLAG_STRING(link->flags, flags, BROADCAST),
+                               FLAG_STRING(link->flags, flags, DEBUG),
+                               FLAG_STRING(link->flags, flags, LOOPBACK),
+                               FLAG_STRING(link->flags, flags, POINTOPOINT),
+                               FLAG_STRING(link->flags, flags, NOTRAILERS),
+                               FLAG_STRING(link->flags, flags, RUNNING),
+                               FLAG_STRING(link->flags, flags, NOARP),
+                               FLAG_STRING(link->flags, flags, PROMISC),
+                               FLAG_STRING(link->flags, flags, ALLMULTI),
+                               FLAG_STRING(link->flags, flags, MASTER),
+                               FLAG_STRING(link->flags, flags, SLAVE),
+                               FLAG_STRING(link->flags, flags, MULTICAST),
+                               FLAG_STRING(link->flags, flags, PORTSEL),
+                               FLAG_STRING(link->flags, flags, AUTOMEDIA),
+                               FLAG_STRING(link->flags, flags, DYNAMIC),
+                               FLAG_STRING(link->flags, flags, LOWER_UP),
+                               FLAG_STRING(link->flags, flags, DORMANT),
+                               FLAG_STRING(link->flags, flags, ECHO));
 
-                unknown_flags = ~(IFF_LOOPBACK | IFF_MASTER | IFF_SLAVE | IFF_UP |
-                                  IFF_DORMANT | IFF_LOWER_UP | IFF_RUNNING |
-                                  IFF_MULTICAST | IFF_BROADCAST | IFF_POINTOPOINT |
-                                  IFF_PROMISC | IFF_ALLMULTI | IFF_PORTSEL |
-                                  IFF_AUTOMEDIA | IFF_DYNAMIC | IFF_NOARP |
-                                  IFF_NOTRAILERS | IFF_DEBUG | IFF_ECHO);
-                unknown_flags_added = ((link->flags ^ flags) & flags & unknown_flags);
-                unknown_flags_removed = ((link->flags ^ flags) & link->flags & unknown_flags);
+                unsigned unknown_flags_added = ((link->flags ^ flags) & flags & ~KNOWN_IFF_FLAGS);
+                unsigned unknown_flags_removed = ((link->flags ^ flags) & link->flags & ~KNOWN_IFF_FLAGS);
 
-                if (unknown_flags_added)
+                if (unknown_flags_added != 0)
                         log_link_debug(link, "Unknown link flags gained, ignoring: %#.5x", unknown_flags_added);
 
-                if (unknown_flags_removed)
+                if (unknown_flags_removed != 0)
                         log_link_debug(link, "Unknown link flags lost, ignoring: %#.5x", unknown_flags_removed);
         }
 
