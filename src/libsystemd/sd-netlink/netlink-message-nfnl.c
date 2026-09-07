@@ -242,7 +242,11 @@ int sd_nfnl_nft_message_new_basechain(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nfnl);
         assert(ret);
+        assert(table);
+        assert(chain);
+        assert(type);
 
         r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWCHAIN, NLM_F_CREATE);
         if (r < 0)
@@ -289,7 +293,9 @@ int sd_nfnl_nft_message_new_table(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nfnl);
         assert(ret);
+        assert(table);
 
         r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWTABLE, NLM_F_CREATE | NLM_F_EXCL);
         if (r < 0)
@@ -313,7 +319,10 @@ int sd_nfnl_nft_message_new_rule(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nfnl);
         assert(ret);
+        assert(table);
+        assert(chain);
 
         r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWRULE, NLM_F_CREATE);
         if (r < 0)
@@ -343,7 +352,10 @@ int sd_nfnl_nft_message_new_set(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nfnl);
         assert(ret);
+        assert(table);
+        assert(set_name);
 
         r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSET, NLM_F_CREATE);
         if (r < 0)
@@ -380,7 +392,10 @@ int sd_nfnl_nft_message_new_setelems(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nfnl);
         assert(ret);
+        assert(table);
+        assert(set_name);
 
         if (add)
                 r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSETELEM, NLM_F_CREATE);
@@ -411,6 +426,11 @@ int sd_nfnl_nft_message_append_setelem(
                 uint32_t flags) {
 
         int r;
+
+        assert(m);
+        assert(key);
+        assert(key_len > 0);
+        assert(!data || data_len > 0);
 
         r = sd_netlink_message_open_array(m, index);
         if (r < 0)
