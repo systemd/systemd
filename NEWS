@@ -273,7 +273,7 @@ CHANGES WITH 262 in spe:
         * bootctl gained a new "link-auto" command, which operates like
           "bootctl link" but automatically discovers the UKI and resources to
           link in /usr/lib/systemd/uki/ and similar directories in /run/ and
-          /var/. This logic can be executed automatcally when systemd-sysupdate
+          /var/. This logic can be executed automatically when systemd-sysupdate
           completes an update by enabling the
           systemd-sysupdate-notify-bootctl.socket unit.
 
