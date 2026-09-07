@@ -1804,8 +1804,52 @@ static const ImagePolicy* pick_image_policy(const Context *c, const Image *img) 
         return image_class_info[img->class].default_image_policy;
 }
 
+static int read_work_dir_at(
+                const Context *c,
+                int dir_fd,
+                const char *hierarchy_path,
+                const char *log_path,
+                char **ret) {
+
+        _cleanup_free_ char *work_dir_info_file = NULL, *escaped_work_dir_in_root = NULL,
+                        *work_dir_in_root = NULL, *work_dir = NULL;
+        ssize_t l;
+        int r;
+
+        assert(c);
+        assert(hierarchy_path);
+        assert(log_path);
+        assert(ret);
+
+        work_dir_info_file = path_join(hierarchy_path, image_class_info[c->image_class].dot_directory_name, "work_dir");
+        if (!work_dir_info_file)
+                return log_oom();
+
+        r = read_one_line_file_at(dir_fd, work_dir_info_file, &escaped_work_dir_in_root);
+        if (r == -ENOENT) {
+                *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read work directory path of hierarchy '%s': %m", log_path);
+
+        l = cunescape(escaped_work_dir_in_root, 0, &work_dir_in_root);
+        if (l < 0)
+                return log_error_errno(l, "Failed to unescape work directory path of hierarchy '%s': %m", log_path);
+        if (path_is_absolute(work_dir_in_root) || !path_is_normalized(work_dir_in_root))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid work directory path '%s' of hierarchy '%s'.", work_dir_in_root, log_path);
+
+        work_dir = path_join(empty_to_root(c->root), work_dir_in_root);
+        if (!work_dir)
+                return log_oom();
+
+        *ret = TAKE_PTR(work_dir);
+        return 1;
+}
+
 static int unmerge_hierarchy(const Context *c, const char *p, const char *submounts_path) {
-        _cleanup_free_ char *dot_dir = NULL, *work_dir_info_file = NULL;
+        _cleanup_free_ char *dot_dir = NULL;
         int n_unmerged = 0;
         int r;
 
@@ -1816,12 +1860,8 @@ static int unmerge_hierarchy(const Context *c, const char *p, const char *submou
         if (!dot_dir)
                 return log_oom();
 
-        work_dir_info_file = path_join(dot_dir, "work_dir");
-        if (!work_dir_info_file)
-                return log_oom();
-
         for (;;) {
-                _cleanup_free_ char *escaped_work_dir_in_root = NULL, *work_dir = NULL;
+                _cleanup_free_ char *work_dir = NULL;
 
                 /* We only unmount /usr/ if it is a mount point and really one of ours, in order not to break
                  * systems where /usr/ is a mount point of its own already. */
@@ -1832,25 +1872,9 @@ static int unmerge_hierarchy(const Context *c, const char *p, const char *submou
                 if (r == 0)
                         break;
 
-                r = read_one_line_file(work_dir_info_file, &escaped_work_dir_in_root);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                return log_error_errno(r, "Failed to read '%s': %m", work_dir_info_file);
-                } else {
-                        _cleanup_free_ char *work_dir_in_root = NULL;
-                        ssize_t l;
-
-                        l = cunescape_length(escaped_work_dir_in_root, r, 0, &work_dir_in_root);
-                        if (l < 0)
-                                return log_error_errno(l, "Failed to unescape work directory path: %m");
-                        if (path_is_absolute(work_dir_in_root) || !path_is_normalized(work_dir_in_root))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid work directory path '%s'.", work_dir_in_root);
-
-                        work_dir = path_join(c->root, work_dir_in_root);
-                        if (!work_dir)
-                                return log_oom();
-                }
+                r = read_work_dir_at(c, AT_FDCWD, p, p, &work_dir);
+                if (r < 0)
+                        return r;
 
                 r = umount_verbose(LOG_DEBUG, dot_dir, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0) {
