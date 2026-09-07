@@ -14,11 +14,16 @@
 #include "fileio.h"
 #include "load-fragment.h"
 #include "manager.h"
+#include "rm-rf.h"
 #include "service.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "unit.h"
+
+static char *runtime_dir = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(runtime_dir, rm_rf_physical_and_freep);
 
 static const char* const paths[] = {
         "plain", "with space", "with'quote", "with\"quote", "with:colon",
@@ -59,8 +64,7 @@ static void test_transient_directory_one(
         size_t size = 0;
         FILE *f;
 
-        ASSERT_NOT_NULL(unit = unit_new(manager, sizeof(Service)));
-        unit->type = UNIT_SERVICE;
+        ASSERT_OK(unit_new_for_name(manager, sizeof(Service), "test-exec-directory.service", &unit));
         unit->last_section_private = 1;
         ASSERT_NOT_NULL(f = open_memstream_unlocked(&text, &size));
         unit->transient_file = f;
@@ -176,8 +180,7 @@ TEST(fragment_private_destination) {
         }
         ASSERT_OK(r);
         ASSERT_OK(manager_startup(manager, NULL, NULL, NULL, NULL));
-        ASSERT_NOT_NULL(unit = unit_new(manager, sizeof(Service)));
-        unit->type = UNIT_SERVICE;
+        ASSERT_OK(unit_new_for_name(manager, sizeof(Service), "test-exec-directory.service", &unit));
 
         for (ExecDirectoryType type = 0; type < _EXEC_DIRECTORY_TYPE_MAX; type++)
                 FOREACH_STRING(value, "source:private", "source:private/nested") {
@@ -190,4 +193,9 @@ TEST(fragment_private_destination) {
                 }
 }
 
-DEFINE_TEST_MAIN(LOG_DEBUG);
+static int intro(void) {
+        ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
