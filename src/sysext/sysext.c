@@ -40,6 +40,7 @@
 #include "hashmap.h"
 #include "image-policy.h"
 #include "initrd-util.h"
+#include "iovec-util.h"
 #include "label-util.h"                 /* IWYU pragma: keep */
 #include "libmount-util.h"
 #include "log.h"
@@ -56,10 +57,12 @@
 #include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "runtime-scope.h"
 #include "selinux-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -348,8 +351,9 @@ static int context_from_cmdline(Context *ret, ImageClass image_class) {
         return 0;
 }
 
-static int is_our_mount_point(
+static int is_our_mount_point_at(
                 ImageClass image_class,
+                int fd,
                 const char *p) {
 
         _cleanup_free_ char *buf = NULL, *f = NULL;
@@ -357,13 +361,10 @@ static int is_our_mount_point(
         dev_t dev;
         int r;
 
+        assert(fd >= 0);
         assert(p);
 
-        r = path_is_mount_point(p);
-        if (r == -ENOENT) {
-                log_debug_errno(r, "Hierarchy '%s' doesn't exist.", p);
-                return false;
-        }
+        r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m", p);
         if (r == 0) {
@@ -379,11 +380,11 @@ static int is_our_mount_point(
          * confused if people tar up one of our merged trees and untar them elsewhere where we might mistake
          * them for a live sysext tree. */
 
-        f = path_join(p, image_class_info[image_class].dot_directory_name, "dev");
+        f = path_join(image_class_info[image_class].dot_directory_name, "dev");
         if (!f)
                 return log_oom();
 
-        r = read_one_line_file(f, &buf);
+        r = read_one_line_file_at(fd, f, &buf);
         if (r == -ENOENT) {
                 log_debug("Hierarchy '%s' does not carry a %s/dev file, not a merged tree.", p, image_class_info[image_class].dot_directory_name);
                 return false;
@@ -395,7 +396,7 @@ static int is_our_mount_point(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse device major/minor stored in '%s/dev' file on '%s': %m", image_class_info[image_class].dot_directory_name, p);
 
-        if (lstat(p, &st) < 0)
+        if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", p);
 
         if (st.st_dev != dev) {
@@ -404,6 +405,27 @@ static int is_our_mount_point(
         }
 
         return true;
+}
+
+static int is_our_mount_point(
+                ImageClass image_class,
+                const char *p) {
+
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(p);
+
+        fd = open(p, O_PATH|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (fd < 0) {
+                if (errno == ENOENT) {
+                        log_debug_errno(errno, "Hierarchy '%s' doesn't exist.", p);
+                        return false;
+                }
+
+                return log_error_errno(errno, "Failed to open '%s': %m", p);
+        }
+
+        return is_our_mount_point_at(image_class, fd, p);
 }
 
 static int split_unit_string(const char *s, const char *field, const char *extension, Set **units) {
@@ -549,19 +571,17 @@ static int get_extension_release_metadata(
         return 0;
 }
 
-static int move_submounts(const char *src, const char *dst) {
-        SubMount *submounts = NULL;
-        size_t n_submounts = 0;
+static int attach_submounts(
+                SubMount *submounts,
+                size_t n_submounts,
+                const char *src,
+                const char *dst) {
+
         int r;
 
+        assert(submounts || n_submounts == 0);
         assert(src);
         assert(dst);
-
-        CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
-
-        r = get_sub_mounts(src, &submounts, &n_submounts);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get submounts for %s: %m", src);
 
         FOREACH_ARRAY(m, submounts, n_submounts) {
                 _cleanup_free_ char *t = NULL;
@@ -593,13 +613,10 @@ static int move_submounts(const char *src, const char *dst) {
 
                 /* Instead of a bind mount we attach the detached clone produced by
                  * open_tree_attr_with_fallback() from get_sub_mounts() because that has no propagation
-                 * relationship with the original anymore and the MNT_DETACH below won't propagate for
-                 * nested mounts. */
+                 * relationship with the original anymore. */
                 r = RET_NERRNO(move_mount(m->mount_fd, "", child_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH));
                 if (r < 0)
                         return log_error_errno(r, "Failed to move mount '%s' to '%s': %m", m->path, t);
-
-                (void) umount_verbose(LOG_WARNING, m->path, MNT_DETACH);
         }
 
         return 0;
@@ -837,8 +854,10 @@ static int work_dir_for_hierarchy(
         f = hierarchy_as_single_path_component(hierarchy);
         if (!f)
                 return log_oom();
-        dir_name = strjoin(".systemd-", f, "-workdir");
-        if (!dir_name)
+
+        /* Use a unique name per merge, so that a refresh never reuses the work dir of the overlayfs
+         * instance that is still mounted while the new one is set up. */
+        if (asprintf(&dir_name, ".systemd-%s-workdir-%016" PRIx64, f, random_u64()) < 0)
                 return log_oom();
 
         free(f);
@@ -1680,10 +1699,12 @@ static int merge_hierarchy(
                 const char *origin_content,
                 const char *meta_path,
                 const char *overlay_path,
-                const char *workspace_path) {
+                const char *workspace_path,
+                char **ret_work_dir) {
 
         _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
         _cleanup_strv_free_ char **used_paths = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *work_dir = NULL;
         size_t extensions_used = 0;
         int r;
 
@@ -1693,6 +1714,7 @@ static int merge_hierarchy(
         assert(meta_path);
         assert(overlay_path);
         assert(workspace_path);
+        assert(ret_work_dir);
 
         mac_selinux_init();
 
@@ -1700,8 +1722,10 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        if (extensions_used == 0 && c->mutable == MUTABLE_NO) /* No extension with files in this hierarchy? Then don't do anything. */
+        if (extensions_used == 0 && c->mutable == MUTABLE_NO) { /* No extension with files in this hierarchy? Then don't do anything. */
+                *ret_work_dir = NULL;
                 return 0;
+        }
 
         r = overlayfs_paths_new(c, hierarchy, workspace_path, &op);
         if (r < 0)
@@ -1720,6 +1744,13 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
+        /* The work directory is created below, remove it again if we fail (it may be on persistent storage) */
+        if (op->work_dir) {
+                work_dir = strdup(op->work_dir);
+                if (!work_dir)
+                        return log_oom();
+        }
+
         r = mount_overlayfs_with_op(op, c->image_class, c->noexec, overlay_path, meta_path, c->overlayfs_mount_options);
         if (r < 0)
                 return r;
@@ -1731,6 +1762,8 @@ static int merge_hierarchy(
         r = make_mounts_read_only(c->image_class, overlay_path, op->upper_dir && op->work_dir);
         if (r < 0)
                 return r;
+
+        *ret_work_dir = TAKE_PTR(work_dir);
 
         return 1;
 }
@@ -1776,24 +1809,85 @@ static const ImagePolicy* pick_image_policy(const Context *c, const Image *img) 
         return image_class_info[img->class].default_image_policy;
 }
 
-static int unmerge_hierarchy(const Context *c, const char *p, const char *submounts_path) {
-        _cleanup_free_ char *dot_dir = NULL, *work_dir_info_file = NULL;
+static int read_work_dir_at(
+                const Context *c,
+                int dir_fd,
+                const char *hierarchy_path,
+                const char *log_path,
+                char **ret) {
+
+        _cleanup_free_ char *work_dir_info_file = NULL, *escaped_work_dir_in_root = NULL,
+                        *work_dir_in_root = NULL, *work_dir = NULL;
+        ssize_t l;
+        int r;
+
+        assert(c);
+        assert(hierarchy_path);
+        assert(log_path);
+        assert(ret);
+
+        work_dir_info_file = path_join(hierarchy_path, image_class_info[c->image_class].dot_directory_name, "work_dir");
+        if (!work_dir_info_file)
+                return log_oom();
+
+        r = read_one_line_file_at(dir_fd, work_dir_info_file, &escaped_work_dir_in_root);
+        if (r == -ENOENT) {
+                *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read work directory path of hierarchy '%s': %m", log_path);
+
+        l = cunescape_length(escaped_work_dir_in_root, r, 0, &work_dir_in_root);
+        if (l < 0)
+                return log_error_errno(l, "Failed to unescape work directory path of hierarchy '%s': %m", log_path);
+        if (path_is_absolute(work_dir_in_root) || !path_is_normalized(work_dir_in_root))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid work directory path '%s' of hierarchy '%s'.", work_dir_in_root, log_path);
+
+        work_dir = path_join(empty_to_root(c->root), work_dir_in_root);
+        if (!work_dir)
+                return log_oom();
+
+        *ret = TAKE_PTR(work_dir);
+        return 1;
+}
+
+static int unmerge_hierarchy(
+                const Context *c,
+                const char *p,
+                bool unpeel_only,
+                SubMount **ret_submounts,
+                size_t *ret_n_submounts) {
+
+        _cleanup_free_ char *dot_dir = NULL;
+        SubMount *submounts = NULL;
+        size_t n_submounts = 0;
         int n_unmerged = 0;
         int r;
 
         assert(c);
         assert(p);
+        assert(ret_submounts);
+        assert(ret_n_submounts);
+
+        CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
+
+        /* Detached clones of the submounts below the hierarchy are returned for the caller to attach them
+         * where they belong now. With unpeel_only=true we only expose what's below our own copy of the mount
+         * tree during a refresh. Since the overlayfs is still in use in the host namespace, the work
+         * directory of a mutable overlayfs is then left in place. */
 
         dot_dir = path_join(p, image_class_info[c->image_class].dot_directory_name);
         if (!dot_dir)
                 return log_oom();
 
-        work_dir_info_file = path_join(dot_dir, "work_dir");
-        if (!work_dir_info_file)
-                return log_oom();
-
         for (;;) {
-                _cleanup_free_ char *escaped_work_dir_in_root = NULL, *work_dir = NULL;
+                _cleanup_free_ char *work_dir = NULL;
+                SubMount *layer_submounts = NULL;
+                size_t n_layer_submounts = 0;
+
+                CLEANUP_ARRAY(layer_submounts, n_layer_submounts, sub_mount_array_free);
 
                 /* We only unmount /usr/ if it is a mount point and really one of ours, in order not to break
                  * systems where /usr/ is a mount point of its own already. */
@@ -1804,25 +1898,9 @@ static int unmerge_hierarchy(const Context *c, const char *p, const char *submou
                 if (r == 0)
                         break;
 
-                r = read_one_line_file(work_dir_info_file, &escaped_work_dir_in_root);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                return log_error_errno(r, "Failed to read '%s': %m", work_dir_info_file);
-                } else {
-                        _cleanup_free_ char *work_dir_in_root = NULL;
-                        ssize_t l;
-
-                        l = cunescape_length(escaped_work_dir_in_root, r, 0, &work_dir_in_root);
-                        if (l < 0)
-                                return log_error_errno(l, "Failed to unescape work directory path: %m");
-                        if (path_is_absolute(work_dir_in_root) || !path_is_normalized(work_dir_in_root))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid work directory path '%s'.", work_dir_in_root);
-
-                        work_dir = path_join(c->root, work_dir_in_root);
-                        if (!work_dir)
-                                return log_oom();
-                }
+                r = read_work_dir_at(c, AT_FDCWD, p, p, &work_dir);
+                if (r < 0)
+                        return r;
 
                 r = umount_verbose(LOG_DEBUG, dot_dir, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0) {
@@ -1833,56 +1911,74 @@ static int unmerge_hierarchy(const Context *c, const char *p, const char *submou
                                 return log_error_errno(r, "Failed to unmount '%s': %m", dot_dir);
                 }
 
-                /* After we've unmounted the metadata directory, save all other submounts so we can restore
-                 * them after unmerging the hierarchy. */
-                r = move_submounts(p, submounts_path);
+                /* After we've unmounted the metadata directory, save all other submounts so that they can
+                 * be restored after unmerging the hierarchy. */
+                r = get_sub_mounts(p, &layer_submounts, &n_layer_submounts);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to get submounts for %s: %m", p);
+
+                if (!GREEDY_REALLOC(submounts, n_submounts + n_layer_submounts))
+                        return log_oom();
+                FOREACH_ARRAY(m, layer_submounts, n_layer_submounts)
+                        submounts[n_submounts++] = (SubMount) {
+                                .path = TAKE_PTR(m->path),
+                                .mount_fd = TAKE_FD(m->mount_fd),
+                        };
 
                 r = umount_verbose(LOG_ERR, p, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
                         return r;
 
-                if (work_dir) {
+                if (work_dir && !unpeel_only) {
                         r = rm_rf(work_dir, REMOVE_ROOT | REMOVE_MISSING_OK | REMOVE_PHYSICAL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to remove '%s': %m", work_dir);
                 }
 
-                log_info("Unmerged '%s'.", p);
+                if (unpeel_only)
+                        log_debug("Unpeeled '%s'.", p);
+                else
+                        log_info("Unmerged '%s'.", p);
                 n_unmerged++;
         }
+
+        *ret_submounts = TAKE_PTR(submounts);
+        *ret_n_submounts = n_submounts;
+        n_submounts = 0;
 
         return n_unmerged;
 }
 
-static int unmerge_subprocess(
-                const Context *c,
-                const char *workspace) {
-
-        int r, ret = 0;
+static int unmerge_hierarchy_in_place(const Context *c, const char *p) {
+        SubMount *submounts = NULL;
+        size_t n_submounts = 0;
+        int r, n_unmerged;
 
         assert(c);
-        assert(workspace);
-        assert(path_startswith(workspace, "/run/"));
+        assert(p);
 
-        /* Mark the whole of /run as MS_SLAVE, so that we can mount stuff below it that doesn't show up on
-         * the host otherwise. */
-        r = mount_nofollow_verbose(LOG_ERR, NULL, "/run", NULL, MS_SLAVE|MS_REC, NULL);
+        CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
+
+        /* Unmerges the hierarchy and puts its submounts back in place on the bare hierarchy. */
+
+        n_unmerged = unmerge_hierarchy(c, p, /* unpeel_only= */ false, &submounts, &n_submounts);
+        if (n_unmerged <= 0)
+                return n_unmerged;
+
+        r = attach_submounts(submounts, n_submounts, p, p);
         if (r < 0)
                 return r;
 
-        /* Let's create the workspace if it's missing */
-        r = mkdir_p(workspace, 0700);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create '%s': %m", workspace);
+        return n_unmerged;
+}
+
+static int unmerge_hierarchies(const Context *c) {
+        int r, ret = 0;
+
+        assert(c);
 
         STRV_FOREACH(h, c->hierarchies) {
-                _cleanup_free_ char *submounts_path = NULL, *resolved = NULL;
-
-                submounts_path = path_join(workspace, "submounts", *h);
-                if (!submounts_path)
-                        return log_oom();
+                _cleanup_free_ char *resolved = NULL;
 
                 r = chase(*h, c->root, CHASE_PREFIX_ROOT, &resolved, NULL);
                 if (r == -ENOENT) {
@@ -1894,20 +1990,7 @@ static int unmerge_subprocess(
                         continue;
                 }
 
-                r = unmerge_hierarchy(c, resolved, submounts_path);
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        continue;
-                }
-                if (r == 0)
-                        continue;
-
-                /* If we unmerged something, then we have to move the submounts from the hierarchy back into
-                 * place in the host's original hierarchy. */
-
-                r = move_submounts(submounts_path, resolved);
-                if (r < 0)
-                        return r;
+                RET_GATHER(ret, unmerge_hierarchy_in_place(c, resolved));
         }
 
         return ret;
@@ -1927,22 +2010,9 @@ static int unmerge(const Context *c) {
         if (r < 0)
                 return r;
 
-        r = pidref_safe_fork(
-                        "(sd-unmerge)",
-                        FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS,
-                        /* ret= */ NULL);
+        r = unmerge_hierarchies(c);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                /* Child with its own mount namespace */
-
-                r = unmerge_subprocess(c, "/run/systemd/sysext");
-
-                /* Our namespace ceases to exist here, also implicitly detaching all temporary mounts we
-                 * created below /run. Nice! */
-
-                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
-        }
 
         if (need_to_reload) {
                 r = daemon_reload();
@@ -1958,10 +2028,27 @@ static int unmerge(const Context *c) {
         return 0;
 }
 
+typedef struct WorkDirs {
+        char **paths;
+        bool keep;
+} WorkDirs;
+
+static void work_dirs_done(WorkDirs *w) {
+        assert(w);
+
+        /* Removes the work directories we created, unless the merge was handed over to our parent. */
+        if (!w->keep)
+                STRV_FOREACH(p, w->paths)
+                        (void) rm_rf(*p, REMOVE_ROOT|REMOVE_MISSING_OK|REMOVE_PHYSICAL);
+
+        w->paths = strv_free(w->paths);
+}
+
 static int merge_subprocess(
                 const Context *c,
                 Hashmap *images,
-                const char *workspace) {
+                const char *workspace,
+                int socket_fd) {
 
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL,
                         *host_os_release_version_id = NULL, *host_os_release_api_level = NULL,
@@ -1970,6 +2057,7 @@ static int merge_subprocess(
         _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *extensions_origin_entries = NULL,
                         *extensions_origin_json = NULL, *mutable_dir_entries = NULL;
+        _cleanup_(work_dirs_done) WorkDirs work_dirs = {};
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
         Image *img;
@@ -1984,12 +2072,11 @@ static int merge_subprocess(
         }
 
         assert(path_startswith(workspace, "/run/"));
+        assert(socket_fd >= 0);
 
-        /* Mark the whole of /run as MS_SLAVE, so that we can mount stuff below it that doesn't show up on
-         * the host otherwise. */
-        r = mount_nofollow_verbose(LOG_ERR, NULL, "/run", NULL, MS_SLAVE|MS_REC, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to remount /run/ MS_SLAVE: %m");
+        /* Note that we run in our own mount namespace with MS_SLAVE, hence nothing we mount or unmount here
+         * is visible on the host. The finished overlayfs trees are handed to our parent process, which
+         * places them in the host's mount namespace. */
 
         /* Let's create the workspace if it's missing */
         r = mkdir_p(workspace, 0700);
@@ -1997,9 +2084,7 @@ static int merge_subprocess(
                 return log_error_errno(r, "Failed to create '%s': %m", workspace);
 
         /* Let's mount a tmpfs to our workspace. This way we don't need to clean up the inodes we mount over,
-         * but let the kernel do that entirely automatically, once our namespace dies. Note that this file
-         * system won't be visible to anyone but us, since we opened our own namespace and then made the
-         * /run/ hierarchy (which our workspace is contained in) MS_SLAVE, see above. */
+         * but let the kernel do that entirely automatically, once our namespace dies. */
         r = mount_nofollow_verbose(LOG_ERR, image_class_info[c->image_class].short_identifier, workspace, "tmpfs", 0, "mode=0700");
         if (r < 0)
                 return r;
@@ -2392,36 +2477,13 @@ static int merge_subprocess(
                 paths[k] = TAKE_PTR(p);
         }
 
-        /* Let's now unmerge the status quo ante, since to build the new overlayfs we need a reference to the
-         * underlying fs. */
-        STRV_FOREACH(h, c->hierarchies) {
-                _cleanup_free_ char *submounts_path = NULL, *resolved = NULL;
-
-                submounts_path = path_join(workspace, "submounts", *h);
-                if (!submounts_path)
-                        return log_oom();
-
-                r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), *h);
-
-                r = unmerge_hierarchy(c, resolved, submounts_path);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        continue;
-
-                /* If we didn't unmerge anything, then we have to move the submounts from the host's
-                 * original hierarchy. */
-
-                r = move_submounts(resolved, submounts_path);
-                if (r < 0)
-                        return r;
-        }
-
         /* Create overlayfs mounts for all hierarchies */
         STRV_FOREACH(h, c->hierarchies) {
-                _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL, *merge_hierarchy_workspace = NULL, *submounts_path = NULL;
+                _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL, *merge_hierarchy_workspace = NULL, *resolved = NULL;
+                SubMount *submounts = NULL;
+                size_t n_submounts = 0;
+
+                CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
 
                 meta_path = path_join(workspace, "meta", *h); /* The place where to store metadata about this instance */
                 if (!meta_path)
@@ -2436,10 +2498,25 @@ static int merge_subprocess(
                 if (!merge_hierarchy_workspace)
                         return log_oom();
 
-                submounts_path = path_join(workspace, "submounts", *h);
-                if (!submounts_path)
-                        return log_oom();
+                r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), *h);
 
+                /* Let's now unpeel the status quo ante in our private copy of the mount tree, since to build
+                 * the new overlayfs we need a reference to the underlying fs. The host keeps the old
+                 * overlayfs until our parent replaces it. This hands us clones of the submounts of the old
+                 * overlayfs, which we'll attach to the new one below. */
+                r = unmerge_hierarchy(c, resolved, /* unpeel_only= */ true, &submounts, &n_submounts);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        /* Nothing merged so far, hence clone the submounts of the host's hierarchy instead. */
+                        r = get_sub_mounts(resolved, &submounts, &n_submounts);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get submounts for %s: %m", resolved);
+                }
+
+                _cleanup_free_ char *work_dir = NULL;
                 r = merge_hierarchy(
                                 c,
                                 *h,
@@ -2448,21 +2525,28 @@ static int merge_subprocess(
                                 extensions_origin_content,
                                 meta_path,
                                 overlay_path,
-                                merge_hierarchy_workspace);
+                                merge_hierarchy_workspace,
+                                &work_dir);
                 if (r < 0)
                         return r;
 
-                /* After the new hierarchy is set up, move the submounts from the original hierarchy into
-                 * place. */
+                if (work_dir && strv_consume(&work_dirs.paths, TAKE_PTR(work_dir)) < 0)
+                        return log_oom();
+                if (r == 0) /* Hierarchy is empty in all extensions and mutability is off, so nothing was
+                             * mounted. If the hierarchy is currently merged on the host, our parent will
+                             * unmerge it, preserving its submounts. */
+                        continue;
 
-                r = move_submounts(submounts_path, overlay_path);
+                /* After the new hierarchy is set up, move the submounts into place on top of it. */
+                r = attach_submounts(submounts, n_submounts, resolved, overlay_path);
                 if (r < 0)
                         return r;
         }
 
-        /* And move them all into place. This is where things appear in the host namespace */
+        /* And hand them all to our parent, which will move them into place in the host namespace. */
         STRV_FOREACH(h, c->hierarchies) {
-                _cleanup_free_ char *p = NULL, *resolved = NULL;
+                _cleanup_free_ char *p = NULL;
+                _cleanup_close_ int tree_fd = -EBADF;
 
                 p = path_join(workspace, "overlay", *h);
                 if (!p)
@@ -2474,27 +2558,314 @@ static int merge_subprocess(
                 if (r < 0)
                         return log_error_errno(r, "Failed to check if '%s' exists: %m", p);
 
-                r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), *h);
+                /* Clone recursively to bring along the submounts and our read-only bind mount of metadata. */
+                tree_fd = open_tree(AT_FDCWD, p, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE);
+                if (tree_fd < 0)
+                        return log_error_errno(errno, "Failed to clone mount tree '%s': %m", p);
 
-                r = mkdir_p(resolved, 0755);
+                /* Our parent only reads the socket once we exited, hence don't block if its buffer is full */
+                struct iovec iov = IOVEC_MAKE_STRING(*h);
+                r = send_one_fd_iov(socket_fd, tree_fd, &iov, 1, MSG_DONTWAIT);
+                if (r == -EAGAIN)
+                        return log_error_errno(r, "Too many hierarchies to hand over to parent at once, refusing.");
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create hierarchy mount point '%s': %m", resolved);
-
-                /* Using MS_REC to potentially bring in our read-only bind mount of metadata. */
-                r = mount_nofollow_verbose(LOG_ERR, p, resolved, NULL, MS_BIND|MS_REC, NULL);
-                if (r < 0)
-                        return r;
-
-                log_info("Merged extensions into '%s'.", resolved);
+                        return log_error_errno(r, "Failed to send mount tree '%s' to parent: %m", p);
         }
+
+        /* Everything was handed over, our parent takes care of the work directories from now on */
+        work_dirs.keep = true;
 
         return MERGE_MOUNTED;
 }
 
+typedef struct HierarchyTree {
+        char *hierarchy;
+        int tree_fd;
+        char *work_dir; /* The work directory of the tree's overlayfs, if any */
+} HierarchyTree;
+
+static void hierarchy_tree_done(HierarchyTree *t) {
+        assert(t);
+
+        /* If the tree fd is still open the tree was never mounted, hence nothing but the tree itself
+         * references its work directory anymore, remove it. */
+        if (t->tree_fd >= 0 && t->work_dir) {
+                t->tree_fd = safe_close(t->tree_fd);
+                (void) rm_rf(t->work_dir, REMOVE_ROOT|REMOVE_MISSING_OK|REMOVE_PHYSICAL);
+        }
+
+        t->hierarchy = mfree(t->hierarchy);
+        t->tree_fd = safe_close(t->tree_fd);
+        t->work_dir = mfree(t->work_dir);
+}
+
+static void hierarchy_tree_array_free(HierarchyTree *trees, size_t n) {
+        FOREACH_ARRAY(t, trees, n)
+                hierarchy_tree_done(t);
+
+        free(trees);
+}
+
+static HierarchyTree* hierarchy_tree_find(HierarchyTree *trees, size_t n, const char *hierarchy) {
+        assert(hierarchy);
+
+        FOREACH_ARRAY(t, trees, n)
+                if (path_equal(t->hierarchy, hierarchy))
+                        return t;
+
+        return NULL;
+}
+
+static int receive_hierarchy_trees(const Context *c, int socket_fd, HierarchyTree **ret_trees, size_t *ret_n_trees) {
+        HierarchyTree *trees = NULL;
+        size_t n_trees = 0;
+        int r;
+
+        assert(c);
+        assert(socket_fd >= 0);
+        assert(ret_trees);
+        assert(ret_n_trees);
+
+        CLEANUP_ARRAY(trees, n_trees, hierarchy_tree_array_free);
+
+        /* Receives the detached overlayfs mount trees the merge subprocess sent us, one message per
+         * hierarchy. This is called after the subprocess exited, and everything is queued already and we
+         * can drain the socket without blocking. */
+
+        for (;;) {
+                char buf[PATH_MAX];
+                struct iovec iov = IOVEC_MAKE(buf, sizeof(buf));
+                _cleanup_close_ int fd = -EBADF;
+                _cleanup_free_ char *h = NULL;
+                ssize_t k;
+
+                k = receive_one_fd_iov(socket_fd, &iov, 1, MSG_DONTWAIT, &fd);
+                if (IN_SET(k, -EAGAIN, -EIO)) /* Nothing queued anymore, or EOF */
+                        break;
+                if (k < 0)
+                        return log_error_errno(k, "Failed to receive mount tree from merge subprocess: %m");
+                if (fd < 0 || k == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Received incomplete mount tree message from merge subprocess.");
+                if ((size_t) k >= sizeof(buf))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Received overly long hierarchy path from merge subprocess.");
+
+                h = strndup(buf, k);
+                if (!h)
+                        return log_oom();
+
+                if (!path_is_absolute(h))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Received invalid hierarchy path '%s' from merge subprocess.", h);
+
+                /* Remember the tree's work directory, so that it can be removed if the tree is never mounted */
+                _cleanup_free_ char *work_dir = NULL;
+                r = read_work_dir_at(c, fd, /* hierarchy_path= */ "", h, &work_dir);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC(trees, n_trees + 1))
+                        return log_oom();
+
+                trees[n_trees++] = (HierarchyTree) {
+                        .hierarchy = TAKE_PTR(h),
+                        .tree_fd = TAKE_FD(fd),
+                        .work_dir = TAKE_PTR(work_dir),
+                };
+        }
+
+        *ret_trees = TAKE_PTR(trees);
+        *ret_n_trees = n_trees;
+        return 0;
+}
+
+static int exchange_hierarchy_tree(
+                int tree_fd,
+                int old_fd,
+                const char *where,
+                bool *new_mounted,
+                bool *old_detached) {
+
+        int r;
+
+        assert(tree_fd >= 0);
+        assert(old_fd >= 0 || old_fd == -EBADF);
+        assert(where);
+        assert(new_mounted);
+        assert(old_detached);
+
+        /* Mounts the detached tree on the hierarchy. If old_fd pins our previous overlayfs there, that is
+         * replaced: atomically by mounting beneath it and unmounting it afterwards, or, if the kernel doesn't
+         * support that (added in 6.5) or refuses it for the mount topology at hand, by unmounting it first
+         * and mounting the tree in its place, with a brief moment where neither is mounted. Unlike
+         * mount_exchange_graceful() we unmount the old overlayfs going by the pinning fd rather than by
+         * path, so that we never unmount something that replaced it meanwhile (a mount stacked on top of it
+         * meanwhile would be hit instead though), and we don't leave it stacked below the new tree in the
+         * fallback case, since that would keep its images and work directory referenced. Both output
+         * parameters are set on failure, too, so that the caller knows what state things are in. Returns > 0
+         * if the tree was mounted beneath the old overlayfs. */
+
+        *new_mounted = *old_detached = false;
+
+        if (old_fd >= 0) {
+                r = RET_NERRNO(move_mount(tree_fd, "", AT_FDCWD, where, MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_BENEATH));
+                if (r >= 0) {
+                        *new_mounted = true;
+
+                        /* The old overlayfs is the topmost mount now, with nothing stacked on its root,
+                         * hence the pinning fd resolves to exactly it. */
+                        r = umountat_detach_verbose(LOG_ERR, old_fd, /* where= */ "");
+                        if (r < 0)
+                                return r;
+
+                        *old_detached = true;
+                        return 1;
+                }
+                if (r != -EINVAL)
+                        return log_error_errno(r, "Failed to mount beneath '%s': %m", where);
+
+                /* Note that we can't mount on top first and detach the old overlayfs afterwards: with the
+                 * new tree stacked on its root, the pinning fd would resolve to the new tree. */
+                log_debug_errno(r, "Mounting beneath '%s' is not supported, unmounting previous merge first: %m", where);
+
+                r = umountat_detach_verbose(LOG_ERR, old_fd, /* where= */ "");
+                if (r < 0)
+                        return r;
+
+                *old_detached = true;
+        }
+
+        r = RET_NERRNO(move_mount(tree_fd, "", AT_FDCWD, where, MOVE_MOUNT_F_EMPTY_PATH));
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount on '%s': %m", where);
+
+        *new_mounted = true;
+        return 0;
+}
+
+static int install_hierarchy(const Context *c, const char *hierarchy, HierarchyTree *tree) {
+        _cleanup_free_ char *resolved = NULL, *old_work_dir = NULL;
+        bool replacing, new_mounted, old_detached;
+        int r;
+
+        assert(c);
+        assert(hierarchy);
+
+        /* Places the new overlayfs tree of a hierarchy (if any) in the host's mount namespace, replacing the
+         * old one, and unmerges the hierarchy if we got no new tree. */
+
+        r = chase(hierarchy, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), hierarchy);
+
+        if (!tree) {
+                /* The extensions don't provide this hierarchy anymore, unmerge it if it is merged. */
+                r = unmerge_hierarchy_in_place(c, resolved);
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
+
+        r = mkdir_p(resolved, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create hierarchy mount point '%s': %m", resolved);
+
+        /* Pin what's currently on the hierarchy, so that the checks and the eventual detaching of the old
+         * overlayfs below all refer to the same mount, regardless of what happens to the path meanwhile.
+         * Note that we only ever look at the topmost mount: if there's more than one of our overlayfs
+         * stacked here (which can only be the result of somebody bind mounting the hierarchy onto itself),
+         * the lower ones remain until the hierarchy is unmerged, and since they share the superblock with
+         * the one we replace they lose their work directory when we remove it below. */
+        _cleanup_close_ int hierarchy_fd = open(resolved, O_PATH|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (hierarchy_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", resolved);
+
+        r = is_our_mount_point_at(c->image_class, hierarchy_fd, resolved);
+        if (r < 0)
+                return r;
+        replacing = r > 0;
+
+        if (replacing) {
+                r = read_work_dir_at(c, hierarchy_fd, /* hierarchy_path= */ "", resolved, &old_work_dir);
+                if (r < 0)
+                        return r;
+        }
+
+        SubMount *submounts = NULL;
+        size_t n_submounts = 0;
+        CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
+
+        if (!replacing) {
+                /* The new tree carries clones of the submounts currently below the hierarchy. Pin the
+                 * originals now, so that we can detach them once the tree is in place and hides them.
+                 * (When replacing a previous merge the originals are attached to the old overlayfs and go
+                 * away with it.) */
+                r = get_sub_mounts(resolved, &submounts, &n_submounts);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get submounts for %s: %m", resolved);
+
+                FOREACH_ARRAY(m, submounts, n_submounts) {
+                        _cleanup_close_ int fd = open(m->path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to pin submount '%s': %m", m->path);
+
+                        /* We don't need a clone but a pinning fd of the original */
+                        close_and_replace(m->mount_fd, fd);
+                }
+        }
+
+        r = exchange_hierarchy_tree(tree->tree_fd, replacing ? hierarchy_fd : -EBADF, resolved, &new_mounted, &old_detached);
+
+        if (new_mounted) {
+                /* The tree is in place, hence its work directory is in use now, don't remove it anymore */
+                tree->tree_fd = safe_close(tree->tree_fd);
+                tree->work_dir = mfree(tree->work_dir);
+        }
+
+        if (old_detached && old_work_dir) {
+                /* Now that the old overlayfs is gone, its unique work directory should go, too. */
+                int k;
+
+                k = rm_rf(old_work_dir, REMOVE_ROOT|REMOVE_MISSING_OK|REMOVE_PHYSICAL);
+                if (k < 0) {
+                        log_error_errno(k, "Failed to remove '%s': %m", old_work_dir);
+                        RET_GATHER(r, k);
+                }
+        }
+
+        if (r < 0) {
+                if (old_detached && !new_mounted)
+                        /* Unmounted the old overlayfs but failed to mount the new tree. Its submounts went
+                         * away with it, and their clones only exist in the tree we couldn't mount. */
+                        log_error("Failed to replace previous merge of '%s', the hierarchy is unmerged now, without its submounts.", resolved);
+
+                return r;
+        }
+
+        if (replacing)
+                log_debug("Replaced previous merge of '%s' by mounting %s it.", resolved, r > 0 ? "beneath" : "in place of");
+
+        /* Detach the now hidden original submounts, going by fd since they can't be reached by path anymore */
+        FOREACH_ARRAY(m, submounts, n_submounts)
+                (void) umountat_detach_verbose(LOG_WARNING, m->mount_fd, /* where= */ "");
+
+        log_info("Merged extensions into '%s'.", resolved);
+        return 0;
+}
+
+static int install_hierarchies(const Context *c, HierarchyTree *trees, size_t n_trees) {
+        int ret = 0;
+
+        assert(c);
+
+        STRV_FOREACH(h, c->hierarchies)
+                RET_GATHER(ret, install_hierarchy(c, *h, hierarchy_tree_find(trees, n_trees, *h)));
+
+        return ret;
+}
+
 static int merge(const Context *c, Hashmap *images) {
 
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
 
         assert(c);
@@ -2503,14 +2874,22 @@ static int merge(const Context *c, Hashmap *images) {
         (void) dlopen_libblkid(LOG_DEBUG);
         (void) dlopen_libmount(LOG_DEBUG);
 
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
+                return log_error_errno(errno, "Failed to create socket pair: %m");
+
+        /* The child queues one message per hierarchy before we start reading, make sure they all fit */
+        (void) fd_inc_sndbuf(pair[1], strv_length(c->hierarchies) * 4096);
+
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        r = pidref_safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pidref);
+        r = pidref_safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, &pidref);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork off child: %m");
         if (r == 0) {
-                /* Child with its own mount namespace */
+                /* Child with its own mount namespace (MS_SLAVE) */
 
-                r = merge_subprocess(c, images, "/run/systemd/sysext");
+                pair[0] = safe_close(pair[0]);
+
+                r = merge_subprocess(c, images, "/run/systemd/sysext", pair[1]);
 
                 /* Our namespace ceases to exist here, also implicitly detaching all temporary mounts we
                  * created below /run. Nice! */
@@ -2525,6 +2904,8 @@ static int merge(const Context *c, Hashmap *images) {
                 _exit(EXIT_SUCCESS);
         }
 
+        pair[1] = safe_close(pair[1]);
+
         r = pidref_wait_for_terminate_and_check("(sd-merge)", &pidref, WAIT_LOG_ABNORMAL);
         if (r < 0)
                 return r;
@@ -2534,6 +2915,20 @@ static int merge(const Context *c, Hashmap *images) {
                 return 1; /* Same return code as below when we have merged new */
         if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to merge hierarchies");
+
+        /* The child assembled the new overlayfs trees without touching the host. Now that it succeeded, pick
+         * up the trees and move them into place. */
+        HierarchyTree *trees = NULL;
+        size_t n_trees = 0;
+        CLEANUP_ARRAY(trees, n_trees, hierarchy_tree_array_free);
+
+        r = receive_hierarchy_trees(c, pair[0], &trees, &n_trees);
+        if (r < 0)
+                return r;
+
+        r = install_hierarchies(c, trees, n_trees);
+        if (r < 0)
+                return r;
 
         _cleanup_set_free_ Set *units_to_restart = NULL, *units_to_reload_or_restart = NULL;
         bool need_to_reload;

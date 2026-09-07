@@ -363,6 +363,33 @@ extension_verify_mount_option() (
     done
 )
 
+# Checks that exactly one mount is established on a path, i.e. no stale copy hides below the visible one
+verify_single_mount() {
+    local path=${1:?}
+    local message=${2:?}
+    local n
+
+    mountpoint "$path"
+    n=$(awk -v t="$path" '$5 == t' /proc/self/mountinfo | wc -l)
+    if [ "$n" != 1 ]; then
+        echo >&2 "Expected exactly one mount on $path $message, found $n"
+        exit 1
+    fi
+}
+
+# Checks that exactly one overlayfs is mounted on a hierarchy
+verify_single_overlay() {
+    local path=${1:?}
+    local message=${2:?}
+    local n
+
+    n=$(awk -v t="$path" '$5 == t && $0 ~ / - overlay /' /proc/self/mountinfo | wc -l)
+    if [ "$n" != 1 ]; then
+        echo >&2 "Expected exactly one overlayfs on $path $message, found $n"
+        exit 1
+    fi
+}
+
 run_systemd_sysext() {
     local root=${1:-}
     shift
@@ -1955,6 +1982,253 @@ mountpoint "$outer_mp"
 mountpoint "$inner_mp"
 test -f "$outer_mp/outer-marker"
 test -f "$inner_mp/inner-marker"
+)
+
+( init_trap
+: "Failed refresh leaves the existing merge and its submounts untouched, successful refresh replaces it"
+fake_root=${roots_dir:+"$roots_dir/refresh-failure"}
+hierarchy=/opt
+
+# The mount ID checks need a unique ID from listmount. Without it they are skipped but the rest of the test
+# still runs, which matters since old kernels are also the ones taking the fallback path without mount beneath.
+if findmnt --kernel=listmount >/dev/null; then
+    mount_id() {
+        findmnt --kernel=listmount -o UNIQ-ID --raw --noheadings --target "$fake_root$hierarchy"
+    }
+else
+    echo >&2 "Kernel too old for listmount, skipping mount ID checks"
+    mount_id() {
+        echo ""
+    }
+fi
+if ! systemd-analyze compare-versions "$(uname -r)" ge 5.12; then
+    echo >&2 "Kernel too old for mount_setattr (need >= 5.12), skipping test"
+    exit 0
+fi
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_hierarchy "$fake_root" "$hierarchy"
+
+# A submount that exists before the first merge
+submount="$fake_root$hierarchy/submount"
+mkdir -p "$submount"
+mount -t tmpfs tmpfs "$submount"
+prepend_trap "umount -l ${submount@Q} 2>/dev/null || true"
+touch "$submount/marker"
+
+# Mount point for a submount that is added on top of the merged (read-only) hierarchy later
+later_submount="$fake_root$hierarchy/later"
+mkdir -p "$later_submount"
+prepend_trap "rmdir ${later_submount@Q} 2>/dev/null || true"
+
+# Nested inside the later submount, added between two refreshes
+nested_submount="$later_submount/nested"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+MOUNTID1=$(mount_id)
+# The submount is carried over into the merged hierarchy, the original below it is detached
+verify_single_mount "$submount" "after merge"
+test -f "$submount/marker"
+
+# Add a submount on top of the merged hierarchy
+mount -t tmpfs tmpfs "$later_submount"
+prepend_trap "umount -l ${later_submount@Q} 2>/dev/null || true"
+touch "$later_submount/later-marker"
+
+# An unknown overlayfs mount option makes assembling the new overlayfs fail. The existing merge must survive
+# this, including the submounts.
+if SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS=nonexistent_option=1 run_systemd_sysext "$fake_root" refresh; then
+    echo >&2 "Refresh with an invalid overlayfs mount option unexpectedly succeeded"
+    exit 1
+fi
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+MOUNTID2=$(mount_id)
+if [ "$MOUNTID1" != "$MOUNTID2" ]; then
+    echo >&2 "Failed refresh replaced the existing merge"
+    exit 1
+fi
+verify_single_overlay "$fake_root$hierarchy" "after failed refresh"
+# The injected failure happens while building /usr/, which is the first hierarchy, so check that one too
+test -f "$fake_root/usr/.systemd-sysext/extensions"
+verify_single_overlay "$fake_root/usr" "after failed refresh"
+verify_single_mount "$submount" "after failed refresh"
+test -f "$submount/marker"
+verify_single_mount "$later_submount" "after failed refresh"
+test -f "$later_submount/later-marker"
+
+# A successful refresh replaces the merge, keeps both submounts, and leaves exactly one overlayfs behind
+run_systemd_sysext "$fake_root" refresh --always-refresh=yes
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+MOUNTID3=$(mount_id)
+if [ -n "$MOUNTID3" ] && [ "$MOUNTID2" = "$MOUNTID3" ]; then
+    echo >&2 "Refresh did not replace the existing merge"
+    exit 1
+fi
+verify_single_overlay "$fake_root$hierarchy" "after refresh"
+verify_single_mount "$submount" "after refresh"
+test -f "$submount/marker"
+verify_single_mount "$later_submount" "after refresh"
+test -f "$later_submount/later-marker"
+
+# Add a nested submount between two refreshes
+mkdir -p "$nested_submount"
+mount -t tmpfs tmpfs "$nested_submount"
+prepend_trap "umount -l ${nested_submount@Q} 2>/dev/null || true"
+touch "$nested_submount/nested-marker"
+
+run_systemd_sysext "$fake_root" refresh --always-refresh=yes
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+MOUNTID4=$(mount_id)
+if [ -n "$MOUNTID4" ] && [ "$MOUNTID3" = "$MOUNTID4" ]; then
+    echo >&2 "Second refresh did not replace the existing merge"
+    exit 1
+fi
+verify_single_overlay "$fake_root$hierarchy" "after second refresh"
+verify_single_mount "$submount" "after second refresh"
+test -f "$submount/marker"
+verify_single_mount "$later_submount" "after second refresh"
+test -f "$later_submount/later-marker"
+verify_single_mount "$nested_submount" "after second refresh"
+test -f "$nested_submount/nested-marker"
+
+# All of them survive the unmerge, too
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+verify_single_mount "$submount" "after unmerge"
+test -f "$submount/marker"
+verify_single_mount "$later_submount" "after unmerge"
+test -f "$later_submount/later-marker"
+verify_single_mount "$nested_submount" "after unmerge"
+test -f "$nested_submount/nested-marker"
+)
+
+( init_trap
+: "Refresh unmerges a hierarchy that is no longer provided by any extension"
+fake_root=${roots_dir:+"$roots_dir/refresh-dropped-hierarchy"}
+hierarchy=/opt
+
+if ! systemd-analyze compare-versions "$(uname -r)" ge 5.12; then
+    echo >&2 "Kernel too old for mount_setattr (need >= 5.12), skipping test"
+    exit 0
+fi
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_hierarchy "$fake_root" "$hierarchy"
+
+submount="$fake_root$hierarchy/submount"
+mkdir -p "$submount"
+mount -t tmpfs tmpfs "$submount"
+prepend_trap "umount -l ${submount@Q} 2>/dev/null || true"
+touch "$submount/marker"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+# The extension-release file makes /usr/ part of the merge, too
+test -f "$fake_root/usr/.systemd-sysext/extensions"
+mountpoint "$submount"
+test -f "$submount/marker"
+
+# Drop the hierarchy from the extension by emptying its directory, the refresh then unmerges it while /usr/
+# stays merged. An empty hierarchy directory in the extension counts as not provided. This relies on the
+# extension-release file living below /usr/, hence make sure that's not the hierarchy we empty.
+if [ "$hierarchy" = "/usr" ]; then
+    echo >&2 "This test requires a hierarchy other than /usr"
+    exit 1
+fi
+find "$fake_root/var/lib/extensions/test-extension$hierarchy" -mindepth 1 -delete
+run_systemd_sysext "$fake_root" refresh --always-refresh=yes
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+test ! -e "$fake_root$hierarchy/.systemd-sysext"
+test -f "$fake_root/usr/.systemd-sysext/extensions"
+verify_single_mount "$submount" "after refresh"
+test -f "$submount/marker"
+
+run_systemd_sysext "$fake_root" unmerge
+test ! -e "$fake_root/usr/.systemd-sysext"
+verify_single_mount "$submount" "after unmerge"
+test -f "$submount/marker"
+)
+
+( init_trap
+: "Refresh of a mutable merge switches to a new work directory and removes the old one"
+fake_root=${roots_dir:+"$roots_dir/refresh-mutable-work-dir"}
+hierarchy=/opt
+extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+extension_data_dir_usr="$fake_root/var/lib/extensions.mutable/usr"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_extension_mutable_dir "$extension_data_dir"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+# The extension-release file makes /usr/ mutable as well, clean up its extensions.mutable directory, too
+prepend_trap "rm -rf ${extension_data_dir_usr@Q}"
+
+# Counts the work directories of all hierarchies, i.e. of /usr/ and of $hierarchy
+count_work_dirs() {
+    find "$fake_root/var/lib/extensions.mutable" -mindepth 1 -maxdepth 1 -name '.systemd-*-workdir*' | wc -l
+}
+
+verify_work_dirs() {
+    local expected=${1:?}
+    local message=${2:?}
+    local n
+
+    n=$(count_work_dirs)
+    if [ "$n" != "$expected" ]; then
+        echo >&2 "Expected $expected work directories $message, found $n"
+        exit 1
+    fi
+}
+
+run_systemd_sysext "$fake_root" --mutable=yes merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h -u
+WORKDIR1=$(<"$fake_root$hierarchy/.systemd-sysext/work_dir")
+test -d "$fake_root/$WORKDIR1"
+verify_work_dirs 2 "after merge"
+
+# A failed refresh must leave the work directory of the existing merge alone, and must not leave the work
+# directory it created for the new overlayfs behind
+if SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS=nonexistent_option=1 run_systemd_sysext "$fake_root" --mutable=yes refresh; then
+    echo >&2 "Mutable refresh with an invalid overlayfs mount option unexpectedly succeeded"
+    exit 1
+fi
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h -u
+test -d "$fake_root/$WORKDIR1"
+verify_work_dirs 2 "after failed refresh"
+
+# Make the refresh fail on $hierarchy only, after /usr/ was assembled already: with a tmpfs on the write
+# routing directory no work directory can be placed next to it (it must be on the same file system), so the
+# work directory already created for /usr/ must be removed again.
+mount -t tmpfs -o mode=0755 tmpfs "$extension_data_dir"
+prepend_trap "umount -l ${extension_data_dir@Q} 2>/dev/null || true"
+if run_systemd_sysext "$fake_root" --mutable=yes refresh --always-refresh=yes; then
+    echo >&2 "Mutable refresh with a write routing directory on a different file system unexpectedly succeeded"
+    exit 1
+fi
+umount "$extension_data_dir"
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h -u
+test -d "$fake_root/$WORKDIR1"
+verify_work_dirs 2 "after failed refresh of one hierarchy"
+
+run_systemd_sysext "$fake_root" --mutable=yes refresh --always-refresh=yes
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h -u
+WORKDIR2=$(<"$fake_root$hierarchy/.systemd-sysext/work_dir")
+if [ "$WORKDIR1" = "$WORKDIR2" ]; then
+    echo >&2 "Refresh reused the work directory of the previous merge"
+    exit 1
+fi
+test ! -e "$fake_root/$WORKDIR1"
+test -d "$fake_root/$WORKDIR2"
+verify_work_dirs 2 "after refresh"
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+verify_work_dirs 0 "after unmerge"
 )
 
 } # End of run_sysext_tests
