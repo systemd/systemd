@@ -36,6 +36,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
+#include "fstab-util.h"
 #include "hashmap.h"
 #include "host-properties.h"
 #include "image-policy.h"
@@ -789,6 +790,11 @@ static int mount_overlayfs(
 
 
         if (!isempty(mount_options) && !strextend(&options, ",", mount_options))
+                return log_oom();
+
+        /* A refresh mounts the new overlay while the old one still uses the same upperdir and overlayfs only
+         * permits that with index=off. So append it to the overridden mount options if not set. */
+        if (upper_dir && work_dir && !fstab_test_option(mount_options, "index\0") && !strextend(&options, ",index=off"))
                 return log_oom();
 
         /* Now mount the actual overlayfs */
