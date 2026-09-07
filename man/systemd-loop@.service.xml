@@ -33,7 +33,7 @@
     <citerefentry><refentrytitle>systemd-escape</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
     <option>--path</option> to properly escape a file system path.</para>
 
-    <para>This unit invokes <command>systemd-dissect --attach --quiet --loop-ref-auto</command> on the
+    <para>This unit invokes <command>systemd-dissect --attach --relax --quiet --loop-ref-auto</command> on the
     specified files, see
     <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details.</para>
