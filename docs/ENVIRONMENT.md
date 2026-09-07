@@ -436,7 +436,11 @@ All tools:
   for confext images and supports the systemd-confext multi-call functionality
   of sysext. Read-only hierarchies have no mount options added by
   default. Mutable hierarchies have the following mount options added by
-  default: `redirect_dir=on,noatime,metacopy=off,index=off`.
+  default: `redirect_dir=on,noatime,metacopy=off,index=off`. An override
+  replaces these defaults entirely, so the ones that are still wanted have to
+  be added manually. The only exception is `index=off`, which is still added
+  for mutable hierarchies if the override does not mention `index=`, since
+  refreshing them requires it.
 
 `systemd-tmpfiles`:
 
