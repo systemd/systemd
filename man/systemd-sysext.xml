@@ -358,14 +358,22 @@
       <varlistentry>
         <term><option>refresh</option></term>
         <listitem><para>A combination of <option>unmerge</option> and <option>merge</option>: if already
-        mounted the existing <literal>overlayfs</literal> instance is unmounted temporarily, and then
-        replaced by a new version. This command is useful after installing/removing system extension images,
-        in order to update the <literal>overlayfs</literal> file system accordingly. If no system extensions
-        are installed when this command is executed, the equivalent of <option>unmerge</option> is executed,
-        without establishing any new <literal>overlayfs</literal> instance.
-        Note that currently there's a brief moment where neither the old nor the new <literal>overlayfs</literal>
-        file system is mounted. This implies that all resources supplied by a system extension will briefly
-        disappear — even if it exists continuously during the refresh operation.</para>
+        mounted the existing <literal>overlayfs</literal> instance is replaced by a new version. This command
+        is useful after installing/removing system extension images, in order to update the
+        <literal>overlayfs</literal> file system accordingly. If no system extensions are installed when this
+        command is executed, the equivalent of <option>unmerge</option> is executed, without establishing any
+        new <literal>overlayfs</literal> instance.</para>
+
+        <para>The new <literal>overlayfs</literal> instance is fully assembled before the existing one is
+        touched. If assembling it fails, the existing instance stays in place unmodified. On kernels
+        supporting mounting beneath an existing mount (Linux 6.5 and newer) the replacement is atomic: the new
+        instance is mounted beneath the old one, which is then unmounted, so that resources supplied by a
+        system extension that exists continuously do not disappear during the refresh operation. On older
+        kernels, or if the kernel refuses to mount beneath the existing instance for the mount topology at
+        hand, the old instance is unmounted right before the new one is mounted, hence there is a brief
+        moment where neither is mounted. Each hierarchy is replaced on its own, i.e.
+        <filename>/usr/</filename> and <filename>/opt/</filename> are switched over one after the
+        other.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
