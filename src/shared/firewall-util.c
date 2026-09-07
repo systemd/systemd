@@ -802,6 +802,24 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         return 0;
 }
 
+int fw_nftables_del_table(sd_netlink *nfnl, int family) {
+        int r;
+
+        assert(nfnl);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        r = sd_nfnl_nft_message_new_table(nfnl, &m, /* add= */ false, family, nft_table_name());
+        if (r < 0)
+                return r;
+
+        r = sd_nfnl_call_batch(nfnl, &m, /* n_messages= */ 1, NFNL_DEFAULT_TIMEOUT_USECS);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        return 0;
+}
+
 static int nft_message_append_setelem_iprange(
                 sd_netlink_message *m,
                 const union in_addr_union *source,
