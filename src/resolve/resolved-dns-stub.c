@@ -469,6 +469,8 @@ static int dns_stub_finish_reply_packet(
                 bool edns0_do,  /* set the EDNS0 DNSSEC OK bit? */
                 bool ad,        /* set the DNSSEC authenticated data bit? */
                 bool cd,        /* set the DNSSEC checking disabled bit? */
+                int ede_rcode,  /* EDNS0 Extended DNS Error code */
+                const char *ede_msg, /* EDNS0 Extended DNS Error message */
                 uint16_t max_udp_size, /* The maximum UDP datagram size to advertise to clients */
                 bool nsid) {    /* whether to add NSID */
 
@@ -477,7 +479,7 @@ static int dns_stub_finish_reply_packet(
         assert(p);
 
         if (add_opt) {
-                r = dns_packet_append_opt(p, max_udp_size, edns0_do, /* include_rfc6975= */ false, nsid ? nsid_string() : NULL, rcode, NULL);
+                r = dns_packet_append_opt(p, max_udp_size, edns0_do, /* include_rfc6975= */ false, nsid ? nsid_string() : NULL, rcode, ede_rcode, ede_msg, /* ret_start= */ NULL);
                 if (r == -EMSGSIZE) /* Hit the size limit? then indicate truncation */
                         tc = true;
                 else if (r < 0)
@@ -657,6 +659,8 @@ static int dns_stub_send_reply(
                         edns0_do,
                         (DNS_PACKET_AD(q->request_packet) || dns_packet_do(q->request_packet)) && dns_query_fully_authenticated(q),
                         FLAGS_SET(q->flags, SD_RESOLVED_NO_VALIDATE),
+                        q->answer_ede_rcode,
+                        q->answer_ede_msg,
                         q->stub_listener_extra ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX,
                         dns_packet_has_nsid_request(q->request_packet) > 0 && !q->stub_listener_extra);
         if (r < 0)
@@ -699,6 +703,8 @@ static int dns_stub_send_failure(
                         dns_packet_do(p),
                         (DNS_PACKET_AD(p) || dns_packet_do(p)) && authenticated,
                         DNS_PACKET_CD(p),
+                        _DNS_EDE_RCODE_INVALID,
+                        /* ede_msg= */ NULL,
                         l ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX,
                         dns_packet_has_nsid_request(p) > 0 && !l);
         if (r < 0)
