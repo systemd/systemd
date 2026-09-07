@@ -232,6 +232,7 @@ int sd_nfnl_call_batch(
 int sd_nfnl_nft_message_new_basechain(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
+                int add, /* boolean */
                 int nfproto,
                 const char *table,
                 const char *chain,
@@ -248,7 +249,10 @@ int sd_nfnl_nft_message_new_basechain(
         assert(chain);
         assert(type);
 
-        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWCHAIN, NLM_F_CREATE);
+        if (add)
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWCHAIN, NLM_F_CREATE);
+        else
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELCHAIN, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -287,6 +291,7 @@ int sd_nfnl_nft_message_new_basechain(
 int sd_nfnl_nft_message_new_table(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
+                int add, /* boolean */
                 int nfproto,
                 const char *table) {
 
@@ -297,7 +302,10 @@ int sd_nfnl_nft_message_new_table(
         assert(ret);
         assert(table);
 
-        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWTABLE, NLM_F_CREATE | NLM_F_EXCL);
+        if (add)
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWTABLE, NLM_F_CREATE | NLM_F_EXCL);
+        else
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELTABLE, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -312,6 +320,7 @@ int sd_nfnl_nft_message_new_table(
 int sd_nfnl_nft_message_new_rule(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
+                int add, /* boolean */
                 int nfproto,
                 const char *table,
                 const char *chain) {
@@ -324,7 +333,10 @@ int sd_nfnl_nft_message_new_rule(
         assert(table);
         assert(chain);
 
-        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWRULE, NLM_F_CREATE);
+        if (add)
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWRULE, NLM_F_CREATE);
+        else
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELRULE, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -343,6 +355,7 @@ int sd_nfnl_nft_message_new_rule(
 int sd_nfnl_nft_message_new_set(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
+                int add, /* boolean */
                 int nfproto,
                 const char *table,
                 const char *set_name,
@@ -357,7 +370,10 @@ int sd_nfnl_nft_message_new_set(
         assert(table);
         assert(set_name);
 
-        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSET, NLM_F_CREATE);
+        if (add)
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSET, NLM_F_CREATE);
+        else
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELSET, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -400,7 +416,7 @@ int sd_nfnl_nft_message_new_setelems(
         if (add)
                 r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSETELEM, NLM_F_CREATE);
         else
-                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELSETELEM, 0);
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELSETELEM, /* flags= */ 0);
         if (r < 0)
                 return r;
 
