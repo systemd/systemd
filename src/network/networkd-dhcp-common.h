@@ -26,7 +26,7 @@ typedef enum DHCPOptionDataType {
         DHCP_OPTION_DATA_IPV4ADDRESS,
         DHCP_OPTION_DATA_IPV6ADDRESS,
         _DHCP_OPTION_DATA_MAX,
-        _DHCP_OPTION_DATA_INVALID,
+        _DHCP_OPTION_DATA_INVALID = -EINVAL,
 } DHCPOptionDataType;
 
 typedef struct DUID {
