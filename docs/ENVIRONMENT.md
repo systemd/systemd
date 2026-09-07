@@ -436,7 +436,19 @@ All tools:
   for confext images and supports the systemd-confext multi-call functionality
   of sysext. Read-only hierarchies have no mount options added by
   default. Mutable hierarchies have the following mount options added by
-  default: `redirect_dir=on,noatime,metacopy=off,index=off`.
+  default: `redirect_dir=on,noatime,metacopy=off,index=off`. An override
+  replaces these defaults entirely, so the ones that are still wanted have to
+  be added manually. The only exception is `index=off`, which is still added
+  for mutable hierarchies if the override does not mention `index=`, since
+  refreshing them requires it.
+
+* `$SYSTEMD_SYSEXT_MOUNT_BENEATH` — this boolean variable may be used in tests
+  to exercise the code path on old kernels. If false, `systemd-sysext` does not
+  attempt to mount a new `overlayfs` instance beneath the existing one when
+  refreshing, but unmounts the existing one first and mounts the new one in its
+  place, as done on kernels that do not support mounting beneath. Defaults to
+  true. Similarly, `$SYSTEMD_CONFEXT_MOUNT_BENEATH` works for confext images
+  and supports the systemd-confext multi-call functionality of sysext.
 
 `systemd-tmpfiles`:
 
