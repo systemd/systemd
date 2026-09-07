@@ -1855,10 +1855,24 @@ static int action_detach(const char *path) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to open '%s' as loopback block device: %m", path);
 
-        } else if (S_ISREG(st.st_mode)) {
+                /* If the specified block device is not a loopback block device itself, it might be the
+                 * backing device of one (this is the case when systemd-loop@.service is instantiated for a
+                 * block device, e.g. a CD-ROM drive, in which case it is passed the backing device on
+                 * ExecStop= too). Hence, in that case search for the loopback block device backed by it
+                 * below, the same way as we do for regular files. */
+                if (LOOP_DEVICE_IS_FOREIGN(loop))
+                        loop = loop_device_unref(loop);
+
+        } else if (!S_ISREG(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "'%s' is neither a block device nor a regular file, refusing.", path);
+
+        if (!loop) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
 
-                /* If a regular file is specified, search for a loopback block device that is backed by it */
+                /* If a regular file (or a block device that is not a loopback block device) is specified,
+                 * search for a loopback block device that is backed by it. Note that the kernel reports
+                 * the backing inode of a loopback device both for regular files and for block device
+                 * nodes, hence we can match by inode in both cases. */
 
                 r = sd_device_enumerator_new(&e);
                 if (r < 0)
