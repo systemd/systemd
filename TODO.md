@@ -344,10 +344,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - repart: add MatchLabel= which matches against partition label, so that we
   truly can install different images in parallel
 
-- add "systemctl wait" or so, which does what "systemd-run --wait" does, but
-  for all units. It should be both a way to pin units into memory as well as a
-  wait to retrieve their exit data.
-
 - add "systemd-analyze debug" + AttachDebugger= in unit files: The former
   specifies a command to execute; the latter specifies that an already running
   "systemd-analyze debug" instance shall be contacted and execution paused

@@ -571,6 +571,39 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><command>wait <replaceable>UNIT</replaceable></command></term>
+
+          <listitem>
+            <para>Wait for the specified unit to terminate, i.e. to enter the <literal>inactive</literal> or
+            <literal>failed</literal> state. If the unit already terminated (or was not started yet), this
+            returns immediately. A unit that does not exist is treated like a unit that terminated
+            successfully, and a message about this is shown.</para>
+
+            <para>On exit, unless <option>--quiet</option> is specified, terse information about the unit's
+            runtime is shown, including total runtime (as well as CPU, memory, IO, and IP accounting data, if
+            the corresponding cgroup accounting settings are enabled) and the exit code and status of the
+            main process, similar to <command>systemd-run</command>'s <option>--wait</option> switch. Combine
+            with <option>--verbose</option> to also show the unit's log output while waiting.</para>
+
+            <para>The exit status of the unit is propagated: 0 is returned if the unit terminated
+            successfully, the exit status of the unit's main process if it failed with a non-zero exit code,
+            255 if it was terminated by a signal without dumping core, and a non-zero value otherwise (for
+            example if it dumped core, timed out, or was terminated via the watchdog logic).</para>
+
+            <para>Note that while waiting, the unit is referenced with the service manager (so that its final
+            state remains queriable after it terminated), which requires privileges, similarly to the other
+            unit lifecycle commands.</para>
+
+            <para>If invoked as the main process of a service with <varname>Type=notify</varname>, a
+            <literal>READY=1</literal> notification is sent once the command is fully subscribed to the unit's
+            state changes, i.e. from that point on no state change of the unit will be missed. See
+            <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details.</para>
+
+            <xi:include href="version-info.xml" xpointer="v262"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><command>kill <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
@@ -2392,7 +2425,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--verbose</option></term>
 
         <listitem>
-          <para>Display unit log output while executing unit operations.</para>
+          <para>Display unit log output while executing unit operations, or while waiting with
+          <command>wait</command>.</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
@@ -3062,6 +3096,10 @@ EOF
     <para>The mapping of LSB service states to systemd unit states is imperfect, so it is better to
     not rely on those return values but to look for specific unit states and substates instead.
     </para>
+
+    <para>The <command>wait</command> command does not use the LSB codes: it propagates the exit status of
+    the waited-for unit, in the same way <command>systemd-run</command>'s <option>--wait</option> switch
+    does. See above for details.</para>
   </refsect1>
 
   <refsect1>
