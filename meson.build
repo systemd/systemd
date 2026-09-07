@@ -1021,6 +1021,17 @@ if default_user_path != ''
         conf.set_quoted('DEFAULT_USER_PATH', default_user_path)
 endif
 
+extra_exec_search_path = get_option('extra-exec-search-path')
+if extra_exec_search_path != ''
+        foreach p : extra_exec_search_path.split(':')
+                if not p.startswith('/')
+                        error(f'Extra exec search path is not absolute: "@p@"')
+                endif
+        endforeach
+        extra_exec_search_path = f':@extra_exec_search_path@'
+endif
+conf.set_quoted('EXTRA_EXEC_SEARCH_PATH_SUFFIX', extra_exec_search_path)
+
 #####################################################################
 
 libm = cc.find_library('m')
