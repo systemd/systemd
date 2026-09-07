@@ -232,6 +232,7 @@ int sd_nfnl_call_batch(
 int sd_nfnl_nft_message_new_basechain(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
+                int add, /* boolean */
                 int nfproto,
                 const char *table,
                 const char *chain,
@@ -242,9 +243,16 @@ int sd_nfnl_nft_message_new_basechain(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nfnl);
         assert(ret);
+        assert(table);
+        assert(chain);
+        assert(type);
 
-        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWCHAIN, NLM_F_CREATE);
+        if (add)
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWCHAIN, NLM_F_CREATE);
+        else
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELCHAIN, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -283,15 +291,21 @@ int sd_nfnl_nft_message_new_basechain(
 int sd_nfnl_nft_message_new_table(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
+                int add, /* boolean */
                 int nfproto,
                 const char *table) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nfnl);
         assert(ret);
+        assert(table);
 
-        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWTABLE, NLM_F_CREATE | NLM_F_EXCL);
+        if (add)
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWTABLE, NLM_F_CREATE | NLM_F_EXCL);
+        else
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELTABLE, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -306,6 +320,7 @@ int sd_nfnl_nft_message_new_table(
 int sd_nfnl_nft_message_new_rule(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
+                int add, /* boolean */
                 int nfproto,
                 const char *table,
                 const char *chain) {
@@ -313,9 +328,15 @@ int sd_nfnl_nft_message_new_rule(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nfnl);
         assert(ret);
+        assert(table);
+        assert(chain);
 
-        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWRULE, NLM_F_CREATE);
+        if (add)
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWRULE, NLM_F_CREATE);
+        else
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELRULE, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -334,6 +355,7 @@ int sd_nfnl_nft_message_new_rule(
 int sd_nfnl_nft_message_new_set(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
+                int add, /* boolean */
                 int nfproto,
                 const char *table,
                 const char *set_name,
@@ -343,9 +365,15 @@ int sd_nfnl_nft_message_new_set(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nfnl);
         assert(ret);
+        assert(table);
+        assert(set_name);
 
-        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSET, NLM_F_CREATE);
+        if (add)
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSET, NLM_F_CREATE);
+        else
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELSET, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -380,12 +408,15 @@ int sd_nfnl_nft_message_new_setelems(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nfnl);
         assert(ret);
+        assert(table);
+        assert(set_name);
 
         if (add)
                 r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSETELEM, NLM_F_CREATE);
         else
-                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELSETELEM, 0);
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELSETELEM, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -411,6 +442,10 @@ int sd_nfnl_nft_message_append_setelem(
                 uint32_t flags) {
 
         int r;
+
+        assert(m);
+        assert(!key || key_len > 0);
+        assert(!data || data_len > 0);
 
         r = sd_netlink_message_open_array(m, index);
         if (r < 0)

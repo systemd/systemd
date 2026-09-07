@@ -79,14 +79,28 @@ static int intro(void) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_FIREWALL_UTIL_NFT_TABLE_NAME", "io.systemd-test.nat", /* overwrite= */ true));
         ASSERT_OK_ERRNO(setenv("SYSTEMD_FIREWALL_UTIL_DNAT_MAP_NAME", "test_map_port_ipport", /* overwrite= */ true));
 
-        r = sd_nfnl_socket_open(&nfnl);
+        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
+        r = sd_nfnl_socket_open(&nl);
         if (r < 0)
                 return log_tests_skipped_errno(r, "Failed to initialize nftables");
 
+        r = ASSERT_OK_OR(fw_nftables_del_table(nl, AF_INET), -EPERM);
+        if (r < 0)
+                return log_tests_skipped_errno(r, "Failed to clear nftables test table");
+
+        ASSERT_OK(fw_nftables_del_table(nl, AF_INET6));
+
+        nfnl = TAKE_PTR(nl);
         return 0;
 }
 
 static int outro(void) {
+        if (!nfnl)
+                return 0;
+
+        ASSERT_OK(fw_nftables_del_table(nfnl, AF_INET));
+        ASSERT_OK(fw_nftables_del_table(nfnl, AF_INET6));
+
         sd_netlink_unref(nfnl);
         return 0;
 }
