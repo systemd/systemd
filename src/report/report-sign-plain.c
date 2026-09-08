@@ -179,7 +179,7 @@ static int acquire_key(EVP_PKEY **ret) {
         _cleanup_close_ int dir_fd = xopenat_lock_full(
                         AT_FDCWD,
                         REPORT_SIGN_PLAIN_DIR,
-                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        O_DIRECTORY|O_CREAT,
                         /* xopen_flags= */ 0,
                         /* mode= */ 0700,
                         LOCK_BSD,

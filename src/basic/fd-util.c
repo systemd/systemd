@@ -1066,7 +1066,7 @@ int path_is_root_at(int dir_fd, const char *path) {
 
         _cleanup_close_ int fd = -EBADF;
         if (!isempty(path)) {
-                fd = xopenat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                fd = xopenat(dir_fd, path, O_PATH|O_DIRECTORY);
                 if (fd == -ENOTDIR)
                         return false; /* the root dir must be a dir */
                 if (fd < 0)

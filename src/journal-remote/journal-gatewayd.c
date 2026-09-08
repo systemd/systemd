@@ -147,7 +147,7 @@ static int request_meta_ensure_tmp(RequestMeta *m) {
         else {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = open_tmpfile_unlinkable("/tmp", O_RDWR|O_CLOEXEC);
+                fd = open_tmpfile_unlinkable("/tmp", O_RDWR);
                 if (fd < 0)
                         return fd;
 

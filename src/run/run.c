@@ -2313,7 +2313,7 @@ static int start_transient_service(sd_bus *bus) {
         if (arg_stdio == ARG_STDIO_PTY) {
 
                 if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)) {
-                        c.pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
+                        c.pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK, &pty_path);
                         if (c.pty_fd < 0)
                                 return log_error_errno(c.pty_fd, "Failed to acquire pseudo tty: %m");
 

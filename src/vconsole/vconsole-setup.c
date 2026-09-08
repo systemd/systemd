@@ -577,7 +577,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
 
                 /* try to open terminal */
                 xsprintf(ttyname, "/dev/tty%u", i);
-                fd_d = open_terminal(ttyname, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                fd_d = open_terminal(ttyname, O_RDWR|O_NOCTTY);
                 if (fd_d < 0) {
                         log_warning_errno(fd_d, "Unable to open tty%u, fonts will not be copied: %m", i);
                         continue;
@@ -647,7 +647,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
                 if (asprintf(&path, "/dev/tty%u", i) < 0)
                         return log_oom();
 
-                fd = open_terminal(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                fd = open_terminal(path, O_RDWR|O_NOCTTY);
                 if (fd < 0) {
                         log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path);
                         if (IN_SET(err, 0, -EBUSY, -ENOENT))
@@ -689,7 +689,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
 
         assert(ret_path);
 
-        fd = open_terminal(src_vc, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        fd = open_terminal(src_vc, O_RDWR|O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s: %m", src_vc);
 

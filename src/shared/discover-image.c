@@ -387,7 +387,7 @@ static int image_update_quota(Image *i, int fd) {
                 fd = fd_close;
         } else {
                 /* Convert from O_PATH to proper fd, if needed */
-                fd = fd_reopen_condition(fd, O_CLOEXEC|O_DIRECTORY, O_PATH, &fd_close);
+                fd = fd_reopen_condition(fd, O_DIRECTORY, O_PATH, &fd_close);
                 if (fd < 0)
                         return fd;
         }
@@ -682,7 +682,7 @@ static int image_make(
                         pretty = pretty_buffer;
                 }
 
-                _cleanup_close_ int block_fd = fd_reopen(fd, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                _cleanup_close_ int block_fd = fd_reopen(fd, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (block_fd < 0)
                         log_debug_errno(errno, "Failed to open block device '%s', ignoring: %m", path);
                 else {
@@ -1338,7 +1338,7 @@ static int unpriv_remove_cb(
                                 _exit(EXIT_FAILURE);
                         }
 
-                        _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
+                        _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY);
                         if (dfd < 0) {
                                 log_error_errno(r, "Failed to reopen tree fd: %m");
                                 _exit(EXIT_FAILURE);
@@ -1942,11 +1942,11 @@ static int make_lock_dir(RuntimeScope scope) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int pfd = open_mkdir_at(AT_FDCWD, p, O_CLOEXEC, 0755);
+        _cleanup_close_ int pfd = open_mkdir_at(AT_FDCWD, p, 0, 0755);
         if (pfd < 0)
                 return pfd;
 
-        _cleanup_close_ int nfd = open_mkdir_at(pfd, "nspawn", O_CLOEXEC, 0755);
+        _cleanup_close_ int nfd = open_mkdir_at(pfd, "nspawn", 0, 0755);
         if (nfd < 0)
                 return nfd;
 
