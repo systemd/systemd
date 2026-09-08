@@ -2071,8 +2071,10 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
                             produced > COMPRESS_PIPE_BUFFER_SIZE)
                                 return -EIO;
 
-                        src += consumed;
-                        src_remaining -= consumed;
+                        if (src) {
+                                src += consumed;
+                                src_remaining -= consumed;
+                        }
 
                         if (produced > 0) {
                                 r = callback(buffer, produced, userdata);
