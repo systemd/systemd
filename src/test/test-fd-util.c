@@ -917,4 +917,16 @@ TEST(fd_is_writable) {
         TAKE_FD(fd_ro);
 }
 
+TEST(fd_reopen_cloexec) {
+        _cleanup_close_ int fd = -EBADF, reopened = -EBADF;
+        int fl;
+
+        ASSERT_OK_ERRNO(fd = open("/proc", O_DIRECTORY|O_PATH|O_CLOEXEC));
+
+        /* O_CLOEXEC is implied, whether requested or not */
+        ASSERT_OK(reopened = fd_reopen(fd, O_RDONLY|O_DIRECTORY));
+        ASSERT_OK_ERRNO(fl = fcntl(reopened, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
