@@ -44,13 +44,18 @@ _varlinkctl() {
     local -A OPTS=(
         [STANDALONE]='-h --help --version --no-pager -q --quiet --no-ask-password
                       --oneway --collect --more --exec --upgrade -j -E'
-        [ARG]='--graceful --timeout --push-fd --json'
+        [ARG]='--graceful --timeout --push-fd --json -u --uid -p --pid --path'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
             --json)
                 comps=$( varlinkctl --json=help 2>/dev/null )
+                ;;
+            --path)
+                comps='anonymous'
+                compopt -o filenames
+                comps="$comps $(compgen -f -- "$cur")"
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
@@ -63,7 +68,7 @@ _varlinkctl() {
     fi
 
     local -A VERBS=(
-        [STANDALONE]='help list-registry list-sockets'
+        [STANDALONE]='help list-registry list-sockets monitor'
         [CALL]='call'
         [FILE]='info list-interfaces validate-idl'
         [ADDRESS_INTERFACES]='list-methods introspect'
