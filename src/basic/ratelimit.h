@@ -21,6 +21,9 @@ static inline bool ratelimit_configured(const RateLimit *rl) {
 }
 
 bool ratelimit_below(RateLimit *rl);
+/* Like ratelimit_below(), but takes the current CLOCK_BOOTTIME timestamp from the caller, for callers
+ * that check many rate limits in a row and should not read the clock for each of them. */
+bool ratelimit_below_at(RateLimit *rl, usec_t ts);
 
 unsigned ratelimit_num_dropped(const RateLimit *rl);
 
