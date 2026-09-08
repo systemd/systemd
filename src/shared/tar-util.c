@@ -1366,17 +1366,17 @@ static int archive_write_acl(
                         int permset = 0;
                         r = sym_acl_get_perm(p, ACL_READ);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to get ACL entry read bit: %m");
+                                return log_error_errno(errno, "Failed to get ACL entry read bit: %m");
                         SET_FLAG(permset, ARCHIVE_ENTRY_ACL_READ, r);
 
                         r = sym_acl_get_perm(p, ACL_WRITE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to get ACL entry write bit: %m");
+                                return log_error_errno(errno, "Failed to get ACL entry write bit: %m");
                         SET_FLAG(permset, ARCHIVE_ENTRY_ACL_WRITE, r);
 
                         r = sym_acl_get_perm(p, ACL_EXECUTE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to get ACL entry execute bit: %m");
+                                return log_error_errno(errno, "Failed to get ACL entry execute bit: %m");
                         SET_FLAG(permset, ARCHIVE_ENTRY_ACL_EXECUTE, r);
 
                         r = sym_archive_entry_acl_add_entry(entry, type, permset, tag, qualifier, /* name= */ NULL);
