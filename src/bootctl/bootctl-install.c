@@ -153,9 +153,9 @@ static int install_context_from_cmdline(
                 return log_oom();
 
         if (arg_root) {
-                b.root_fd = open(arg_root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                b.root_fd = xopenat(AT_FDCWD, arg_root, O_DIRECTORY|O_PATH);
                 if (b.root_fd < 0)
-                        return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
+                        return log_error_errno(b.root_fd, "Failed to open root directory '%s': %m", arg_root);
 
                 r = strdup_to(&b.root, arg_root);
                 if (r < 0)
@@ -2159,9 +2159,9 @@ int vl_method_install(
                                 p.context.root = mfree(p.context.root);
                 }
         } else if (p.context.root) {
-                p.context.root_fd = open(p.context.root, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                p.context.root_fd = xopenat(AT_FDCWD, p.context.root, O_RDONLY|O_DIRECTORY);
                 if (p.context.root_fd < 0)
-                        return log_debug_errno(errno, "Failed to open '%s': %m", p.context.root);
+                        return log_debug_errno(p.context.root_fd, "Failed to open '%s': %m", p.context.root);
         } else
                 p.context.root_fd = XAT_FDROOT;
 
