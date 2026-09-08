@@ -2868,9 +2868,9 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (r < 0)
                 return r;
 
-        fd = open(devname, FLAGS_SET(flags, O_PATH) ? flags : O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        fd = xopenat(AT_FDCWD, devname, FLAGS_SET(flags, O_PATH) ? flags : O_NOFOLLOW|O_PATH);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
