@@ -14,6 +14,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
@@ -117,9 +118,9 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
                 return r;
 
         filename = strjoina(syspath, "/descriptors");
-        fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, filename, O_RDONLY|O_NOCTTY);
         if (fd < 0)
-                return log_device_debug_errno(dev, errno, "Failed to open \"%s\": %m", filename);
+                return log_device_debug_errno(dev, fd, "Failed to open \"%s\": %m", filename);
 
         size = read(fd, buf, sizeof(buf));
         if (size < 18)
