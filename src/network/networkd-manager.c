@@ -25,6 +25,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hostname-setup.h"
 #include "initrd-util.h"
 #include "iovec-util.h"
@@ -606,9 +607,9 @@ static int manager_watch_hostname(Manager *m) {
         assert(m);
 
         /* The kernel wakes up pollers of this file when the hostname is changed. */
-        fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, "/proc/sys/kernel/hostname", O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                log_warning_errno(errno, "Failed to open /proc/sys/kernel/hostname, ignoring: %m");
+                log_warning_errno(fd, "Failed to open /proc/sys/kernel/hostname, ignoring: %m");
                 return 0;
         }
 
@@ -732,9 +733,9 @@ static int persistent_storage_open(void) {
         if (r <= 0)
                 return -EBADF;
 
-        fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY);
+        fd = xopenat(AT_FDCWD, "/var/lib/systemd/network/", O_DIRECTORY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open %s, ignoring: %m", "/var/lib/systemd/network/");
+                return log_debug_errno(fd, "Failed to open %s, ignoring: %m", "/var/lib/systemd/network/");
 
         r = fd_is_read_only_fs(fd);
         if (r < 0)
