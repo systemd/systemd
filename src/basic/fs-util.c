@@ -1090,7 +1090,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
          * Note that this routine is a bit more strict with symlinks than regular openat() is. If O_NOFOLLOW
          * is not specified, then we'll follow the symlink when opening an existing file but we will *not*
          * follow it when creating a new one (because that's a terrible UNIX misfeature and generally a
-         * security hole).
+         * security hole), and report -ELOOP in that case.
          *
          * O_CLOEXEC is always set. */
 
@@ -1126,6 +1126,11 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
                 }
                 if (errno != EEXIST)
                         return -errno;
+
+                /* A dangling symlink in the way? Then retrying won't help, report it like O_NOFOLLOW would. */
+                struct stat st;
+                if (fstatat(dirfd, pathname, &st, AT_SYMLINK_NOFOLLOW) >= 0 && S_ISLNK(st.st_mode))
+                        return -ELOOP;
 
                 /* Hmm, so now we got EEXIST? Then someone might have created the file between the first and
                  * second call to openat(). Let's try again but with a limit so we don't spin forever. */
