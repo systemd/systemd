@@ -630,7 +630,8 @@ static int vl_method_acquire(
                         open_flags |= O_DIRECTORY|O_NOFOLLOW;
                 }
 
-                real_fd = xopenat_full(pin_fd, subdir, open_flags, xopen_flags, /* mode= */ MODE_INVALID);
+                /* subdir may be NULL */
+                real_fd = xopenat_full(pin_fd, subdir, open_flags, xopen_flags|XO_EMPTY_PATH, MODE_INVALID);
                 if (real_fd < 0)
                         return log_debug_errno(real_fd, "Failed to reopen volume fd for '%s': %m", filename);
 

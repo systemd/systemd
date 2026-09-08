@@ -464,7 +464,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         return -ENOMEM;
         }
 
-        _cleanup_close_ int fd = xopenat(dir_fd, /* path= */ NULL, O_DIRECTORY|O_PATH);
+        _cleanup_close_ int fd = fd_reopen(dir_fd, O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return fd;
 
@@ -1074,9 +1074,13 @@ int chase_and_open(
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
+        /* An empty name reopens the directory, which open(2) refuses to create */
+        if (isempty(path) && FLAGS_SET(open_flags, O_CREAT))
+                return -EISDIR;
+
         if (empty_or_root(root) && !ret_path && (chase_flags & CHASE_NO_SHORTCUT_MASK) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-                return chase_xopenat(AT_FDCWD, path, chase_flags, open_flags, /* xopen_flags= */ 0);
+                return chase_xopenat(AT_FDCWD, path, chase_flags, open_flags, XO_EMPTY_PATH);
 
         r = chase(path, root, (CHASE_PARENT|chase_flags)&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
         if (r < 0)
@@ -1100,7 +1104,7 @@ int chase_and_open(
         if (isempty(open_name) && FLAGS_SET(open_flags, O_CREAT))
                 return -EISDIR;
 
-        r = chase_xopenat(path_fd, strempty(open_name), chase_flags, open_flags|O_NOFOLLOW, /* xopen_flags= */ 0);
+        r = chase_xopenat(path_fd, open_name, chase_flags, open_flags|O_NOFOLLOW, XO_EMPTY_PATH);
         if (r < 0)
                 return r;
 
@@ -1290,9 +1294,13 @@ int chase_and_openat(
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_MUST_BE_SOCKET)));
 
+        /* An empty name reopens the directory, which open(2) refuses to create */
+        if (isempty(path) && FLAGS_SET(open_flags, O_CREAT))
+                return -EISDIR;
+
         if (root_fd == XAT_FDROOT && dir_fd == AT_FDCWD && !ret_path && (chase_flags & CHASE_NO_SHORTCUT_MASK) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-                return chase_xopenat(dir_fd, path, chase_flags, open_flags, /* xopen_flags= */ 0);
+                return chase_xopenat(dir_fd, path, chase_flags, open_flags, XO_EMPTY_PATH);
 
         r = chaseat(root_fd, dir_fd, path, (chase_flags|CHASE_PARENT)&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
         if (r < 0)
@@ -1315,7 +1323,7 @@ int chase_and_openat(
         if (isempty(open_name) && FLAGS_SET(open_flags, O_CREAT))
                 return -EISDIR;
 
-        r = chase_xopenat(path_fd, strempty(open_name), chase_flags, open_flags|O_NOFOLLOW, /* xopen_flags= */ 0);
+        r = chase_xopenat(path_fd, open_name, chase_flags, open_flags|O_NOFOLLOW, XO_EMPTY_PATH);
         if (r < 0)
                 return r;
 
