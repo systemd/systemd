@@ -361,14 +361,22 @@ int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
         if (r < 0)
                 return r;
 
-        r = safe_atou64(v, &sec);
-        if (r < 0)
-                return r;
-        if (sec > USEC_INFINITY / USEC_PER_SEC)
-                return -ERANGE;
+        if (streq(v, "menu-force"))
+                sec = 0;
+        else if (STR_IN_SET(v, "menu-hidden", "menu-disabled"))
+                sec = USEC_INFINITY;
+        else {
+                r = safe_atou64(v, &sec);
+                if (r < 0)
+                        return r;
+                if (sec > USEC_INFINITY / USEC_PER_SEC)
+                        return -ERANGE;
+
+                sec *= USEC_PER_SEC; /* return in μs */
+        }
 
         cache_stat = new_stat;
-        *ret = cache = sec * USEC_PER_SEC; /* return in μs */
+        *ret = cache = sec;
         return 0;
 #else
         return -EOPNOTSUPP;
