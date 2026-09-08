@@ -309,7 +309,7 @@ static int verb_make(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         if (manifest) {
-                r = fopen_tmpfile_linkable(manifest, O_WRONLY|O_CLOEXEC, &t, &f);
+                r = fopen_tmpfile_linkable(manifest, O_WRONLY, &t, &f);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create '%s': %m", manifest);
 

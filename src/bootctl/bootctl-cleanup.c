@@ -71,7 +71,7 @@ static int cleanup_orphaned_files(
                 return log_error_errno(r, "Failed to count files in %s: %m", root);
 
         dir_fd = chase_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS,
-                        O_DIRECTORY|O_CLOEXEC, &full);
+                                O_DIRECTORY, &full);
         if (dir_fd == -ENOENT)
                 return 0;
         if (dir_fd < 0)

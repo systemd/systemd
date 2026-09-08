@@ -505,7 +505,7 @@ static int manager_enable_special_signals(Manager *m) {
         if (reboot(RB_DISABLE_CAD) < 0 && !IN_SET(errno, EPERM, EINVAL))
                 log_warning_errno(errno, "Failed to enable ctrl-alt-del handling, ignoring: %m");
 
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY);
         if (fd < 0)
                 /* Support systems without virtual console (ENOENT) gracefully */
                 log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_WARNING, fd, "Failed to open %s, ignoring: %m", "/dev/tty0");

@@ -461,7 +461,7 @@ static int mstack_load_now(MStack *mstack, const char *dir, int dir_fd, MStackFl
                 dir_fd = _dir_fd;
         } else {
                 /* Possibly convert an O_PATH fd to a real one */
-                dir_fd = fd_reopen_condition(dir_fd, O_DIRECTORY|O_CLOEXEC, O_PATH|O_DIRECTORY, &_dir_fd);
+                dir_fd = fd_reopen_condition(dir_fd, O_DIRECTORY, O_PATH|O_DIRECTORY, &_dir_fd);
                 if (dir_fd < 0)
                         return log_debug_errno(dir_fd, "Failed to reopen '%s': %m", dir);
         }
@@ -822,7 +822,7 @@ static int mstack_make_overlayfs(
                                         }
                                 } else {
                                         /* If invoked in writable mode, let's create the data dir if it is missing */
-                                        _cleanup_close_ int data_fd = open_mkdir_at(temp_fd, "data", O_CLOEXEC|O_NOFOLLOW, 0755);
+                                        _cleanup_close_ int data_fd = open_mkdir_at(temp_fd, "data", O_NOFOLLOW, 0755);
                                         if (data_fd < 0) {
                                                 log_debug_errno(data_fd, "Failed to open 'data' directory below 'rw' layer: %m");
                                                 report_errno_and_exit(errno_pipe_fds[1], data_fd);
@@ -835,7 +835,7 @@ static int mstack_make_overlayfs(
                                         }
 
                                         /* Similar, create the work directory */
-                                        _cleanup_close_ int work_fd = open_mkdir_at(temp_fd, "work", O_CLOEXEC|O_NOFOLLOW, 0755);
+                                        _cleanup_close_ int work_fd = open_mkdir_at(temp_fd, "work", O_NOFOLLOW, 0755);
                                         if (work_fd < 0) {
                                                 log_debug_errno(work_fd, "Failed to open 'work' directory below 'rw' layer: %m");
                                                 report_errno_and_exit(errno_pipe_fds[1], work_fd);

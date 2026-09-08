@@ -977,7 +977,7 @@ static int setup_credentials_plain_dir(
         if (!workspace)
                 return -ENOMEM;
 
-        dfd = open_mkdir(workspace, O_CLOEXEC|O_EXCL, 0700);
+        dfd = open_mkdir(workspace, O_EXCL, 0700);
         if (dfd < 0)
                 return log_debug_errno(dfd, "Failed to create workspace for credentials: %m");
         workspace_rm = workspace;
@@ -1059,7 +1059,7 @@ static int setup_credentials_internal(
         if (mfd < 0)
                 return log_debug_errno(mfd, "Failed to mount credentials fs: %m");
 
-        dfd = fd_reopen(mfd, O_DIRECTORY|O_CLOEXEC);
+        dfd = fd_reopen(mfd, O_DIRECTORY);
         if (dfd < 0)
                 return dfd;
 

@@ -596,7 +596,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                         return r;
         }
 
-        ptmx_fd = machine_openpt(machine, O_RDWR|O_NOCTTY|O_CLOEXEC, &ptmx_name);
+        ptmx_fd = machine_openpt(machine, O_RDWR|O_NOCTTY, &ptmx_name);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(ptmx_fd))
                 return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, /* parameters= */ NULL);
         if (ptmx_fd < 0)

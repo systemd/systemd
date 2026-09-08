@@ -175,7 +175,7 @@ int readdir_all_at(int fd, const char *path, RecurseDirFlags flags, DirectoryEnt
 
         assert(fd >= 0 || fd == AT_FDCWD);
 
-        dir_fd = xopenat(fd, path, O_DIRECTORY|O_CLOEXEC);
+        dir_fd = xopenat(fd, path, O_DIRECTORY);
         if (dir_fd < 0)
                 return dir_fd;
 
@@ -344,7 +344,7 @@ int recurse_dir(
                                          * directory fd — which should be riskless now that we pinned the
                                          * inode. */
 
-                                        subdir_fd = fd_reopen(inode_fd, O_DIRECTORY|O_CLOEXEC);
+                                        subdir_fd = fd_reopen(inode_fd, O_DIRECTORY);
                                         if (subdir_fd < 0)
                                                 return subdir_fd;
 

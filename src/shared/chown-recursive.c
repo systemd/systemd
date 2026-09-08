@@ -80,7 +80,7 @@ static int chown_recursive_internal(
                         int subdir_fd;
 
                         /* Convert it to a "real" (i.e. non-O_PATH) fd now */
-                        subdir_fd = fd_reopen(path_fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
+                        subdir_fd = fd_reopen(path_fd, O_RDONLY|O_NOATIME);
                         if (subdir_fd < 0)
                                 return subdir_fd;
 

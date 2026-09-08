@@ -504,8 +504,8 @@ TEST(copy_bytes_offset) {
         uint64_t foffset, toffset;
         char buf[16];
 
-        src = ASSERT_OK(open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC));
-        dst = ASSERT_OK(open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC));
+        src = ASSERT_OK(open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR));
+        dst = ASSERT_OK(open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR));
         ASSERT_OK(loop_write(src, "0123456789abcdef", 16));
         ASSERT_OK(loop_write(dst, "XXXXXXXXXXXXXXXX", 16));
         ASSERT_OK_EQ_ERRNO(lseek(src, 1, SEEK_SET), (off_t) 1);
@@ -576,8 +576,8 @@ TEST(copy_bytes_offset_reflink) {
 
         /* Offsets that are aligned to the block size allow copy_bytes_offset() to reflink on file systems that
          * support it, such as btrfs. */
-        src = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR|O_CLOEXEC));
-        dst = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR|O_CLOEXEC));
+        src = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR));
+        dst = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR));
         buf = ASSERT_NOT_NULL(malloc(3 * bs));
         memset(buf, 'a', bs);
         memset(buf + bs, 'b', bs);
@@ -621,8 +621,8 @@ TEST_RET(copy_bytes_offset_holes) {
         struct stat st;
         int r;
 
-        src = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR|O_CLOEXEC));
-        dst = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR|O_CLOEXEC));
+        src = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR));
+        dst = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR));
 
         r = RET_NERRNO(fallocate(dst, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1));
         if (ERRNO_IS_NOT_SUPPORTED(r))

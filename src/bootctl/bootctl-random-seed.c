@@ -129,7 +129,7 @@ int install_random_seed(const char *esp, int esp_fd) {
 
         (void) random_seed_verify_permissions(esp_fd, S_IFDIR);
 
-        loader_dir_fd = open_mkdir_at(esp_fd, "loader", O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOFOLLOW, 0775);
+        loader_dir_fd = open_mkdir_at(esp_fd, "loader", O_DIRECTORY|O_RDONLY|O_NOFOLLOW, 0775);
         if (loader_dir_fd < 0)
                 return log_error_errno(loader_dir_fd, "Failed to open loader directory '%s/loader': %m", esp);
 

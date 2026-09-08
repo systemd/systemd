@@ -310,7 +310,7 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
                         return 1; /* Will call us back */
         }
 
-        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC, &pty_name);
+        master = machine_openpt(m, O_RDWR|O_NOCTTY, &pty_name);
         if (master < 0)
                 return master;
 
@@ -356,7 +356,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
                         return 1; /* Will call us back */
         }
 
-        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC, &pty_name);
+        master = machine_openpt(m, O_RDWR|O_NOCTTY, &pty_name);
         if (master < 0)
                 return master;
 
@@ -475,7 +475,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                         return 1; /* Will call us back */
         }
 
-        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC, &pty_name);
+        master = machine_openpt(m, O_RDWR|O_NOCTTY, &pty_name);
         if (master < 0)
                 return master;
 

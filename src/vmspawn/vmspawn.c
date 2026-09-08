@@ -2137,7 +2137,7 @@ static int grow_image(const char *path, uint64_t size) {
         if (size == 0)
                 return 0;
 
-        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR|O_CLOEXEC, XO_REGULAR, /* mode= */ 0);
+        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR, XO_REGULAR, /* mode= */ 0);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open image file '%s': %m", path);
 
@@ -2250,7 +2250,7 @@ static int prepare_efi_variable_store(const char *template, const char *sidecar_
                 if (!d)
                         return log_oom();
 
-                target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_RDWR|O_CREAT|O_CLOEXEC, 0600, &newly_created);
+                target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_RDWR|O_CREAT, 0600, &newly_created);
                 if (target_fd < 0)
                         return log_error_errno(target_fd, "Failed to open EFI variable store at %s: %m", arg_efi_nvram_state_path);
 
@@ -2262,7 +2262,7 @@ static int prepare_efi_variable_store(const char *template, const char *sidecar_
                                 return log_error_errno(r, "EFI variable store at %s is not a regular file: %m", arg_efi_nvram_state_path);
                 }
         } else {
-                target_fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC);
+                target_fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR);
                 if (target_fd < 0)
                         return log_error_errno(target_fd, "Failed to create temporary EFI variable store: %m");
 
@@ -2350,7 +2350,7 @@ static int cmdline_add_ovmf(
                 return r;
 
         /* QEMU's block layer opens the drive read-only first, so it needs a matching fd in the fdset. */
-        vars_fds[1] = fd_reopen(vars_fds[0], O_RDONLY|O_CLOEXEC);
+        vars_fds[1] = fd_reopen(vars_fds[0], O_RDONLY);
         if (vars_fds[1] < 0)
                 return log_error_errno(vars_fds[1], "Failed to reopen EFI variable store read-only: %m");
 
@@ -2575,7 +2575,7 @@ static int prepare_primary_drive(DriveInfos *drives) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract directory from '%s': %m", image_path);
 
-                        overlay_fd = open_tmpfile_unlinkable(image_dir, O_RDWR|O_CLOEXEC);
+                        overlay_fd = open_tmpfile_unlinkable(image_dir, O_RDWR);
                         if (overlay_fd < 0)
                                 log_debug_errno(overlay_fd,
                                                 "Failed to create ephemeral overlay in '%s', using the directory for large temporary files instead: %m",
@@ -2589,7 +2589,7 @@ static int prepare_primary_drive(DriveInfos *drives) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine directory for large temporary files: %m");
 
-                        overlay_fd = open_tmpfile_unlinkable(overlay_dir, O_RDWR|O_CLOEXEC);
+                        overlay_fd = open_tmpfile_unlinkable(overlay_dir, O_RDWR);
                         if (overlay_fd < 0)
                                 return log_error_errno(overlay_fd, "Failed to create ephemeral overlay in '%s': %m", overlay_dir);
                 }
@@ -4078,7 +4078,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                  * the monitor connection (which is 'master' here). Reopen it to get an independent open file
                  * description, so FORK_REARRANGE_STDIO can move it onto stdin/stdout/stderr without disturbing
                  * the fd we hand QEMU's console chardev via the fd set. */
-                child_pty = fd_reopen(console_backend_fd, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                child_pty = fd_reopen(console_backend_fd, O_RDWR|O_NOCTTY);
                 if (child_pty < 0)
                         return log_error_errno(child_pty, "Failed to reopen PTY backend: %m");
         } else if (master >= 0) {

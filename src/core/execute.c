@@ -140,7 +140,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *pa
         if (parameters && parameters->stdout_fd >= 0 && isatty_safe(parameters->stdout_fd))
                 fd = parameters->stdout_fd;
         else if (path && exec_context_has_tty(context)) {
-                fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_NONBLOCK);
                 if (fd < 0)
                         return (void) log_debug_errno(fd, "Failed to open terminal '%s', ignoring: %m", path);
         } else

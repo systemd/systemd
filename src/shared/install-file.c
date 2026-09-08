@@ -143,7 +143,7 @@ int install_file(int source_atfd, const char *source_name,
                 case S_IFREG: {
                         _cleanup_close_ int regfd = -EBADF;
 
-                        regfd = fd_reopen(pfd, O_RDONLY|O_CLOEXEC);
+                        regfd = fd_reopen(pfd, O_RDONLY);
                         if (regfd < 0) {
                                 if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
                                         return log_debug_errno(regfd, "Failed to open referenced inode: %m");
@@ -176,7 +176,7 @@ int install_file(int source_atfd, const char *source_name,
                 case S_IFDIR: {
                         _cleanup_close_ int dfd = -EBADF;
 
-                        dfd = fd_reopen(pfd, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                        dfd = fd_reopen(pfd, O_RDONLY|O_DIRECTORY);
                         if (dfd < 0) {
                                 if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
                                         return log_debug_errno(dfd, "Failed to open referenced inode: %m");
