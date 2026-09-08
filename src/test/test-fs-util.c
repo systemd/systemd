@@ -779,6 +779,39 @@ TEST(xopenat_regular) {
         assert_se(unlink("/tmp/xopenat-regular-test") >= 0);
 }
 
+TEST(xopenat_empty_path) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+
+        /* Without XO_EMPTY_PATH an empty path is a missing name, as for open("") */
+        ASSERT_ERROR(xopenat(tfd, "", O_RDONLY|O_DIRECTORY), ENOENT);
+        ASSERT_ERROR(xopenat(tfd, NULL, O_RDONLY|O_DIRECTORY), ENOENT);
+        ASSERT_ERROR(xopenat(AT_FDCWD, "", O_RDONLY|O_DIRECTORY), ENOENT);
+        ASSERT_ERROR(xopenat(XAT_FDROOT, "", O_RDONLY|O_DIRECTORY), ENOENT);
+        ASSERT_ERROR(xopenat_full(tfd, "", O_RDWR|O_CREAT, /* xopen_flags= */ 0, 0644), ENOENT);
+        ASSERT_ERROR(xopenat_full(tfd, "", O_RDWR|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0644), ENOENT);
+        ASSERT_ERROR(xopenat_full(AT_FDCWD, "", O_WRONLY|O_CREAT, /* xopen_flags= */ 0, 0644), ENOENT);
+
+        /* With the flag it reopens the directory itself, like AT_EMPTY_PATH... */
+        ASSERT_OK(fd = xopenat_full(tfd, "", O_RDONLY|O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID));
+        ASSERT_OK_POSITIVE(inode_same_at(tfd, NULL, fd, NULL, AT_EMPTY_PATH));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = xopenat_full(tfd, NULL, O_RDONLY|O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID));
+        ASSERT_OK_POSITIVE(inode_same_at(tfd, NULL, fd, NULL, AT_EMPTY_PATH));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = xopenat_full(XAT_FDROOT, "", O_RDONLY|O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID));
+        ASSERT_OK_POSITIVE(inode_same_at(AT_FDCWD, "/", fd, NULL, AT_EMPTY_PATH));
+        fd = safe_close(fd);
+
+        /* ...and a non-empty path is opened as usual */
+        ASSERT_OK(fd = xopenat_full(tfd, "file", O_RDWR|O_CREAT|O_EXCL, XO_EMPTY_PATH, 0644));
+        ASSERT_OK_POSITIVE(inode_same_at(tfd, "file", fd, NULL, AT_EMPTY_PATH));
+}
+
 TEST(xopenat_socket) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
