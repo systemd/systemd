@@ -1415,7 +1415,7 @@ static int vl_method_make_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, p.mode);
+        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, /* flags= */ 0, p.mode);
         if (fd < 0)
                 return fd;
 

@@ -4399,7 +4399,7 @@ int dissected_image_acquire_metadata(
 
                         default:
                                 NULSTR_FOREACH(p, paths[k]) {
-                                        fd = chase_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                                        fd = chase_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_NOCTTY, /* ret_path= */ NULL);
                                         if (fd >= 0)
                                                 break;
                                 }
@@ -5234,7 +5234,7 @@ int mountfsd_mount_image_fd(
 
         _cleanup_close_ int reopened_fd = -EBADF;
 
-        image_fd = fd_reopen_condition(image_fd, O_CLOEXEC|O_NOCTTY|O_NONBLOCK|(FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY) ? O_RDONLY : O_RDWR), O_PATH, &reopened_fd);
+        image_fd = fd_reopen_condition(image_fd, O_NOCTTY|O_NONBLOCK|(FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY) ? O_RDONLY : O_RDWR), O_PATH, &reopened_fd);
         if (image_fd < 0)
                 return log_debug_errno(image_fd, "Failed to reopen fd: %m");
 
@@ -5693,7 +5693,7 @@ int remove_tree_foreign(const char *path, int userns_fd) {
                         _exit(EXIT_FAILURE);
                 }
 
-                _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
+                _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY);
                 if (dfd < 0) {
                         log_debug_errno(r, "Failed to reopen tree fd: %m");
                         _exit(EXIT_FAILURE);

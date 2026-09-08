@@ -1155,7 +1155,7 @@ static int get_file_sha256(int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE])
         _cleanup_close_ int fd = -EBADF;
 
         /* convert O_PATH fd into a regular one */
-        fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
+        fd = fd_reopen(inode_fd, O_RDONLY);
         if (fd < 0)
                 return fd;
 
@@ -1370,7 +1370,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
         case ACTION_COPY_FROM: {
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
 
-                source_fd = chase_and_open(arg_source, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                source_fd = chase_and_open(arg_source, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_NOCTTY, /* ret_path= */ NULL);
                 if (source_fd < 0)
                         return log_error_errno(source_fd, "Failed to open source path '%s' in image '%s': %m", arg_source, arg_image);
 
@@ -1551,7 +1551,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 _cleanup_close_ int tmp_fd = -EBADF;
                 int output_fd;
                 if (arg_target) {
-                        tmp_fd = open_tmpfile_linkable(arg_target, O_WRONLY|O_CLOEXEC, &tar);
+                        tmp_fd = open_tmpfile_linkable(arg_target, O_WRONLY, &tar);
                         if (tmp_fd < 0)
                                 return log_error_errno(tmp_fd, "Failed to create target file '%s': %m", arg_target);
 

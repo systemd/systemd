@@ -579,7 +579,7 @@ TEST(umountat) {
         CHECK_PRIV;
 
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
-        _cleanup_close_ int dfd = mkdtemp_open(NULL, O_CLOEXEC, &p);
+        _cleanup_close_ int dfd = mkdtemp_open(NULL, 0, &p);
         ASSERT_OK(dfd);
 
         ASSERT_OK(mkdirat(dfd, "foo", 0777));

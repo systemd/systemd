@@ -238,7 +238,7 @@ TEST(terminal_get_terminfo_by_dcs) {
         int r;
 
         /* We need a non-blocking read-write fd. */
-        _cleanup_close_ int fd = fd_reopen(STDIN_FILENO, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_close_ int fd = fd_reopen(STDIN_FILENO, O_RDWR|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return (void) log_info_errno(fd, "Cannot reopen stdin in read-write mode: %m");
 
@@ -304,7 +304,7 @@ TEST(terminal_is_pty_fd) {
         FOREACH_STRING(p, "/dev/ttyS0", "/dev/tty1") {
                 _cleanup_close_ int tfd = -EBADF;
 
-                tfd = open_terminal(p, O_CLOEXEC|O_NOCTTY|O_RDONLY|O_NONBLOCK);
+                tfd = open_terminal(p, O_NOCTTY|O_RDONLY|O_NONBLOCK);
                 if (tfd == -ENOENT)
                         continue;
                 if (tfd < 0)  {
@@ -375,7 +375,7 @@ TEST(terminal_reset_defensive) {
 TEST(pty_open_peer) {
         _cleanup_free_ char *pty_path = NULL;
 
-        _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path));
+        _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK, &pty_path));
         ASSERT_NOT_NULL(pty_path);
 
         _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
@@ -392,7 +392,7 @@ TEST(pty_open_peer) {
 TEST(terminal_new_session) {
         int r;
 
-        _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));
+        _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK, NULL));
         _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
 
         r = pidref_safe_fork_full(

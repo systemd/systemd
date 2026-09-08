@@ -310,7 +310,7 @@ static int link_context_add_cmdline_extras(LinkContext *b) {
                 if (r == O_DIRECTORY)
                         return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Extra file path '%s' does not refer to regular file.", *x);
 
-                _cleanup_close_ int fd = xopenat_full(AT_FDCWD, *x, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+                _cleanup_close_ int fd = xopenat_full(AT_FDCWD, *x, O_RDONLY|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open '%s': %m", *x);
 
@@ -360,7 +360,7 @@ static int link_context_from_cmdline(LinkContext *ret, const char *kernel) {
                 return log_error_errno(r, "Failed to extract filename from kernel path '%s': %m", kernel);
         if (!efi_loader_entry_resource_filename_valid(b.kernel_filename))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Kernel '%s' is not suitable for reference in a boot menu entry.", kernel);
-        b.kernel_fd = xopenat_full(AT_FDCWD, kernel, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+        b.kernel_fd = xopenat_full(AT_FDCWD, kernel, O_RDONLY|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
         if (b.kernel_fd < 0)
                 return log_error_errno(b.kernel_fd, "Failed to open kernel path '%s': %m", kernel);
 
@@ -446,7 +446,7 @@ static int begin_copy_file(
         }
 
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int write_fd = open_tmpfile_linkable_at(target_dir_fd, filename, O_WRONLY|O_CLOEXEC, &t);
+        _cleanup_close_ int write_fd = open_tmpfile_linkable_at(target_dir_fd, filename, O_WRONLY, &t);
         if (write_fd < 0)
                 return log_error_errno(write_fd, "Failed to create '%s': %m", filename);
 
@@ -539,7 +539,7 @@ static int begin_write_entry_file(
         log_info("Writing new boot menu entry '%s/loader/entries/%s' for profile %u.", c->dollar_boot_path, filename, profile_nr);
 
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int write_fd = open_tmpfile_linkable_at(c->loader_entries_dir_fd, filename, O_WRONLY|O_CLOEXEC, &t);
+        _cleanup_close_ int write_fd = open_tmpfile_linkable_at(c->loader_entries_dir_fd, filename, O_WRONLY, &t);
         if (write_fd < 0)
                 return log_error_errno(write_fd, "Failed to create '%s': %m", filename);
 
@@ -644,7 +644,7 @@ static int link_context_pick_entry_commit(LinkContext *c) {
         if (c->entry_commit != 0)
                 return 0;
 
-        _cleanup_close_ int opened_fd = fd_reopen(c->loader_entries_dir_fd, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int opened_fd = fd_reopen(c->loader_entries_dir_fd, O_DIRECTORY);
         if (opened_fd < 0)
                 return log_error_errno(opened_fd, "Failed to reopen loader entries dir: %m");
 
@@ -705,7 +705,7 @@ static int clean_temporary_files(int fd) {
          * materialized before they are fully written. However, vfat currently does not support O_TMPFILE,
          * hence we need to clean things up manually. */
 
-        _cleanup_close_ int dfd = fd_reopen(fd, O_CLOEXEC|O_DIRECTORY);
+        _cleanup_close_ int dfd = fd_reopen(fd, O_DIRECTORY);
         if (dfd < 0)
                 return log_error_errno(dfd, "Failed to open directory: %m");
 
@@ -1087,7 +1087,7 @@ static int link_context_add_extra(LinkContext *c, int dir_fd, const char *path, 
         if (!efi_loader_entry_resource_filename_valid(filename))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Extra file '%s' is not suitable for reference in a boot menu entry, refusing.", filename);
 
-        _cleanup_close_ int fd = xopenat_full(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+        _cleanup_close_ int fd = xopenat_full(dir_fd, path, O_RDONLY|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open extra file '%s': %m", path);
 
@@ -1122,7 +1122,7 @@ static int link_context_add_extras(LinkContext *c, int uki_dir_fd, Set **seen) {
                         uki_dir_fd,
                         "extras.d",
                         /* chase_flags= */ 0,
-                        O_DIRECTORY|O_CLOEXEC,
+                        O_DIRECTORY,
                         /* ret_path= */ NULL);
         if (extras_dir_fd == -ENOENT)
                 return 0;
@@ -1232,7 +1232,7 @@ static int link_context_find_kernel(LinkContext *c, int uki_dir_fd) {
         _cleanup_free_ char *filename = NULL;
         _cleanup_close_ int kernel_fd = xopenat_full(
                         uki_dir_fd, "kernel.efi",
-                        O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW,
+                        O_RDONLY|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW,
                         XO_REGULAR,
                         /* mode= */ MODE_INVALID);
         if (kernel_fd == -ENOENT) {
@@ -1254,7 +1254,7 @@ static int link_context_find_kernel(LinkContext *c, int uki_dir_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract filename from '%s': %m", pick.path);
 
-                kernel_fd = fd_reopen(pick.fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                kernel_fd = fd_reopen(pick.fd, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (kernel_fd < 0)
                         return log_error_errno(kernel_fd, "Failed to open UKI '%s': %m", pick.path);
 
@@ -1299,7 +1299,7 @@ static int link_context_discover_resources(LinkContext *c) {
                                 /* dir_fd= */ c->root_fd,
                                 *dir,
                                 CHASE_MUST_BE_DIRECTORY,
-                                O_RDONLY|O_DIRECTORY|O_CLOEXEC,
+                                O_RDONLY|O_DIRECTORY,
                                 /* ret_path= */ NULL);
                 if (uki_dir_fd == -ENOENT)
                         continue;

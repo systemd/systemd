@@ -284,7 +284,7 @@ static int load_etc_machine_info(InstallContext *c) {
                                 c->root_fd,
                                 "/etc/machine-info",
                                 CHASE_MUST_BE_REGULAR,
-                                O_RDONLY|O_CLOEXEC,
+                                O_RDONLY,
                                 /* ret_path= */ NULL);
         if (fd == -ENOENT)
                 return 0;
@@ -514,7 +514,7 @@ static int copy_file_with_version_check(
 
         _cleanup_free_ char *t = NULL;
         _cleanup_close_ int write_fd = -EBADF;
-        write_fd = open_tmpfile_linkable_at(dest_parent_fd, dest_filename, O_WRONLY|O_CLOEXEC, &t);
+        write_fd = open_tmpfile_linkable_at(dest_parent_fd, dest_filename, O_WRONLY, &t);
         if (write_fd < 0)
                 return log_error_errno(write_fd, "Failed to open \"%s\" for writing: %m", dest_path);
 
@@ -639,7 +639,7 @@ static int update_efi_boot_binaries(
                 if (strcaseeq_ptr(ignore_filename, de->d_name))
                         continue;
 
-                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, /* mode= */ MODE_INVALID);
+                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open \"%s/%s\" for reading: %m", j, de->d_name);
 
@@ -692,7 +692,7 @@ static int copy_one_file(
                                 c->root_fd,
                                 sp,
                                 CHASE_MUST_BE_REGULAR,
-                                O_RDONLY|O_CLOEXEC,
+                                O_RDONLY,
                                 &source_path);
                 if (source_fd < 0 && (source_fd != -ENOENT || c->install_source != INSTALL_SOURCE_AUTO))
                         return log_error_errno(source_fd, "Failed to resolve path '%s' under directory '%s': %m", sp, c->root);
@@ -704,7 +704,7 @@ static int copy_one_file(
                                 sp,
                                 /* root= */ NULL,
                                 CHASE_MUST_BE_REGULAR,
-                                O_RDONLY|O_CLOEXEC,
+                                O_RDONLY,
                                 &source_path);
                 if (source_fd < 0)
                         return log_error_errno(source_fd, "Failed to resolve path '%s': %m", sp);
@@ -731,7 +731,7 @@ static int copy_one_file(
         if (!dest_path)
                 return log_oom();
 
-        _cleanup_close_ int dest_fd = xopenat_full(dest_parent_fd, dest_name, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+        _cleanup_close_ int dest_fd = xopenat_full(dest_parent_fd, dest_name, O_RDONLY, XO_REGULAR, MODE_INVALID);
         if (dest_fd < 0 && dest_fd != -ENOENT)
                 return log_error_errno(dest_fd, "Failed to open '%s' under '%s/EFI/systemd' directory: %m", dest_name, j);
 
@@ -763,7 +763,7 @@ static int copy_one_file(
                          * fallback yet, LoaderInfo is unavailable, or there is a mismatch, then
                          * overwrite it with the current primary. */
                         bool should_rotate = true;
-                        _cleanup_close_ int fallback_fd = xopenat_full(dest_parent_fd, fallback_name, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                        _cleanup_close_ int fallback_fd = xopenat_full(dest_parent_fd, fallback_name, O_RDONLY, XO_REGULAR, MODE_INVALID);
                         if (fallback_fd >= 0) {
                                 _cleanup_free_ char *loader_info = NULL, *fallback_version = NULL;
 
@@ -809,7 +809,7 @@ static int copy_one_file(
                 if (!default_dest_path)
                         return log_oom();
 
-                _cleanup_close_ int default_dest_fd = xopenat_full(default_dest_parent_fd, boot_dot_efi, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                _cleanup_close_ int default_dest_fd = xopenat_full(default_dest_parent_fd, boot_dot_efi, O_RDONLY, XO_REGULAR, MODE_INVALID);
                 if (default_dest_fd < 0 && default_dest_fd != -ENOENT)
                         return log_error_errno(default_dest_fd, "Failed to open '%s' under '%s/EFI/BOOT' directory: %m", boot_dot_efi, j);
 
@@ -920,7 +920,7 @@ static int install_loader_config(InstallContext *c) {
 
         _cleanup_free_ char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable_at(loader_dir_fd, "loader.conf", O_WRONLY|O_CLOEXEC, &t, &f);
+        r = fopen_tmpfile_linkable_at(loader_dir_fd, "loader.conf", O_WRONLY, &t, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to open '%s/loader/loader.conf' for writing: %m", j);
 
@@ -975,7 +975,7 @@ static int install_loader_specification(InstallContext *c) {
 
         _cleanup_free_ char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable_at(loader_dir_fd, "entries.srel", O_WRONLY|O_CLOEXEC, &t, &f);
+        r = fopen_tmpfile_linkable_at(loader_dir_fd, "entries.srel", O_WRONLY, &t, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to open '%s/loader/entries.srel' for writing: %m", j);
 
@@ -1201,7 +1201,7 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
                         return log_oom();
 
                 _cleanup_free_ char *t = NULL;
-                _cleanup_close_ int fd = open_tmpfile_linkable_at(keys_fd, filename, O_WRONLY|O_CLOEXEC, &t);
+                _cleanup_close_ int fd = open_tmpfile_linkable_at(keys_fd, filename, O_WRONLY, &t);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open secure boot auto-enrollment file for writing: %m");
 
@@ -1534,7 +1534,7 @@ static int are_we_installed(InstallContext *c) {
                         c->esp_fd,
                         "/EFI/systemd",
                         CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_DIRECTORY,
-                        O_RDONLY|O_CLOEXEC|O_DIRECTORY,
+                        O_RDONLY|O_DIRECTORY,
                         /* ret_path= */ NULL);
         if (fd == -ENOENT)
                 return 0;
@@ -1806,7 +1806,7 @@ static int remove_boot_efi(InstallContext *c) {
                 if (!z)
                         return log_oom();
 
-                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, /* mode= */ MODE_INVALID);
+                fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
                 if (fd == -ENOENT)
                         continue;
                 if (fd < 0)

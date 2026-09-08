@@ -1444,7 +1444,7 @@ static int unit_file_load(
                 if (!(flags & SEARCH_LOAD))
                         return 0;
 
-                fd = chase_and_open(path, root_dir, 0, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                fd = chase_and_open(path, root_dir, /* chase_flags= */ 0, O_RDONLY|O_NOCTTY, /* ret_path= */ NULL);
                 if (fd < 0)
                         return fd;
         }

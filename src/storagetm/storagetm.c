@@ -398,7 +398,7 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *devi
                 return log_error_errno(subsystems_fd, "Failed to open %s: %m", "/sys/kernel/config/nvmet/subsystems");
 
         _cleanup_close_ int subsystem_fd = -EBADF;
-        subsystem_fd = open_mkdir_at(subsystems_fd, j, O_EXCL|O_RDONLY|O_CLOEXEC, 0777);
+        subsystem_fd = open_mkdir_at(subsystems_fd, j, O_EXCL|O_RDONLY, 0777);
         if (subsystem_fd < 0)
                 return log_error_errno(subsystem_fd, "Failed to create NVME subsystem '%s': %m", j);
 
@@ -409,7 +409,7 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *devi
         (void) nvme_subsystem_write_metadata(subsystem_fd, device);
 
         _cleanup_close_ int namespace_fd = -EBADF;
-        namespace_fd = open_mkdir_at(subsystem_fd, "namespaces/1", O_EXCL|O_RDONLY|O_CLOEXEC, 0777);
+        namespace_fd = open_mkdir_at(subsystem_fd, "namespaces/1", O_EXCL|O_RDONLY, 0777);
         if (namespace_fd < 0)
                 return log_error_errno(namespace_fd, "Failed to create NVME namespace '1': %m");
 
@@ -542,7 +542,7 @@ static int nvme_port_add_portnr(
                 return log_oom();
 
         _cleanup_close_ int port_fd = -EBADF;
-        port_fd = open_mkdir_at(ports_fd, fname, O_EXCL|O_RDONLY|O_CLOEXEC, 0777);
+        port_fd = open_mkdir_at(ports_fd, fname, O_EXCL|O_RDONLY, 0777);
         if (port_fd < 0) {
                 if (port_fd != -EEXIST)
                         return log_error_errno(port_fd, "Failed to create port %" PRIu16 ": %m", portnr);

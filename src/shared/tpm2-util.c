@@ -9200,7 +9200,7 @@ int tpm2_nvpcr_initialize(
         /* Open + lock the log file *before* we check for the *.auth flag file. */
         _cleanup_close_ int log_fd = tpm2_userspace_log_open();
 
-        _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
+        _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", /* flags= */ 0, 0755);
         if (dfd < 0)
                 return log_debug_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
 

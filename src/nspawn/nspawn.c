@@ -1698,7 +1698,7 @@ int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int dir_fd = open_mkdir_at(parent_fd, dname, O_EXCL|O_CLOEXEC, mode);
+        _cleanup_close_ int dir_fd = open_mkdir_at(parent_fd, dname, O_EXCL, mode);
         if (dir_fd == -EEXIST)
                 return 0;
         if (dir_fd < 0)

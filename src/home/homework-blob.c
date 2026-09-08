@@ -97,7 +97,7 @@ static int copy_one_blob(
         if (lseek(src_fd, initial, SEEK_SET) < 0)
                 return log_debug_errno(errno, "Failed to rewind fd for blob %s: %m", name);
 
-        dest = open_tmpfile_linkable_at(dest_dfd, name, O_RDWR|O_CLOEXEC, &dest_tmpname);
+        dest = open_tmpfile_linkable_at(dest_dfd, name, O_RDWR, &dest_tmpname);
         if (dest < 0)
                 return log_debug_errno(dest, "Failed to create dest tmpfile for blob %s: %m", name);
 
@@ -165,7 +165,7 @@ static int replace_blob_at(
         if (r < 0)
                 return r;
 
-        dest_dfd = open_mkdir_at(dest_base_dfd, fn, O_EXCL|O_CLOEXEC, mode);
+        dest_dfd = open_mkdir_at(dest_base_dfd, fn, O_EXCL, mode);
         if (dest_dfd < 0)
                 return log_debug_errno(dest_dfd, "Failed to create/open dest blob dir: %m");
 
@@ -274,7 +274,7 @@ int home_apply_new_blob_dir(UserRecord *h, Hashmap *blobs) {
         if (r < 0)
                 return r;
 
-        dfd = open_mkdir_at(base_dfd, fn, O_EXCL|O_CLOEXEC, 0755);
+        dfd = open_mkdir_at(base_dfd, fn, O_EXCL, 0755);
         if (dfd < 0)
                 return log_error_errno(errno, "Failed to create system blob dir: %m");
 

@@ -187,7 +187,7 @@ static int context_copy(const Context *source, Context *ret) {
         };
 
         if (source->rfd >= 0) {
-                copy.rfd = fd_reopen(source->rfd, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                copy.rfd = fd_reopen(source->rfd, O_DIRECTORY|O_PATH);
                 if (copy.rfd < 0)
                         return copy.rfd;
         }
@@ -1003,7 +1003,7 @@ static int context_make_entry_dir(Context *c) {
 
         log_debug("mkdir -p %s", c->entry_dir);
         fd = chase_and_openat(c->rfd, c->rfd, c->entry_dir, CHASE_MKDIR_0755,
-                              O_CLOEXEC | O_CREAT | O_DIRECTORY | O_PATH, NULL);
+                              O_CREAT | O_DIRECTORY | O_PATH, NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to make directory '%s': %m", c->entry_dir);
 
@@ -1026,7 +1026,7 @@ static int context_remove_entry_dir(Context *c) {
                 return 0;
 
         log_debug("rm -rf %s", c->entry_dir);
-        fd = chase_and_openat(c->rfd, c->rfd, c->entry_dir, /* chase_flags= */ 0, O_CLOEXEC | O_DIRECTORY, &p);
+        fd = chase_and_openat(c->rfd, c->rfd, c->entry_dir, /* chase_flags= */ 0, O_DIRECTORY, &p);
         if (fd < 0) {
                 if (IN_SET(fd, -ENOTDIR, -ENOENT))
                         return 0;
@@ -1332,7 +1332,7 @@ static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (r < 0)
                 return r;
 
-        fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
+        fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY, /* ret_path= */ NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
@@ -1562,7 +1562,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
+        fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY, /* ret_path= */ NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 

@@ -2079,7 +2079,7 @@ static int event_add_pressure(
                 events = EPOLLIN;
 
         } else if (S_ISREG(st.st_mode) || S_ISFIFO(st.st_mode) || S_ISCHR(st.st_mode)) {
-                fd = fd_reopen(path_fd, (write_buffer_size > 0 ? O_RDWR : O_RDONLY) |O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                fd = fd_reopen(path_fd, (write_buffer_size > 0 ? O_RDWR : O_RDONLY)|O_NONBLOCK|O_NOCTTY);
                 if (fd < 0)
                         return fd;
 

@@ -151,7 +151,7 @@ static void check_readdir_all(int tfd, RecurseDirFlags flags, char **expected) {
         _cleanup_close_ int fd = -EBADF;
 
         /* readdir_all() consumes the directory fd offset, hence reopen a fresh fd for each enumeration. */
-        ASSERT_OK(fd = fd_reopen(tfd, O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(fd = fd_reopen(tfd, O_DIRECTORY));
         ASSERT_OK(readdir_all(fd, flags, &de));
         assert_entries(de, expected);
 }
@@ -165,7 +165,7 @@ static void test_must_be_flags(void) {
         /* Populate a temporary directory with one entry of each interesting type and verify that the
          * RECURSE_DIR_MUST_BE_* flags select exactly the right subset. */
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &t));
+        ASSERT_OK(tfd = mkdtemp_open(NULL, O_DIRECTORY, &t));
 
         ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0777));
         ASSERT_OK_ERRNO(reg_fd = openat(tfd, "reg", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0666));

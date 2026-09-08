@@ -4887,7 +4887,7 @@ static int acquire_stdin_pe_fd(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine temporary directory: %m");
 
-        fd = open_tmpfile_unlinkable(td, O_RDWR|O_CLOEXEC);
+        fd = open_tmpfile_unlinkable(td, O_RDWR);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create temporary file for PE binary: %m");
 

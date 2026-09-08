@@ -294,7 +294,7 @@ int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) 
         struct dirent *buf;
         size_t m;
 
-        fd = xopenat(dir_fd, path, O_DIRECTORY|O_CLOEXEC);
+        fd = xopenat(dir_fd, path, O_DIRECTORY);
         if (fd < 0)
                 return fd;
 
@@ -484,7 +484,7 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         assert(ret);
 
         if (!isempty(path)) {
-                fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC);
+                fd = xopenat(dir_fd, path, O_PATH);
                 if (fd < 0)
                         return fd;
                 dir_fd = fd;

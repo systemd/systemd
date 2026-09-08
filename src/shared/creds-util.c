@@ -455,7 +455,7 @@ static int make_credential_host_secret(
         assert(dfd >= 0);
         assert(fn);
 
-        fd = open_tmpfile_linkable_at(dfd, fn, O_CLOEXEC|O_WRONLY, &t);
+        fd = open_tmpfile_linkable_at(dfd, fn, O_WRONLY, &t);
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to create temporary file for credential host secret: %m");
 
@@ -540,7 +540,7 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
 
         (void) mkdir_parents(dirname, 0755);
 
-        dfd = open_mkdir(dirname, O_CLOEXEC, 0755);
+        dfd = open_mkdir(dirname, /* flags= */ 0, 0755);
         if (dfd < 0)
                 return log_debug_errno(dfd, "Failed to create or open directory '%s': %m", dirname);
 
