@@ -540,7 +540,7 @@ int read_virtual_file_at(
         if (isempty(filename))
                 fd = fd_reopen(ASSERT_FD(dir_fd), O_RDONLY | O_NOCTTY);
         else
-                fd = RET_NERRNO(openat(dir_fd, filename, O_RDONLY | O_NOCTTY | O_CLOEXEC));
+                fd = xopenat(dir_fd, filename, O_RDONLY | O_NOCTTY);
         if (fd < 0)
                 return fd;
 
@@ -990,9 +990,11 @@ DIR* xopendirat(int dir_fd, const char *path, int flags) {
                 flags |= O_NOFOLLOW;
         }
 
-        fd = openat(dir_fd, path, O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags);
-        if (fd < 0)
+        fd = xopenat(dir_fd, path, O_NONBLOCK|O_DIRECTORY|flags);
+        if (fd < 0) {
+                errno = -fd;
                 return NULL;
+        }
 
         return take_fdopendir(&fd);
 }
