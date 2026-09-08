@@ -891,6 +891,24 @@ TEST(read_boolean_file) {
         ASSERT_OK_EQ(read_boolean_file_at(dfd, bn), true);
 }
 
+TEST(xfopenat_dangling_symlink) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK_ERRNO(symlinkat("target", tfd, "link"));
+
+        /* The creating modes go through openat_report_new() now, which refuses to create through a dangling symlink */
+        ASSERT_ERROR(xfopenat(tfd, "link", "w", /* open_flags= */ 0, &f), ELOOP);
+        ASSERT_ERROR(xfopenat(tfd, "link", "a", /* open_flags= */ 0, &f), ELOOP);
+
+        /* Once the target exists the symlink is followed as before */
+        ASSERT_OK(xfopenat(tfd, "target", "w", /* open_flags= */ 0, &f));
+        f = safe_fclose(f);
+        ASSERT_OK(xfopenat(tfd, "link", "w", /* open_flags= */ 0, &f));
+}
+
 TEST(xfopenat_cloexec) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -EBADF;
