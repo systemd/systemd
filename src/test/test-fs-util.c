@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
 
@@ -23,10 +24,12 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "sysctl-util.h"
 #include "tests.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
+#include "user-util.h"
 #include "virt.h"
 
 static const char *arg_test_dir = NULL;
@@ -674,6 +677,13 @@ TEST(openat_report_new) {
         fd = openat_report_new(tfd, "link", O_RDWR|O_CREAT, 0666, &b);
         ASSERT_ERROR(fd, ELOOP);
 
+        /* Same through xopenat_full(), also for regular files and directories, and unchanged EEXIST for
+         * O_EXCL */
+        ASSERT_ERROR(xopenat_full(tfd, "link", O_RDWR|O_CREAT, /* xopen_flags= */ 0, 0666), ELOOP);
+        ASSERT_ERROR(xopenat_full(tfd, "link", O_RDWR|O_CREAT, XO_REGULAR, 0666), ELOOP);
+        ASSERT_ERROR(xopenat_full(tfd, "link", O_DIRECTORY|O_CREAT, /* xopen_flags= */ 0, 0755), ELOOP);
+        ASSERT_ERROR(openat_report_new(tfd, "link", O_RDWR|O_CREAT|O_EXCL, 0666, &b), EEXIST);
+
         fd = openat_report_new(tfd, "target", O_RDWR|O_CREAT, 0666, &b);
         ASSERT_OK(fd);
         fd = safe_close(fd);
@@ -683,6 +693,40 @@ TEST(openat_report_new) {
         ASSERT_OK(fd);
         fd = safe_close(fd);
         ASSERT_FALSE(b);
+}
+
+TEST(openat_report_new_sticky) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_free_ char *regular = NULL, *fifos = NULL;
+
+        /* The kernel applies fs.protected_regular and fs.protected_fifos only to O_CREAT opens of existing
+         * files, check that openat_report_new() doesn't lose that */
+
+        if (geteuid() != 0 || userns_has_single_user())
+                return (void) log_tests_skipped("not running as root or in userns with single user");
+        if (sysctl_read("fs/protected_regular", &regular) < 0 || sysctl_read("fs/protected_fifos", &fifos) < 0)
+                return (void) log_tests_skipped("fs.protected_regular or fs.protected_fifos not available");
+
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+        ASSERT_OK_ERRNO(fchmod(tfd, 01777));
+
+        ASSERT_OK(fd = xopenat_full(tfd, "regular", O_RDWR|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0666));
+        ASSERT_OK_ERRNO(fchown(fd, UID_NOBODY, GID_NOBODY));
+        fd = safe_close(fd);
+        ASSERT_OK_ERRNO(mkfifoat(tfd, "fifo", 0666));
+        ASSERT_OK_ERRNO(fchownat(tfd, "fifo", UID_NOBODY, GID_NOBODY, AT_SYMLINK_NOFOLLOW));
+
+        if (!streq(regular, "0")) {
+                ASSERT_ERROR(openat_report_new(tfd, "regular", O_RDWR|O_CREAT, 0666, /* ret_newly_created= */ NULL),
+                             EACCES);
+                ASSERT_ERROR(xopenat_full(tfd, "regular", O_RDWR|O_CREAT, /* xopen_flags= */ 0, 0666), EACCES);
+        }
+        if (!streq(fifos, "0"))
+                ASSERT_ERROR(openat_report_new(tfd, "fifo", O_RDWR|O_CREAT, 0666, /* ret_newly_created= */ NULL), EACCES);
+
+        /* Without O_CREAT the kernel doesn't check */
+        ASSERT_OK(fd = openat_report_new(tfd, "regular", O_RDWR, 0666, /* ret_newly_created= */ NULL));
 }
 
 TEST(xopenat_full) {
