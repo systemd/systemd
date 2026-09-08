@@ -156,10 +156,10 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                          * modify. Of course, since the file will be owned by root it doesn't matter much, but maybe
                          * people look. */
 
-                        fd = openat(etc_fd, "machine-id", O_CREAT|O_EXCL|O_RDWR|O_NOFOLLOW|O_CLOEXEC, 0444);
+                        fd = xopenat_full(etc_fd, "machine-id", O_CREAT|O_EXCL|O_RDWR|O_NOFOLLOW, /* xopen_flags= */ 0, 0444);
                         if (fd < 0) {
-                                if (errno == EROFS)
-                                        return log_error_errno(errno,
+                                if (fd == -EROFS)
+                                        return log_error_errno(fd,
                                                                "System cannot boot: Missing %s and %s/ is read-only.\n"
                                                                "Booting up is supported only when:\n"
                                                                "1) /etc/machine-id exists and is populated.\n"
@@ -168,7 +168,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                                                                etc_machine_id,
                                                                etc);
 
-                                return log_error_errno(errno, "Cannot create '%s': %m", etc_machine_id);
+                                return log_error_errno(fd, "Cannot create '%s': %m", etc_machine_id);
                         }
 
                         log_debug("Successfully opened new '%s' file.", etc_machine_id);

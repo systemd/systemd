@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "luo-util.h"
@@ -28,7 +29,7 @@
  * caller is responsible for coming up with the token and tracking them. */
 
 int luo_open_device(void) {
-        return RET_NERRNO(open("/dev/liveupdate", O_RDWR|O_CLOEXEC));
+        return xopenat(AT_FDCWD, "/dev/liveupdate", O_RDWR);
 }
 
 int luo_create_session(int device_fd, const char *name) {

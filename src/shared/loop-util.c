@@ -642,9 +642,9 @@ static int loop_device_make_internal(
                         fd = reopened_fd; /* From now on, operate on our new O_DIRECT fd */
         }
 
-        control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        control = xopenat(AT_FDCWD, "/dev/loop-control", O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (control < 0)
-                return -errno;
+                return control;
 
         /* Strip LO_FLAGS_PARTSCAN from LOOP_CONFIGURE and enable it afterwards via
          * LOOP_SET_STATUS64 to work around a kernel race: LOOP_CONFIGURE sends a uevent with
@@ -919,9 +919,9 @@ int loop_device_make_by_path_memory(
 
         loop_flags &= ~LO_FLAGS_DIRECT_IO; /* memfds don't support O_DIRECT, hence LO_FLAGS_DIRECT_IO can't be used either */
 
-        fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+        fd = xopenat(AT_FDCWD, path, O_NONBLOCK|O_NOCTTY|O_RDONLY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         r = fd_verify_regular_or_block(fd);
         if (r < 0)
@@ -958,9 +958,9 @@ static LoopDevice* loop_device_free(LoopDevice *d) {
          * delete it in a synchronized fashion, and allocators won't needlessly see the block device as free
          * while we are about to delete it. */
         if (!LOOP_DEVICE_IS_FOREIGN(d) && !d->relinquished) {
-                control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                control = xopenat(AT_FDCWD, "/dev/loop-control", O_RDWR|O_NOCTTY|O_NONBLOCK);
                 if (control < 0)
-                        log_debug_errno(errno, "Failed to open loop control device, cannot remove loop device '%s', ignoring: %m", strna(d->node));
+                        log_debug_errno(control, "Failed to open loop control device, cannot remove loop device '%s', ignoring: %m", strna(d->node));
                 else if (flock(control, LOCK_EX) < 0)
                         log_debug_errno(errno, "Failed to lock loop control device, ignoring: %m");
         }
