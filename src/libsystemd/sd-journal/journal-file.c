@@ -4180,7 +4180,7 @@ int journal_file_open(
                  * or so, we likely fail quickly than block for long. For regular files O_NONBLOCK has no effect, hence
                  * it doesn't hurt in that case. */
 
-                f->fd = openat_report_new(AT_FDCWD, fname, f->open_flags|O_CLOEXEC|O_NONBLOCK, f->mode, &newly_created);
+                f->fd = openat_report_new(AT_FDCWD, fname, f->open_flags|O_NONBLOCK, f->mode, &newly_created);
                 if (f->fd < 0) {
                         r = f->fd;
                         goto fail;

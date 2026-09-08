@@ -171,7 +171,7 @@ static int user_save_internal(User *u) {
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable(u->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
+        r = fopen_tmpfile_linkable(u->state_file, O_WRONLY, &temp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create state file '%s': %m", u->state_file);
 

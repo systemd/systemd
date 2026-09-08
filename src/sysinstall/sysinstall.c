@@ -1130,7 +1130,7 @@ static int find_current_kernel(
                         /* dir_fd= */ partition_fd,
                         image,
                         CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_REGULAR,
-                        O_RDONLY|O_CLOEXEC,
+                        O_RDONLY,
                         &resolved);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to find EFI binary '%s' on partition '%s': %m", image, partition_path);
@@ -1549,7 +1549,7 @@ static int sysinstall_context_settle_kernel_image(SysInstallContext *context,
                 if (r == O_DIRECTORY)
                         return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Kernel path '%s' refers to directory, must be regular file, refusing.", kernel_image);
 
-                kernel_fd = xopenat_full(XAT_FDROOT, kernel_image, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                kernel_fd = xopenat_full(XAT_FDROOT, kernel_image, O_RDONLY, XO_REGULAR, MODE_INVALID);
                 if (kernel_fd < 0)
                         return log_error_errno(kernel_fd, "Failed to open kernel image '%s': %m", kernel_image);
 

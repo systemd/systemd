@@ -773,7 +773,7 @@ static int boot_entries_find_type1(
         assert(root);
         assert(dir);
 
-        dir_fd = chase_and_open(dir, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY|O_CLOEXEC, &full);
+        dir_fd = chase_and_open(dir, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY, &full);
         if (dir_fd == -ENOENT)
                 return 0;
         if (dir_fd < 0)
@@ -1369,7 +1369,7 @@ static int boot_entries_find_unified_extras(
 
                 _cleanup_free_ char *cmdline = NULL;
                 if (type == BOOT_ENTRY_ADDON) {
-                        _cleanup_close_ int fd = fd_reopen(pin_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                        _cleanup_close_ int fd = fd_reopen(pin_fd, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to open '%s', ignoring: %m", location);
                                 continue;

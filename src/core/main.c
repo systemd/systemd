@@ -270,7 +270,7 @@ static int console_setup(void) {
 
         _cleanup_close_ int tty_fd = -EBADF;
 
-        tty_fd = open_terminal("/dev/console", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        tty_fd = open_terminal("/dev/console", O_RDWR|O_NOCTTY);
         if (tty_fd < 0)
                 return log_error_errno(tty_fd, "Failed to open %s: %m", "/dev/console");
 
@@ -1637,7 +1637,7 @@ static int write_boot_or_shutdown_osc(const char *type) {
         if (getenv_terminal_is_dumb())
                 return 0;
 
-        _cleanup_close_ int fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        _cleanup_close_ int fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY);
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to open /dev/console to print %s OSC, ignoring: %m", type);
 
@@ -2149,7 +2149,7 @@ static void reduce_vt(ManagerObjective objective) {
         if (r < 0)
                 log_debug_errno(r, "Failed to switch to VT TTY 1, ignoring: %m");
 
-        _cleanup_close_ int tty0_fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int tty0_fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (tty0_fd < 0)
                 return (void) log_debug_errno(tty0_fd, "Failed to open '/dev/tty0', ignoring: %m");
 
@@ -3973,7 +3973,7 @@ finish:
         if (getpid_cached() == 1) {
                 _cleanup_close_ int tty_fd = -EBADF;
 
-                tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+                tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY);
                 if (tty_fd >= 0)
                         __sanitizer_set_report_fd((void*) (intptr_t) tty_fd);
 

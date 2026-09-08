@@ -312,7 +312,7 @@ TEST(link_tmpfile) {
 
         pattern = strjoina(p, "/systemd-test-XXXXXX");
 
-        fd = open_tmpfile_unlinkable(p, O_RDWR|O_CLOEXEC);
+        fd = open_tmpfile_unlinkable(p, O_RDWR);
         assert_se(fd >= 0);
 
         assert_se(asprintf(&cmd, "ls -l /proc/"PID_FMT"/fd/%d", getpid_cached(), fd) > 0);
@@ -335,7 +335,7 @@ TEST(link_tmpfile) {
         assert_se(tempfn_random(pattern, NULL, &d) >= 0);
 
         fd = safe_close(fd);
-        fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
+        fd = open_tmpfile_linkable(d, O_RDWR, &tmp);
         assert_se(fd >= 0);
         assert_se(write(fd, "foobar\n", 7) == 7);
 
@@ -350,7 +350,7 @@ TEST(link_tmpfile) {
         fd = safe_close(fd);
         tmp = mfree(tmp);
 
-        fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
+        fd = open_tmpfile_linkable(d, O_RDWR, &tmp);
         assert_se(fd >= 0);
 
         assert_se(write(fd, "waumiau\n", 8) == 8);

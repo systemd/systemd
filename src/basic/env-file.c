@@ -679,7 +679,7 @@ int write_env_file_label(int dir_fd, const char *fname, char **headers, char **l
 
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
-        r = fopen_tmpfile_linkable_at(dir_fd, fname, O_WRONLY|O_CLOEXEC, &p, &f);
+        r = fopen_tmpfile_linkable_at(dir_fd, fname, O_WRONLY, &p, &f);
         if (r < 0) {
                 if (FLAGS_SET(flags, WRITE_ENV_FILE_LABEL))
                         (void) label_ops_post(dir_fd, fname, /* created= */ false, label_context);

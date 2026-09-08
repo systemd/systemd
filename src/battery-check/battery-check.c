@@ -113,7 +113,7 @@ static int run(int argc, char *argv[]) {
                    LOG_MESSAGE("%s " BATTERY_LOW_MESSAGE, glyph(GLYPH_LOW_BATTERY)),
                    LOG_MESSAGE_ID(SD_MESSAGE_BATTERY_LOW_WARNING_STR));
 
-        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY);
         if (fd < 0)
                 log_warning_errno(fd, "Failed to open console, ignoring: %m");
         else

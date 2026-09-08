@@ -746,7 +746,7 @@ static void write_confirm_error(int err, const char *vc, const char *unit_id) {
         assert(vc);
         assert(unit_id);
 
-        fd = open_terminal(vc, O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(vc, O_WRONLY|O_NOCTTY);
         if (fd < 0)
                 return;
 
@@ -3757,9 +3757,9 @@ static int pin_rootfs(
                  * mountfsd will want this later, and it wants a fully opened fd, so that security checks
                  * have been passed */
                 _cleanup_close_ int reopened_fd = -EBADF;
-                reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDWR);
+                reopened_fd = fd_reopen(result.fd, O_NONBLOCK|O_NOCTTY|O_RDWR);
                 if (ERRNO_IS_NEG_FS_WRITE_REFUSED(reopened_fd))
-                        reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+                        reopened_fd = fd_reopen(result.fd, O_NONBLOCK|O_NOCTTY|O_RDONLY);
                 if (reopened_fd < 0) {
                         *reterr_path = strdup(context->root_image);
                         return log_debug_errno(reopened_fd, "Failed to open image '%s': %m", context->root_image);
@@ -4542,7 +4542,7 @@ static int get_open_file_fd(const OpenFile *of) {
                 else if (FLAGS_SET(of->flags, OPENFILE_TRUNCATE))
                         flags |= O_TRUNC;
 
-                fd = fd_reopen(ofd, flags|O_NOCTTY|O_CLOEXEC);
+                fd = fd_reopen(ofd, flags|O_NOCTTY);
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to reopen file '%s': %m", of->path);
 

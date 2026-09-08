@@ -1420,7 +1420,7 @@ static int mkdir_chown_open_directory(
                 if (r < 0)
                         return r;
 
-                fd = open_mkdir_at(parent_fd, t, O_CLOEXEC|O_EXCL, 0700); /* Use restrictive mode until ownership is in order */
+                fd = open_mkdir_at(parent_fd, t, O_EXCL, 0700); /* Use restrictive mode until ownership is in order */
                 if (fd < 0)
                         return fd;
 
@@ -1653,7 +1653,7 @@ static int open_osc_context(pam_handle_t *pamh, const char *session_type, UserRe
         /* Keep a reference to the TTY we are operating on, so that we can issue the OSC close sequence also
          * if the TTY is already closed. We use an O_PATH reference here, rather than a properly opened fd,
          * so that we don't delay tty hang-up. */
-        _cleanup_close_ int tty_opath_fd = fd_reopen(STDOUT_FILENO, O_PATH|O_CLOEXEC);
+        _cleanup_close_ int tty_opath_fd = fd_reopen(STDOUT_FILENO, O_PATH);
         if (tty_opath_fd < 0)
                 pam_debug_syslog_errno(pamh, debug, tty_opath_fd, "Failed to pin TTY, ignoring: %m");
         else
@@ -1720,7 +1720,7 @@ static int close_osc_context(pam_handle_t *pamh, bool debug) {
                 return PAM_SUCCESS;
 
         /* Now open the original TTY again, so that we can write on it */
-        _cleanup_close_ int fd = fd_reopen(tty_opath_fd, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_close_ int fd = fd_reopen(tty_opath_fd, O_WRONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
                 pam_debug_syslog_errno(pamh, debug, fd, "Failed to reopen TTY, ignoring: %m");
                 return PAM_SUCCESS;

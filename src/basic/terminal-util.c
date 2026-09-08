@@ -77,7 +77,7 @@ int chvt(int vt) {
         /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log messages go,
          * if that's configured. */
 
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
@@ -702,7 +702,7 @@ int acquire_terminal(
 
                 /* We pass here O_NOCTTY only so that we can check the return value TIOCSCTTY and have a reliable way
                  * to figure out if we successfully became the controlling process of the tty */
-                fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                fd = open_terminal(name, O_RDWR|O_NOCTTY);
                 if (fd < 0)
                         return fd;
 
@@ -842,7 +842,7 @@ int terminal_vhangup(const char *tty) {
 
         assert(tty);
 
-        fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(tty, O_RDWR|O_NOCTTY);
         if (fd < 0)
                 return fd;
 
@@ -857,7 +857,7 @@ int vt_disallocate(const char *tty_path) {
 
         int ttynr = vtnr_from_tty(tty_path);
         if (ttynr > 0) {
-                _cleanup_close_ int fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                _cleanup_close_ int fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_NONBLOCK);
                 if (fd < 0)
                         return fd;
 
@@ -871,7 +871,7 @@ int vt_disallocate(const char *tty_path) {
         /* So this is not a VT (in which case we cannot deallocate it), or we failed to deallocate. Let's at
          * least clear the screen. */
 
-        _cleanup_close_ int fd2 = open_terminal(tty_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int fd2 = open_terminal(tty_path, O_WRONLY|O_NOCTTY|O_NONBLOCK);
         if (fd2 < 0)
                 return fd2;
 
@@ -1036,7 +1036,7 @@ int lock_dev_console(void) {
 
         /* NB: We do not use O_NOFOLLOW here, because some container managers might place a symlink to some
          * pty in /dev/console, in which case it should be fine to lock the target TTY. */
-        fd = open_terminal("/dev/console", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = open_terminal("/dev/console", O_RDONLY|O_NOCTTY);
         if (fd < 0)
                 return fd;
 
@@ -2045,7 +2045,7 @@ int terminal_get_cursor_position(
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
          * else process the POLLIN. */
 
-        nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 return r;
 
@@ -2330,7 +2330,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
 
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
          * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
-        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 return r;
 
@@ -2516,7 +2516,7 @@ static int terminal_prepare_query(
 
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
          * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
-        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 return r;
 
@@ -2860,7 +2860,7 @@ int query_term_for_tty(const char *tty, char **ret_term) {
         /* Try to query the terminal implementation that we're on. This will not work in all
          * cases, which is fine, since this is intended to be used as a fallback. */
 
-        _cleanup_close_ int tty_fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int tty_fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (tty_fd < 0)
                 return log_debug_errno(tty_fd, "Failed to open %s to query terminfo: %m", tty);
 
