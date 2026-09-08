@@ -537,7 +537,7 @@ int ask_password_tty(
         /* If the caller didn't specify a TTY, then use the controlling tty, if we can. */
         int ttyfd;
         if (req->tty_fd < 0)
-                ttyfd = cttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC);
+                ttyfd = cttyfd = open_terminal("/dev/tty", O_RDWR|O_NOCTTY);
         else
                 ttyfd = req->tty_fd;
 
