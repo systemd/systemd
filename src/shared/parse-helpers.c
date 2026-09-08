@@ -123,7 +123,7 @@ int parse_address_families(const char *rvalue, Set **families, bool *is_allowlis
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &word, /* separators= */ WHITESPACE ",", EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r < 0)
