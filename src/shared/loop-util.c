@@ -854,9 +854,10 @@ int loop_device_make_by_path_at(
         direct_flags = FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0;
         rdwr_flags = open_flags >= 0 ? open_flags : O_RDWR;
 
-        fd = xopenat(dir_fd, path, basic_flags|direct_flags|rdwr_flags);
+        /* path may be NULL */
+        fd = xopenat_full(dir_fd, path, basic_flags|direct_flags|rdwr_flags, XO_EMPTY_PATH, MODE_INVALID);
         if (fd < 0 && direct_flags != 0) /* If we had O_DIRECT on, and things failed with that, let's immediately try again without */
-                fd = xopenat(dir_fd, path, basic_flags|rdwr_flags);
+                fd = xopenat_full(dir_fd, path, basic_flags|rdwr_flags, XO_EMPTY_PATH, MODE_INVALID);
         else
                 direct = direct_flags != 0;
         if (fd < 0) {
@@ -866,9 +867,10 @@ int loop_device_make_by_path_at(
                 if (open_flags >= 0 || !ERRNO_IS_NEG_FS_WRITE_REFUSED(r))
                         return r;
 
-                fd = xopenat(dir_fd, path, basic_flags|direct_flags|O_RDONLY);
+                fd = xopenat_full(dir_fd, path, basic_flags|direct_flags|O_RDONLY,
+                                  XO_EMPTY_PATH, MODE_INVALID);
                 if (fd < 0 && direct_flags != 0) /* as above */
-                        fd = xopenat(dir_fd, path, basic_flags|O_RDONLY);
+                        fd = xopenat_full(dir_fd, path, basic_flags|O_RDONLY, XO_EMPTY_PATH, MODE_INVALID);
                 else
                         direct = direct_flags != 0;
                 if (fd < 0)

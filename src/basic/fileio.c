@@ -1059,10 +1059,8 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
         if (mode_flags < 0)
                 return mode_flags;
 
-        if (isempty(path) && dir_fd == AT_FDCWD)
-                return -EBADF;
-
-        fd = xopenat_full(dir_fd, path, mode_flags | open_flags, /* xopen_flags= */ 0, 0666);
+        /* A NULL or empty path reopens dir_fd, unless something is to be created */
+        fd = xopenat_full(dir_fd, path, mode_flags | open_flags, XO_EMPTY_PATH, 0666);
         if (fd < 0)
                 return fd;
 

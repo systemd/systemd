@@ -294,7 +294,7 @@ int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) 
         struct dirent *buf;
         size_t m;
 
-        fd = xopenat(dir_fd, path, O_DIRECTORY);
+        fd = xopenat_full(dir_fd, path, O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID); /* path may be NULL */
         if (fd < 0)
                 return fd;
 
