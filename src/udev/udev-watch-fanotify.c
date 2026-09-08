@@ -13,6 +13,7 @@
 #include "errno-util.h"
 #include "fanotify-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "udev-manager.h"
@@ -200,9 +201,9 @@ int manager_init_fanotify(Manager *manager, int fd) {
                                        "Using inotify for device watch (as requested by $SYSTEMD_UDEV_USE_INOTIFY).");
 
         if (manager->dev_fd < 0) {
-                _cleanup_close_ int dev_fd = open("/dev/", O_CLOEXEC | O_DIRECTORY);
+                _cleanup_close_ int dev_fd = xopenat(AT_FDCWD, "/dev/", O_DIRECTORY);
                 if (dev_fd < 0)
-                        return log_error_errno(errno, "Failed to open '/dev/': %m");
+                        return log_error_errno(dev_fd, "Failed to open '/dev/': %m");
 
                 if (fstatfs(dev_fd, &manager->dev_statfs) < 0)
                         return log_error_errno(errno, "Failed to statfs '/dev/': %m");

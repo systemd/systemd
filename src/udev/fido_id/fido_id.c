@@ -16,6 +16,7 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fido_id_desc.h"
+#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "path-util.h"
@@ -69,9 +70,9 @@ static int run(int argc, char **argv) {
         if (!desc_path)
                 return log_oom();
 
-        fd = open(desc_path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NOCTTY);
+        fd = xopenat(AT_FDCWD, desc_path, O_RDONLY | O_NOFOLLOW | O_NOCTTY);
         if (fd < 0)
-                return log_device_error_errno(hid_device, errno,
+                return log_device_error_errno(hid_device, fd,
                                               "Failed to open report descriptor at '%s': %m", desc_path);
 
         desc_len = read(fd, desc, sizeof(desc));
