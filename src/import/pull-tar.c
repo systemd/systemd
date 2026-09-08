@@ -285,9 +285,9 @@ static int tar_pull_make_local_copy(TarPull *p) {
                          * already downloaded the image before, and are just making a copy of the original
                          * download, we need to open ->tree_fd now */
                         if (p->tree_fd < 0) {
-                                _cleanup_close_ int directory_fd = open(p->final_path, O_DIRECTORY|O_CLOEXEC);
+                                _cleanup_close_ int directory_fd = xopenat(AT_FDCWD, p->final_path, O_DIRECTORY);
                                 if (directory_fd < 0)
-                                        return log_error_errno(errno, "Failed to open '%s': %m", p->final_path);
+                                        return log_error_errno(directory_fd, "Failed to open '%s': %m", p->final_path);
 
                                 struct stat st;
                                 if (fstat(directory_fd, &st) < 0)
@@ -657,9 +657,9 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                         (void) import_assign_pool_quota_and_warn(where);
                 }
 
-                p->tree_fd = open(where, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                p->tree_fd = xopenat(AT_FDCWD, where, O_DIRECTORY|O_NOFOLLOW);
                 if (p->tree_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", where);
+                        return log_error_errno(p->tree_fd, "Failed to open '%s': %m", where);
         }
 
         j->disk_fd = import_fork_tar_x(p->tree_fd, p->userns_fd, &p->tar_pid);
@@ -687,9 +687,9 @@ static int tar_pull_job_on_open_disk_settings(PullJob *j) {
 
         (void) mkdir_parents_label(p->settings_temp_path, 0700);
 
-        j->disk_fd = open(p->settings_temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        j->disk_fd = xopenat_full(AT_FDCWD, p->settings_temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY, /* xopen_flags= */ 0, 0664);
         if (j->disk_fd < 0)
-                return log_error_errno(errno, "Failed to create %s: %m", p->settings_temp_path);
+                return log_error_errno(j->disk_fd, "Failed to create %s: %m", p->settings_temp_path);
 
         return 0;
 }
