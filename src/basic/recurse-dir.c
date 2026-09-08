@@ -258,18 +258,18 @@ int recurse_dir(
                         p = i->d_name;
 
                 if (IN_SET(i->d_type, DT_UNKNOWN, DT_DIR)) {
-                        subdir_fd = openat(dir_fd, i->d_name, O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
+                        subdir_fd = xopenat(dir_fd, i->d_name, O_DIRECTORY|O_NOFOLLOW);
                         if (subdir_fd < 0) {
-                                if (errno == ENOENT) /* Vanished by now, go for next file immediately */
+                                if (subdir_fd == -ENOENT) /* Vanished by now, go for next file immediately */
                                         continue;
 
                                 /* If it is a subdir but we failed to open it, then fail */
-                                if (!IN_SET(errno, ENOTDIR, ELOOP)) {
-                                        log_debug_errno(errno, "Failed to open directory '%s': %m", p);
+                                if (!IN_SET(subdir_fd, -ENOTDIR, -ELOOP)) {
+                                        log_debug_errno(subdir_fd, "Failed to open directory '%s': %m", p);
 
-                                        assert(errno <= RECURSE_DIR_SKIP_OPEN_DIR_ERROR_MAX - RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE);
+                                        assert(-subdir_fd <= RECURSE_DIR_SKIP_OPEN_DIR_ERROR_MAX - RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE);
 
-                                        r = func(RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE + errno,
+                                        r = func(RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE - subdir_fd,
                                                  p,
                                                  dir_fd,
                                                  /* inode_fd= */ -EBADF,
@@ -304,16 +304,16 @@ int recurse_dir(
 
                         if (flags & RECURSE_DIR_INODE_FD) {
 
-                                inode_fd = openat(dir_fd, i->d_name, O_PATH|O_NOFOLLOW|O_CLOEXEC);
+                                inode_fd = xopenat(dir_fd, i->d_name, O_PATH|O_NOFOLLOW);
                                 if (inode_fd < 0) {
-                                        if (errno == ENOENT) /* Vanished by now, go for next file immediately */
+                                        if (inode_fd == -ENOENT) /* Vanished by now, go for next file immediately */
                                                 continue;
 
-                                        log_debug_errno(errno, "Failed to open directory entry '%s': %m", p);
+                                        log_debug_errno(inode_fd, "Failed to open directory entry '%s': %m", p);
 
-                                        assert(errno <= RECURSE_DIR_SKIP_OPEN_INODE_ERROR_MAX - RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE);
+                                        assert(-inode_fd <= RECURSE_DIR_SKIP_OPEN_INODE_ERROR_MAX - RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE);
 
-                                        r = func(RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE + errno,
+                                        r = func(RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE - inode_fd,
                                                  p,
                                                  dir_fd,
                                                  /* inode_fd= */ -EBADF,
@@ -554,9 +554,9 @@ int recurse_dir_at(
         assert(atfd >= 0 || atfd == AT_FDCWD);
         assert(func);
 
-        fd = openat(atfd, path ?: ".", O_DIRECTORY|O_CLOEXEC);
+        fd = xopenat(atfd, path ?: ".", O_DIRECTORY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return recurse_dir(fd, path, statx_mask, n_depth_max, flags, func, userdata);
 }

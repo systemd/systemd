@@ -483,9 +483,9 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 }
                         }
 
-                        fd_parent = openat(fd, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
+                        fd_parent = xopenat(fd, "..", O_NOFOLLOW|O_PATH|O_DIRECTORY);
                         if (fd_parent < 0)
-                                return -errno;
+                                return fd_parent;
 
                         r = chase_statx(fd_parent, &stx_parent);
                         if (r < 0)
@@ -550,9 +550,9 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 _cleanup_close_ int fd_grandparent = -EBADF;
                                 struct statx stx_grandparent;
 
-                                fd_grandparent = openat(fd_parent, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
+                                fd_grandparent = xopenat(fd_parent, "..", O_NOFOLLOW|O_PATH|O_DIRECTORY);
                                 if (fd_grandparent < 0)
-                                        return -errno;
+                                        return fd_grandparent;
 
                                 r = chase_statx(fd_grandparent, &stx_grandparent);
                                 if (r < 0)
@@ -838,9 +838,9 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
         if (empty_or_root(root))
                 fd = XAT_FDROOT;
         else {
-                fd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                fd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_PATH);
                 if (fd < 0)
-                        return -errno;
+                        return fd;
         }
 
         r = chaseat(fd, fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
