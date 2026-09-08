@@ -7,9 +7,13 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-json.h"
 #include "sd-netlink.h"
 #include "sd-varlink.h"
 
+#include "ansi-color.h"
+#include "bpf-link.h"
+#include "bpf-util.h"
 #include "build.h"
 #include "bus-util.h"
 #include "chase.h"
@@ -23,6 +27,8 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
@@ -45,11 +51,16 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "user-util.h"
 #include "varlink-idl-util.h"
 #include "varlink-util.h"
 #include "verbs.h"
 #include "version.h"
 #include "xattr-util.h"
+
+#if HAVE_LIBBPF
+#include "monitor-varlink-api.bpf.h"
+#endif
 
 typedef struct PushFds {
         int *fds;
@@ -69,6 +80,10 @@ static PushFds arg_push_fds = {};
 static bool arg_ask_password = true;
 static bool arg_legend = true;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+static uid_t arg_uid = UID_INVALID;
+static pid_t arg_pid = 0;
+static const char *arg_path = NULL;
+static bool arg_path_anonymous = false;
 
 static void push_fds_done(PushFds *p) {
         assert(p);
@@ -206,6 +221,25 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_push_fds.fds[arg_push_fds.n_fds++] = TAKE_FD(add_fd);
                         break;
                 }
+
+                OPTION('u', "uid", "UID", "Monitor only connections of specified UID"):
+                        r = parse_uid(opts.arg, &arg_uid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse UID '%s': %m", opts.arg);
+                        break;
+
+                OPTION('p', "pid", "PID", "Filter monitored traffic by PID"):
+                        r = parse_pid(opts.arg, &arg_pid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse PID '%s': %m", opts.arg);
+                        break;
+
+                OPTION_LONG("path", "PATH", "Filter monitored traffic by socket path"):
+                        if (streq(opts.arg, "anonymous"))
+                                arg_path_anonymous = true;
+                        else
+                                arg_path = opts.arg;
+                        break;
 
                 OPTION_COMMON_INTROSPECT_CLI:
                         return introspect_cli(arg_json_format_flags);
@@ -1457,6 +1491,397 @@ static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         return 0;
 }
+
+#if HAVE_LIBBPF
+typedef struct MonitorJsonBuffer {
+        char *data;
+        size_t size;
+        size_t allocated;
+        uint64_t timestamp_ns;
+        uint64_t sock_ino;
+        uint32_t uid;
+        uint32_t peer_uid;
+        uint32_t pid;
+        uint32_t peer_pid;
+        uint8_t path_len;
+        char path[MONITOR_VARLINK_MAX_PATH];
+} MonitorJsonBuffer;
+
+static MonitorJsonBuffer* monitor_json_buffer_free(MonitorJsonBuffer *buf) {
+        if (!buf)
+                return NULL;
+        free(buf->data);
+        return mfree(buf);
+}
+
+static Hashmap* monitor_json_buffers_free(Hashmap *h) {
+        MonitorJsonBuffer *buf;
+        while ((buf = hashmap_steal_first(h)))
+                monitor_json_buffer_free(buf);
+        return hashmap_free(h);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, monitor_json_buffers_free);
+
+static int monitor_json_buffer_append(MonitorJsonBuffer *buf, const char *s, size_t len) {
+        if (buf->size + len > buf->allocated) {
+                size_t new_alloc = MAX(MAX(buf->allocated * 2, buf->size + len), 256U);
+                char *new_data = realloc(buf->data, new_alloc);
+                if (!new_data)
+                        return -ENOMEM;
+                buf->data = new_data;
+                buf->allocated = new_alloc;
+        }
+        memcpy(buf->data + buf->size, s, len);
+        buf->size += len;
+        return 0;
+}
+
+static void monitor_json_buffer_consume(MonitorJsonBuffer *buf, size_t len) {
+        assert(len <= buf->size);
+        buf->size -= len;
+        if (buf->size > 0)
+                memmove(buf->data, buf->data + len, buf->size);
+}
+
+static void monitor_emit_json(
+                uint64_t timestamp_ns,
+                uint64_t sock_ino,
+                uint32_t pid,
+                uint32_t uid,
+                uint32_t peer_pid,
+                uint32_t peer_uid,
+                uint8_t path_len,
+                const char *path,
+                sd_json_variant *data) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *path_str = NULL;
+
+        if (path_len > 0)
+                path_str = strndup(path, path_len);
+
+        usec_t realtime = map_clock_usec(timestamp_ns / 1000, CLOCK_BOOTTIME, CLOCK_REALTIME);
+
+        (void) sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("timestamp", realtime),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("sockInode", sock_ino),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("pid", pid),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", uid),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("peerPID", peer_pid),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("peerUID", peer_uid),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!path_str, "path", SD_JSON_BUILD_STRING(path_str)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!data, "data", SD_JSON_BUILD_VARIANT(data)));
+
+        (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+}
+
+static void monitor_emit_pretty(
+                uint64_t timestamp_ns,
+                uint64_t sock_ino,
+                uint32_t pid,
+                uint32_t uid,
+                uint32_t peer_pid,
+                uint32_t peer_uid,
+                uint8_t path_len,
+                const char *path,
+                sd_json_variant *data,
+                const char *msg,
+                size_t msg_len) {
+
+        usec_t realtime = map_clock_usec(timestamp_ns / 1000, CLOCK_BOOTTIME, CLOCK_REALTIME);
+
+        printf("%s%s%s %s%s%s\n",
+               ansi_highlight_cyan(),
+               glyph(GLYPH_TRIANGULAR_BULLET),
+               ansi_normal(),
+               ansi_grey(),
+               FORMAT_TIMESTAMP_STYLE(realtime, TIMESTAMP_US),
+               ansi_normal());
+
+        if (path_len > 0)
+                printf("  %s%.*s%s\n",
+                       ansi_highlight_cyan(),
+                       (int) path_len, path,
+                       ansi_normal());
+        else
+                printf("  %s(anonymous)%s\n",
+                       ansi_highlight_cyan(),
+                       ansi_normal());
+
+        printf("  %sPID=%s%"PRIu32"%s %sUID=%s%"PRIu32"%s %s %sPID=%s%"PRIu32"%s %sUID=%s%"PRIu32"%s %sino=%s%"PRIu64"%s\n",
+               ansi_grey(), ansi_highlight(), pid, ansi_normal(),
+               ansi_grey(), ansi_highlight(), uid, ansi_normal(),
+               glyph(GLYPH_ARROW_RIGHT),
+               ansi_grey(), ansi_highlight(), peer_pid, ansi_normal(),
+               ansi_grey(), ansi_highlight(), peer_uid, ansi_normal(),
+               ansi_grey(), ansi_highlight(), sock_ino, ansi_normal());
+
+        if (data)
+                (void) sd_json_variant_dump(data,
+                                            SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO|SD_JSON_FORMAT_NEWLINE,
+                                            stdout, /* prefix= */ NULL);
+        else if (msg && msg_len > 0)
+                printf("  (invalid JSON, %zu bytes)\n", msg_len);
+
+        printf("\n");
+}
+
+static void monitor_emit(
+                uint64_t timestamp_ns,
+                uint64_t sock_ino,
+                uint32_t pid,
+                uint32_t uid,
+                uint32_t peer_pid,
+                uint32_t peer_uid,
+                uint8_t path_len,
+                const char *path,
+                const char *msg,
+                size_t msg_len) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *data = NULL;
+
+        if (msg && msg_len > 0) {
+                _cleanup_free_ char *s = strndup(msg, msg_len);
+                if (s)
+                        (void) sd_json_parse(s, 0, &data, NULL, NULL);
+        }
+
+        if (sd_json_format_enabled(arg_json_format_flags))
+                monitor_emit_json(timestamp_ns, sock_ino, pid, uid, peer_pid, peer_uid, path_len, path, data);
+        else
+                monitor_emit_pretty(timestamp_ns, sock_ino, pid, uid, peer_pid, peer_uid, path_len, path, data, msg, msg_len);
+}
+
+static void monitor_emit_from_packet(const struct monitor_varlink_packet *p, const char *msg, size_t msg_len) {
+        monitor_emit(p->timestamp_ns, p->sock_ino, p->pid, p->uid, p->peer_pid, p->peer_uid,
+                     p->path_len, p->path, msg, msg_len);
+}
+
+static void monitor_emit_from_buffer(const MonitorJsonBuffer *buf, const char *msg, size_t msg_len) {
+        monitor_emit(buf->timestamp_ns, buf->sock_ino, buf->pid, buf->uid, buf->peer_pid, buf->peer_uid,
+                     buf->path_len, buf->path, msg, msg_len);
+}
+
+static void monitor_process_packet(
+                Hashmap **buffers,
+                const struct monitor_varlink_packet *p) {
+
+        void *key = UINT64_TO_PTR(p->sock_ino);
+        MonitorJsonBuffer *buf = hashmap_get(*buffers, key);
+        const char *d = (const char *) p->data;
+        size_t remaining = p->data_len;
+
+        if (remaining == 0) {
+                monitor_emit_from_packet(p, NULL, 0);
+                return;
+        }
+
+        if (!buf) {
+                while (remaining > 0 && *d == '\0') {
+                        d++;
+                        remaining--;
+                }
+                if (remaining == 0)
+                        return;
+
+                const char *brace = memchr(d, '{', remaining);
+                if (!brace) {
+                        monitor_emit_from_packet(p, d, remaining);
+                        return;
+                }
+                if (brace > d)
+                        monitor_emit_from_packet(p, d, (size_t)(brace - d));
+                remaining -= (size_t)(brace - d);
+                d = brace;
+
+                buf = new0(MonitorJsonBuffer, 1);
+                if (!buf)
+                        return;
+
+                buf->timestamp_ns = p->timestamp_ns;
+                buf->sock_ino = p->sock_ino;
+                buf->uid = p->uid;
+                buf->peer_uid = p->peer_uid;
+                buf->pid = p->pid;
+                buf->peer_pid = p->peer_pid;
+                buf->path_len = p->path_len;
+                memcpy(buf->path, p->path, p->path_len);
+
+                if (hashmap_ensure_put(buffers, &trivial_hash_ops, key, buf) < 0) {
+                        monitor_json_buffer_free(buf);
+                        return;
+                }
+        }
+
+        if (monitor_json_buffer_append(buf, d, remaining) < 0)
+                return;
+
+        for (;;) {
+                while (buf->size > 0 && buf->data[0] == '\0')
+                        monitor_json_buffer_consume(buf, 1);
+
+                if (buf->size == 0)
+                        break;
+
+                if (buf->data[0] != '{') {
+                        const char *brace = memchr(buf->data, '{', buf->size);
+                        size_t skip_len = brace ? (size_t)(brace - buf->data) : buf->size;
+                        monitor_emit_from_buffer(buf, buf->data, skip_len);
+                        monitor_json_buffer_consume(buf, skip_len);
+                        continue;
+                }
+
+                const char *nul = memchr(buf->data, '\0', buf->size);
+                if (!nul)
+                        break;
+
+                size_t msg_len = (size_t)(nul - buf->data);
+                monitor_emit_from_buffer(buf, buf->data, msg_len);
+                monitor_json_buffer_consume(buf, msg_len + 1);
+        }
+
+        if (buf->size == 0) {
+                hashmap_remove(*buffers, key);
+                monitor_json_buffer_free(buf);
+        }
+}
+
+static int on_bpf_ringbuf_sample(void *ctx, void *data, size_t size) {
+        Hashmap **buffers = ctx;
+
+        if (size < sizeof(struct monitor_varlink_packet))
+                return 0;
+
+        struct monitor_varlink_packet *p = data;
+
+        if (arg_pid > 0 && p->pid != (uint32_t) arg_pid && p->peer_pid != (uint32_t) arg_pid)
+                return 0;
+
+        if (arg_path_anonymous) {
+                if (p->path_len != 0)
+                        return 0;
+        } else if (arg_path) {
+                if (p->path_len == 0)
+                        return 0;
+                if (strlen(arg_path) + 1 != p->path_len ||
+                    memcmp(arg_path, p->path, p->path_len) != 0)
+                        return 0;
+        }
+
+        monitor_process_packet(buffers, p);
+
+        fflush(stdout);
+        return 0;
+}
+
+static int on_monitor_ringbuf_io(sd_event_source *s, int fd, uint32_t events, void *userdata) {
+        struct ring_buffer *rb = ASSERT_PTR(userdata);
+        int r;
+
+        r = sym_ring_buffer__poll(rb, /* timeout_msec= */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to consume BPF ring buffer: %m");
+
+        return 0;
+}
+
+typedef struct MonitorSetupData {
+        unsigned ringbuf_fd_idx;
+} MonitorSetupData;
+
+VERB_NOARG(verb_monitor, "monitor", "Monitor varlink traffic");
+static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "ringbufFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, offsetof(MonitorSetupData, ringbuf_fd_idx), SD_JSON_MANDATORY },
+                {}
+        };
+
+        MonitorSetupData d = {
+                .ringbuf_fd_idx = UINT_MAX,
+        };
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
+        _cleanup_(bpf_ring_buffer_freep) struct ring_buffer *rb = NULL;
+        _cleanup_(monitor_json_buffers_freep) Hashmap *json_buffers = NULL;
+        _cleanup_close_ int ringbuf_fd = -EBADF;
+        sd_json_variant *reply;
+        bool need_authorize;
+        int poll_fd;
+        int r;
+
+        LIBBPF_NOTE(recommended);
+        r = dlopen_bpf(LOG_ERR);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load libbpf: %m");
+
+        if (sd_json_format_enabled(arg_json_format_flags))
+                arg_json_format_flags |= SD_JSON_FORMAT_SEQ|SD_JSON_FORMAT_FLUSH;
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        (void) sd_event_add_signal(event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
+        (void) sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
+
+        r = sd_varlink_connect_address(&link, "/run/systemd/varlink/io.systemd.VarlinkMonitor");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to varlink monitoring service: %m");
+
+        r = sd_varlink_set_allow_fd_passing_input(link, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable file descriptor passing: %m");
+
+        need_authorize = arg_uid != UID_INVALID && arg_uid != getuid();
+
+        if (need_authorize)
+                (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+        r = varlink_callbo_and_log(
+                        link,
+                        "io.systemd.VarlinkMonitor.Setup",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("authorize", need_authorize));
+        if (r < 0)
+                return r;
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &d);
+        if (r < 0)
+                return r;
+
+        ringbuf_fd = sd_varlink_peek_dup_fd(link, d.ringbuf_fd_idx);
+        if (ringbuf_fd < 0)
+                return log_error_errno(ringbuf_fd, "Failed to take ring buffer fd from varlink connection: %m");
+
+        rb = sym_ring_buffer__new(ringbuf_fd, on_bpf_ringbuf_sample, &json_buffers, NULL);
+        if (!rb)
+                return log_error_errno(errno, "Failed to create BPF ring buffer consumer: %m");
+
+        poll_fd = sym_ring_buffer__epoll_fd(rb);
+        if (poll_fd < 0)
+                return log_error_errno(poll_fd, "Failed to get poll fd of ring buffer: %m");
+
+        r = sd_event_add_io(event, NULL, poll_fd, EPOLLIN, on_monitor_ringbuf_io, rb);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add ring buffer poll fd to event loop: %m");
+
+        r = varlink_call_and_log(link, "io.systemd.VarlinkMonitor.Start", /* parameters= */ NULL, /* ret_parameters= */ NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Event loop failed: %m");
+
+        return 0;
+}
+#else
+VERB_NOARG(verb_monitor, "monitor", "Monitor varlink traffic");
+static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not compiled with libbpf support.");
+}
+#endif
 
 VERB_COMMON_HELP_AUTO();
 
