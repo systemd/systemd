@@ -176,6 +176,7 @@ void enroll_context_done(EnrollContext *c) {
         c->unlock_tpm2_device = mfree(c->unlock_tpm2_device);
         c->unlock_password = erase_and_free(c->unlock_password);
         c->passphrase = erase_and_free(c->passphrase);
+        c->recovery_key = erase_and_free(c->recovery_key);
         c->fido2_device = mfree(c->fido2_device);
         c->fido2_salt_file = mfree(c->fido2_salt_file);
         c->fido2_pin = erase_and_free(c->fido2_pin);

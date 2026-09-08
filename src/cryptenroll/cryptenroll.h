@@ -66,6 +66,11 @@ typedef struct EnrollContext {
         char *passphrase;
         size_t passphrase_size;
 
+        /* New recovery key to enroll (mechanism == recovery). When NULL the helpers fall back to
+         * generate a new recovery key. */
+        char *recovery_key;
+        size_t recovery_key_size;
+
         /* FIDO2 */
         char *fido2_device;
         char *fido2_salt_file;
