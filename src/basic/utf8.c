@@ -127,14 +127,16 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newlin
                  * path below, which handles it as before. A remainder of less than eight bytes is
                  * copied into a word padded with spaces, so that it can be tested the same way. */
                 while (length > 0) {
-                        size_t n = MIN(length, sizeof(uint64_t));
                         uint64_t w;
+                        size_t n;
 
-                        if (n == sizeof(uint64_t))
-                                w = unaligned_read_ne64(p);
-                        else {
+                        if (length < sizeof(uint64_t)) {
+                                n = length;
                                 w = UINT64_C(0x2020202020202020);
                                 memcpy(&w, p, n);
+                        } else {
+                                n = sizeof(uint64_t);
+                                w = unaligned_read_ne64(p);
                         }
 
                         if (!is_printable_fastpath_u64(w))
