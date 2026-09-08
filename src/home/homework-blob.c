@@ -154,11 +154,11 @@ static int replace_blob_at(
         assert(dest_name);
         assert(uid_is_valid(uid));
 
-        src_dfd = openat(src_base_dfd, src_name, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        src_dfd = xopenat(src_base_dfd, src_name, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (src_dfd < 0) {
-                if (errno == ENOENT)
+                if (src_dfd == -ENOENT)
                         return 0;
-                return log_debug_errno(errno, "Failed to open src blob dir: %m");
+                return log_debug_errno(src_dfd, "Failed to open src blob dir: %m");
         }
 
         r = tempfn_random(dest_name, NULL, &fn);
@@ -178,9 +178,9 @@ static int replace_blob_at(
                 const char *name = de->entries[i]->d_name;
                 _cleanup_close_ int src_fd = -EBADF;
 
-                src_fd = openat(src_dfd, name, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                src_fd = xopenat(src_dfd, name, O_RDONLY|O_NOCTTY|O_NOFOLLOW);
                 if (src_fd < 0) {
-                        r = log_debug_errno(errno, "Failed to open %s in src blob dir: %m", name);
+                        r = log_debug_errno(src_fd, "Failed to open %s in src blob dir: %m", name);
                         goto fail;
                 }
 
@@ -220,9 +220,9 @@ int home_reconcile_blob_dirs(UserRecord *h, int root_fd, int reconciled) {
         if (reconciled == USER_RECONCILE_IDENTICAL)
                 return 0;
 
-        sys_base_dfd = open(home_system_blob_dir(), O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        sys_base_dfd = xopenat(AT_FDCWD, home_system_blob_dir(), O_PATH|O_DIRECTORY|O_NOFOLLOW);
         if (sys_base_dfd < 0)
-                return log_error_errno(errno, "Failed to open system blob dir: %m");
+                return log_error_errno(sys_base_dfd, "Failed to open system blob dir: %m");
 
         if (reconciled == USER_RECONCILE_HOST_WON) {
                 r = replace_blob_at(sys_base_dfd, h->user_name, root_fd, ".identity-blob",
@@ -257,9 +257,9 @@ int home_apply_new_blob_dir(UserRecord *h, Hashmap *blobs) {
         if (!blobs) /* Shortcut: If no blobs are passed from dbus, we have nothing to do. */
                 return 0;
 
-        base_dfd = open(home_system_blob_dir(), O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        base_dfd = xopenat(AT_FDCWD, home_system_blob_dir(), O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (base_dfd < 0)
-                return log_error_errno(errno, "Failed to open system blob base dir: %m");
+                return log_error_errno(base_dfd, "Failed to open system blob base dir: %m");
 
         if (hashmap_isempty(blobs)) {
                 /* Shortcut: If blobs was passed but empty, we can simply delete the contents
@@ -276,7 +276,7 @@ int home_apply_new_blob_dir(UserRecord *h, Hashmap *blobs) {
 
         dfd = open_mkdir_at(base_dfd, fn, O_EXCL, 0755);
         if (dfd < 0)
-                return log_error_errno(errno, "Failed to create system blob dir: %m");
+                return log_error_errno(dfd, "Failed to create system blob dir: %m");
 
         HASHMAP_FOREACH_KEY(v, filename, blobs) {
                 r = copy_one_blob(PTR_TO_FD(v), dfd, filename, &total_size, 0, h->blob_manifest);
