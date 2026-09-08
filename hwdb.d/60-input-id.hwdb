@@ -77,6 +77,10 @@ id-input:modalias:input:b0003v1781p0898*
  ID_INPUT_ACCELEROMETER=
  ID_INPUT_JOYSTICK=1
 
+# Hangsheng R75 QMK
+id-input:modalias:input:b0003v342DpE483*
+ ID_INPUT_JOYSTICK=0
+
 # XP-PEN STAR 06
 id-input:modalias:input:b0003v28bdp0078*
  ID_INPUT_TABLET=1
@@ -88,6 +92,10 @@ id-input:modalias:input:b0005v045Ep0B22e0517*
 # Lite-On Tech IBM USB Travel Keyboard with Ultra Nav Mouse
 id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*
  ID_INPUT_POINTINGSTICK=1
+
+# Logitech G502 X Lightspeed (wired); the macro/G-key interface is not a keyboard
+id-input:modalias:input:b0003v046DpC098e0111-e0,1,2,3,*
+ ID_INPUT_KEYBOARD=0
 
 # Logitech G915 TKL Keyboard (Bluetooth)
 id-input:modalias:input:b0005v046DpB35Fe0022*
@@ -112,6 +120,10 @@ id-input:modalias:input:b0003v068Ep00F2*
 
 # TEX Shinobi Trackpoint
 id-input:modalias:input:b0003v04D9p0407e0111-e0,1,2,4*
+ ID_INPUT_POINTINGSTICK=1
+
+# Lenovo ThinkPad X1 Tablet Gen 3 TrackPoint
+id-input:modalias:input:b0003v17EFp60B5e0111-e0,1,2,4,k110,111,112*
  ID_INPUT_POINTINGSTICK=1
 
 # ASRock LED Controller
