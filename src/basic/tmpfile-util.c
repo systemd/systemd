@@ -24,9 +24,9 @@ static int fopen_temporary_internal(int dir_fd, const char *path, FILE **ret_fil
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
-        fd = openat(dir_fd, path, O_CLOEXEC|O_NOCTTY|O_RDWR|O_CREAT|O_EXCL, 0600);
+        fd = xopenat_full(dir_fd, path, O_NOCTTY|O_RDWR|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0600);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         /* This assumes that returned FILE object is short-lived and used within the same single-threaded
          * context and never shared externally, hence locking is not necessary. */
@@ -259,7 +259,7 @@ int open_tmpfile_unlinkable(const char *directory, int flags) {
         /* Returns an unlinked temporary file that cannot be linked into the file system anymore */
 
         /* Try O_TMPFILE first, if it is supported */
-        int fd = open(directory, flags|O_TMPFILE|O_EXCL, S_IRUSR|S_IWUSR);
+        int fd = xopenat_full(AT_FDCWD, directory, flags|O_TMPFILE|O_EXCL, /* xopen_flags= */ 0, S_IRUSR|S_IWUSR);
         if (fd >= 0)
                 return fd;
 
@@ -304,9 +304,9 @@ int open_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **r
         if (r < 0)
                 return r;
 
-        fd = openat(dir_fd, tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|flags, 0640);
+        fd = xopenat_full(dir_fd, tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|flags, /* xopen_flags= */ 0, 0640);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         *ret_path = TAKE_PTR(tmp);
 
@@ -424,7 +424,7 @@ int mkdtemp_open(const char *template, int flags, char **ret) {
         if (r < 0)
                 return r;
 
-        fd = RET_NERRNO(open(p, O_DIRECTORY|O_CLOEXEC|flags));
+        fd = xopenat(AT_FDCWD, p, O_DIRECTORY|flags);
         if (fd < 0) {
                 (void) rmdir(p);
                 return fd;
