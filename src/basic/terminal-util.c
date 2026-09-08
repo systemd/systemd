@@ -624,15 +624,16 @@ int open_terminal(const char *name, int mode) {
          * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
          */
 
+        assert(name);
         assert((mode & (O_CREAT|O_PATH|O_DIRECTORY|O_TMPFILE)) == 0);
 
         for (unsigned c = 0;; c++) {
-                fd = open(name, mode, 0);
+                fd = xopenat(AT_FDCWD, name, mode);
                 if (fd >= 0)
                         break;
 
-                if (errno != EIO)
-                        return -errno;
+                if (fd != -EIO)
+                        return fd;
 
                 /* Max 1s in total */
                 if (c >= 20)
@@ -794,9 +795,9 @@ int release_terminal(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        fd = xopenat(AT_FDCWD, "/dev/tty", O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed
          * by our own TIOCNOTTY */
