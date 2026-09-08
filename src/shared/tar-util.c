@@ -1334,8 +1334,9 @@ static int archive_write_acl(
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unexpected ACL type");
 
         acl_entry_t e;
-        r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &e);
-        for (;;) {
+        for (r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &e);
+             ;
+             r = sym_acl_get_entry(acl, ACL_NEXT_ENTRY, &e)) {
                 if (r < 0)
                         return log_error_errno(errno, "Failed to get ACL entry: %m");
                 if (r == 0)
@@ -1347,7 +1348,6 @@ static int archive_write_acl(
 
                 int tag = libacl_tag_to_libarchive_acl_tag(ntag);
 
-                bool skip = false;
                 id_t qualifier = UID_INVALID;
                 if (IN_SET(ntag, ACL_USER, ACL_GROUP)) {
                         id_t *q = sym_acl_get_qualifier(e);
@@ -1358,37 +1358,34 @@ static int archive_write_acl(
                         sym_acl_free(q);
 
                         /* Suppress invalid UIDs or those that shall be squashed */
-                        skip = !(uid_is_valid(qualifier) &&
-                                 (!FLAGS_SET(flags, TAR_SQUASH_UIDS_ABOVE_64K) || qualifier < NSRESOURCE_UIDS_64K));
+                        if (!(uid_is_valid(qualifier) &&
+                              (!FLAGS_SET(flags, TAR_SQUASH_UIDS_ABOVE_64K) || qualifier < NSRESOURCE_UIDS_64K)))
+                                continue;
                 }
 
-                if (!skip) {
-                        acl_permset_t p;
-                        if (sym_acl_get_permset(e, &p) < 0)
-                                return log_error_errno(errno, "Failed to get ACL entry permission set: %m");
+                acl_permset_t p;
+                if (sym_acl_get_permset(e, &p) < 0)
+                        return log_error_errno(errno, "Failed to get ACL entry permission set: %m");
 
-                        int permset = 0;
-                        r = sym_acl_get_perm(p, ACL_READ);
-                        if (r < 0)
-                                return log_error_errno(errno, "Failed to get ACL entry read bit: %m");
-                        SET_FLAG(permset, ARCHIVE_ENTRY_ACL_READ, r);
+                int permset = 0;
+                r = sym_acl_get_perm(p, ACL_READ);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to get ACL entry read bit: %m");
+                SET_FLAG(permset, ARCHIVE_ENTRY_ACL_READ, r);
 
-                        r = sym_acl_get_perm(p, ACL_WRITE);
-                        if (r < 0)
-                                return log_error_errno(errno, "Failed to get ACL entry write bit: %m");
-                        SET_FLAG(permset, ARCHIVE_ENTRY_ACL_WRITE, r);
+                r = sym_acl_get_perm(p, ACL_WRITE);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to get ACL entry write bit: %m");
+                SET_FLAG(permset, ARCHIVE_ENTRY_ACL_WRITE, r);
 
-                        r = sym_acl_get_perm(p, ACL_EXECUTE);
-                        if (r < 0)
-                                return log_error_errno(errno, "Failed to get ACL entry execute bit: %m");
-                        SET_FLAG(permset, ARCHIVE_ENTRY_ACL_EXECUTE, r);
+                r = sym_acl_get_perm(p, ACL_EXECUTE);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to get ACL entry execute bit: %m");
+                SET_FLAG(permset, ARCHIVE_ENTRY_ACL_EXECUTE, r);
 
-                        r = sym_archive_entry_acl_add_entry(entry, type, permset, tag, qualifier, /* name= */ NULL);
-                        if (r != ARCHIVE_OK)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to add ACL entry.");
-                }
-
-                r = sym_acl_get_entry(acl, ACL_NEXT_ENTRY, &e);
+                r = sym_archive_entry_acl_add_entry(entry, type, permset, tag, qualifier, /* name= */ NULL);
+                if (r != ARCHIVE_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to add ACL entry.");
         }
 
         return 0;
