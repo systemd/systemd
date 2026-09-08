@@ -11,6 +11,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "path-util.h"
@@ -108,9 +109,9 @@ static int add_locales_from_archive(Set *locales) {
         if (!locale_archive_file)
                 return -ENOMEM;
 
-        _cleanup_close_ int fd = open(locale_archive_file, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, locale_archive_file, O_RDONLY|O_NOCTTY);
         if (fd < 0)
-                return errno == ENOENT ? 0 : -errno;
+                return fd == -ENOENT ? 0 : fd;
 
         struct stat st;
         if (fstat(fd, &st) < 0)
