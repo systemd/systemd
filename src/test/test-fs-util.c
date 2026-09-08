@@ -674,6 +674,10 @@ TEST(openat_report_new) {
         fd = openat_report_new(tfd, "link", O_RDWR|O_CREAT, 0666, &b);
         ASSERT_ERROR(fd, ELOOP);
 
+        /* Same through xopenat_full(), and unchanged EEXIST for O_EXCL */
+        ASSERT_ERROR(xopenat_full(tfd, "link", O_RDWR|O_CREAT, /* xopen_flags= */ 0, 0666), ELOOP);
+        ASSERT_ERROR(openat_report_new(tfd, "link", O_RDWR|O_CREAT|O_EXCL, 0666, &b), EEXIST);
+
         fd = openat_report_new(tfd, "target", O_RDWR|O_CREAT, 0666, &b);
         ASSERT_OK(fd);
         fd = safe_close(fd);
