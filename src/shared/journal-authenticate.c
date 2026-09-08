@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "crypto-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "fsprg-openssl.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
@@ -88,12 +89,12 @@ static int journal_auth_load(JournalAuthContext **ret) {
                      SD_ID128_FORMAT_VAL(machine)) < 0)
                 return -ENOMEM;
 
-        _cleanup_close_ int fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, path, O_RDWR|O_NOCTTY);
         if (fd < 0) {
-                if (errno != ENOENT)
-                        log_error_errno(errno, "Failed to open %s: %m", path);
+                if (fd != -ENOENT)
+                        log_error_errno(fd, "Failed to open %s: %m", path);
 
-                return -errno;
+                return fd;
         }
 
         struct stat st;

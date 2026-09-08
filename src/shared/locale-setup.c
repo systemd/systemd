@@ -10,6 +10,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "iovec-util.h"
 #include "locale-setup.h"
 #include "log.h"
@@ -69,7 +70,7 @@ static int locale_context_load_conf(LocaleContext *c, LocaleLoadFlag flag) {
         if (!FLAGS_SET(flag, LOCALE_LOAD_LOCALE_CONF))
                 return 0;
 
-        fd = RET_NERRNO(open(etc_locale_conf(), O_CLOEXEC | O_PATH));
+        fd = xopenat(AT_FDCWD, etc_locale_conf(), O_PATH);
         if (fd == -ENOENT)
                 return 0;
         if (fd < 0)

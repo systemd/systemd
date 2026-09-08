@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "fdisk-util.h"
+#include "fs-util.h"
 #include "log.h"
 
 #if HAVE_LIBFDISK
@@ -170,9 +171,9 @@ int fdisk_new_context_at(
         assert(ret);
 
         if (!isempty(path)) {
-                fd = openat(dir_fd, path, (read_only ? O_RDONLY : O_RDWR)|O_CLOEXEC);
+                fd = xopenat(dir_fd, path, (read_only ? O_RDONLY : O_RDWR));
                 if (fd < 0)
-                        return -errno;
+                        return fd;
 
                 dir_fd = fd;
         }

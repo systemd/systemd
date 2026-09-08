@@ -381,9 +381,9 @@ static int image_update_quota(Image *i, int fd) {
                 return -EOPNOTSUPP;
 
         if (fd < 0) {
-                fd_close = open(i->path, O_CLOEXEC|O_DIRECTORY);
+                fd_close = xopenat(AT_FDCWD, i->path, O_DIRECTORY);
                 if (fd_close < 0)
-                        return -errno;
+                        return fd_close;
                 fd = fd_close;
         } else {
                 /* Convert from O_PATH to proper fd, if needed */
@@ -437,9 +437,9 @@ static int image_make(
         _cleanup_close_ int _fd = -EBADF;
         if (fd < 0) {
                 /* If we didn't get an fd passed in, then let's pin it via O_PATH now */
-                _fd = open(path, O_PATH|O_CLOEXEC);
+                _fd = xopenat(AT_FDCWD, path, O_PATH);
                 if (_fd < 0)
-                        return -errno;
+                        return _fd;
 
                 fd = _fd;
                 st = NULL; /* refresh stat() data now that we have the inode pinned */
@@ -878,9 +878,9 @@ int image_find(RuntimeScope scope,
 
         _cleanup_close_ int rfd = XAT_FDROOT; /* We only expect absolute paths */
         if (root) {
-                rfd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                rfd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_PATH);
                 if (rfd < 0)
-                        return log_debug_errno(errno, "Failed to open root directory '%s': %m", root);
+                        return log_debug_errno(rfd, "Failed to open root directory '%s': %m", root);
         }
 
         _cleanup_strv_free_ char **search = NULL;
@@ -1085,9 +1085,9 @@ int image_discover(
 
         _cleanup_close_ int rfd = XAT_FDROOT;  /* We only expect absolute paths */
         if (root) {
-                rfd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                rfd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_PATH);
                 if (rfd < 0)
-                        return log_debug_errno(errno, "Failed to open root directory '%s': %m", root);
+                        return log_debug_errno(rfd, "Failed to open root directory '%s': %m", root);
         }
 
         _cleanup_strv_free_ char **search = NULL;
@@ -1912,9 +1912,9 @@ int image_read_only(Image *i, bool b, RuntimeScope scope) {
                 _cleanup_close_ int fd = -EBADF;
                 int state = b;
 
-                fd = open(i->path, O_CLOEXEC|O_RDONLY|O_NONBLOCK|O_NOCTTY);
+                fd = xopenat(AT_FDCWD, i->path, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (fd < 0)
-                        return -errno;
+                        return fd;
 
                 r = fd_verify_block(fd);
                 if (r < 0)
@@ -2137,9 +2137,9 @@ int image_get_pool_usage(RuntimeScope scope, ImageClass class, uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open(pool, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, pool, O_RDONLY|O_DIRECTORY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         BtrfsQuotaInfo q;
         r = btrfs_subvol_get_subtree_quota_fd(fd, /* subvol_id= */ 0, &q);
@@ -2162,9 +2162,9 @@ int image_get_pool_limit(RuntimeScope scope, ImageClass class, uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open(pool, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, pool, O_RDONLY|O_DIRECTORY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         BtrfsQuotaInfo q;
         r = btrfs_subvol_get_subtree_quota_fd(fd, /* subvol_id= */ 0, &q);
