@@ -29,7 +29,8 @@ int chattr_full(
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_NOCTTY|O_NOFOLLOW);
+        /* path may be NULL */
+        fd = xopenat_full(dir_fd, path, O_RDONLY|O_NOCTTY|O_NOFOLLOW, XO_EMPTY_PATH, MODE_INVALID);
         if (fd < 0)
                 return fd;
 
@@ -161,7 +162,7 @@ int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
         if (isempty(path) && dir_fd != AT_FDCWD)
                 fd = dir_fd;
         else {
-                fd_close = xopenat(dir_fd, path, O_RDONLY|O_NOCTTY|O_NOFOLLOW);
+                fd_close = xopenat_full(dir_fd, path, O_RDONLY|O_NOCTTY|O_NOFOLLOW, XO_EMPTY_PATH, MODE_INVALID); /* path may be empty */
                 if (fd_close < 0)
                         return fd_close;
 
