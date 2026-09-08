@@ -96,11 +96,26 @@ TEST(subvol) {
         _unused_ _cleanup_close_ int locked_fd = ASSERT_OK(btrfs_subvol_snapshot_at(dir_fd, "test1", dir_fd, "test4", BTRFS_SNAPSHOT_LOCK_BSD));
         ASSERT_ERROR(xopenat_lock(dir_fd, "test4", 0, LOCK_BSD, LOCK_EX|LOCK_NB), EAGAIN);
 
+        /* The _fd() variants operate on the subvolume the fd refers to */
+        _cleanup_close_ int test1_fd = ASSERT_OK(xopenat(dir_fd, "test1", O_DIRECTORY));
+        ASSERT_OK(btrfs_subvol_set_read_only_fd(test1_fd, true));
+        ASSERT_OK_POSITIVE(btrfs_subvol_get_read_only_fd(test1_fd));
+        ASSERT_OK(btrfs_subvol_set_read_only_fd(test1_fd, false));
+        ASSERT_OK_ZERO(btrfs_subvol_get_read_only_fd(test1_fd));
+        ASSERT_OK(btrfs_subvol_snapshot_at(test1_fd, /* from= */ NULL, dir_fd, "test5", 0));
+
+        dev_t devnum_fd = 0, devnum_path = 0;
+        int r = btrfs_get_block_device_fd(dir_fd, &devnum_fd);
+        ASSERT_EQ(r, btrfs_get_block_device(dir, &devnum_path));
+        if (r > 0)
+                ASSERT_EQ(devnum_fd, devnum_path);
+
         /* The destroy ioctl needs CAP_SYS_ADMIN; without it, leave cleanup to rm_rf_subvolume_and_freep. */
         ASSERT_OK_OR(btrfs_subvol_remove_at(dir_fd, "test1", BTRFS_REMOVE_QUOTA), -EPERM);
         ASSERT_OK_OR(btrfs_subvol_remove_at(dir_fd, "test2", BTRFS_REMOVE_QUOTA), -EPERM);
         ASSERT_OK_OR(btrfs_subvol_remove_at(dir_fd, "test3", BTRFS_REMOVE_QUOTA), -EPERM);
         ASSERT_OK_OR(btrfs_subvol_remove_at(dir_fd, "test4", BTRFS_REMOVE_QUOTA), -EPERM);
+        ASSERT_OK_OR(btrfs_subvol_remove_at(dir_fd, "test5", BTRFS_REMOVE_QUOTA), -EPERM);
 }
 
 TEST(fallback_copy) {

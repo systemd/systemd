@@ -607,6 +607,36 @@ TEST(read_full_file_full) {
         ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 10000, 99, 0, NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, 0U);
         rbuf = mfree(rbuf);
+
+        /* A NULL filename reads the file the fd refers to */
+        _cleanup_close_ int fd = -EBADF;
+        ASSERT_OK_ERRNO(fd = open(fn, O_RDONLY|O_CLOEXEC));
+        ASSERT_OK(read_full_file_at(fd, /* filename= */ NULL, &rbuf, &rbuf_size));
+        ASSERT_EQ(rbuf_size, sizeof(buf));
+        ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
+}
+
+TEST(xfopenat_empty_path) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *line = NULL;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK(write_string_file_at(tfd, "file", "hello", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(fd = openat(tfd, "file", O_RDONLY|O_CLOEXEC));
+
+        /* A NULL or empty path reopens the fd for reading... */
+        ASSERT_OK(xfopenat(fd, /* path= */ NULL, "re", 0, &f));
+        ASSERT_OK(read_line(f, SIZE_MAX, &line));
+        ASSERT_STREQ(line, "hello");
+        f = safe_fclose(f);
+        ASSERT_OK(xfopenat(fd, "", "re", 0, &f));
+        f = safe_fclose(f);
+
+        /* ...but creating something needs a name */
+        ASSERT_ERROR(xfopenat(tfd, "", "we", 0, &f), ENOENT);
+        ASSERT_ERROR(xfopenat(tfd, /* path= */ NULL, "ae", 0, &f), ENOENT);
 }
 
 static void test_read_virtual_file_one(size_t max_size) {

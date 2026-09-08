@@ -232,6 +232,13 @@ TEST(dir_is_empty) {
         assert_se(unlink(jjj) >= 0);
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) > 0);
+
+        /* A NULL path checks the directory the fd refers to */
+        _cleanup_close_ int fd = -EBADF;
+        ASSERT_OK_ERRNO(fd = open(empty_dir, O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK_POSITIVE(dir_is_empty_at(fd, /* path= */ NULL, /* ignore_hidden_or_backup= */ false));
+        ASSERT_OK(touch(j));
+        ASSERT_OK_ZERO(dir_is_empty_at(fd, /* path= */ NULL, /* ignore_hidden_or_backup= */ false));
 }
 
 TEST(inode_type_from_string) {
