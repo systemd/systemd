@@ -118,9 +118,9 @@ static int tsm_report_fill(
                 generation++;
         }
 
-        inblob_fd = openat(entry_fd, "inblob", O_WRONLY|O_CLOEXEC);
+        inblob_fd = xopenat(entry_fd, "inblob", O_WRONLY);
         if (inblob_fd < 0)
-                return log_debug_errno(errno, "Failed to open 'inblob' attribute: %m");
+                return log_debug_errno(inblob_fd, "Failed to open 'inblob' attribute: %m");
         r = loop_write(inblob_fd, report_data->iov_base, report_data->iov_len);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write 'inblob' attribute: %m");
@@ -191,12 +191,12 @@ int tsm_report_acquire(
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Report data must be %u bytes.",
                                        TSM_REPORT_DATA_SIZE);
 
-        report_fd = open(TSM_REPORT_PATH, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+        report_fd = xopenat(AT_FDCWD, TSM_REPORT_PATH, O_DIRECTORY|O_RDONLY);
         if (report_fd < 0) {
-                if (errno == ENOENT)
+                if (report_fd == -ENOENT)
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "configfs-tsm interface not available at " TSM_REPORT_PATH ".");
-                return log_debug_errno(errno, "Failed to open " TSM_REPORT_PATH ": %m");
+                return log_debug_errno(report_fd, "Failed to open " TSM_REPORT_PATH ": %m");
         }
 
         /* Private, unique entry name so we don't race with other callers.

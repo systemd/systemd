@@ -13,6 +13,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "fs-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "parse-util.h"
@@ -317,9 +318,9 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
         if (!copy)
                 return -ENOMEM;
 
-        fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_DIRECTORY|O_RDONLY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         zero(attr);
         attr.attach_type = type;
@@ -345,10 +346,10 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
         if (!p->attached_path)
                 return -EUNATCH;
 
-        fd = open(p->attached_path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, p->attached_path, O_DIRECTORY|O_RDONLY);
         if (fd < 0) {
-                if (errno != ENOENT)
-                        return -errno;
+                if (fd != -ENOENT)
+                        return fd;
 
                 /* If the cgroup does not exist anymore, then we don't have to explicitly detach, it got detached
                  * implicitly by the removal, hence don't complain */

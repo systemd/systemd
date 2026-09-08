@@ -413,9 +413,9 @@ static int archive_unpack_symlink(
         if (r < 0)
                 return log_error_errno(r, "Failed to create symlink '%s' → '%s': %m", path, target);
 
-        _cleanup_close_ int fd = openat(parent_fd, filename, O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        _cleanup_close_ int fd = xopenat(parent_fd, filename, O_PATH|O_NOFOLLOW);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open symlink '%s' we just created: %m", path);
+                return log_error_errno(fd, "Failed to open symlink '%s' we just created: %m", path);
 
         r = fd_verify_symlink(fd);
         if (r < 0)
@@ -450,9 +450,9 @@ static int archive_unpack_special_inode(
         if (r < 0)
                 return log_error_errno(r, "Failed to create special node '%s': %m", path);
 
-        _cleanup_close_ int fd = openat(parent_fd, filename, O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        _cleanup_close_ int fd = xopenat(parent_fd, filename, O_PATH|O_NOFOLLOW);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open special node '%s' we just created: %m", path);
+                return log_error_errno(fd, "Failed to open special node '%s' we just created: %m", path);
 
         struct stat st;
         if (fstat(fd, &st) < 0)
