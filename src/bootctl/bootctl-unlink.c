@@ -18,6 +18,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "find-esp.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
 #include "json-util.h"
@@ -387,9 +388,9 @@ static int unlink_context_from_cmdline(UnlinkContext *ret) {
                 return log_oom();
 
         if (arg_root) {
-                b.root_fd = open(arg_root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                b.root_fd = xopenat(AT_FDCWD, arg_root, O_DIRECTORY|O_PATH);
                 if (b.root_fd < 0)
-                        return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
+                        return log_error_errno(b.root_fd, "Failed to open root directory '%s': %m", arg_root);
 
                 if (strdup_to(&b.root, arg_root) < 0)
                         return log_oom();
@@ -626,9 +627,9 @@ int vl_method_unlink(
                                 p.context.root = mfree(p.context.root);
                 }
         } else if (p.context.root) {
-                p.context.root_fd = open(p.context.root, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                p.context.root_fd = xopenat(AT_FDCWD, p.context.root, O_RDONLY|O_DIRECTORY);
                 if (p.context.root_fd < 0)
-                        return log_debug_errno(errno, "Failed to open '%s': %m", p.context.root);
+                        return log_debug_errno(p.context.root_fd, "Failed to open '%s': %m", p.context.root);
         } else
                 p.context.root_fd = XAT_FDROOT;
 
