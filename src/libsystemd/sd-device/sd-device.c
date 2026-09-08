@@ -2903,9 +2903,11 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (r < 0)
                 return r;
 
-        fd = open(devname, FLAGS_SET(flags, O_PATH) ? flags : O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        /* With O_PATH open() ignores all but these flags, so must we */
+        fd = xopenat(AT_FDCWD, devname,
+                     FLAGS_SET(flags, O_PATH) ? flags & (O_PATH|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC) : O_NOFOLLOW|O_PATH);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -2920,8 +2922,16 @@ _public_ int sd_device_open(sd_device *device, int flags) {
                 return -ENXIO;
 
         /* If flags has O_PATH, then we cannot check diskseq. Let's return earlier. */
-        if (FLAGS_SET(flags, O_PATH))
+        if (FLAGS_SET(flags, O_PATH)) {
+                /* We've historically returned non-cloexec fds. */
+                if (!FLAGS_SET(flags, O_CLOEXEC)) {
+                        r = fd_cloexec(fd, false);
+                        if (r < 0)
+                                return r;
+                }
+
                 return TAKE_FD(fd);
+        }
 
         /* If the device is not initialized, then we cannot determine if we should check diskseq through
          * ID_IGNORE_DISKSEQ property. Let's skip to check diskseq in that case. */
