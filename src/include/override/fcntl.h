@@ -10,6 +10,12 @@
 #define F_DUPFD_QUERY 1027
 #endif
 
+/* This is defined since glibc-2.41.
+ * Supported since kernel v6.12 (820a185896b77814557302b981b092a9e7b36814). */
+#ifndef F_CREATED_QUERY
+#define F_CREATED_QUERY 1028
+#endif
+
 /* This is defined since glibc-2.39. */
 #ifndef F_SEAL_EXEC
 #define F_SEAL_EXEC     0x0020  /* prevent chmod modifying exec bits */
