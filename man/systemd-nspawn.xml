@@ -1366,7 +1366,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <term><option>--restrict-address-families=</option></term>
 
         <listitem><para>Restrict the socket address families accessible to the container. Takes a
-        space-separated list of address family names, such as <constant>AF_INET</constant>,
+        comma- or space-separated list of address family names, such as <constant>AF_INET</constant>,
         <constant>AF_INET6</constant> or <constant>AF_UNIX</constant>. The names can be specified with or
         without the <literal>AF_</literal> prefix. When prefixed with <literal>~</literal> the listed address
         families will be prohibited, otherwise they will be permitted (allowlisted). Use the special value
