@@ -574,4 +574,17 @@ TEST(show_menu) {
         }
 }
 
+TEST(open_terminal_cloexec) {
+        _cleanup_free_ char *peer = NULL;
+        _cleanup_close_ int pty_fd = -EBADF, fd = -EBADF;
+        int fl;
+
+        ASSERT_OK(pty_fd = openpt_allocate(O_RDWR|O_NOCTTY, &peer));
+
+        /* O_CLOEXEC is implied, whether requested or not */
+        ASSERT_OK(fd = open_terminal(peer, O_RDWR|O_NOCTTY));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
