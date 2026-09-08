@@ -560,7 +560,7 @@ static int vt_is_busy(unsigned vtnr) {
 
         fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (ioctl(fd, VT_GETSTATE, &vt_stat) < 0)
                 r = -errno;
