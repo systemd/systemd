@@ -1721,10 +1721,27 @@ static int fixup_environment(void) {
                                 return -errno;
                 }
         } else {
-                /* If no $TERM is set then look for the per-tty variable instead */
-                r = proc_cmdline_get_key("systemd.tty.term.console", 0, &term);
+                /* Prefer the setting for the concrete device backing /dev/console, just like console
+                 * services do. Fall back to the generic console setting if there is no such setting. */
+                _cleanup_free_ char *resolved = NULL;
+                r = resolve_dev_console(&resolved);
                 if (r < 0)
-                        return r;
+                        log_debug_errno(r, "Failed to resolve /dev/console, ignoring: %m");
+                else if (!tty_is_vc(resolved)) {
+                        r = proc_cmdline_tty_term(resolved, &term);
+                        if (r == -EINVAL)
+                                log_debug("Ignoring invalid terminal type for '%s' from kernel cmdline", resolved);
+                        else if (r < 0)
+                                return r;
+                }
+
+                if (!term) {
+                        r = proc_cmdline_tty_term("/dev/console", &term);
+                        if (r == -EINVAL)
+                                log_debug("Ignoring invalid terminal type for 'console' from kernel cmdline");
+                        else if (r < 0)
+                                return r;
+                }
         }
 
         if (!term)
