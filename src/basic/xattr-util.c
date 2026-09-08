@@ -60,9 +60,9 @@ static int normalize_and_maybe_pin_inode(
 
         /* If both have been specified, then we go via O_PATH */
 
-        int tfd = openat(*fd, *path, O_PATH|O_CLOEXEC|(FLAGS_SET(*at_flags, AT_SYMLINK_FOLLOW) ? 0 : O_NOFOLLOW));
+        int tfd = xopenat(*fd, *path, O_PATH|(FLAGS_SET(*at_flags, AT_SYMLINK_FOLLOW) ? 0 : O_NOFOLLOW));
         if (tfd < 0)
-                return -errno;
+                return tfd;
 
         *fd = *ret_tfd = tfd;
         *path = NULL;

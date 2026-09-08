@@ -706,10 +706,10 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
         if (null_readable || null_writable) {
 
                 /* Let's open this with O_CLOEXEC first, and convert it to non-O_CLOEXEC when we move the fd to the final position. */
-                null_fd = open("/dev/null", (null_readable && null_writable ? O_RDWR :
-                                             null_readable ? O_RDONLY : O_WRONLY) | O_CLOEXEC);
+                null_fd = xopenat(AT_FDCWD, "/dev/null", (null_readable && null_writable ? O_RDWR :
+                                                          null_readable ? O_RDONLY : O_WRONLY));
                 if (null_fd < 0) {
-                        r = -errno;
+                        r = null_fd;
                         goto finish;
                 }
 
