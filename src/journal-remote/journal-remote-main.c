@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "journal-authenticate.h"
 #include "journal-compression-util.h"
@@ -805,9 +806,9 @@ static int create_remoteserver(
                 } else {
                         log_debug("Reading file %s...", *file);
 
-                        fd = open(*file, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                        fd = xopenat(AT_FDCWD, *file, O_RDONLY|O_NOCTTY|O_NONBLOCK);
                         if (fd < 0)
-                                return log_error_errno(errno, "Failed to open %s: %m", *file);
+                                return log_error_errno(fd, "Failed to open %s: %m", *file);
                         output_name = *file;
                 }
 

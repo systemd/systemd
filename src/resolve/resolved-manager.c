@@ -22,6 +22,7 @@
 #include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "io-util.h"
@@ -520,10 +521,9 @@ static int manager_watch_hostname(Manager *m) {
 
         assert(m);
 
-        m->hostname_fd = open("/proc/sys/kernel/hostname",
-                              O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        m->hostname_fd = xopenat(AT_FDCWD, "/proc/sys/kernel/hostname", O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (m->hostname_fd < 0) {
-                log_warning_errno(errno, "Failed to watch hostname: %m");
+                log_warning_errno(m->hostname_fd, "Failed to watch hostname: %m");
                 return 0;
         }
 

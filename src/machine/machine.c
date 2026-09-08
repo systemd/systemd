@@ -1553,9 +1553,9 @@ int machine_open_root_directory(Machine *machine) {
 
         switch (machine->class) {
         case MACHINE_HOST: {
-                int fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                int fd = xopenat(AT_FDCWD, "/", O_RDONLY|O_DIRECTORY);
                 if (fd < 0)
-                        return log_debug_errno(errno, "Failed to open host root directory: %m");
+                        return log_debug_errno(fd, "Failed to open host root directory: %m");
 
                 return fd;
         }
@@ -1598,10 +1598,10 @@ int machine_open_root_directory(Machine *machine) {
                         errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
                         fd_pass_socket[0] = safe_close(fd_pass_socket[0]);
 
-                        dfd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                        dfd = xopenat(AT_FDCWD, "/", O_RDONLY|O_DIRECTORY);
                         if (dfd < 0) {
-                                log_debug_errno(errno, "Failed to open root directory of machine '%s': %m", machine->name);
-                                report_errno_and_exit(errno_pipe_fd[1], -errno);
+                                log_debug_errno(dfd, "Failed to open root directory of machine '%s': %m", machine->name);
+                                report_errno_and_exit(errno_pipe_fd[1], dfd);
                         }
 
                         r = send_one_fd(fd_pass_socket[1], dfd, /* flags= */ 0);

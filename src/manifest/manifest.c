@@ -239,9 +239,9 @@ static int open_directory(const char *path) {
 
         /* Opens the specified directory, or the current directory if none is specified */
 
-        fd = open(path ?: ".", O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+        fd = xopenat(AT_FDCWD, path ?: ".", O_DIRECTORY|O_RDONLY);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open directory '%s': %m", path ?: ".");
+                return log_error_errno(fd, "Failed to open directory '%s': %m", path ?: ".");
 
         return fd;
 }

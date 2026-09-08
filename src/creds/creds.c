@@ -18,6 +18,7 @@
 #include "escape.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "json-util.h"
@@ -253,12 +254,12 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
                 if (!credential_name_valid(de->d_name))
                         continue;
 
-                fd = openat(dirfd(d), de->d_name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                fd = xopenat(dirfd(d), de->d_name, O_PATH|O_NOFOLLOW);
                 if (fd < 0) {
-                        if (errno == ENOENT) /* Vanished by now? */
+                        if (fd == -ENOENT) /* Vanished by now? */
                                 continue;
 
-                        return log_error_errno(errno, "Failed to open credential '%s': %m", de->d_name);
+                        return log_error_errno(fd, "Failed to open credential '%s': %m", de->d_name);
                 }
 
                 if (fstat(fd, &st) < 0)

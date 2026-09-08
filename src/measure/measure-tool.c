@@ -14,6 +14,7 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
@@ -480,9 +481,9 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                 if (!arg_sections[c])
                         continue;
 
-                section_fds[c] = open(arg_sections[c], O_RDONLY|O_CLOEXEC);
+                section_fds[c] = xopenat(AT_FDCWD, arg_sections[c], O_RDONLY);
                 if (section_fds[c] < 0) {
-                        r = log_error_errno(errno, "Failed to open '%s': %m", arg_sections[c]);
+                        r = log_error_errno(section_fds[c], "Failed to open '%s': %m", arg_sections[c]);
                         close_many(section_fds, c);
                         return r;
                 }

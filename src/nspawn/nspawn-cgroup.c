@@ -8,6 +8,7 @@
 #include "chase.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "mount-setup.h"
 #include "mount-util.h"
@@ -24,9 +25,9 @@ static int chown_cgroup_path(const char *path, uid_t uid_shift) {
 
         assert(path);
 
-        fd = open(path, O_PATH|O_CLOEXEC|O_DIRECTORY);
+        fd = xopenat(AT_FDCWD, path, O_PATH|O_DIRECTORY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         FOREACH_STRING(fn,
                        ".",
