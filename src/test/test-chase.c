@@ -1282,6 +1282,30 @@ TEST(chase_mode) {
         ASSERT_OK(chaseat(tfd, bfd, "../al", CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
 }
 
+TEST(chase_and_open_cloexec) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        int fl;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0755));
+
+        /* O_CLOEXEC is implied, whether requested or not, on the shortcut and on the full chase */
+        ASSERT_OK(fd = chase_and_open(t, /* root= */ NULL, /* chase_flags= */ 0, O_DIRECTORY, /* ret_path= */ NULL));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = chase_and_open(t, /* root= */ NULL, CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY, /* ret_path= */ NULL));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = chase_and_openat(tfd, tfd, "dir", /* chase_flags= */ 0, O_DIRECTORY, /* ret_path= */ NULL));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+}
+
 static int intro(void) {
         arg_test_dir = saved_argv[1];
         return EXIT_SUCCESS;
