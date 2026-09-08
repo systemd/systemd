@@ -47,6 +47,7 @@ typedef struct MethodEnrollParameters {
         char *unlock_fido2_device;
         char *unlock_tpm2_device;
         char *password;
+        char *recovery_key;
         char *fido2_device;
         char *fido2_pin;
         int fido2_with_client_pin;
@@ -163,6 +164,7 @@ static int vl_method_enroll(
                 { "unlockFido2Device",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, unlock_fido2_device),           SD_JSON_NULLABLE },
                 { "unlockTpm2Device",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, unlock_tpm2_device),            SD_JSON_NULLABLE },
                 { "password",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, password),                      SD_JSON_NULLABLE },
+                { "recoveryKey",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, recovery_key),                  SD_JSON_NULLABLE },
                 { "fido2Device",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, fido2_device),                  SD_JSON_NULLABLE },
                 { "fido2Pin",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, fido2_pin),                     SD_JSON_NULLABLE },
                 { "fido2WithClientPin",        SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(MethodEnrollParameters, fido2_with_client_pin),         SD_JSON_NULLABLE },
@@ -288,6 +290,20 @@ static int vl_method_enroll(
                 break;
 
         case ENROLL_RECOVERY:
+                if (p.recovery_key) {
+                        _cleanup_(erase_and_freep) char *mangled = NULL;
+
+                        r = normalize_recovery_key(p.recovery_key, &mangled);
+                        if (r == -EINVAL) /* Not properly formatted, rejecting */
+                                return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("recoveryKey"));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to normalize recovery key: %m");
+                        if (!streq(p.recovery_key, mangled))
+                                return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("recoveryKey"));
+
+                        c.passphrase = TAKE_PTR(p.recovery_key);
+                        c.passphrase_size = strlen(c.passphrase);
+                }
                 break;
 
         case ENROLL_FIDO2:

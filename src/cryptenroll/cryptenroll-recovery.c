@@ -29,9 +29,15 @@ int enroll_recovery(
 
         assert_se(node = sym_crypt_get_device_name(cd));
 
-        r = make_recovery_key(&password);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate recovery key: %m");
+        if (c->passphrase) {
+                password = memdup_suffix0(c->passphrase, c->passphrase_size);
+                if (!password)
+                        return log_oom();
+        } else {
+                r = make_recovery_key(&password);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate recovery key: %m");
+        }
 
         r = cryptsetup_set_minimal_pbkdf(cd);
         if (r < 0)
