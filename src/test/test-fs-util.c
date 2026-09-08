@@ -779,6 +779,23 @@ TEST(xopenat_regular) {
         assert_se(unlink("/tmp/xopenat-regular-test") >= 0);
 }
 
+TEST(xopenat_empty_path) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+
+        /* An empty path reopens the directory itself... */
+        ASSERT_OK(fd = xopenat(tfd, "", O_RDONLY|O_DIRECTORY));
+        ASSERT_OK_POSITIVE(inode_same_at(tfd, NULL, fd, NULL, AT_EMPTY_PATH));
+        fd = safe_close(fd);
+
+        /* ...but cannot create anything, like open("") */
+        ASSERT_ERROR(xopenat_full(tfd, "", O_RDWR|O_CREAT, /* xopen_flags= */ 0, 0644), ENOENT);
+        ASSERT_ERROR(xopenat_full(tfd, "", O_RDWR|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0644), ENOENT);
+        ASSERT_ERROR(xopenat_full(AT_FDCWD, "", O_WRONLY|O_CREAT, /* xopen_flags= */ 0, 0644), ENOENT);
+}
+
 TEST(xopenat_socket) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
