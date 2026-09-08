@@ -15407,6 +15407,12 @@ B4-DF-43   (hex)		RDP Innovation
 				Larnaca  Kiti  7550
 				CY
 
+EC-BA-34   (hex)		Green ACS Sp. z o.o.
+E00000-EFFFFF     (base 16)		Green ACS Sp. z o.o.
+				Sygnałowa 11a street
+				Wroclaw  Dolnoslaskie  52-130
+				PL
+
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
 				140 58th St. Bldg A, Ste 2N
@@ -23448,6 +23454,24 @@ B00000-BFFFFF     (base 16)		Maple Jet Limited
 E00000-EFFFFF     (base 16)		Shanghai Heartcare Medical Technology Co.,Ltd.
 				Building 38, No.356 Zhengbo Road, Lingang New Area, China (Shanghai) Pilot Free Trade Zone
 				Shanghai  Shanghai  200131
+				CN
+
+EC-BA-34   (hex)		Qasky Technology Co.,Ltd.
+B00000-BFFFFF     (base 16)		Qasky Technology Co.,Ltd.
+				No.14, Zhanghe Road, National High-Tech Industrial Development Zone
+				Wuhu  Anhui  241000
+				CN
+
+EC-BA-34   (hex)		Sterlite Technologies Limited
+300000-3FFFFF     (base 16)		Sterlite Technologies Limited
+				Salister, 2nd Floor, B/h Rajpath Club, Rajpath Rangoli Road, Bodakdev,
+				Ahmedabad    380054
+				IN
+
+EC-BA-34   (hex)		Shenzhen Yidao Intelligent Technology Co.,Ltd.
+A00000-AFFFFF     (base 16)		Shenzhen Yidao Intelligent Technology Co.,Ltd.
+				Room 403-D38, Jinli Commercial Plaza, No. 26 Jinpeng Road, Changlong Community, Buji Subdistrict, Longgang District, Shenzhen City, Guangdong Province, P.R.China
+				Shenzhen City  Guangdong Province  518112
 				CN
 
 D0-14-11   (hex)		P.B. Elettronica srl
@@ -39173,12 +39197,6 @@ C00000-CFFFFF     (base 16)		Broadcom Corporation
 04-EC-A9   (hex)		Private
 900000-9FFFFF     (base 16)		Private
 
-04-EC-A9   (hex)		Hunan Zetian Zhihang Electronic Technology Co., Ltd.
-300000-3FFFFF     (base 16)		Hunan Zetian Zhihang Electronic Technology Co., Ltd.
-				No.699 Qingshan Road,Changsha High-Tech Development Zone
-				Changsha  Hunan  410017
-				CN
-
 EC-BA-34   (hex)		Safety electronic technology(huizhou) Co.,Ltd
 200000-2FFFFF     (base 16)		Safety electronic technology(huizhou) Co.,Ltd
 				7th Floor, Unit 1, Building C1-3, Qunyi intelligent Manufacturing industrial Park, South of Sanhe Avenue, Tonghu Tow, Zhongkai High tech Zone, Huizhou，Guangdong, China
@@ -39191,8 +39209,44 @@ EC-BA-34   (hex)		Heizomat Gerätebau GmbH
 				Gunzenhausen    91710
 				DE
 
+04-EC-A9   (hex)		Hunan Zetian Zhihang Electronic Technology Co., Ltd.
+300000-3FFFFF     (base 16)		Hunan Zetian Zhihang Electronic Technology Co., Ltd.
+				No.699 Qingshan Road,Changsha High-Tech Development Zone
+				Changsha  Hunan  410017
+				CN
+
 EC-BA-34   (hex)		Aeon Super Ai Inc.
 500000-5FFFFF     (base 16)		Aeon Super Ai Inc.
 				6F., No. 186, Jianyi Rd., Zhonghe Dist.,
 				New Taipei City  Taiwan(R.O.C.)  235
 				TW
+
+EC-BA-34   (hex)		Zhejiang Wanyou Intelligent Technology Co.,Ltd.
+600000-6FFFFF     (base 16)		Zhejiang Wanyou Intelligent Technology Co.,Ltd.
+				Room 202-1, Warehouse Management Office, Warehouse 1, Logistics Zone, No. 689, Oufan Road, Kunpeng Sub-district, Marine Economic Development Zone
+				Wenzhou City  Zhejiang Province  325026
+				CN
+
+EC-BA-34   (hex)		Dongguan Neith Electronic Industry Co., LTD
+800000-8FFFFF     (base 16)		Dongguan Neith Electronic Industry Co., LTD
+				Third floor, Buildig1, No.1, South Third Street, Luhu West Road, Qingxi Town, Qingxi Town, 
+				Dongguan City  Guangdong  523660
+				CN
+
+EC-BA-34   (hex)		Newtech Synergy Systems Pvt Ltd
+C00000-CFFFFF     (base 16)		Newtech Synergy Systems Pvt Ltd
+				B-23, Sector 81, Noida
+				Noida  Uttar Pradesh  201301
+				IN
+
+EC-BA-34   (hex)		Digitus Biometrics, Inc.
+900000-9FFFFF     (base 16)		Digitus Biometrics, Inc.
+				25 Bull Street, Ste 700
+				Savannah  GA  31401
+				US
+
+EC-BA-34   (hex)		CITIZEN T.I.C. CO., LTD.
+400000-4FFFFF     (base 16)		CITIZEN T.I.C. CO., LTD.
+				5-6-12 Maehara-cho
+				Koganei-shi  Tokyo (東京都)  1840013
+				JP
