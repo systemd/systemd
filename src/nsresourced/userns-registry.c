@@ -1102,9 +1102,9 @@ static int userns_destroy_cgroup(uint64_t cgroup_id) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract name of cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
 
-        parent_fd = openat(cgroup_fd, "..", O_CLOEXEC|O_DIRECTORY);
+        parent_fd = xopenat(cgroup_fd, "..", O_DIRECTORY);
         if (parent_fd < 0)
-                return log_debug_errno(errno, "Failed to open parent cgroup of %" PRIu64 ", ignoring: %m", cgroup_id);
+                return log_debug_errno(parent_fd, "Failed to open parent cgroup of %" PRIu64 ", ignoring: %m", cgroup_id);
 
         /* Safety check, never leave cgroupfs */
         r = fd_is_fs_type(parent_fd, CGROUP2_SUPER_MAGIC);
