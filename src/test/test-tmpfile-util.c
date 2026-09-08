@@ -365,4 +365,23 @@ TEST(link_tmpfile) {
         assert_se(unlink(d) >= 0);
 }
 
+TEST(open_tmpfile_cloexec) {
+        _cleanup_(unlink_and_freep) char *tmp = NULL;
+        _cleanup_free_ char *d = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        const char *p = saved_argv[1] ?: "/tmp";
+        int fl;
+
+        /* O_CLOEXEC is implied, whether requested or not */
+        ASSERT_OK(fd = open_tmpfile_unlinkable(p, O_RDWR));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(tempfn_random_child(p, "cloexec", &d));
+        ASSERT_OK(fd = open_tmpfile_linkable(d, O_RDWR, &tmp));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

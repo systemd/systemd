@@ -1091,6 +1091,39 @@ TEST(xat_fdroot) {
         ASSERT_EQ(a, b);
 }
 
+TEST(xopenat_cloexec) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        int fl;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+
+        /* O_CLOEXEC is implied, whether requested or not */
+        ASSERT_OK(fd = xopenat(tfd, "regular", O_RDWR|O_CREAT|O_EXCL));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = xopenat_full(tfd, "regular", O_PATH, XO_REGULAR, 0));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = openat_report_new(tfd, "regular", O_RDWR|O_CREAT, 0644, NULL));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = open_parent_at(tfd, "regular", O_RDONLY, 0));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = open_mkdir_at(tfd, "dir", O_EXCL, 0755));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+}
+
 static int intro(void) {
         arg_test_dir = saved_argv[1];
         return EXIT_SUCCESS;
