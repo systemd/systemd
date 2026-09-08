@@ -333,6 +333,25 @@ TEST(copy_tree_at_symlink) {
         fd = safe_close(fd);
 }
 
+TEST(copy_tree_at_fds) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, from_fd = -EBADF, to_fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, O_PATH, &t));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "from", 0755));
+        ASSERT_OK_ERRNO(symlinkat("target", tfd, "from/link"));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "to", 0755));
+
+        /* Both directories handed in as fds, as copy_tree_at_foreign() does */
+        ASSERT_OK_ERRNO(from_fd = openat(tfd, "from", O_RDONLY|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK_ERRNO(to_fd = openat(tfd, "to", O_RDONLY|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(copy_tree_at(from_fd, /* from= */ NULL, to_fd, /* to= */ NULL, UID_INVALID, GID_INVALID,
+                               COPY_MERGE_EMPTY, /* denylist= */ NULL, /* subvolumes= */ NULL));
+        ASSERT_OK(readlinkat_malloc(tfd, "to/link", &p));
+        ASSERT_STREQ(p, "target");
+}
+
 TEST(copy_tree_fifo_chmod_symlink_race) {
         _cleanup_(rm_rf_physical_and_freep) char *srcp = NULL, *dstp = NULL;
         _cleanup_close_ int src = -EBADF, dst = -EBADF;
