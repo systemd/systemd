@@ -747,13 +747,13 @@ int static_node_apply_permissions(
 
         devnode = strjoina("/dev/", name);
 
-        node_fd = open(devnode, O_PATH|O_CLOEXEC);
+        node_fd = xopenat(AT_FDCWD, devnode, O_PATH);
         if (node_fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno);
-                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(node_fd);
+                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, node_fd,
                                "Failed to open device node '%s'%s: %m",
                                devnode, ignore ? ", ignoring" : "");
-                return ignore ? 0 : -errno;
+                return ignore ? 0 : node_fd;
         }
 
         if (fstat(node_fd, &stats) < 0)
