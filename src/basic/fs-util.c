@@ -191,16 +191,16 @@ int chmod_and_chown_at(int dir_fd, const char *path, mode_t mode, uid_t uid, gid
 
         if (path) {
                 /* Let's acquire an O_PATH fd, as precaution to change mode/owner on the same file */
-                fd = openat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                fd = xopenat(dir_fd, path, O_PATH|O_NOFOLLOW);
                 if (fd < 0)
-                        return -errno;
+                        return fd;
                 dir_fd = fd;
 
         } else if (dir_fd == AT_FDCWD) {
                 /* Let's acquire an O_PATH fd of the current directory */
-                fd = openat(dir_fd, ".", O_PATH|O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY);
+                fd = fd_reopen(dir_fd, O_PATH|O_DIRECTORY);
                 if (fd < 0)
-                        return -errno;
+                        return fd;
                 dir_fd = fd;
         }
 
@@ -403,16 +403,17 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
         /* Initially, we try to open the node with O_PATH, so that we get a reference to the node. This is useful in
          * case the path refers to an existing device or socket node, as we can open it successfully in all cases, and
          * won't trigger any driver magic or so. */
-        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        fd = xopenat(AT_FDCWD, path, O_PATH|O_NOFOLLOW);
         if (fd < 0) {
-                if (errno != ENOENT)
-                        return -errno;
+                if (fd != -ENOENT)
+                        return fd;
 
                 /* if the node doesn't exist yet, we create it, but with O_EXCL, so that we only create a regular file
                  * here, and nothing else */
-                fd = open(path, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, IN_SET(mode, 0, MODE_INVALID) ? 0644 : mode);
+                fd = xopenat_full(AT_FDCWD, path, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0,
+                                  IN_SET(mode, 0, MODE_INVALID) ? 0644 : mode);
                 if (fd < 0)
-                        return -errno;
+                        return fd;
         }
 
         /* Let's make a path from the fd, and operate on that. With this logic, we can adjust the access mode,
@@ -737,18 +738,18 @@ int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
          * primary job – to delete the file – is accomplished. */
 
         if (!FLAGS_SET(flags, UNLINK_REMOVEDIR)) {
-                truncate_fd = openat(fd, name, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
+                truncate_fd = xopenat(fd, name, O_WRONLY|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
                 if (truncate_fd < 0) {
 
                         /* If this failed because the file doesn't exist propagate the error right-away. Also,
                          * AT_REMOVEDIR wasn't set, and we tried to open the file for writing, which means EISDIR is
                          * returned when this is a directory but we are not supposed to delete those, hence propagate
                          * the error right-away too. */
-                        if (IN_SET(errno, ENOENT, EISDIR))
-                                return -errno;
+                        if (IN_SET(truncate_fd, -ENOENT, -EISDIR))
+                                return truncate_fd;
 
-                        if (errno != ELOOP) /* don't complain if this is a symlink */
-                                log_debug_errno(errno, "Failed to open file '%s' for deallocation, ignoring: %m", name);
+                        if (truncate_fd != -ELOOP) /* don't complain if this is a symlink */
+                                log_debug_errno(truncate_fd, "Failed to open file '%s' for deallocation, ignoring: %m", name);
                 }
         }
 
@@ -864,11 +865,11 @@ int conservative_renameat(
          * too much. I.e. whenever we are in doubt, we rather rename than fail. After all reducing inotify
          * events is an optimization only, not more. */
 
-        old_fd = openat(olddirfd, oldpath, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_NOFOLLOW);
+        old_fd = xopenat(olddirfd, oldpath, O_RDONLY|O_NOCTTY|O_NOFOLLOW);
         if (old_fd < 0)
                 goto do_rename;
 
-        new_fd = openat(newdirfd, newpath, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_NOFOLLOW);
+        new_fd = xopenat(newdirfd, newpath, O_RDONLY|O_NOCTTY|O_NOFOLLOW);
         if (new_fd < 0)
                 goto do_rename;
 
