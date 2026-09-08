@@ -1193,9 +1193,7 @@ static int search_and_open_internal(
                 _cleanup_close_ int fd = -EBADF;
 
                 if (ret_fd)
-                        /* We only specify 0777 here to appease static analyzers, it's never used since we
-                         * don't support O_CREAT here */
-                        r = fd = RET_NERRNO(open(path, mode, 0777));
+                        r = fd = xopenat_full(AT_FDCWD, path, mode, /* xopen_flags= */ 0, MODE_INVALID);
                 else
                         r = RET_NERRNO(access(path, mode));
                 if (r < 0)
@@ -1225,8 +1223,7 @@ static int search_and_open_internal(
                         return -ENOMEM;
 
                 if (ret_fd)
-                        /* as above, 0777 is static analyzer appeasement */
-                        r = fd = RET_NERRNO(open(p, mode, 0777));
+                        r = fd = xopenat_full(AT_FDCWD, p, mode, /* xopen_flags= */ 0, MODE_INVALID);
                 else
                         r = RET_NERRNO(access(p, F_OK));
                 if (r >= 0) {
