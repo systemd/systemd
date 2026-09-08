@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+        <vendor>The systemd Project</vendor>
+        <vendor_url>https://systemd.io</vendor_url>
+
+        <action id="io.systemd.varlink-monitor.monitor">
+                <description gettext-domain="systemd">Monitor varlink connections</description>
+                <message gettext-domain="systemd">Authentication is required to monitor varlink connections of other users.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+</policyconfig>
