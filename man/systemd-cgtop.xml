@@ -135,8 +135,10 @@
 
         <listitem><para>Controls whether the CPU usage is shown as
         percentage or time. By default, the CPU usage is shown as
-        percentage. This setting may also be toggled at runtime by
-        pressing the <keycap>%</keycap> key.</para>
+        percentage. When the option is used without an argument, it is
+        equivalent to <option>--cpu=time</option>. This setting may also
+        be toggled at runtime by pressing the <keycap>%</keycap>
+        key.</para>
 
         <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
@@ -186,8 +188,9 @@
         pressing the <keycap>r</keycap> key. Note that this setting
         only applies to process counting, i.e. when the
         <option>-P</option> or <option>-k</option> options are
-        used. It has no effect if all tasks are counted, in which
-        case the counting is always recursive.</para>
+        used. When all tasks are counted, setting this option to
+        <literal>no</literal> is rejected with an error, as task counting
+        is always recursive.</para>
 
         <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
