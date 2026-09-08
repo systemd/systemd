@@ -313,9 +313,9 @@ int inhibitor_create_fifo(Inhibitor *i) {
 
         /* Open reading side */
         if (i->fifo_fd < 0) {
-                i->fifo_fd = open(i->fifo_path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                i->fifo_fd = xopenat(AT_FDCWD, i->fifo_path, O_RDONLY|O_NONBLOCK);
                 if (i->fifo_fd < 0)
-                        return -errno;
+                        return i->fifo_fd;
         }
 
         if (!i->event_source) {
@@ -331,7 +331,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
         }
 
         /* Open writing side */
-        return RET_NERRNO(open(i->fifo_path, O_WRONLY|O_CLOEXEC|O_NONBLOCK));
+        return xopenat(AT_FDCWD, i->fifo_path, O_WRONLY|O_NONBLOCK);
 }
 
 static void inhibitor_remove_fifo(Inhibitor *i) {
