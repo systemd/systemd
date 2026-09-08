@@ -58,7 +58,8 @@ int btrfs_subvol_set_read_only_at(int dir_fd, const char *path, bool b) {
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_NOCTTY|O_DIRECTORY);
+        /* path may be NULL */
+        fd = xopenat_full(dir_fd, path, O_RDONLY|O_NOCTTY|O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID);
         if (fd < 0)
                 return fd;
 
@@ -111,7 +112,8 @@ int btrfs_get_block_device_at_full(int dir_fd, const char *path, uint64_t *ret_d
 
         assert(wildcard_fd_is_valid(dir_fd));
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_NONBLOCK|O_NOCTTY);
+        /* path may be NULL */
+        fd = xopenat_full(dir_fd, path, O_RDONLY|O_NONBLOCK|O_NOCTTY, XO_EMPTY_PATH, MODE_INVALID);
         if (fd < 0)
                 return fd;
 
@@ -1414,7 +1416,8 @@ int btrfs_subvol_snapshot_at_full(
         assert(dir_fdt >= 0 || dir_fdt == AT_FDCWD);
         assert(to);
 
-        old_fd = xopenat(dir_fdf, from, O_RDONLY|O_NOCTTY|O_DIRECTORY);
+        /* from may be NULL */
+        old_fd = xopenat_full(dir_fdf, from, O_RDONLY|O_NOCTTY|O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID);
         if (old_fd < 0)
                 return old_fd;
 

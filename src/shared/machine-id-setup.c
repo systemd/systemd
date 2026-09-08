@@ -178,12 +178,12 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                 else {
                         /* We pinned the inode, now try to convert it into a writable file */
 
-                        fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDWR, XO_REGULAR, 0444);
+                        fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDWR, XO_REGULAR|XO_EMPTY_PATH, MODE_INVALID);
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to open '%s' in writable mode, retrying in read-only mode: %m", etc_machine_id);
 
                                 /* If that didn't work, convert it into a readable file */
-                                fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDONLY, XO_REGULAR, MODE_INVALID);
+                                fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDONLY, XO_REGULAR|XO_EMPTY_PATH, MODE_INVALID);
                                 if (fd < 0)
                                         return log_error_errno(fd, "Cannot open '%s' in neither writable nor read-only mode: %m", etc_machine_id);
 
@@ -359,7 +359,7 @@ int machine_id_commit(const char *root) {
         /* Read existing machine-id */
 
         _cleanup_close_ int fd = xopenat_full(etc_machine_id_fd, /* path= */ NULL,
-                                              O_RDONLY|O_NOCTTY, XO_REGULAR, MODE_INVALID);
+                                              O_RDONLY|O_NOCTTY, XO_REGULAR|XO_EMPTY_PATH, MODE_INVALID);
         if (fd < 0)
                 return log_error_errno(fd, "Cannot open %s: %m", etc_machine_id);
 
