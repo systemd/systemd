@@ -188,9 +188,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 /* We usually expect a numeric fd spec, but as an extension let's treat this
                                  * as a path to open in read-only mode in case this is clearly an absolute or
                                  * relative path */
-                                add_fd = open(opts.arg, O_CLOEXEC|O_RDONLY|O_NOCTTY);
+                                add_fd = xopenat(AT_FDCWD, opts.arg, O_RDONLY|O_NOCTTY);
                                 if (add_fd < 0)
-                                        return log_error_errno(errno, "Failed to open '%s': %m", opts.arg);
+                                        return log_error_errno(add_fd, "Failed to open '%s': %m", opts.arg);
                         } else {
                                 int parsed_fd = parse_fd(opts.arg);
                                 if (parsed_fd < 0)
@@ -233,9 +233,9 @@ static int varlink_connect_auto(sd_varlink **ret, const char *where) {
                 _cleanup_close_ int fd = -EBADF;
                 struct stat st;
 
-                fd = open(where, O_PATH|O_CLOEXEC);
+                fd = xopenat(AT_FDCWD, where, O_PATH);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", where);
+                        return log_error_errno(fd, "Failed to open '%s': %m", where);
 
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", where);
@@ -1050,10 +1050,10 @@ static int verb_list_registry(int argc, char *argv[], uintptr_t _data, void *use
 
         (void) table_set_sort(table, (size_t) 0);
 
-        _cleanup_close_ int regfd = open(reg_path, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int regfd = xopenat(AT_FDCWD, reg_path, O_DIRECTORY);
         if (regfd < 0)  {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to open '%s': %m", reg_path);
+                if (regfd != -ENOENT)
+                        return log_error_errno(regfd, "Failed to open '%s': %m", reg_path);
         } else {
                 _cleanup_free_ DirectoryEntries *des = NULL;
                 r = readdir_all(regfd, RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
@@ -1234,9 +1234,9 @@ static int verb_list_sockets(int argc, char *argv[], uintptr_t _data, void *user
                  * symlink), and verify it really is a socket whose inode and backing device match what
                  * netlink told us. This guards against the path having been unlinked/replaced in the
                  * meantime, so that we only ever read xattrs off the right inode. */
-                _cleanup_close_ int fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                _cleanup_close_ int fd = xopenat(AT_FDCWD, path, O_PATH|O_NOFOLLOW);
                 if (fd < 0) {
-                        log_debug_errno(errno, "Failed to open reported AF_UNIX socket path '%s', skipping: %m", path);
+                        log_debug_errno(fd, "Failed to open reported AF_UNIX socket path '%s', skipping: %m", path);
                         continue;
                 }
 

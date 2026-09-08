@@ -80,7 +80,7 @@ static int load_clock_timestamp(void) {
          * is particularly helpful on systems lacking a battery backed RTC. We also will adjust the time to
          * at least the build time of systemd. */
 
-        fd = RET_NERRNO(open(TIMESYNCD_CLOCK_FILE, O_RDWR|O_CLOEXEC, 0644));
+        fd = xopenat(AT_FDCWD, TIMESYNCD_CLOCK_FILE, O_RDWR);
         if (fd < 0) {
                 if (fd != -ENOENT)
                         log_warning_errno(fd, "Unable to open timestamp file "TIMESYNCD_CLOCK_FILE", ignoring: %m");

@@ -105,9 +105,9 @@ static int compose_open_fds(pid_t pid, char **ret) {
         if (!proc_fd_dir)
                 return -errno;
 
-        proc_fdinfo_fd = openat(dirfd(proc_fd_dir), "../fdinfo", O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        proc_fdinfo_fd = xopenat(dirfd(proc_fd_dir), "../fdinfo", O_DIRECTORY|O_NOFOLLOW|O_PATH);
         if (proc_fdinfo_fd < 0)
-                return -errno;
+                return proc_fdinfo_fd;
 
         stream = memstream_init(&m);
         if (!stream)
@@ -126,7 +126,7 @@ static int compose_open_fds(pid_t pid, char **ret) {
                 fddelim = "\n";
 
                 /* Use the directory entry from /proc/[pid]/fd with /proc/[pid]/fdinfo */
-                fd = openat(proc_fdinfo_fd, de->d_name, O_NOFOLLOW|O_CLOEXEC|O_RDONLY);
+                fd = xopenat(proc_fdinfo_fd, de->d_name, O_NOFOLLOW|O_RDONLY);
                 if (fd < 0)
                         continue;
 
