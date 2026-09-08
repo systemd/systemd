@@ -1081,6 +1081,12 @@ int open_mkdir_at_full_label(int dirfd, const char *path, int flags, XOpenFlags 
         return TAKE_FD(fd);
 }
 
+static bool is_symlink_at(int dir_fd, const char *path) {
+        struct stat st;
+
+        return fstatat(dir_fd, path, &st, AT_SYMLINK_NOFOLLOW) >= 0 && S_ISLNK(st.st_mode);
+}
+
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {
         int fd;
 
@@ -1091,7 +1097,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
          * Note that this routine is a bit more strict with symlinks than regular openat() is. If O_NOFOLLOW
          * is not specified, then we'll follow the symlink when opening an existing file but we will *not*
          * follow it when creating a new one (because that's a terrible UNIX misfeature and generally a
-         * security hole).
+         * security hole), and report -ELOOP in that case.
          *
          * O_CLOEXEC is always set. */
 
@@ -1108,18 +1114,8 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
         }
 
         for (unsigned attempts = 7;;) {
-                /* First, attempt to open without O_CREAT/O_EXCL, i.e. open existing file */
-                fd = openat(dirfd, pathname, flags & ~(O_CREAT | O_EXCL), mode);
-                if (fd >= 0) {
-                        if (ret_newly_created)
-                                *ret_newly_created = false;
-                        return fd;
-                }
-                if (errno != ENOENT)
-                        return -errno;
-
-                /* So the file didn't exist yet, hence create it with O_CREAT/O_EXCL/O_NOFOLLOW. */
-                fd = openat(dirfd, pathname, flags | O_CREAT | O_EXCL | O_NOFOLLOW, mode);
+                /* First, attempt to create the file with O_EXCL/O_NOFOLLOW. */
+                fd = openat(dirfd, pathname, flags | O_EXCL | O_NOFOLLOW, mode);
                 if (fd >= 0) {
                         if (ret_newly_created)
                                 *ret_newly_created = true;
@@ -1128,11 +1124,37 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
                 if (errno != EEXIST)
                         return -errno;
 
-                /* Hmm, so now we got EEXIST? Then someone might have created the file between the first and
-                 * second call to openat(). Let's try again but with a limit so we don't spin forever. */
+                /* So the file exists already. Open it with O_CREAT still set, as the kernel only applies
+                 * fs.protected_regular and fs.protected_fifos to O_CREAT opens, but follow a symlink only
+                 * without O_CREAT. */
+                fd = openat(dirfd, pathname, flags | O_NOFOLLOW, mode);
+                if (fd >= 0) {
+                        /* Unless it went away in the meantime and we created it after all. F_CREATED_QUERY
+                         * tells us since Linux 6.12, with older kernels we assume it still existed. */
+                        if (ret_newly_created)
+                                *ret_newly_created = fcntl(fd, F_CREATED_QUERY) > 0;
+                        return fd;
+                }
+                if (errno == ELOOP && !FLAGS_SET(flags, O_NOFOLLOW)) {
+                        fd = openat(dirfd, pathname, flags & ~O_CREAT, mode);
+                        if (fd >= 0) {
+                                if (ret_newly_created)
+                                        *ret_newly_created = false;
+                                return fd;
+                        }
+                }
+                if (errno != ENOENT)
+                        return -errno;
+
+                /* If this is a dangling symlink don't needlessly retry. Just report it like O_NOFOLLOW would. */
+                if (is_symlink_at(dirfd, pathname))
+                        return -ELOOP;
+
+                /* Hmm, so now we got ENOENT? Then someone might have removed the symlink in the meantime.
+                 * Let's try again but with a limit so we don't spin forever. */
 
                 if (--attempts == 0) /* Give up eventually, somebody is playing with us */
-                        return -EEXIST;
+                        return -ENOENT;
         }
 }
 
@@ -1178,7 +1200,7 @@ static int openat_with_automount(int dir_fd, const char *path, int open_flags, m
 
 int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_context) {
         _cleanup_close_ int fd = -EBADF;
-        bool made_dir = false, made_file = false;
+        bool made_dir = false, made_file = false, dir_exists = false;
         int r;
 
         assert(wildcard_fd_is_valid(dir_fd));
@@ -1311,6 +1333,8 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                 if (r == -EEXIST) {
                         if (FLAGS_SET(open_flags, O_EXCL))
                                 return -EEXIST;
+
+                        dir_exists = true;
                 } else if (r < 0)
                         return r;
                 else
@@ -1364,6 +1388,12 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                         if (inode_fd < 0) {
                                 if (errno != ENOENT || !FLAGS_SET(open_flags, O_CREAT)) {
                                         r = -errno;
+                                        goto error;
+                                }
+
+                                /* Don't create through a dangling symlink, report it like openat_report_new() */
+                                if (is_symlink_at(dir_fd, path)) {
+                                        r = -ELOOP;
                                         goto error;
                                 }
 
@@ -1438,7 +1468,8 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                 if (fd < 0) {
                         fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
                         if (fd < 0) {
-                                r = fd;
+                                /* Report a dangling symlink in the way of mkdirat() like O_NOFOLLOW would */
+                                r = fd == -ENOENT && dir_exists && is_symlink_at(dir_fd, path) ? -ELOOP : fd;
                                 goto error;
                         }
                 }
