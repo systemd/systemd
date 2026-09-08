@@ -441,6 +441,13 @@ TEST(chase_and_open) {
         /* O_CREAT on the parent opened with CHASE_PARENT */
         ASSERT_ERROR(chase_and_open("/usr/lib", /* root= */ NULL, CHASE_PARENT, O_RDONLY|O_CREAT, /* ret_path= */ NULL), EISDIR);
 
+        /* An empty path on the shortcut reopens the cwd and refuses O_CREAT, like the full chase */
+        fd = ASSERT_OK(chase_and_open("", /* root= */ NULL, /* chase_flags= */ 0, O_RDONLY|O_DIRECTORY, /* ret_path= */ NULL));
+        ASSERT_OK_POSITIVE(inode_same_at(AT_FDCWD, ".", fd, /* fileb= */ NULL, AT_EMPTY_PATH));
+        fd = safe_close(fd);
+        ASSERT_ERROR(chase_and_open("", /* root= */ NULL, /* chase_flags= */ 0, O_RDONLY|O_CREAT, /* ret_path= */ NULL), EISDIR);
+        ASSERT_ERROR(chase_and_openat(XAT_FDROOT, AT_FDCWD, "", /* chase_flags= */ 0, O_RDONLY|O_CREAT, /* ret_path= */ NULL), EISDIR);
+
         /* CHASE_PARENT|CHASE_EXTRACT_FILENAME — opens parent dir, returns just the filename. */
         fd = ASSERT_OK(chase_and_open("/usr/lib", /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
