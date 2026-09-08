@@ -491,6 +491,7 @@ TEST(execute_properties) {
 
                         "RestrictAddressFamilies=AF_INET",
                         "RestrictAddressFamilies=AF_INET AF_INET6",
+                        "RestrictAddressFamilies=INET,INET6,netlink",
                         "RestrictAddressFamilies=~AF_NETLINK",
                         "RestrictFileSystems=ext4",
                         "RestrictFileSystems=ext4 xfs",
