@@ -109,7 +109,7 @@ static int file_metric_generate(const MetricFamily *mf, sd_varlink *link, void *
                 if (!S_ISREG(st.st_mode))
                         continue;
 
-                _cleanup_close_ int fd = fd_reopen(pfd, O_RDONLY|O_CLOEXEC);
+                _cleanup_close_ int fd = fd_reopen(pfd, O_RDONLY);
                 if (fd < 0) {
                         log_warning_errno(fd, "Failed to open '%s', ignoring: %m", path);
                         continue;

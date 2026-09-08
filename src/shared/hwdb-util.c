@@ -373,7 +373,7 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
         /* calculate size of header, nodes, children entries, value entries */
         trie_store_nodes_size(&t, trie->root, compat);
 
-        r = fopen_tmpfile_linkable(filename, O_WRONLY|O_CLOEXEC, &filename_tmp, &f);
+        r = fopen_tmpfile_linkable(filename, O_WRONLY, &filename_tmp, &f);
         if (r < 0)
                 return r;
 
