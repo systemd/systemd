@@ -504,9 +504,9 @@ static int oci_pull_job_on_open_disk(PullJob *j) {
                         (void) import_assign_pool_quota_and_warn(st->temp_path);
                 }
 
-                st->tree_fd = open(st->temp_path, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                st->tree_fd = xopenat(AT_FDCWD, st->temp_path, O_DIRECTORY|O_NOFOLLOW);
                 if (st->tree_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", st->temp_path);
+                        return log_error_errno(st->tree_fd, "Failed to open '%s': %m", st->temp_path);
         }
 
         j->disk_fd = import_fork_tar_x(st->tree_fd, i->userns_fd, &st->tar_pid);
