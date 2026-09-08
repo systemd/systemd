@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-journal.h"
 
 #include "alloc-util.h"
 #include "chattr-util.h"
@@ -21,6 +22,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
+#include "io-util.h"
 #include "journal-authenticate-internal.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -1965,11 +1967,17 @@ static int maybe_decompress_payload(
                 Compression compression,
                 const char *field,
                 size_t field_length,
+                sd_journal_data_flags_t flags,
                 size_t data_threshold,
+                int fd,
                 const void **ret_data,
                 size_t *ret_size) {
 
+        int r;
+
         assert(f);
+        assert(!field == (field_length == 0)); /* These must be specified together. */
+        assert(fd < 0 || !ret_data); /* fd and ret_data cannot be specified together. */
 
         /* We can't read objects larger than 4G on a 32-bit machine */
 #if __SIZEOF_SIZE_T__ == 4
@@ -1977,10 +1985,11 @@ static int maybe_decompress_payload(
                 return -E2BIG;
 #endif
 
+        size_t skip = FLAGS_SET(flags, SD_JOURNAL_DATA_SKIP_FIELD) && field_length > 0 ? field_length + 1 : 0;
+
         if (compression != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
                 size_t rsize;
-                int r;
 
                 if (field) {
                         r = decompress_startswith_journal(compression, payload, size, &f->compress_buffer, field,
@@ -1999,18 +2008,29 @@ static int maybe_decompress_payload(
                         }
 
                         /* Caller only wants to check field existence, skip full decompression */
-                        if (!ret_data && !ret_size)
+                        if (fd < 0 && !ret_data && !ret_size)
                                 return 1;
                 }
 
-                r = decompress_blob_journal(compression, payload, size, &f->compress_buffer, &rsize, DATA_SIZE_MAX);
-                if (r < 0)
-                        return r;
+                if (fd >= 0) {
+                        r = decompress_blob_to_fd_journal(compression, payload, size, fd, DATA_SIZE_MAX, skip, ret_size);
+                        if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
+                                /* The caller journal_get_data() ignores these errors. Let's use a different
+                                 * error code in that cases. Otherwise, junk data may be prepended to the
+                                 * beginning even on success. */
+                                return -EIO;
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = decompress_blob_journal(compression, payload, size, &f->compress_buffer, &rsize, DATA_SIZE_MAX);
+                        if (r < 0)
+                                return r;
 
-                if (ret_data)
-                        *ret_data = f->compress_buffer;
-                if (ret_size)
-                        *ret_size = rsize;
+                        if (ret_data)
+                                *ret_data = (uint8_t*) f->compress_buffer + skip;
+                        if (ret_size)
+                                *ret_size = rsize - skip;
+                }
 #else
                 return -EPROTONOSUPPORT;
 #endif
@@ -2023,6 +2043,15 @@ static int maybe_decompress_payload(
                         return 0;
                 }
 
+                payload += skip;
+                size -= skip;
+
+                if (fd >= 0) {
+                        r = loop_write(fd, payload, size);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (ret_data)
                         *ret_data = payload;
                 if (ret_size)
@@ -2032,13 +2061,15 @@ static int maybe_decompress_payload(
         return 1;
 }
 
-int journal_file_data_payload(
+int journal_file_data_payload_full(
                 JournalFile *f,
                 Object *o,
                 uint64_t offset,
                 const char *field,
                 size_t field_length,
+                sd_journal_data_flags_t flags,
                 size_t data_threshold,
+                int fd,
                 const void **ret_data,
                 size_t *ret_size) {
 
@@ -2048,6 +2079,7 @@ int journal_file_data_payload(
 
         assert(f);
         assert(!field == (field_length == 0)); /* These must be specified together. */
+        assert(fd < 0 || !ret_data); /* fd and ret_data cannot be specified together. */
 
         if (!o) {
                 r = journal_file_move_to_object(f, OBJECT_DATA, offset, &o);
@@ -2065,8 +2097,28 @@ int journal_file_data_payload(
         if (c < 0)
                 return -EPROTONOSUPPORT;
 
-        return maybe_decompress_payload(f, journal_file_data_payload_field(f, o), size, c, field,
-                                        field_length, data_threshold, ret_data, ret_size);
+        return maybe_decompress_payload(
+                        f, journal_file_data_payload_field(f, o), size, c,
+                        field, field_length, flags, data_threshold,
+                        fd, ret_data, ret_size);
+}
+
+int journal_file_data_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        return journal_file_data_payload_full(
+                        f, o, offset, field, field_length,
+                        /* flags= */ 0,
+                        data_threshold,
+                        /* fd= */ -EBADF,
+                        ret_data, ret_size);
 }
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
