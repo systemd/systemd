@@ -120,6 +120,7 @@ typedef enum XOpenFlags {
         XO_SOCKET            = 1 << 5, /* Fail if the inode is not a socket */
         XO_TRIGGER_AUTOMOUNT = 1 << 6, /* Trigger automounts via open_tree(). Requires O_PATH. */
         XO_AUTO_RW_RO        = 1 << 7, /* Open in O_RDWR mode if possible, O_RDONLY if not */
+        XO_EMPTY_PATH        = 1 << 8, /* Reopen dir_fd if the path is NULL or empty, like AT_EMPTY_PATH */
 } XOpenFlags;
 
 int open_mkdir_at_full_label(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_context);
