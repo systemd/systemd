@@ -190,9 +190,9 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
         if (r < 0)
                 return log_oom();
 
-        converted_fd = open(f, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        converted_fd = xopenat_full(AT_FDCWD, f, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY, /* xopen_flags= */ 0, 0664);
         if (converted_fd < 0)
-                return log_error_errno(errno, "Failed to create %s: %m", f);
+                return log_error_errno(converted_fd, "Failed to create %s: %m", f);
 
         t = TAKE_PTR(f);
 
@@ -283,9 +283,9 @@ static int raw_import_open_disk(RawImport *i) {
                  * existing thing (i.e. are not the sole thing stored in the file), in which case we will
                  * neither truncate nor create. */
 
-                i->output_fd = open(i->local, O_RDWR|O_NOCTTY|O_CLOEXEC|(i->offset == UINT64_MAX ? O_TRUNC|O_CREAT : 0), 0664);
+                i->output_fd = xopenat_full(AT_FDCWD, i->local, O_RDWR|O_NOCTTY|(i->offset == UINT64_MAX ? O_TRUNC|O_CREAT : 0), /* xopen_flags= */ 0, 0664);
                 if (i->output_fd < 0)
-                        return log_error_errno(errno, "Failed to open destination '%s': %m", i->local);
+                        return log_error_errno(i->output_fd, "Failed to open destination '%s': %m", i->local);
 
                 if (i->offset == UINT64_MAX)
                         (void) import_set_nocow_and_log(i->output_fd, i->local);
@@ -300,9 +300,9 @@ static int raw_import_open_disk(RawImport *i) {
 
                 (void) mkdir_parents_label(i->temp_path, 0700);
 
-                i->output_fd = open(i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+                i->output_fd = xopenat_full(AT_FDCWD, i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY, /* xopen_flags= */ 0, 0664);
                 if (i->output_fd < 0)
-                        return log_error_errno(errno, "Failed to open destination '%s': %m", i->temp_path);
+                        return log_error_errno(i->output_fd, "Failed to open destination '%s': %m", i->temp_path);
 
                 (void) import_set_nocow_and_log(i->output_fd, i->temp_path);
         }

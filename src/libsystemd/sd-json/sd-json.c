@@ -3547,7 +3547,7 @@ _public_ int sd_json_parse_fd(
         if (FLAGS_SET(flags, SD_JSON_PARSE_REOPEN_FD)) {
                 assert_return(!FLAGS_SET(flags, SD_JSON_PARSE_DONATE_FD), -EINVAL);
 
-                our_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC);
+                our_fd = fd_reopen(fd, O_RDONLY);
                 if (our_fd < 0)
                         return our_fd;
 

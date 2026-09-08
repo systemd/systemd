@@ -504,9 +504,9 @@ static int oci_pull_job_on_open_disk(PullJob *j) {
                         (void) import_assign_pool_quota_and_warn(st->temp_path);
                 }
 
-                st->tree_fd = open(st->temp_path, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                st->tree_fd = xopenat(AT_FDCWD, st->temp_path, O_DIRECTORY|O_NOFOLLOW);
                 if (st->tree_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", st->temp_path);
+                        return log_error_errno(st->tree_fd, "Failed to open '%s': %m", st->temp_path);
         }
 
         j->disk_fd = import_fork_tar_x(st->tree_fd, i->userns_fd, &st->tar_pid);
@@ -1003,7 +1003,7 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
 
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
-        r = fopen_tmpfile_linkable(j, O_WRONLY|O_CLOEXEC, &tmpfile, &f);
+        r = fopen_tmpfile_linkable(j, O_WRONLY, &tmpfile, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create '%s': %m", j);
 
@@ -1093,7 +1093,7 @@ static int oci_pull_save_oci_config(OciPull *i) {
 
         _cleanup_close_ int fd = -EBADF;
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
-        fd = open_tmpfile_linkable(j, O_WRONLY|O_CLOEXEC, &tmpfile);
+        fd = open_tmpfile_linkable(j, O_WRONLY, &tmpfile);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create '%s': %m", j);
 
@@ -1131,7 +1131,7 @@ static int oci_pull_save_mstack(OciPull *i) {
         if (r < 0)
                 return log_oom();
 
-        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, _jt, O_DIRECTORY|O_CREAT|O_CLOEXEC);
+        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, _jt, O_DIRECTORY|O_CREAT);
         if (dir_fd < 0)
                 return log_error_errno(dir_fd, "Failed to create '%s': %m", j);
 
@@ -1172,7 +1172,7 @@ static int oci_pull_save_mstack(OciPull *i) {
                         if (r < 0)
                                 return r;
                 } else {
-                        _cleanup_close_ int rw_fd = open_mkdir_at(dir_fd, "rw", O_EXCL|O_CLOEXEC, 0755);
+                        _cleanup_close_ int rw_fd = open_mkdir_at(dir_fd, "rw", O_EXCL, 0755);
                         if (rw_fd < 0)
                                 return log_error_errno(rw_fd, "Failed to create 'rw' layer: %m");
                 }

@@ -503,9 +503,9 @@ static int open_mmap(const char *database, int *ret_fd, struct stat *ret_st, voi
         assert(ret_map);
         assert(ret_strings_offset);
 
-        _cleanup_close_ int fd = open(database, O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, database, O_RDONLY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         struct stat st;
         if (fstat(fd, &st) < 0)

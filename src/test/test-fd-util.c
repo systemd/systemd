@@ -382,10 +382,10 @@ TEST(fd_reopen) {
         assert_se(FLAGS_SET(fl, O_PATH));
 
         /* fd_reopen() with O_NOFOLLOW will systematically fail, since it is implemented via a symlink in /proc/self/fd/ */
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC|O_NOFOLLOW) == -ELOOP);
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW) == -ELOOP);
+        assert_se(fd_reopen(fd1, O_RDONLY|O_NOFOLLOW) == -ELOOP);
+        assert_se(fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_NOFOLLOW) == -ELOOP);
 
-        fd2 = fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC);  /* drop the O_PATH */
+        fd2 = fd_reopen(fd1, O_RDONLY|O_DIRECTORY);  /* drop the O_PATH */
         assert_se(fd2 >= 0);
 
         ASSERT_OK_ERRNO(fstat(fd2, &st2));
@@ -399,7 +399,7 @@ TEST(fd_reopen) {
 
         safe_close(fd1);
 
-        fd1 = fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC);  /* reacquire the O_PATH */
+        fd1 = fd_reopen(fd2, O_DIRECTORY|O_PATH);  /* reacquire the O_PATH */
         assert_se(fd1 >= 0);
 
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
@@ -425,8 +425,8 @@ TEST(fd_reopen) {
         assert_se(!FLAGS_SET(fl, O_DIRECTORY));
         assert_se(FLAGS_SET(fl, O_PATH));
 
-        assert_se(fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC) == -ENOTDIR);
-        fd2 = fd_reopen(fd1, O_RDONLY|O_CLOEXEC);  /* drop the O_PATH */
+        assert_se(fd_reopen(fd1, O_RDONLY|O_DIRECTORY) == -ENOTDIR);
+        fd2 = fd_reopen(fd1, O_RDONLY);  /* drop the O_PATH */
         assert_se(fd2 >= 0);
 
         ASSERT_OK_ERRNO(fstat(fd2, &st2));
@@ -440,8 +440,8 @@ TEST(fd_reopen) {
 
         safe_close(fd1);
 
-        assert_se(fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC) == -ENOTDIR);
-        fd1 = fd_reopen(fd2, O_PATH|O_CLOEXEC);  /* reacquire the O_PATH */
+        assert_se(fd_reopen(fd2, O_DIRECTORY|O_PATH) == -ENOTDIR);
+        fd1 = fd_reopen(fd2, O_PATH);  /* reacquire the O_PATH */
         assert_se(fd1 >= 0);
 
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
@@ -455,7 +455,7 @@ TEST(fd_reopen) {
 
         /* Also check the right error is generated if the fd is already closed */
         safe_close(fd1);
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -EBADF);
+        assert_se(fd_reopen(fd1, O_RDONLY) == -EBADF);
         fd1 = -EBADF;
 
         /* Validate what happens if we reopen a symlink */
@@ -464,7 +464,7 @@ TEST(fd_reopen) {
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
         assert_se(S_ISLNK(st1.st_mode));
 
-        fd2 = fd_reopen(fd1, O_PATH|O_CLOEXEC);
+        fd2 = fd_reopen(fd1, O_PATH);
         assert_se(fd2 >= 0);
         ASSERT_OK_ERRNO(fstat(fd2, &st2));
         assert_se(S_ISLNK(st2.st_mode));
@@ -473,7 +473,7 @@ TEST(fd_reopen) {
 
         /* So here's the thing: if we have an O_PATH fd to a symlink, we *cannot* convert it to a regular fd
          * with that. i.e. you cannot have the VFS follow a symlink pinned via an O_PATH fd. */
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -ELOOP);
+        assert_se(fd_reopen(fd1, O_RDONLY) == -ELOOP);
 }
 
 TEST(fd_reopen_condition) {
@@ -915,6 +915,18 @@ TEST(fd_is_writable) {
         safe_close(fd_ro);
         ASSERT_ERROR(fd_is_writable(fd_ro), EBADF);
         TAKE_FD(fd_ro);
+}
+
+TEST(fd_reopen_cloexec) {
+        _cleanup_close_ int fd = -EBADF, reopened = -EBADF;
+        int fl;
+
+        ASSERT_OK_ERRNO(fd = open("/proc", O_DIRECTORY|O_PATH|O_CLOEXEC));
+
+        /* O_CLOEXEC is implied, whether requested or not */
+        ASSERT_OK(reopened = fd_reopen(fd, O_RDONLY|O_DIRECTORY));
+        ASSERT_OK_ERRNO(fl = fcntl(reopened, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

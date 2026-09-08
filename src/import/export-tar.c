@@ -12,6 +12,7 @@
 #include "export-tar.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "import-common.h"
 #include "log.h"
 #include "pidref.h"
@@ -276,9 +277,9 @@ int tar_export_start(
         if (e->output_fd >= 0)
                 return -EBUSY;
 
-        sfd = open(path, O_DIRECTORY|O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        sfd = xopenat(AT_FDCWD, path, O_DIRECTORY|O_RDONLY|O_NOCTTY);
         if (sfd < 0)
-                return -errno;
+                return sfd;
 
         if (fstat(sfd, &e->st) < 0)
                 return -errno;
@@ -337,7 +338,7 @@ int tar_export_start(
                 if (r < 0)
                         return r;
 
-                _cleanup_close_ int directory_fd = open(p, O_DIRECTORY|O_CLOEXEC|O_PATH);
+                _cleanup_close_ int directory_fd = xopenat(AT_FDCWD, p, O_DIRECTORY|O_PATH);
                 if (directory_fd < 0)
                         return log_error_errno(r, "Failed to open '%s': %m", p);
 
@@ -352,13 +353,13 @@ int tar_export_start(
                         return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
 
                 /* Drop O_PATH */
-                e->tree_fd = fd_reopen(mapped_fd, O_DIRECTORY|O_CLOEXEC);
+                e->tree_fd = fd_reopen(mapped_fd, O_DIRECTORY);
                 if (e->tree_fd < 0)
                         return log_error_errno(errno, "Failed to re-open mapped '%s': %m", p);
         } else {
-                e->tree_fd = open(p, O_DIRECTORY|O_CLOEXEC);
+                e->tree_fd = xopenat(AT_FDCWD, p, O_DIRECTORY);
                 if (e->tree_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", p);
+                        return log_error_errno(e->tree_fd, "Failed to open '%s': %m", p);
         }
 
         e->tar_fd = import_fork_tar_c(e->tree_fd, e->userns_fd, &e->tar_pid);

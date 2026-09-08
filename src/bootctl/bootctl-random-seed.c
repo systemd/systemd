@@ -129,7 +129,7 @@ int install_random_seed(const char *esp, int esp_fd) {
 
         (void) random_seed_verify_permissions(esp_fd, S_IFDIR);
 
-        loader_dir_fd = open_mkdir_at(esp_fd, "loader", O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOFOLLOW, 0775);
+        loader_dir_fd = open_mkdir_at(esp_fd, "loader", O_DIRECTORY|O_RDONLY|O_NOFOLLOW, 0775);
         if (loader_dir_fd < 0)
                 return log_error_errno(loader_dir_fd, "Failed to open loader directory '%s/loader': %m", esp);
 
@@ -140,10 +140,10 @@ int install_random_seed(const char *esp, int esp_fd) {
         sha256_init_ctx(&hash_state);
         sha256_process_bytes_and_size(buffer, sizeof(buffer), &hash_state);
 
-        fd = openat(loader_dir_fd, "random-seed", O_NOFOLLOW|O_CLOEXEC|O_RDONLY|O_NOCTTY);
+        fd = xopenat(loader_dir_fd, "random-seed", O_NOFOLLOW|O_RDONLY|O_NOCTTY);
         if (fd < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to open old random seed file: %m");
+                if (fd != -ENOENT)
+                        return log_error_errno(fd, "Failed to open old random seed file: %m");
 
                 sha256_process_bytes(&(const ssize_t) { 0 }, sizeof(ssize_t), &hash_state);
                 refreshed = false;
@@ -169,7 +169,7 @@ int install_random_seed(const char *esp, int esp_fd) {
         if (tempfn_random("random-seed", "bootctl", &tmp) < 0)
                 return log_oom();
 
-        fd = openat(loader_dir_fd, tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
+        fd = xopenat_full(loader_dir_fd, tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY, /* xopen_flags= */ 0, 0600);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open random seed file for writing: %m");
 

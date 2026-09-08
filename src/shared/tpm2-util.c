@@ -8462,9 +8462,9 @@ static int tpm2_userspace_log_open(void) {
         /* We use access mode 0600 here (even though the measurements should not strictly be confidential),
          * because we use BSD file locking on it, and if anyone but root can access the file they can also
          * lock it, which we want to avoid. */
-        fd = open(e, O_CREAT|O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        fd = xopenat_full(AT_FDCWD, e, O_CREAT|O_WRONLY|O_NOCTTY|O_NOFOLLOW, /* xopen_flags= */ 0, 0600);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open TPM log file '%s' for writing, ignoring: %m", e);
+                return log_debug_errno(fd, "Failed to open TPM log file '%s' for writing, ignoring: %m", e);
 
         if (flock(fd, LOCK_EX) < 0)
                 return log_debug_errno(errno, "Failed to lock TPM log file '%s', ignoring: %m", e);
@@ -9200,7 +9200,7 @@ int tpm2_nvpcr_initialize(
         /* Open + lock the log file *before* we check for the *.auth flag file. */
         _cleanup_close_ int log_fd = tpm2_userspace_log_open();
 
-        _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
+        _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", 0, 0755);
         if (dfd < 0)
                 return log_debug_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
 
@@ -10084,14 +10084,14 @@ int tpm2_pcrlock_policy_from_credentials(
         if (r < 0)
                 return log_error_errno(r, "Failed to get encrypted system credentials directory: %m");
 
-        dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
+        dfd = xopenat(AT_FDCWD, dp, O_DIRECTORY);
         if (dfd < 0) {
-                if (errno == ENOENT) {
+                if (dfd == -ENOENT) {
                         log_debug("No encrypted system credentials passed.");
                         return 0;
                 }
 
-                return log_error_errno(errno, "Failed to open system credentials directory.");
+                return log_error_errno(dfd, "Failed to open system credentials directory.");
         }
 
         _cleanup_free_ DirectoryEntries *de = NULL;

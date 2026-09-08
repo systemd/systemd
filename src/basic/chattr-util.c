@@ -29,7 +29,7 @@ int chattr_full(
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        fd = xopenat(dir_fd, path, O_RDONLY|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0)
                 return fd;
 
@@ -144,7 +144,7 @@ int read_attr_fd(int fd, unsigned *ret) {
                 return -ENOTTY;
 
         _cleanup_close_ int fd_close = -EBADF;
-        fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_PATH, &fd_close); /* drop O_PATH if it is set */
+        fd = fd_reopen_condition(fd, O_RDONLY|O_NOCTTY, O_PATH, &fd_close); /* drop O_PATH if it is set */
         if (fd < 0)
                 return fd;
 
@@ -161,7 +161,7 @@ int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
         if (isempty(path) && dir_fd != AT_FDCWD)
                 fd = dir_fd;
         else {
-                fd_close = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                fd_close = xopenat(dir_fd, path, O_RDONLY|O_NOCTTY|O_NOFOLLOW);
                 if (fd_close < 0)
                         return fd_close;
 
@@ -177,7 +177,7 @@ int read_fs_xattr_fd(int fd, uint32_t *ret_xflags, uint32_t *ret_projid) {
 
         assert(fd >= 0);
 
-        fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_PATH, &fd_reopened);
+        fd = fd_reopen_condition(fd, O_RDONLY|O_NOCTTY, O_PATH, &fd_reopened);
         if (fd < 0)
                 return fd;
 
@@ -199,7 +199,7 @@ int set_proj_id(int fd, uint32_t proj_id) {
 
         assert(fd >= 0);
 
-        fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_PATH, &fd_reopened);
+        fd = fd_reopen_condition(fd, O_RDONLY|O_NOCTTY, O_PATH, &fd_reopened);
         if (fd < 0)
                 return fd;
 

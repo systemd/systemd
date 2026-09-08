@@ -319,7 +319,7 @@ int write_string_file_full_label(
         /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
         if (isempty(fn))
                 r = fd = fd_reopen(
-                                ASSERT_FD(dir_fd), O_CLOEXEC | O_NOCTTY |
+                                ASSERT_FD(dir_fd), O_NOCTTY |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY) |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_OPEN_NONBLOCKING) ? O_NONBLOCK : 0));
@@ -336,7 +336,7 @@ int write_string_file_full_label(
                 }
 
                 r = fd = openat_report_new(
-                                dir_fd, fn, O_CLOEXEC | O_NOCTTY |
+                                dir_fd, fn, O_NOCTTY |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
@@ -538,9 +538,9 @@ int read_virtual_file_at(
 
         _cleanup_close_ int fd = -EBADF;
         if (isempty(filename))
-                fd = fd_reopen(ASSERT_FD(dir_fd), O_RDONLY | O_NOCTTY | O_CLOEXEC);
+                fd = fd_reopen(ASSERT_FD(dir_fd), O_RDONLY | O_NOCTTY);
         else
-                fd = RET_NERRNO(openat(dir_fd, filename, O_RDONLY | O_NOCTTY | O_CLOEXEC));
+                fd = xopenat(dir_fd, filename, O_RDONLY | O_NOCTTY);
         if (fd < 0)
                 return fd;
 
@@ -990,9 +990,11 @@ DIR* xopendirat(int dir_fd, const char *path, int flags) {
                 flags |= O_NOFOLLOW;
         }
 
-        fd = openat(dir_fd, path, O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags);
-        if (fd < 0)
+        fd = xopenat(dir_fd, path, O_NONBLOCK|O_DIRECTORY|flags);
+        if (fd < 0) {
+                errno = -fd;
                 return NULL;
+        }
 
         return take_fdopendir(&fd);
 }
@@ -1044,7 +1046,8 @@ int fopen_mode_to_flags(const char *mode) {
 }
 
 static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int open_flags, FILE **ret) {
-        FILE *f;
+        _cleanup_close_ int fd = -EBADF;
+        int mode_flags;
 
         /* A combination of fopen() with openat() */
 
@@ -1052,37 +1055,21 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
         assert(mode);
         assert(ret);
 
-        if (dir_fd == AT_FDCWD && path && open_flags == 0)
-                f = fopen(path, mode);
-        else if (dir_fd == XAT_FDROOT && path && open_flags == 0) {
-                _cleanup_free_ char *j = strjoin("/", path);
-                if (!j)
-                        return -ENOMEM;
+        mode_flags = fopen_mode_to_flags(mode);
+        if (mode_flags < 0)
+                return mode_flags;
 
-                f = fopen(j, mode);
-        } else {
-                _cleanup_close_ int fd = -EBADF;
-                int mode_flags;
+        if (isempty(path)) {
+                if (dir_fd == AT_FDCWD)
+                        return -EBADF;
 
-                mode_flags = fopen_mode_to_flags(mode);
-                if (mode_flags < 0)
-                        return mode_flags;
+                fd = fd_reopen(dir_fd, (mode_flags | open_flags) & ~O_NOFOLLOW);
+        } else
+                fd = xopenat_full(dir_fd, path, mode_flags | open_flags, /* xopen_flags= */ 0, 0666);
+        if (fd < 0)
+                return fd;
 
-                if (path) {
-                        fd = openat(dir_fd, path, mode_flags | open_flags);
-                        if (fd < 0)
-                                return -errno;
-                } else {
-                        if (dir_fd == AT_FDCWD)
-                                return -EBADF;
-
-                        fd = fd_reopen(dir_fd, (mode_flags | open_flags) & ~O_NOFOLLOW);
-                        if (fd < 0)
-                                return fd;
-                }
-
-                f = take_fdopen(&fd, mode);
-        }
+        FILE *f = take_fdopen(&fd, mode);
         if (!f)
                 return -errno;
 
@@ -1213,7 +1200,7 @@ static int search_and_open_internal(
                 if (ret_fd)
                         /* We only specify 0777 here to appease static analyzers, it's never used since we
                          * don't support O_CREAT here */
-                        r = fd = RET_NERRNO(open(path, mode, 0777));
+                        r = fd = xopenat_full(AT_FDCWD, path, mode, /* xopen_flags= */ 0, 0777);
                 else
                         r = RET_NERRNO(access(path, mode));
                 if (r < 0)
@@ -1244,7 +1231,7 @@ static int search_and_open_internal(
 
                 if (ret_fd)
                         /* as above, 0777 is static analyzer appeasement */
-                        r = fd = RET_NERRNO(open(p, mode, 0777));
+                        r = fd = xopenat_full(AT_FDCWD, p, mode, /* xopen_flags= */ 0, 0777);
                 else
                         r = RET_NERRNO(access(p, F_OK));
                 if (r >= 0) {
@@ -1741,7 +1728,7 @@ int write_data_file_atomic_at(
         }
 
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int fd = open_tmpfile_linkable_at(dir_fd, fn, O_WRONLY|O_CLOEXEC, &t);
+        _cleanup_close_ int fd = open_tmpfile_linkable_at(dir_fd, fn, O_WRONLY, &t);
         if (fd < 0)
                 return fd;
 

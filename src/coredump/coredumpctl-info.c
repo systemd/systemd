@@ -65,16 +65,16 @@ static void analyze_coredump_file(
         assert(ret_color);
         assert(ret_size);
 
-        fd = open(path, O_PATH|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_PATH);
         if (fd < 0) {
-                if (errno == ENOENT) {
+                if (fd == -ENOENT) {
                         *ret_state = "missing";
                         *ret_color = ansi_grey();
                         *ret_size = UINT64_MAX;
                         return;
                 }
 
-                r = -errno;
+                r = fd;
         } else
                 r = access_fd(fd, R_OK);
         if (r < 0) {

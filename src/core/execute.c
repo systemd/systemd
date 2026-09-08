@@ -140,7 +140,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *pa
         if (parameters && parameters->stdout_fd >= 0 && isatty_safe(parameters->stdout_fd))
                 fd = parameters->stdout_fd;
         else if (path && exec_context_has_tty(context)) {
-                fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_NONBLOCK);
                 if (fd < 0)
                         return (void) log_debug_errno(fd, "Failed to open terminal '%s', ignoring: %m", path);
         } else
@@ -1784,9 +1784,9 @@ void exec_context_revert_tty(ExecContext *c, sd_id128_t invocation_id) {
         if (!path)
                 return;
 
-        fd = open(path, O_PATH|O_CLOEXEC); /* Pin the inode */
+        fd = xopenat(AT_FDCWD, path, O_PATH); /* Pin the inode */
         if (fd < 0)
-                return (void) log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                return (void) log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_WARNING, fd,
                                              "Failed to open TTY inode of '%s' to adjust ownership/access mode, ignoring: %m",
                                              path);
 

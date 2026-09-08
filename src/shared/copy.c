@@ -216,10 +216,10 @@ int copy_bytes_full(
         if (ret_remains_size)
                 *ret_remains_size = 0;
 
-        fdf = fd_reopen_condition(fdf, O_CLOEXEC | O_NOCTTY | O_RDONLY, O_PATH, &fdf_opened);
+        fdf = fd_reopen_condition(fdf, O_NOCTTY | O_RDONLY, O_PATH, &fdf_opened);
         if (fdf < 0)
                 return fdf;
-        fdt = fd_reopen_condition(fdt, O_CLOEXEC | O_NOCTTY | O_RDWR, O_PATH, &fdt_opened);
+        fdt = fd_reopen_condition(fdt, O_NOCTTY | O_RDWR, O_PATH, &fdt_opened);
         if (fdt < 0)
                 return fdt;
 
@@ -633,7 +633,7 @@ static int hardlink_context_realize(HardlinkContext *c) {
 
         assert(c->subdir);
 
-        c->dir_fd = open_mkdir_at(c->parent_fd, c->subdir, O_EXCL|O_CLOEXEC, 0700);
+        c->dir_fd = open_mkdir_at(c->parent_fd, c->subdir, O_EXCL, 0700);
         if (c->dir_fd < 0)
                 return c->dir_fd;
 
@@ -804,7 +804,7 @@ static int copy_fs_verity(int fdf, int *fdt) {
         /* Okay. We're doing this now. We need to re-open fdt as read-only because
          * we can't enable fs-verity while writable file descriptors are outstanding. */
         _cleanup_close_ int reopened_fd = -EBADF;
-        r = fd_reopen_condition(*fdt, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_ACCMODE_STRICT|O_PATH, &reopened_fd);
+        r = fd_reopen_condition(*fdt, O_RDONLY|O_NOCTTY, O_ACCMODE_STRICT|O_PATH, &reopened_fd);
         if (r < 0)
                 return r;
         if (reopened_fd >= 0)
@@ -875,20 +875,16 @@ static int fd_copy_regular(
         if (r > 0) /* worked! */
                 return 0;
 
-        fdf = xopenat_full(df, from, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, 0);
+        fdf = xopenat_full(df, from, O_RDONLY|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, 0);
         if (fdf < 0)
                 return fdf;
 
-        if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dt, to, S_IFREG, /* label_context= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-        fdt = openat(dt, to, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, st->st_mode & 07777);
-        if (copy_flags & COPY_MAC_CREATE)
-                mac_selinux_create_file_clear();
+        fdt = xopenat_full(dt, to,
+                           O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_NOFOLLOW,
+                           copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0,
+                           st->st_mode & 07777);
         if (fdt < 0)
-                return -errno;
+                return fdt;
 
         r = prepare_nocow(fdf, /* from= */ NULL, fdt, /* chattr_mask= */ NULL, /* chattr_flags= */ NULL);
         if (r < 0)
@@ -1090,7 +1086,7 @@ static int fd_copy_directory(
         if (depth_left == 0)
                 return -ENAMETOOLONG;
 
-        fdf = xopenat(df, from, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        fdf = xopenat(df, from, O_RDONLY|O_DIRECTORY|O_NOCTTY|O_NOFOLLOW);
         if (fdf < 0)
                 return fdf;
 
@@ -1124,7 +1120,7 @@ static int fd_copy_directory(
         }
 
         fdt = xopenat_lock_full(dt, to,
-                                O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|(exists ? 0 : O_CREAT|O_EXCL),
+                                O_RDONLY|O_DIRECTORY|O_NOCTTY|O_NOFOLLOW|(exists ? 0 : O_CREAT|O_EXCL),
                                 flags,
                                 st->st_mode & 07777,
                                 copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE,
@@ -1476,7 +1472,7 @@ int copy_file_fd_at_full(
         assert(fdt >= 0);
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
-        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, 0);
+        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_NOCTTY, XO_REGULAR, 0);
         if (fdf < 0)
                 return fdf;
 
@@ -1533,7 +1529,7 @@ int copy_file_at_full(
         assert(dir_fdt >= 0 || dir_fdt == AT_FDCWD);
         assert(to);
 
-        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, 0);
+        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_NOCTTY, XO_REGULAR, 0);
         if (fdf < 0)
                 return fdf;
 
@@ -1548,7 +1544,7 @@ int copy_file_at_full(
 
         WITH_UMASK(0000) {
                 fdt = xopenat_lock_full(dir_fdt, to,
-                                        flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
+                                        flags|O_WRONLY|O_CREAT|O_NOCTTY,
                                         XO_REGULAR | (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0),
                                         mode,
                                         copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE, LOCK_EX);
@@ -1633,7 +1629,7 @@ int copy_file_atomic_at_full(
                 if (r < 0)
                         return r;
         }
-        fdt = open_tmpfile_linkable_at(dir_fdt, to, O_WRONLY|O_CLOEXEC, &t);
+        fdt = open_tmpfile_linkable_at(dir_fdt, to, O_WRONLY, &t);
         if (copy_flags & COPY_MAC_CREATE)
                 mac_selinux_create_file_clear();
         if (fdt < 0)

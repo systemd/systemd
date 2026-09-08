@@ -872,7 +872,7 @@ static int dir_cleanup(
                                 continue;
 
                         if (!arg_dry_run) {
-                                fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
+                                fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0 && !IN_SET(fd, -ENOENT, -ELOOP))
                                         log_warning_errno(fd, "Opening file \"%s\" failed, proceeding without lock: %m", sub_path);
                                 if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
@@ -1929,7 +1929,7 @@ static int fd_set_attribute(
         if (!arg_dry_run) {
                 _cleanup_close_ int procfs_fd = -EBADF;
 
-                procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
+                procfs_fd = fd_reopen(fd, O_RDONLY|O_NOATIME);
                 if (procfs_fd < 0)
                         return log_error_errno(procfs_fd, "Failed to reopen '%s': %m", path);
 
@@ -2018,17 +2018,17 @@ static int write_one_file(Context *c, Item *i, const char *path, CreationMode cr
 
         /* Follow symlinks. Open with O_PATH in dry-run mode to make sure we don't use the path inadvertently. */
         int flags = O_NONBLOCK | O_CLOEXEC | O_WRONLY | O_NOCTTY | i->append_or_force * O_APPEND | arg_dry_run * O_PATH;
-        fd = openat(dir_fd, bn, flags, i->mode);
+        fd = xopenat_full(dir_fd, bn, flags, /* xopen_flags= */ 0, i->mode);
         if (fd < 0) {
-                if (errno == ENOENT) {
-                        log_debug_errno(errno, "Not writing missing file \"%s\": %m", path);
+                if (fd == -ENOENT) {
+                        log_debug_errno(fd, "Not writing missing file \"%s\": %m", path);
                         return 0;
                 }
 
                 if (i->allow_failure)
-                        return log_debug_errno(errno, "Failed to open file \"%s\", ignoring: %m", path);
+                        return log_debug_errno(fd, "Failed to open file \"%s\", ignoring: %m", path);
 
-                return log_error_errno(errno, "Failed to open file \"%s\": %m", path);
+                return log_error_errno(fd, "Failed to open file \"%s\": %m", path);
         }
 
         /* 'w' is allowed to write into any kind of files. */
@@ -2080,7 +2080,7 @@ static int create_file(
 
         WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG, arg_label_context);
-                fd = RET_NERRNO(openat(dir_fd, bn, O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
+                fd = xopenat_full(dir_fd, bn, O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_WRONLY|O_NOCTTY, /* xopen_flags= */ 0, i->mode);
                 mac_selinux_create_file_clear();
         }
 
@@ -2093,9 +2093,9 @@ static int create_file(
                 /* Re-open the file. At that point it must exist since open(2) failed with EEXIST. We still
                  * need to check if the perms/mode need to be changed. For read-only filesystems, we let
                  * fd_set_perms() report the error if the perms need to be modified. */
-                fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
+                fd = xopenat(dir_fd, bn, O_NOFOLLOW|O_PATH);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to reopen file %s: %m", path);
+                        return log_error_errno(fd, "Failed to reopen file %s: %m", path);
 
                 if (fstat(fd, &stbuf) < 0)
                         return log_error_errno(errno, "stat(%s) failed: %m", path);
@@ -2157,13 +2157,13 @@ static int truncate_file(
         }
 
         creation = CREATION_EXISTING;
-        fd = RET_NERRNO(openat(dir_fd, bn, O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
+        fd = xopenat_full(dir_fd, bn, O_NOFOLLOW|O_NONBLOCK|O_WRONLY|O_NOCTTY, /* xopen_flags= */ 0, i->mode);
         if (fd == -ENOENT) {
                 creation = CREATION_NORMAL; /* Didn't work without O_CREATE, try again with */
 
                 WITH_UMASK(0000) {
                         mac_selinux_create_file_prepare(path, S_IFREG, arg_label_context);
-                        fd = RET_NERRNO(openat(dir_fd, bn, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
+                        fd = xopenat_full(dir_fd, bn, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_WRONLY|O_NOCTTY, /* xopen_flags= */ 0, i->mode);
                         mac_selinux_create_file_clear();
                 }
         }
@@ -2176,14 +2176,14 @@ static int truncate_file(
                  * perms are set. So we still proceed with the sanity checks and let the remaining operations
                  * fail with EROFS if they try to modify the target file. */
 
-                fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
+                fd = xopenat(dir_fd, bn, O_NOFOLLOW|O_PATH);
                 if (fd < 0) {
-                        if (errno == ENOENT)
+                        if (fd == -ENOENT)
                                 return log_error_errno(SYNTHETIC_ERRNO(EROFS),
                                                        "Cannot create file %s on a read-only file system.",
                                                        path);
 
-                        return log_error_errno(errno, "Failed to reopen file %s: %m", path);
+                        return log_error_errno(fd, "Failed to reopen file %s: %m", path);
                 }
 
                 erofs = true;
@@ -2244,12 +2244,12 @@ static int copy_files(Context *c, Item *i) {
                          ((i->append_or_force) ? COPY_MERGE : COPY_MERGE_EMPTY) | COPY_MAC_CREATE | COPY_HARDLINKS,
                          NULL, NULL);
 
-        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        fd = xopenat(dfd, bn, O_NOFOLLOW|O_PATH);
         if (fd < 0) {
                 if (r < 0) /* Look at original error first */
                         return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
 
-                return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
+                return log_error_errno(fd, "Failed to openat(%s): %m", i->path);
         }
 
         if (r < 0 && !IN_SET(r, -EEXIST, -EROFS))
@@ -2331,10 +2331,10 @@ static int create_directory_or_subvolume(
 
         creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
 
-        fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY|O_PATH);
+        fd = xopenat(pfd, bn, O_NOFOLLOW|O_DIRECTORY|O_PATH);
         if (fd < 0) {
                 /* We couldn't open it because it is not actually a directory? */
-                if (errno == ENOTDIR)
+                if (fd == -ENOTDIR)
                         return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "\"%s\" already exists and is not a directory.", path);
 
                 /* Then look at the original error */
@@ -2345,7 +2345,7 @@ static int create_directory_or_subvolume(
                                               path,
                                               allow_failure ? ", ignoring" : "");
 
-                return log_error_errno(errno, "Failed to open directory/subvolume we just created '%s': %m", path);
+                return log_error_errno(fd, "Failed to open directory/subvolume we just created '%s': %m", path);
         }
 
         if (fstat(fd, &st) < 0)
@@ -2518,7 +2518,7 @@ static int create_device(
 
         /* Try to open the inode via O_PATH, regardless if we could create it or not. Maybe everything is in
          * order anyway and we hence can ignore the error to create the device node */
-        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        fd = xopenat(dfd, bn, O_NOFOLLOW|O_PATH);
         if (fd < 0) {
                 /* OK, so opening the inode failed, let's look at the original error then. */
 
@@ -2529,7 +2529,7 @@ static int create_device(
                         return log_error_errno(r, "Failed to create device node '%s': %m", i->path);
                 }
 
-                return log_error_errno(errno, "Failed to open device node '%s' we just created: %m", i->path);
+                return log_error_errno(fd, "Failed to open device node '%s' we just created: %m", i->path);
         }
 
         if (fstat(fd, &st) < 0)
@@ -2559,9 +2559,9 @@ static int create_device(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create device node '%s': %m", i->path);
 
-                        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                        fd = xopenat(dfd, bn, O_NOFOLLOW|O_PATH);
                         if (fd < 0)
-                                return log_error_errno(errno, "Failed to open device node we just created '%s': %m", i->path);
+                                return log_error_errno(fd, "Failed to open device node we just created '%s': %m", i->path);
 
                         /* Validate type before change ownership below */
                         if (fstat(fd, &st) < 0)
@@ -2628,12 +2628,12 @@ static int create_fifo(Context *c, Item *i) {
         creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
 
         /* Open the inode via O_PATH, regardless if we managed to create it or not. Maybe it is already the FIFO we want */
-        fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        fd = xopenat(pfd, bn, O_NOFOLLOW|O_PATH);
         if (fd < 0) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create FIFO %s: %m", i->path); /* original error! */
 
-                return log_error_errno(errno, "Failed to open FIFO we just created %s: %m", i->path);
+                return log_error_errno(fd, "Failed to open FIFO we just created %s: %m", i->path);
         }
 
         if (fstat(fd, &st) < 0)
@@ -2661,9 +2661,9 @@ static int create_fifo(Context *c, Item *i) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create FIFO %s: %m", i->path);
 
-                        fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                        fd = xopenat(pfd, bn, O_NOFOLLOW|O_PATH);
                         if (fd < 0)
-                                return log_error_errno(errno, "Failed to open FIFO we just created '%s': %m", i->path);
+                                return log_error_errno(fd, "Failed to open FIFO we just created '%s': %m", i->path);
 
                         /* Validate type before change ownership below */
                         if (fstat(fd, &st) < 0)
@@ -2745,12 +2745,12 @@ static int create_symlink(Context *c, Item *i) {
 
         creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
 
-        fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        fd = xopenat(pfd, bn, O_NOFOLLOW|O_PATH);
         if (fd < 0) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create symlink '%s': %m", i->path); /* original error! */
 
-                return log_error_errno(errno, "Failed to open symlink we just created '%s': %m", i->path);
+                return log_error_errno(fd, "Failed to open symlink we just created '%s': %m", i->path);
         }
 
         if (fstat(fd, &st) < 0)
@@ -2786,9 +2786,9 @@ static int create_symlink(Context *c, Item *i) {
                 if (r < 0)
                         return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
 
-                fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                fd = xopenat(pfd, bn, O_NOFOLLOW|O_PATH);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open symlink we just created '%s': %m", i->path);
+                        return log_error_errno(fd, "Failed to open symlink we just created '%s': %m", i->path);
 
                 /* Validate type before change ownership below */
                 if (fstat(fd, &st) < 0)
@@ -2850,10 +2850,10 @@ static int item_do(
                         if (dot_or_dot_dot(de->d_name))
                                 continue;
 
-                        de_fd = openat(fd, de->d_name, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                        de_fd = xopenat(fd, de->d_name, O_NOFOLLOW|O_PATH);
                         if (de_fd < 0) {
-                                if (errno != ENOENT)
-                                        RET_GATHER(r, log_error_errno(errno, "Failed to open file '%s': %m", de->d_name));
+                                if (de_fd != -ENOENT)
+                                        RET_GATHER(r, log_error_errno(de_fd, "Failed to open file '%s': %m", de->d_name));
                                 continue;
                         }
 
@@ -2996,9 +2996,9 @@ static int rm_if_wrong_type_safe(
                 if ((st.st_mode & S_IFMT) == S_IFDIR) {
                         _cleanup_close_ int child_fd = -EBADF;
 
-                        child_fd = openat(parent_fd, name, O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
+                        child_fd = xopenat(parent_fd, name, O_NOCTTY | O_DIRECTORY);
                         if (child_fd < 0)
-                                return log_error_errno(errno, "Failed to open \"%s/%s\": %m", parent_name ?: "...", name);
+                                return log_error_errno(child_fd, "Failed to open \"%s/%s\": %m", parent_name ?: "...", name);
 
                         r = rm_rf_children(TAKE_FD(child_fd), REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL, &st);
                         if (r < 0)
@@ -3037,9 +3037,9 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                                 "Trailing path separators are only allowed if child_mode is not set; got \"%s\"", path);
 
         /* Get the parent_fd and stat. */
-        parent_fd = openat(AT_FDCWD, path_is_absolute(path) ? "/" : ".", O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
+        parent_fd = xopenat(AT_FDCWD, path_is_absolute(path) ? "/" : ".", O_NOCTTY | O_DIRECTORY);
         if (parent_fd < 0)
-                return log_error_errno(errno, "Failed to open root: %m");
+                return log_error_errno(parent_fd, "Failed to open root: %m");
 
         if (fstat(parent_fd, &parent_st) < 0)
                 return log_error_errno(errno, "Failed to stat root: %m");
@@ -3081,7 +3081,7 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                         /* rm_if_wrong_type_safe already logs errors. */
                         return r;
 
-                next_fd = RET_NERRNO(openat(parent_fd, t, O_NOCTTY | O_CLOEXEC | O_DIRECTORY));
+                next_fd = xopenat(parent_fd, t, O_NOCTTY | O_DIRECTORY);
                 if (next_fd < 0) {
                         _cleanup_free_ char *parent_name = NULL;
 
@@ -3469,7 +3469,7 @@ static int item_instance_open_opath(
         assert(ret_fd);
         assert(ret_sx);
 
-        _cleanup_close_ int fd = RET_NERRNO(openat(parent_fd, name, O_PATH|O_CLOEXEC|O_NOFOLLOW));
+        _cleanup_close_ int fd = xopenat(parent_fd, name, O_PATH|O_NOFOLLOW);
         if (IN_SET(fd, -ENOENT, -ENOTDIR))
                 return 0;
         if (fd < 0)
@@ -3682,7 +3682,7 @@ static int clean_remove_item_instance_at(
 
         _cleanup_close_ int lock_fd = -EBADF;
         if (!arg_dry_run) {
-                lock_fd = xopenat(parent_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
+                lock_fd = xopenat(parent_fd, name, O_RDONLY|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
                 if (lock_fd < 0 && !IN_SET(lock_fd, -ENOENT, -ELOOP))
                         log_warning_errno(lock_fd, "Opening file \"%s\" failed, proceeding without lock: %m", instance);
 

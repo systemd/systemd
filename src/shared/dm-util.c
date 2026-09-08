@@ -6,6 +6,7 @@
 
 #include "dm-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "string-util.h"
 
 int dm_deferred_remove_cancel(const char *name) {
@@ -42,9 +43,9 @@ int dm_deferred_remove_cancel(const char *name) {
         strncpy_exact(message.combined.dm_ioctl.name, name, sizeof(message.combined.dm_ioctl.name));
         strncpy_exact(message.text, "@cancel_deferred_remove", sizeof(message.text));
 
-        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, "/dev/mapper/control", O_RDWR);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (ioctl(fd, DM_TARGET_MSG, &message))
                 return -errno;

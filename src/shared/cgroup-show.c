@@ -15,6 +15,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "hostname-util.h"
 #include "log.h"
@@ -141,9 +142,9 @@ static int show_cgroup_name(
         bool delegate;
         int r;
 
-        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY, 0);
+        fd = xopenat(AT_FDCWD, path, O_PATH|O_NOFOLLOW|O_DIRECTORY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open cgroup '%s', ignoring: %m", path);
+                return log_debug_errno(fd, "Failed to open cgroup '%s', ignoring: %m", path);
 
         r = cg_is_delegated_fd(fd);
         if (r < 0)

@@ -351,7 +351,7 @@ int session_save(Session *s) {
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable(s->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
+        r = fopen_tmpfile_linkable(s->state_file, O_WRONLY, &temp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create state file '%s': %m", s->state_file);
 
@@ -1427,7 +1427,7 @@ static int session_open_vt(Session *s, bool reopen) {
 
         sprintf(path, "/dev/tty%u", s->vtnr);
 
-        fd = open_terminal(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
+        fd = open_terminal(path, O_RDWR | O_NONBLOCK | O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(fd, "Cannot open VT %s of session %s: %m", path, s->id);
 

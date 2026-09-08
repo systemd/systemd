@@ -14,6 +14,7 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
@@ -588,9 +589,9 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                 if (!arg_sections[c])
                         continue;
 
-                fd = open(arg_sections[c], O_RDONLY|O_CLOEXEC);
+                fd = xopenat(AT_FDCWD, arg_sections[c], O_RDONLY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", arg_sections[c]);
+                        return log_error_errno(fd, "Failed to open '%s': %m", arg_sections[c]);
 
                 /* Allocate one message digest context per bank (NULL terminated) */
                 mdctx = new0(EVP_MD_CTX*, n + 1);

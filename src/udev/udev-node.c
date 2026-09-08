@@ -351,7 +351,7 @@ static int stack_directory_open_and_lock(
         if (!dirpath)
                 return -ENOMEM;
 
-        dirfd = open_mkdir(dirpath, O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
+        dirfd = open_mkdir(dirpath, O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
         if (dirfd < 0)
                 return log_device_debug_errno(dev, dirfd, "Failed to open stack directory '%s': %m", dirpath);
 
@@ -747,13 +747,13 @@ int static_node_apply_permissions(
 
         devnode = strjoina("/dev/", name);
 
-        node_fd = open(devnode, O_PATH|O_CLOEXEC);
+        node_fd = xopenat(AT_FDCWD, devnode, O_PATH);
         if (node_fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno);
-                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(node_fd);
+                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, node_fd,
                                "Failed to open device node '%s'%s: %m",
                                devnode, ignore ? ", ignoring" : "");
-                return ignore ? 0 : -errno;
+                return ignore ? 0 : node_fd;
         }
 
         if (fstat(node_fd, &stats) < 0)
