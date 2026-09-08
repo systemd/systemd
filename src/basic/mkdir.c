@@ -228,7 +228,7 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
                 if (r < 0)
                         return r;
 
-                dfd = chase_and_open(pp, root, CHASE_PREFIX_ROOT, O_CLOEXEC|O_DIRECTORY, NULL);
+                dfd = chase_and_open(pp, root, CHASE_PREFIX_ROOT, O_DIRECTORY, NULL);
                 if (dfd < 0)
                         return dfd;
         }
@@ -248,7 +248,7 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
 
         _cleanup_close_ int nfd = xopenat_full(
                                 dfd, bn,
-                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,
+                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW,
                                 flags,
                                 m);
         if (nfd == -EEXIST)

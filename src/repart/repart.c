@@ -6857,7 +6857,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (rfd < 0)
                         return -errno;
 
-                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
+                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_NOCTTY, NULL);
                 if (sfd == -ENOTDIR)
                         continue;
                 if (sfd < 0)
@@ -6889,7 +6889,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (r < 0)
                         return r;
 
-                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
+                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_NOCTTY, NULL);
                 if (sfd == -ENOENT) {
                         log_notice_errno(sfd, "Failed to open source file '%s%s', skipping: %m", strempty(arg_copy_source), line->source);
                         continue;
@@ -6903,7 +6903,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 return log_error_errno(r, "Failed to check type of source file '%s': %m", line->source);
 
                         /* We are looking at a directory */
-                        tfd = chase_and_open(line->target, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                        tfd = chase_and_open(line->target, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY, NULL);
                         if (tfd < 0) {
                                 _cleanup_free_ char *dn = NULL, *fn = NULL;
 
@@ -6922,7 +6922,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create parent directory '%s': %m", dn);
 
-                                pfd = chase_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                                pfd = chase_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY, NULL);
                                 if (pfd < 0)
                                         return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
@@ -6986,7 +6986,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create parent directory: %m");
 
-                        pfd = chase_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                        pfd = chase_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY, NULL);
                         if (pfd < 0)
                                 return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
@@ -8268,7 +8268,7 @@ static int context_split(Context *context) {
                 fdt = xopenat_full(
                                 AT_FDCWD,
                                 p->split_path,
-                                O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL,
+                                O_WRONLY|O_NOCTTY|O_NOFOLLOW|O_CREAT|O_EXCL,
                                 attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
                                 0666);
                 if (fdt < 0)
@@ -9312,7 +9312,7 @@ static int context_open_copy_block_paths(
 
                 if (p->copy_blocks_path) {
 
-                        source_fd = chase_and_open(p->copy_blocks_path, p->copy_blocks_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
+                        source_fd = chase_and_open(p->copy_blocks_path, p->copy_blocks_root, CHASE_PREFIX_ROOT, O_RDONLY|O_NONBLOCK, &opened);
                         if (source_fd < 0)
                                 return log_error_errno(source_fd, "Failed to open '%s': %m", p->copy_blocks_path);
 
@@ -9434,7 +9434,7 @@ static int context_open_btrfs_filesystems(Context *context) {
                         .source_fd = -EBADF,
                 };
 
-                replacement->mountpoint_fd = xopenat(AT_FDCWD, p->block_device_replace, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                replacement->mountpoint_fd = xopenat(AT_FDCWD, p->block_device_replace, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (replacement->mountpoint_fd < 0)
                         return log_error_errno(replacement->mountpoint_fd, "Failed to open mountpoint %s for btrfs filesystem: %m", p->block_device_replace);
 
@@ -9588,7 +9588,7 @@ static int context_fstab(Context *context) {
         if (!path)
                 return log_oom();
 
-        r = fopen_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &t, &f);
+        r = fopen_tmpfile_linkable(path, O_WRONLY, &t, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary file for %s: %m", path);
 
@@ -9725,7 +9725,7 @@ static int context_crypttab(Context *context, bool late) {
         if (!path)
                 return log_oom();
 
-        r = fopen_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &t, &f);
+        r = fopen_tmpfile_linkable(path, O_WRONLY, &t, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary file for %s: %m", path);
 
@@ -9878,7 +9878,7 @@ static int context_minimize(Context *context) {
                 fd = xopenat_full(
                                 AT_FDCWD,
                                 temp,
-                                O_CREAT|O_EXCL|O_CLOEXEC|O_RDWR|O_NOCTTY,
+                                O_CREAT|O_EXCL|O_RDWR|O_NOCTTY,
                                 attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
                                 0600);
                 if (fd < 0)
@@ -10092,7 +10092,7 @@ static int context_minimize(Context *context) {
                 fd = xopenat_full(
                                 AT_FDCWD,
                                 temp,
-                                O_RDONLY|O_CLOEXEC|O_CREAT|O_NONBLOCK,
+                                O_RDONLY|O_CREAT|O_NONBLOCK,
                                 attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
                                 0600);
                 if (fd < 0)
@@ -11243,7 +11243,7 @@ static int resize_backing_fd(
                  * reopen the file for that temporarily. We keep the writable fd only open for this operation though,
                  * as fdisk can't accept it anyway. */
 
-                writable_fd = fd_reopen(*fd, O_WRONLY|O_CLOEXEC);
+                writable_fd = fd_reopen(*fd, O_WRONLY);
                 if (writable_fd < 0)
                         return log_error_errno(writable_fd, "Failed to reopen backing file '%s' writable: %m", node);
         }

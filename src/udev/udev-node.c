@@ -351,7 +351,7 @@ static int stack_directory_open_and_lock(
         if (!dirpath)
                 return -ENOMEM;
 
-        dirfd = open_mkdir(dirpath, O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
+        dirfd = open_mkdir(dirpath, O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
         if (dirfd < 0)
                 return log_device_debug_errno(dev, dirfd, "Failed to open stack directory '%s': %m", dirpath);
 

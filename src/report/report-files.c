@@ -69,7 +69,7 @@ static int file_metric_generate(const MetricFamily *mf, sd_varlink *link, void *
                         return log_oom();
 
                 _cleanup_free_ char *resolved = NULL;
-                _cleanup_close_ int fd = chase_and_open(path, /* root= */ NULL, CHASE_MUST_BE_REGULAR, O_RDONLY|O_CLOEXEC, &resolved);
+                _cleanup_close_ int fd = chase_and_open(path, /* root= */ NULL, CHASE_MUST_BE_REGULAR, O_RDONLY, &resolved);
                 if (fd == -ENOENT) /* Not in this directory (or dangling symlink): try the next one. */
                         continue;
                 if (fd < 0) {

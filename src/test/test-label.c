@@ -62,7 +62,7 @@ static int get_dir_fd(const char *dir_path, mode_t mode) {
         int dir_fd = -EBADF;
 
         assert(dir_path);
-        dir_fd = RET_NERRNO(open_mkdir_at(AT_FDCWD, dir_path, O_CLOEXEC, mode));
+        dir_fd = RET_NERRNO(open_mkdir_at(AT_FDCWD, dir_path, 0, mode));
         if (dir_fd < 0)
                 return log_error_errno(dir_fd, "Error occurred while opening directory =>: %m");
 

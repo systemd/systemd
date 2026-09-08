@@ -1572,7 +1572,7 @@ int linkat_replace(int olddirfd, const char *oldpath, int newdirfd, const char *
         if (r != -EEXIST)
                 return r;
 
-        old_fd = xopenat(olddirfd, oldpath, O_PATH|O_CLOEXEC);
+        old_fd = xopenat(olddirfd, oldpath, O_PATH);
         if (old_fd < 0)
                 return old_fd;
 

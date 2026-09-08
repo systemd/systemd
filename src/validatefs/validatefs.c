@@ -392,7 +392,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         _cleanup_free_ char *resolved = NULL;
-        _cleanup_close_ int target_fd = chase_and_open(arg_target, arg_root, CHASE_MUST_BE_DIRECTORY, O_DIRECTORY|O_CLOEXEC, &resolved);
+        _cleanup_close_ int target_fd = chase_and_open(arg_target, arg_root, CHASE_MUST_BE_DIRECTORY, O_DIRECTORY, &resolved);
         if (target_fd < 0)
                 return log_error_errno(target_fd, "Failed to open directory '%s': %m", arg_target);
 

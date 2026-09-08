@@ -879,7 +879,7 @@ static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo
                 log_warning("Received VT_PROCESS signal without a registered session, restoring VT.");
 
                 /* At this point we only have the kernel mapping for referring to the current VT. */
-                fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_NONBLOCK);
                 if (fd < 0) {
                         log_warning_errno(fd, "Failed to open current VT, ignoring: %m");
                         return 0;

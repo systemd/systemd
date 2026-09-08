@@ -15,8 +15,8 @@ TEST(path_pick) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
         _cleanup_close_ int dfd = -EBADF, sub_dfd = -EBADF;
 
-        dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
-        sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "foo.v", O_CLOEXEC, 0777));
+        dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY, &p));
+        sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "foo.v", 0, 0777));
 
         ASSERT_OK(write_string_file_at(sub_dfd, "foo_5.5.raw", "5.5", WRITE_STRING_FILE_CREATE));
         ASSERT_OK(write_string_file_at(sub_dfd, "foo_55.raw", "55", WRITE_STRING_FILE_CREATE));
@@ -188,8 +188,8 @@ TEST(path_uses_vpick) {
 TEST(pick_filter_image_any) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
 
-        _cleanup_close_ int dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
-        _cleanup_close_ int sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "test.v", O_CLOEXEC, 0777));
+        _cleanup_close_ int dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY, &p));
+        _cleanup_close_ int sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "test.v", 0, 0777));
 
         /* Create .raw files (should match with pick_filter_image_raw and pick_filter_image_any) */
         ASSERT_OK(write_string_file_at(sub_dfd, "test_1.raw", "version 1 raw", WRITE_STRING_FILE_CREATE));
@@ -252,7 +252,7 @@ TEST(pick_filter_image_any) {
 
         /* Now test pick_filter_image_dir with a separate directory structure */
         safe_close(sub_dfd);
-        sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "myimage.v", O_CLOEXEC, 0777));
+        sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "myimage.v", 0, 0777));
 
         /* Create directories that pick_filter_image_dir should find */
         ASSERT_OK(mkdirat(sub_dfd, "myimage_1", 0755));
@@ -279,8 +279,8 @@ TEST(pick_filter_image_any) {
 TEST(path_pick_resolve) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
 
-        _cleanup_close_ int dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
-        _cleanup_close_ int sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "resolve.v", O_CLOEXEC, 0777));
+        _cleanup_close_ int dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY, &p));
+        _cleanup_close_ int sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "resolve.v", 0, 0777));
 
         /* Create a target directory and file for symlinks */
         ASSERT_OK(mkdirat(dfd, "target_dir", 0755));
