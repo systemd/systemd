@@ -11,6 +11,7 @@
 #include "efivars.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -131,15 +132,15 @@ static int load_kexec_kernel(void) {
                 return 0;
 
 #if HAVE_KEXEC_FILE_LOAD_SYSCALL
-        _cleanup_close_ int kernel_fd = open(kernel, O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int kernel_fd = xopenat(AT_FDCWD, kernel, O_RDONLY);
         if (kernel_fd < 0)
-                return log_error_errno(errno, "Failed to open kernel '%s': %m", kernel);
+                return log_error_errno(kernel_fd, "Failed to open kernel '%s': %m", kernel);
 
         _cleanup_close_ int initrd_fd = -EBADF;
         if (initrd) {
-                initrd_fd = open(initrd, O_RDONLY|O_CLOEXEC);
+                initrd_fd = xopenat(AT_FDCWD, initrd, O_RDONLY);
                 if (initrd_fd < 0)
-                        return log_error_errno(errno, "Failed to open initrd '%s': %m", initrd);
+                        return log_error_errno(initrd_fd, "Failed to open initrd '%s': %m", initrd);
         }
 
         unsigned long flags = initrd ? 0 : KEXEC_FILE_NO_INITRAMFS;
