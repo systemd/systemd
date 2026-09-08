@@ -13,6 +13,7 @@
 #include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "iovec-util.h"
 #include "lock-util.h"
@@ -236,9 +237,9 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, candidate);
 
                 for (;;) {
-                        lock_fd = open(lock_path, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600);
+                        lock_fd = xopenat_full(AT_FDCWD, lock_path, O_CREAT|O_RDWR|O_NOFOLLOW|O_NOCTTY, /* xopen_flags= */ 0, 0600);
                         if (lock_fd < 0)
-                                return -errno;
+                                return lock_fd;
 
                         r = flock(lock_fd, LOCK_EX|LOCK_NB); /* Try to get a BSD file lock on the UID lock file */
                         if (r < 0) {

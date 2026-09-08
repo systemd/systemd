@@ -29,6 +29,7 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "in-addr-prefix-util.h"
 #include "inotify-util.h"
 #include "ip-protocol-list.h"
@@ -3312,9 +3313,9 @@ int manager_setup_cgroup(Manager *m) {
 
         /* 2. Pin the cgroupfs mount, so that it cannot be unmounted */
         safe_close(m->pin_cgroupfs_fd);
-        m->pin_cgroupfs_fd = open("/sys/fs/cgroup", O_PATH|O_CLOEXEC|O_DIRECTORY);
+        m->pin_cgroupfs_fd = xopenat(AT_FDCWD, "/sys/fs/cgroup", O_PATH|O_DIRECTORY);
         if (m->pin_cgroupfs_fd < 0)
-                return log_error_errno(errno, "Failed to pin cgroup hierarchy: %m");
+                return log_error_errno(m->pin_cgroupfs_fd, "Failed to pin cgroup hierarchy: %m");
 
         /* 3. Allocate cgroup empty defer event source */
         m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
