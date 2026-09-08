@@ -8,6 +8,7 @@
 #include "hash-funcs.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "sysupdate-config.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-util.h"
@@ -19,7 +20,7 @@ static Feature *feature_free(Feature *f) {
         free(f->id);
 
         free(f->description);
-        free(f->documentation);
+        strv_free(f->documentation);
         free(f->appstream);
 
         condition_free_list(f->suggest_on);
@@ -72,22 +73,22 @@ int feature_read_definition(Feature *f, const char *root, const char *path, cons
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed feature filename '%s': %m", filename);
 
         ConfigTableItem table[] = {
-                { "Feature", "Description",                config_parse_string,         0,                             &f->description   },
-                { "Feature", "Documentation",              config_parse_url_specifiers, 0,                             &f->documentation },
-                { "Feature", "AppStream",                  config_parse_url_specifiers, 0,                             &f->appstream     },
-                { "Feature", "Enabled",                    config_parse_bool,           0,                             &f->enabled       },
-                { "Feature", "Suggest",                    config_parse_tristate,       0,                             &f->suggest       },
-                { "Feature", "SuggestOnArchitecture",      config_parse_condition,      CONDITION_ARCHITECTURE,        &f->suggest_on    },
-                { "Feature", "SuggestOnFirmware",          config_parse_condition,      CONDITION_FIRMWARE,            &f->suggest_on    },
-                { "Feature", "SuggestOnVirtualization",    config_parse_condition,      CONDITION_VIRTUALIZATION,      &f->suggest_on    },
-                { "Feature", "SuggestOnHost",              config_parse_condition,      CONDITION_HOST,                &f->suggest_on    },
-                { "Feature", "SuggestOnFraction",          config_parse_condition,      CONDITION_FRACTION,            &f->suggest_on    },
-                { "Feature", "SuggestOnKernelCommandLine", config_parse_condition,      CONDITION_KERNEL_COMMAND_LINE, &f->suggest_on    },
-                { "Feature", "SuggestOnVersion",           config_parse_condition,      CONDITION_VERSION,             &f->suggest_on    },
-                { "Feature", "SuggestOnCredential",        config_parse_condition,      CONDITION_CREDENTIAL,          &f->suggest_on    },
-                { "Feature", "SuggestOnSecurity",          config_parse_condition,      CONDITION_SECURITY,            &f->suggest_on    },
-                { "Feature", "SuggestOnOSRelease",         config_parse_condition,      CONDITION_OS_RELEASE,          &f->suggest_on    },
-                { "Feature", "SuggestOnMachineTag",        config_parse_condition,      CONDITION_MACHINE_TAG,         &f->suggest_on    },
+                { "Feature", "Description",                config_parse_string,              0,                             &f->description   },
+                { "Feature", "Documentation",              config_parse_url_specifiers_many, 0,                             &f->documentation },
+                { "Feature", "AppStream",                  config_parse_url_specifiers,      0,                             &f->appstream     },
+                { "Feature", "Enabled",                    config_parse_bool,                0,                             &f->enabled       },
+                { "Feature", "Suggest",                    config_parse_tristate,            0,                             &f->suggest       },
+                { "Feature", "SuggestOnArchitecture",      config_parse_condition,           CONDITION_ARCHITECTURE,        &f->suggest_on    },
+                { "Feature", "SuggestOnFirmware",          config_parse_condition,           CONDITION_FIRMWARE,            &f->suggest_on    },
+                { "Feature", "SuggestOnVirtualization",    config_parse_condition,           CONDITION_VIRTUALIZATION,      &f->suggest_on    },
+                { "Feature", "SuggestOnHost",              config_parse_condition,           CONDITION_HOST,                &f->suggest_on    },
+                { "Feature", "SuggestOnFraction",          config_parse_condition,           CONDITION_FRACTION,            &f->suggest_on    },
+                { "Feature", "SuggestOnKernelCommandLine", config_parse_condition,           CONDITION_KERNEL_COMMAND_LINE, &f->suggest_on    },
+                { "Feature", "SuggestOnVersion",           config_parse_condition,           CONDITION_VERSION,             &f->suggest_on    },
+                { "Feature", "SuggestOnCredential",        config_parse_condition,           CONDITION_CREDENTIAL,          &f->suggest_on    },
+                { "Feature", "SuggestOnSecurity",          config_parse_condition,           CONDITION_SECURITY,            &f->suggest_on    },
+                { "Feature", "SuggestOnOSRelease",         config_parse_condition,           CONDITION_OS_RELEASE,          &f->suggest_on    },
+                { "Feature", "SuggestOnMachineTag",        config_parse_condition,           CONDITION_MACHINE_TAG,         &f->suggest_on    },
                 {}
         };
 
@@ -111,7 +112,7 @@ int feature_read_definition(Feature *f, const char *root, const char *path, cons
         return 0;
 }
 
-int feature_is_suggested(Feature *f) {
+int feature_is_suggested(const Feature *f) {
         assert(f);
 
         if (f->suggest >= 0)
