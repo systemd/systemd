@@ -997,9 +997,9 @@ static int home_deactivate(UserRecord *h, bool force) {
                 setup.undo_mount = true; /* remember to unmount the new bind mount from HOME_RUNTIME_WORK_DIR */
 
                 /* Let's explicitly open the new root fs, using the moved path */
-                setup.root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                setup.root_fd = xopenat(AT_FDCWD, HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY);
                 if (setup.root_fd < 0)
-                        return log_error_errno(errno, "Failed to open moved home directory: %m");
+                        return log_error_errno(setup.root_fd, "Failed to open moved home directory: %m");
 
                 /* Now get rid of the home at its original place (we only keep the bind mount we created above) */
                 r = umount_verbose(LOG_ERR, user_record_home_directory(h), UMOUNT_NOFOLLOW | (force ? MNT_FORCE|MNT_DETACH : 0));

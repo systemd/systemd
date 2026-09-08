@@ -124,9 +124,9 @@ int run_mark_dirty_by_path(const char *path, bool b) {
 
         assert(path);
 
-        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, path, O_RDWR|O_NOCTTY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open %s to mark dirty or clean: %m", path);
+                return log_debug_errno(fd, "Failed to open %s to mark dirty or clean: %m", path);
 
         return run_mark_dirty(fd, b);
 }
@@ -194,9 +194,9 @@ static int probe_file_system_by_fd(
 static int probe_file_system_by_path(const char *path, char **ret_fstype, sd_id128_t *ret_uuid) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
-                return negative_errno();
+                return fd;
 
         return probe_file_system_by_fd(fd, ret_fstype, ret_uuid);
 }
@@ -217,9 +217,9 @@ static int block_get_size_by_fd(int fd, uint64_t *ret) {
 static int block_get_size_by_path(const char *path, uint64_t *ret) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return block_get_size_by_fd(fd, ret);
 }
@@ -1189,9 +1189,9 @@ int run_fallocate(int backing_fd, const struct stat *st) {
 int run_fallocate_by_path(const char *backing_path) {
         _cleanup_close_ int backing_fd = -EBADF;
 
-        backing_fd = open(backing_path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        backing_fd = xopenat(AT_FDCWD, backing_path, O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (backing_fd < 0)
-                return log_error_errno(errno, "Failed to open '%s' for fallocate(): %m", backing_path);
+                return log_error_errno(backing_fd, "Failed to open '%s' for fallocate(): %m", backing_path);
 
         return run_fallocate(backing_fd, NULL);
 }
@@ -1248,9 +1248,9 @@ static int open_image_file(
 
         ip = force_image_path ?: user_record_image_path(h);
 
-        image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        image_fd = xopenat(AT_FDCWD, ip, O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (image_fd < 0)
-                return log_error_errno(errno, "Failed to open image file %s: %m", ip);
+                return log_error_errno(image_fd, "Failed to open image file %s: %m", ip);
 
         if (fstat(image_fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat() image file: %m");
@@ -1393,9 +1393,9 @@ int home_setup_luks(
                 log_info("Discovered used loopback device %s.", setup->loop->node);
 
                 if (setup->root_fd < 0) {
-                        setup->root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                        setup->root_fd = xopenat(AT_FDCWD, user_record_home_directory(h), O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
                         if (setup->root_fd < 0)
-                                return log_error_errno(errno, "Failed to open home directory: %m");
+                                return log_error_errno(setup->root_fd, "Failed to open home directory: %m");
                 }
         } else {
                 _cleanup_free_ char *fstype = NULL, *subdir = NULL;
@@ -1498,9 +1498,9 @@ int home_setup_luks(
 
                 setup->undo_mount = true;
 
-                setup->root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                setup->root_fd = xopenat(AT_FDCWD, subdir, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
                 if (setup->root_fd < 0)
-                        return log_error_errno(errno, "Failed to open home directory: %m");
+                        return log_error_errno(setup->root_fd, "Failed to open home directory: %m");
 
                 if (user_record_luks_discard(h))
                         (void) run_fitrim(setup->root_fd);
@@ -2349,9 +2349,9 @@ int home_create_luks(
                 if (r < 0)
                         return log_error_errno(r, "Failed to derive temporary file name for %s: %m", ip);
 
-                setup->image_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+                setup->image_fd = xopenat_full(AT_FDCWD, t, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_NOFOLLOW, /* xopen_flags= */ 0, 0600);
                 if (setup->image_fd < 0)
-                        return log_error_errno(errno, "Failed to create home image %s: %m", t);
+                        return log_error_errno(setup->image_fd, "Failed to create home image %s: %m", t);
 
                 setup->temporary_image_path = TAKE_PTR(t);
 
@@ -2498,9 +2498,9 @@ int home_create_luks(
         if (r < 0)
                 return log_error_errno(r, "Failed to create user directory in mounted image file: %m");
 
-        setup->root_fd = open(subdir, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        setup->root_fd = xopenat(AT_FDCWD, subdir, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
-                return log_error_errno(errno, "Failed to open user directory in mounted image file: %m");
+                return log_error_errno(setup->root_fd, "Failed to open user directory in mounted image file: %m");
 
         (void) home_shift_uid(setup->root_fd, NULL, UID_NOBODY, h->uid, &mount_fd);
 
@@ -2768,9 +2768,9 @@ static int ext4_offline_resize_fs(
         }
 
         if (re_open) {
-                setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                setup->root_fd = xopenat(AT_FDCWD, HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
                 if (setup->root_fd < 0)
-                        return log_error_errno(errno, "Failed to reopen file system: %m");
+                        return log_error_errno(setup->root_fd, "Failed to reopen file system: %m");
         }
 
         log_info("File system mounted again.");
