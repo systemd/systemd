@@ -1347,6 +1347,8 @@ static int archive_write_acl(
                         return log_error_errno(errno, "Failed to get ACL entry tag: %m");
 
                 int tag = libacl_tag_to_libarchive_acl_tag(ntag);
+                if (tag == _ARCHIVE_ENTRY_ACL_UNDEFINED)
+                        continue;
 
                 id_t qualifier = UID_INVALID;
                 if (IN_SET(ntag, ACL_USER, ACL_GROUP)) {
