@@ -216,9 +216,9 @@ static int apply_tmpfs_quota(
                         continue;
                 }
 
-                _cleanup_close_ int fd = open(*p, O_DIRECTORY|O_CLOEXEC);
+                _cleanup_close_ int fd = xopenat(AT_FDCWD, *p, O_DIRECTORY);
                 if (fd < 0) {
-                        log_warning_errno(errno, "Failed to open '%s' in order to set quota, ignoring: %m", *p);
+                        log_warning_errno(fd, "Failed to open '%s' in order to set quota, ignoring: %m", *p);
                         continue;
                 }
 

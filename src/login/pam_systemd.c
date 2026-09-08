@@ -1408,11 +1408,11 @@ static int mkdir_chown_open_directory(
         assert(mode != MODE_INVALID);
 
         for (unsigned attempt = 0;; attempt++) {
-                _cleanup_close_ int fd = openat(parent_fd, name, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                _cleanup_close_ int fd = xopenat(parent_fd, name, O_DIRECTORY|O_NOFOLLOW);
                 if (fd >= 0)
                         return TAKE_FD(fd);
-                if (errno != ENOENT)
-                        return -errno;
+                if (fd != -ENOENT)
+                        return fd;
 
                 /* Let's create the directory under a temporary name first, since we want to make sure that
                  * once it appears under the right name it has the right ownership */
@@ -1464,9 +1464,9 @@ static int make_area_runtime_directory(
         /* Let's be careful with creating these directories, the runtime directory is owned by the user after all,
          * and they might play symlink games with us. */
 
-        _cleanup_close_ int fd = open(runtime_directory, O_CLOEXEC|O_PATH|O_DIRECTORY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, runtime_directory, O_PATH|O_DIRECTORY);
         if (fd < 0)
-                return pam_syslog_errno(pamh, LOG_ERR, errno, "Unable to open runtime directory '%s': %m", runtime_directory);
+                return pam_syslog_errno(pamh, LOG_ERR, fd, "Unable to open runtime directory '%s': %m", runtime_directory);
 
         _cleanup_close_ int fd_areas = mkdir_chown_open_directory(fd, "Areas", ur->uid, user_record_gid(ur), 0755);
         if (fd_areas < 0)
