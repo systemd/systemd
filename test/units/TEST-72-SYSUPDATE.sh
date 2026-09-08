@@ -397,6 +397,7 @@ EOF
     cat >"$CONFIGDIR/optional.feature" <<EOF
 [Feature]
 Description=Optional Feature
+AppStream=https://example.com/appstream/appstream-@a.xml
 EOF
 
     cat >"$CONFIGDIR/99-optional.transfer" <<EOF
@@ -472,6 +473,7 @@ EOF
     elif [[ "$client" == "varlink" ]]; then
         [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .description') == "Optional Feature" ]]
         varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .transfers' | grep "99-optional"
+        [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -rc '.features[] | select(.id=="optional") | .appstreamUrls') == '["https://example.com/appstream/appstream-@a.xml"]' ]]
     else
         exit 1
     fi
@@ -623,6 +625,11 @@ EOF
     else
         exit 1
     fi
+
+    # Check that the target versions are listed correctly.
+    [[ $( "$SYSUPDATE" --verify=no --json=short list | jq -cr '.all') == '["v9","v8","v7","v6","v5","v3","v2","v1"]' ]]
+    [[ $( "$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.all') == '["v9","v8","v7","v6"]' ]]
+    [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -cr '.targets[0].allVersions') == '["v9","v8","v7","v6"]' ]]
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"

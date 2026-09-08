@@ -28,7 +28,15 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Target,
                 SD_VARLINK_FIELD_COMMENT("Identifier for the target."),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(id, TargetIdentifier, 0));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(id, TargetIdentifier, 0),
+                SD_VARLINK_FIELD_COMMENT("The currently installed version of the target, if any."),
+                SD_VARLINK_DEFINE_FIELD(currentVersion, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("All locally-known versions of the target."),
+                SD_VARLINK_DEFINE_FIELD(allVersions, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Whether the current version is pending installation."),
+                SD_VARLINK_DEFINE_FIELD(currentVersionIsPending, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("URLs to zero or more AppStream catalog XML files describing the target."),
+                SD_VARLINK_DEFINE_FIELD(appstreamUrls, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Feature,
@@ -38,8 +46,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("URLs to documentation for the feature."),
                 SD_VARLINK_DEFINE_FIELD(documentation, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
-                SD_VARLINK_FIELD_COMMENT("A URL to an AppStream catalog XML file describing the feature."),
-                SD_VARLINK_DEFINE_FIELD(appstream, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("URLs to zero or more AppStream catalog XML files describing the feature."),
+                SD_VARLINK_DEFINE_FIELD(appstreamUrls, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("Whether the feature is enabled."),
                 SD_VARLINK_DEFINE_FIELD(isEnabled, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Array of IDs of the transfers (including currently disabled ones) which are controlled by this feature."),
