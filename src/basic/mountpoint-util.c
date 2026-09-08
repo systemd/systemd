@@ -607,9 +607,9 @@ int mount_nofollow(
          * Note that this disables following only for the final component of the target, i.e symlinks within
          * the path of the target are honoured, as are symlinks in the source path everywhere. */
 
-        fd = open(target, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        fd = xopenat(AT_FDCWD, target, O_PATH|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return mount_fd(source, fd, filesystemtype, mountflags, data);
 }

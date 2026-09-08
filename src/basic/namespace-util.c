@@ -14,6 +14,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -88,7 +89,7 @@ static int pidref_namespace_open_by_type_internal(const PidRef *pidref, Namespac
         const char *p;
 
         p = pid_namespace_path(pidref->pid, type);
-        nsfd = RET_NERRNO(open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC));
+        nsfd = xopenat(AT_FDCWD, p, O_RDONLY|O_NOCTTY);
         if (nsfd == -ENOENT) {
                 r = proc_mounted();
                 if (r == 0)
@@ -181,7 +182,7 @@ int pidref_namespace_open(
                 const char *root;
 
                 root = procfs_file_alloca(pidref->pid, "root");
-                root_fd = RET_NERRNO(open(root, O_CLOEXEC|O_DIRECTORY));
+                root_fd = xopenat(AT_FDCWD, root, O_DIRECTORY);
                 if (root_fd == -ENOENT && proc_mounted() == 0)
                         return -ENOSYS;
                 if (root_fd < 0)
@@ -1072,7 +1073,7 @@ int is_idmapping_supported(const char *path) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire new user namespace for checking if '%s' supports ID-mapping: %m", path);
 
-        dir_fd = r = RET_NERRNO(open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+        dir_fd = r = xopenat(AT_FDCWD, path, O_RDONLY | O_NOFOLLOW);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return false;
         if (r < 0)
