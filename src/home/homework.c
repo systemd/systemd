@@ -590,7 +590,6 @@ static int read_identity_file(int root_fd, sd_json_variant **ret) {
 static int write_identity_file(int root_fd, sd_json_variant *v, uid_t uid) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *normalized = NULL;
         _cleanup_fclose_ FILE *identity_file = NULL;
-        _cleanup_close_ int identity_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
 
@@ -603,45 +602,32 @@ static int write_identity_file(int root_fd, sd_json_variant *v, uid_t uid) {
         if (r < 0)
                 log_warning_errno(r, "Failed to normalize user record, ignoring: %m");
 
-        r = tempfn_random(".identity", NULL, &fn);
+        r = fopen_tmpfile_linkable_at(root_fd, ".identity", O_WRONLY|O_NOCTTY, &fn, &identity_file);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create .identity file in home directory: %m");
 
-        identity_fd = openat(root_fd, fn, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
-        if (identity_fd < 0)
-                return log_error_errno(errno, "Failed to create .identity file in home directory: %m");
-
-        identity_file = take_fdopen(&identity_fd, "w");
-        if (!identity_file) {
-                r = log_oom();
-                goto fail;
-        }
+        CLEANUP_TMPFILE_AT(root_fd, fn);
 
         sd_json_variant_dump(normalized, SD_JSON_FORMAT_PRETTY, identity_file, NULL);
 
         r = fflush_and_check(identity_file);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write .identity file: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write .identity file: %m");
 
-        if (fchown(fileno(identity_file), uid, uid) < 0) {
-                r = log_error_errno(errno, "Failed to change ownership of identity file: %m");
-                goto fail;
-        }
+        if (fchmod(fileno(identity_file), 0600) < 0)
+                return log_error_errno(errno, "Failed to adjust access mode of identity file: %m");
 
-        if (renameat(root_fd, fn, root_fd, ".identity") < 0) {
-                r = log_error_errno(errno, "Failed to move identity file into place: %m");
-                goto fail;
-        }
+        if (fchown(fileno(identity_file), uid, uid) < 0)
+                return log_error_errno(errno, "Failed to change ownership of identity file: %m");
+
+        r = flink_tmpfile_at(identity_file, root_fd, fn, ".identity", LINK_TMPFILE_REPLACE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to move identity file into place: %m");
+
+        fn = mfree(fn); /* disarm CLEANUP_TMPFILE_AT() */
 
         log_info("Wrote embedded .identity file.");
-
         return 0;
-
-fail:
-        (void) unlinkat(root_fd, fn, 0);
-        return r;
 }
 
 int home_load_embedded_identity(
