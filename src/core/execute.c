@@ -1784,9 +1784,9 @@ void exec_context_revert_tty(ExecContext *c, sd_id128_t invocation_id) {
         if (!path)
                 return;
 
-        fd = open(path, O_PATH|O_CLOEXEC); /* Pin the inode */
+        fd = xopenat(AT_FDCWD, path, O_PATH); /* Pin the inode */
         if (fd < 0)
-                return (void) log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                return (void) log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_WARNING, fd,
                                              "Failed to open TTY inode of '%s' to adjust ownership/access mode, ignoring: %m",
                                              path);
 

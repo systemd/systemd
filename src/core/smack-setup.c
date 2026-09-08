@@ -16,6 +16,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "smack-setup.h"
 #include "string-util.h"
@@ -29,12 +30,12 @@ static int fdopen_unlocked_at(int dfd, const char *dir, const char *name, int *s
         assert(status);
         assert(ret_file);
 
-        fd = openat(dfd, name, O_RDONLY|O_CLOEXEC);
+        fd = xopenat(dfd, name, O_RDONLY);
         if (fd < 0) {
                 if (*status == 0)
-                        *status = -errno;
+                        *status = fd;
 
-                return log_warning_errno(errno, "Failed to open \"%s/%s\": %m", dir, name);
+                return log_warning_errno(fd, "Failed to open \"%s/%s\": %m", dir, name);
         }
 
         r = fdopen_unlocked(fd, "r", &f);
@@ -55,14 +56,14 @@ static int write_access2_rules(const char *srcdir) {
         _cleanup_closedir_ DIR *dir = NULL;
         int dfd, r;
 
-        load2_fd = r = RET_NERRNO(open("/sys/fs/smackfs/load2", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
+        load2_fd = r = xopenat(AT_FDCWD, "/sys/fs/smackfs/load2", O_RDWR|O_NONBLOCK|O_NOCTTY);
         if (r < 0)  {
                 if (r != -ENOENT)
                         log_warning_errno(r, "Failed to open %s: %m", "/sys/fs/smackfs/load2");
                 return r;
         }
 
-        change_fd = r = RET_NERRNO(open("/sys/fs/smackfs/change-rule", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
+        change_fd = r = xopenat(AT_FDCWD, "/sys/fs/smackfs/change-rule", O_RDWR|O_NONBLOCK|O_NOCTTY);
         if (r < 0)  {
                 if (r != -ENOENT)
                         log_warning_errno(r, "Failed to open %s: %m", "/sys/fs/smackfs/change-rule");
@@ -130,7 +131,7 @@ static int write_cipso2_rules(const char *srcdir) {
         _cleanup_closedir_ DIR *dir = NULL;
         int dfd, r;
 
-        cipso2_fd = r = RET_NERRNO(open("/sys/fs/smackfs/cipso2", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
+        cipso2_fd = r = xopenat(AT_FDCWD, "/sys/fs/smackfs/cipso2", O_RDWR|O_NONBLOCK|O_NOCTTY);
         if (r < 0)  {
                 if (r != -ENOENT)
                         log_warning_errno(r, "Failed to open %s: %m", "/sys/fs/smackfs/cipso2");
@@ -287,7 +288,7 @@ static int write_onlycap_list(void) {
 
         list[len - 1] = 0;
 
-        onlycap_fd = r = RET_NERRNO(open("/sys/fs/smackfs/onlycap", O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
+        onlycap_fd = r = xopenat(AT_FDCWD, "/sys/fs/smackfs/onlycap", O_WRONLY|O_NONBLOCK|O_NOCTTY);
         if (r < 0) {
                 if (r != -ENOENT)
                         log_warning_errno(r, "Failed to open %s: %m", "/sys/fs/smackfs/onlycap");
