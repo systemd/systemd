@@ -325,12 +325,12 @@ static int make_backup(const char *target, const char *x, LabelContext *label_co
         assert(target);
         assert(x);
 
-        src = open(x, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        src = xopenat(AT_FDCWD, x, O_RDONLY|O_NOCTTY);
         if (src < 0) {
-                if (errno == ENOENT) /* No backup necessary... */
+                if (src == -ENOENT) /* No backup necessary... */
                         return 0;
 
-                return -errno;
+                return src;
         }
 
         if (fstat(src, &st) < 0)

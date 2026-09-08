@@ -456,9 +456,9 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 signed_attributes_signature = IOVEC_MAKE(TAKE_PTR(content), contentsz);
         }
 
-        _cleanup_close_ int srcfd = open(argv[1], O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int srcfd = xopenat(AT_FDCWD, argv[1], O_RDONLY);
         if (srcfd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", argv[1]);
+                return log_error_errno(srcfd, "Failed to open %s: %m", argv[1]);
 
         struct stat st;
         if (fstat(srcfd, &st) < 0)

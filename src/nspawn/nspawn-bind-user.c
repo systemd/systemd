@@ -92,7 +92,7 @@ static int write_membership(const char *root, const char *user, const char *grou
                         O_WRONLY|O_CREAT,
                         /* ret_path= */ NULL);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to create %s: %m", p);
+                return log_error_errno(fd, "Failed to create %s: %m", p);
 
         r = userns_chown_at(fd, /* fname= */ NULL, /* uid= */ 0, /* gid= */ 0, /* flags= */ 0);
         if (r < 0)
