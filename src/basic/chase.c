@@ -401,7 +401,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         return -ENOMEM;
         }
 
-        _cleanup_close_ int fd = xopenat(dir_fd, NULL, O_DIRECTORY|O_PATH);
+        _cleanup_close_ int fd = fd_reopen(dir_fd, O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return fd;
 
@@ -993,7 +993,7 @@ int chase_and_open(
                 }
         }
 
-        r = chase_xopenat(path_fd, strempty(open_name), chase_flags, open_flags|O_NOFOLLOW, /* xopen_flags= */ 0);
+        r = chase_xopenat(path_fd, open_name, chase_flags, open_flags|O_NOFOLLOW, XO_EMPTY_PATH);
         if (r < 0)
                 return r;
 
@@ -1204,7 +1204,7 @@ int chase_and_openat(
                 }
         }
 
-        r = chase_xopenat(path_fd, strempty(open_name), chase_flags, open_flags|O_NOFOLLOW, /* xopen_flags= */ 0);
+        r = chase_xopenat(path_fd, open_name, chase_flags, open_flags|O_NOFOLLOW, XO_EMPTY_PATH);
         if (r < 0)
                 return r;
 

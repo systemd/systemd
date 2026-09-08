@@ -875,7 +875,7 @@ static int fd_copy_regular(
         if (r > 0) /* worked! */
                 return 0;
 
-        fdf = xopenat_full(df, from, O_RDONLY|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, 0);
+        fdf = xopenat_full(df, from, O_RDONLY|O_NOCTTY|O_NOFOLLOW, XO_REGULAR|XO_EMPTY_PATH, MODE_INVALID); /* from may be NULL */
         if (fdf < 0)
                 return fdf;
 
@@ -1086,7 +1086,7 @@ static int fd_copy_directory(
         if (depth_left == 0)
                 return -ENAMETOOLONG;
 
-        fdf = xopenat(df, from, O_RDONLY|O_DIRECTORY|O_NOCTTY|O_NOFOLLOW);
+        fdf = xopenat_full(df, from, O_RDONLY|O_DIRECTORY|O_NOCTTY|O_NOFOLLOW, XO_EMPTY_PATH, MODE_INVALID); /* from may be NULL */
         if (fdf < 0)
                 return fdf;
 
@@ -1472,7 +1472,7 @@ int copy_file_fd_at_full(
         assert(fdt >= 0);
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
-        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_NOCTTY, XO_REGULAR, 0);
+        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_NOCTTY, XO_REGULAR|XO_EMPTY_PATH, MODE_INVALID); /* from may be NULL */
         if (fdf < 0)
                 return fdf;
 
@@ -1529,7 +1529,7 @@ int copy_file_at_full(
         assert(dir_fdt >= 0 || dir_fdt == AT_FDCWD);
         assert(to);
 
-        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_NOCTTY, XO_REGULAR, 0);
+        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_NOCTTY, XO_REGULAR|XO_EMPTY_PATH, MODE_INVALID); /* from may be NULL */
         if (fdf < 0)
                 return fdf;
 
