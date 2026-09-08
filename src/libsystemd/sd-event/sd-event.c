@@ -21,6 +21,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
@@ -2043,10 +2044,10 @@ static int event_add_pressure(
                 locked = false;
         }
 
-        path_fd = open(watch, O_PATH|O_CLOEXEC);
+        path_fd = xopenat(AT_FDCWD, watch, O_PATH);
         if (path_fd < 0) {
-                if (errno != ENOENT)
-                        return -errno;
+                if (path_fd != -ENOENT)
+                        return path_fd;
 
                 /* We got ENOENT. Two options now: try the fallback if we have one, or return the error as is
                  * (when based on user/env config). */
@@ -2056,11 +2057,11 @@ static int event_add_pressure(
                         return -ENOENT;
                 }
 
-                path_fd = open(watch_fallback, O_PATH|O_CLOEXEC);
+                path_fd = xopenat(AT_FDCWD, watch_fallback, O_PATH);
                 if (path_fd < 0) {
-                        if (errno == ENOENT) /* PSI is not available in the kernel even under the fallback path? */
+                        if (path_fd == -ENOENT) /* PSI is not available in the kernel even under the fallback path? */
                                 return -EOPNOTSUPP;
-                        return -errno;
+                        return path_fd;
                 }
         }
 
@@ -2608,13 +2609,14 @@ _public_ int sd_event_add_inotify(
         sd_event_source *s = NULL; /* avoid false maybe-uninitialized warning */
         int fd, r;
 
-        assert_return(path, -EINVAL);
+        assert_return(!isempty(path), -EINVAL);
 
-        fd = open(path, O_PATH | O_CLOEXEC |
-                        (mask & IN_ONLYDIR ? O_DIRECTORY : 0) |
-                        (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
+        fd = xopenat(AT_FDCWD, path,
+                     O_PATH |
+                     (mask & IN_ONLYDIR ? O_DIRECTORY : 0) |
+                     (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
         if (fd < 0)
-                return -errno;
+                return fd;
 
         r = event_add_inotify_fd_internal(e, &s, fd, /* donate= */ true, mask, callback, userdata);
         if (r < 0)
