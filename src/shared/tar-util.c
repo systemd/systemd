@@ -1358,8 +1358,8 @@ static int archive_write_acl(
                         sym_acl_free(q);
 
                         /* Suppress invalid UIDs or those that shall be squashed */
-                        if (!(uid_is_valid(qualifier) &&
-                              (!FLAGS_SET(flags, TAR_SQUASH_UIDS_ABOVE_64K) || qualifier < NSRESOURCE_UIDS_64K)))
+                        if (!uid_is_valid(qualifier) ||
+                            (FLAGS_SET(flags, TAR_SQUASH_UIDS_ABOVE_64K) && qualifier >= NSRESOURCE_UIDS_64K))
                                 continue;
                 }
 
