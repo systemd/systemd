@@ -156,6 +156,15 @@ TEST(fd_move_above_stdio) {
         assert_se(close_nointr(new_fd) != EBADF);
 }
 
+static void assert_stdio_not_cloexec(void) {
+        for (int i = 0; i < 3; i++) {
+                int fl;
+
+                ASSERT_OK_ERRNO(fl = fcntl(i, F_GETFD));
+                ASSERT_FALSE(FLAGS_SET(fl, FD_CLOEXEC));
+        }
+}
+
 TEST(rearrange_stdio) {
         int r;
 
@@ -176,6 +185,7 @@ TEST(rearrange_stdio) {
                  * following tests fail, making it slightly less annoying to debug */
                 log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
                 log_open();
+                assert_stdio_not_cloexec();
 
                 assert_se(fd_get_path(STDIN_FILENO, &path) >= 0);
                 assert_se(path_equal(path, "/dev/null"));
@@ -203,6 +213,7 @@ TEST(rearrange_stdio) {
                 assert_se(memfd_new_and_seal_string("data", "foobar") == 2);
 
                 assert_se(rearrange_stdio(2, 0, 1) >= 0);
+                assert_stdio_not_cloexec();
 
                 assert_se(write(1, "x", 1) < 0 && errno == ENOSPC);
                 assert_se(write(2, "z", 1) == 1);
@@ -211,7 +222,9 @@ TEST(rearrange_stdio) {
                 assert_se(read(0, buffer, sizeof(buffer)) == 6);
                 assert_se(memcmp(buffer, "foobar", 6) == 0);
 
+                ASSERT_OK(fd_cloexec(1, true)); /* stays in place, but the flag must still be cleared */
                 assert_se(rearrange_stdio(-EBADF, 1, 2) >= 0);
+                assert_stdio_not_cloexec();
                 assert_se(write(1, "a", 1) < 0 && errno == ENOSPC);
                 assert_se(write(2, "y", 1) == 1);
                 assert_se(read(pipe_read_fd, buffer, sizeof(buffer)) == 1);
