@@ -27,6 +27,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "json-util.h"
@@ -2221,12 +2222,12 @@ static int create_tap(
         assert(strlen(ifname_host) < sizeof(ifr.ifr_name));
         strcpy(ifr.ifr_name, ifname_host);
 
-        _cleanup_close_ int fd = open("/dev/net/tun", O_RDWR|O_CLOEXEC);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, "/dev/net/tun", O_RDWR);
         if (fd < 0) {
-                if (errno == ENOENT) /* Turn ENOENT → EOPNOTSUPP */
+                if (fd == -ENOENT) /* Turn ENOENT → EOPNOTSUPP */
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Network tap device node /dev/net/tun not found, cannot create network interface.");
 
-                return log_error_errno(errno, "Failed to open %s: %m", "/dev/net/tun");
+                return log_error_errno(fd, "Failed to open %s: %m", "/dev/net/tun");
         }
 
         if (ioctl(fd, TUNSETIFF, &ifr) < 0)
