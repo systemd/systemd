@@ -171,6 +171,12 @@ CHANGES WITH 263 in spe:
           personality flag, which makes brk() hand out writable and
           executable memory.
 
+        * StandardInput=file:, StandardOutput=file:/append:/truncate: and
+          StandardError=file:/append:/truncate: no longer create the specified
+          file through a dangling symlink. If the path is a symlink whose
+          target does not exist yet, the service now fails to start with an
+          ELOOP error, in line with the other file-creating code in systemd.
+
         Changes in systemd-logind:
 
         * systemd-inhibit --mode=delay now defaults to --what=sleep:shutdown,
@@ -295,6 +301,13 @@ CHANGES WITH 263 in spe:
           -Dvarlink-sftp=true, and are disabled by default. Note that both
           run as root so allowing access is equivalent to r/w root access or
           r/o /etc/shadow access.
+
+        Other changes:
+
+        * systemd-random-seed and "importctl export-tar/export-raw" no longer
+          create their output files through a dangling symlink and fail with an
+          ELOOP error instead, in line with the other file-creating code in
+          systemd.
 
 CHANGES WITH 262:
 
