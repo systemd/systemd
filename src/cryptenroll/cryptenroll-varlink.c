@@ -288,6 +288,10 @@ static int vl_method_enroll(
                 break;
 
         case ENROLL_RECOVERY:
+                if (p.password) {
+                        c.passphrase = TAKE_PTR(p.password);
+                        c.passphrase_size = strlen(c.passphrase);
+                }
                 break;
 
         case ENROLL_FIDO2:

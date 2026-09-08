@@ -40,7 +40,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Path to a TPM2 device to unlock the volume with. Leave the path empty to automatically discover a suitable device."),
                 SD_VARLINK_DEFINE_INPUT(unlockTpm2Device, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
-                SD_VARLINK_FIELD_COMMENT("The passphrase to enroll, when mechanism is 'password'. Contains key material."),
+                SD_VARLINK_FIELD_COMMENT("The passphrase to enroll, when mechanism is 'password'. Or the recovery key generated via MakeRecoveryKey, when mechanism is 'recovery'. Contains key material."),
                 SD_VARLINK_DEFINE_INPUT(password, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
                 SD_VARLINK_FIELD_COMMENT("Path to the FIDO2 device to enroll, when mechanism is 'fido2'. Leave empty to automatically discover a suitable device."),
