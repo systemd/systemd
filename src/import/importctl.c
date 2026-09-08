@@ -3,6 +3,7 @@
 #include <locale.h>
 #include <unistd.h>
 
+#include "fs-util.h"
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-json.h"
@@ -516,9 +517,9 @@ static int verb_import_tar(int argc, char *argv[], uintptr_t _data, void *userda
                                        local);
 
         if (path) {
-                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
+                        return log_error_errno(fd, "Failed to open %s: %m", path);
         }
 
         if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
@@ -596,9 +597,9 @@ static int verb_import_raw(int argc, char *argv[], uintptr_t _data, void *userda
                                        local);
 
         if (path) {
-                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
+                        return log_error_errno(fd, "Failed to open %s: %m", path);
         }
 
         if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
@@ -667,9 +668,9 @@ static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdat
                                        local);
 
         if (path) {
-                fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                fd = xopenat(AT_FDCWD, path, O_DIRECTORY|O_RDONLY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open directory '%s': %m", path);
+                        return log_error_errno(fd, "Failed to open directory '%s': %m", path);
         }
 
         if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
@@ -744,9 +745,9 @@ static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userda
         if (path) {
                 determine_compression_from_filename(path);
 
-                fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
+                fd = xopenat_full(AT_FDCWD, path, O_WRONLY|O_CREAT|O_TRUNC|O_NOCTTY, /* xopen_flags= */ 0, 0666);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
+                        return log_error_errno(fd, "Failed to open %s: %m", path);
         }
 
         if (arg_image_class == IMAGE_MACHINE && arg_import_flags == 0) {
@@ -804,9 +805,9 @@ static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userda
         if (path) {
                 determine_compression_from_filename(path);
 
-                fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
+                fd = xopenat_full(AT_FDCWD, path, O_WRONLY|O_CREAT|O_TRUNC|O_NOCTTY, /* xopen_flags= */ 0, 0666);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
+                        return log_error_errno(fd, "Failed to open %s: %m", path);
         }
 
         if (arg_image_class == IMAGE_MACHINE && arg_import_flags == 0) {
