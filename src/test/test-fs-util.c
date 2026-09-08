@@ -672,7 +672,7 @@ TEST(openat_report_new) {
 
         ASSERT_OK_ERRNO(symlinkat("target", tfd, "link"));
         fd = openat_report_new(tfd, "link", O_RDWR|O_CREAT, 0666, &b);
-        ASSERT_ERROR(fd, EEXIST);
+        ASSERT_ERROR(fd, ELOOP);
 
         fd = openat_report_new(tfd, "target", O_RDWR|O_CREAT, 0666, &b);
         ASSERT_OK(fd);
