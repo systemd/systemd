@@ -14,6 +14,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "ratelimit.h"
@@ -382,7 +383,7 @@ static int watchdog_open(bool ignore_ratelimit) {
                 STRV_MAKE("/dev/watchdog0", "/dev/watchdog") : STRV_MAKE(watchdog_device);
 
         STRV_FOREACH(wd, try_order) {
-                watchdog_fd = RET_NERRNO(open(*wd, O_WRONLY|O_CLOEXEC));
+                watchdog_fd = xopenat(AT_FDCWD, *wd, O_WRONLY);
                 if (watchdog_fd >= 0) {
                         if (free_and_strdup(&watchdog_device, *wd) < 0) {
                                 r = log_oom_debug();
