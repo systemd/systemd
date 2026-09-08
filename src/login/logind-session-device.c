@@ -15,6 +15,7 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "logind.h"
 #include "logind-device.h"
@@ -143,9 +144,9 @@ static int session_device_open(SessionDevice *sd, bool active) {
         assert(sd->node);
 
         /* open device and try to get a udev_device from it */
-        fd = open(sd->node, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        fd = xopenat(AT_FDCWD, sd->node, O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         switch (sd->type) {
 

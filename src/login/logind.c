@@ -775,13 +775,13 @@ static int manager_reserve_vt(Manager *m) {
         if (asprintf(&p, "/dev/tty%u", m->reserve_vt) < 0)
                 return log_oom();
 
-        m->reserve_vt_fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        m->reserve_vt_fd = xopenat(AT_FDCWD, p, O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (m->reserve_vt_fd < 0) {
 
                 /* Don't complain on VT-less systems */
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to pin reserved VT: %m");
-                return -errno;
+                if (m->reserve_vt_fd != -ENOENT)
+                        log_warning_errno(m->reserve_vt_fd, "Failed to pin reserved VT: %m");
+                return m->reserve_vt_fd;
         }
 
         return 0;
@@ -916,17 +916,17 @@ static int manager_connect_console(Manager *m) {
         if (access("/dev/tty0", F_OK) < 0)
                 return 0;
 
-        m->console_active_fd = open("/sys/class/tty/tty0/active", O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        m->console_active_fd = xopenat(AT_FDCWD, "/sys/class/tty/tty0/active", O_RDONLY|O_NOCTTY);
         if (m->console_active_fd < 0) {
 
                 /* On some systems /dev/tty0 may exist even though /sys/class/tty/tty0 does not. These are broken, but
                  * common. Let's complain but continue anyway. */
-                if (errno == ENOENT) {
-                        log_warning_errno(errno, "System has /dev/tty0 but not /sys/class/tty/tty0/active which is broken, ignoring: %m");
+                if (m->console_active_fd == -ENOENT) {
+                        log_warning_errno(m->console_active_fd, "System has /dev/tty0 but not /sys/class/tty/tty0/active which is broken, ignoring: %m");
                         return 0;
                 }
 
-                return log_error_errno(errno, "Failed to open %s: %m", "/sys/class/tty/tty0/active");
+                return log_error_errno(m->console_active_fd, "Failed to open %s: %m", "/sys/class/tty/tty0/active");
         }
 
         r = sd_event_add_io(m->event, &m->console_active_event_source, m->console_active_fd, 0, manager_dispatch_console, m);
