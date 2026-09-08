@@ -15,6 +15,7 @@
 #include "json-util.h"
 #include "libfido2-util.h"
 #include "path-util.h"
+#include "recovery-key.h"
 #include "string-util.h"
 #include "varlink-io.systemd.CryptEnroll.h"
 #include "varlink-util.h"
@@ -466,6 +467,31 @@ static int vl_method_list_slots(
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_make_recovery_key(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        _cleanup_(erase_and_freep) char *recovery_key = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *rk = NULL;
+        int r;
+
+        assert(link);
+
+        r = make_recovery_key(&recovery_key);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate recovery key: %m");
+
+        r = sd_json_variant_new_string(&rk, recovery_key);
+        if (r < 0)
+            return r;
+
+        sd_json_variant_sensitive(rk);
+
+        return sd_varlink_replybo(link, JSON_BUILD_PAIR_VARIANT_NON_NULL("recoveryKey", rk));
+}
+
 int cryptenroll_varlink_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
         _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
@@ -484,8 +510,9 @@ int cryptenroll_varlink_server(void) {
 
         r = sd_varlink_server_bind_method_many(
                         varlink_server,
-                        "io.systemd.CryptEnroll.Enroll",    vl_method_enroll,
-                        "io.systemd.CryptEnroll.ListSlots", vl_method_list_slots);
+                        "io.systemd.CryptEnroll.Enroll",          vl_method_enroll,
+                        "io.systemd.CryptEnroll.ListSlots",       vl_method_list_slots,
+                        "io.systemd.CryptEnroll.MakeRecoveryKey", vl_method_make_recovery_key);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
