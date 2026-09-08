@@ -1724,7 +1724,7 @@ static int start_virtiofsd(
                 if (userns_fd < 0)
                         return log_error_errno(userns_fd, "Failed to allocate user namespace for virtiofsd: %m");
 
-                _cleanup_close_ int directory_fd = open(directory, O_DIRECTORY|O_CLOEXEC|O_PATH);
+                _cleanup_close_ int directory_fd = xopenat(AT_FDCWD, directory, O_DIRECTORY|O_PATH);
                 if (directory_fd < 0)
                         return log_error_errno(directory_fd, "Failed to open '%s': %m", directory);
 
@@ -1971,9 +1971,9 @@ static int merge_initrds(char **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary file: %m");
 
-        ofd = open(merged_initrd, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+        ofd = xopenat_full(AT_FDCWD, merged_initrd, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0600);
         if (ofd < 0)
-                return log_error_errno(errno, "Failed to create regular file %s: %m", merged_initrd);
+                return log_error_errno(ofd, "Failed to create regular file %s: %m", merged_initrd);
 
         STRV_FOREACH(i, arg_initrds) {
                 _cleanup_close_ int ifd = -EBADF;
@@ -1989,9 +1989,9 @@ static int merge_initrds(char **ret) {
                 if (to_seek != 0 && lseek(ofd, to_seek, SEEK_CUR) < 0)
                         return log_error_errno(errno, "Failed to seek %s: %m", merged_initrd);
 
-                ifd = open(*i, O_RDONLY|O_CLOEXEC);
+                ifd = xopenat(AT_FDCWD, *i, O_RDONLY);
                 if (ifd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", *i);
+                        return log_error_errno(ifd, "Failed to open %s: %m", *i);
 
                 r = copy_bytes(ifd, ofd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
@@ -2203,18 +2203,18 @@ static int cmdline_add_ovmf(FILE *config_file, const OvmfConfig *ovmf_config, ch
                 if (r < 0)
                         return log_error_errno(r, "Failed to create temporary filename: %m");
 
-                target_fd = open(t, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+                target_fd = xopenat_full(AT_FDCWD, t, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0600);
                 if (target_fd < 0)
-                        return log_error_errno(errno, "Failed to create regular file for OVMF vars at %s: %m", t);
+                        return log_error_errno(target_fd, "Failed to create regular file for OVMF vars at %s: %m", t);
 
                 newly_created = true;
                 state = *ret_ovmf_vars = TAKE_PTR(t);
         }
 
         if (newly_created) {
-                _cleanup_close_ int source_fd = open(vars_source, O_RDONLY|O_CLOEXEC);
+                _cleanup_close_ int source_fd = xopenat(AT_FDCWD, vars_source, O_RDONLY);
                 if (source_fd < 0)
-                        return log_error_errno(errno, "Failed to open OVMF vars file %s: %m", vars_source);
+                        return log_error_errno(source_fd, "Failed to open OVMF vars file %s: %m", vars_source);
 
                 r = copy_bytes(source_fd, target_fd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
@@ -2341,9 +2341,9 @@ static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
 
         int open_flags = ((arg_ephemeral || FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY)) ? O_RDONLY : O_RDWR) | O_CLOEXEC | O_NOCTTY;
 
-        _cleanup_close_ int image_fd = open(arg_image, open_flags);
+        _cleanup_close_ int image_fd = xopenat(AT_FDCWD, arg_image, open_flags);
         if (image_fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", arg_image);
+                return log_error_errno(image_fd, "Failed to open '%s': %m", arg_image);
 
         struct stat st;
         if (fstat(image_fd, &st) < 0)
@@ -2402,9 +2402,9 @@ static int prepare_extra_drives(DriveInfos *drives) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve disk driver for '%s': %m", drive_fn);
 
-                _cleanup_close_ int drive_fd = open(drive->path, (FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY) ? O_RDONLY : O_RDWR) | O_CLOEXEC | O_NOCTTY);
+                _cleanup_close_ int drive_fd = xopenat(AT_FDCWD, drive->path, (FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY) ? O_RDONLY : O_RDWR) | O_NOCTTY);
                 if (drive_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", drive->path);
+                        return log_error_errno(drive_fd, "Failed to open '%s': %m", drive->path);
 
                 struct stat drive_st;
                 if (fstat(drive_fd, &drive_st) < 0)
@@ -3011,9 +3011,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 config.vsock.fd = TAKE_FD(vhost_device_fd);
 
                 if (config.vsock.fd < 0) {
-                        config.vsock.fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
+                        config.vsock.fd = xopenat(AT_FDCWD, "/dev/vhost-vsock", O_RDWR);
                         if (config.vsock.fd < 0)
-                                return log_error_errno(errno, "Failed to open /dev/vhost-vsock as read/write: %m");
+                                return log_error_errno(config.vsock.fd, "Failed to open /dev/vhost-vsock as read/write: %m");
                 }
 
                 r = vsock_fix_child_cid(config.vsock.fd, &child_cid, arg_machine);
