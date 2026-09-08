@@ -9,6 +9,7 @@
 #include "argv-util.h"
 #include "capability-util.h"
 #include "copy.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "mkdir.h"
@@ -712,6 +713,38 @@ TEST(xopenat_full) {
 
         assert_se((fd = xopenat_full(tfd, "def", O_PATH|O_CLOEXEC, 0, 0)) >= 0);
         assert_se((fd2 = xopenat_full(fd, "", O_RDWR|O_CLOEXEC, 0, 0644)) >= 0);
+}
+
+TEST(xopenat_tmpfile) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        struct stat st;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+
+        BLOCK_WITH_UMASK(0022);
+
+        /* The path names the directory to create the anonymous file in */
+        fd = xopenat_full(tfd, ".", O_TMPFILE|O_RDWR, /* xopen_flags= */ 0, MODE_INVALID);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(fd) || fd == -EISDIR)
+                return (void) log_tests_skipped_errno(fd, "O_TMPFILE not supported");
+        ASSERT_OK(fd);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
+        ASSERT_EQ(st.st_nlink, 0U);
+        ASSERT_EQ(st.st_mode & 07777, 0644U); /* the regular file default, not the 0755 directory one */
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = xopenat_full(tfd, ".", O_TMPFILE|O_RDWR|O_EXCL, /* xopen_flags= */ 0, 0600));
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
+        ASSERT_EQ(st.st_mode & 07777, 0600U);
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = open_parent_at(tfd, "file", O_TMPFILE|O_RDWR, 0600));
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
+        ASSERT_EQ(st.st_nlink, 0U);
 }
 
 TEST(xopenat_regular) {
