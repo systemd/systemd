@@ -798,7 +798,11 @@ int fd_reopen(int fd, int flags) {
          * If the specified file descriptor refers to a symlink via O_PATH, then this function cannot be used
          * to follow that symlink. Because we cannot have non-O_PATH fds to symlinks reopening it without
          * O_PATH will always result in -ELOOP. Or in other words: if you have an O_PATH fd to a symlink you
-         * can reopen it only if you pass O_PATH again. */
+         * can reopen it only if you pass O_PATH again.
+         *
+         * The returned fd always has O_CLOEXEC set, use fd_cloexec() to turn it off. */
+
+        flags |= O_CLOEXEC;
 
         if (FLAGS_SET(flags, O_NOFOLLOW))
                 /* O_NOFOLLOW is not allowed in fd_reopen(), because after all this is primarily implemented
