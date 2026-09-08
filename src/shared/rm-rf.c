@@ -139,7 +139,7 @@ static int openat_harder(int dfd, const char *path, int open_flags, RemoveFlags 
             !FLAGS_SET(open_flags, O_DIRECTORY) ||
             !FLAGS_SET(remove_flags, REMOVE_CHMOD)) {
 
-                fd = RET_NERRNO(openat(dfd, path, open_flags));
+                fd = xopenat(dfd, path, open_flags);
                 if (fd < 0)
                         return fd;
 
@@ -155,7 +155,7 @@ static int openat_harder(int dfd, const char *path, int open_flags, RemoveFlags 
                 return TAKE_FD(fd);
         }
 
-        pfd = RET_NERRNO(openat(dfd, path, (open_flags & (O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW)) | O_PATH));
+        pfd = xopenat(dfd, path, (open_flags & (O_DIRECTORY|O_NOFOLLOW)) | O_PATH);
         if (pfd < 0)
                 return pfd;
 

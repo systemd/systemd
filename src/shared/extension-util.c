@@ -11,6 +11,7 @@
 #include "extension-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "macro.h"
 #include "os-util.h"
@@ -237,9 +238,9 @@ int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret) {
         if (!j)
                 return log_oom_debug();
 
-        _cleanup_close_ int fd = open(j, O_RDONLY|O_DIRECTORY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, j, O_RDONLY|O_DIRECTORY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", j);
+                return log_debug_errno(fd, "Failed to open '%s': %m", j);
 
         r = fd_is_fs_type(fd, OVERLAYFS_SUPER_MAGIC);
         if (r < 0)
