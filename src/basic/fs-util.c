@@ -1196,9 +1196,8 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
         assert(directory + FLAGS_SET(xopen_flags, XO_REGULAR) + FLAGS_SET(xopen_flags, XO_SOCKET) <= 1);
         /* O_TMPFILE yields a nameless, regular, writable file: nothing to pin, verify, label or retry read-only */
         assert(!is_tmpfile || !(open_flags & (O_PATH|O_CREAT)));
-        assert(!is_tmpfile || !(xopen_flags & (XO_LABEL|XO_SUBVOLUME|XO_REGULAR|XO_SOCKET|XO_TRIGGER_AUTOMOUNT|XO_AUTO_RW_RO)));
-        /* The reopen path taken for an empty path has no mode to pass, O_TMPFILE needs the parent's name */
-        assert(!is_tmpfile || !isempty(path));
+        assert(!is_tmpfile || !(xopen_flags & (XO_LABEL|XO_SUBVOLUME|XO_REGULAR|XO_SOCKET)));
+        assert(!is_tmpfile || !(xopen_flags & (XO_TRIGGER_AUTOMOUNT|XO_AUTO_RW_RO)));
         /* Sockets cannot be open()ed, only pinned via O_PATH. */
         assert(!FLAGS_SET(xopen_flags, XO_SOCKET) || FLAGS_SET(open_flags, O_PATH));
         /* XO_TRIGGER_AUTOMOUNT requires O_PATH and does not support creating inodes. XO_SUBVOLUME
@@ -1220,7 +1219,8 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
          *
          *   • If O_CREAT is used with XO_LABEL, any created file will be immediately relabelled.
          *
-         *   • If the path is specified NULL or empty, behaves like fd_reopen().
+         *   • If XO_EMPTY_PATH is specified and the path is NULL or empty, behaves like fd_reopen(), similar to
+         *     AT_EMPTY_PATH. Without the flag an empty path fails with -ENOENT, as for open().
          *
          *   • If XO_COW or XO_NOCOW is specified will turn off or on the NOCOW btrfs flag on the file, if
          *     available.
@@ -1258,7 +1258,12 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
         }
 
         if (isempty(path)) {
-                assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
+                if (!FLAGS_SET(xopen_flags, XO_EMPTY_PATH)) /* No name to open, as for open("") */
+                        return -ENOENT;
+
+                /* Reopening dir_fd cannot create anything */
+                assert(!FLAGS_SET(open_flags, O_CREAT) && !is_tmpfile);
+
                 open_flags &= ~O_NOFOLLOW;
 
                 if (FLAGS_SET(xopen_flags, XO_REGULAR)) {
@@ -1580,7 +1585,7 @@ int linkat_replace(int olddirfd, const char *oldpath, int newdirfd, const char *
         if (r != -EEXIST)
                 return r;
 
-        old_fd = xopenat(olddirfd, oldpath, O_PATH);
+        old_fd = xopenat_full(olddirfd, oldpath, O_PATH, XO_EMPTY_PATH, MODE_INVALID); /* oldpath may be NULL */
         if (old_fd < 0)
                 return old_fd;
 

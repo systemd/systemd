@@ -712,7 +712,7 @@ TEST(xopenat_full) {
         /* Test that we can reopen an existing fd with xopenat_full() by specifying an empty path. */
 
         assert_se((fd = xopenat_full(tfd, "def", O_PATH, 0, 0)) >= 0);
-        assert_se((fd2 = xopenat_full(fd, "", O_RDWR, 0, 0644)) >= 0);
+        assert_se((fd2 = xopenat_full(fd, "", O_RDWR, XO_EMPTY_PATH, 0644)) >= 0);
 }
 
 TEST(xopenat_tmpfile) {
@@ -798,7 +798,7 @@ TEST(xopenat_socket) {
 
         /* Reopen via empty path should also work. */
         fd = ASSERT_OK(xopenat_full(tfd, "test.sock", O_PATH, 0, 0));
-        _cleanup_close_ int fd2 = xopenat_full(fd, NULL, O_PATH, XO_SOCKET, 0);
+        _cleanup_close_ int fd2 = xopenat_full(fd, NULL, O_PATH, XO_SOCKET|XO_EMPTY_PATH, 0);
         ASSERT_OK(fd2);
         fd = safe_close(fd);
 
@@ -812,11 +812,11 @@ TEST(xopenat_socket) {
 
         /* Reopen via empty path of a non-socket fd must also be rejected. */
         fd = ASSERT_OK(xopenat_full(tfd, "reg", O_PATH, 0, 0));
-        ASSERT_ERROR(xopenat_full(fd, NULL, O_PATH, XO_SOCKET, 0), ENOTSOCK);
+        ASSERT_ERROR(xopenat_full(fd, NULL, O_PATH, XO_SOCKET|XO_EMPTY_PATH, 0), ENOTSOCK);
         fd = safe_close(fd);
 
         fd = ASSERT_OK(xopenat_full(tfd, "dir", O_PATH, 0, 0));
-        ASSERT_ERROR(xopenat_full(fd, NULL, O_PATH, XO_SOCKET, 0), EISDIR);
+        ASSERT_ERROR(xopenat_full(fd, NULL, O_PATH, XO_SOCKET|XO_EMPTY_PATH, 0), EISDIR);
         fd = safe_close(fd);
 }
 
@@ -861,7 +861,7 @@ TEST(xopenat_auto_rw_ro) {
 
         _cleanup_close_ int path_fd = xopenat_full(tfd, "rw", O_PATH, 0, 0);
         assert_se(path_fd >= 0);
-        fd = xopenat_full(path_fd, "", /* open_flags= */ 0, XO_AUTO_RW_RO, 0);
+        fd = xopenat_full(path_fd, "", /* open_flags= */ 0, XO_AUTO_RW_RO|XO_EMPTY_PATH, 0);
         assert_se(fd >= 0);
         ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
         assert_se((fl & O_ACCMODE) == O_RDWR);
@@ -910,7 +910,7 @@ TEST(xopenat_auto_rw_ro) {
                 /* Also exercise the empty-path/fd-reopen branch. */
                 _cleanup_close_ int ro_path_fd = xopenat_full(tfd, "ro", O_PATH, 0, 0);
                 assert_se(ro_path_fd >= 0);
-                fd = xopenat_full(ro_path_fd, "", /* open_flags= */ 0, XO_AUTO_RW_RO, 0);
+                fd = xopenat_full(ro_path_fd, "", /* open_flags= */ 0, XO_AUTO_RW_RO|XO_EMPTY_PATH, 0);
                 assert_se(fd >= 0);
                 ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFL));
                 assert_se((fl & O_ACCMODE) == O_RDONLY);
