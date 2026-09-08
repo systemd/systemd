@@ -891,4 +891,19 @@ TEST(read_boolean_file) {
         ASSERT_OK_EQ(read_boolean_file_at(dfd, bn), true);
 }
 
+TEST(xfopenat_cloexec) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int fl;
+
+        /* O_CLOEXEC is implied, even without "e" in the mode */
+        ASSERT_OK(xfopenat(AT_FDCWD, "/proc/self/status", "r", /* open_flags= */ 0, &f));
+        ASSERT_OK_ERRNO(fl = fcntl(fileno(f), F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+
+        ASSERT_OK(search_and_open("/proc/self/status", O_RDONLY, /* root= */ NULL, /* search= */ NULL, &fd, /* ret_path= */ NULL));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
