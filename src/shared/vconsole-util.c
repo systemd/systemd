@@ -9,6 +9,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "kbd-util.h"
 #include "log.h"
 #include "string-util.h"
@@ -396,10 +397,10 @@ int find_converted_keymap(const X11Context *xc, char **ret) {
                 _cleanup_close_ int dir_fd = -EBADF;
                 bool uncompressed;
 
-                dir_fd = open(*dir, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                dir_fd = xopenat(AT_FDCWD, *dir, O_DIRECTORY | O_PATH);
                 if (dir_fd < 0) {
-                        if (errno != ENOENT)
-                                log_debug_errno(errno, "Failed to open %s, ignoring: %m", *dir);
+                        if (dir_fd != -ENOENT)
+                                log_debug_errno(dir_fd, "Failed to open %s, ignoring: %m", *dir);
                         continue;
                 }
 
