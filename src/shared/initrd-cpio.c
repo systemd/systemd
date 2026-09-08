@@ -172,9 +172,9 @@ int initrd_cpio_credentials_to_tempfile(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate temp file name: %m");
 
-        fd = open(path, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+        fd = xopenat_full(AT_FDCWD, path, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0600);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to create temp file %s: %m", path);
+                return log_error_errno(fd, "Failed to create temp file %s: %m", path);
 
         r = loop_write(fd, buf, buf_size);
         if (r < 0)
