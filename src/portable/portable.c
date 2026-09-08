@@ -480,9 +480,9 @@ static int portable_extract_by_path(
 
         assert(path);
 
-        _cleanup_close_ int rfd = open(path, O_PATH|O_CLOEXEC);
+        _cleanup_close_ int rfd = xopenat(AT_FDCWD, path, O_PATH);
         if (rfd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", path);
+                return log_debug_errno(rfd, "Failed to open '%s': %m", path);
 
         struct stat st;
         if (fstat(rfd, &st) < 0)
@@ -734,9 +734,9 @@ static int portable_extract_by_path(
                                 report_errno_and_exit(errno_pipe_fd[1], r);
                         }
 
-                        _cleanup_close_ int mfd = open(tmpdir, O_DIRECTORY|O_CLOEXEC);
+                        _cleanup_close_ int mfd = xopenat(AT_FDCWD, tmpdir, O_DIRECTORY);
                         if (mfd < 0) {
-                                r = log_debug_errno(errno, "Failed to open '%s': %m", tmpdir);
+                                r = log_debug_errno(mfd, "Failed to open '%s': %m", tmpdir);
                                 report_errno_and_exit(errno_pipe_fd[1], r);
                         }
 
@@ -1845,9 +1845,9 @@ static int install_image(
                         if (userns_fd < 0)
                                 return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
-                        _cleanup_close_ int fd = open(image_path, O_DIRECTORY|O_CLOEXEC);
+                        _cleanup_close_ int fd = xopenat(AT_FDCWD, image_path, O_DIRECTORY);
                         if (fd < 0)
-                                return log_debug_errno(errno, "Failed to open '%s': %m", image_path);
+                                return log_debug_errno(fd, "Failed to open '%s': %m", image_path);
 
                         struct stat st;
                         if (fstat(fd, &st) < 0)
@@ -2262,12 +2262,12 @@ static int test_chroot_dropin(
         /* We recognize unis created from portable images via the drop-in we created for them */
 
         p = strjoina(fname, ".d/20-portable.conf");
-        fd = openat(dirfd(d), p, O_RDONLY|O_CLOEXEC);
+        fd = xopenat(dirfd(d), p, O_RDONLY);
         if (fd < 0) {
-                if (errno == ENOENT)
+                if (fd == -ENOENT)
                         return 0;
 
-                return log_debug_errno(errno, "Failed to open %s/%s: %m", where, p);
+                return log_debug_errno(fd, "Failed to open %s/%s: %m", where, p);
         }
 
         r = take_fdopen_unlocked(&fd, "r", &f);

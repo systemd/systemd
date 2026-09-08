@@ -32,6 +32,7 @@
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hibernate-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -268,9 +269,9 @@ static int execute(
                                        sleep_operation_to_string(operation));
 
         /* This file is opened first, so that if we hit an error, we can abort before modifying any state. */
-        state_fd = open("/sys/power/state", O_WRONLY|O_CLOEXEC);
+        state_fd = xopenat(AT_FDCWD, "/sys/power/state", O_WRONLY);
         if (state_fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", "/sys/power/state");
+                return log_error_errno(state_fd, "Failed to open %s: %m", "/sys/power/state");
 
         if (sleep_needs_mem_sleep(sleep_config, operation)) {
                 r = write_mode("/sys/power/mem_sleep", sleep_config->mem_modes);

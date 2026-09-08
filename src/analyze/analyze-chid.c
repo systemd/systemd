@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -153,9 +154,9 @@ static int smbios_fields_acquire(char16_t *fields[static _CHID_SMBIOS_FIELDS_MAX
 
         int r;
 
-        _cleanup_close_ int smbios_fd = open("/sys/class/dmi/id", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int smbios_fd = xopenat(AT_FDCWD, "/sys/class/dmi/id", O_RDONLY|O_DIRECTORY);
         if (smbios_fd < 0)
-                return log_error_errno(errno, "Failed to open SMBIOS sysfs object: %m");
+                return log_error_errno(smbios_fd, "Failed to open SMBIOS sysfs object: %m");
 
         for (ChidSmbiosFields f = 0; f < _CHID_SMBIOS_FIELDS_MAX; f++) {
                 _cleanup_free_ char *buf = NULL;
