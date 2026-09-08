@@ -879,16 +879,12 @@ static int fd_copy_regular(
         if (fdf < 0)
                 return fdf;
 
-        if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare_at(dt, to, S_IFREG, /* label_context= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-        fdt = openat(dt, to, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, st->st_mode & 07777);
-        if (copy_flags & COPY_MAC_CREATE)
-                mac_selinux_create_file_clear();
+        fdt = xopenat_full(dt, to,
+                           O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_NOFOLLOW,
+                           copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0,
+                           st->st_mode & 07777);
         if (fdt < 0)
-                return -errno;
+                return fdt;
 
         r = prepare_nocow(fdf, /* from= */ NULL, fdt, /* chattr_mask= */ NULL, /* chattr_flags= */ NULL);
         if (r < 0)
