@@ -25,6 +25,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "initrd-util.h"
 #include "iovec-util.h"
 #include "mount-util.h"
@@ -665,9 +666,9 @@ static int persistent_storage_open(void) {
         if (r <= 0)
                 return -EBADF;
 
-        fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY);
+        fd = xopenat(AT_FDCWD, "/var/lib/systemd/network/", O_DIRECTORY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open %s, ignoring: %m", "/var/lib/systemd/network/");
+                return log_debug_errno(fd, "Failed to open %s, ignoring: %m", "/var/lib/systemd/network/");
 
         r = fd_is_read_only_fs(fd);
         if (r < 0)

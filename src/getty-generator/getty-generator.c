@@ -9,6 +9,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"
@@ -84,9 +85,9 @@ static int verify_tty(const char *path) {
          * classic ttyS0 and friends. Let's check that and open the device and run isatty() on it. */
 
         /* O_NONBLOCK is essential here, to make sure we don't wait for DCD */
-        fd = open(path, O_RDWR|O_NONBLOCK|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW);
+        fd = xopenat(AT_FDCWD, path, O_RDWR|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (!isatty_safe(fd))
                 return -ENOTTY;
