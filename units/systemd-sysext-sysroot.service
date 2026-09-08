@@ -21,7 +21,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 Before=initrd-root-fs.target shutdown.target
 Wants=modprobe@loop.service modprobe@dm_mod.service
-After=modprobe@loop.service modprobe@dm_mod.service sysroot.mount sysroot-usr.mount systemd-volatile-root.service
+After=modprobe@loop.service modprobe@dm_mod.service sysroot.mount sysroot-usr.mount systemd-volatile-root.service systemd-confext-sysroot.service
 
 [Service]
 Type=oneshot
