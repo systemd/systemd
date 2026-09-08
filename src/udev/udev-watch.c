@@ -428,7 +428,7 @@ static int udev_watch_clear_by_wd(sd_device *dev, int dirfd, int wd) {
 
         _cleanup_close_ int dirfd_close = -EBADF;
         if (dirfd < 0) {
-                dirfd_close = RET_NERRNO(open("/run/udev/watch/", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY));
+                dirfd_close = xopenat(AT_FDCWD, "/run/udev/watch/", O_DIRECTORY | O_NOFOLLOW | O_RDONLY);
                 if (dirfd_close < 0)
                         return log_device_debug_errno(dev, dirfd_close, "Failed to open %s: %m", "/run/udev/watch/");
 
@@ -606,7 +606,7 @@ int manager_remove_watch(Manager *manager, sd_device *dev) {
         assert(manager);
         assert(dev);
 
-        dirfd = RET_NERRNO(open("/run/udev/watch", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY));
+        dirfd = xopenat(AT_FDCWD, "/run/udev/watch", O_DIRECTORY | O_NOFOLLOW | O_RDONLY);
         if (dirfd == -ENOENT)
                 return 0;
         if (dirfd < 0)
