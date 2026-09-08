@@ -355,7 +355,7 @@ static int static_node_acl(Seat *s) {
         }
 
         FOREACH_DIRENT(de, dir, return -errno) {
-                _cleanup_close_ int fd = RET_NERRNO(openat(dirfd(dir), de->d_name, O_CLOEXEC|O_PATH));
+                _cleanup_close_ int fd = xopenat(dirfd(dir), de->d_name, O_PATH);
                 if (ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(fd))
                         continue;
                 if (fd < 0) {
