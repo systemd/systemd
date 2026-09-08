@@ -1049,8 +1049,8 @@ int open_mkdir_at_full_label(int dirfd, const char *path, int flags, XOpenFlags 
         if ((flags & O_ACCMODE_STRICT) != O_RDONLY)
                 return -EINVAL;
 
-        /* Note that O_DIRECTORY|O_NOFOLLOW is implied, but we allow specifying it anyway. The following
-         * flags actually make sense to specify: O_CLOEXEC, O_EXCL, O_NOATIME, O_PATH */
+        /* Note that O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC is implied, but we allow specifying it anyway. The
+         * following flags actually make sense to specify: O_EXCL, O_NOATIME, O_PATH */
 
         /* If this is not a valid filename, it's a path. Let's open the parent directory then, so
          * that we can pin it, and operate below it. */
@@ -1090,7 +1090,11 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
          * Note that this routine is a bit more strict with symlinks than regular openat() is. If O_NOFOLLOW
          * is not specified, then we'll follow the symlink when opening an existing file but we will *not*
          * follow it when creating a new one (because that's a terrible UNIX misfeature and generally a
-         * security hole). */
+         * security hole).
+         *
+         * O_CLOEXEC is always set. */
+
+        flags |= O_CLOEXEC;
 
         if (!FLAGS_SET(flags, O_CREAT) || FLAGS_SET(flags, O_EXCL)) {
                 fd = openat(dirfd, pathname, flags, mode);
@@ -1217,7 +1221,11 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
          *   • The dir fd can be passed as XAT_FDROOT, in which case any relative paths will be taken relative to the root fs.
          *
          *   • If XO_AUTO_RW_RO is specified and the file cannot be opened in O_RDWR mode due to EACCES/EROFS or similar, retry in O_RDONLY mode.
+         *
+         *   • O_CLOEXEC is always set, use fd_cloexec() on the result to turn it off.
          */
+
+        open_flags |= O_CLOEXEC;
 
         if (mode == MODE_INVALID)
                 mode = (open_flags & O_DIRECTORY) ? 0755 : 0644;
