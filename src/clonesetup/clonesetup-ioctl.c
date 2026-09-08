@@ -11,6 +11,7 @@
 #include "device-private.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "string-util.h"
@@ -68,9 +69,9 @@ static int dm_ioctl_run(const char *name, uint32_t cmd, struct dm_ioctl *data, s
                                "DM device name too long: %s", name);
         strncpy_exact(dm->name, name, sizeof(dm->name));
 
-        fd = open("/dev/mapper/control", O_RDWR | O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, "/dev/mapper/control", O_RDWR);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open /dev/mapper/control: %m");
+                return log_error_errno(fd, "Failed to open /dev/mapper/control: %m");
 
         r = RET_NERRNO(ioctl(fd, cmd, dm));
         if (r < 0) {
