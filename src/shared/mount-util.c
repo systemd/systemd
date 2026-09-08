@@ -2248,7 +2248,7 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path) {
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        fd = xopenat(dir_fd, path, O_PATH | O_CLOEXEC | O_NOFOLLOW);
+        fd = xopenat(dir_fd, path, O_PATH | O_NOFOLLOW);
         if (fd < 0)
                 return fd;
 

@@ -351,7 +351,7 @@ static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         _cleanup_fclose_ FILE *output = NULL;
         _cleanup_(unlink_and_freep) char *tmp = NULL;
-        r = fopen_tmpfile_linkable(arg_output, O_WRONLY|O_CLOEXEC, &tmp, &output);
+        r = fopen_tmpfile_linkable(arg_output, O_WRONLY, &tmp, &output);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary file: %m");
 

@@ -208,7 +208,7 @@ int tsm_report_acquire(
         if (r < 0)
                 return log_oom_debug();
 
-        entry_fd = open_mkdir_at(report_fd, name, O_EXCL|O_RDONLY|O_CLOEXEC, 0700);
+        entry_fd = open_mkdir_at(report_fd, name, O_EXCL|O_RDONLY, 0700);
         if (entry_fd < 0)
                 return log_debug_errno(entry_fd, "Failed to create TSM report entry: %m");
 
