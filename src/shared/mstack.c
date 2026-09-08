@@ -116,9 +116,9 @@ static int mstack_load_one(MStack *mstack, const char *dir, int dir_fd, const ch
         assert(dir_fd >= 0);
         assert(fname);
 
-        _cleanup_close_ int what_fd = openat(dir_fd, fname, O_PATH|O_CLOEXEC);
+        _cleanup_close_ int what_fd = xopenat(dir_fd, fname, O_PATH);
         if (what_fd < 0)
-                return log_debug_errno(errno, "Failed to open %s/%s: %m", dir, fname);
+                return log_debug_errno(what_fd, "Failed to open %s/%s: %m", dir, fname);
 
         struct stat st;
         if (fstat(what_fd, &st) < 0)
@@ -392,9 +392,9 @@ static int mstack_normalize(MStack *mstack) {
 
                         if (has_root) {
                                 /* If there's a root dir, let's only bind mount the /usr/ subdir */
-                                _cleanup_close_ int usr_fd = openat(m->what_fd, "usr", O_CLOEXEC|O_PATH|O_NOFOLLOW|O_DIRECTORY);
+                                _cleanup_close_ int usr_fd = xopenat(m->what_fd, "usr", O_PATH|O_NOFOLLOW|O_DIRECTORY);
                                 if (usr_fd < 0)
-                                        return log_debug_errno(errno, "Failed to open /usr/ subdir: %m");
+                                        return log_debug_errno(usr_fd, "Failed to open /usr/ subdir: %m");
 
                                 _cleanup_free_ char *usr = path_join(m->what, "usr");
                                 if (!usr)
@@ -454,9 +454,9 @@ static int mstack_load_now(MStack *mstack, const char *dir, int dir_fd, MStackFl
 
         /* Expects dir_fd already opened. If not, then we'll open it based on 'dir' */
         if (dir_fd < 0) {
-                _dir_fd = openat(AT_FDCWD, isempty(dir) ? "." : dir, O_DIRECTORY|O_CLOEXEC);
+                _dir_fd = xopenat(AT_FDCWD, isempty(dir) ? "." : dir, O_DIRECTORY);
                 if (_dir_fd < 0)
-                        return log_debug_errno(errno, "Failed to open '%s': %m", dir);
+                        return log_debug_errno(_dir_fd, "Failed to open '%s': %m", dir);
 
                 dir_fd = _dir_fd;
         } else {
@@ -794,24 +794,24 @@ static int mstack_make_overlayfs(
                                 report_errno_and_exit(errno_pipe_fds[1], -errno);
 
                         /* Open the layer immediately after attaching */
-                        _cleanup_close_ int temp_fd = open(temp_mount_dir, O_PATH|O_CLOEXEC);
+                        _cleanup_close_ int temp_fd = xopenat(AT_FDCWD, temp_mount_dir, O_PATH);
                         if (temp_fd < 0)
-                                report_errno_and_exit(errno_pipe_fds[1], -errno);
+                                report_errno_and_exit(errno_pipe_fds[1], temp_fd);
 
                         switch (m->mount_type) {
 
                         case MSTACK_RW: {
                                 if (mount_is_ro(m, flags)) {
                                         /* If invoked in read-only mode we'll not create the data dir, but use it if it exists */
-                                        _cleanup_close_ int data_fd = openat(temp_fd, "data", O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY);
+                                        _cleanup_close_ int data_fd = xopenat(temp_fd, "data", O_NOFOLLOW|O_DIRECTORY);
                                         if (data_fd < 0) {
-                                                if (errno == ENOENT) /* If the 'data' dir doesn't exist, just skip
+                                                if (data_fd == -ENOENT) /* If the 'data' dir doesn't exist, just skip
                                                                       * over it, it apparently was never created, but
                                                                       * that's fine for a read-only invocation */
                                                         break;
 
-                                                log_debug_errno(errno, "Failed to open 'data' directory below 'rw' layer: %m");
-                                                report_errno_and_exit(errno_pipe_fds[1], -errno);
+                                                log_debug_errno(data_fd, "Failed to open 'data' directory below 'rw' layer: %m");
+                                                report_errno_and_exit(errno_pipe_fds[1], data_fd);
                                         }
 
                                         /* Downgrade to regular lowerdir if read-only is requested */
@@ -1004,9 +1004,9 @@ int mstack_bind_mounts(
 
         _cleanup_close_ int _where_fd = -EBADF;
         if (where_fd == AT_FDCWD) {
-                _where_fd = open(".", O_CLOEXEC|O_PATH|O_DIRECTORY);
+                _where_fd = fd_reopen(where_fd, O_PATH|O_DIRECTORY);
                 if (_where_fd < 0)
-                        return log_debug_errno(errno, "Failed to open current working directory: %m");
+                        return log_debug_errno(_where_fd, "Failed to open current working directory: %m");
                 where_fd = _where_fd;
         } else if (where_fd < 0) {
                 r = chase(where,
@@ -1026,9 +1026,9 @@ int mstack_bind_mounts(
 
         log_debug("Attached mstack root mount to '%s'.", where);
 
-        _cleanup_close_ int root_fd = open(where, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        _cleanup_close_ int root_fd = xopenat(AT_FDCWD, where, O_PATH|O_DIRECTORY|O_NOFOLLOW);
         if (root_fd < 0)
-                return log_debug_errno(errno, "Failed to mount root mount '%s': %m", where);
+                return log_debug_errno(root_fd, "Failed to mount root mount '%s': %m", where);
 
         if (mstack->usr_mount_fd >= 0) {
                 _cleanup_close_ int subdir_fd = -EBADF;
