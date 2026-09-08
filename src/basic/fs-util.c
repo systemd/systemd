@@ -1219,7 +1219,7 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
          *
          *   • If O_CREAT is used with XO_LABEL, any created file will be immediately relabelled.
          *
-         *   • If the path is specified NULL or empty, behaves like fd_reopen().
+         *   • If the path is specified NULL or empty, behaves like fd_reopen(). O_CREAT is then refused with -ENOENT.
          *
          *   • If XO_COW or XO_NOCOW is specified will turn off or on the NOCOW btrfs flag on the file, if
          *     available.
@@ -1257,7 +1257,9 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
         }
 
         if (isempty(path)) {
-                assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
+                if (FLAGS_SET(open_flags, O_CREAT)) /* Creating an inode needs a name */
+                        return -ENOENT;
+
                 open_flags &= ~O_NOFOLLOW;
 
                 if (FLAGS_SET(xopen_flags, XO_REGULAR)) {
