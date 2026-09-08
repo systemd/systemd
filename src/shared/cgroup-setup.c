@@ -293,9 +293,9 @@ int cg_set_access_recursive(
         if (r < 0)
                 return r;
 
-        fd = open(fs, O_DIRECTORY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, fs, O_DIRECTORY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         struct access_callback_data d = {
                 .uid = uid,
