@@ -198,7 +198,7 @@ typedef struct Network {
         char *dhcp6_hostname;
         char *dhcp6_mudurl;
         char **dhcp6_user_class;
-        char **dhcp6_vendor_class;
+        OrderedHashmap *dhcp6_vendor_class;
         DHCP6ClientStartMode dhcp6_client_start_mode;
         OrderedHashmap *dhcp6_client_send_options;
         OrderedHashmap *dhcp6_client_send_vendor_options;
