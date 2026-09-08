@@ -616,6 +616,15 @@ int _fork_agent(const char *name, char * const *argv, const int except[], size_t
                         _exit(EXIT_FAILURE);
                 }
 
+                /* On a closed stdio slot dup2() below is a no-op and keeps FD_CLOEXEC */
+                if (fd <= STDERR_FILENO) {
+                        r = fd_cloexec(fd, false);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to clear FD_CLOEXEC on %s: %m", "/dev/tty");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
                 if (!stdin_is_tty && dup2(fd, STDIN_FILENO) < 0) {
                         log_error_errno(errno, "Failed to dup2 /dev/tty to STDIN: %m");
                         _exit(EXIT_FAILURE);
