@@ -172,19 +172,24 @@ int parse_key_value_argument(const char *str, bool require_value, char **key, ch
         return 0;
 }
 
-int udev_ping(usec_t timeout_usec) {
+int udev_ping(usec_t timeout_usec, bool ignore_connection_failure) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
         int r;
 
         r = udev_varlink_connect(&link, timeout_usec);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to udev via varlink: %m");
+        if (r < 0) {
+                bool ignore = ignore_connection_failure && (ERRNO_IS_NEG_DISCONNECT(r) || r == -ENOENT);
+                log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
+                               "Failed to connect to udev via varlink%s: %m",
+                               ignore ? ", ignoring" : "");
+                return ignore ? 0 : r;  /* nothing to do or error */
+        }
 
         r = varlink_call_and_log(link, "io.systemd.service.Ping", /* parameters= */ NULL, /* reply= */ NULL);
         if (r < 0)
                 return r;
 
-        return 0;
+        return 1;  /* received reply from udevd */
 }
 
 static int search_rules_file_in_conf_dirs(const char *s, const char *root, ConfFile ***files, size_t *n_files) {
