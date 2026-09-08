@@ -4203,11 +4203,12 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <term><varname>$PATH</varname></term>
 
           <listitem><para>Colon-separated list of directories to use when launching
-          executables. <command>systemd</command> uses a fixed value of
+          executables. <command>systemd</command> uses a built-in value of
           <literal><filename>/usr/local/sbin</filename>:<filename>/usr/local/bin</filename>:<filename>/usr/sbin</filename>:<filename>/usr/bin</filename></literal>
           in the system manager. In case of the user manager, a different path may be configured by the
-          distribution. It is recommended to not rely on the order of entries, and have only one program
-          with a given name in <varname>$PATH</varname>.</para>
+          distribution. The distribution may also add other paths to the end of this list for both the
+          system and the user manager. It is recommended to not rely on the order of entries, and have only
+          one program with a given name in<varname>$PATH</varname>.</para>
 
           <xi:include href="version-info.xml" xpointer="v208"/></listitem>
         </varlistentry>
