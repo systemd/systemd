@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -272,9 +273,9 @@ ssize_t varlink_execute_directory_full(
          * Usecase for all of this: hook directories, where components can link their sockets into to get
          * notified about certain system events. */
 
-        _cleanup_close_ int fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, path, O_RDONLY|O_DIRECTORY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", path);
+                return log_debug_errno(fd, "Failed to open '%s': %m", path);
 
         _cleanup_free_ DirectoryEntries *dentries = NULL;
         r = readdir_all(fd, RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_SOCKET|RECURSE_DIR_MUST_BE_SYMLINK, &dentries);
