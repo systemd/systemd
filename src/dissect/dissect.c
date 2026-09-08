@@ -1416,9 +1416,9 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         return log_error_errno(r, "Source path %s in image '%s' is neither regular file nor directory, refusing: %m", arg_source, arg_image);
 
                 /* Nah, it's a plain file! */
-                target_fd = open(arg_target, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+                target_fd = xopenat_full(AT_FDCWD, arg_target, O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_NOFOLLOW, /* xopen_flags= */ 0, 0600);
                 if (target_fd < 0)
-                        return log_error_errno(errno, "Failed to create regular file at target path '%s': %m", arg_target);
+                        return log_error_errno(target_fd, "Failed to create regular file at target path '%s': %m", arg_target);
 
                 r = copy_bytes(source_fd, target_fd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
@@ -1455,9 +1455,9 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         if (is_dir)
                                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot copy STDIN to a directory, refusing.");
 
-                        target_fd = openat(dfd, bn, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0644);
+                        target_fd = xopenat_full(dfd, bn, O_WRONLY|O_CREAT|O_NOCTTY|O_EXCL, /* xopen_flags= */ 0, 0644);
                         if (target_fd < 0)
-                                return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
+                                return log_error_errno(target_fd, "Failed to open target file '%s': %m", arg_target);
 
                         r = copy_bytes(STDIN_FILENO, target_fd, UINT64_MAX, /* copy_flags= */ 0);
                         if (r < 0)
@@ -1467,7 +1467,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         return 0;
                 }
 
-                source_fd = open(arg_source, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                source_fd = xopenat(AT_FDCWD, arg_source, O_RDONLY|O_NOCTTY);
                 if (source_fd < 0)
                         return log_error_errno(source_fd, "Failed to open source path '%s': %m", arg_source);
 
@@ -1478,14 +1478,14 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                         /* We are looking at a directory. */
 
-                        target_fd = openat(dfd, bn, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                        target_fd = xopenat(dfd, bn, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
                         if (target_fd < 0) {
-                                if (errno == ELOOP)
+                                if (target_fd == -ELOOP)
                                         return log_error_errno(SYNTHETIC_ERRNO(ELOOP),
                                                         "Refusing to copy directory to symlink destination '%s'.", arg_target);
 
-                                if (errno != ENOENT)
-                                        return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
+                                if (target_fd != -ENOENT)
+                                        return log_error_errno(target_fd, "Failed to open destination '%s': %m", arg_target);
 
                                 r = copy_tree_at(
                                                 source_fd, ".",
@@ -1514,9 +1514,9 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Source is a regular file, but target is not, refusing.");
 
                 /* We area looking at a regular file */
-                target_fd = openat(dfd, bn, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0600);
+                target_fd = xopenat_full(dfd, bn, O_WRONLY|O_CREAT|O_NOCTTY|O_EXCL, /* xopen_flags= */ 0, 0600);
                 if (target_fd < 0)
-                        return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
+                        return log_error_errno(target_fd, "Failed to open target file '%s': %m", arg_target);
 
                 r = copy_bytes(source_fd, target_fd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
@@ -1535,9 +1535,9 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
         case ACTION_MTREE: {
                 _cleanup_close_ int dfd = -EBADF;
 
-                dfd = open(root, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                dfd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_RDONLY);
                 if (dfd < 0)
-                        return log_error_errno(errno, "Failed to open mount directory: %m");
+                        return log_error_errno(dfd, "Failed to open mount directory: %m");
 
                 pager_open(arg_pager_flags);
 
@@ -1562,9 +1562,9 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 #if HAVE_LIBARCHIVE
                 _cleanup_close_ int dfd = -EBADF;
 
-                dfd = open(root, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                dfd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_RDONLY);
                 if (dfd < 0)
-                        return log_error_errno(errno, "Failed to open mount directory: %m");
+                        return log_error_errno(dfd, "Failed to open mount directory: %m");
 
                 _cleanup_(unlink_and_freep) char *tar = NULL;
                 _cleanup_close_ int tmp_fd = -EBADF;
@@ -1639,9 +1639,9 @@ static int action_umount(const char *path) {
                  * partition. If it does not have the root partition, then we mount the /usr partition on a
                  * tmpfs. Hence, let's try to find the backing block device through the /usr partition. */
 
-                usr_fd = openat(fd, "usr", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW);
+                usr_fd = xopenat(fd, "usr", O_DIRECTORY | O_NOFOLLOW);
                 if (usr_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s/usr': %m", canonical);
+                        return log_error_errno(usr_fd, "Failed to open '%s/usr': %m", canonical);
 
                 r = block_device_new_from_fd(usr_fd, BLOCK_DEVICE_LOOKUP_WHOLE_DISK | BLOCK_DEVICE_LOOKUP_BACKING, &dev);
         }
@@ -1853,9 +1853,9 @@ static int action_detach(const char *path) {
 
         assert(path);
 
-        fd = open(path, O_PATH|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_PATH);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", path);
+                return log_error_errno(fd, "Failed to open '%s': %m", path);
 
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", path);
