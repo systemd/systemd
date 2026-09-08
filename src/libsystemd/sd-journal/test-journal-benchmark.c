@@ -540,7 +540,7 @@ static void tracker_open(Tracker *t, int fd) {
         assert(fd >= 0);
 
         *t = (Tracker) {
-                .fd = ASSERT_OK(fd_reopen(fd, O_RDONLY|O_CLOEXEC)),
+                .fd = ASSERT_OK(fd_reopen(fd, O_RDONLY)),
         };
 
         /* Map the maximum size once, so the file can grow without remapping. Only the part below EOF may be

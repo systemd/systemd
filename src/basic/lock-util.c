@@ -33,7 +33,7 @@ int make_lock_file_at(int dir_fd, const char *p, int operation, LockFile *ret) {
 
         /* We use UNPOSIX locks as they have nice semantics, and are mostly compatible with NFS. */
 
-        dfd = fd_reopen(dir_fd, O_CLOEXEC|O_PATH|O_DIRECTORY);
+        dfd = fd_reopen(dir_fd, O_PATH|O_DIRECTORY);
         if (dfd < 0)
                 return dfd;
 
@@ -43,7 +43,7 @@ int make_lock_file_at(int dir_fd, const char *p, int operation, LockFile *ret) {
 
         fd = xopenat_lock_full(dfd,
                                p,
-                               O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY,
+                               O_CREAT|O_RDWR|O_NOFOLLOW|O_NOCTTY,
                                /* xopen_flags= */ 0,
                                0600,
                                LOCK_UNPOSIX,

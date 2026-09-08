@@ -997,7 +997,7 @@ static int resolve_mutable_directory(
                 if (r < 0)
                         return log_error_errno(r, "Failed to chase/create base directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
 
-                chmod_fd = fd_reopen(path_fd, O_CLOEXEC|O_DIRECTORY);
+                chmod_fd = fd_reopen(path_fd, O_DIRECTORY);
                 if (chmod_fd < 0)
                         return log_error_errno(chmod_fd, "Failed to reopen '%s/%s': %m", strempty(root), skip_leading_slash(path));
 

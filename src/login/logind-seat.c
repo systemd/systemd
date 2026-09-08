@@ -112,7 +112,7 @@ int seat_save(Seat *s) {
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable(s->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
+        r = fopen_tmpfile_linkable(s->state_file, O_WRONLY, &temp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create state file '%s': %m", s->state_file);
 
@@ -179,7 +179,7 @@ static int vt_allocate(unsigned vtnr) {
         assert(vtnr >= 1);
 
         xsprintf(p, "/dev/tty%u", vtnr);
-        fd = open_terminal(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(p, O_RDWR|O_NOCTTY);
         if (fd < 0)
                 return fd;
 
