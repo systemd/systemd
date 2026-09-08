@@ -23,11 +23,17 @@ int tempfn_random(const char *p, const char *extra, char **ret);
 int tempfn_random_child(const char *p, const char *extra, char **ret);
 
 int open_tmpfile_unlinkable(const char *directory, int flags);
-int open_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **ret_path);
+int open_tmpfile_linkable_at_full(int dir_fd, const char *target, int flags, mode_t mode, char **ret_path);
+static inline int open_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **ret_path) {
+        return open_tmpfile_linkable_at_full(dir_fd, target, flags, 0640, ret_path);
+}
 static inline int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
         return open_tmpfile_linkable_at(AT_FDCWD, target, flags, ret_path);
 }
-int fopen_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **ret_path, FILE **ret_file);
+int fopen_tmpfile_linkable_at_full(int dir_fd, const char *target, int flags, mode_t mode, char **ret_path, FILE **ret_file);
+static inline int fopen_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **ret_path, FILE **ret_file) {
+        return fopen_tmpfile_linkable_at_full(dir_fd, target, flags, 0640, ret_path, ret_file);
+}
 static inline int fopen_tmpfile_linkable(const char *target, int flags, char **ret_path, FILE **ret_file) {
         return fopen_tmpfile_linkable_at(AT_FDCWD, target, flags, ret_path, ret_file);
 }
