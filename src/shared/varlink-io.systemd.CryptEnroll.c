@@ -40,7 +40,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Path to a TPM2 device to unlock the volume with. Leave the path empty to automatically discover a suitable device."),
                 SD_VARLINK_DEFINE_INPUT(unlockTpm2Device, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
-                SD_VARLINK_FIELD_COMMENT("The passphrase to enroll, when mechanism is 'password'. Contains key material."),
+                SD_VARLINK_FIELD_COMMENT("The passphrase to enroll, when mechanism is 'password'. Or the recovery key generated via MakeRecoveryKey, when mechanism is 'recovery'. Contains key material."),
                 SD_VARLINK_DEFINE_INPUT(password, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
                 SD_VARLINK_FIELD_COMMENT("Path to the FIDO2 device to enroll, when mechanism is 'fido2'. Leave empty to automatically discover a suitable device."),
@@ -80,6 +80,11 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("The type of the keyslot."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(type, EnrollMechanism, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                MakeRecoveryKey,
+                SD_VARLINK_FIELD_COMMENT("A generated passphrase designed to be used as a recovery key."),
+                SD_VARLINK_DEFINE_OUTPUT(recoveryKey, SD_VARLINK_STRING, 0));
+
 static SD_VARLINK_DEFINE_ERROR(VolumeUnderForeignManagement);
 static SD_VARLINK_DEFINE_ERROR(PasswordRequired);
 static SD_VARLINK_DEFINE_ERROR(PasswordIncorrect);
@@ -96,6 +101,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Enroll,
                 SD_VARLINK_SYMBOL_COMMENT("Enumerate the keyslots currently enrolled in a LUKS2 volume, one per reply. Must be called with the 'more' flag."),
                 &vl_method_ListSlots,
+                SD_VARLINK_SYMBOL_COMMENT("Generate a password that can be enrolled as a recovery key."),
+                &vl_method_MakeRecoveryKey,
                 SD_VARLINK_SYMBOL_COMMENT("The volume is managed by another subsystem (e.g. systemd-homed) and may not be enrolled into directly."),
                 &vl_error_VolumeUnderForeignManagement,
                 SD_VARLINK_SYMBOL_COMMENT("A password is required to unlock the volume, but none was provided."),
