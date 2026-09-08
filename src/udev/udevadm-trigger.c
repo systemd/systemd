@@ -506,8 +506,8 @@ int verb_trigger_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return r;
 
         if (arg_ping) {
-                r = udev_ping(arg_ping_timeout_usec);
-                if (r < 0)
+                r = udev_ping(arg_ping_timeout_usec, /* ignore_connection_failure= */ false);
+                if (r <= 0)
                         return r;
         }
 
