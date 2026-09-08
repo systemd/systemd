@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "argv-util.h"
 #include "capability-util.h"
+#include "chattr-util.h"
 #include "copy.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -556,14 +557,14 @@ TEST(open_mkdir_at) {
         assert_se(open_mkdir_at(AT_FDCWD, "/", O_EXCL, /* mode= */ 0) == -EEXIST);
         assert_se(open_mkdir_at(AT_FDCWD, ".", O_EXCL, /* mode= */ 0) == -EEXIST);
 
-        fd = open_mkdir_at(AT_FDCWD, "/", 0, /* mode= */ 0);
+        fd = open_mkdir_at(AT_FDCWD, "/", /* flags= */ 0, /* mode= */ 0);
         assert_se(fd >= 0);
         assert_se(stat("/", &sta) >= 0);
         ASSERT_OK_ERRNO(fstat(fd, &stb));
         assert_se(stat_inode_same(&sta, &stb));
         fd = safe_close(fd);
 
-        fd = open_mkdir_at(AT_FDCWD, ".", 0, /* mode= */ 0);
+        fd = open_mkdir_at(AT_FDCWD, ".", /* flags= */ 0, /* mode= */ 0);
         assert_se(stat(".", &sta) >= 0);
         ASSERT_OK_ERRNO(fstat(fd, &stb));
         assert_se(stat_inode_same(&sta, &stb));
@@ -571,19 +572,19 @@ TEST(open_mkdir_at) {
 
         assert_se(open_mkdir_at(AT_FDCWD, "/proc", O_EXCL, /* mode= */ 0) == -EEXIST);
 
-        fd = open_mkdir_at(AT_FDCWD, "/proc", 0, /* mode= */ 0);
+        fd = open_mkdir_at(AT_FDCWD, "/proc", /* flags= */ 0, /* mode= */ 0);
         assert_se(fd >= 0);
         fd = safe_close(fd);
 
         assert_se(open_mkdir_at(AT_FDCWD, "/bin/sh", O_EXCL, /* mode= */ 0) == -EEXIST);
-        assert_se(open_mkdir_at(AT_FDCWD, "/bin/sh", 0, /* mode= */ 0) == -EEXIST);
+        assert_se(open_mkdir_at(AT_FDCWD, "/bin/sh", /* flags= */ 0, /* mode= */ 0) == -EEXIST);
 
         assert_se(mkdtemp_malloc(/* template= */ NULL, &t) >= 0);
 
         assert_se(open_mkdir_at(AT_FDCWD, t, O_EXCL, /* mode= */ 0) == -EEXIST);
         assert_se(open_mkdir_at(AT_FDCWD, t, O_PATH|O_EXCL, /* mode= */ 0) == -EEXIST);
 
-        fd = open_mkdir_at(AT_FDCWD, t, 0, 0000);
+        fd = open_mkdir_at(AT_FDCWD, t, /* flags= */ 0, 0000);
         assert_se(fd >= 0);
         fd = safe_close(fd);
 
@@ -603,7 +604,7 @@ TEST(open_mkdir_at) {
 
         assert_se(open_mkdir_at(fd, "xxx/yyy", O_EXCL, /* mode= */ 0) == -EEXIST);
 
-        subsubdir_fd = open_mkdir_at(fd, "xxx/yyy", 0, 0700);
+        subsubdir_fd = open_mkdir_at(fd, "xxx/yyy", /* flags= */ 0, 0700);
         assert_se(subsubdir_fd >= 0);
 }
 
@@ -777,6 +778,57 @@ TEST(xopenat_regular) {
         assert_se(xopenat_full(AT_FDCWD, "/tmp/xopenat-regular-test", O_RDWR|O_CREAT|O_EXCL, XO_REGULAR, 0600) == -EEXIST);
 
         assert_se(unlink("/tmp/xopenat-regular-test") >= 0);
+}
+
+TEST(xopenat_empty_path) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+
+        /* Without XO_EMPTY_PATH an empty path is a missing name, as for open("") */
+        ASSERT_ERROR(xopenat(tfd, "", O_RDONLY|O_DIRECTORY), ENOENT);
+        ASSERT_ERROR(xopenat(tfd, /* path= */ NULL, O_RDONLY|O_DIRECTORY), ENOENT);
+        ASSERT_ERROR(xopenat(AT_FDCWD, "", O_RDONLY|O_DIRECTORY), ENOENT);
+        ASSERT_ERROR(xopenat(XAT_FDROOT, "", O_RDONLY|O_DIRECTORY), ENOENT);
+        ASSERT_ERROR(xopenat_full(tfd, "", O_RDWR|O_CREAT, /* xopen_flags= */ 0, 0644), ENOENT);
+        ASSERT_ERROR(xopenat_full(tfd, "", O_RDWR|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0644), ENOENT);
+        ASSERT_ERROR(xopenat_full(AT_FDCWD, "", O_WRONLY|O_CREAT, /* xopen_flags= */ 0, 0644), ENOENT);
+        ASSERT_ERROR(xopenat_full(tfd, "", O_RDWR|O_CREAT, XO_EMPTY_PATH, 0644), ENOENT);
+        ASSERT_ERROR(xopenat_full(tfd, /* path= */ NULL, O_RDWR|O_TMPFILE, XO_EMPTY_PATH, 0644), ENOENT);
+
+        /* With the flag it reopens the directory itself, like AT_EMPTY_PATH... */
+        ASSERT_OK(fd = xopenat_full(tfd, "", O_RDONLY|O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID));
+        ASSERT_OK_POSITIVE(inode_same_at(tfd, NULL, fd, NULL, AT_EMPTY_PATH));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = xopenat_full(tfd, /* path= */ NULL, O_RDONLY|O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID));
+        ASSERT_OK_POSITIVE(inode_same_at(tfd, NULL, fd, NULL, AT_EMPTY_PATH));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = xopenat_full(XAT_FDROOT, "", O_RDONLY|O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID));
+        ASSERT_OK_POSITIVE(inode_same_at(AT_FDCWD, "/", fd, NULL, AT_EMPTY_PATH));
+        fd = safe_close(fd);
+
+        /* ...and a non-empty path is opened as usual */
+        ASSERT_OK(fd = xopenat_full(tfd, "file", O_RDWR|O_CREAT|O_EXCL, XO_EMPTY_PATH, 0644));
+        ASSERT_OK_POSITIVE(inode_same_at(tfd, "file", fd, NULL, AT_EMPTY_PATH));
+}
+
+TEST(xopenat_nocow) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+
+        /* chattr_fd() reopens the fd through an empty path */
+        ASSERT_OK(fd = xopenat_full(tfd, "file", O_RDWR|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0644));
+        ASSERT_OK(chattr_fd(fd, /* value= */ 0, /* mask= */ 0));
+        fd = safe_close(fd);
+
+        /* XO_NOCOW goes through chattr_fd(), a failure there removes the file again */
+        ASSERT_OK(fd = xopenat_full(tfd, "nocow", O_RDWR|O_CREAT|O_EXCL, XO_NOCOW, 0644));
+        ASSERT_OK_ERRNO(faccessat(tfd, "nocow", F_OK, AT_SYMLINK_NOFOLLOW));
 }
 
 TEST(xopenat_socket) {
@@ -1108,7 +1160,7 @@ TEST(xopenat_cloexec) {
         ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
         fd = safe_close(fd);
 
-        ASSERT_OK(fd = xopenat_full(tfd, "regular", O_PATH, XO_REGULAR, 0));
+        ASSERT_OK(fd = xopenat_full(tfd, "regular", O_PATH, XO_REGULAR, /* mode= */ 0));
         ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
         ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
         fd = safe_close(fd);
@@ -1118,7 +1170,7 @@ TEST(xopenat_cloexec) {
         ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
         fd = safe_close(fd);
 
-        ASSERT_OK(fd = open_parent_at(tfd, "regular", O_RDONLY, 0));
+        ASSERT_OK(fd = open_parent_at(tfd, "regular", O_RDONLY, /* mode= */ 0));
         ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
         ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
         fd = safe_close(fd);

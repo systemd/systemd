@@ -471,6 +471,27 @@ TEST(sector_size_regular_file) {
         loop = loop_device_unref(loop);
 }
 
+TEST(make_by_path_at_fd) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                log_tests_skipped("not running privileged");
+                return;
+        }
+
+        if (detect_container() != 0 || running_in_chroot() != 0) {
+                log_tests_skipped("Test not supported in a container/chroot");
+                return;
+        }
+
+        ASSERT_OK(make_test_image(&fd));
+
+        /* A NULL path attaches the image the fd refers to, as portable and mstack do */
+        ASSERT_OK(loop_device_make_by_path_at(fd, /* path= */ NULL, O_RDONLY, /* sector_size= */ UINT32_MAX,
+                                              /* loop_flags= */ 0, LOCK_SH, &loop));
+}
+
 TEST(sector_size_block_device) {
         _cleanup_(loop_device_unrefp) LoopDevice *block_loop = NULL, *loop = NULL;
         _cleanup_close_ int fd = -EBADF;
