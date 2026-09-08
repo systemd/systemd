@@ -1,15 +1,5 @@
 systemd System and Service Manager
 
-CHANGES WITH 263:
-
-        Feature Removals and Incompatible Changes:
-
-        * The "extensions" field of "systemd-sysext status --json=" and
-          "systemd-confext status --json=" is now always an array. A hierarchy
-          that is not merged reports an empty array, instead of the string
-          "none" returned previously. In the human-readable table output a
-          hierarchy that is not merged is now shown as "-" instead of "none".
-
 CHANGES WITH 262 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
@@ -146,6 +136,12 @@ CHANGES WITH 262 in spe:
           again marked as experimental. It will be stabilized in a future
           release. The libexecdir path is the backwards compatible way to call
           it.
+
+        * The "extensions" field of "systemd-sysext status --json=" and
+          "systemd-confext status --json=" is now always an array. A hierarchy
+          that is not merged reports an empty array, instead of the string
+          "none" returned previously. In the human-readable table output a
+          hierarchy that is not merged is now shown as "-" instead of "none".
 
         Changes in the system and service manager:
 
