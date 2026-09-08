@@ -104,7 +104,7 @@ TEST(id128) {
         ASSERT_FALSE(id128_is_valid("01020304-0506-0708-090a0b0c0d0e0f10"));
         ASSERT_FALSE(id128_is_valid("010203040506-0708-090a-0b0c0d0e0f10"));
 
-        fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC);
+        fd = open_tmpfile_unlinkable(NULL, O_RDWR);
         ASSERT_OK(fd);
 
         /* First, write as UUID */

@@ -898,7 +898,7 @@ int resource_resolve_path(
                         return 0;
                 }
 
-                real_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                real_fd = fd_reopen(fd, O_RDONLY|O_DIRECTORY);
                 if (real_fd < 0)
                         return log_error_errno(real_fd, "Failed to convert O_PATH file descriptor for %s to regular file descriptor: %m", rr->path);
 

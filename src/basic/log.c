@@ -110,7 +110,7 @@ static int log_open_console(void) {
         if (console_fd < 3) {
                 int fd;
 
-                fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+                fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY);
                 if (fd < 0)
                         return fd;
 

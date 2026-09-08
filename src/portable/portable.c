@@ -397,7 +397,7 @@ static int extract_now(
                                         dirfd(d),
                                         de->d_name,
                                         CHASE_MUST_BE_REGULAR,
-                                        O_RDONLY|O_CLOEXEC,
+                                        O_RDONLY,
                                         /* ret_path= */ NULL);
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to open unit file '%s', ignoring: %m", de->d_name);
@@ -1755,7 +1755,7 @@ static int attach_unit_file(
 
                 (void) mac_selinux_create_file_prepare_label(path, m->selinux_label);
 
-                fd = open_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &tmp);
+                fd = open_tmpfile_linkable(path, O_WRONLY, &tmp);
                 mac_selinux_create_file_clear(); /* Clear immediately in case of errors */
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to create unit file '%s': %m", path);

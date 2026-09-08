@@ -567,7 +567,7 @@ static int read_identity_file(int root_fd, sd_json_variant **ret) {
         assert(root_fd >= 0);
         assert(ret);
 
-        _cleanup_close_ int identity_fd = xopenat_full(root_fd, ".identity", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK, XO_REGULAR, MODE_INVALID);
+        _cleanup_close_ int identity_fd = xopenat_full(root_fd, ".identity", O_RDONLY|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK, XO_REGULAR, MODE_INVALID);
         if (identity_fd < 0)
                 return log_error_errno(identity_fd, "Failed to open .identity file in home directory: %m");
 
@@ -855,7 +855,7 @@ int home_maybe_shift_uid(
         if (mount_fd >= 0) {
                 safe_close(setup->root_fd);
 
-                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_DIRECTORY);
                 if (setup->root_fd < 0)
                         return log_error_errno(setup->root_fd, "Failed to convert mount fd into regular directory fd: %m");
         }

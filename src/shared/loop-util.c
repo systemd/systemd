@@ -62,7 +62,7 @@ static int open_lock_fd(int primary_fd, int operation) {
 
         assert(IN_SET(operation & ~LOCK_NB, LOCK_SH, LOCK_EX));
 
-        lock_fd = fd_reopen(ASSERT_FD(primary_fd), O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        lock_fd = fd_reopen(ASSERT_FD(primary_fd), O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (lock_fd < 0)
                 return lock_fd;
 
@@ -436,7 +436,7 @@ static int probe_fd_open(int fd, int f_flags, int *ret_to_close) {
                 return fd;
         }
 
-        r = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        r = fd_reopen(fd, O_RDONLY|O_NONBLOCK);
         if (r < 0)
                 return r;
 
@@ -630,7 +630,7 @@ static int loop_device_make_internal(
                  * Our intention here is that LO_FLAGS_DIRECT_IO is the primary knob, and O_DIRECT derived
                  * from that automatically. */
 
-                reopened_fd = fd_reopen(fd, (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0)|O_CLOEXEC|O_NONBLOCK|open_flags);
+                reopened_fd = fd_reopen(fd, (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0)|O_NONBLOCK|open_flags);
                 if (reopened_fd < 0) {
                         if (!FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO))
                                 return log_debug_errno(reopened_fd, "Failed to reopen file descriptor without O_DIRECT: %m");
@@ -723,7 +723,7 @@ static int loop_device_make_internal(
                         config.info.lo_flags &= ~LO_FLAGS_DIRECT_IO;
                         open_flags &= ~O_DIRECT;
 
-                        int non_direct_io_fd = fd_reopen(config.fd, O_CLOEXEC|O_NONBLOCK|open_flags);
+                        int non_direct_io_fd = fd_reopen(config.fd, O_NONBLOCK|open_flags);
                         if (non_direct_io_fd < 0)
                                 return log_debug_errno(
                                                 non_direct_io_fd,
@@ -761,7 +761,7 @@ static int loop_device_make_internal(
         if (deferred_partscan) {
                 /* Open+close to drain GD_NEED_PART_SCAN harmlessly (GD_SUPPRESS_PART_SCAN is still
                  * set so no partitions appear). Then enable partscan via LOOP_SET_STATUS64. */
-                int tmp_fd = fd_reopen(d->fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                int tmp_fd = fd_reopen(d->fd, O_RDONLY|O_NONBLOCK);
                 if (tmp_fd < 0)
                         return log_debug_errno(tmp_fd, "Failed to reopen loop device to drain partscan flag: %m");
                 safe_close(tmp_fd);
@@ -931,7 +931,7 @@ int loop_device_make_by_path_memory(
         if (r < 0)
                 return r;
 
-        mfd = memfd_clone_fd(fd, fn, open_flags|O_CLOEXEC);
+        mfd = memfd_clone_fd(fd, fn, open_flags);
         if (mfd < 0)
                 return mfd;
 

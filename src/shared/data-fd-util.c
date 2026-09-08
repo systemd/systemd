@@ -72,7 +72,7 @@ int copy_data_fd(int fd) {
 
         /* If we have reason to believe this will fit fine in /tmp, then use that as first fallback. */
         if ((!S_ISREG(st.st_mode) || (uint64_t) st.st_size < DATA_FD_TMP_LIMIT)) {
-                tmp_fd = open_tmpfile_unlinkable(NULL /* NULL as directory means /tmp */, O_RDWR|O_CLOEXEC);
+                tmp_fd = open_tmpfile_unlinkable(NULL /* NULL as directory means /tmp */, O_RDWR);
                 if (tmp_fd < 0)
                         return tmp_fd;
 
@@ -108,7 +108,7 @@ int copy_data_fd(int fd) {
         if (r < 0)
                 return r;
 
-        tmp_fd = open_tmpfile_unlinkable(td, O_RDWR|O_CLOEXEC);
+        tmp_fd = open_tmpfile_unlinkable(td, O_RDWR);
         if (tmp_fd < 0)
                 return tmp_fd;
 
@@ -133,7 +133,7 @@ finish:
         /* Now convert the O_RDWR file descriptor into an O_RDONLY one (and as side effect seek to the beginning of the
          * file again */
 
-        return fd_reopen(tmp_fd, O_RDONLY|O_CLOEXEC);
+        return fd_reopen(tmp_fd, O_RDONLY);
 }
 
 int memfd_clone_fd(int fd, const char *name, int mode) {

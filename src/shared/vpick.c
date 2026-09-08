@@ -376,7 +376,7 @@ static int make_choice(
         /* Underspecified, so we do our enumeration dance */
 
         /* Convert O_PATH to a regular directory fd */
-        _cleanup_close_ int enumerate_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int enumerate_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY);
         if (enumerate_fd < 0)
                 return log_debug_errno(enumerate_fd, "Failed to reopen '%s/%s' as directory: %m",
                                        empty_to_root(root_path), skip_leading_slash(inode_path));

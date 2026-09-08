@@ -2056,7 +2056,7 @@ static int grow_image(const char *path, uint64_t size) {
         if (size == 0)
                 return 0;
 
-        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR|O_CLOEXEC, XO_REGULAR, /* mode= */ 0);
+        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR, XO_REGULAR, /* mode= */ 0);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open image file '%s': %m", path);
 
@@ -2185,7 +2185,7 @@ static int cmdline_add_ovmf(FILE *config_file, const OvmfConfig *ovmf_config, ch
                 if (!d)
                         return log_oom();
 
-                target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_WRONLY|O_CREAT|O_CLOEXEC, 0600, &newly_created);
+                target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_WRONLY|O_CREAT, 0600, &newly_created);
                 if (target_fd < 0)
                         return log_error_errno(target_fd, "Failed to open file for OVMF vars at %s: %m", arg_efi_nvram_state_path);
 
