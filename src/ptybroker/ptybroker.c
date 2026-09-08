@@ -726,7 +726,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return r;
 
-        pty->frontend_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC, &pty->backend_path);
+        pty->frontend_fd = openpt_allocate(O_RDWR|O_NOCTTY, &pty->backend_path);
         if (pty->frontend_fd < 0)
                 return log_error_errno(pty->frontend_fd, "Failed to allocate PTY: %m");
 
@@ -734,7 +734,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (pty->backend_fd < 0)
                 return log_error_errno(pty->backend_fd, "Failed to open PTY backend: %m");
 
-        pty->pin_fd = fd_reopen(pty->backend_fd, O_PATH|O_CLOEXEC);
+        pty->pin_fd = fd_reopen(pty->backend_fd, O_PATH);
         if (pty->pin_fd < 0)
                 return log_error_errno(pty->pin_fd, "Failed to open O_PATH fd on backend: %m");
 
@@ -913,7 +913,7 @@ static int validate_pty_master_fd(int fd, int *ret_pin_fd) {
         if (peer_fd < 0)
                 return peer_fd;
 
-        int pin_fd = fd_reopen(peer_fd, O_PATH|O_CLOEXEC);
+        int pin_fd = fd_reopen(peer_fd, O_PATH);
         if (pin_fd < 0)
                 return pin_fd;
 

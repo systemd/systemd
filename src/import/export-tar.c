@@ -352,7 +352,7 @@ int tar_export_start(
                         return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
 
                 /* Drop O_PATH */
-                e->tree_fd = fd_reopen(mapped_fd, O_DIRECTORY|O_CLOEXEC);
+                e->tree_fd = fd_reopen(mapped_fd, O_DIRECTORY);
                 if (e->tree_fd < 0)
                         return log_error_errno(errno, "Failed to re-open mapped '%s': %m", p);
         } else {
