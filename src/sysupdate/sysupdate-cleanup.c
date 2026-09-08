@@ -273,7 +273,7 @@ static int context_installdb_process_directory(
                         if (d->d_type != DT_DIR)
                                 continue;
 
-                        _cleanup_close_ int subdir_fd = RET_NERRNO(openat(dir_fd, d->d_name, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW));
+                        _cleanup_close_ int subdir_fd = xopenat(dir_fd, d->d_name, O_DIRECTORY|O_NOFOLLOW);
                         if (subdir_fd == -ENOENT)
                                 continue;
                         if (subdir_fd < 0) {
