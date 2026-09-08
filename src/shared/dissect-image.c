@@ -34,6 +34,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "fsck-util.h"
 #include "fstab-util.h"
 #include "gpt.h"
@@ -238,9 +239,9 @@ int probe_filesystem_full(
                 return r;
 
         if (fd < 0) {
-                fd_close = open(path, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                fd_close = xopenat(AT_FDCWD, path, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (fd_close < 0)
-                        return -errno;
+                        return fd_close;
 
                 fd = fd_close;
         }
@@ -909,9 +910,9 @@ static int open_partition(
         assert(node);
         assert(loop || !is_partition);
 
-        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, node, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (!loop)
                 return TAKE_FD(fd);
@@ -2053,9 +2054,9 @@ int dissect_image_file(
 
         assert(path);
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -2285,9 +2286,9 @@ static int fs_grow(const char *node_path, int mount_fd, const char *mount_path) 
         assert(node_path);
         assert(mount_fd >= 0 || mount_path);
 
-        node_fd = open(node_path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        node_fd = xopenat(AT_FDCWD, node_path, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (node_fd < 0)
-                return log_debug_errno(errno, "Failed to open node device %s: %m", node_path);
+                return log_debug_errno(node_fd, "Failed to open node device %s: %m", node_path);
 
         r = blockdev_get_device_size(node_fd, &size);
         if (r < 0)
@@ -2296,15 +2297,16 @@ static int fs_grow(const char *node_path, int mount_fd, const char *mount_path) 
         if (mount_fd < 0) {
                 assert(mount_path);
 
-                _mount_fd = open(mount_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                _mount_fd = xopenat(AT_FDCWD, mount_path, O_RDONLY|O_DIRECTORY);
                 if (_mount_fd < 0)
-                        return log_debug_errno(errno, "Failed to open mounted file system %s: %m", mount_path);
+                        return log_debug_errno(_mount_fd, "Failed to open mounted file system %s: %m", mount_path);
 
                 mount_fd = _mount_fd;
         } else {
-                mount_fd = fd_reopen_condition(mount_fd, O_RDONLY|O_DIRECTORY|O_CLOEXEC, O_RDONLY|O_DIRECTORY|O_CLOEXEC, &_mount_fd);
+                /* Only reopen O_PATH fds (e.g. from fsmount()), regular ones are fine as they are */
+                mount_fd = fd_reopen_condition(mount_fd, O_RDONLY|O_DIRECTORY, O_PATH, &_mount_fd);
                 if (mount_fd < 0)
-                        return log_debug_errno(errno, "Failed to reopen mount node: %m");
+                        return log_debug_errno(mount_fd, "Failed to reopen mount node: %m");
         }
 
         id = mount_path ?: node_path;
@@ -3042,9 +3044,9 @@ static int decrypt_partition(
                 return r == -EPERM ? -EKEYREJECTED : r;
         }
 
-        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, node, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open %s: %m", node);
+                return log_debug_errno(fd, "Failed to open %s: %m", node);
 
         d->decrypted[d->n_decrypted++] = (DecryptedPartition) {
                 .name = TAKE_PTR(name),
@@ -3429,9 +3431,9 @@ static int verity_partition(
                 _cleanup_close_ int fd = -EBADF;
 
                 /* First, check if the device already exists. */
-                fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0 && !ERRNO_IS_DEVICE_ABSENT(errno))
-                        return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
+                fd = xopenat(AT_FDCWD, node, O_RDONLY|O_NONBLOCK|O_NOCTTY);
+                if (fd < 0 && !ERRNO_IS_DEVICE_ABSENT(fd))
+                        return log_debug_errno(fd, "Failed to open verity device %s: %m", node);
                 if (fd >= 0)
                         goto check; /* The device already exists. Let's check it. */
 
@@ -3496,10 +3498,10 @@ static int verity_partition(
         try_open:
                 if (fd < 0) {
                         /* Now, the device is activated and devlink is created. Let's open it. */
-                        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                        fd = xopenat(AT_FDCWD, node, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                         if (fd < 0) {
-                                if (!ERRNO_IS_DEVICE_ABSENT(errno))
-                                        return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
+                                if (!ERRNO_IS_DEVICE_ABSENT(fd))
+                                        return log_debug_errno(fd, "Failed to open verity device %s: %m", node);
 
                                 /* The device has already been removed?? */
                                 goto try_again;
@@ -4859,9 +4861,9 @@ int mount_image_privately_interactively(
         if (ret_dir_fd) {
                 _cleanup_close_ int dir_fd = -EBADF;
 
-                dir_fd = open("/run/systemd/mount-rootfs", O_CLOEXEC|O_DIRECTORY);
+                dir_fd = xopenat(AT_FDCWD, "/run/systemd/mount-rootfs", O_DIRECTORY);
                 if (dir_fd < 0)
-                        return log_error_errno(errno, "Failed to open mount point directory: %m");
+                        return log_error_errno(dir_fd, "Failed to open mount point directory: %m");
 
                 *ret_dir_fd = TAKE_FD(dir_fd);
         }
@@ -5255,9 +5257,9 @@ int mountfsd_mount_image_fd(
         }
 
         if (verity && verity->data_path) {
-                verity_data_fd = open(verity->data_path, O_RDONLY|O_CLOEXEC);
+                verity_data_fd = xopenat(AT_FDCWD, verity->data_path, O_RDONLY);
                 if (verity_data_fd < 0)
-                        return log_debug_errno(errno, "Failed to open verity data file '%s': %m", verity->data_path);
+                        return log_debug_errno(verity_data_fd, "Failed to open verity data file '%s': %m", verity->data_path);
 
                 r = sd_varlink_push_dup_fd(vl, verity_data_fd);
                 if (r < 0)
@@ -5417,9 +5419,9 @@ int mountfsd_mount_image(
         assert(path);
         assert(ret);
 
-        _cleanup_close_ int image_fd = open(path, O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int image_fd = xopenat(AT_FDCWD, path, O_RDONLY);
         if (image_fd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", path);
+                return log_debug_errno(image_fd, "Failed to open '%s': %m", path);
 
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
         r = mountfsd_mount_image_fd(vl, image_fd, userns_fd, options, image_policy, verity, flags, &di);
@@ -5514,9 +5516,9 @@ int mountfsd_mount_directory(
         assert(path);
         assert(ret_mount_fd);
 
-        _cleanup_close_ int directory_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_PATH);
+        _cleanup_close_ int directory_fd = xopenat(AT_FDCWD, path, O_DIRECTORY|O_RDONLY|O_PATH);
         if (directory_fd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", path);
+                return log_debug_errno(directory_fd, "Failed to open '%s': %m", path);
 
         return mountfsd_mount_directory_fd(vl, directory_fd, userns_fd, flags, ret_mount_fd);
 }
@@ -5599,9 +5601,9 @@ int mountfsd_make_directory(
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract directory name from '%s': %m", path);
 
-        _cleanup_close_ int fd = open(parent, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, parent, O_DIRECTORY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", parent);
+                return log_debug_errno(fd, "Failed to open '%s': %m", parent);
 
         return mountfsd_make_directory_fd(vl, fd, dirname, mode, flags, ret_directory_fd);
 }

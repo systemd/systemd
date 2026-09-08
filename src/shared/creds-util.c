@@ -122,7 +122,7 @@ int open_credentials_dir(void) {
         if (r < 0)
                 return r;
 
-        return RET_NERRNO(open(d, O_CLOEXEC|O_DIRECTORY));
+        return xopenat(AT_FDCWD, d, O_DIRECTORY);
 }
 
 int get_system_credentials_dir(const char **ret) {
@@ -564,10 +564,10 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                                "All attempts to create secret store in %s failed.", dirname);
 
-                fd = openat(dfd, filename, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_NOFOLLOW);
+                fd = xopenat(dfd, filename, O_RDONLY|O_NOCTTY|O_NOFOLLOW);
                 if (fd < 0) {
-                        if (errno != ENOENT || !FLAGS_SET(flags, CREDENTIAL_SECRET_GENERATE))
-                                return log_debug_errno(errno,
+                        if (fd != -ENOENT || !FLAGS_SET(flags, CREDENTIAL_SECRET_GENERATE))
+                                return log_debug_errno(fd,
                                                        "Failed to open %s/%s: %m", dirname, filename);
 
                         r = make_credential_host_secret(dfd, machine_id, flags, dirname, filename, ret);
