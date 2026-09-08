@@ -1690,6 +1690,7 @@ foreach tuple : [
                 ['tpm'],
                 ['utmp',            get_option('libc') != 'musl', 'musl does not support it'],
                 ['userdb'],
+                ['varlink-monitord'],
                 ['vconsole'],
                 ['xdg-autostart'],
         ]
@@ -2274,6 +2275,7 @@ subdir('src/user-sessions')
 subdir('src/userdb')
 subdir('src/validatefs')
 subdir('src/varlinkctl')
+subdir('src/varlink-monitor')
 subdir('src/vconsole')
 subdir('src/veritysetup')
 subdir('src/vmspawn')
