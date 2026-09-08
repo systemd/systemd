@@ -6948,9 +6948,9 @@ int unit_get_exec_quota_stats(Unit *u, ExecContext *c, ExecDirectoryType dt, uin
         }
 
         const char *target_dir = pp ?: p;
-        fd = open(target_dir, O_PATH | O_CLOEXEC | O_DIRECTORY);
+        fd = xopenat(AT_FDCWD, target_dir, O_PATH | O_DIRECTORY);
         if (fd < 0)
-                return log_unit_debug_errno(u, errno, "Failed to get exec quota stats: %m");
+                return log_unit_debug_errno(u, fd, "Failed to get exec quota stats: %m");
 
         uint32_t proj_id;
         r = read_fs_xattr_fd(fd, /* ret_xflags= */ NULL, &proj_id);
