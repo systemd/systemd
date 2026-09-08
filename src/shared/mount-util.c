@@ -545,9 +545,9 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
         assert(path);
         assert(mount_propagation_flag_is_valid(mount_propagation_flag));
 
-        fd_newroot = open(path, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        fd_newroot = xopenat(AT_FDCWD, path, O_PATH|O_DIRECTORY|O_NOFOLLOW);
         if (fd_newroot < 0)
-                return log_debug_errno(errno, "Failed to open new rootfs '%s': %m", path);
+                return log_debug_errno(fd_newroot, "Failed to open new rootfs '%s': %m", path);
 
         is_current_root = path_is_root_at(fd_newroot, NULL);
         if (is_current_root < 0)
@@ -823,9 +823,9 @@ int umountat_detach_verbose(
         if (isempty(where))
                 mnt_fd = fd;
         else {
-                inode_fd = openat(fd, where, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                inode_fd = xopenat(fd, where, O_PATH|O_NOFOLLOW);
                 if (inode_fd < 0)
-                        return log_full_errno(error_log_level, errno, "Failed to pin '%s': %m", strna(joined));
+                        return log_full_errno(error_log_level, inode_fd, "Failed to pin '%s': %m", strna(joined));
 
                 mnt_fd = inode_fd;
         }

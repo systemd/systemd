@@ -1310,14 +1310,14 @@ static int condition_test_kernel_module_loaded(Condition *c, char **env) {
         if (!p)
                 return log_oom_debug();
 
-        _cleanup_close_ int dir_fd = open(p, O_PATH|O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, p, O_PATH|O_DIRECTORY);
         if (dir_fd < 0) {
-                if (errno == ENOENT) {
-                        log_debug_errno(errno, "'%s/' does not exist, kernel module '%s' not loaded.", p, normalized);
+                if (dir_fd == -ENOENT) {
+                        log_debug_errno(dir_fd, "'%s/' does not exist, kernel module '%s' not loaded.", p, normalized);
                         return false;
                 }
 
-                return log_debug_errno(errno, "Failed to open directory '%s/': %m", p);
+                return log_debug_errno(dir_fd, "Failed to open directory '%s/': %m", p);
         }
 
         _cleanup_free_ char *initstate = NULL;
