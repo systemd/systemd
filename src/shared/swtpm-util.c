@@ -247,7 +247,7 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
                 return log_error_errno(r, "Failed to sync TPM state directory: %m");
 
         /* Marker, written last, signals that manufacturing completed successfully. */
-        _cleanup_close_ int marker_fd = xopenat(state_dir_fd, SWTPM_MANUFACTURED_MARKER, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOFOLLOW);
+        _cleanup_close_ int marker_fd = xopenat(state_dir_fd, SWTPM_MANUFACTURED_MARKER, O_WRONLY|O_CREAT|O_NOFOLLOW);
         if (marker_fd < 0)
                 return log_error_errno(marker_fd, "Failed to write '%s' marker: %m", SWTPM_MANUFACTURED_MARKER);
 

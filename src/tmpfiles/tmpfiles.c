@@ -872,7 +872,7 @@ static int dir_cleanup(
                                 continue;
 
                         if (!arg_dry_run) {
-                                fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
+                                fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0 && !IN_SET(fd, -ENOENT, -ELOOP))
                                         log_warning_errno(fd, "Opening file \"%s\" failed, proceeding without lock: %m", sub_path);
                                 if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
@@ -1929,7 +1929,7 @@ static int fd_set_attribute(
         if (!arg_dry_run) {
                 _cleanup_close_ int procfs_fd = -EBADF;
 
-                procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
+                procfs_fd = fd_reopen(fd, O_RDONLY|O_NOATIME);
                 if (procfs_fd < 0)
                         return log_error_errno(procfs_fd, "Failed to reopen '%s': %m", path);
 
@@ -3682,7 +3682,7 @@ static int clean_remove_item_instance_at(
 
         _cleanup_close_ int lock_fd = -EBADF;
         if (!arg_dry_run) {
-                lock_fd = xopenat(parent_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
+                lock_fd = xopenat(parent_fd, name, O_RDONLY|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
                 if (lock_fd < 0 && !IN_SET(lock_fd, -ENOENT, -ELOOP))
                         log_warning_errno(lock_fd, "Opening file \"%s\" failed, proceeding without lock: %m", instance);
 

@@ -285,7 +285,7 @@ static int save_external_coredump(
 
         (void) mkdir_parents_label(fn, 0755);
 
-        fd = open_tmpfile_linkable(fn, O_RDWR|O_CLOEXEC, &tmp);
+        fd = open_tmpfile_linkable(fn, O_RDWR, &tmp);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create temporary file for coredump %s: %m", fn);
 
@@ -369,7 +369,7 @@ static int save_external_coredump(
                 if (!fn_compressed)
                         return log_oom();
 
-                fd_compressed = open_tmpfile_linkable(fn_compressed, O_RDWR|O_CLOEXEC, &tmp_compressed);
+                fd_compressed = open_tmpfile_linkable(fn_compressed, O_RDWR, &tmp_compressed);
                 if (fd_compressed < 0)
                         return log_error_errno(fd_compressed, "Failed to create temporary file for coredump %s: %m", fn_compressed);
 

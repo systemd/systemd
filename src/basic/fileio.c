@@ -319,7 +319,7 @@ int write_string_file_full_label(
         /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
         if (isempty(fn))
                 r = fd = fd_reopen(
-                                ASSERT_FD(dir_fd), O_CLOEXEC | O_NOCTTY |
+                                ASSERT_FD(dir_fd), O_NOCTTY |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY) |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_OPEN_NONBLOCKING) ? O_NONBLOCK : 0));
@@ -336,7 +336,7 @@ int write_string_file_full_label(
                 }
 
                 r = fd = openat_report_new(
-                                dir_fd, fn, O_CLOEXEC | O_NOCTTY |
+                                dir_fd, fn, O_NOCTTY |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
                                 (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
@@ -538,7 +538,7 @@ int read_virtual_file_at(
 
         _cleanup_close_ int fd = -EBADF;
         if (isempty(filename))
-                fd = fd_reopen(ASSERT_FD(dir_fd), O_RDONLY | O_NOCTTY | O_CLOEXEC);
+                fd = fd_reopen(ASSERT_FD(dir_fd), O_RDONLY | O_NOCTTY);
         else
                 fd = RET_NERRNO(openat(dir_fd, filename, O_RDONLY | O_NOCTTY | O_CLOEXEC));
         if (fd < 0)
@@ -1720,7 +1720,7 @@ int write_data_file_atomic_at(
         }
 
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int fd = open_tmpfile_linkable_at(dir_fd, fn, O_WRONLY|O_CLOEXEC, &t);
+        _cleanup_close_ int fd = open_tmpfile_linkable_at(dir_fd, fn, O_WRONLY, &t);
         if (fd < 0)
                 return fd;
 
