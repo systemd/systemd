@@ -69,9 +69,9 @@ static int chown_recursive_internal(
 
                 /* Let's pin the child inode we want to fix now with an O_PATH fd, so that it cannot be swapped out
                  * while we manipulate it. */
-                path_fd = openat(dirfd(d), de->d_name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                path_fd = xopenat(dirfd(d), de->d_name, O_PATH|O_NOFOLLOW);
                 if (path_fd < 0)
-                        return -errno;
+                        return path_fd;
 
                 if (fstat(path_fd, &fst) < 0)
                         return -errno;
@@ -117,9 +117,9 @@ int path_chown_recursive(
 
         assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
 
-        fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOATIME|(FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : O_NOFOLLOW));
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_DIRECTORY|O_NOATIME|(FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : O_NOFOLLOW));
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (!uid_is_valid(uid) && !gid_is_valid(gid) && FLAGS_SET(mask, 07777))
                 return 0; /* nothing to do */

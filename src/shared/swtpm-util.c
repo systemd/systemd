@@ -138,9 +138,9 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
 
         assert(state_dir);
 
-        _cleanup_close_ int state_dir_fd = open(state_dir, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int state_dir_fd = xopenat(AT_FDCWD, state_dir, O_RDONLY|O_DIRECTORY);
         if (state_dir_fd < 0)
-                return log_error_errno(errno, "Failed to open TPM state directory '%s': %m", state_dir);
+                return log_error_errno(state_dir_fd, "Failed to open TPM state directory '%s': %m", state_dir);
 
         _cleanup_free_ char *swtpm_setup = NULL;
         r = find_executable("swtpm_setup", &swtpm_setup);
