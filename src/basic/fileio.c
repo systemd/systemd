@@ -1044,7 +1044,8 @@ int fopen_mode_to_flags(const char *mode) {
 }
 
 static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int open_flags, FILE **ret) {
-        FILE *f;
+        _cleanup_close_ int fd = -EBADF;
+        int mode_flags;
 
         /* A combination of fopen() with openat() */
 
@@ -1052,37 +1053,18 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
         assert(mode);
         assert(ret);
 
-        if (dir_fd == AT_FDCWD && path && open_flags == 0)
-                f = fopen(path, mode);
-        else if (dir_fd == XAT_FDROOT && path && open_flags == 0) {
-                _cleanup_free_ char *j = strjoin("/", path);
-                if (!j)
-                        return -ENOMEM;
+        mode_flags = fopen_mode_to_flags(mode);
+        if (mode_flags < 0)
+                return mode_flags;
 
-                f = fopen(j, mode);
-        } else {
-                _cleanup_close_ int fd = -EBADF;
-                int mode_flags;
+        if (isempty(path) && dir_fd == AT_FDCWD)
+                return -EBADF;
 
-                mode_flags = fopen_mode_to_flags(mode);
-                if (mode_flags < 0)
-                        return mode_flags;
+        fd = xopenat_full(dir_fd, path, mode_flags | open_flags, /* xopen_flags= */ 0, 0666);
+        if (fd < 0)
+                return fd;
 
-                if (path) {
-                        fd = openat(dir_fd, path, mode_flags | open_flags);
-                        if (fd < 0)
-                                return -errno;
-                } else {
-                        if (dir_fd == AT_FDCWD)
-                                return -EBADF;
-
-                        fd = fd_reopen(dir_fd, (mode_flags | open_flags) & ~O_NOFOLLOW);
-                        if (fd < 0)
-                                return fd;
-                }
-
-                f = take_fdopen(&fd, mode);
-        }
+        FILE *f = take_fdopen(&fd, mode);
         if (!f)
                 return -errno;
 
