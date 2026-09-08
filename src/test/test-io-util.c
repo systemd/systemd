@@ -52,7 +52,7 @@ TEST(pwritev_full) {
         uint64_t written;
         size_t n = 0;
 
-        ASSERT_OK(fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC));
+        ASSERT_OK(fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR));
 
         /* Nothing, or only empty iovecs, writes nothing */
         ASSERT_OK(pwritev_full(fd, /* iovec= */ NULL, 0, /* offset= */ 0, &written));
@@ -84,7 +84,7 @@ TEST(pwrite_full) {
         _cleanup_close_ int fd = -EBADF;
         char buf[3];
 
-        ASSERT_OK(fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC));
+        ASSERT_OK(fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR));
 
         ASSERT_OK(pwrite_full(fd, /* buf= */ NULL, /* nbytes= */ 0, /* offset= */ 0));
         ASSERT_OK(pwrite_full(fd, "abc", 3, 5));

@@ -1225,7 +1225,7 @@ static int action_manifest_or_copy_or_make_archive(DissectedImage *m, LoopDevice
         case ACTION_COPY_FROM: {
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
 
-                source_fd = chase_and_open(arg_source, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path= */ NULL);
+                source_fd = chase_and_open(arg_source, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_NOCTTY, /* ret_path= */ NULL);
                 if (source_fd < 0)
                         return log_error_errno(source_fd, "Failed to open source path '%s' in image '%s': %m", arg_source, arg_image);
 
@@ -1420,7 +1420,7 @@ static int action_manifest_or_copy_or_make_archive(DissectedImage *m, LoopDevice
                 _cleanup_close_ int tmp_fd = -EBADF;
                 int output_fd;
                 if (arg_target) {
-                        tmp_fd = open_tmpfile_linkable(arg_target, O_WRONLY|O_CLOEXEC, &tar);
+                        tmp_fd = open_tmpfile_linkable(arg_target, O_WRONLY, &tar);
                         if (tmp_fd < 0)
                                 return log_error_errno(tmp_fd, "Failed to create target file '%s': %m", arg_target);
 

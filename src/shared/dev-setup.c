@@ -93,7 +93,7 @@ int make_inaccessible_nodes(
         if (parent_fd < 0)
                 return -errno;
 
-        inaccessible_fd = open_mkdir_at_full(parent_fd, "inaccessible", O_CLOEXEC, XO_LABEL, 0755);
+        inaccessible_fd = open_mkdir_at_full(parent_fd, "inaccessible", /* flags= */ 0, XO_LABEL, 0755);
         if (inaccessible_fd < 0)
                 return inaccessible_fd;
 
