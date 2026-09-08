@@ -847,7 +847,7 @@ int open_parent_at(int dir_fd, const char *path, int flags, mode_t mode) {
         if (!FLAGS_SET(flags, O_TMPFILE))
                 flags |= O_DIRECTORY;
 
-        return RET_NERRNO(openat(dir_fd, parent, flags, mode));
+        return xopenat_full(dir_fd, parent, flags, /* xopen_flags= */ 0, mode);
 }
 
 int conservative_renameat(
@@ -1182,8 +1182,15 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
 
         assert(wildcard_fd_is_valid(dir_fd));
 
+        /* O_TMPFILE carries O_DIRECTORY, but names the parent and yields a regular file */
+        bool tmpfile = FLAGS_SET(open_flags, O_TMPFILE);
+        bool directory = FLAGS_SET(open_flags, O_DIRECTORY) && !tmpfile;
+
         /* An inode can only be one of a directory, a regular file or a socket at the same time. */
-        assert(FLAGS_SET(open_flags, O_DIRECTORY) + FLAGS_SET(xopen_flags, XO_REGULAR) + FLAGS_SET(xopen_flags, XO_SOCKET) <= 1);
+        assert(directory + FLAGS_SET(xopen_flags, XO_REGULAR) + FLAGS_SET(xopen_flags, XO_SOCKET) <= 1);
+        /* O_TMPFILE yields a nameless, regular, writable file: nothing to pin, verify, label or retry read-only */
+        assert(!tmpfile || !(open_flags & (O_PATH|O_CREAT)));
+        assert(!tmpfile || !(xopen_flags & (XO_LABEL|XO_SUBVOLUME|XO_REGULAR|XO_SOCKET|XO_TRIGGER_AUTOMOUNT|XO_AUTO_RW_RO)));
         /* Sockets cannot be open()ed, only pinned via O_PATH. */
         assert(!FLAGS_SET(xopen_flags, XO_SOCKET) || FLAGS_SET(open_flags, O_PATH));
         /* XO_TRIGGER_AUTOMOUNT requires O_PATH and does not support creating inodes. XO_SUBVOLUME
@@ -1223,15 +1230,17 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
          *   • If XO_AUTO_RW_RO is specified and the file cannot be opened in O_RDWR mode due to EACCES/EROFS or similar, retry in O_RDONLY mode.
          *
          *   • O_CLOEXEC is always set, use fd_cloexec() on the result to turn it off.
+         *
+         *   • O_TMPFILE is supported, the path then refers to the directory to create the anonymous file in.
          */
 
         open_flags |= O_CLOEXEC;
 
         if (mode == MODE_INVALID)
-                mode = (open_flags & O_DIRECTORY) ? 0755 : 0644;
+                mode = directory ? 0755 : 0644;
 
         if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
-                if (open_flags & O_DIRECTORY) {
+                if (directory) {
                         /* Directories can only be opened in read-only mode */
                         xopen_flags &= ~XO_AUTO_RW_RO;
                         open_flags |= O_RDONLY;
@@ -1284,14 +1293,14 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
         bool call_label_ops_post = false;
 
         if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
-                r = label_ops_pre(dir_fd, path, FLAGS_SET(open_flags, O_DIRECTORY) ? S_IFDIR : S_IFREG, label_context);
+                r = label_ops_pre(dir_fd, path, directory ? S_IFDIR : S_IFREG, label_context);
                 if (r < 0)
                         return r;
 
                 call_label_ops_post = true;
         }
 
-        if (FLAGS_SET(open_flags, O_DIRECTORY|O_CREAT)) {
+        if (directory && FLAGS_SET(open_flags, O_CREAT)) {
                 if (FLAGS_SET(xopen_flags, XO_SUBVOLUME))
                         r = btrfs_subvol_make_fallback(dir_fd, path, mode);
                 else
