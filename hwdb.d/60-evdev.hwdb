@@ -432,6 +432,19 @@ evdev:name:Atmel maXTouch Touch*:dmi:bvn*:bvr*:bd*:svnGOOGLE:pnSamus:*
 evdev:input:b0018v27C6p01E9*
  EVDEV_ABS_18=0:255:0:0
 
+# Goodix Capacitive TouchScreen (AYANEO Flip KB / Flip DS, main display)
+# The touch controller reports an invalid/garbage calibration range at boot
+# (observed ABS_X max as high as 65343, ABS_Y max as low as 256) due to
+# unreliable I2C communication during early boot. Override with the correct
+# panel resolution. The Flip DS is mostly identical to the Flip KB apart
+# from a second screen replacing the keyboard.
+evdev:name:Goodix Capacitive TouchScreen:dmi:*svnAYANEO:*pnFLIPKB**
+evdev:name:Goodix Capacitive TouchScreen:dmi:*svnAYANEO:*pnFLIPDS**
+ EVDEV_ABS_00=0:1199:0:0:0
+ EVDEV_ABS_01=0:1919:0:0:0
+ EVDEV_ABS_35=0:1199:0:0:0
+ EVDEV_ABS_36=0:1919:0:0:0
+
 #########################################
 # Granite Devices Simucube wheel bases
 #########################################
@@ -565,6 +578,16 @@ evdev:name:SYNA3602:00 093A:35ED Touchpad:dmi:*svnInfinix:*pnY3Max**
 #########################################
 # Lenovo
 #########################################
+
+# Lenovo B570e
+# Fixes wrong touchpad edge-scroll area: without this override the
+# kernel reports wider ABS ranges, making edge scrolling trigger across the
+# right half of the touchpad.
+evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnLENOVO*:pvrLenovoB570e:*
+ EVDEV_ABS_00=0:2934:29
+ EVDEV_ABS_01=-652:652:26
+ EVDEV_ABS_35=0:2934:29
+ EVDEV_ABS_36=-652:652:26
 
 # Lenovo B590
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrLenovoB590:*
