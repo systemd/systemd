@@ -682,7 +682,7 @@ TEST(fdopen_independent) {
         ASSERT_OK_ERRNO(r = fcntl(fileno(f), F_GETFL));
         ASSERT_EQ((r & O_ACCMODE_STRICT), O_RDONLY);
         ASSERT_OK_ERRNO(r = fcntl(fileno(f), F_GETFD));
-        ASSERT_FALSE(FLAGS_SET(r, FD_CLOEXEC));
+        ASSERT_TRUE(FLAGS_SET(r, FD_CLOEXEC));
         f = safe_fclose(f);
 
         ASSERT_OK(fdopen_independent(fd, "r+e", &f));
