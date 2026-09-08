@@ -2908,6 +2908,13 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (fd2 < 0)
                 return fd2;
 
+        /* We've historically returned non-cloexec fds. */
+        if (!FLAGS_SET(flags, O_CLOEXEC)) {
+                r = fd_cloexec(fd2, false);
+                if (r < 0)
+                        return r;
+        }
+
         if (diskseq == 0)
                 return TAKE_FD(fd2);
 
