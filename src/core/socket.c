@@ -1227,9 +1227,9 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        fd = open(path, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK | O_NOFOLLOW);
+        fd = xopenat(AT_FDCWD, path, O_RDWR | O_NOCTTY | O_NONBLOCK | O_NOFOLLOW);
         if (fd < 0) {
-                r = -errno;
+                r = fd;
                 goto fail;
         }
 
@@ -1261,9 +1261,9 @@ static int special_address_create(const char *path, bool writable) {
 
         assert(path);
 
-        fd = open(path, (writable ? O_RDWR : O_RDONLY)|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
+        fd = xopenat(AT_FDCWD, path, (writable ? O_RDWR : O_RDONLY)|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -1282,9 +1282,9 @@ static int usbffs_address_create_at(int dfd, const char *name) {
         assert(dfd >= 0);
         assert(name);
 
-        fd = openat(dfd, name, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
+        fd = xopenat(dfd, name, O_RDWR|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -1750,9 +1750,9 @@ static int socket_open_fds(Socket *orig_s) {
                 case SOCKET_USB_FUNCTION: {
                         _cleanup_close_ int dfd = -EBADF;
 
-                        dfd = open(p->path, O_DIRECTORY|O_CLOEXEC);
+                        dfd = xopenat(AT_FDCWD, p->path, O_DIRECTORY);
                         if (dfd < 0)
-                                return log_unit_error_errno(UNIT(s), errno,
+                                return log_unit_error_errno(UNIT(s), dfd,
                                                             "Failed to open USB FunctionFS dir '%s': %m", p->path);
 
                         p->fd = usbffs_address_create_at(dfd, "ep0");
