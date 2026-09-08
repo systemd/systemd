@@ -1367,12 +1367,12 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <listitem><para>Restrict the socket address families accessible to the container. Takes a
         space-separated list of address family names, such as <constant>AF_INET</constant>,
-        <constant>AF_INET6</constant> or <constant>AF_UNIX</constant>. When prefixed with
-        <literal>~</literal> the listed address families will be prohibited, otherwise they will be permitted
-        (allowlisted). Use the special value <literal>none</literal> to prohibit all address families. This
-        option may be specified more than once, in which case the configured lists are combined. If both a
-        positive and a negative list are configured, the negative list takes precedence over the positive
-        list.</para>
+        <constant>AF_INET6</constant> or <constant>AF_UNIX</constant>. The names can be specified with or
+        without the "AF_" prefix. When prefixed with <literal>~</literal> the listed address families will
+        be prohibited, otherwise they will be permitted (allowlisted). Use the special value
+        <literal>none</literal> to prohibit all address families. This option may be specified more than
+        once, in which case the configured lists are combined. If both a positive and a negative list are
+        configured, the negative list takes precedence over the positive list.</para>
 
         <para>Note that currently this option defaults to no restrictions, i.e. all address families are
         accessible. In a future version of systemd, the default will be changed to restrict address families to

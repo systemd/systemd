@@ -21,6 +21,9 @@ TEST(af_list) {
                         /* mixed case */
                         lower[1] = ascii_toupper(lower[1]);
                         ASSERT_EQ(af_from_name(lower), i);
+
+                        ASSERT_TRUE(startswith(af_names[i], "AF_"));
+                        ASSERT_EQ(af_from_name(af_names[i] + 3), i);
                 }
 
         ASSERT_NULL(af_to_name(af_max()));

@@ -2456,9 +2456,10 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         allow-list, such as <constant>AF_UNIX</constant>, <constant>AF_INET</constant> or
         <constant>AF_INET6</constant>, see
         <citerefentry project='man-pages'><refentrytitle>address_families</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for all possible options. When <literal>none</literal> is specified, then all address
-        families will be denied. When prefixed with <literal>~</literal> the listed address
-        families will be applied as deny list, otherwise as allow list.</para>
+        for all possible options. The names can be specified with or without the "AF_" prefix.
+        When <literal>none</literal> is specified, then all address families will be denied. When prefixed
+        with <literal>~</literal> the listed address families will be applied as deny list, otherwise as
+        allow list.</para>
 
         <para>By default, no restrictions apply, all address families are accessible to processes. If
         assigned the empty string, any previous address family restriction changes are undone. This setting
