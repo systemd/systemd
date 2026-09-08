@@ -287,4 +287,13 @@ TEST(zboot) {
         }
 }
 
+TEST(inspect_kernel_fd_only) {
+        _cleanup_close_ int fd = memfd_with(banner, strlen(banner));
+        KernelImageType t = _KERNEL_IMAGE_TYPE_INVALID;
+
+        /* A NULL filename inspects the fd itself, as "bootctl link" does */
+        ASSERT_OK(inspect_kernel(fd, /* filename= */ NULL, &t));
+        ASSERT_EQ(t, KERNEL_IMAGE_TYPE_UNKNOWN);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
