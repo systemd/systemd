@@ -48,6 +48,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
 static int automount_start_expire(Automount *a);
 static void automount_stop_expire(Automount *a);
 static int automount_send_ready(Automount *a, Set *tokens, int status);
+static void automount_enter_dead(Automount *a, AutomountResult f);
 
 static void automount_init(Unit *u) {
         Automount *a = ASSERT_PTR(AUTOMOUNT(u));
@@ -59,7 +60,7 @@ static void automount_init(Unit *u) {
         UNIT(a)->ignore_on_isolate = true;
 }
 
-static void unmount_autofs(Automount *a) {
+static void unmount_autofs(Automount *a, bool keep_mount_point) {
         int r;
 
         assert(a);
@@ -70,9 +71,7 @@ static void unmount_autofs(Automount *a) {
         a->pipe_event_source = sd_event_source_disable_unref(a->pipe_event_source);
         a->pipe_fd = safe_close(a->pipe_fd);
 
-        /* If we reload/reexecute things we keep the mount point around */
-        if (!IN_SET(UNIT(a)->manager->objective, MANAGER_RELOAD, MANAGER_REEXECUTE)) {
-
+        if (!keep_mount_point) {
                 /* Nothing else can answer requests the kernel already queued for us, and it keeps their
                  * processes blocked until we do. Make a failure to do so at least visible. */
                 r = automount_send_ready(a, a->tokens, -EHOSTDOWN);
@@ -90,10 +89,17 @@ static void unmount_autofs(Automount *a) {
         }
 }
 
+static bool automount_keep_mount_point(Automount *a) {
+        assert(a);
+
+        /* If we reload/reexecute things we keep the mount point around, the reloaded unit picks it up again. */
+        return IN_SET(UNIT(a)->manager->objective, MANAGER_RELOAD, MANAGER_REEXECUTE);
+}
+
 static void automount_done(Unit *u) {
         Automount *a = ASSERT_PTR(AUTOMOUNT(u));
 
-        unmount_autofs(a);
+        unmount_autofs(a, automount_keep_mount_point(a));
 
         a->where = mfree(a->where);
         a->extra_options = mfree(a->extra_options);
@@ -263,7 +269,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
                 automount_stop_expire(a);
 
         if (!IN_SET(state, AUTOMOUNT_WAITING, AUTOMOUNT_RUNNING))
-                unmount_autofs(a);
+                unmount_autofs(a, automount_keep_mount_point(a));
 
         if (state != old_state)
                 log_unit_debug(UNIT(a), "Changed %s -> %s", automount_state_to_string(old_state), automount_state_to_string(state));
@@ -291,6 +297,42 @@ static int automount_coldplug(Unit *u) {
                         return r;
 
                 assert(a->pipe_fd >= 0);
+
+                if (u->load_state != UNIT_LOADED) {
+                        struct stat st;
+
+                        /* This automount unit's file vanished while we were reloading. Nobody can serve
+                         * the autofs mount point anymore, but the kernel keeps blocking every process
+                         * that is trying to access it while the mount exists. If the mount is already
+                         * active, nothing waits for it: then only let go of the pipe. Otherwise detach
+                         * the automount and fail the unit, which is what automount_enter_running() does
+                         * with a request that arrives while the unit is not loaded. */
+                        bool exposed;
+                        if (lstat(a->where, &st) < 0) {
+                                /* Not knowing what is mounted there, giving the autofs up is the safe side */
+                                log_unit_warning_errno(u, errno, "Failed to stat automount point '%s', assuming it is exposed: %m", a->where);
+                                exposed = true;
+                        } else
+                                exposed = S_ISDIR(st.st_mode) && st.st_dev == a->dev_id;
+                        log_unit_warning(u, "Unit is not loaded anymore (%s), %s automount point '%s'.",
+                                         unit_load_state_to_string(u->load_state),
+                                         exposed ? "tearing down" : "abandoning", a->where);
+                        if (!exposed) {
+                                /* Mop up pending requests, nothing else will answer any more */
+                                r = automount_send_ready(a, a->tokens, 0);
+                                if (r < 0)
+                                        log_unit_warning_errno(u, r, "Failed to release pending automount requests, ignoring: %m");
+                                r = automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);
+                                if (r < 0)
+                                        log_unit_warning_errno(u, r, "Failed to release pending automount expire requests, ignoring: %m");
+                        }
+                        unmount_autofs(a, /* keep_mount_point= */ !exposed);
+                        /* Nobody can act on a failed unit without a file, so do not keep it around as one, like
+                         * the orphans manager_deserialize() creates for vanished unit files. */
+                        u->collect_mode = COLLECT_INACTIVE_OR_FAILED;
+                        automount_enter_dead(a, AUTOMOUNT_FAILURE_RESOURCES);
+                        return 0;
+                }
 
                 r = sd_event_add_io(u->manager->event, &a->pipe_event_source, a->pipe_fd, EPOLLIN, automount_dispatch_io, u);
                 if (r < 0)
