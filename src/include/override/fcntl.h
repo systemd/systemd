@@ -36,6 +36,12 @@
 #define AT_EXECVE_CHECK 0x10000 /* Only perform a check if execution would be allowed */
 #endif
 
+/* Not defined by glibc yet.
+ * Supported since kernel v7.2 (31cf44efa6df72a524b40adefb80539f3a4e13ba). */
+#ifndef O_EMPTYPATH
+#define O_EMPTYPATH (1 << 26)  /* allow empty path */
+#endif
+
 #ifndef FD_NSFS_ROOT
 #define FD_NSFS_ROOT -10003 /* Root of the nsfs filesystem */
 #endif
