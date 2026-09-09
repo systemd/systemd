@@ -16,11 +16,14 @@ int extension_release_validate(
                 const char *host_os_release_id_like,
                 const char *host_os_release_version_id,
                 const char *host_os_extension_release_level,
+                const char *host_os_release_image_id,
+                const char *host_os_release_image_version,
                 const char *host_extension_scope,
                 char **extension_release,
                 ImageClass image_class) {
 
-        const char *extension_release_id = NULL, *extension_release_level = NULL, *extension_architecture = NULL;
+        const char *extension_release_id = NULL, *extension_release_level = NULL, *extension_architecture = NULL,
+                   *extension_release_image_id = NULL, *extension_release_image_version = NULL;
         const char *extension_level = image_class == IMAGE_CONFEXT ? "CONFEXT_LEVEL" : "SYSEXT_LEVEL";
         const char *extension_scope = image_class == IMAGE_CONFEXT ? "CONFEXT_SCOPE" : "SYSEXT_SCOPE";
         _cleanup_strv_free_ char **id_like_l = NULL;
@@ -71,6 +74,38 @@ int extension_release_validate(
                 log_debug("Extension '%s' does not contain ID in release file but requested to match '%s' or be '_any'",
                         name, host_os_release_id);
                 return 0;
+        }
+
+        /* If the extension has an IMAGE_ID declared, then it must match the host IMAGE_ID */
+        extension_release_image_id = strv_env_pairs_get(extension_release, "IMAGE_ID");
+        if (!isempty(extension_release_image_id)) {
+                if (isempty(host_os_release_image_id)) {
+                        log_debug("Extension '%s' requires IMAGE_ID '%s', but host has no IMAGE_ID set.",
+                                  name, extension_release_image_id);
+                        return 0;
+                }
+
+                if (!streq(host_os_release_image_id, extension_release_image_id)) {
+                        log_debug("Extension '%s' is for image '%s', but deployed on top of image '%s'.",
+                                  name, extension_release_image_id, host_os_release_image_id);
+                        return 0;
+                }
+        }
+
+        /* If the extension has an IMAGE_VERSION declared, then it must match the host IMAGE_VERSION */
+        extension_release_image_version = strv_env_pairs_get(extension_release, "IMAGE_VERSION");
+        if (!isempty(extension_release_image_version)) {
+                if (isempty(host_os_release_image_version)) {
+                        log_debug("Extension '%s' requires IMAGE_VERSION '%s', but host has no IMAGE_VERSION set.",
+                                  name, extension_release_image_version);
+                        return 0;
+                }
+
+                if (!streq(host_os_release_image_version, extension_release_image_version)) {
+                        log_debug("Extension '%s' is for image version '%s', but deployed on top of image version '%s'.",
+                                  name, extension_release_image_version, host_os_release_image_version);
+                        return 0;
+                }
         }
 
         /* A sysext(or confext) with no host OS dependency (static binaries or scripts) can match
