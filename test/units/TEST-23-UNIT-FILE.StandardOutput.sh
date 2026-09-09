@@ -54,3 +54,14 @@ EOF
 cmp /tmp/stderr <<EOF
 b
 EOF
+
+# A dangling symlink as the output file is not followed when creating it: the unit must fail to start, and the
+# symlink target must not be created.
+rm -f /tmp/stdout /tmp/stdout-target
+ln -s /tmp/stdout-target /tmp/stdout
+(! systemd-run --wait --unit=TEST-23-UNIT-FILE-standard-output-five \
+            -p StandardOutput=file:/tmp/stdout \
+            -p Type=exec \
+            true)
+test ! -e /tmp/stdout-target
+rm -f /tmp/stdout
