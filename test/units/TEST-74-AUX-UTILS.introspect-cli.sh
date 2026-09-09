@@ -112,6 +112,7 @@ INTROSPECTABLE=(
     systemd-report-diskspace
     systemd-report-files
     systemd-report-hwmon
+    systemd-report-netstat
     systemd-report-sign-plain
     systemd-report-sign-tpm2
     systemd-report-sign-tsm
