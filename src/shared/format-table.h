@@ -132,8 +132,8 @@ int table_set_uppercase(Table *t, TableCell *cell, bool b);
 
 int table_update(Table *t, TableCell *cell, TableDataType type, const void *data);
 
-int table_add_many_internal(Table *t, TableDataType first_type, ...);
-#define table_add_many(t, ...) table_add_many_internal(t, __VA_ARGS__, _TABLE_DATA_TYPE_MAX)
+int table_add_many_internal(Table *t, ...);
+#define table_add_many(...) table_add_many_internal(__VA_ARGS__, _TABLE_DATA_TYPE_MAX)
 
 void table_set_header(Table *table, bool b);
 void table_set_width(Table *t, size_t width);
