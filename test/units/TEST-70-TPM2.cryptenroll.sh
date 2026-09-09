@@ -113,6 +113,15 @@ cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-uran
 varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
     "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"recovery\",\"unlockKeyFile\":\"/tmp/password\"}" | grep recoveryKey >/dev/null
 
+# Enroll a recovery key generated via MakeRecoveryKey(), unlocking via key file (cf. systemd-cryptenroll --unlock-key-file= --recovery-key)
+RECOVERY_KEY=$(varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.MakeRecoveryKey "{}" | jq -r '.recoveryKey')
+varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
+    "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"recovery\",\"recoveryKey\":\"$RECOVERY_KEY\",\"unlockKeyFile\":\"/tmp/password\"}" | grep recoveryKey >/dev/null
+
+# Fail to enroll a malformed recovery key, unlocking via key file (cf. systemd-cryptenroll --unlock-key-file= --recovery-key)
+(! varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
+    "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"recovery\",\"recoveryKey\":\"SOME_RANDOM_KEY\",\"unlockKeyFile\":\"/tmp/password\"}" | grep recoveryKey >/dev/null)
+
 # Enroll a password, unlocking via key file (cf. NEWPASSWORD=… systemd-cryptenroll --unlock-key-file= --password)
 varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
     "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"password\",\"unlockKeyFile\":\"/tmp/password\",\"password\":\"varlinkpassword\"}"
