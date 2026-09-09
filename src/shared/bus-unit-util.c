@@ -2138,7 +2138,7 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
          * a flags parameter. But these are new so we cannot change the old D-Bus signatures, hence append
          * a new message type. */
         if (have_new) {
-                const char *symlink_field = exec_directory_type_symlink_to_string(type);
+                const char *symlink_field = strjoina(exec_directory_type_to_string(type), "Symlink");
 
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
                 if (r < 0)
@@ -3292,12 +3292,11 @@ ExecDirectoryFlags exec_directory_flags_from_string(const char *s) {
 }
 
 const char* exec_directory_flags_to_string(ExecDirectoryFlags flags) {
-        switch (flags) {
-        case 0:
+        if (flags == 0)
                 return "";
-        case EXEC_DIRECTORY_READ_ONLY:
+
+        if (flags == EXEC_DIRECTORY_READ_ONLY)
                 return "ro";
-        default:
-                return NULL;
-        }
+
+        return NULL;
 }
