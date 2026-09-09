@@ -791,6 +791,9 @@ int fd_reopen(int fd, int flags) {
          *
          * This implicitly resets the file read index to 0.
          *
+         * Kernels with O_EMPTYPATH (7.2+) reopen the fd directly, older ones need /proc/self/fd/ for anything
+         * but directories.
+         *
          * If AT_FDCWD is specified as file descriptor gets an fd to the current cwd.
          *
          * If XAT_FDROOT is specified as fd get an fd to the root directory.
@@ -815,7 +818,24 @@ int fd_reopen(int fd, int flags) {
         if (fd == XAT_FDROOT)
                 return RET_NERRNO(open("/", flags | O_DIRECTORY));
 
-        if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD)
+        if (fd == AT_FDCWD)
+                return RET_NERRNO(openat(AT_FDCWD, ".", flags | O_DIRECTORY));
+
+        /* Kernels since 7.2 reopen the fd itself when passed an empty path with O_EMPTYPATH. */
+        static int have_emptypath = -1;
+        if (have_emptypath != 0) {
+                int new_fd = openat(fd, "", flags | O_EMPTYPATH);
+                if (new_fd >= 0) {
+                        have_emptypath = 1;
+                        return new_fd;
+                }
+                if (errno != ENOENT)
+                        return -errno;
+
+                have_emptypath = 0;
+        }
+
+        if (FLAGS_SET(flags, O_DIRECTORY))
                 /* If we shall reopen the fd as directory we can just go via "." and thus bypass the whole
                  * magic /proc/ directory, and make ourselves independent of that being mounted. */
                 return RET_NERRNO(openat(fd, ".", flags | O_DIRECTORY));
