@@ -113,6 +113,18 @@ cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-uran
 varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
     "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"recovery\",\"unlockKeyFile\":\"/tmp/password\"}" | grep recoveryKey >/dev/null
 
+# Enroll a recovery key generated via MakeRecoveryKey(), unlocking via key file (cf. systemd-cryptenroll --unlock-key-file= --recovery-key)
+RECOVERY_KEY=$(varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.MakeRecoveryKey "{}" | jq -r '.recoveryKey')
+test "$RECOVERY_KEY"
+
+RESULT_RECOVERY_KEY=$(varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
+    "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"recovery\",\"recoveryKey\":\"$RECOVERY_KEY\",\"unlockKeyFile\":\"/tmp/password\"}" | jq --raw-output0 '.recoveryKey')
+test "$RECOVERY_KEY" = "$RESULT_RECOVERY_KEY"
+
+# Fail to enroll a malformed recovery key, unlocking via key file (cf. systemd-cryptenroll --unlock-key-file= --recovery-key)
+(! varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
+    "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"recovery\",\"recoveryKey\":\"SOME_RANDOM_KEY\",\"unlockKeyFile\":\"/tmp/password\"}" | grep recoveryKey >/dev/null)
+
 # Enroll a password, unlocking via key file (cf. NEWPASSWORD=… systemd-cryptenroll --unlock-key-file= --password)
 varlinkctl call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
     "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"password\",\"unlockKeyFile\":\"/tmp/password\",\"password\":\"varlinkpassword\"}"
@@ -122,7 +134,7 @@ varlinkctl --push-fd=3 call "$VL_ADDRESS" io.systemd.CryptEnroll.Enroll \
     "{\"node\":\"$VL_IMAGE\",\"mechanism\":\"password\",\"unlockKeyFileDescriptor\":0,\"password\":\"fdpassword\"}" 3</tmp/password
 
 # List enrolled slots (must be called with 'more'); we should see the password and recovery slots
-varlinkctl call --more "$VL_ADDRESS" io.systemd.CryptEnroll.ListSlots "{\"node\":\"$VL_IMAGE\"}" | grep '"type":"recovery"' >/dev/null
+varlinkctl call --more "$VL_ADDRESS" io.systemd.CryptEnroll.ListSlots "{\"node\":\"$VL_IMAGE\"}" | grep -c '"type":"recovery"' | grep '2'  >/dev/null
 varlinkctl call --more "$VL_ADDRESS" io.systemd.CryptEnroll.ListSlots "{\"node\":\"$VL_IMAGE\"}" | grep '"type":"password"' >/dev/null
 
 # Enroll combined with a wipe of the recovery key slot (cf. systemd-cryptenroll --wipe-slot=recovery --password).
