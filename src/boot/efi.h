@@ -424,7 +424,11 @@ typedef struct {
                         void *ResetData);
         void *UpdateCapsule;
         void *QueryCapsuleCapabilities;
-        void *QueryVariableInfo;
+        EFI_STATUS (EFIAPI *QueryVariableInfo)(
+                        uint32_t Attributes,
+                        uint64_t *MaximumVariableStorageSize,
+                        uint64_t *RemainingVariableStorageSize,
+                        uint64_t *MaximumVariableSize);
 } EFI_RUNTIME_SERVICES;
 
 typedef struct {

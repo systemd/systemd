@@ -9,6 +9,7 @@
 #include "errno-util.h"
 #include "exec-credential.h"
 #include "execute.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "glob-util.h"

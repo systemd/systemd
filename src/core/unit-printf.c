@@ -3,7 +3,7 @@
 #include "sd-path.h"
 
 #include "alloc-util.h"
-#include "creds-util.h"
+#include "credential-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"

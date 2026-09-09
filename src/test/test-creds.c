@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "creds-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "hexdecoct.h"

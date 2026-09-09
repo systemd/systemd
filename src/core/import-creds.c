@@ -7,8 +7,10 @@
 #include "confidential-virt.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "efivars.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -28,6 +30,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "utf8.h"
 #include "virt.h"
 
 /* This imports credentials passed in from environments higher up (VM manager, boot loader, …) and rearranges
@@ -36,7 +39,7 @@
  * generators invoked by it) can acquire credentials from outside, to mimic how we support it for containers,
  * but on VM/physical environments.
  *
- * This does four things:
+ * This does five things:
  *
  * 1. It imports credentials picked up by sd-boot (and placed in the /.extra/credentials/ dir in the initrd)
  *    and puts them in /run/credentials/@encrypted/. Note that during the initrd→host transition the initrd root
@@ -44,16 +47,21 @@
  *    that these credentials originate from an untrusted source, i.e. the ESP and are not
  *    pre-authenticated. They still have to be authenticated before use.
  *
- * 2. It imports credentials from /proc/cmdline and puts them in /run/credentials/@system/. These come from a
+ * 2. It imports credentials specified interactively in sd-boot by the user at the console (and passed in a
+ *    volatile runtime EFI variable) and puts them in /run/credentials/@system/. These credentials are not
+ *    authenticated as they are typed in by the user, so there is an allowlist mechanism via a kernel command
+ *    line option when SecureBoot is enabled.
+ *
+ * 3. It imports credentials from /proc/cmdline and puts them in /run/credentials/@system/. These come from a
  *    trusted environment (i.e. the boot loader), and are typically authenticated (if authentication is done
  *    at all). However, they are world-readable, which might be less than ideal. Hence only use this for data
  *    that doesn't require trust.
  *
- * 3. It imports credentials passed in through qemu's fw_cfg logic. Specifically, credential data passed in
+ * 4. It imports credentials passed in through qemu's fw_cfg logic. Specifically, credential data passed in
  *    /sys/firmware/qemu_fw_cfg/by_name/opt/io.systemd.credentials/ is picked up and also placed in
  *    /run/credentials/@system/.
  *
- * 4. It imports credentials passed in via the DMI/SMBIOS OEM string tables, quite similar to fw_cfg. It
+ * 5. It imports credentials passed in via the DMI/SMBIOS OEM string tables, quite similar to fw_cfg. It
  *    looks for strings starting with "io.systemd.credential:" and "io.systemd.credential.binary:". Both
  *    expect a key=value assignment, but in the latter case the value is Base64 decoded, allowing binary
  *    credentials to be passed in.
@@ -321,6 +329,241 @@ static int import_credentials_boot(ImportCredentialsContext *system_ctx) {
         /* The @system credentials directory is shared with import_credentials_trusted(); the caller finalizes. */
 
         return 0;
+}
+
+static int parse_proc_cmdline_allowlist_item(const char *key, const char *value, void *data) {
+        char ***allow_list = ASSERT_PTR(data);
+        int r;
+
+        assert(key);
+
+        if (!proc_cmdline_key_streq(key, "systemd.allow_interactive_credential"))
+                return 0;
+
+        if (proc_cmdline_value_missing(key, value))
+                return 0;
+
+        if (!streq(value, "*") && !credential_name_valid(value)) {
+                log_warning("Interactive credential allowlist entry '%s' is invalid, ignoring.", value);
+                return 0;
+        }
+
+        r = strv_extend(allow_list, value);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int import_credentials_boot_interactive(ImportCredentialsContext *c) {
+        _cleanup_strv_free_ char **allow_list = NULL, **imported_names = NULL;
+        _cleanup_(erase_and_freep) char16_t *credentials = NULL;
+        _cleanup_close_ int encrypted_dir_fd = -EBADF, measure_dir_fd = -EBADF;
+        const char *encrypted_credentials_directory;
+        size_t size_sum_before;
+        unsigned n_credentials_before;
+        int r;
+
+        assert(c);
+
+        if (!in_initrd())
+                return 0;
+
+        bool import;
+        r = proc_cmdline_get_bool("systemd.import_credentials", PROC_CMDLINE_STRIP_RD_PREFIX|PROC_CMDLINE_TRUE_WHEN_MISSING, &import);
+        if (r < 0)
+                log_debug_errno(r, "Failed to check systemd.import_credentials= kernel command line option, proceeding: %m");
+        else if (!import) {
+                log_notice("systemd.import_credentials=no is set, skipping importing interactive credentials.");
+                return 0;
+        }
+
+        size_t credentials_size;
+        uint32_t attributes;
+        r = efi_get_variable(
+                        EFI_LOADER_VARIABLE_STR("LoaderInteractiveCredentials"),
+                        &attributes,
+                        (void**) &credentials,
+                        &credentials_size);
+        if (IN_SET(r, -ENOENT, -EOPNOTSUPP)) {
+                log_debug_errno(r, "No interactive credentials passed via EFI.");
+                return 0;
+        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read interactive credentials from EFI: %m");
+
+        if ((attributes & (EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS)) !=
+            (EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS))
+                return log_warning_errno(SYNTHETIC_ERRNO(EPERM), "Interactive credentials EFI variable has unexpected attributes, refusing.");
+
+        if (credentials_size == 0 || credentials_size % sizeof(char16_t) != 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Interactive credentials EFI variable has invalid size, refusing.");
+
+        /* In CVMs the serial console is under the control of the cloud provider. */
+        if (detect_confidential_virtualization() > 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EPERM), "Interactive credentials are not accepted in confidential VMs.");
+
+        /* Given these credentials are neither trusted nor authenticated, an allowlist mechanism is used. If
+         * SecureBoot is disabled, or a single item '*' is passed, accept everything. */
+        r = proc_cmdline_parse(parse_proc_cmdline_allowlist_item, &allow_list, PROC_CMDLINE_STRIP_RD_PREFIX);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse kernel command line: %m");
+
+        bool skip_allowlist = !is_efi_secure_boot() || strv_contains(allow_list, "*");
+
+        r = get_encrypted_system_credentials_dir(&encrypted_credentials_directory);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine encrypted system credentials directory: %m");
+
+        /* The selected path may be a symlink created by symlink_credential_dir(). */
+        encrypted_dir_fd = open(encrypted_credentials_directory, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (encrypted_dir_fd < 0 && errno != ENOENT)
+                return log_error_errno(errno, "Failed to open encrypted credentials directory '%s': %m", encrypted_credentials_directory);
+
+        size_sum_before = c->size_sum;
+        n_credentials_before = c->n_credentials;
+
+        for (char16_t *p = credentials; credentials_size > 0;) {
+                _cleanup_close_ int marker_fd = -EBADF, nfd = -EBADF;
+                _cleanup_(erase_and_freep) char *value_utf8 = NULL;
+                _cleanup_free_ char *name = NULL;
+                size_t name_length, value_length;
+                char16_t *name16 = p;
+
+                for (name_length = 0; name_length < credentials_size / sizeof(char16_t); name_length++)
+                        if (name16[name_length] == 0)
+                                break;
+                if (name_length == credentials_size / sizeof(char16_t)) {
+                        r = log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Interactive credentials EFI variable contains an unterminated name, refusing.");
+                        goto rollback;
+                }
+
+                char16_t *value = name16 + name_length + 1;
+                credentials_size -= (name_length + 1) * sizeof(char16_t);
+
+                for (value_length = 0; value_length < credentials_size / sizeof(char16_t); value_length++)
+                        if (value[value_length] == 0)
+                                break;
+                if (value_length == credentials_size / sizeof(char16_t)) {
+                        r = log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Interactive credentials EFI variable contains an unterminated value, refusing.");
+                        goto rollback;
+                }
+
+                p = value + value_length + 1;
+                credentials_size -= (value_length + 1) * sizeof(char16_t);
+
+                if (value_length == 0) {
+                        r = log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Interactive credentials EFI variable contains an empty value, refusing.");
+                        goto rollback;
+                }
+
+                name = utf16_to_utf8(name16, name_length * sizeof(char16_t));
+                if (!name) {
+                        r = log_oom();
+                        goto rollback;
+                }
+
+                value_utf8 = utf16_to_utf8(value, value_length * sizeof(char16_t));
+                if (!value_utf8) {
+                        r = log_oom();
+                        goto rollback;
+                }
+
+                if (name[0] == '.' || !credential_name_valid(name)) {
+                        log_warning("Credential '%s' has invalid name, ignoring.", name);
+                        continue;
+                }
+
+                if (!skip_allowlist && !strv_contains(allow_list, name)) {
+                        log_debug("Credential '%s' is not on allow list, ignoring.", name);
+                        continue;
+                }
+
+                if (encrypted_dir_fd >= 0) {
+                        r = RET_NERRNO(faccessat(encrypted_dir_fd, name, F_OK, AT_SYMLINK_NOFOLLOW));
+                        if (r >= 0) {
+                                log_warning("Credential '%s' conflicts with an encrypted credential, ignoring.", name);
+                                continue;
+                        }
+                        if (r != -ENOENT) {
+                                r = log_error_errno(r, "Failed to check for encrypted credential '%s': %m", name);
+                                goto rollback;
+                        }
+                }
+
+                size_t value_size = strlen(value_utf8);
+                if (!credential_size_ok(c, name, value_size))
+                        continue;
+
+                r = acquire_credential_directory(c, SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ true);
+                if (r < 0)
+                        goto rollback;
+
+                nfd = open_credential_file_for_write(c->target_dir_fd, SYSTEM_CREDENTIALS_DIRECTORY, name);
+                if (nfd == -EEXIST)
+                        continue;
+                if (nfd < 0) {
+                        r = nfd;
+                        goto rollback;
+                }
+
+                r = loop_write(nfd, value_utf8, value_size);
+                if (r < 0) {
+                        (void) unlinkat(c->target_dir_fd, name, 0);
+                        r = log_error_errno(r, "Failed to create credential '%s': %m", name);
+                        goto rollback;
+                }
+
+                if (measure_dir_fd < 0) {
+                        r = mkdir_p_label(CREDENTIALS_MEASURE_DIRECTORY, 0700);
+                        if (r < 0) {
+                                (void) unlinkat(c->target_dir_fd, name, 0);
+                                r = log_error_errno(r, "Failed to create credential measurement directory: %m");
+                                goto rollback;
+                        }
+
+                        measure_dir_fd = open(CREDENTIALS_MEASURE_DIRECTORY, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                        if (measure_dir_fd < 0) {
+                                (void) unlinkat(c->target_dir_fd, name, 0);
+                                r = log_error_errno(errno, "Failed to open credential measurement directory: %m");
+                                goto rollback;
+                        }
+                }
+
+                marker_fd = openat(measure_dir_fd, name, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW, 0600);
+                if (marker_fd < 0) {
+                        (void) unlinkat(c->target_dir_fd, name, 0);
+                        r = log_error_errno(errno, "Failed to mark credential '%s' for measurement: %m", name);
+                        goto rollback;
+                }
+
+                r = strv_extend(&imported_names, name);
+                if (r < 0) {
+                        (void) unlinkat(measure_dir_fd, name, 0);
+                        (void) unlinkat(c->target_dir_fd, name, 0);
+                        r = log_oom();
+                        goto rollback;
+                }
+
+                c->size_sum += value_size;
+                c->n_credentials++;
+
+                log_debug("Successfully imported boot menu interactive credential '%s'.", name);
+        }
+
+        return 0;
+
+rollback:
+        STRV_FOREACH(name, imported_names) {
+                if (unlinkat(measure_dir_fd, *name, 0) < 0 && errno != ENOENT)
+                        log_warning_errno(errno, "Failed to roll back credential measurement marker '%s', ignoring: %m", *name);
+                if (unlinkat(c->target_dir_fd, *name, 0) < 0 && errno != ENOENT)
+                        log_warning_errno(errno, "Failed to roll back interactive credential '%s', ignoring: %m", *name);
+        }
+
+        c->size_sum = size_sum_before;
+        c->n_credentials = n_credentials_before;
+        return r;
 }
 
 static int proc_cmdline_callback(const char *key, const char *value, void *data) {
@@ -763,9 +1006,10 @@ static int import_credentials_trusted(ImportCredentialsContext *c) {
         RET_GATHER(ret, import_credentials_smbios(c));
         RET_GATHER(ret, import_credentials_proc_cmdline(c));
         RET_GATHER(ret, import_credentials_initrd(c));
+        RET_GATHER(ret, import_credentials_boot_interactive(c));
 
         if (c->n_credentials > n_before)
-                log_debug("Imported %u credentials from kernel command line/smbios/fw_cfg/initrd.", c->n_credentials - n_before);
+                log_debug("Imported %u credentials from kernel command line/smbios/fw_cfg/initrd/boot menu.", c->n_credentials - n_before);
 
         /* The @system credentials directory is shared with import_credentials_boot(); the caller finalizes. */
 
@@ -778,24 +1022,31 @@ static int merge_credentials_trusted(const char *creds_dir) {
         };
         int r;
 
-        /* This is invoked after the initrd → host transitions, when credentials already have been imported,
-         * but we might want to import some more from the initrd. */
+        if (in_initrd()) {
+                if (creds_dir && !path_equal(creds_dir, SYSTEM_CREDENTIALS_DIRECTORY)) {
+                        log_debug("Not importing interactive credentials, as foreign $CREDENTIALS_DIRECTORY has been set.");
+                        return 0;
+                }
 
-        if (in_initrd())
-                return 0;
+                r = import_credentials_boot_interactive(&c);
+        } else {
+                if (!creds_dir) {
+                        log_debug("Not importing initrd credentials, as $CREDENTIALS_DIRECTORY is not set.");
+                        return 0;
+                }
+                if (!path_equal(creds_dir, SYSTEM_CREDENTIALS_DIRECTORY)) {
+                        log_debug("Not importing initrd credentials, as foreign $CREDENTIALS_DIRECTORY has been set.");
+                        return 0;
+                }
 
-        /* Do not try to merge initrd credentials into foreign credentials directories */
-        if (!path_equal(creds_dir, SYSTEM_CREDENTIALS_DIRECTORY)) {
-                log_debug("Not importing initrd credentials, as foreign $CREDENTIALS_DIRECTORY has been set.");
-                return 0;
+                r = import_credentials_initrd(&c);
         }
 
-        r = import_credentials_initrd(&c);
-
-        if (c.n_credentials > 0) {
+        if (c.target_dir_fd >= 0) {
                 int z;
 
-                log_debug("Merged %u credentials from initrd.", c.n_credentials);
+                if (c.n_credentials > 0)
+                        log_debug("Merged %u additional credentials.", c.n_credentials);
 
                 z = finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY");
                 if (z < 0)

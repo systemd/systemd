@@ -411,6 +411,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         { EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS,   "Loader reports active TPM2 PCR banks"    },
                         { EFI_LOADER_FEATURE_KEYBOARD_LAYOUT,         "Loader reports firmware keyboard layout" },
                         { EFI_LOADER_FEATURE_SMBIOS_MEASURED,         "Loader measures SMBIOS information"      },
+                        { EFI_LOADER_FEATURE_INTERACTIVE_CREDENTIALS, "Menu allows typing in credentials"       },
                 };
                 static const struct {
                         uint64_t flag;

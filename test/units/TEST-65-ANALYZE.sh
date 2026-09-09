@@ -1115,7 +1115,7 @@ systemd-analyze pcrs 14 7 0 ima
 if systemd-analyze has-tpm2 -q ; then
     systemd-analyze nvpcrs
     systemd-analyze nvpcrs --json=pretty
-    systemd-analyze nvpcrs hardware cryptsetup
+    systemd-analyze nvpcrs hardware cryptsetup interactive-credentials
 fi
 
 systemd-analyze architectures

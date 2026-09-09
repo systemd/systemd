@@ -14,6 +14,7 @@
 #include "blockdev-util.h"
 #include "chattr-util.h"
 #include "copy.h"
+#include "credential-util.h"
 #include "creds-util.h"
 #include "crypto-util.h"
 #include "efi-api.h"

@@ -109,6 +109,13 @@ Variables will be listed below using the Linux efivarfs naming,
   It is set by the boot loader and read by the OS
   in order to identify which entry has been used for the current boot.
 
+* The EFI variable `LoaderInteractiveCredentials-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
+  contains credentials entered interactively in the boot loader. It must be a
+  volatile, runtime and bootime variable. It contains pairs of individually
+  NUL-terminated UTF-16 strings. The first string of each pair is the credential name
+  and the second is its value. The OS leaves the variable unchanged after reading it;
+  firmware discards it on reboot together with other volatile variables.
+
 * The EFI variable `LoaderFeatures-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains a 64-bit unsigned integer with a number of flags bits
   that are set by the boot loader and passed to the OS
@@ -147,6 +154,8 @@ Variables will be listed below using the Linux efivarfs naming,
                 EFI variable `LoaderKeyboardLayout-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
   * `1 << 21` → The boot loader measures SMBIOS information into a TPM2 PCR and reports the PCR index in the
                 EFI variable `LoaderPcrSMBIOS-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
+  * `1 << 22` → The boot loader allows credentials to be entered interactively and passes them to the OS in
+                the `LoaderInteractiveCredentials-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f` EFI variable.
 
 * The EFI variable `LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains binary random data,

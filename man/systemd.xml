@@ -960,9 +960,20 @@
 
         <listitem><para>Takes a boolean argument. If false disables importing credentials from the kernel
         command line, the DMI/SMBIOS OEM string table, the qemu_fw_cfg subsystem or the EFI kernel
-        stub.</para>
+        stub, as well as credentials entered interactively in the boot loader menu.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.allow_interactive_credential=</varname></term>
+
+        <listitem><para>Allow the specified credential name to be imported when it was entered interactively
+        in the boot loader. This option may be specified more than once to allow multiple credentials. If the
+        value is <literal>*</literal>, all valid credential names are allowed. This allowlist is enforced when
+        Secure Boot is enabled; when Secure Boot is disabled all valid names are accepted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
