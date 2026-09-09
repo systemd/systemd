@@ -2596,6 +2596,104 @@ static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware
         return 0;
 }
 
+/* Bound the total volume of qemu stderr we forward to the journal, so a hostile guest that
+ * makes qemu emit diagnostics can't flood the host log. */
+#define QEMU_STDERR_LOG_MAX (64U*1024U)
+
+typedef struct QemuStderrContext {
+        int fd;                 /* Borrowed read end of stderr pipe. */
+        LineBuffer buffer;
+        sd_future *fiber;       /* Reader fiber, owned. */
+        size_t n_logged;        /* Bytes forwarded, capped at QEMU_STDERR_LOG_MAX. */
+        bool suppressed;
+} QemuStderrContext;
+
+static void log_qemu_stderr_line(const char *line, size_t len, void *userdata) {
+        QemuStderrContext *c = ASSERT_PTR(userdata);
+
+        assert(line);
+
+        if (len == 0 || c->suppressed)
+                return;
+
+        bool hit_limit = c->n_logged + len >= QEMU_STDERR_LOG_MAX;
+        if (hit_limit) {
+                len = QEMU_STDERR_LOG_MAX - c->n_logged;
+                c->suppressed = true;
+        }
+
+        c->n_logged += len;
+
+        /* Lines can carry arbitrary bytes, and we don't want control sequences from a
+         * VM reaching the terminal we log to. */
+        _cleanup_free_ char *bounded = strndup(line, len);
+        _cleanup_free_ char *escaped = bounded ? utf8_escape_non_printable(bounded) : NULL;
+        if (!escaped)
+                return (void) log_oom_debug();
+
+        /* qemu prefixes its messages with its binary name, so no extra attribution is needed. */
+        log_warning("%s", escaped);
+
+        if (hit_limit)
+                log_warning("Too much qemu stderr output, suppressing the rest.");
+}
+
+static int qemu_stderr_pump(QemuStderrContext *c, bool on_fiber) {
+        assert(c);
+        assert(c->fd >= 0);
+
+        for (;;) {
+                char buf[4096];
+                ssize_t n;
+
+                if (on_fiber) {
+                        n = sd_fiber_read(c->fd, buf, sizeof(buf));
+                        /* spurious wake-up: sd_fiber_read() retries only once */
+                        if (n == -EINTR || n == -EAGAIN)
+                                continue;
+                        if (n == -ECANCELED)
+                                return (int) n;
+                } else {
+                        n = read(c->fd, buf, sizeof(buf));
+                        if (n < 0) {
+                                if (errno == EINTR)
+                                        continue;
+                                if (errno == EAGAIN) /* Nothing queued anymore, we are done. */
+                                        break;
+
+                                n = -errno;
+                        }
+                }
+                if (n < 0) {
+                        log_warning_errno((int) n, "Failed to read qemu stderr, ignoring: %m");
+                        break;
+                }
+                if (n == 0) /* EOF, qemu closed its stderr */
+                        break;
+
+                if (line_buffer_feed(&c->buffer, buf, (size_t) n, log_qemu_stderr_line, c) < 0)
+                        return log_oom();
+        }
+
+        line_buffer_flush(&c->buffer, log_qemu_stderr_line, c);
+        return 0;
+}
+
+static int qemu_stderr_fiber(void *userdata) {
+        return qemu_stderr_pump(ASSERT_PTR(userdata), /* on_fiber= */ true);
+}
+
+static void qemu_stderr_context_done(QemuStderrContext *c) {
+        assert(c);
+
+        /* The reader fiber is nested in the main fiber, so unwinding it is our responsibility. Cancel
+         * and wait for it, then drain anything still queued and flush the final partial line. */
+        c->fiber = sd_future_cancel_wait_unref(c->fiber);
+        if (c->fd >= 0)
+                (void) qemu_stderr_pump(c, /* on_fiber= */ false);
+        line_buffer_done(&c->buffer);
+}
+
 static int vm_setup_qmp(
                 sd_event *event,
                 MachineConfig *config,
@@ -3887,6 +3985,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
+        /* Capture qemu's stderr via a pipe, so it doesn't interleave with the guest console on the PTY,
+         * and so that early startup failures are visible in all console modes. */
+        _cleanup_close_pair_ int qemu_stderr_pipe[2] = EBADF_PAIR;
+        if (pipe2(qemu_stderr_pipe, O_CLOEXEC) < 0)
+                return log_error_errno(errno, "Failed to allocate qemu stderr pipe: %m");
+
+        r = fd_nonblock(qemu_stderr_pipe[0], true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make qemu stderr pipe non-blocking: %m");
+
+        _cleanup_(qemu_stderr_context_done) QemuStderrContext qemu_stderr = {
+                .fd = qemu_stderr_pipe[0],
+        };
+
         _cleanup_close_ int child_pty = -EBADF;
         if (master >= 0) {
                 child_pty = pty_open_peer(master, O_RDWR|O_CLOEXEC|O_NOCTTY);
@@ -3898,10 +4010,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(pidref_done_sigterm_wait) PidRef child_pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         qemu_binary,
-                        child_pty >= 0 ? (const int[]) { child_pty, child_pty, child_pty } : NULL,
+                        (const int[]) {
+                                child_pty >= 0 ? child_pty : STDIN_FILENO,
+                                child_pty >= 0 ? child_pty : STDOUT_FILENO,
+                                qemu_stderr_pipe[1],
+                        },
                         pass_fds, n_pass_fds,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE|
-                        (child_pty >= 0 ? FORK_REARRANGE_STDIO : 0),
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
                         &child_pidref);
         if (r < 0)
                 return r;
@@ -3917,9 +4032,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _exit(EXIT_FAILURE);
         }
 
-        /* Close QEMU's end of the QMP socketpair in the parent. We don't need it anymore. */
+        /* Close QEMU's end of the PTY, the QMP socketpair and the stderr pipe in the parent.
+         * We don't need them anymore. */
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
+        qemu_stderr_pipe[1] = safe_close(qemu_stderr_pipe[1]);
 
         /* Resolve the exit future when the child exits */
         _cleanup_(sd_event_source_unrefp) sd_event_source *child_source = NULL;
@@ -3929,6 +4046,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         (void) sd_event_source_set_priority(child_source, SD_EVENT_PRIORITY_NORMAL - 10);
         (void) sd_event_source_set_description(child_source, "vmspawn-qemu-exit");
+
+        r = sd_fiber_new(event, "qemu-stderr", qemu_stderr_fiber, &qemu_stderr, /* destroy= */ NULL, &qemu_stderr.fiber);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate qemu stderr fiber: %m");
+
+        r = sd_future_set_priority(qemu_stderr.fiber, SD_EVENT_PRIORITY_NORMAL - 20);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set qemu stderr fiber priority: %m");
 
         r = prepare_device_info(runtime_dir, &config);
         if (r < 0)

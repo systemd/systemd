@@ -10,6 +10,7 @@
 #include "rm-rf.h"
 #include "set.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "vmspawn-util.h"
@@ -214,6 +215,71 @@ TEST(find_ovmf_config) {
         ASSERT_TRUE(sd_json_variant_is_object(json));
 
         ASSERT_OK_ERRNO(unsetenv("XDG_CONFIG_HOME"));
+}
+
+static void collect_line(const char *line, size_t len, void *userdata) {
+        char ***lines = ASSERT_PTR(userdata);
+        _cleanup_free_ char *copy = strndup(line, len);
+        ASSERT_NOT_NULL(copy);
+        ASSERT_OK(strv_consume(lines, TAKE_PTR(copy)));
+}
+
+TEST(line_buffer) {
+        _cleanup_(line_buffer_done) LineBuffer b = {};
+        _cleanup_strv_free_ char **lines = NULL;
+
+        ASSERT_OK(line_buffer_feed(&b, "foo\nbar\nba", 10, collect_line, &lines));
+        ASSERT_EQ(strv_length(lines), 2u);
+        ASSERT_STREQ(lines[0], "foo");
+        ASSERT_STREQ(lines[1], "bar");
+
+        ASSERT_OK(line_buffer_feed(&b, "z\n", 2, collect_line, &lines));   /* stitches "ba"+"z" */
+        ASSERT_STREQ(lines[2], "baz");
+
+        ASSERT_OK(line_buffer_feed(&b, "\n", 1, collect_line, &lines));    /* empty line */
+        ASSERT_STREQ(lines[3], "");
+
+        ASSERT_OK(line_buffer_feed(&b, "tail", 4, collect_line, &lines));  /* no newline */
+        ASSERT_EQ(strv_length(lines), 4u);
+        line_buffer_flush(&b, collect_line, &lines);
+        ASSERT_STREQ(lines[4], "tail");
+
+        line_buffer_flush(&b, collect_line, &lines);                       /* no-op */
+        ASSERT_EQ(strv_length(lines), 5u);
+
+        /* overlong line: forced break at LINE_MAX */
+        _cleanup_free_ char *big = new(char, LINE_MAX + 2);
+        ASSERT_NOT_NULL(big);
+        memset(big, 'x', LINE_MAX + 2);
+        ASSERT_OK(line_buffer_feed(&b, big, LINE_MAX + 2, collect_line, &lines));
+        ASSERT_EQ(strv_length(lines), 6u);
+        ASSERT_EQ(strlen(lines[5]), (size_t) LINE_MAX);
+        ASSERT_EQ(b.len, 2u);
+        line_buffer_flush(&b, collect_line, &lines);
+        ASSERT_STREQ(lines[6], "xx");
+
+        /* NUL breaks a line, just like LF */
+        ASSERT_OK(line_buffer_feed(&b, "a\0b\n", 4, collect_line, &lines));
+        ASSERT_EQ(strv_length(lines), 9u);
+        ASSERT_STREQ(lines[7], "a");
+        ASSERT_STREQ(lines[8], "b");
+
+        /* forced break with something already buffered: the break has to account for that */
+        ASSERT_OK(line_buffer_feed(&b, "abc", 3, collect_line, &lines));
+        ASSERT_EQ(strv_length(lines), 9u);
+        ASSERT_EQ(b.len, 3u);
+        ASSERT_OK(line_buffer_feed(&b, big, LINE_MAX, collect_line, &lines));
+        ASSERT_EQ(strv_length(lines), 10u);
+        ASSERT_EQ(strlen(lines[9]), (size_t) LINE_MAX);
+        ASSERT_NOT_NULL(startswith(lines[9], "abc"));
+        ASSERT_EQ(b.len, 3u);
+        line_buffer_flush(&b, collect_line, &lines);
+        ASSERT_STREQ(lines[10], "xxx");
+
+        /* exactly LINE_MAX without a line break is buffered, not emitted */
+        ASSERT_OK(line_buffer_feed(&b, big, LINE_MAX, collect_line, &lines));
+        ASSERT_EQ(strv_length(lines), 11u);
+        ASSERT_EQ(b.len, (size_t) LINE_MAX);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
