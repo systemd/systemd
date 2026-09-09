@@ -255,7 +255,7 @@ static int raw_export_on_defer(sd_event_source *s, void *userdata) {
 static int reflink_snapshot(int fd, const char *path) {
         int new_fd, r;
 
-        new_fd = open_parent(path, O_TMPFILE|O_CLOEXEC|O_RDWR, 0600);
+        new_fd = open_parent(path, O_TMPFILE|O_RDWR, 0600);
         if (new_fd < 0) {
                 _cleanup_free_ char *t = NULL;
 
@@ -263,9 +263,9 @@ static int reflink_snapshot(int fd, const char *path) {
                 if (r < 0)
                         return r;
 
-                new_fd = open(t, O_CLOEXEC|O_CREAT|O_NOCTTY|O_RDWR, 0600);
+                new_fd = xopenat_full(AT_FDCWD, t, O_CREAT|O_NOCTTY|O_RDWR, /* xopen_flags= */ 0, 0600);
                 if (new_fd < 0)
-                        return -errno;
+                        return new_fd;
 
                 (void) unlink(t);
         }
@@ -300,9 +300,9 @@ int raw_export_start(RawExport *e, const char *path, int fd, Compression compres
         if (r < 0)
                 return r;
 
-        sfd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        sfd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY);
         if (sfd < 0)
-                return -errno;
+                return sfd;
 
         if (fstat(sfd, &e->st) < 0)
                 return -errno;

@@ -104,7 +104,7 @@ TEST(id128) {
         ASSERT_FALSE(id128_is_valid("01020304-0506-0708-090a0b0c0d0e0f10"));
         ASSERT_FALSE(id128_is_valid("010203040506-0708-090a-0b0c0d0e0f10"));
 
-        fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC);
+        fd = open_tmpfile_unlinkable(NULL, O_RDWR);
         ASSERT_OK(fd);
 
         /* First, write as UUID */
@@ -299,7 +299,7 @@ TEST(id128_at) {
         ASSERT_OK_ERRNO(unlinkat(tfd, "etc/machine-id", 0));
         ASSERT_OK(id128_write_at(tfd, "etc2/machine-id", ID128_FORMAT_PLAIN, id));
         ASSERT_OK_ERRNO(unlinkat(tfd, "etc/machine-id", 0));
-        ASSERT_ERROR(id128_write_at(tfd, "etc/hoge-id", ID128_FORMAT_PLAIN, id), EEXIST);
+        ASSERT_ERROR(id128_write_at(tfd, "etc/hoge-id", ID128_FORMAT_PLAIN, id), ELOOP); /* dangling symlink */
         ASSERT_OK(id128_write_at(tfd, "etc2/machine-id", ID128_FORMAT_PLAIN, id));
 
         /* id128_read_at() */

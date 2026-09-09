@@ -3408,7 +3408,7 @@ static int make_tmp_prefix(const char *prefix) {
 
         /* umask will corrupt this access mode, but that doesn't matter, we need to call chmod() anyway for
          * the suid bit, below. */
-        fd = open_mkdir(t, O_EXCL|O_CLOEXEC, 0777);
+        fd = open_mkdir(t, O_EXCL, 0777);
         if (fd < 0)
                 return fd;
 
@@ -3543,9 +3543,9 @@ int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
                 (void) loopback_setup();
 
         ns_path = strjoina("/proc/self/ns/", ns_name);
-        ns = open(ns_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        ns = xopenat(AT_FDCWD, ns_path, O_RDONLY|O_NOCTTY);
         if (ns < 0)
-                return -errno;
+                return ns;
 
         r = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
         if (r < 0)
@@ -3585,9 +3585,9 @@ int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, un
 
         /* Nothing stored yet. Open the file from the file system. */
 
-        ns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        ns = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY);
         if (ns < 0)
-                return -errno;
+                return ns;
 
         r = fd_is_namespace(ns, type);
         if (r < 0)

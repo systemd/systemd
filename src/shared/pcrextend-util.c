@@ -205,7 +205,7 @@ int pcrextend_file_system_word(const char *path, char **ret_word, char **ret_nor
         assert(path);
         assert(ret_word);
 
-        dfd = chase_and_open(path, NULL, 0, O_DIRECTORY|O_CLOEXEC, &normalized_path);
+        dfd = chase_and_open(path, NULL, 0, O_DIRECTORY, &normalized_path);
         if (dfd < 0)
                 return log_error_errno(dfd, "Failed to open path '%s': %m", path);
 

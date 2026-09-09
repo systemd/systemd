@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "ima-setup.h"
 #include "log.h"
 
@@ -39,9 +40,9 @@ int ima_setup(void) {
                 return 0;
         }
 
-        imafd = open(IMA_SECFS_POLICY, O_WRONLY|O_CLOEXEC);
+        imafd = xopenat(AT_FDCWD, IMA_SECFS_POLICY, O_WRONLY);
         if (imafd < 0) {
-                log_error_errno(errno, "Failed to open the IMA kernel interface "IMA_SECFS_POLICY", ignoring: %m");
+                log_error_errno(imafd, "Failed to open the IMA kernel interface "IMA_SECFS_POLICY", ignoring: %m");
                 return 0;
         }
 
@@ -58,9 +59,9 @@ int ima_setup(void) {
 
         safe_close(imafd);
 
-        imafd = open(IMA_SECFS_POLICY, O_WRONLY|O_CLOEXEC);
+        imafd = xopenat(AT_FDCWD, IMA_SECFS_POLICY, O_WRONLY);
         if (imafd < 0) {
-                log_error_errno(errno, "Failed to open the IMA kernel interface "IMA_SECFS_POLICY", ignoring: %m");
+                log_error_errno(imafd, "Failed to open the IMA kernel interface "IMA_SECFS_POLICY", ignoring: %m");
                 return 0;
         }
 

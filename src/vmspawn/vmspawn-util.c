@@ -12,6 +12,7 @@
 #include "conf-files.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
@@ -120,19 +121,19 @@ int qemu_check_vsock_support(void) {
          * If not this should return ENODEV.
          */
 
-        fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, "/dev/vhost-vsock", O_RDWR);
         if (fd >= 0)
                 return true;
-        if (ERRNO_IS_DEVICE_ABSENT(errno)) {
-                log_debug_errno(errno, "/dev/vhost-vsock device doesn't exist. Not adding a vsock device to the virtual machine.");
+        if (ERRNO_IS_DEVICE_ABSENT(fd)) {
+                log_debug_errno(fd, "/dev/vhost-vsock device doesn't exist. Not adding a vsock device to the virtual machine.");
                 return false;
         }
-        if (ERRNO_IS_PRIVILEGE(errno)) {
-                log_debug_errno(errno, "Permission denied to access /dev/vhost-vsock. Not adding a vsock device to the virtual machine.");
+        if (ERRNO_IS_PRIVILEGE(fd)) {
+                log_debug_errno(fd, "Permission denied to access /dev/vhost-vsock. Not adding a vsock device to the virtual machine.");
                 return false;
         }
 
-        return -errno;
+        return fd;
 }
 
 typedef struct FirmwareTarget {

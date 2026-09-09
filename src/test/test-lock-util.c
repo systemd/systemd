@@ -44,7 +44,7 @@ static void test_lock_generic_with_timeout_for_type(LockType type) {
         tfd = mkdtemp_open(NULL, 0, &t);
         assert_se(tfd >= 0);
 
-        tfd2 = fd_reopen(tfd, O_CLOEXEC|O_DIRECTORY);
+        tfd2 = fd_reopen(tfd, O_DIRECTORY);
         assert_se(tfd2 >= 0);
 
         assert_se(lock_generic(tfd, LOCK_BSD, LOCK_EX) >= 0);

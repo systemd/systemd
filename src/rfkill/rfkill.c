@@ -16,6 +16,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "list.h"
 #include "main-func.h"
@@ -285,14 +286,14 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got too many file descriptors.");
 
         if (n == 0) {
-                c.rfkill_fd = open("/dev/rfkill", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                c.rfkill_fd = xopenat(AT_FDCWD, "/dev/rfkill", O_RDWR|O_NOCTTY|O_NONBLOCK);
                 if (c.rfkill_fd < 0) {
-                        if (errno == ENOENT) {
-                                log_debug_errno(errno, "Missing rfkill subsystem, or no device present, exiting.");
+                        if (c.rfkill_fd == -ENOENT) {
+                                log_debug_errno(c.rfkill_fd, "Missing rfkill subsystem, or no device present, exiting.");
                                 return 0;
                         }
 
-                        return log_error_errno(errno, "Failed to open %s: %m", "/dev/rfkill");
+                        return log_error_errno(c.rfkill_fd, "Failed to open %s: %m", "/dev/rfkill");
                 }
         } else {
                 c.rfkill_fd = SD_LISTEN_FDS_START;

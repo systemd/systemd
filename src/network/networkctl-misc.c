@@ -6,6 +6,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-ifname.h"
+#include "fs-util.h"
 #include "log.h"
 #include "netlink-util.h"
 #include "networkctl.h"
@@ -143,9 +144,9 @@ int verb_persistent_storage(int argc, char *argv[], uintptr_t _data, void *userd
         if (ready) {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY);
+                fd = xopenat(AT_FDCWD, "/var/lib/systemd/network/", O_DIRECTORY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", "/var/lib/systemd/network/");
+                        return log_error_errno(fd, "Failed to open %s: %m", "/var/lib/systemd/network/");
 
                 r = sd_varlink_push_fd(vl, fd);
                 if (r < 0)

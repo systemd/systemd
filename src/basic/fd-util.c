@@ -706,10 +706,10 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
         if (null_readable || null_writable) {
 
                 /* Let's open this with O_CLOEXEC first, and convert it to non-O_CLOEXEC when we move the fd to the final position. */
-                null_fd = open("/dev/null", (null_readable && null_writable ? O_RDWR :
-                                             null_readable ? O_RDONLY : O_WRONLY) | O_CLOEXEC);
+                null_fd = xopenat(AT_FDCWD, "/dev/null", (null_readable && null_writable ? O_RDWR :
+                                                          null_readable ? O_RDONLY : O_WRONLY));
                 if (null_fd < 0) {
-                        r = -errno;
+                        r = null_fd;
                         goto finish;
                 }
 
@@ -798,7 +798,11 @@ int fd_reopen(int fd, int flags) {
          * If the specified file descriptor refers to a symlink via O_PATH, then this function cannot be used
          * to follow that symlink. Because we cannot have non-O_PATH fds to symlinks reopening it without
          * O_PATH will always result in -ELOOP. Or in other words: if you have an O_PATH fd to a symlink you
-         * can reopen it only if you pass O_PATH again. */
+         * can reopen it only if you pass O_PATH again.
+         *
+         * The returned fd always has O_CLOEXEC set, use fd_cloexec() to turn it off. */
+
+        flags |= O_CLOEXEC;
 
         if (FLAGS_SET(flags, O_NOFOLLOW))
                 /* O_NOFOLLOW is not allowed in fd_reopen(), because after all this is primarily implemented
@@ -1062,7 +1066,7 @@ int path_is_root_at(int dir_fd, const char *path) {
 
         _cleanup_close_ int fd = -EBADF;
         if (!isempty(path)) {
-                fd = xopenat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                fd = xopenat(dir_fd, path, O_PATH|O_DIRECTORY);
                 if (fd == -ENOTDIR)
                         return false; /* the root dir must be a dir */
                 if (fd < 0)

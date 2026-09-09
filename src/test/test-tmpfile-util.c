@@ -312,7 +312,7 @@ TEST(link_tmpfile) {
 
         pattern = strjoina(p, "/systemd-test-XXXXXX");
 
-        fd = open_tmpfile_unlinkable(p, O_RDWR|O_CLOEXEC);
+        fd = open_tmpfile_unlinkable(p, O_RDWR);
         assert_se(fd >= 0);
 
         assert_se(asprintf(&cmd, "ls -l /proc/"PID_FMT"/fd/%d", getpid_cached(), fd) > 0);
@@ -335,7 +335,7 @@ TEST(link_tmpfile) {
         assert_se(tempfn_random(pattern, NULL, &d) >= 0);
 
         fd = safe_close(fd);
-        fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
+        fd = open_tmpfile_linkable(d, O_RDWR, &tmp);
         assert_se(fd >= 0);
         assert_se(write(fd, "foobar\n", 7) == 7);
 
@@ -350,7 +350,7 @@ TEST(link_tmpfile) {
         fd = safe_close(fd);
         tmp = mfree(tmp);
 
-        fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
+        fd = open_tmpfile_linkable(d, O_RDWR, &tmp);
         assert_se(fd >= 0);
 
         assert_se(write(fd, "waumiau\n", 8) == 8);
@@ -363,6 +363,25 @@ TEST(link_tmpfile) {
         ASSERT_STREQ(line, "waumiau");
 
         assert_se(unlink(d) >= 0);
+}
+
+TEST(open_tmpfile_cloexec) {
+        _cleanup_(unlink_and_freep) char *tmp = NULL;
+        _cleanup_free_ char *d = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        const char *p = saved_argv[1] ?: "/tmp";
+        int fl;
+
+        /* O_CLOEXEC is implied, whether requested or not */
+        ASSERT_OK(fd = open_tmpfile_unlinkable(p, O_RDWR));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(tempfn_random_child(p, "cloexec", &d));
+        ASSERT_OK(fd = open_tmpfile_linkable(d, O_RDWR, &tmp));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

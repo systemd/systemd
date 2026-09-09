@@ -14,6 +14,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "import-common.h"
 #include "import-tar.h"
 #include "import-util.h"
@@ -297,9 +298,9 @@ static int tar_import_fork_tar(TarImport *i) {
                         (void) import_assign_pool_quota_and_warn(d);
                 }
 
-                i->tree_fd = open(d, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                i->tree_fd = xopenat(AT_FDCWD, d, O_DIRECTORY|O_NOFOLLOW);
                 if (i->tree_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", d);
+                        return log_error_errno(i->tree_fd, "Failed to open '%s': %m", d);
         }
 
         i->tar_fd = import_fork_tar_x(i->tree_fd, i->userns_fd, &i->tar_pid);
