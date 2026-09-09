@@ -3182,6 +3182,51 @@ int tpm2_tpml_pcr_selection_from_pcr_values(
         return 0;
 }
 
+/* Convert a set of PCR values into the ordered list of digests described by the supplied PCR selection,
+ * ie. the order in which the TPM digests them. */
+int tpm2_pcr_values_to_digests_for_selection(
+                const TPML_PCR_SELECTION *selection,
+                const Tpm2PCRValue *pcr_values,
+                size_t n_pcr_values,
+                TPM2B_DIGEST **ret_values,
+                size_t *ret_n_values) {
+
+        _cleanup_free_ TPM2B_DIGEST *values = NULL;
+        size_t n_values = 0;
+
+        assert(selection);
+        assert(pcr_values || n_pcr_values == 0);
+        assert(ret_values);
+        assert(ret_n_values);
+
+        FOREACH_PCR_IN_TPML_PCR_SELECTION(pcr, s, selection) {
+                unsigned pcr_index = (unsigned) pcr;
+                const Tpm2PCRValue *found = NULL;
+
+                FOREACH_ARRAY(v, pcr_values, n_pcr_values)
+                        if (v->index == pcr_index && v->hash == s->hash) {
+                                found = v;
+                                break;
+                        }
+
+                if (!found)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "Missing PCR value for hash 0x%" PRIx16 " index %u.", s->hash, pcr_index);
+
+                if (!tpm2_pcr_value_valid(found) || found->value.size == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "PCR value for hash 0x%" PRIx16 " index %u is not valid.", s->hash, pcr_index);
+
+                if (!GREEDY_REALLOC_APPEND(values, n_values, &found->value, 1))
+                        return log_oom_debug();
+        }
+
+        *ret_values = TAKE_PTR(values);
+        *ret_n_values = n_values;
+
+        return 0;
+}
+
 /* Count the number of different hash algorithms for all the entries. */
 int tpm2_pcr_values_hash_count(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, size_t *ret_count) {
         TPML_PCR_SELECTION selection;
@@ -4299,7 +4344,8 @@ int tpm2_digest_iovec_to_data(TPMI_ALG_HASH alg, const struct iovec *digest, TPM
  * On success, the digest hash will be updated with the hashing operation result and the digest size will be
  * correct for 'alg'.
  *
- * This currently only provides SHA256, so 'alg' must be TPM2_ALG_SHA256. */
+ * Any hash algorithm known to both tpm2_hash_alg_to_string() and OpenSSL may be used. Without OpenSSL,
+ * only SHA256 is available. */
 int tpm2_digest_many(
                 TPMI_ALG_HASH alg,
                 TPM2B_DIGEST *digest,
@@ -4307,21 +4353,73 @@ int tpm2_digest_many(
                 size_t n_data,
                 bool extend) {
 
-        struct sha256_ctx ctx;
-
         assert(digest);
         assert(data || n_data == 0);
+
+#if HAVE_OPENSSL
+        int r;
+
+        const char *alg_name = tpm2_hash_alg_to_string(alg);
+        if (!alg_name)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Hash algorithm not supported: 0x%x", alg);
+
+        size_t digest_size;
+        r = openssl_digest_size(alg_name, &digest_size);
+        if (r < 0)
+                return r;
+
+        if (digest_size > sizeof(digest->buffer))
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Digest size %zu of hash algorithm 0x%x too large for TPM2B_DIGEST",
+                                       digest_size, alg);
+
+        _cleanup_free_ struct iovec *iovecs = NULL;
+        if (extend) {
+                if (digest->size != digest_size)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Digest size %" PRIu16 ", require %zu", digest->size, digest_size);
+
+                iovecs = new(struct iovec, n_data + 1);
+                if (!iovecs)
+                        return log_oom_debug();
+
+                iovecs[0] = IOVEC_MAKE(digest->buffer, digest->size);
+                memcpy_safe(iovecs + 1, data, n_data * sizeof(struct iovec));
+
+                data = iovecs;
+                n_data++;
+        } else if (n_data == 0) {
+                /* If not extending and no data, return zero hash */
+                *digest = (TPM2B_DIGEST) {
+                        .size = digest_size,
+                };
+                return 0;
+        }
+
+        _cleanup_(erase_and_freep) void *hash = NULL;
+        r = openssl_digest_many(alg_name, data, n_data, &hash, /* ret_digest_size= */ NULL);
+        if (r < 0)
+                return r;
+
+        *digest = (TPM2B_DIGEST) {
+                .size = digest_size,
+        };
+        memcpy(digest->buffer, hash, digest_size);
+
+        return 0;
+#else /* HAVE_OPENSSL */
+        struct sha256_ctx ctx;
 
         if (alg != TPM2_ALG_SHA256)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Hash algorithm not supported: 0x%x", alg);
 
         if (extend && digest->size != SHA256_DIGEST_SIZE)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Digest size 0x%x, require 0x%x",
-                                       digest->size, (unsigned)SHA256_DIGEST_SIZE);
+                                       digest->size, (unsigned) SHA256_DIGEST_SIZE);
 
-        /* Since we're hardcoding SHA256 (for now), we can check this at compile time. */
         assert_cc(sizeof(digest->buffer) >= SHA256_DIGEST_SIZE);
 
         CLEANUP_ERASE(ctx);
@@ -4344,6 +4442,7 @@ int tpm2_digest_many(
         sha256_finish_ctx(&ctx, digest->buffer);
 
         return 0;
+#endif
 }
 
 /* Same as tpm2_digest_many() but data is contained in TPM2B_DIGEST[]. The digests may be any size digests. */
@@ -10918,6 +11017,17 @@ int tpm2_tpms_nv_public_to_json(const TPMS_NV_PUBLIC *nv_public, sd_json_variant
 
         *ret = TAKE_PTR(v);
         return 0;
+}
+
+int tpm2_pcr_value_to_json(const Tpm2PCRValue *pcr_value, sd_json_variant **ret) {
+        assert(pcr_value);
+        assert(ret);
+
+        return sd_json_buildo(
+                ret,
+                SD_JSON_BUILD_PAIR_UNSIGNED("pcr", pcr_value->index),
+                SD_JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string_tss2(pcr_value->hash)),
+                SD_JSON_BUILD_PAIR_HEX("digest", pcr_value->value.buffer, pcr_value->value.size));
 }
 
 static const TPMT_SIG_SCHEME SIG_SCHEME_TEMPLATE_NULL = {
