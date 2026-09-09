@@ -47,10 +47,10 @@ defined in the [Boot Loader Interface](https://systemd.io/BOOT_LOADER_INTERFACE/
 
 ## Dependencies
 Neither of these components implements cryptographic primitives, cryptographic checks, or drivers. File
-access to the ESP is implemented solely via the appropriate UEFI file protocols. Verification of next stage
-payloads is implementend solely via the appropriate UEFI image load protocols, which means `authenticode`
-signature checks are again done by the firmware or `Shim`. As a consequence, no external security-critical
-libraries (such as OpenSSL or gnu-efi) are linked, embedded, or used.
+access to the ESP is implemented solely via the UEFI Simple File System Protocol and UEFI File Protocol.
+Verification of next-stage payloads is implemented solely via the UEFI Image Services, which means
+`Authenticode` signature checks are again done by the firmware or `Shim`. As a consequence, no external
+security-critical libraries (such as OpenSSL or gnu-efi) are linked, embedded, or used.
 
 ## Additional Resources
 BLS Type #1 entries allow the user to load two types of additional resources that can affect the system
