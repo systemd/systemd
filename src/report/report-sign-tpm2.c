@@ -586,6 +586,14 @@ static int reply_report(sd_varlink *link, const Tpm2Report *report, const struct
                                 return log_error_errno(r, "Cannot convert NvPCR public area to JSON: %m");
                 }
 
+                const char *session_audit_hash_alg = NULL;
+                if (c->type == TPM2_REPORT_TYPE_SESSION_AUDIT) {
+                        session_audit_hash_alg = tpm2_hash_alg_to_string_tss2(c->session_audit_hash_alg);
+                        if (!session_audit_hash_alg)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Unsupported session audit hash algorithm 0x%" PRIx16, c->session_audit_hash_alg);
+                }
+
                 TPMT_SIG_SCHEME scheme = {
                         .scheme = c->signature->sigAlg,
                 };
@@ -616,6 +624,7 @@ static int reply_report(sd_varlink *link, const Tpm2Report *report, const struct
                                 SD_JSON_BUILD_PAIR_CONDITION(c->type == TPM2_REPORT_TYPE_NVPCR, "nvpcrName", SD_JSON_BUILD_STRING(c->nv_pcr_name)),
                                 SD_JSON_BUILD_PAIR_CONDITION(c->type == TPM2_REPORT_TYPE_NVPCR, "nvPublic", SD_JSON_BUILD_VARIANT(nv_public)),
                                 SD_JSON_BUILD_PAIR_CONDITION(c->type != TPM2_REPORT_TYPE_SESSION_AUDIT && c->authenticated_data, "authenticatedData", SD_JSON_BUILD_STRING(c->authenticated_data)),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("sessionAuditHashAlg", session_audit_hash_alg),
                                 SD_JSON_BUILD_PAIR_VARIANT("attestInfo", attest_info),
                                 SD_JSON_BUILD_PAIR_VARIANT("signature", sig),
                                 SD_JSON_BUILD_PAIR_STRING("signaturePEM", sig_pem));
