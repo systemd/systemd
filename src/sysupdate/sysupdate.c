@@ -1448,12 +1448,20 @@ static int enumerate_image_class(Context *context, RuntimeScope runtime_scope, T
                                 &image_context,
                                 PROCESS_IMAGE_READ_ONLY,
                                 /* read_definitions_flags= */ 0);
-                if (r < 0)
+                if (r == -ENOMEM)
                         return r;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to load broken image ‘%s’, skipping it: %m", image->path);
+                        continue;
+                }
 
                 r = context_list_components(&image_context, /* ret_component_names= */ NULL, &have);
-                if (r < 0)
+                if (r == -ENOMEM)
                         return r;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to list components in broken image ‘%s’, skipping it: %m", image->path);
+                        continue;
+                }
                 if (!have) {
                         log_debug("Skipping %s because it has no default component", image->path);
                         continue;
@@ -1514,8 +1522,12 @@ static int context_enumerate_components(Context *context, Set **targets) {
                                 &component_context,
                                 PROCESS_IMAGE_READ_ONLY,
                                 /* read_definitions_flags= */ 0);
-                if (r < 0)
+                if (r == -ENOMEM)
                         return r;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to load broken component ‘%s’, skipping it: %m", *component);
+                        continue;
+                }
 
                 r = context_discover_update_sets(&component_context, /* log_progress= */ false);
                 if (r < 0)
