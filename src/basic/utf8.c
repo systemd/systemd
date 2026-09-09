@@ -181,9 +181,15 @@ int utf8_char_console_width(const char *str) {
 
         assert(str);
 
-        r = utf8_encoded_to_unichar(str, &c);
+        /* Validate the same way utf8_is_valid() does. utf8_encoded_to_unichar() on its own accepts
+         * overlong encodings, surrogates, noncharacters and the obsolete 5 and 6 byte forms, which would
+         * make our idea of how wide a string is disagree with our idea of whether it is valid UTF-8 in
+         * the first place. */
+        r = utf8_encoded_valid_unichar(str, SIZE_MAX);
         if (r < 0)
                 return r;
+
+        assert_se(utf8_encoded_to_unichar(str, &c) == r);
 
         return unichar_console_width(c);
 }
