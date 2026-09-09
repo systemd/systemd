@@ -2328,7 +2328,7 @@ static void check_get_session_audit_digest(Tpm2Context *c) {
         ASSERT_OK(tpm2_create_primary(c, NULL, ESYS_TR_RH_OWNER, &template, NULL, NULL, &key));
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
-        ASSERT_OK(tpm2_make_exclusive_audit_session(c, &session));
+        ASSERT_OK(tpm2_make_exclusive_audit_session(c, TPM2_ALG_SHA256, &session));
 
         /* Use the session */
         TPML_PCR_SELECTION pcrs;
