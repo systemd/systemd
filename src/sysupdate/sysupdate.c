@@ -2443,7 +2443,7 @@ static int feature_to_json(Context *context, const Feature *f, sd_json_variant *
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("description", f->description),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", f->documentation),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("appstream", f->appstream),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("isEnabled", f->enabled),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("enabled", f->enabled),
                         SD_JSON_BUILD_PAIR_CONDITION(suggested >= 0, "suggested", SD_JSON_BUILD_BOOLEAN(suggested > 0)),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("transfers", transfers));
         if (r < 0)
