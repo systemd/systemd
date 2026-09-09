@@ -983,7 +983,7 @@ int pty_forward_new(
                  */
 
                 f->input_fd = fd_reopen_propagate_append_and_position(
-                                STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                                STDIN_FILENO, O_RDONLY|O_NOCTTY|O_NONBLOCK);
                 if (f->input_fd < 0) {
                         /* Handle failures gracefully, after all certain fd types cannot be reopened
                          * (sockets, …) */
@@ -998,7 +998,7 @@ int pty_forward_new(
                         f->close_input_fd = true;
 
                 f->output_fd = fd_reopen_propagate_append_and_position(
-                                STDOUT_FILENO, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                                STDOUT_FILENO, O_WRONLY|O_NOCTTY|O_NONBLOCK);
                 if (f->output_fd < 0) {
                         log_debug_errno(f->output_fd, "Failed to reopen stdout, using original fd: %m");
 

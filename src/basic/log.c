@@ -17,6 +17,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "iovec-util.h"
 #include "list.h"
 #include "log.h"
@@ -110,7 +111,7 @@ static int log_open_console(void) {
         if (console_fd < 3) {
                 int fd;
 
-                fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+                fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY);
                 if (fd < 0)
                         return fd;
 
@@ -131,9 +132,9 @@ static int log_open_kmsg(void) {
         if (kmsg_fd >= 0)
                 return 0;
 
-        kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        kmsg_fd = xopenat(AT_FDCWD, "/dev/kmsg", O_WRONLY|O_NOCTTY);
         if (kmsg_fd < 0)
-                return -errno;
+                return kmsg_fd;
 
         kmsg_fd = fd_move_above_stdio(kmsg_fd);
         return 0;

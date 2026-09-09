@@ -102,7 +102,7 @@ static int touch_ask_password_directory(AskPasswordFlags flags) {
         if (r <= 0)
                 return r;
 
-        _cleanup_close_ int fd = open_mkdir(p, O_CLOEXEC, 0755);
+        _cleanup_close_ int fd = open_mkdir(p, 0, 0755);
         if (fd < 0)
                 return fd;
 
@@ -522,7 +522,7 @@ int ask_password_tty(
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        _cleanup_close_ int watch_fd = open_mkdir(watch_path, O_CLOEXEC|O_RDONLY, 0755);
+                        _cleanup_close_ int watch_fd = open_mkdir(watch_path, O_RDONLY, 0755);
                         if (watch_fd < 0)
                                 return watch_fd;
 
@@ -537,7 +537,7 @@ int ask_password_tty(
         /* If the caller didn't specify a TTY, then use the controlling tty, if we can. */
         int ttyfd;
         if (req->tty_fd < 0)
-                ttyfd = cttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC);
+                ttyfd = cttyfd = open_terminal("/dev/tty", O_RDWR|O_NOCTTY);
         else
                 ttyfd = req->tty_fd;
 
@@ -877,7 +877,7 @@ int ask_password_agent(
         if (r == 0)
                 return -ENXIO;
 
-        dfd = open_mkdir(askpwdir, O_CLOEXEC, 0755);
+        dfd = open_mkdir(askpwdir, 0, 0755);
         if (dfd < 0)
                 return log_debug_errno(dfd, "Failed to open directory '%s': %m", askpwdir);
 

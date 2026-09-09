@@ -1233,9 +1233,9 @@ static int write_membership(int dir_fd, const char *dir, const char *user, const
         if (!membership)
                 return log_oom();
 
-        _cleanup_close_ int fd = openat(dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+        _cleanup_close_ int fd = xopenat_full(dir_fd, membership, O_WRONLY|O_CREAT, /* xopen_flags= */ 0, 0644);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to create %s/%s: %m", dir, membership);
+                return log_error_errno(fd, "Failed to create %s/%s: %m", dir, membership);
 
         r = loop_write(fd, "{}\n", SIZE_MAX);
         if (r < 0)
@@ -1274,7 +1274,7 @@ static int load_credential_one(
         int *userdb_dir_fd = transient ? userdb_dir_transient_fd : userdb_dir_persist_fd;
         if (*userdb_dir_fd == -EBADF) {
                 *userdb_dir_fd = xopenat_full(AT_FDCWD, userdb_dir,
-                                              /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
+                                              /* open_flags= */ O_DIRECTORY|O_CREAT,
                                               /* xopen_flags= */ XO_LABEL,
                                               /* mode= */ 0755);
                 if (*userdb_dir_fd < 0)

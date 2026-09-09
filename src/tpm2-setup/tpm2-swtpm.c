@@ -131,7 +131,7 @@ static int setup_swtpm(const char *state_dir, int state_fd, const char *secret) 
                 return log_error_errno(SYNTHETIC_ERRNO(ESTALE), "swtpm TPM state directory has not been initialized in the initrd, refusing.");
 
         /* Cleanup incomplete state before recreating. */
-        _cleanup_close_ int wipe_fd = fd_reopen(state_fd, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int wipe_fd = fd_reopen(state_fd, O_RDONLY|O_DIRECTORY);
         if (wipe_fd < 0)
                 return log_error_errno(wipe_fd, "Failed to reopen swtpm state directory: %m");
         r = rm_rf_children(TAKE_FD(wipe_fd), REMOVE_PHYSICAL, /* root_dev= */ NULL);

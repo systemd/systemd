@@ -22,6 +22,7 @@
 #include "fd-util.h"
 #include "format-ifname.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -1651,16 +1652,9 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
          * exist. If the path is too long, we also need to take the indirect route, since we can't fit this
          * into a sockaddr_un directly. */
 
-        if (dir_fd == XAT_FDROOT) {
-                _cleanup_free_ char *j = strjoin("/", path);
-                if (!j)
-                        return -ENOMEM;
-
-                inode_fd = open(j, O_PATH|O_CLOEXEC);
-        } else
-                inode_fd = openat(dir_fd, path, O_PATH|O_CLOEXEC);
+        inode_fd = xopenat(dir_fd, path, O_PATH);
         if (inode_fd < 0)
-                return -errno;
+                return inode_fd;
 
         return connect_unix_inode(fd, inode_fd);
 }

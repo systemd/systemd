@@ -131,9 +131,9 @@ int install_file(int source_atfd, const char *source_name,
 
                 /* Open an O_PATH fd for the source if we need to sync things or mark things read only. */
 
-                pfd = openat(source_atfd, source_name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                pfd = xopenat(source_atfd, source_name, O_PATH|O_NOFOLLOW);
                 if (pfd < 0)
-                        return -errno;
+                        return pfd;
 
                 if (fstat(pfd, &st) < 0)
                         return -errno;
@@ -143,7 +143,7 @@ int install_file(int source_atfd, const char *source_name,
                 case S_IFREG: {
                         _cleanup_close_ int regfd = -EBADF;
 
-                        regfd = fd_reopen(pfd, O_RDONLY|O_CLOEXEC);
+                        regfd = fd_reopen(pfd, O_RDONLY);
                         if (regfd < 0) {
                                 if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
                                         return log_debug_errno(regfd, "Failed to open referenced inode: %m");
@@ -176,7 +176,7 @@ int install_file(int source_atfd, const char *source_name,
                 case S_IFDIR: {
                         _cleanup_close_ int dfd = -EBADF;
 
-                        dfd = fd_reopen(pfd, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                        dfd = fd_reopen(pfd, O_RDONLY|O_DIRECTORY);
                         if (dfd < 0) {
                                 if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
                                         return log_debug_errno(dfd, "Failed to open referenced inode: %m");
@@ -241,9 +241,9 @@ int install_file(int source_atfd, const char *source_name,
                                  * before the rename()? Mostly because if we have trouble opening the thing
                                  * we want to know before we start actually modifying the file system. */
 
-                                dfd = openat(target_atfd, target_name, O_RDONLY|O_DIRECTORY|O_CLOEXEC, 0);
-                                if (dfd < 0 && errno != ENOTDIR)
-                                        return -errno;
+                                dfd = xopenat(target_atfd, target_name, O_RDONLY|O_DIRECTORY);
+                                if (dfd < 0 && dfd != -ENOTDIR)
+                                        return dfd;
 
                                 if (renameat2(source_atfd, source_name, target_atfd, target_name, RENAME_EXCHANGE) < 0) {
 

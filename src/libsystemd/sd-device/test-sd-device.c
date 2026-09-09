@@ -245,6 +245,22 @@ static void test_sd_device_one(sd_device *d) {
                         _cleanup_close_ int fd = -EBADF;
                         fd = sd_device_open(d, O_CLOEXEC| O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
                         ASSERT_TRUE(fd >= 0 || ERRNO_IS_NEG_PRIVILEGE(fd));
+                        if (fd >= 0) {
+                                int fl;
+
+                                ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+                                ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+                        }
+
+                        /* Without O_CLOEXEC the fd must not be close-on-exec, both on the O_PATH and the fd_reopen() path */
+                        _cleanup_close_ int fd_nocloexec = sd_device_open(d, O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
+                        ASSERT_TRUE(fd_nocloexec >= 0 || ERRNO_IS_NEG_PRIVILEGE(fd_nocloexec));
+                        if (fd_nocloexec >= 0) {
+                                int fl;
+
+                                ASSERT_OK_ERRNO(fl = fcntl(fd_nocloexec, F_GETFD));
+                                ASSERT_FALSE(FLAGS_SET(fl, FD_CLOEXEC));
+                        }
                 }
         }
 

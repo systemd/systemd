@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "id128-util.h"
@@ -1633,11 +1634,11 @@ static int add_any_file(
                         /* If there's a top-level fd defined make the path relative, explicitly, since otherwise
                          * openat() ignores the first argument. */
 
-                        fd = our_fd = openat(j->toplevel_fd, skip_leading_slash(path), O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                        fd = our_fd = xopenat(j->toplevel_fd, skip_leading_slash(path), O_RDONLY|O_NONBLOCK);
                 else
-                        fd = our_fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                        fd = our_fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NONBLOCK);
                 if (fd < 0) {
-                        r = log_debug_errno(errno, "Failed to open journal file %s: %m", path);
+                        r = log_debug_errno(fd, "Failed to open journal file %s: %m", path);
                         goto error;
                 }
 

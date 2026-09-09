@@ -1794,9 +1794,9 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
         } else {
-                rfd = open(empty_to_root(arg_root), O_DIRECTORY|O_CLOEXEC);
+                rfd = xopenat(AT_FDCWD, empty_to_root(arg_root), O_DIRECTORY);
                 if (rfd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", empty_to_root(arg_root));
+                        return log_error_errno(rfd, "Failed to open %s: %m", empty_to_root(arg_root));
         }
 
         r = mac_label_context_new(arg_root, &arg_label_context);

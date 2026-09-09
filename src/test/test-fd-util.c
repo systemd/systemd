@@ -6,6 +6,8 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "capability-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "memfd-util.h"
@@ -156,6 +158,15 @@ TEST(fd_move_above_stdio) {
         assert_se(close_nointr(new_fd) != EBADF);
 }
 
+static void assert_stdio_not_cloexec(void) {
+        for (int i = 0; i < 3; i++) {
+                int fl;
+
+                ASSERT_OK_ERRNO(fl = fcntl(i, F_GETFD));
+                ASSERT_FALSE(FLAGS_SET(fl, FD_CLOEXEC));
+        }
+}
+
 TEST(rearrange_stdio) {
         int r;
 
@@ -176,6 +187,7 @@ TEST(rearrange_stdio) {
                  * following tests fail, making it slightly less annoying to debug */
                 log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
                 log_open();
+                assert_stdio_not_cloexec();
 
                 assert_se(fd_get_path(STDIN_FILENO, &path) >= 0);
                 assert_se(path_equal(path, "/dev/null"));
@@ -203,6 +215,7 @@ TEST(rearrange_stdio) {
                 assert_se(memfd_new_and_seal_string("data", "foobar") == 2);
 
                 assert_se(rearrange_stdio(2, 0, 1) >= 0);
+                assert_stdio_not_cloexec();
 
                 assert_se(write(1, "x", 1) < 0 && errno == ENOSPC);
                 assert_se(write(2, "z", 1) == 1);
@@ -211,7 +224,9 @@ TEST(rearrange_stdio) {
                 assert_se(read(0, buffer, sizeof(buffer)) == 6);
                 assert_se(memcmp(buffer, "foobar", 6) == 0);
 
+                ASSERT_OK(fd_cloexec(1, true)); /* stays in place, but the flag must still be cleared */
                 assert_se(rearrange_stdio(-EBADF, 1, 2) >= 0);
+                assert_stdio_not_cloexec();
                 assert_se(write(1, "a", 1) < 0 && errno == ENOSPC);
                 assert_se(write(2, "y", 1) == 1);
                 assert_se(read(pipe_read_fd, buffer, sizeof(buffer)) == 1);
@@ -382,10 +397,10 @@ TEST(fd_reopen) {
         assert_se(FLAGS_SET(fl, O_PATH));
 
         /* fd_reopen() with O_NOFOLLOW will systematically fail, since it is implemented via a symlink in /proc/self/fd/ */
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC|O_NOFOLLOW) == -ELOOP);
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW) == -ELOOP);
+        assert_se(fd_reopen(fd1, O_RDONLY|O_NOFOLLOW) == -ELOOP);
+        assert_se(fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_NOFOLLOW) == -ELOOP);
 
-        fd2 = fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC);  /* drop the O_PATH */
+        fd2 = fd_reopen(fd1, O_RDONLY|O_DIRECTORY);  /* drop the O_PATH */
         assert_se(fd2 >= 0);
 
         ASSERT_OK_ERRNO(fstat(fd2, &st2));
@@ -399,7 +414,7 @@ TEST(fd_reopen) {
 
         safe_close(fd1);
 
-        fd1 = fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC);  /* reacquire the O_PATH */
+        fd1 = fd_reopen(fd2, O_DIRECTORY|O_PATH);  /* reacquire the O_PATH */
         assert_se(fd1 >= 0);
 
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
@@ -425,8 +440,8 @@ TEST(fd_reopen) {
         assert_se(!FLAGS_SET(fl, O_DIRECTORY));
         assert_se(FLAGS_SET(fl, O_PATH));
 
-        assert_se(fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC) == -ENOTDIR);
-        fd2 = fd_reopen(fd1, O_RDONLY|O_CLOEXEC);  /* drop the O_PATH */
+        assert_se(fd_reopen(fd1, O_RDONLY|O_DIRECTORY) == -ENOTDIR);
+        fd2 = fd_reopen(fd1, O_RDONLY);  /* drop the O_PATH */
         assert_se(fd2 >= 0);
 
         ASSERT_OK_ERRNO(fstat(fd2, &st2));
@@ -440,8 +455,8 @@ TEST(fd_reopen) {
 
         safe_close(fd1);
 
-        assert_se(fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC) == -ENOTDIR);
-        fd1 = fd_reopen(fd2, O_PATH|O_CLOEXEC);  /* reacquire the O_PATH */
+        assert_se(fd_reopen(fd2, O_DIRECTORY|O_PATH) == -ENOTDIR);
+        fd1 = fd_reopen(fd2, O_PATH);  /* reacquire the O_PATH */
         assert_se(fd1 >= 0);
 
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
@@ -455,7 +470,7 @@ TEST(fd_reopen) {
 
         /* Also check the right error is generated if the fd is already closed */
         safe_close(fd1);
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -EBADF);
+        assert_se(fd_reopen(fd1, O_RDONLY) == -EBADF);
         fd1 = -EBADF;
 
         /* Validate what happens if we reopen a symlink */
@@ -464,7 +479,7 @@ TEST(fd_reopen) {
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
         assert_se(S_ISLNK(st1.st_mode));
 
-        fd2 = fd_reopen(fd1, O_PATH|O_CLOEXEC);
+        fd2 = fd_reopen(fd1, O_PATH);
         assert_se(fd2 >= 0);
         ASSERT_OK_ERRNO(fstat(fd2, &st2));
         assert_se(S_ISLNK(st2.st_mode));
@@ -473,7 +488,7 @@ TEST(fd_reopen) {
 
         /* So here's the thing: if we have an O_PATH fd to a symlink, we *cannot* convert it to a regular fd
          * with that. i.e. you cannot have the VFS follow a symlink pinned via an O_PATH fd. */
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -ELOOP);
+        assert_se(fd_reopen(fd1, O_RDONLY) == -ELOOP);
 }
 
 TEST(fd_reopen_condition) {
@@ -915,6 +930,43 @@ TEST(fd_is_writable) {
         safe_close(fd_ro);
         ASSERT_ERROR(fd_is_writable(fd_ro), EBADF);
         TAKE_FD(fd_ro);
+}
+
+TEST(fd_reopen_emptypath) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, dfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+
+        /* Older kernels ignore the flag and miss the empty path */
+        fd = openat(tfd, "", O_PATH|O_CLOEXEC|O_EMPTYPATH);
+        if (fd < 0 && errno == ENOENT)
+                return (void) log_tests_skipped("kernel lacks O_EMPTYPATH");
+        ASSERT_OK_ERRNO(fd);
+        fd = safe_close(fd);
+
+        if (have_effective_cap(CAP_DAC_OVERRIDE) > 0 || have_effective_cap(CAP_DAC_READ_SEARCH) > 0)
+                return (void) log_tests_skipped("directory permissions do not apply to us");
+
+        /* A directory we may read but not search: "." cannot be looked up in it, O_EMPTYPATH needs no lookup */
+        ASSERT_OK_ERRNO(mkdirat(tfd, "noexec", 0400));
+        ASSERT_OK_ERRNO(dfd = openat(tfd, "noexec", O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_ERROR(RET_NERRNO(openat(dfd, ".", O_RDONLY|O_DIRECTORY|O_CLOEXEC)), EACCES);
+
+        ASSERT_OK(fd = fd_reopen(dfd, O_RDONLY|O_DIRECTORY));
+        ASSERT_OK_POSITIVE(inode_same_at(dfd, NULL, fd, NULL, AT_EMPTY_PATH));
+}
+
+TEST(fd_reopen_cloexec) {
+        _cleanup_close_ int fd = -EBADF, reopened = -EBADF;
+        int fl;
+
+        ASSERT_OK_ERRNO(fd = open("/proc", O_DIRECTORY|O_PATH|O_CLOEXEC));
+
+        /* O_CLOEXEC is implied, whether requested or not */
+        ASSERT_OK(reopened = fd_reopen(fd, O_RDONLY|O_DIRECTORY));
+        ASSERT_OK_ERRNO(fl = fcntl(reopened, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
