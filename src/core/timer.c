@@ -378,7 +378,6 @@ static void calculate_next_elapse_base(
                 bool *ret_rebase_after_boot_time) {
         bool rebase_after_boot_time = false;
         usec_t b, random_offset = 0;
-        usec_t boot_monotonic = UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
 
         assert(t);
         assert(ts);
@@ -407,6 +406,7 @@ static void calculate_next_elapse_base(
                  * boot. If so, this means the timestamp came from a stamp file of a
                  * persistent timer and we need to rebase it to make RandomizedDelaySec=
                  * work (see below). */
+                usec_t boot_monotonic = UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
                 if (t->last_trigger.monotonic < boot_monotonic)
                         rebase_after_boot_time = true;
         } else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
@@ -468,7 +468,6 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                 if (v->base == TIMER_CALENDAR) {
                         bool rebase_after_boot_time;
                         usec_t b, random_offset;
-                        usec_t boot_monotonic = UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
 
                         calculate_next_elapse_base(
                                         t,
@@ -489,6 +488,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                  * time has already passed, set the time when systemd first started as the scheduled
                                  * time. Note that we base this on the monotonic timestamp of the boot, not the
                                  * realtime one, since the wallclock might have been off during boot. */
+                                usec_t boot_monotonic = UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
                                 usec_t rebased = map_clock_usec(boot_monotonic, CLOCK_MONOTONIC, CLOCK_REALTIME);
                                 if (v->next_elapse < rebased)
                                         v->next_elapse = rebased;
