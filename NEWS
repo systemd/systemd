@@ -1546,11 +1546,11 @@ CHANGES WITH 261:
           basic.target). Note that D-Bus only becomes available later, and it
           can hence only be contacted via Varlink that early.
 
-        * /etc/machine-info now support a new TAGS= key, which can be used to
-          tag a machine with an arbitrary set of strings.  Units can match on
-          these tags via the new ConditionMachineTag= setting, and
-          systemd-firstboot can set the tags via command line parameters or
-          credentials.
+        * /etc/machine-info now supports a new TAGS= key, which can be used to
+          tag a machine with a set of keywords and keyword=value pairs. Units
+          can match on these tags via the new ConditionMachineTag= setting, and
+          systemd-firstboot can be used to set the tags via command line
+          parameters or credentials.
 
         Changes in systemd-logind:
 
