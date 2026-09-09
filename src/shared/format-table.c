@@ -959,6 +959,7 @@ static int table_add_manyv(Table *t, va_list ap) {
 
         for (;;) {
                 TableDataType type = va_arg(ap, TableDataType);
+                _cleanup_free_ char *data_free = NULL;
                 const void *data;
                 union {
                         uint64_t size;
@@ -1013,6 +1014,20 @@ static int table_add_manyv(Table *t, va_list ap) {
 
                         data = s;
                         type = TABLE_STRING;
+                        break;
+                }
+
+                case TABLE_STRINGF:
+                case TABLE_STRINGF_WITH_ANSI: {
+                        const char *format = va_arg(ap, const char *);
+                        DISABLE_WARNING_FORMAT_NONLITERAL;
+                        r = vasprintf(&data_free, format, ap);
+                        REENABLE_WARNING;
+                        if (r < 0)
+                                return r;
+
+                        data = data_free;
+                        type = type == TABLE_STRINGF ? TABLE_STRING : TABLE_STRING_WITH_ANSI;
                         break;
                 }
 
