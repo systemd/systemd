@@ -309,6 +309,7 @@ static int tpm2_generate_report_try(
                 return log_oom_debug();
         components[n_components++] = (Tpm2ReportComponent) {
                 .type = TPM2_REPORT_TYPE_SESSION_AUDIT,
+                .session_audit_hash_alg = TPM2_ALG_SHA256, /* Currently always SHA256. */
                 .attestation = TAKE_PTR(audit_info),
                 .signature = TAKE_PTR(audit_signature),
         };
