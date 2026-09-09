@@ -1947,11 +1947,21 @@ static int btrfs_read_chunk_tree_fd(int fd, BtrfsChunkTree *ret) {
                         if (sh.type != BTRFS_CHUNK_ITEM_KEY)
                                 continue;
 
+                        if (sh.len < sizeof(struct btrfs_chunk))
+                                return -EBADMSG;
+
+                        if (le16toh(item->num_stripes) == 0 || le64toh(item->stripe_len) == 0)
+                                return -EBADMSG;
+
+                        if ((sh.len - sizeof(struct btrfs_chunk)) / sizeof(struct btrfs_stripe) + 1 < le16toh(item->num_stripes))
+                                return -EBADMSG;
+
                         chunk = new(BtrfsChunk, 1);
                         if (!chunk)
                                 return -ENOMEM;
 
                         const struct btrfs_chunk *item = body;
+
                         *chunk = (BtrfsChunk) {
                                 .offset = sh.offset,
                                 .length = le64toh(item->length),
