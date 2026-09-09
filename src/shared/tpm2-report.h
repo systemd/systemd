@@ -39,6 +39,9 @@ typedef struct Tpm2ReportComponent {
          * data is the report digest we get. */
         char *authenticated_data;
 
+        /* For session audit only */
+        TPMI_ALG_HASH session_audit_hash_alg;
+
         /* Common fields */
         TPMS_ATTEST *attestation;
         TPMT_SIGNATURE *signature;
