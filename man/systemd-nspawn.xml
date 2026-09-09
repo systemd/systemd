@@ -1346,18 +1346,19 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
       <varlistentry>
         <term><option>--system-call-filter=</option></term> <listitem><para>Alter the system call filter
-        applied to containers. Takes a space-separated list of system call names or group names (the latter
-        prefixed with <literal>@</literal>, as listed by the <command>syscall-filter</command> command of
-        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>). Passed
-        system calls will be permitted. The list may optionally be prefixed by <literal>~</literal>, in which
-        case all listed system calls are prohibited. If this command line option is used multiple times the
-        configured lists are combined. If both a positive and a negative list (that is one system call list
-        without and one with the <literal>~</literal> prefix) are configured, the negative list takes
-        precedence over the positive list. Note that <command>systemd-nspawn</command> always implements a
-        system call allow list (as opposed to a deny list!), and this command line option hence adds or
-        removes entries from the default allow list, depending on the <literal>~</literal> prefix. Note that
-        the applied system call filter is also altered implicitly if additional capabilities are passed using
-        the <command>--capabilities=</command>.</para>
+        applied to containers. Takes a space- or comma-separated list of system call names or group names
+        (the latter prefixed with <literal>@</literal>, as listed by the <command>syscall-filter</command>
+        command of
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
+        Passed system calls will be permitted. The list may optionally be prefixed by <literal>~</literal>,
+        in which case all listed system calls are prohibited. If this command line option is used multiple
+        times the configured lists are combined. If both a positive and a negative list (that is one system
+        call list without and one with the <literal>~</literal> prefix) are configured, the negative list
+        takes precedence over the positive list. Note that <command>systemd-nspawn</command> always
+        implements a system call allow list (as opposed to a deny list!), and this command line option hence
+        adds or removes entries from the default allow list, depending on the <literal>~</literal> prefix.
+        Note that the applied system call filter is also altered implicitly if additional capabilities are
+        passed using the <command>--capabilities=</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
@@ -1367,12 +1368,12 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <listitem><para>Restrict the socket address families accessible to the container. Takes a
         space-separated list of address family names, such as <constant>AF_INET</constant>,
-        <constant>AF_INET6</constant> or <constant>AF_UNIX</constant>. When prefixed with
-        <literal>~</literal> the listed address families will be prohibited, otherwise they will be permitted
-        (allowlisted). Use the special value <literal>none</literal> to prohibit all address families. This
-        option may be specified more than once, in which case the configured lists are combined. If both a
-        positive and a negative list are configured, the negative list takes precedence over the positive
-        list.</para>
+        <constant>AF_INET6</constant> or <constant>AF_UNIX</constant>. The names can be specified with or
+        without the "AF_" prefix. When prefixed with <literal>~</literal> the listed address families will
+        be prohibited, otherwise they will be permitted (allowlisted). Use the special value
+        <literal>none</literal> to prohibit all address families. This option may be specified more than
+        once, in which case the configured lists are combined. If both a positive and a negative list are
+        configured, the negative list takes precedence over the positive list.</para>
 
         <para>Note that currently this option defaults to no restrictions, i.e. all address families are
         accessible. In a future version of systemd, the default will be changed to restrict address families to
