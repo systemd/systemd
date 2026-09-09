@@ -1,0 +1,15 @@
+#compdef systemd-pty-forward
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+_arguments \
+    '(- *)'{-h,--help}'[Show this help]' \
+    '(- *)--version[Show package version]' \
+    '(--quiet -q)'{-q,--quiet}'[Suppress information messages during runtime]' \
+    '--no-ask-password[Do not prompt for password]' \
+    '(--user)--system[Talk to system PTY broker]' \
+    '(--system)--user[Talk to per-user PTY broker]' \
+    '--console=[Console mode]:mode:(interactive read-only broker broker-log)' \
+    '--pty-name=[Name to register the broker-allocated PTY under]: : _message "pty name"' \
+    '--background=[Set ANSI color for background]: : _message "background color"' \
+    '--title=[Set terminal title]: : _message "terminal title"' \
+    '*:: : _normal'
