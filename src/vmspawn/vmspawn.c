@@ -32,6 +32,7 @@
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "dlopen-note.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
@@ -2577,6 +2578,58 @@ static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware
         return 0;
 }
 
+static int vm_setup_qmp(
+                sd_event *event,
+                MachineConfig *config,
+                int *bridge_fd,
+                VmspawnQmpBridge **ret) {
+
+        int r;
+
+        assert(event);
+        assert(config);
+        assert(bridge_fd);
+        assert(*bridge_fd >= 0);
+        assert(ret);
+
+        _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
+        r = vmspawn_qmp_init(&bridge, TAKE_FD(*bridge_fd), event);
+        if (r < 0)
+                return r;
+
+        /* Probe QEMU feature availability synchronously before device setup consumes the flags. */
+        r = vmspawn_qmp_probe_features(bridge);
+        if (r < 0)
+                return r;
+
+        /* Device setup — all before resuming vCPUs */
+        r = vmspawn_qmp_setup_drives(bridge, &config->drives);
+        if (r < 0)
+                return r;
+
+        if (config->network.type) {
+                r = vmspawn_qmp_setup_network(bridge, &config->network);
+                if (r < 0)
+                        return r;
+        }
+
+        r = vmspawn_qmp_setup_virtiofs(bridge, &config->virtiofs);
+        if (r < 0)
+                return r;
+
+        r = vmspawn_qmp_setup_vsock(bridge, &config->vsock);
+        if (r < 0)
+                return r;
+
+        /* Resume vCPUs and switch to async event processing */
+        r = vmspawn_qmp_start(bridge);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(bridge);
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL;
@@ -3851,44 +3904,39 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
 
+        /* Resolve the exit future when the child exits */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *child_source = NULL;
+        r = event_add_child_pidref(event, &child_source, &child_pidref, WEXITED, on_child_exit, vm_exit_future);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch qemu process: %m");
+
+        (void) sd_event_source_set_priority(child_source, SD_EVENT_PRIORITY_NORMAL - 10);
+        (void) sd_event_source_set_description(child_source, "vmspawn-qemu-exit");
+
         r = prepare_device_info(runtime_dir, &config);
         if (r < 0)
                 return r;
 
         /* Connect to VMM backend */
         _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
-        r = vmspawn_qmp_init(&bridge, TAKE_FD(bridge_fds[0]), event);
-        if (r < 0)
-                return r;
-
-        /* Probe QEMU feature availability synchronously before device setup consumes the flags. */
-        r = vmspawn_qmp_probe_features(bridge);
-        if (r < 0)
-                return r;
-
-        /* Device setup — all before resuming vCPUs */
-        r = vmspawn_qmp_setup_drives(bridge, &config.drives);
-        if (r < 0)
-                return r;
-
-        if (config.network.type) {
-                r = vmspawn_qmp_setup_network(bridge, &config.network);
-                if (r < 0)
+        r = vm_setup_qmp(event, &config, &bridge_fds[0], &bridge);
+        if (r < 0) {
+                /* A dropped QMP connection during startup usually means qemu itself died, the
+                 * disconnect is just the symptom. Wait a moment for the child watch to observe the
+                 * death, so that qemu's exit status becomes the verdict. If qemu is actually still
+                 * alive, the disconnect remains the error. */
+                if (!ERRNO_IS_NEG_DISCONNECT(r))
                         return r;
+
+                SD_FIBER_TIMEOUT(5 * USEC_PER_SEC);
+                int status = sd_fiber_await(vm_exit_future);
+                if (sd_future_state(vm_exit_future) != SD_FUTURE_RESOLVED)
+                        /* -ETIME: qemu is alive, disconnect is the real error.
+                         * -ECANCELED: loop is exiting and its exit code is the real error. */
+                        return status == -ECANCELED ? status : r;
+
+                return status;
         }
-
-        r = vmspawn_qmp_setup_virtiofs(bridge, &config.virtiofs);
-        if (r < 0)
-                return r;
-
-        r = vmspawn_qmp_setup_vsock(bridge, &config.vsock);
-        if (r < 0)
-                return r;
-
-        /* Resume vCPUs and switch to async event processing */
-        r = vmspawn_qmp_start(bridge);
-        if (r < 0)
-                return r;
 
         /* Varlink server for VM control */
         _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
@@ -4037,15 +4085,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = sd_event_add_memory_pressure(event, NULL, NULL, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
-
-        /* Resolve the exit future when the child exits */
-        _cleanup_(sd_event_source_unrefp) sd_event_source *child_source = NULL;
-        r = event_add_child_pidref(event, &child_source, &child_pidref, WEXITED, on_child_exit, vm_exit_future);
-        if (r < 0)
-                return log_error_errno(r, "Failed to watch qemu process: %m");
-
-        (void) sd_event_source_set_priority(child_source, SD_EVENT_PRIORITY_NORMAL - 10);
-        (void) sd_event_source_set_description(child_source, "vmspawn-qemu-exit");
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
