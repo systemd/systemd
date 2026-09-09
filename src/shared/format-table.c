@@ -933,18 +933,14 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
         return 0;
 }
 
-int table_add_many_internal(Table *t, TableDataType first_type, ...) {
+static int table_add_manyv(Table *t, va_list ap) {
         TableCell *last_cell = NULL;
-        va_list ap;
         int r;
 
         assert(t);
-        assert(first_type >= 0);
-        assert(first_type < _TABLE_DATA_TYPE_MAX);
 
-        va_start(ap, first_type);
-
-        for (TableDataType type = first_type;; type = va_arg(ap, TableDataType)) {
+        for (;;) {
+                TableDataType type = va_arg(ap, TableDataType);
                 const void *data;
                 union {
                         uint64_t size;
@@ -1209,10 +1205,8 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         const char *c = va_arg(ap, const char*);
 
                         r = table_set_color(t, last_cell, c);
-                        if (r < 0) {
-                                va_end(ap);
+                        if (r < 0)
                                 return r;
-                        }
 
                         r = table_set_rgap_color(t, last_cell, c);
                         goto check;
@@ -1234,10 +1228,8 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         int u = va_arg(ap, int);
 
                         r = table_set_underline(t, last_cell, u);
-                        if (r < 0) {
-                                va_end(ap);
+                        if (r < 0)
                                 return r;
-                        }
 
                         r = table_set_rgap_underline(t, last_cell, u);
                         goto check;
@@ -1271,7 +1263,6 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
 
                 case _TABLE_DATA_TYPE_MAX:
                         /* Used as end marker */
-                        va_end(ap);
                         return 0;
 
                 default:
@@ -1280,11 +1271,20 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
 
                 r = table_add_cell(t, &last_cell, type, data);
         check:
-                if (r < 0) {
-                        va_end(ap);
+                if (r < 0)
                         return r;
-                }
         }
+}
+
+int table_add_many_internal(Table *t, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, t);
+        r = table_add_manyv(t, ap);
+        va_end(ap);
+
+        return r;
 }
 
 void table_set_header(Table *t, bool b) {
