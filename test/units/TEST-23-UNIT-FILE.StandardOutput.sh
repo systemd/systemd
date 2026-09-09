@@ -54,3 +54,17 @@ EOF
 cmp /tmp/stderr <<EOF
 b
 EOF
+
+# A dangling symlink as the output file is not followed when creating it: the unit must fail to start while
+# setting up stdout, and the symlink target must not be created.
+rm -f /tmp/stdout /tmp/stdout-target
+ln -s /tmp/stdout-target /tmp/stdout
+(! systemd-run --wait --unit=TEST-23-UNIT-FILE-standard-output-five \
+            -p StandardOutput=file:/tmp/stdout \
+            -p Type=exec \
+            true)
+[[ "$(systemctl show -P Result TEST-23-UNIT-FILE-standard-output-five.service)" == "exit-code" ]]
+[[ "$(systemctl show -P ExecMainStatus TEST-23-UNIT-FILE-standard-output-five.service)" == "209" ]] # EXIT_STDOUT
+systemctl reset-failed TEST-23-UNIT-FILE-standard-output-five.service
+test ! -e /tmp/stdout-target
+rm -f /tmp/stdout
