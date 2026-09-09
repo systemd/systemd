@@ -1952,6 +1952,13 @@ static int btrfs_read_chunk_tree_fd(int fd, BtrfsChunkTree *ret) {
                                 return -ENOMEM;
 
                         const struct btrfs_chunk *item = body;
+
+                        if (sh.len < sizeof(struct btrfs_chunk))
+                                return -EBADMSG;
+
+                        if ((sh.len - sizeof(struct btrfs_chunk)) / sizeof(struct btrfs_stripe) + 1 < le16toh(item->num_stripes))
+                                return -EBADMSG;
+
                         *chunk = (BtrfsChunk) {
                                 .offset = sh.offset,
                                 .length = le64toh(item->length),
