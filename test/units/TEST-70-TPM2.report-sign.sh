@@ -454,6 +454,11 @@ def main():
                 sys.exit(f"component {i}: session audit extraData does not match the report digest")
             saw_report_binding = True
 
+            # This is hard-coded as SHA256 for now.
+            alg = comp.get("sessionAuditHashAlg")
+            if alg != "SHA256":
+                sys.exit(f"component {i}: session audit hash algorithm is not SHA256")
+
         print(comp["type"])
 
     if not saw_report_binding:
