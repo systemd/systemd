@@ -25,6 +25,7 @@
 #include "signal-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
@@ -959,6 +960,7 @@ static int table_add_manyv(Table *t, va_list ap) {
 
         for (;;) {
                 TableDataType type = va_arg(ap, TableDataType);
+                _cleanup_free_ char *data_free = NULL;
                 const void *data;
                 union {
                         uint64_t size;
@@ -1013,6 +1015,24 @@ static int table_add_manyv(Table *t, va_list ap) {
 
                         data = s;
                         type = TABLE_STRING;
+                        break;
+                }
+
+                case TABLE_STRINGF:
+                case TABLE_STRINGF_WITH_ANSI: {
+                        const char *format = va_arg(ap, const char *);
+                        va_list aq;
+                        va_copy(aq, ap);
+                        DISABLE_WARNING_FORMAT_NONLITERAL;
+                        r = vasprintf(&data_free, format, aq);
+                        REENABLE_WARNING;
+                        va_end(aq);
+                        if (r < 0)
+                                return -EINVAL;
+
+                        VA_FORMAT_ADVANCE(format, ap);
+                        data = data_free;
+                        type = type == TABLE_STRINGF ? TABLE_STRING : TABLE_STRING_WITH_ANSI;
                         break;
                 }
 
