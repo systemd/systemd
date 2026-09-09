@@ -61,6 +61,7 @@ The following exceptions apply:
    - hostname-wordlist/weather
    - hostname-wordlist/worlds
    - src/systemd/sd-dlopen.h
+   - AGENTS.md
  * the following sources are under **Public Domain** (LicenseRef-murmurhash2-public-domain):
    - src/basic/MurmurHash2.c
    - src/basic/MurmurHash2.h
