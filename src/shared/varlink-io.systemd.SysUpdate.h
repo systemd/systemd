@@ -3,4 +3,10 @@
 
 #include "sd-varlink-idl.h"
 
+extern const sd_varlink_symbol vl_type_TargetClass;
+extern const sd_varlink_symbol vl_type_TargetIdentifier;
+extern const sd_varlink_symbol vl_type_Target;
+
+extern const sd_varlink_symbol vl_error_NoSuchTarget;
+
 extern const sd_varlink_interface vl_interface_io_systemd_SysUpdate;

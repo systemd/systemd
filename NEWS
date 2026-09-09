@@ -144,10 +144,9 @@ CHANGES WITH 262 in spe:
           hierarchy that is not merged is now shown as "-" instead of "none".
 
         * The JSON payload returned by systemd-sysupdated's DescribeFeature()
-          method changed the "name" and "enabled" keys to "id" and
-          "isEnabled", respectively. The "appStream" key is now "appstream",
-          and the "documentation" key is now an array of strings. Consumers
-          of this interface must update their JSON parsing accordingly.
+          method changed the "name" keys to "id".  The "documentation" key is
+          now an array of strings.  Consumers of this interface must update
+          their JSON parsing accordingly.
 
         Changes in the system and service manager:
 
