@@ -30,6 +30,10 @@ DECLARE_STRING_TABLE_LOOKUP(tpm2_report_component_type, Tpm2ReportComponentType)
 typedef struct Tpm2ReportComponent {
         Tpm2ReportComponentType type;
 
+        /* For PCRs only */
+        Tpm2PCRValue *pcr_values;
+        size_t n_pcr_values;
+
         /* For NvPCRs only */
         char *nv_pcr_name;
         TPMS_NV_PUBLIC *nv_public;
