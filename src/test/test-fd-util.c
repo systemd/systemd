@@ -6,6 +6,8 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "capability-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "memfd-util.h"
@@ -928,6 +930,31 @@ TEST(fd_is_writable) {
         safe_close(fd_ro);
         ASSERT_ERROR(fd_is_writable(fd_ro), EBADF);
         TAKE_FD(fd_ro);
+}
+
+TEST(fd_reopen_emptypath) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, dfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+
+        /* Older kernels ignore the flag and miss the empty path */
+        fd = openat(tfd, "", O_PATH|O_CLOEXEC|O_EMPTYPATH);
+        if (fd < 0 && errno == ENOENT)
+                return (void) log_tests_skipped("kernel lacks O_EMPTYPATH");
+        ASSERT_OK_ERRNO(fd);
+        fd = safe_close(fd);
+
+        if (have_effective_cap(CAP_DAC_OVERRIDE) > 0 || have_effective_cap(CAP_DAC_READ_SEARCH) > 0)
+                return (void) log_tests_skipped("directory permissions do not apply to us");
+
+        /* A directory we may read but not search: "." cannot be looked up in it, O_EMPTYPATH needs no lookup */
+        ASSERT_OK_ERRNO(mkdirat(tfd, "noexec", 0400));
+        ASSERT_OK_ERRNO(dfd = openat(tfd, "noexec", O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_ERROR(RET_NERRNO(openat(dfd, ".", O_RDONLY|O_DIRECTORY|O_CLOEXEC)), EACCES);
+
+        ASSERT_OK(fd = fd_reopen(dfd, O_RDONLY|O_DIRECTORY));
+        ASSERT_OK_POSITIVE(inode_same_at(dfd, NULL, fd, NULL, AT_EMPTY_PATH));
 }
 
 TEST(fd_reopen_cloexec) {
