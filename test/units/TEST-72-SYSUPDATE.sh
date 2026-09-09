@@ -509,7 +509,7 @@ EOF
     ' <<<"$feature_json" >/dev/null
     jq -e '.enabled == false' <<<"$feature_json" >/dev/null
     jq -e '.suggested == false' <<<"$feature_json" >/dev/null
-    jq -e '.appstream == "https://example.com/optional.appstream.xml"' <<<"$feature_json" >/dev/null
+    jq -e '.appStream == "https://example.com/optional.appstream.xml"' <<<"$feature_json" >/dev/null
 
     suggested_json="$("$SYSUPDATE" --json=short features suggested)"
     jq -e '.id == "suggested" and .suggested == true' <<<"$suggested_json" >/dev/null
