@@ -28,6 +28,10 @@ typedef enum ChaseFlags {
         CHASE_MUST_BE_DIRECTORY  = 1 << 13, /* Fail if returned inode fd is not a dir */
         CHASE_MUST_BE_REGULAR    = 1 << 14, /* Fail if returned inode fd is not a regular file */
         CHASE_MUST_BE_SOCKET     = 1 << 15, /* Fail if returned inode fd is not a socket */
+        CHASE_MAX_MODE           = 1 << 16, /* Return -ENOLINK if a directory the walk enters has permission
+                                             * bits beyond 0755, or the final regular file any bit beyond
+                                             * 0644, suid/sgid/sticky included. The root and the starting
+                                             * directory are not checked, symlinks never. */
 } ChaseFlags;
 
 int statx_unsafe_transition(const struct statx *a, const struct statx *b);
