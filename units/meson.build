@@ -837,6 +837,14 @@ units = [
           'conditions' : ['ENABLE_REPORT'],
         },
         {
+          'file' : 'systemd-report-netstat.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-netstat@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
           'file' : 'systemd-report-sign-plain.socket',
           'conditions' : ['ENABLE_REPORT', 'HAVE_OPENSSL'],
         },
