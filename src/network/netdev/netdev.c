@@ -464,6 +464,7 @@ int netdev_set_ifindex_internal(NetDev *netdev, int ifindex) {
 
 static int netdev_set_ifindex_impl(NetDev *netdev, const char *name, int ifindex) {
         assert(netdev);
+        assert(netdev->ifname);
         assert(name);
         assert(ifindex > 0);
 
