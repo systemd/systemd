@@ -178,7 +178,7 @@ EFI_STATUS linux_exec(
                 const struct iovec *kernel,
                 const struct iovec *initrd) {
 
-        size_t kernel_size_in_memory = 0;
+        size_t headers_size = 0, kernel_size_in_memory = 0;
         uint32_t compat_entry_point, entry_point, section_alignment;
         EFI_STATUS err;
 
@@ -186,7 +186,14 @@ EFI_STATUS linux_exec(
         assert(iovec_is_set(kernel));
         assert(iovec_is_valid(initrd));
 
-        err = pe_kernel_info(kernel->iov_base, kernel->iov_len, &entry_point, &compat_entry_point, &kernel_size_in_memory, &section_alignment);
+        err = pe_kernel_info(
+                        kernel->iov_base,
+                        kernel->iov_len,
+                        &entry_point,
+                        &compat_entry_point,
+                        &kernel_size_in_memory,
+                        &headers_size,
+                        &section_alignment);
 #if defined(__i386__) || defined(__x86_64__)
         if (err == EFI_UNSUPPORTED)
                 /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
@@ -255,23 +262,26 @@ EFI_STATUS linux_exec(
                                 initrd,
                                 kernel_file_path);
 
-        err = pe_kernel_check_no_relocation(kernel->iov_base);
-        if (err != EFI_SUCCESS)
-                return err;
-
         /* As per MSFT requirement, memory pages need to be marked W^X, so mark code pages RO+X.
          * Firmwares will start enforcing this at some point in the near-ish future.
          * The kernel needs to mark this as supported explicitly, otherwise it will crash.
          * https://microsoft.github.io/mu/WhatAndWhy/enhancedmemoryprotection/
          * https://www.kraxel.org/blog/2023/12/uefi-nx-linux-boot/ */
         EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto = NULL;
+        /* Any code section marked RO+X must be reverted to RW+NX before the backing pages are freed. */
+        _cleanup_(cleanup_nx_sections) CleanupNxSections nx_restore = {};
 
         if (pe_kernel_check_nx_compat(kernel->iov_base)) {
                 /* LocateProtocol() is not quite that quick if you have many protocols, so only look for it
                  * if required for NX_COMPAT */
                 err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_MEMORY_ATTRIBUTE_PROTOCOL), /* Registration= */ NULL, (void **) &memory_proto);
                 if (err != EFI_SUCCESS)
-                        log_debug_status(err, "No EFI_MEMORY_ATTRIBUTE_PROTOCOL found, skipping NX_COMPAT support.");
+                        /* Only warn if the UEFI should have support in the first place (version >= 2.10) */
+                        log_full(err,
+                                 ST->Hdr.Revision >= ((2U << 16) | 100U) ? LOG_WARNING : LOG_DEBUG,
+                                 "No EFI_MEMORY_ATTRIBUTE_PROTOCOL found, skipping NX_COMPAT support.");
+                else
+                        nx_restore.memory_proto = memory_proto;
         }
 
         const PeSectionHeader *headers;
@@ -293,43 +303,68 @@ EFI_STATUS linux_exec(
                         section_alignment,
                         /* addr= */ 0);
 
-        uint8_t* loaded_kernel = PHYSICAL_ADDRESS_TO_POINTER(loaded_kernel_pages.addr);
+        uint8_t *loaded_kernel = PHYSICAL_ADDRESS_TO_POINTER(loaded_kernel_pages.addr);
+        memzero(loaded_kernel, kernel_size_in_memory);
 
-        /* Any code section marked RO+X must be reverted to RW+NX before the backing pages are freed. */
-        _cleanup_(cleanup_nx_sections) CleanupNxSections nx_restore = {
-                .memory_proto = memory_proto,
-        };
+        /* Copy the PE headers (DOS header, PE header, section table) too. The kernel stub
+         * expects these to be present at ImageBase when it looks up its embedded sections. */
+        if (headers_size > kernel->iov_len)
+                return log_error_status(EFI_LOAD_ERROR, "PE SizeOfHeaders exceeds file size");
+        if (headers_size > kernel_size_in_memory)
+                return log_error_status(EFI_LOAD_ERROR, "PE SizeOfHeaders exceeds SizeOfImage");
+        size_t section_table_end =
+                        (const uint8_t*) (headers + n_headers) - (const uint8_t*) kernel->iov_base;
+        if (headers_size < section_table_end)
+                return log_error_status(EFI_LOAD_ERROR, "PE SizeOfHeaders does not cover the section table");
+        memcpy(loaded_kernel, kernel->iov_base, headers_size);
 
+        /* First pass: copy all sections into the loaded image. */
         FOREACH_ARRAY(h, headers, n_headers) {
                 if (h->PointerToRelocations != 0)
-                        return log_error_status(EFI_LOAD_ERROR, "Inner kernel image contains sections with relocations, which we do not support.");
+                        return log_error_status(EFI_LOAD_ERROR, "Inner kernel image contains COFF section relocations, which we do not support.");
                 if (h->SizeOfRawData == 0)
                         continue;
 
-                if (UINT32_MAX - h->VirtualAddress < h->SizeOfRawData)
-                        return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, SizeOfRawData + VirtualAddress, overflows");
-                if (h->VirtualAddress + h->SizeOfRawData > kernel_size_in_memory)
-                        return log_error_status(EFI_LOAD_ERROR, "Section would write outside of memory");
-                if (h->SizeOfRawData > h->VirtualSize)
-                        return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, raw data size is greater than virtual size");
+                /* SizeOfRawData is rounded up to FileAlignment per the PE spec, so it
+                 * can legitimately exceed VirtualSize. Only copy up to VirtualSize in
+                 * that case, matching pe_locate_sections_internal(). */
+                size_t copy_size = MIN(h->SizeOfRawData, h->VirtualSize);
+
                 if (UINT32_MAX - h->VirtualAddress < h->VirtualSize)
                         return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, VirtualSize + VirtualAddress overflows");
                 if (h->VirtualAddress + h->VirtualSize > kernel_size_in_memory)
-                        return log_error_status(EFI_LOAD_ERROR, "Section virtual size would write outside of memory");
+                        return log_error_status(EFI_LOAD_ERROR, "Section would write outside of memory");
                 if (UINT32_MAX - h->PointerToRawData < h->SizeOfRawData)
                         return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, PointerToRawData + SizeOfRawData overflows");
                 if (h->PointerToRawData + h->SizeOfRawData > kernel->iov_len)
                         return log_error_status(EFI_LOAD_ERROR, "Invalid PE section, raw data extends outside of file");
                 memcpy(loaded_kernel + h->VirtualAddress,
-                       (const uint8_t*)kernel->iov_base + h->PointerToRawData,
-                       h->SizeOfRawData);
-                memzero(loaded_kernel + h->VirtualAddress + h->SizeOfRawData,
-                        h->VirtualSize - h->SizeOfRawData);
+                       (const uint8_t*) kernel->iov_base + h->PointerToRawData,
+                       copy_size);
+                if (h->VirtualSize > copy_size)
+                        memzero(loaded_kernel + h->VirtualAddress + copy_size,
+                                h->VirtualSize - copy_size);
+        }
 
-                /* Not a code section? Nothing to do, leave as-is. */
-                if (memory_proto && (h->Characteristics & (PE_CODE|PE_EXECUTE))) {
-                        /* Record the section for cleanup before marking it RO+X: if memory_mark_ro_x()
-                         * fails after partially applying the attributes, cleanup still reverts them. */
+        /* Apply PE base relocations before marking pages RO+X. This custom loader does not go
+         * through LoadImage(), hence it must perform the fixups itself. */
+        err = pe_kernel_apply_relocations(
+                        kernel->iov_base,
+                        kernel->iov_len,
+                        loaded_kernel,
+                        kernel_size_in_memory,
+                        loaded_kernel_pages.addr);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Cannot apply PE relocations: %m");
+
+        /* Second pass: mark code sections RO+X for W^X compliance. */
+        if (memory_proto) {
+                FOREACH_ARRAY(h, headers, n_headers) {
+                        if (h->SizeOfRawData == 0)
+                                continue;
+                        if (!(h->Characteristics & (PE_CODE|PE_EXECUTE)))
+                                continue;
+
                         nx_restore.sections = xrealloc(nx_restore.sections, nx_restore.n_sections * sizeof(struct iovec), (nx_restore.n_sections + 1) * sizeof(struct iovec));
                         nx_restore.sections[nx_restore.n_sections++] = IOVEC_MAKE(loaded_kernel + h->VirtualAddress, h->VirtualSize);
 

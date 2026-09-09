@@ -3116,6 +3116,7 @@ static EFI_STATUS call_image_start(
 
                 err = pe_kernel_info(loaded_image->ImageBase, loaded_image->ImageSize, /* ret_entry_point= */ NULL, &compat_address,
                                      /* ret_size_in_memory= */ NULL,
+                                     /* ret_headers_size= */ NULL,
                                      /* ret_section_alignment= */ NULL);
                 if (err != EFI_SUCCESS) {
                         if (err != EFI_UNSUPPORTED)
