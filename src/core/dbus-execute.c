@@ -4305,7 +4305,7 @@ int bus_exec_context_set_transient_property(
                                                 "%s=%s%s%s%s%s",
                                                 exec_directory_type_to_string(i),
                                                 source_escaped,
-                                                destination ? ":" : "",
+                                                destination || !isempty(flags_string) ? ":" : "",
                                                 strempty(destination_escaped),
                                                 isempty(flags_string) ? "" : ":",
                                                 flags_string);
