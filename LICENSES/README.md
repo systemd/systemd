@@ -58,6 +58,7 @@ The following exceptions apply:
    - all examples under man/
    - config files and examples under /network
    - src/systemd/sd-dlopen.h
+   - AGENTS.md
  * the following sources are under **Public Domain** (LicenseRef-murmurhash2-public-domain):
    - src/basic/MurmurHash2.c
    - src/basic/MurmurHash2.h
