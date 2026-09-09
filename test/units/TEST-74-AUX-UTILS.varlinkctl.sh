@@ -222,6 +222,37 @@ systemd-run --wait --pipe --user --machine testuser@ \
 systemd-run --wait --pipe --user --machine testuser@ \
         varlinkctl call "/run/user/$testuser_uid/systemd/io.systemd.Manager" io.systemd.Manager.Describe '{}'
 
+# Test io.systemd.GetServerCredentials method
+LOGIND_PID="$(systemctl show -P MainPID systemd-logind.service)"
+RESOLVED_PID="$(systemctl show -P MainPID systemd-resolved.service)"
+RESOLVED_UID="$(id -u systemd-resolve)"
+RESOLVED_GID="$(id -g systemd-resolve)"
+LOGFILE="$(mktemp)"
+# systemd-logind runs under root and supports FD passing (SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT)
+varlinkctl call /run/systemd/io.systemd.Login io.systemd.GetServerCredentials '{}' | tee "$LOGFILE" | jq .
+jq -e ".uid == 0" "$LOGFILE"
+jq -e ".gid == 0" "$LOGFILE"
+jq -e ".pid == $LOGIND_PID" "$LOGFILE"
+# Test PIDFD passing when supported by kernel
+if systemd-analyze compare-versions "$(uname -r)" ge 6.5; then
+    jq -e ".pidfdIndex == 0" "$LOGFILE"
+    # varlinkctl passes the received FD's into the exec'ed process where the first FD should be at
+    # position SD_LISTEN_FDS_START, i.e. 3 ATTOW
+    varlinkctl call /run/systemd/io.systemd.Login io.systemd.GetServerCredentials '{}' --exec -- \
+        bash -xec 'cat /proc/self/fdinfo/3' | tee "$LOGFILE"
+    grep -E "^Pid:\s*$LOGIND_PID$" "$LOGFILE"
+
+else
+    jq -e 'has("pidfdIndex") | not' "$LOGFILE"
+fi
+# systemd-resolved runs under its own user/group and doesn't support FD passing
+varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.GetServerCredentials '{}' | tee "$LOGFILE" | jq .
+jq -e ".uid == $RESOLVED_UID" "$LOGFILE"
+jq -e ".gid == $RESOLVED_GID" "$LOGFILE"
+jq -e ".pid == $RESOLVED_PID" "$LOGFILE"
+jq -e 'has("pidfdIndex") | not' "$LOGFILE"
+rm -f "$LOGFILE"
+
 # test --upgrade (protocol upgrade)
 # The basic --upgrade proxy test is covered by the "varlinkctl serve" tests below (which use
 # serve+rev/gunzip as the server). The tests here exercise features that need the Python
