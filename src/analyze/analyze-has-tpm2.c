@@ -30,27 +30,16 @@ int verb_identify_tpm2(int argc, char **argv, uintptr_t _data, void *userdata) {
         if (!table)
                 return log_oom();
 
-        if (!isempty(info.family_indicator)) {
-                r = table_add_many(
-                                table,
-                                TABLE_FIELD, "Family Indicator",
-                                TABLE_STRING, info.family_indicator);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        _cleanup_free_ char *rv = NULL;
-        if (asprintf(&rv, "%" PRIu32 ".%" PRIu32,
-                     info.revision_major,
-                     info.revision_minor) < 0)
-                return log_oom();
-
         r = table_add_many(
                         table,
+                        TABLE_FIELD, "Family Indicator",
+                        TABLE_STRING_NON_EMPTY, info.family_indicator,
                         TABLE_FIELD, "Level",
                         TABLE_UINT32, info.level,
                         TABLE_FIELD, "Revision",
-                        TABLE_STRING, rv);
+                        TABLE_STRINGF, "%" PRIu32 ".%" PRIu32,
+                        info.revision_major,
+                        info.revision_minor);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -75,23 +64,14 @@ int verb_identify_tpm2(int argc, char **argv, uintptr_t _data, void *userdata) {
                 }
         }
 
-        if (!isempty(info.manufacturer)) {
-                r = table_add_many(
-                                table,
-                                TABLE_FIELD, "Manufacturer",
-                                TABLE_STRING, info.manufacturer);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(info.vendor_string)) {
-                r = table_add_many(
-                                table,
-                                TABLE_FIELD, "Vendor String",
-                                TABLE_STRING, info.vendor_string);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        r = table_add_many(
+                        table,
+                        TABLE_FIELD, "Manufacturer",
+                        TABLE_STRING_NON_EMPTY, info.manufacturer,
+                        TABLE_FIELD, "Vendor String",
+                        TABLE_STRING_NON_EMPTY, info.vendor_string);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (info.vendor_tpm_type != 0) {
                 r = table_add_many(
