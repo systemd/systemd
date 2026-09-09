@@ -1043,6 +1043,34 @@ TEST(vertical) {
         ASSERT_TRUE(sd_json_variant_equal(a, b));
 }
 
+TEST(string_non_empty) {
+        _cleanup_(table_unrefp) Table *t = ASSERT_NOT_NULL(table_new_vertical());
+
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_FIELD, "empty1", TABLE_STRING_NON_EMPTY, "",
+                                 TABLE_FIELD, "null1", TABLE_STRING_NON_EMPTY, NULL,
+                                 TABLE_FIELD, "size1", TABLE_SIZE, UINT64_C(1024),
+                                 TABLE_FIELD, "empty2", TABLE_STRING_NON_EMPTY, "",
+                                 TABLE_FIELD, "null2", TABLE_STRING_NON_EMPTY, NULL,
+                                 TABLE_FIELD, "size2", TABLE_SIZE, UINT64_C(2048)));
+
+        _cleanup_free_ char *formatted = NULL;
+        ASSERT_OK(table_format(t, &formatted));
+
+        ASSERT_STREQ(formatted,
+                     "size1: 1K\n"
+                     "size2: 2K\n");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        ASSERT_OK(table_to_json(t, &a));
+
+        ASSERT_OK(sd_json_buildo(&b,
+                                 SD_JSON_BUILD_PAIR_UNSIGNED("size1", 1024),
+                                 SD_JSON_BUILD_PAIR_UNSIGNED("size2", 2048)));
+
+        ASSERT_TRUE(sd_json_variant_equal(a, b));
+}
+
 TEST(path_basename) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
