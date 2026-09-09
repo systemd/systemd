@@ -77,3 +77,6 @@ disable rtkit-daemon.service
 # Disable postmarketOS specific zram swap service.
 # Maybe better to replace it with zram-generator?
 disable zram_swap.service
+
+# systemd-keyring-setup.service is not enabled by default, but the integration tests rely on it.
+enable systemd-keyring-setup.service
