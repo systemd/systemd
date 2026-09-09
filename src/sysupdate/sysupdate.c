@@ -727,19 +727,21 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
         return 0;
 }
 
-static int context_discover_update_sets(Context *c) {
+static int context_discover_update_sets(Context *c, bool log_progress) {
         int r;
 
         assert(c);
 
-        log_info("Determining installed update sets%s", glyph(GLYPH_ELLIPSIS));
+        if (log_progress)
+                log_info("Determining installed update sets%s", glyph(GLYPH_ELLIPSIS));
 
         r = context_discover_update_sets_by_flag(c, UPDATE_INSTALLED);
         if (r < 0)
                 return r;
 
         if (!c->offline) {
-                log_info("Determining available update sets%s", glyph(GLYPH_ELLIPSIS));
+                if (log_progress)
+                        log_info("Determining available update sets%s", glyph(GLYPH_ELLIPSIS));
 
                 r = context_discover_update_sets_by_flag(c, UPDATE_AVAILABLE);
                 if (r < 0)
@@ -1224,7 +1226,7 @@ static int context_load_online(
                         return r;
         }
 
-        r = context_discover_update_sets(context);
+        r = context_discover_update_sets(context, /* log_progress= */ true);
         if (r < 0)
                 return r;
 
@@ -1466,7 +1468,7 @@ static int enumerate_image_class(Context *context, RuntimeScope runtime_scope, T
                         continue;
                 }
 
-                r = context_discover_update_sets(&image_context);
+                r = context_discover_update_sets(&image_context, /* log_progress= */ false);
                 if (r < 0)
                         return r;
 
@@ -1524,7 +1526,7 @@ static int context_enumerate_components(Context *context, Set **targets) {
                 if (r < 0)
                         return r;
 
-                r = context_discover_update_sets(&component_context);
+                r = context_discover_update_sets(&component_context, /* log_progress= */ false);
                 if (r < 0)
                         return r;
 
@@ -3304,7 +3306,7 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
 
-        r = context_discover_update_sets(&context);
+        r = context_discover_update_sets(&context, /* log_progress= */ false);
         if (r < 0)
                 return r;
 
