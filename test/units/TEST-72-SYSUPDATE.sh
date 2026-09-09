@@ -294,6 +294,10 @@ EOF
     done
 
     cat >"$CONFIGDIR/01-first.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/main.xml
+AppStream=https://example.com/appstream/second.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -307,6 +311,9 @@ MatchPartitionType=root-x86-64
 EOF
 
     cat >"$CONFIGDIR/02-second.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/main.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -334,6 +341,9 @@ InstancesMax=3
 EOF
 
     cat >"$CONFIGDIR/04-fourth.transfer" <<EOF
+[Transfer]
+AppStream=https://example.com/appstream/fourth.xml
+
 [Source]
 Type=regular-file
 Path=$WORKDIR/source
@@ -693,10 +703,14 @@ EOF
     fi
 
     # Check that the target versions are listed correctly.
-    [[ $( "$SYSUPDATE" --verify=no --json=short list | jq -cr '.all') == '["v9","v8","v7","v6","v5","v3","v2","v1"]' ]]
-    [[ $( "$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.all') == '["v9","v8","v7","v6"]' ]]
+    [[ $("$SYSUPDATE" --verify=no --json=short list | jq -cr '.all') == '["v9","v8","v7","v6","v5","v3","v2","v1"]' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.all') == '["v9","v8","v7","v6"]' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.current') == 'v9' ]]
+    [[ $("$SYSUPDATE" --verify=no --offline --json=short list | jq -cr '.appStreamUrls') == '["https://example.com/appstream/main.xml","https://example.com/appstream/second.xml","https://example.com/appstream/fourth.xml"]' ]]
     host="$(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListTargets | jq -c '.targets[] | select(.id.class=="host")')"
     [[ $(jq -cr '.allVersions' <<<"$host") == '["v9","v8","v7","v6"]' ]]
+    [[ $(jq -cr '.currentVersion' <<<"$host") == 'v9' ]]
+    [[ $(jq -cr '.appStreamUrls' <<<"$host") == '["https://example.com/appstream/main.xml","https://example.com/appstream/second.xml","https://example.com/appstream/fourth.xml"]' ]]
 
     # Cleanup
     [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
