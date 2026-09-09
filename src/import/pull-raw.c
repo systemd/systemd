@@ -252,9 +252,9 @@ static int raw_pull_maybe_convert_qcow2(RawPull *p) {
         if (r < 0)
                 return log_oom();
 
-        converted_fd = open(f, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        converted_fd = xopenat_full(AT_FDCWD, f, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY, /* xopen_flags= */ 0, 0664);
         if (converted_fd < 0)
-                return log_error_errno(errno, "Failed to create %s: %m", f);
+                return log_error_errno(converted_fd, "Failed to create %s: %m", f);
 
         t = TAKE_PTR(f);
 
@@ -355,9 +355,9 @@ static int raw_pull_make_local_copy(RawPull *p) {
 
                 assert(p->raw_job->disk_fd < 0);
 
-                p->raw_job->disk_fd = open(p->final_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                p->raw_job->disk_fd = xopenat(AT_FDCWD, p->final_path, O_RDONLY|O_NOCTTY);
                 if (p->raw_job->disk_fd < 0)
-                        return log_error_errno(errno, "Failed to open vendor image: %m");
+                        return log_error_errno(p->raw_job->disk_fd, "Failed to open vendor image: %m");
         } else {
                 /* We freshly downloaded the image, use it */
 
@@ -381,9 +381,9 @@ static int raw_pull_make_local_copy(RawPull *p) {
                 if (r < 0)
                         return log_oom();
 
-                dfd = open(f, O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+                dfd = xopenat_full(AT_FDCWD, f, O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY, /* xopen_flags= */ 0, 0664);
                 if (dfd < 0)
-                        return log_error_errno(errno, "Failed to create writable copy of image: %m");
+                        return log_error_errno(dfd, "Failed to create writable copy of image: %m");
 
                 tp = TAKE_PTR(f);
 
@@ -685,9 +685,9 @@ static int raw_pull_job_on_open_disk_generic(
 
         (void) mkdir_parents_label(*temp_path, 0700);
 
-        j->disk_fd = open(*temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        j->disk_fd = xopenat_full(AT_FDCWD, *temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY, /* xopen_flags= */ 0, 0664);
         if (j->disk_fd < 0)
-                return log_error_errno(errno, "Failed to create %s: %m", *temp_path);
+                return log_error_errno(j->disk_fd, "Failed to create %s: %m", *temp_path);
 
         return 0;
 }
@@ -713,9 +713,9 @@ static int raw_pull_job_on_open_disk_raw(PullJob *j) {
 
                 (void) mkdir_parents_label(p->local, 0700);
 
-                j->disk_fd = open(p->local, O_RDWR|O_NOCTTY|O_CLOEXEC|(p->offset == UINT64_MAX ? O_TRUNC|O_CREAT : 0), 0664);
+                j->disk_fd = xopenat_full(AT_FDCWD, p->local, O_RDWR|O_NOCTTY|(p->offset == UINT64_MAX ? O_TRUNC|O_CREAT : 0), /* xopen_flags= */ 0, 0664);
                 if (j->disk_fd < 0)
-                        return log_error_errno(errno, "Failed to open destination '%s': %m", p->local);
+                        return log_error_errno(j->disk_fd, "Failed to open destination '%s': %m", p->local);
 
                 if (p->offset == UINT64_MAX)
                         (void) import_set_nocow_and_log(j->disk_fd, p->local);

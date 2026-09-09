@@ -256,6 +256,12 @@ CHANGES WITH 262 in spe:
           treated as untrusted boot-loader credentials, routed to
           $ENCRYPTED_CREDENTIALS_DIRECTORY for LoadCredentialEncrypted=.
 
+        * StandardInput=file:, StandardOutput=file:/append:/truncate: and
+          StandardError=file:/append:/truncate: no longer create the specified
+          file through a dangling symlink. If the path is a symlink whose
+          target does not exist yet, the service now fails to start with an
+          ELOOP error, in line with the other file-creating code in systemd.
+
         Changes in sd-varlink and varlinkctl:
 
         * Varlink socket inodes are tagged with an
@@ -720,6 +726,11 @@ CHANGES WITH 262 in spe:
         Other changes:
 
         * Support for OpenSSL 4 has been added.
+
+        * systemd-random-seed and "importctl export-tar/export-raw" no longer
+          create their output files through a dangling symlink and fail with an
+          ELOOP error instead, in line with the other file-creating code in
+          systemd.
 
         * systemd-timesyncd now resolves NTP server names through
           systemd-resolved's Varlink API when available. It suppresses DNSSEC

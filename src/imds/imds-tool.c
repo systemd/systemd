@@ -401,7 +401,7 @@ static int write_credential(const char *dir, const char *name, const struct iove
         assert(dir);
         assert(name);
 
-        _cleanup_close_ int dfd = open_mkdir(dir, O_CLOEXEC|O_PATH, 0700);
+        _cleanup_close_ int dfd = open_mkdir(dir, O_PATH, 0700);
         if (dfd < 0)
                 return log_error_errno(dfd, "Failed to open credential directory '%s': %m", dir);
 
@@ -414,7 +414,7 @@ static int write_credential(const char *dir, const char *name, const struct iove
         }
 
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int fd = open_tmpfile_linkable_at(dfd, name, O_WRONLY|O_CLOEXEC, &t);
+        _cleanup_close_ int fd = open_tmpfile_linkable_at(dfd, name, O_WRONLY, &t);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create credential file '%s/%s': %m", dir, name);
 

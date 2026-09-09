@@ -13,6 +13,7 @@
 #include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "string-util.h"
@@ -65,13 +66,13 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        fd = open(arg_device, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, arg_device, O_RDONLY|O_NOCTTY);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno);
-                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
+                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, fd,
                                "Failed to open device node '%s'%s: %m",
                                arg_device, ignore ? ", ignoring" : "");
-                return ignore ? 0 : -errno;
+                return ignore ? 0 : fd;
         }
 
         if (ioctl(fd, VIDIOC_QUERYCAP, &v2cap) == 0) {

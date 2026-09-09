@@ -9,7 +9,6 @@
 
 #include "alloc-util.h"
 #include "env-file.h"
-#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -102,7 +101,7 @@ static int inhibitor_save(Inhibitor *i) {
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable(i->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
+        r = fopen_tmpfile_linkable(i->state_file, O_WRONLY, &temp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create state file '%s': %m", i->state_file);
 
@@ -313,9 +312,9 @@ int inhibitor_create_fifo(Inhibitor *i) {
 
         /* Open reading side */
         if (i->fifo_fd < 0) {
-                i->fifo_fd = open(i->fifo_path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                i->fifo_fd = xopenat(AT_FDCWD, i->fifo_path, O_RDONLY|O_NONBLOCK);
                 if (i->fifo_fd < 0)
-                        return -errno;
+                        return i->fifo_fd;
         }
 
         if (!i->event_source) {
@@ -331,7 +330,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
         }
 
         /* Open writing side */
-        return RET_NERRNO(open(i->fifo_path, O_WRONLY|O_CLOEXEC|O_NONBLOCK));
+        return xopenat(AT_FDCWD, i->fifo_path, O_WRONLY|O_NONBLOCK);
 }
 
 static void inhibitor_remove_fifo(Inhibitor *i) {

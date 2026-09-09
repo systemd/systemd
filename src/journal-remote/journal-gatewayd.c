@@ -17,6 +17,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -147,7 +148,7 @@ static int request_meta_ensure_tmp(RequestMeta *m) {
         else {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = open_tmpfile_unlinkable("/tmp", O_RDWR|O_CLOEXEC);
+                fd = open_tmpfile_unlinkable("/tmp", O_RDWR);
                 if (fd < 0)
                         return fd;
 
@@ -805,9 +806,9 @@ static int request_handler_file(
         assert(path);
         assert(mime_type);
 
-        fd = open(path, O_RDONLY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY);
         if (fd < 0)
-                return mhd_respondf(connection, errno, MHD_HTTP_NOT_FOUND, "Failed to open file %s: %m", path);
+                return mhd_respondf(connection, fd, MHD_HTTP_NOT_FOUND, "Failed to open file %s: %m", path);
 
         if (fstat(fd, &st) < 0)
                 return mhd_respondf(connection, errno, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m");

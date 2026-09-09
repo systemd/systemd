@@ -7,6 +7,7 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
 
@@ -33,9 +34,9 @@ static int builtin_btrfs(UdevEvent *event, int argc, char *argv[]) {
                 return 0;
         }
 
-        _cleanup_close_ int fd = open("/dev/btrfs-control", O_RDWR|O_CLOEXEC|O_NOCTTY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, "/dev/btrfs-control", O_RDWR|O_NOCTTY);
         if (fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno)) {
+                if (ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd)) {
                         /* Driver not installed? Then we aren't ready. This is useful in initrds that lack
                          * btrfs.ko. After the host transition (where btrfs.ko will hopefully become
                          * available) the device can be retriggered and will then be considered ready. */
@@ -43,7 +44,7 @@ static int builtin_btrfs(UdevEvent *event, int argc, char *argv[]) {
                         return 0;
                 }
 
-                return log_device_debug_errno(dev, errno, "Failed to open %s: %m", "/dev/btrfs-control");
+                return log_device_debug_errno(dev, fd, "Failed to open %s: %m", "/dev/btrfs-control");
         }
 
         struct btrfs_ioctl_vol_args args = {};

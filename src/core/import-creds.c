@@ -105,9 +105,9 @@ static int acquire_credential_directory(ImportCredentialsContext *c, const char 
                 /* If not a mount point yet, and the credentials are not encrypted, then let's try to mount a no-swap fs there */
                 (void) mount_credentials_fs(path);
 
-        c->target_dir_fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        c->target_dir_fd = xopenat(AT_FDCWD, path, O_RDONLY|O_DIRECTORY);
         if (c->target_dir_fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", path);
+                return log_error_errno(c->target_dir_fd, "Failed to open %s: %m", path);
 
         return c->target_dir_fd;
 }
@@ -119,12 +119,12 @@ static int open_credential_file_for_write(int target_dir_fd, const char *dir_nam
         assert(dir_name);
         assert(n);
 
-        fd = openat(target_dir_fd, n, O_WRONLY|O_CLOEXEC|O_CREAT|O_EXCL|O_NOFOLLOW, 0400);
+        fd = xopenat_full(target_dir_fd, n, O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW, /* xopen_flags= */ 0, 0400);
         if (fd < 0) {
-                if (errno == EEXIST) /* In case of EEXIST we'll only debug log! */
-                        return log_debug_errno(errno, "Credential '%s' set twice, ignoring.", n);
+                if (fd == -EEXIST) /* In case of EEXIST we'll only debug log! */
+                        return log_debug_errno(fd, "Credential '%s' set twice, ignoring.", n);
 
-                return log_error_errno(errno, "Failed to create %s/%s: %m", dir_name, n);
+                return log_error_errno(fd, "Failed to create %s/%s: %m", dir_name, n);
         }
 
         return fd;
@@ -178,14 +178,14 @@ static int import_credentials_from_initrd_path(
         _cleanup_close_ int source_dir_fd = -EBADF;
         int r;
 
-        source_dir_fd = open(source_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        source_dir_fd = xopenat(AT_FDCWD, source_path, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (source_dir_fd < 0) {
-                if (errno == ENOENT) {
+                if (source_dir_fd == -ENOENT) {
                         log_debug("No credentials passed via %s.", source_path);
                         return 0;
                 }
 
-                log_warning_errno(errno, "Failed to open '%s', ignoring: %m", source_path);
+                log_warning_errno(source_dir_fd, "Failed to open '%s', ignoring: %m", source_path);
                 return 0;
         }
 
@@ -217,9 +217,9 @@ static int import_credentials_from_initrd_path(
                         continue;
                 }
 
-                cfd = openat(source_dir_fd, d->d_name, O_RDONLY|O_CLOEXEC);
+                cfd = xopenat(source_dir_fd, d->d_name, O_RDONLY);
                 if (cfd < 0) {
-                        log_warning_errno(errno, "Failed to open %s, ignoring: %m", d->d_name);
+                        log_warning_errno(cfd, "Failed to open %s, ignoring: %m", d->d_name);
                         continue;
                 }
 
@@ -426,14 +426,14 @@ static int import_credentials_qemu(ImportCredentialsContext *c) {
         if (detect_confidential_virtualization() > 0) /* don't trust firmware if confidential VMs */
                 return 0;
 
-        source_dir_fd = open(QEMU_FWCFG_PATH, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        source_dir_fd = xopenat(AT_FDCWD, QEMU_FWCFG_PATH, O_RDONLY|O_DIRECTORY);
         if (source_dir_fd < 0) {
-                if (errno == ENOENT) {
+                if (source_dir_fd == -ENOENT) {
                         log_debug("No credentials passed via fw_cfg.");
                         return 0;
                 }
 
-                log_warning_errno(errno, "Failed to open '" QEMU_FWCFG_PATH "', ignoring: %m");
+                log_warning_errno(source_dir_fd, "Failed to open '" QEMU_FWCFG_PATH "', ignoring: %m");
                 return 0;
         }
 
@@ -454,9 +454,9 @@ static int import_credentials_qemu(ImportCredentialsContext *c) {
                         continue;
                 }
 
-                vfd = openat(source_dir_fd, d->d_name, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                vfd = xopenat(source_dir_fd, d->d_name, O_RDONLY|O_DIRECTORY);
                 if (vfd < 0) {
-                        log_warning_errno(errno, "Failed to open '" QEMU_FWCFG_PATH "'/%s/, ignoring: %m", d->d_name);
+                        log_warning_errno(vfd, "Failed to open '" QEMU_FWCFG_PATH "'/%s/, ignoring: %m", d->d_name);
                         continue;
                 }
 
@@ -479,9 +479,9 @@ static int import_credentials_qemu(ImportCredentialsContext *c) {
                  * having size zero, and we'd rather not have applications support such credential
                  * files. Let's hence copy the files to make them regular. */
 
-                rfd = openat(vfd, "raw", O_RDONLY|O_CLOEXEC);
+                rfd = xopenat(vfd, "raw", O_RDONLY);
                 if (rfd < 0) {
-                        log_warning_errno(errno, "Failed to open '" QEMU_FWCFG_PATH "'/%s/raw, ignoring: %m", d->d_name);
+                        log_warning_errno(rfd, "Failed to open '" QEMU_FWCFG_PATH "'/%s/raw, ignoring: %m", d->d_name);
                         continue;
                 }
 
@@ -670,12 +670,12 @@ static int import_credentials_initrd(ImportCredentialsContext *c) {
         if (in_initrd())
                 return 0;
 
-        source_dir_fd = open("/run/credentials/@initrd", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        source_dir_fd = xopenat(AT_FDCWD, "/run/credentials/@initrd", O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (source_dir_fd < 0) {
-                if (errno == ENOENT)
-                        log_debug_errno(errno, "No credentials passed from initrd.");
+                if (source_dir_fd == -ENOENT)
+                        log_debug_errno(source_dir_fd, "No credentials passed from initrd.");
                 else
-                        log_warning_errno(errno, "Failed to open '%s', ignoring: %m", "/run/credentials/@initrd");
+                        log_warning_errno(source_dir_fd, "Failed to open '%s', ignoring: %m", "/run/credentials/@initrd");
                 return 0;
         }
 
@@ -695,9 +695,9 @@ static int import_credentials_initrd(ImportCredentialsContext *c) {
                         continue;
                 }
 
-                cfd = openat(source_dir_fd, d->d_name, O_RDONLY|O_CLOEXEC);
+                cfd = xopenat(source_dir_fd, d->d_name, O_RDONLY);
                 if (cfd < 0) {
-                        log_warning_errno(errno, "Failed to open %s, ignoring: %m", d->d_name);
+                        log_warning_errno(cfd, "Failed to open %s, ignoring: %m", d->d_name);
                         continue;
                 }
 

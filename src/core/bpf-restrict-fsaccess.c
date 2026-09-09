@@ -10,6 +10,7 @@
 #include "devnum-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "initrd-util.h"
 #include "log.h"
 #include "lsm-util.h"
@@ -125,9 +126,9 @@ static int proc_mem_can_force_override(void) {
         if (p == MAP_FAILED)
                 return -errno;
 
-        fd = open("/proc/self/mem", O_RDWR|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, "/proc/self/mem", O_RDWR);
         if (fd < 0) {
-                r = -errno;
+                r = fd;
                 goto finish;
         }
 

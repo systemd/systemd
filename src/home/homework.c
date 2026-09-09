@@ -567,7 +567,7 @@ static int read_identity_file(int root_fd, sd_json_variant **ret) {
         assert(root_fd >= 0);
         assert(ret);
 
-        _cleanup_close_ int identity_fd = xopenat_full(root_fd, ".identity", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK, XO_REGULAR, MODE_INVALID);
+        _cleanup_close_ int identity_fd = xopenat_full(root_fd, ".identity", O_RDONLY|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK, XO_REGULAR, MODE_INVALID);
         if (identity_fd < 0)
                 return log_error_errno(identity_fd, "Failed to open .identity file in home directory: %m");
 
@@ -590,7 +590,6 @@ static int read_identity_file(int root_fd, sd_json_variant **ret) {
 static int write_identity_file(int root_fd, sd_json_variant *v, uid_t uid) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *normalized = NULL;
         _cleanup_fclose_ FILE *identity_file = NULL;
-        _cleanup_close_ int identity_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
 
@@ -603,45 +602,33 @@ static int write_identity_file(int root_fd, sd_json_variant *v, uid_t uid) {
         if (r < 0)
                 log_warning_errno(r, "Failed to normalize user record, ignoring: %m");
 
-        r = tempfn_random(".identity", NULL, &fn);
+        r = fopen_tmpfile_linkable_at(root_fd, ".identity", O_WRONLY|O_NOCTTY, &fn, &identity_file);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create .identity file in home directory: %m");
 
-        identity_fd = openat(root_fd, fn, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
-        if (identity_fd < 0)
-                return log_error_errno(errno, "Failed to create .identity file in home directory: %m");
+        CLEANUP_TMPFILE_AT(root_fd, fn);
 
-        identity_file = take_fdopen(&identity_fd, "w");
-        if (!identity_file) {
-                r = log_oom();
-                goto fail;
-        }
+        /* Tighten the mode before anything is written */
+        if (fchmod(fileno(identity_file), 0600) < 0)
+                return log_error_errno(errno, "Failed to adjust access mode of identity file: %m");
 
         sd_json_variant_dump(normalized, SD_JSON_FORMAT_PRETTY, identity_file, NULL);
 
         r = fflush_and_check(identity_file);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write .identity file: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write .identity file: %m");
 
-        if (fchown(fileno(identity_file), uid, uid) < 0) {
-                r = log_error_errno(errno, "Failed to change ownership of identity file: %m");
-                goto fail;
-        }
+        if (fchown(fileno(identity_file), uid, uid) < 0)
+                return log_error_errno(errno, "Failed to change ownership of identity file: %m");
 
-        if (renameat(root_fd, fn, root_fd, ".identity") < 0) {
-                r = log_error_errno(errno, "Failed to move identity file into place: %m");
-                goto fail;
-        }
+        r = flink_tmpfile_at(identity_file, root_fd, fn, ".identity", LINK_TMPFILE_REPLACE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to move identity file into place: %m");
+
+        fn = mfree(fn); /* disarm CLEANUP_TMPFILE_AT() */
 
         log_info("Wrote embedded .identity file.");
-
         return 0;
-
-fail:
-        (void) unlinkat(root_fd, fn, 0);
-        return r;
 }
 
 int home_load_embedded_identity(
@@ -855,7 +842,7 @@ int home_maybe_shift_uid(
         if (mount_fd >= 0) {
                 safe_close(setup->root_fd);
 
-                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_DIRECTORY);
                 if (setup->root_fd < 0)
                         return log_error_errno(setup->root_fd, "Failed to convert mount fd into regular directory fd: %m");
         }
@@ -1010,9 +997,9 @@ static int home_deactivate(UserRecord *h, bool force) {
                 setup.undo_mount = true; /* remember to unmount the new bind mount from HOME_RUNTIME_WORK_DIR */
 
                 /* Let's explicitly open the new root fs, using the moved path */
-                setup.root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                setup.root_fd = xopenat(AT_FDCWD, HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY);
                 if (setup.root_fd < 0)
-                        return log_error_errno(errno, "Failed to open moved home directory: %m");
+                        return log_error_errno(setup.root_fd, "Failed to open moved home directory: %m");
 
                 /* Now get rid of the home at its original place (we only keep the bind mount we created above) */
                 r = umount_verbose(LOG_ERR, user_record_home_directory(h), UMOUNT_NOFOLLOW | (force ? MNT_FORCE|MNT_DETACH : 0));

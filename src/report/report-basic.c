@@ -18,6 +18,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "limits-util.h"
@@ -585,9 +586,9 @@ static int smbios_generate(const MetricFamily *mf, sd_varlink *link, void *userd
          * tags, the system UUID) are privacy sensitive and only readable by root — if we lack the
          * privileges to read them we simply skip them. */
 
-        _cleanup_close_ int dir_fd = open("/sys/class/dmi/id", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, "/sys/class/dmi/id", O_RDONLY|O_DIRECTORY);
         if (dir_fd < 0) {
-                log_full_errno(ERRNO_IS_DEVICE_ABSENT(errno) ? LOG_DEBUG : LOG_WARNING, errno,
+                log_full_errno(ERRNO_IS_DEVICE_ABSENT(dir_fd) ? LOG_DEBUG : LOG_WARNING, dir_fd,
                                "Failed to open /sys/class/dmi/id/, ignoring: %m");
                 return 0;
         }

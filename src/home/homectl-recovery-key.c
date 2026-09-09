@@ -200,7 +200,7 @@ int recovery_key_file_write(const char *path, const char *recovery_key) {
         if (!filename_is_valid(filename))
                 return -EINVAL;
 
-        fd = open_tmpfile_linkable_at(dir_fd, filename, O_WRONLY|O_CLOEXEC, &tmp);
+        fd = open_tmpfile_linkable_at(dir_fd, filename, O_WRONLY, &tmp);
         if (fd < 0)
                 return fd;
 
