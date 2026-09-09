@@ -388,15 +388,24 @@ EOF
     # Should fail for an invalid field name
     assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s "invalid-name!"
 
-    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s PRETTY_HOSTNAME | cut -d'"' -f2)" "Pretty Test"
-    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s ICON_NAME | cut -d'"' -f2)" "computer-laptop"
-    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s CHASSIS | cut -d'"' -f2)" "laptop"
-    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s DEPLOYMENT | cut -d'"' -f2)" "production"
-    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s LOCATION | cut -d'"' -f2)" "Server Room 42"
-    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_VENDOR | cut -d'"' -f2)" "Test Vendor"
-    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_MODEL | cut -d'"' -f2)" "Test Model"
-    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_SKU | cut -d'"' -f2)" "SKU-001"
-    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_VERSION | cut -d'"' -f2)" "v1.0"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s PRETTY_HOSTNAME | cut -d'"' -f2)" \
+              "Pretty Test"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s ICON_NAME | cut -d'"' -f2)" \
+              "computer-laptop"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s CHASSIS | cut -d'"' -f2)" \
+              "laptop"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s DEPLOYMENT | cut -d'"' -f2)" \
+              "production"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s LOCATION | cut -d'"' -f2)" \
+              "Server Room 42"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_VENDOR | cut -d'"' -f2)" \
+              "Test Vendor"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_MODEL | cut -d'"' -f2)" \
+              "Test Model"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_SKU | cut -d'"' -f2)" \
+              "SKU-001"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_VERSION | cut -d'"' -f2)" \
+              "v1.0"
 
     # Verify cache consistency for all standard fields against D-Bus properties
     assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s PRETTY_HOSTNAME | cut -d'"' -f2)" \
@@ -490,21 +499,38 @@ testcase_tags() {
 
     # Describe() exposes the parsed tag list as MachineTags, on both transports.
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":["foo","bar"]}'
-    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq --compact-output .MachineTags)" '["bar","foo"]'
-    assert_eq "$(busctl call --json=short org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Describe | jq --compact-output '.data[0] | fromjson | .MachineTags')" '["bar","foo"]'
-    assert_eq "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Tags)" 'as 2 "bar" "foo"'
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' |
+                 jq --compact-output .MachineTags)" \
+            '["bar","foo"]'
+    assert_eq "$(busctl call --json=short org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Describe |
+                 jq --compact-output '.data[0] | fromjson | .MachineTags')" \
+            '["bar","foo"]'
+    assert_eq "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Tags)" \
+            'as 2 "bar" "foo"'
     # The field is an empty list if no tags are configured (as with the D-Bus Tags property).
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":[]}'
-    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq --compact-output .MachineTags)" "[]"
-    assert_eq "$(busctl call --json=short org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Describe | jq --compact-output '.data[0] | fromjson | .MachineTags')" "[]"
-    assert_eq "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Tags)" 'as 0'
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' |
+                 jq --compact-output .MachineTags)" \
+            '[]'
+    assert_eq "$(busctl call --json=short org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Describe |
+                 jq --compact-output '.data[0] | fromjson | .MachineTags')" \
+            '[]'
+    assert_eq "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Tags)" \
+            'as 0'
+
     # Invalid tags edited into /etc/machine-info by hand are gracefully dropped from MachineTags
     # and D-Bus's Tags property, while MachineInformationData still carries the raw TAGS= line.
     echo 'TAGS=good:-invalid' >/etc/machine-info
-    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq --compact-output .MachineTags)" '["good"]'
-    assert_eq "$(busctl call --json=short org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Describe | jq --compact-output '.data[0] | fromjson | .MachineTags')" '["good"]'
-    assert_eq "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Tags)" 'as 1 "good"'
-    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq --raw-output '.MachineInformationData[] | select(startswith("TAGS="))')" "TAGS=good:-invalid"
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq --compact-output .MachineTags)" \
+            '["good"]'
+    assert_eq "$(busctl call --json=short org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Describe |
+                 jq --compact-output '.data[0] | fromjson | .MachineTags')" \
+            '["good"]'
+    assert_eq "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Tags)" \
+            'as 1 "good"'
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' |
+                 jq --raw-output '.MachineInformationData[] | select(startswith("TAGS="))')" \
+            'TAGS=good:-invalid'
 
     hostnamectl tags ""
 }
