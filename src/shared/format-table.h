@@ -13,6 +13,8 @@ typedef enum TableDataType {
         TABLE_STRING,
         TABLE_STRING_WITH_ANSI,    /* like the above, but contains ANSI sequences/TABs. They will be stripped when outputting to JSON */
         TABLE_STRING_NON_EMPTY,    /* like TABLE_STRING, but if the string is empty, the line is skipped. Only usable in table_add_many() for vertical tables. */
+        TABLE_STRINGF,             /* like TABLE_STRING, but takes printf format. Only usable in table_add_many(). */
+        TABLE_STRINGF_WITH_ANSI,
         TABLE_HEADER,              /* in regular mode: the cells in the first row, that carry the column names */
         TABLE_FIELD,               /* in vertical mode: the cells in the first column, that carry the field names */
         TABLE_STRV,
