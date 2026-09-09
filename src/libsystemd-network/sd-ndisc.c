@@ -223,7 +223,7 @@ static int ndisc_handle_router(sd_ndisc *nd, ICMP6Packet *packet) {
         if (r < 0)
                 return r;
 
-        if (nd->retransmit_time > 0 && r > 0)
+        if (r > 0)
                 (void) event_source_disable(nd->timeout_event_source);
         (void) event_source_disable(nd->timeout_no_ra);
 

@@ -298,10 +298,10 @@ static void test_callback_count(
 static int on_recv_rs_exit(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
 
-        assert_se(icmp6_packet_receive(fd, &packet) >= 0);
-        assert_se(icmp6_packet_get_type(packet) == ND_ROUTER_SOLICIT);
+        ASSERT_OK(icmp6_packet_receive(fd, &packet));
+        ASSERT_EQ(icmp6_packet_get_type(packet), ND_ROUTER_SOLICIT);
 
-        return sd_event_exit(ASSERT_PTR(userdata), 0);
+        return ASSERT_OK(sd_event_exit(ASSERT_PTR(userdata), 0));
 }
 
 static int on_recv_rs(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -342,25 +342,25 @@ TEST(rs_after_zero_lifetime_ra) {
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
         unsigned count = 0;
 
-        assert_se(sd_event_new(&e) >= 0);
-        assert_se(sd_ndisc_new(&nd) >= 0);
-        assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
-        assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
-        assert_se(sd_ndisc_set_callback(nd, test_callback_count, &count) >= 0);
-        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_ndisc_new(&nd));
+        ASSERT_OK(sd_ndisc_attach_event(nd, e, 0));
+        ASSERT_OK(sd_ndisc_set_ifindex(nd, 42));
+        ASSERT_OK(sd_ndisc_set_callback(nd, test_callback_count, &count));
+        ASSERT_OK(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
-        assert_se(sd_ndisc_start(nd) >= 0);
+                                             NULL, INT_TO_PTR(-ETIMEDOUT)));
+        ASSERT_OK(sd_ndisc_start(nd));
 
-        assert_se(write(test_fd[1], &advertisement, sizeof(advertisement)) == sizeof(advertisement));
-        assert_se(sd_event_run(e, UINT64_MAX) >= 0);
-        assert_se(count == 1);
-        assert_se(sd_event_source_get_enabled(nd->timeout_event_source, NULL) > 0);
+        ASSERT_EQ(write(test_fd[1], &advertisement, sizeof(advertisement)), (ssize_t) sizeof(advertisement));
+        ASSERT_OK_POSITIVE(sd_event_run(e, UINT64_MAX));
+        ASSERT_EQ(count, 1U);
+        ASSERT_OK_POSITIVE(sd_event_source_get_enabled(nd->timeout_event_source, NULL));
 
-        assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_exit, e) >= 0);
-        assert_se(sd_event_source_set_io_fd_own(s, true) >= 0);
-        assert_se(sd_event_source_set_time(nd->timeout_event_source, 0) >= 0);
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_exit, e));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
+        ASSERT_OK(sd_event_source_set_time(nd->timeout_event_source, 0));
+        ASSERT_OK(sd_event_loop(e));
 
         test_fd[1] = -EBADF;
 }
