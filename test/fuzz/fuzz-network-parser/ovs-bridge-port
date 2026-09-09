@@ -1,0 +1,9 @@
+[Match]
+Name=dummy98
+
+[Network]
+OVSBridge=br0
+
+[OVSPort]
+Tag=10
+VLANMode=access

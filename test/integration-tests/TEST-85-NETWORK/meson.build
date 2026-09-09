@@ -13,6 +13,7 @@ foreach testcase : [
         'NetworkdStateFileTests',
         'NetworkdBondTests',
         'NetworkdBridgeTests',
+        'NetworkdOVSTests',
         'NetworkdSRIOVTests',
         'NetworkdLLDPTests',
         'NetworkdRATests',
