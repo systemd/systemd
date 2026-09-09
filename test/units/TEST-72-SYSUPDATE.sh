@@ -507,7 +507,7 @@ EOF
             "https://example.com/optional-more"
         ]
     ' <<<"$feature_json" >/dev/null
-    jq -e '.isEnabled == false' <<<"$feature_json" >/dev/null
+    jq -e '.enabled == false' <<<"$feature_json" >/dev/null
     jq -e '.suggested == false' <<<"$feature_json" >/dev/null
     jq -e '.appstream == "https://example.com/optional.appstream.xml"' <<<"$feature_json" >/dev/null
 

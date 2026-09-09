@@ -333,7 +333,7 @@ node /org/freedesktop/sysupdate1/target/host {
         </varlistentry>
 
         <varlistentry>
-          <term><literal>isEnabled</literal></term>
+          <term><literal>enabled</literal></term>
           <listitem><para>A boolean indicating whether this feature is enabled.</para></listitem>
         </varlistentry>
 
