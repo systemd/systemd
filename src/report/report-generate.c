@@ -7,6 +7,7 @@
 #include "report-generate.h"
 #include "report-sign.h"
 #include "time-util.h"
+#include "random-util.h"
 
 int context_build_report(Context *context, sd_json_variant **ret) {
         int r;
@@ -16,11 +17,18 @@ int context_build_report(Context *context, sd_json_variant **ret) {
         assert(context);
         assert(ret);
 
+        /* Generate a unique ID for the report. */
+        uint8_t report_id[32];
+        r = crypto_random_bytes(report_id, sizeof(report_id));
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate report ID: %m");
+
         usec_t ts = now(CLOCK_REALTIME);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *report = NULL;
         r = sd_json_buildo(&report,
                            SD_JSON_BUILD_PAIR_STRING("mediaType", "application/vnd.io.systemd.report"),
+                           SD_JSON_BUILD_PAIR("reportID", SD_JSON_BUILD_BASE64(report_id, sizeof(report_id))),
                            SD_JSON_BUILD_PAIR("timestamp",
                                               SD_JSON_BUILD_STRING(FORMAT_TIMESTAMP_STYLE(ts, TIMESTAMP_UTC))),
                            SD_JSON_BUILD_PAIR("metrics",
