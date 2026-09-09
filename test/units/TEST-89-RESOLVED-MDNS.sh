@@ -17,6 +17,19 @@ SERVICE_COUNT=20
 CONTAINER_ZONE="test-$RANDOM"
 CONTAINER_1="test-mdns-1"
 CONTAINER_2="test-mdns-2"
+# The conformance subtest resolves one of the generated services end to end. The
+# prefixes are this file's own building blocks; what the subtest gets is the
+# assembled fixture exported below -- one source of truth for both files.
+FIXTURE_SERVICE_NAME_PREFIX="Test Service"
+FIXTURE_SERVICE_TYPE_PREFIX="_testService"
+FIXTURE_SERVICE_PORT=8010
+# One assembled instance of the fixture, for subtests that resolve it by name: assembling it there
+# from the prefixes would silently go stale the moment the .dnssd generation below is reshaped.
+FIXTURE_SERVICE_INSTANCE="$FIXTURE_SERVICE_NAME_PREFIX 0 on $CONTAINER_1"
+FIXTURE_SERVICE_TYPE="${FIXTURE_SERVICE_TYPE_PREFIX}0._udp"
+# SD_RESOLVED_MDNS_IPV4|SD_RESOLVED_MDNS_IPV6|SD_RESOLVED_NO_ZONE|SD_RESOLVED_NO_STALE: what every
+# browse call asks with, here and in the conformance subtest -- exported so there is one value.
+BROWSE_SERVICE_FLAGS=16785432
 
 # Prepare containers
 create_container() {
@@ -36,9 +49,9 @@ create_container() {
 
             cat >"/var/lib/machines/$container/etc/systemd/dnssd/test-service-$container-$svc.dnssd" <<EOF
 [Service]
-Name=Test Service $svc on %H
-Type=_testService$stype._udp
-Port=98010
+Name=$FIXTURE_SERVICE_NAME_PREFIX $svc on %H
+Type=$FIXTURE_SERVICE_TYPE_PREFIX$stype._udp
+Port=$FIXTURE_SERVICE_PORT
 TxtText=DC=Device PN=123456 SN=1234567890
 EOF
         done
@@ -71,8 +84,8 @@ check_both() {
         # Check if the services we got are the correct ones
         for i in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
             svc=$((service_id * SERVICE_COUNT + i))
-            if ! grep "Test Service $svc on $CONTAINER_1" "$result_file" ||
-               ! grep "Test Service $svc on $CONTAINER_2" "$result_file"; then
+            if ! grep "$FIXTURE_SERVICE_NAME_PREFIX $svc on $CONTAINER_1" "$result_file" ||
+               ! grep "$FIXTURE_SERVICE_NAME_PREFIX $svc on $CONTAINER_2" "$result_file"; then
                 return 1
             fi
         done
@@ -94,11 +107,11 @@ check_first() {
         # Check if the services we got are the correct ones
         for i in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
             svc=$((service_id * SERVICE_COUNT + i))
-            if ! grep "Test Service $svc on $CONTAINER_1" "$result_file"; then
+            if ! grep "$FIXTURE_SERVICE_NAME_PREFIX $svc on $CONTAINER_1" "$result_file"; then
                 return 1
             fi
             # This check assumes the second container is unreachable, so this shouldn't happen
-            if grep "Test Service $svc on $CONTAINER_2" "$result_file"; then
+            if grep "$FIXTURE_SERVICE_NAME_PREFIX $svc on $CONTAINER_2" "$result_file"; then
                 echo >&2 "Found a record from an unreachable container"
                 cat "$result_file"
                 exit 1
@@ -121,8 +134,8 @@ run_and_check_services() {
     out_file="$(mktemp)"
     error_file="$(mktemp)"
     tmp_file="$(mktemp)"
-    service_type="_testService$service_id._udp"
-    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+    service_type="${FIXTURE_SERVICE_TYPE_PREFIX}$service_id._udp"
+    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": $BROWSE_SERVICE_FLAGS }"
 
     # shellcheck disable=SC2064
     # Note: unregister the trap once it's fired, otherwise it'll get propagated to functions that call this
@@ -208,8 +221,8 @@ run_and_check_services_with_ifindex() {
     out_file="$(mktemp)"
     error_file="$(mktemp)"
     tmp_file="$(mktemp)"
-    service_type="_testService$service_id._udp"
-    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": $ifindex, \"flags\": 16785432 }"
+    service_type="${FIXTURE_SERVICE_TYPE_PREFIX}$service_id._udp"
+    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": $ifindex, \"flags\": $BROWSE_SERVICE_FLAGS }"
 
     # shellcheck disable=SC2064
     # Note: same as above about unregistering the trap once it's fired
@@ -250,7 +263,7 @@ testcase_browse_ifindex_zero_no_flap() {
 
     out_file="$(mktemp)"
     unit_name="varlinkctl-noflap-$SRANDOM.service"
-    service_type="_testService5._udp"
+    service_type="${FIXTURE_SERVICE_TYPE_PREFIX}5._udp"
 
     # The flap only manifests when the browser reconciles >=2 same-family mDNS
     # scopes: the pre-fix code diffed the browser's global service list against
@@ -284,7 +297,7 @@ testcase_browse_ifindex_zero_no_flap() {
     # would sever it (and the assertion) mid-observation.
     systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" \
         varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
-        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": 0, \"flags\": 16785432 }"
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": 0, \"flags\": $BROWSE_SERVICE_FLAGS }"
 
     # Wait until both containers' services (20 each, 40 total) have been
     # discovered. Count occurrences, not lines: varlinkctl --more emits compact
@@ -378,5 +391,11 @@ resolvectl status
 
 # Run the actual test cases (functions prefixed by testcase_)
 run_testcases
+
+# ... and the subtests, which browse the same containers over the same bridge
+export CONTAINER_ZONE CONTAINER_1 BRIDGE_INDEX BROWSE_SERVICE_FLAGS FIXTURE_SERVICE_PORT FIXTURE_SERVICE_INSTANCE FIXTURE_SERVICE_TYPE
+# The conformance scorecard subtest follows the container testcases; TEST_SKIP_SUBTESTS=conformance
+# runs the testcases alone, TEST_MATCH_SUBTEST=conformance the scorecard alone.
+run_subtests
 
 touch /testok
