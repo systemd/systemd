@@ -10392,7 +10392,7 @@ int tpm2_tpmt_public_to_pem(const TPMT_PUBLIC *public, char **ret) {
 #endif
 }
 
-static const char* tpm2_hash_alg_to_string_tss2(TPMI_ALG_HASH alg) {
+const char* tpm2_hash_alg_to_string_tss2(TPMI_ALG_HASH alg) {
         /* Note that this is different to tpm2_hash_alg_to_string because it
          * returns a string that aligns with those produced by TSS2 and compatible
          * with the TCG TSS2 JSON format. The JSON format is actually not case

@@ -423,6 +423,7 @@ int tpm2_hmac_key_from_pin(Tpm2Context *c, const Tpm2Handle *session, const TPM2
 int tpm2_tpmt_signature_to_pem(const TPMT_SIGNATURE *signature, char **ret);
 int tpm2_tpmt_public_to_pem(const TPMT_PUBLIC *public, char **ret);
 
+const char* tpm2_hash_alg_to_string_tss2(TPMI_ALG_HASH alg);
 int tpm2_tpmt_signature_to_json(const TPMT_SIGNATURE *signature, sd_json_variant **ret);
 int tpm2_attest_info_to_json(const TPMT_SIG_SCHEME *scheme, const TPMS_ATTEST *attest, sd_json_variant **ret);
 int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret);
