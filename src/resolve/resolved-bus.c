@@ -1916,6 +1916,14 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (m->mdns_support != RESOLVE_SUPPORT_YES)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
 
+        /* Once the shutdown withdrawal has started, the zone is closed to new records and the daemon
+         * exits a second later: the registration would return an object path for a service that is
+         * never probed, never announced, and gone with the process. Fail instead, so the client can
+         * retry against the next instance rather than believe it is published. */
+        if (m->mdns_withdrawing)
+                return sd_bus_error_set(error, BUS_ERROR_RESOLVE_SHUTTING_DOWN,
+                                        "Refusing to register a DNS-SD service while shutting down");
+
         service = new0(DnssdRegisteredService, 1);
         if (!service)
                 return log_oom();
