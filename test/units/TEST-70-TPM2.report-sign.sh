@@ -356,9 +356,9 @@ def check_nvpcr(i, comp):
         sys.exit(f"component {i}: authenticatedData digest does not match attested extraData")
 
 
-def check_session_audit(doc, key_name):
+def check_session_audit(alg, doc, key_name):
     """Check the properties of the session-audit component."""
-    digest = b"\x00" * 32 # Starting audit digest
+    digest = b"\x00" * HASHES[alg]().digest_size # Starting audit digest
 
     reported = None
     for comp in doc["components"]:
@@ -396,7 +396,7 @@ def check_session_audit(doc, key_name):
         rp_hash = sha256(marshal_u32(0) + marshal_u32(cc) + rp)
 
         # Extend the audit digest.
-        digest = sha256(digest + cp_hash + rp_hash)
+        digest = hash(alg, digest + cp_hash + rp_hash)
 
     if reported is None:
         sys.exit("no session audit component present")
@@ -419,6 +419,7 @@ def main():
         sys.exit("publicKeyPEM does not match the JSON public key")
 
     saw_report_binding = False
+    session_audit_digest_alg = None
     for i, comp in enumerate(data["components"]):
         scheme = comp["attestInfo"]["sig_scheme"]
         message = marshal_tpms_attest(comp["attestInfo"]["attest"])
@@ -454,6 +455,12 @@ def main():
                 sys.exit(f"component {i}: session audit extraData does not match the report digest")
             saw_report_binding = True
 
+            # This is hard-coded as SHA256 for now.
+            alg = comp.get("sessionAuditHashAlg")
+            if alg is None:
+                sys.exit(f"component {i}: missing sessionAuditHashAlg field")
+            session_audit_digest_alg = alg
+
         print(comp["type"])
 
     if not saw_report_binding:
@@ -462,7 +469,7 @@ def main():
     # The session audit digest must reproduce the audited command sequence that
     # produced the other components.
     key_name = digest_bytes_and_marshal_tpmt_ha(data["publicKey"]["nameAlg"], marshal_tpmt_public(data["publicKey"]))
-    check_session_audit(data, key_name)
+    check_session_audit(session_audit_digest_alg, data, key_name)
 
 
 if __name__ == "__main__":
