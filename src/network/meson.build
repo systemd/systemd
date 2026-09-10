@@ -137,6 +137,7 @@ networkctl_sources = files(
         'networkctl-status-link.c',
         'networkctl-status-system.c',
         'networkctl-util.c',
+        'networkctl-verify.c',
         'networkd.c',
 )
 
