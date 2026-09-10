@@ -232,7 +232,7 @@ manual_testcase_01_resolvectl() {
     ip link add hoge.foo type dummy
 
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         ip link del hoge
         ip link del hoge.foo
@@ -277,6 +277,9 @@ manual_testcase_01_resolvectl() {
     assert_in 'test-domain1.example.com' "$(resolvectl domain hoge)"
     assert_in 'test-domain2.example.com' "$(resolvectl domain hoge)"
     assert_in 'test-search-domain.example.com' "$(resolvectl domain hoge)"
+    resolvectl domain hoge keep.example
+    (! echo -e "nameserver 10.0.2.1\nsearch \"unterminated" | SYSTEMD_INVOKED_AS=resolvconf resolvectl -a hoge)
+    assert_in 'keep.example' "$(resolvectl domain hoge)"
 
     # Tests for 'resolvconf -x'
     echo nameserver 10.0.2.1 | "$RESOLVCONF" -x -a hoge
@@ -284,6 +287,31 @@ manual_testcase_01_resolvectl() {
     resolvectl domain hoge "hoge.example.com"
     assert_in 'hoge.example.com' "$(resolvectl domain hoge)"
     assert_not_in '~.' "$(resolvectl domain hoge)"
+
+    local hoge_state
+    hoge_state="/run/systemd/resolve/netif/$(cat /sys/class/net/hoge/ifindex)"
+    resolvectl domain hoge "route-only-change.example.com"
+    assert_in "DOMAINS=route-only-change.example.com" "$(cat "$hoge_state")"
+    assert_in "route-only-change.example.com" "$(cat /run/systemd/resolve/resolv.conf /run/systemd/resolve/stub-resolv.conf)"
+    resolvectl domain hoge "~route-only-change.example.com"
+    assert_in "DOMAINS=~route-only-change.example.com" "$(cat "$hoge_state")"
+    assert_not_in "route-only-change.example.com" "$(cat /run/systemd/resolve/resolv.conf /run/systemd/resolve/stub-resolv.conf)"
+
+    resolvectl domain hoge "old.example.com"
+    local domains=()
+    for i in {1..1025}; do
+        domains+=("too-many-$i.example.com")
+    done
+    (! resolvectl domain hoge "${domains[@]}")
+    assert_in 'old.example.com' "$(resolvectl domain hoge)"
+
+    domains=()
+    for i in {1..1024}; do
+        domains+=("replacement-$i.example.com")
+    done
+    resolvectl domain hoge "${domains[@]}"
+    assert_not_in 'old.example.com' "$(resolvectl domain hoge)"
+    assert_in 'replacement-1024.example.com' "$(resolvectl domain hoge)"
     echo -e "nameserver 10.0.2.1\ndomain test-domain.example.com" | "$RESOLVCONF" -x -a hoge
     assert_in 'test-domain.example.com' "$(resolvectl domain hoge)"
     assert_in '~.' "$(resolvectl domain hoge)"
@@ -320,6 +348,7 @@ manual_testcase_02_mdns_llmnr() {
     ip link add hoge.foo type dummy
 
     # Cleanup
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-mdns-llmnr.conf
         ip link del hoge
@@ -559,6 +588,10 @@ testcase_08_resolved() {
     run resolvectl query signed.test
     grep -qF "signed.test: 10.0.0.10" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"
+    (! run resolvectl --raw query localhost)
+    grep -qF -- "--raw may only be combined with --type= or dns: URIs." "$RUN_OUT"
+    resolvectl --raw=packet query --type=A signed.test >"$RUN_OUT"
+    test -s "$RUN_OUT"
     run dig @ns1.unsigned.test +short MX signed.test
     grep -qF "10 mail.signed.test." "$RUN_OUT"
     run resolvectl query --legend=no -t MX signed.test
@@ -611,6 +644,8 @@ testcase_08_resolved() {
     run resolvectl openpgp mr.smith@signed.test
     grep -qF "5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"
+    (! run resolvectl tlsa tcp)
+    grep -qF -- "The tlsa command requires at least one domain." "$RUN_OUT"
     # Check zone transfers (AXFR/IXFR)
     # Note: since resolved doesn't support zone transfers, let's just make sure it
     #       simply refuses such requests without choking on them
@@ -808,7 +843,7 @@ testcase_08_resolved() {
 
 testcase_09_resolvectl_showcache() {
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-resolved.conf
         rm -f /run/systemd/network/10-dns2.netdev
@@ -870,7 +905,7 @@ testcase_10_resolvectl_json() {
     local status_json
 
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-fallback.conf
         systemctl reload systemd-resolved.service
@@ -1041,7 +1076,7 @@ testcase_11_nft() {
 # Test resolvectl show-server-state
 testcase_12_resolvectl2() {
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-reload.conf
         systemctl reload systemd-resolved.service
@@ -1143,7 +1178,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
     fi
 
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         echo "===== io.systemd.Resolve.Monitor.SubscribeDNSConfiguration output: ====="
         cat "$tmpfile"
@@ -1220,7 +1255,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
 
 # Test RefuseRecordTypes
 testcase_14_refuse_record_types() {
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-refuserecords.conf
         restart_resolved
@@ -1382,7 +1417,7 @@ testcase_14_refuse_record_types() {
 # Test systemd-networkd-wait-online interactions with systemd-resolved
 testcase_15_wait_online_dns() {
     # Cleanup
-    # shellcheck disable=SC2317
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         echo "===== journalctl -u $unit ====="
         journalctl -b --no-pager --no-hostname --full -u "$unit"
@@ -1465,7 +1500,7 @@ testcase_delegate() {
     mkdir -p /run/systemd/dns-delegate.d/
     cat >/run/systemd/dns-delegate.d/testcase.dns-delegate <<EOF
 [Delegate]
-DNS=192.168.77.78
+DNS=192.168.77.78 192.168.77.78 192.168.77.79
 Domains=exercise.test
 FirewallMark=42
 EOF
@@ -1473,6 +1508,7 @@ EOF
     resolvectl status
 
     assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .servers | .[0].addressString')" '192.168.77.78'
+    assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .servers | .[1].addressString')" '192.168.77.79'
     assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .searchDomains | .[0].name')" 'exercise.test'
 
     # Now that we installed the delegation the resolution should fail, because nothing is listening on that IP address

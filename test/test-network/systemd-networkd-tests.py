@@ -6101,6 +6101,23 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
             check_output('ip link set dummy98 master bond199')
             self.wait_online('dummy98:enslaved')
 
+    def test_bond_fail_over_mac_restart(self):
+        # The slave needs a lower ifindex than the bond, so that it is enumerated
+        # first and the race is deterministic. So create it before networkd starts.
+        check_output('ip link add dummy98 type dummy')
+        copy_network_unit(
+            '25-bond-fail-over-mac.netdev',
+            '25-bond-fail-over-mac.network',
+            '25-bond-slave.network',
+        )
+        start_networkd()
+        self.wait_online('dummy98:enslaved', 'bond99:routable')
+
+        self.check_link_attr('bond99', 'bonding', 'fail_over_mac', 'active 1')
+
+        restart_networkd()
+        self.wait_online('dummy98:enslaved', 'bond99:routable')
+
     def test_bond_active_slave(self):
         copy_network_unit('23-active-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
         start_networkd()
@@ -9626,11 +9643,11 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
         call('sysctl -w net.ipv6.conf.dummy98.accept_ra=1')
         call('sysctl -w net.ipv6.conf.dummy98.mtu=1360')
         call('sysctl -w net.ipv4.conf.dummy98.promote_secondaries=0')
-        call('sysctl -w net.ipv6.conf.dummy98.proxy_ndp=1')
 
         # And unmanaged ones
         call('sysctl -w net.ipv6.conf.dummy98.hop_limit=4')
         call('sysctl -w net.ipv6.conf.dummy98.max_addresses=10')
+        call('sysctl -w net.ipv6.conf.dummy98.proxy_ndp=1')
 
         log=read_networkd_log()
         self.assertRegex(log, r"Foreign process 'sysctl\[\d+\]' changed sysctl '/proc/sys/net/ipv6/conf/dummy98/accept_ra' from '0' to '1', conflicting with our setting to '0'")
@@ -9639,6 +9656,7 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
         self.assertRegex(log, r"Foreign process 'sysctl\[\d+\]' changed sysctl '/proc/sys/net/ipv6/conf/dummy98/proxy_ndp' from '0' to '1', conflicting with our setting to '0'")
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/hop_limit'", log)
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/max_addresses'", log)
+        self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/proxy_ndp'", log)
         self.assertNotIn("Sysctl monitor BPF returned error", log)
 
 class NetworkdWWANTests(unittest.TestCase, Utilities):
