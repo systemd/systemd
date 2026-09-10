@@ -1051,6 +1051,12 @@ RestartMaxDelaySec=160s</programlisting>
                 enable debug level logging in systemd, which is very verbose. This is otherwise equivalent
                 to <option>normal</option> mode.</para>
 
+                <para>Note that the raised debug level only affects this unit's own log level ceiling: it
+                cannot lift a stricter <varname>LogLevelMax=</varname> configured on an enclosing unit,
+                e.g. on <filename>user@.service</filename>. See
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details.</para>
+
                 <xi:include href="version-info.xml" xpointer="v257"/>
               </listitem>
             </itemizedlist>
