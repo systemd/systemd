@@ -206,7 +206,7 @@ static int vl_method_list_templates(
         assert(link);
         assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
-        return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchTemplate", NULL);
+        return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchTemplate", /* parameters= */ NULL);
 }
 
 static int device_open_disk_auto_rw(sd_device *d, int *read_only) {
@@ -273,10 +273,10 @@ static int vl_method_acquire(
         if (!storage_volume_name_is_valid(p.name))
                 return sd_varlink_error_invalid_parameter_name(link, "name");
         if (!path_startswith(p.name, "/dev") || !path_is_normalized(p.name))
-                return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchVolume", NULL);
+                return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchVolume", /* parameters= */ NULL);
 
         if (!IN_SET(p.create_mode, CREATE_ANY, CREATE_OPEN))
-                return sd_varlink_error(link, "io.systemd.StorageProvider.CreateNotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.StorageProvider.CreateNotSupported", /* parameters= */ NULL);
 
         /* off_t is signed, hence refuse overly long requests */
         if (p.create_size != UINT64_MAX && p.create_size > INT64_MAX)
@@ -286,11 +286,11 @@ static int vl_method_acquire(
                 if (!storage_template_name_is_valid(p.template))
                         return sd_varlink_error_invalid_parameter_name(link, "template");
 
-                return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchTemplate", NULL);
+                return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchTemplate", /* parameters= */ NULL);
         }
 
         if (p.request_as >= 0 && p.request_as != VOLUME_BLK)
-                return sd_varlink_error(link, "io.systemd.StorageProvider.TypeNotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.StorageProvider.TypeNotSupported", /* parameters= */ NULL);
 
         const char *details[] = {
                 "name", p.name,
@@ -309,12 +309,12 @@ static int vl_method_acquire(
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         r = sd_device_new_from_devname(&d, p.name);
         if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
-                return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchVolume", NULL);
+                return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchVolume", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
         if (!device_in_subsystem(d, "block"))
-                return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchVolume", NULL);
+                return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchVolume", /* parameters= */ NULL);
 
         /* The error returns are sometimes a bit inconclusive (i.e. read-only media might appear as
          * inaccessible due to a permission issue), hence let's do an explicit check first, to give good
@@ -325,7 +325,7 @@ static int vl_method_acquire(
                         log_device_debug_errno(d, r, "Failed to acquire read-only flag of device '%s', ignoring: %m", p.name);
                 else if (r > 0) {
                         if (p.read_only == 0)
-                                return sd_varlink_error(link, "io.systemd.StorageProvider.ReadOnlyVolume", NULL);
+                                return sd_varlink_error(link, "io.systemd.StorageProvider.ReadOnlyVolume", /* parameters= */ NULL);
 
                         p.read_only = true;
                 }
@@ -333,7 +333,7 @@ static int vl_method_acquire(
 
         _cleanup_close_ int fd = device_open_disk_auto_rw(d, &p.read_only);
         if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd))
-                return sd_varlink_error(link, "io.systemd.StorageProvider.ReadOnlyVolume", NULL);
+                return sd_varlink_error(link, "io.systemd.StorageProvider.ReadOnlyVolume", /* parameters= */ NULL);
         if (fd < 0)
                 return fd;
 
