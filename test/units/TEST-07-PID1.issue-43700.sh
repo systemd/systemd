@@ -19,6 +19,8 @@ export LC_ALL=C
 MOUNT_POINT=/tmp/TEST-07-PID1-issue-43700
 UNIT=$(systemd-escape --path "$MOUNT_POINT")
 STAT_ERR=/tmp/TEST-07-PID1-issue-43700.stderr
+GENERATOR=/run/systemd/system-generators/TEST-07-PID1-issue-43700
+MARKER=/tmp/TEST-07-PID1-issue-43700.reloading
 
 at_exit() {
     set +e
@@ -28,7 +30,7 @@ at_exit() {
     while [[ -n "$(fstype "$MOUNT_POINT")" ]]; do
         umount -l "$MOUNT_POINT" || break
     done
-    rm -f /run/systemd/system/"$UNIT".{auto,}mount "$STAT_ERR"
+    rm -f /run/systemd/system/"$UNIT".{auto,}mount "$STAT_ERR" "$GENERATOR" "$MARKER"
     systemctl daemon-reload
     systemctl reset-failed "$UNIT".automount "$UNIT".mount
     rmdir "$MOUNT_POINT"
@@ -134,3 +136,56 @@ EOF
     # The autofs mount point is gone as well
     [[ -z "$(fstype "$MOUNT_POINT")" ]]
 done
+
+# A request arriving while PID 1 reloads sits unread in the pipe when the vanished unit is torn down, so
+# its token is unknown to PID 1. It must still be failed rather than left blocked. A generator that
+# sleeps holds the reload open long enough to place the request in that window.
+write_automount
+cat >/run/systemd/system/"$UNIT".mount <<EOF
+[Mount]
+What=/dev/disk/by-label/does-not-exist
+Where=$MOUNT_POINT
+Type=ext4
+EOF
+systemctl daemon-reload
+systemctl start "$UNIT".automount
+
+mkdir -p "$(dirname "$GENERATOR")"
+cat >"$GENERATOR" <<EOF
+#!/bin/sh
+touch $MARKER
+sleep 5
+EOF
+chmod +x "$GENERATOR"
+rm /run/systemd/system/"$UNIT".{auto,}mount
+rm -f "$MARKER"
+TS="$(date '+%H:%M:%S')"
+systemctl daemon-reload &
+RELOAD_PID=$!
+# Wait for the generator to run: PID 1 dispatches no events until the reload is through, so a request
+# made from here on is one it cannot have read. Assuming that of a plain sleep would make the case pass
+# on an answered token instead, which fails with the same ENOENT.
+timeout 30 bash -c "until [[ -e $MARKER ]]; do sleep .1; done"
+timeout -k 5 -s KILL 60 stat "$MOUNT_POINT"/x 2>"$STAT_ERR" &
+WAITER_PID=$!
+# The request is parked in the kernel while the autofs is still armed, i.e. before PID 1 got to the
+# teardown, so it was made inside the reload and PID 1 never read it. timeout(1) has to fork stat(1)
+# first, and /proc/PID/wchan needs a kernel with CONFIG_KALLSYMS to name the frame.
+timeout 10 bash -c "until pgrep -P $WAITER_PID >/dev/null; do sleep .1; done"
+STAT_PID=$(pgrep -P "$WAITER_PID")
+timeout 10 bash -c "until grep autofs /proc/$STAT_PID/wchan >/dev/null; do sleep .2; done"
+[[ "$(fstype "$MOUNT_POINT")" == autofs ]]
+wait "$RELOAD_PID"
+rm "$GENERATOR" "$MARKER"
+
+# The kernel fails unread requests with ENOENT once the autofs is catatonic
+rc=0
+wait "$WAITER_PID" || rc=$?
+unset WAITER_PID
+[[ $rc -ne 0 && $rc -ne 137 ]]
+grep -F 'No such file or directory' "$STAT_ERR"
+journalctl --sync
+journalctl -b --since "$TS" --grep "tearing down automount point '$MOUNT_POINT'"
+(! systemctl is-active "$UNIT".automount)
+(! systemctl is-failed "$UNIT".automount)
+[[ -z "$(fstype "$MOUNT_POINT")" ]]
