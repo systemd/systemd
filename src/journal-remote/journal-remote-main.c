@@ -144,7 +144,7 @@ static int spawn_child(const char *child, char **argv) {
         r = pidref_safe_fork_full(
                         "(remote)",
                         (int[]) {STDIN_FILENO, fd[1], STDERR_FILENO },
-                        NULL, 0,
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
                         /* ret= */ NULL);
         if (r < 0) {
@@ -161,7 +161,7 @@ static int spawn_child(const char *child, char **argv) {
 
         safe_close(fd[1]);
 
-        r = fd_nonblock(fd[0], true);
+        r = fd_nonblock(fd[0], /* nonblock= */ true);
         if (r < 0)
                 log_warning_errno(r, "Failed to set child pipe to non-blocking: %m");
 
@@ -246,7 +246,7 @@ static int request_meta(void **connection_cls, int fd, char *_hostname) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to get writer for source %s: %m", hostname);
 
-        _cleanup_(source_freep) RemoteSource *source = source_new(fd, true, TAKE_PTR(hostname), writer);
+        _cleanup_(source_freep) RemoteSource *source = source_new(fd, /* passive_fd= */ true, TAKE_PTR(hostname), writer);
         if (!source)
                 return log_oom();
 
@@ -448,7 +448,7 @@ static mhd_result request_handler(
                 if (r < 0)
                         return code;
         } else {
-                r = getpeername_pretty(fd, false, &hostname);
+                r = getpeername_pretty(fd, /* include_port= */ false, &hostname);
                 if (r < 0)
                         return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
                                            "Cannot check remote hostname.");
@@ -503,7 +503,7 @@ static int setup_microhttpd_server(RemoteServer *s,
 
         assert(fd >= 0);
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(fd, /* nonblock= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to make fd:%d nonblocking: %m", fd);
 
@@ -578,7 +578,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 return log_error_errno(r, "Failed to set source name: %m");
 
         r = sd_event_add_time(s->event, &d->timer_event,
-                              CLOCK_MONOTONIC, UINT64_MAX, 0,
+                              CLOCK_MONOTONIC, UINT64_MAX, /* accuracy= */ 0,
                               null_timer_event_handler, d);
         if (r < 0)
                 return log_error_errno(r, "Failed to add timer_event: %m");
@@ -620,7 +620,7 @@ static int setup_microhttpd_socket(RemoteServer *s,
 static int null_timer_event_handler(sd_event_source *timer_event,
                                     uint64_t usec,
                                     void *userdata) {
-        return dispatch_http_event(timer_event, 0, 0, userdata);
+        return dispatch_http_event(timer_event, /* fd= */ 0, /* revents= */ 0, userdata);
 }
 
 static int dispatch_http_event(sd_event_source *event,
@@ -689,7 +689,7 @@ static int create_remoteserver(
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
-        n = sd_listen_fds(true);
+        n = sd_listen_fds(/* unset_environment= */ true);
         if (n < 0)
                 return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
         else
@@ -700,25 +700,25 @@ static int create_remoteserver(
                                        "Received fewer sockets than expected");
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
-                if (sd_is_socket(fd, AF_UNSPEC, 0, true)) {
+                if (sd_is_socket(fd, AF_UNSPEC, /* type= */ 0, /* listening= */ true)) {
                         log_debug("Received a listening socket (fd:%d)", fd);
 
                         if (fd == http_socket)
-                                r = setup_microhttpd_server(s, fd, NULL, NULL, NULL);
+                                r = setup_microhttpd_server(s, fd, /* key= */ NULL, /* cert= */ NULL, /* trust= */ NULL);
                         else if (fd == https_socket)
                                 r = setup_microhttpd_server(s, fd, key, cert, trust);
                         else
                                 r = journal_remote_add_raw_socket(s, fd);
-                } else if (sd_is_socket(fd, AF_UNSPEC, 0, false)) {
+                } else if (sd_is_socket(fd, AF_UNSPEC, /* type= */ 0, /* listening= */ false)) {
                         char *hostname;
 
-                        r = getpeername_pretty(fd, false, &hostname);
+                        r = getpeername_pretty(fd, /* include_port= */ false, &hostname);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to retrieve remote name: %m");
 
                         log_debug("Received a connection socket (fd:%d) from %s", fd, hostname);
 
-                        r = journal_remote_add_source(s, fd, hostname, true);
+                        r = journal_remote_add_source(s, fd, hostname, /* own_name= */ true);
                 } else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Unknown socket passed on fd:%d", fd);
@@ -733,7 +733,7 @@ static int create_remoteserver(
                 if (fd < 0)
                         return fd;
 
-                r = journal_remote_add_source(s, fd, arg_output, false);
+                r = journal_remote_add_source(s, fd, arg_output, /* own_name= */ false);
                 if (r < 0)
                         return r;
         }
@@ -760,7 +760,7 @@ static int create_remoteserver(
 
                 hostname = strndupa_safe(hostname, strcspn(hostname, "/:"));
 
-                r = journal_remote_add_source(s, fd, (char *) hostname, false);
+                r = journal_remote_add_source(s, fd, (char *) hostname, /* own_name= */ false);
                 if (r < 0)
                         return r;
         }
@@ -773,7 +773,7 @@ static int create_remoteserver(
         }
 
         if (arg_listen_http) {
-                r = setup_microhttpd_socket(s, arg_listen_http, NULL, NULL, NULL);
+                r = setup_microhttpd_socket(s, arg_listen_http, /* key= */ NULL, /* cert= */ NULL, /* trust= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -801,7 +801,7 @@ static int create_remoteserver(
                         output_name = *file;
                 }
 
-                r = journal_remote_add_source(s, fd, (char*) output_name, false);
+                r = journal_remote_add_source(s, fd, (char*) output_name, /* own_name= */ false);
                 if (r < 0)
                         return r;
         }
@@ -814,7 +814,7 @@ static int create_remoteserver(
                 /* In this case we know what the writer will be
                    called, so we can create it and verify that we can
                    create output as expected. */
-                r = journal_remote_get_writer(s, NULL, &s->_single_writer);
+                r = journal_remote_get_writer(s, /* host= */ NULL, &s->_single_writer);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to get writer: %m");
         }
@@ -996,7 +996,7 @@ static int parse_argv(int argc, char *argv[]) {
                         for (const char *p = opts.arg;;) {
                                 _cleanup_free_ char *word = NULL;
 
-                                r = extract_first_word(&p, &word, ",", 0);
+                                r = extract_first_word(&p, &word, ",", /* flags= */ 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse --gnutls-log= argument: %m");
                                 if (r == 0)
@@ -1046,7 +1046,7 @@ static int parse_argv(int argc, char *argv[]) {
         type_b = arg_url
                 || arg_listen_raw
                 || arg_listen_http || arg_listen_https
-                || sd_listen_fds(false) > 0;
+                || sd_listen_fds(/* unset_environment= */ false) > 0;
         if (type_a && type_b)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Cannot use file input or --getter= with "
@@ -1067,7 +1067,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_split_mode = JOURNAL_WRITE_SPLIT_HOST;
 
         if (arg_split_mode == JOURNAL_WRITE_SPLIT_NONE && arg_output) {
-                if (is_dir(arg_output, true) > 0)
+                if (is_dir(arg_output, /* follow= */ true) > 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "For SplitMode=none, output must be a file.");
                 if (!endswith(arg_output, ".journal"))
@@ -1076,7 +1076,7 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (arg_split_mode == JOURNAL_WRITE_SPLIT_HOST
-            && arg_output && is_dir(arg_output, true) <= 0)
+            && arg_output && is_dir(arg_output, /* follow= */ true) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "For SplitMode=host, output must be a directory.");
 
@@ -1102,8 +1102,8 @@ static int load_certificates(char **key, char **cert, char **trust) {
         r = read_full_file_full(
                         AT_FDCWD, arg_key ?: PRIV_KEY_FILE, UINT64_MAX, SIZE_MAX,
                         READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                        NULL,
-                        key, NULL);
+                        /* bind_name= */ NULL,
+                        key, /* ret_size= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read key from file '%s': %m",
                                        arg_key ?: PRIV_KEY_FILE);
@@ -1111,8 +1111,8 @@ static int load_certificates(char **key, char **cert, char **trust) {
         r = read_full_file_full(
                         AT_FDCWD, arg_cert ?: CERT_FILE, UINT64_MAX, SIZE_MAX,
                         READ_FULL_FILE_CONNECT_SOCKET,
-                        NULL,
-                        cert, NULL);
+                        /* bind_name= */ NULL,
+                        cert, /* ret_size= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read certificate from file '%s': %m",
                                        arg_cert ?: CERT_FILE);
@@ -1123,8 +1123,8 @@ static int load_certificates(char **key, char **cert, char **trust) {
                 r = read_full_file_full(
                                 AT_FDCWD, arg_trust ?: TRUST_FILE, UINT64_MAX, SIZE_MAX,
                                 READ_FULL_FILE_CONNECT_SOCKET,
-                                NULL,
-                                trust, NULL);
+                                /* bind_name= */ NULL,
+                                trust, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read CA certificate file '%s': %m",
                                                arg_trust ?: TRUST_FILE);
@@ -1218,7 +1218,7 @@ static int run(int argc, char **argv) {
         }
 
         notify_message = NULL;
-        (void) sd_notifyf(false,
+        (void) sd_notifyf(/* unset_environment= */ false,
                           "STOPPING=1\n"
                           "STATUS=Shutting down after writing %" PRIu64 " entries...", s.event_count);
 

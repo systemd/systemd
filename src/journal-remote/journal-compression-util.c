@@ -110,7 +110,7 @@ int config_parse_compression(
                 _cleanup_free_ char *word = NULL;
                 int level = -1;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
