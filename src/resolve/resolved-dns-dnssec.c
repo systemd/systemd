@@ -88,11 +88,11 @@ int dnssec_rsa_verify_raw(
         assert(iovec_is_set(exponent));
         assert(iovec_is_set(modulus));
 
-        _cleanup_(BN_freep) BIGNUM *e = sym_BN_bin2bn(exponent->iov_base, exponent->iov_len, NULL);
+        _cleanup_(BN_freep) BIGNUM *e = sym_BN_bin2bn(exponent->iov_base, exponent->iov_len, /* ret= */ NULL);
         if (!e)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert RSA exponent to BIGNUM");
 
-        _cleanup_(BN_freep) BIGNUM *m = sym_BN_bin2bn(modulus->iov_base, modulus->iov_len, NULL);
+        _cleanup_(BN_freep) BIGNUM *m = sym_BN_bin2bn(modulus->iov_base, modulus->iov_len, /* ret= */ NULL);
         if (!m)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert RSA modulus to BIGNUM");
 
@@ -225,7 +225,7 @@ int dnssec_ecdsa_verify_raw(
                 return log_openssl_errors(LOG_DEBUG, "Unknown curve NID");
 
         OSSL_PARAM params[] = {
-                sym_OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, (char*) curve_name, 0),
+                sym_OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, (char*) curve_name, /* bsize= */ 0),
                 sym_OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_PUB_KEY, key->iov_base, key->iov_len),
                 sym_OSSL_PARAM_construct_end(),
         };
@@ -241,11 +241,11 @@ int dnssec_ecdsa_verify_raw(
         if (sym_EVP_PKEY_fromdata(kctx, &epubkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to load EC public key from raw data");
 
-        _cleanup_(BN_freep) BIGNUM *bn_r = sym_BN_bin2bn(signature_r->iov_base, signature_r->iov_len, NULL);
+        _cleanup_(BN_freep) BIGNUM *bn_r = sym_BN_bin2bn(signature_r->iov_base, signature_r->iov_len, /* ret= */ NULL);
         if (!bn_r)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature r to BIGNUM");
 
-        _cleanup_(BN_freep) BIGNUM *bn_s = sym_BN_bin2bn(signature_s->iov_base, signature_s->iov_len, NULL);
+        _cleanup_(BN_freep) BIGNUM *bn_s = sym_BN_bin2bn(signature_s->iov_base, signature_s->iov_len, /* ret= */ NULL);
         if (!bn_s)
                 return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature s to BIGNUM");
 
@@ -362,7 +362,7 @@ static int dnssec_eddsa_verify_raw(
         sym_EVP_MD_CTX_set_pkey_ctx(ctx, pctx);
 
         /* One might be tempted to use EVP_PKEY_verify_init, but see Ed25519(7ssl). */
-        if (sym_EVP_DigestVerifyInit(ctx, &pctx, NULL, NULL, evkey) <= 0)
+        if (sym_EVP_DigestVerifyInit(ctx, &pctx, /* type= */ NULL, NULL, evkey) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to initialize EdDSA verification");
 
         r = sym_EVP_DigestVerify(ctx, signature, signature_size, data, data_size);
@@ -603,13 +603,13 @@ static int dnssec_rrset_serialize_sig(
         fwrite_uint32(f, rrsig->rrsig.inception);
         fwrite_uint16(f, rrsig->rrsig.key_tag);
 
-        r = dns_name_to_wire_format(rrsig->rrsig.signer, wire_format_name, sizeof(wire_format_name), true);
+        r = dns_name_to_wire_format(rrsig->rrsig.signer, wire_format_name, sizeof(wire_format_name), /* canonical= */ true);
         if (r < 0)
                 return r;
         fwrite(wire_format_name, 1, r, f);
 
         /* Convert the source of synthesis into wire format */
-        r = dns_name_to_wire_format(source, wire_format_name, sizeof(wire_format_name), true);
+        r = dns_name_to_wire_format(source, wire_format_name, sizeof(wire_format_name), /* canonical= */ true);
         if (r < 0)
                 return r;
 
@@ -676,7 +676,7 @@ static int dnssec_rrset_verify_sig(
 
                 /* If the signature algorithm is supported by systemd-resolved but disabled by host policy,
                  * also return -EOPNOTSUPP. */
-                if (sym_EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
+                if (sym_EVP_DigestInit_ex(ctx, md_algorithm, /* impl= */ NULL) <= 0)
                         return -EOPNOTSUPP;
 
                 if (sym_EVP_DigestUpdate(ctx, sig_data, sig_size) <= 0)
@@ -819,7 +819,7 @@ int dnssec_verify_rrset(
                         continue;
 
                 /* We need the wire format for ordering, and digest calculation */
-                r = dns_resource_record_to_wire_format(rr, true);
+                r = dns_resource_record_to_wire_format(rr, /* canonical= */ true);
                 if (r < 0)
                         return r;
 
@@ -886,7 +886,7 @@ int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnske
         if (dnskey->dnskey.algorithm != rrsig->rrsig.algorithm)
                 return 0;
 
-        if (dnssec_keytag(dnskey, false) != rrsig->rrsig.key_tag)
+        if (dnssec_keytag(dnskey, /* mask_revoke= */ false) != rrsig->rrsig.key_tag)
                 return 0;
 
         return dns_name_equal(dns_resource_key_name(dnskey->key), rrsig->rrsig.signer);
@@ -948,7 +948,7 @@ int dnssec_verify_rrset_search(
                         DnssecResult one_result;
 
                         /* Is this a DNSKEY RR that matches they key of our RRSIG? */
-                        r = dnssec_rrsig_match_dnskey(rrsig, dnskey, false);
+                        r = dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -1114,7 +1114,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (dnssec_keytag(dnskey, mask_revoke) != ds->ds.key_tag)
                 return 0;
 
-        r = dns_name_to_wire_format(dns_resource_key_name(dnskey->key), wire_format, sizeof wire_format, true);
+        r = dns_name_to_wire_format(dns_resource_key_name(dnskey->key), wire_format, sizeof wire_format, /* canonical= */ true);
         if (r < 0)
                 return r;
         encoded_length = r;
@@ -1138,7 +1138,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
 
         /* If the digest is supported by systemd-resolved but disabled by host policy, also return -EOPNOTSUPP
          */
-        if (sym_EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
+        if (sym_EVP_DigestInit_ex(ctx, md_algorithm, /* impl= */ NULL) <= 0)
                 return -EOPNOTSUPP;
 
         if (sym_EVP_DigestUpdate(ctx, wire_format, encoded_length) <= 0)
@@ -1191,7 +1191,7 @@ int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *vali
                 if (r == 0)
                         continue;
 
-                r = dnssec_verify_dnskey_by_ds(dnskey, ds, false);
+                r = dnssec_verify_dnskey_by_ds(dnskey, ds, /* mask_revoke= */ false);
                 if (r == -EKEYREJECTED)
                         continue; /* The DNSKEY is revoked or otherwise invalid. */
                 if (r == -EOPNOTSUPP) {
@@ -1258,10 +1258,10 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (!ctx)
                 return -ENOMEM;
 
-        if (sym_EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
+        if (sym_EVP_DigestInit_ex(ctx, algorithm, /* impl= */ NULL) <= 0)
                 return -EOPNOTSUPP;
 
-        r = dns_name_to_wire_format(name, wire_format, sizeof(wire_format), true);
+        r = dns_name_to_wire_format(name, wire_format, sizeof(wire_format), /* canonical= */ true);
         if (r < 0)
                 return r;
 
@@ -1275,7 +1275,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
                 return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to finalize digest"));
 
         for (unsigned k = 0; k < nsec3->nsec3.iterations; k++) {
-                if (sym_EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
+                if (sym_EVP_DigestInit_ex(ctx, algorithm, /* impl= */ NULL) <= 0)
                         return -EOPNOTSUPP;
                 if (sym_EVP_DigestUpdate(ctx, result, hash_size) <= 0)
                         return dnssec_verify_errno(log_openssl_errors(LOG_DEBUG, "Failed to update digest"));
@@ -1361,7 +1361,7 @@ static int nsec3_hashed_domain_format(const uint8_t *hashed, size_t hashed_size,
         assert(zone);
         assert(ret);
 
-        l = base32hexmem(hashed, hashed_size, false);
+        l = base32hexmem(hashed, hashed_size, /* padding= */ false);
         if (!l)
                 return -ENOMEM;
 
@@ -1418,7 +1418,7 @@ static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecR
         zone = dns_resource_key_name(key);
         for (;;) {
                 DNS_ANSWER_FOREACH_FLAGS(zone_rr, flags, answer) {
-                        r = nsec3_is_good(zone_rr, NULL);
+                        r = nsec3_is_good(zone_rr, /* nsec3= */ NULL);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -1667,7 +1667,7 @@ static int dnssec_nsec_wildcard_equal(DnsResourceRecord *rr, const char *name) {
                 return 0;
 
         n = dns_resource_key_name(rr->key);
-        r = dns_label_unescape(&n, label, sizeof label, 0);
+        r = dns_label_unescape(&n, label, sizeof label, /* flags= */ 0);
         if (r <= 0)
                 return r;
         if (r != 1 || label[0] != '*')
@@ -1793,9 +1793,9 @@ static int dnssec_nsec_generate_wildcard(DnsResourceRecord *rr, const char *name
             return labels2;
 
         if (labels1 > labels2)
-                r = dns_name_concat("*", common_suffix1, 0, wc);
+                r = dns_name_concat("*", common_suffix1, /* flags= */ 0, wc);
         else
-                r = dns_name_concat("*", common_suffix2, 0, wc);
+                r = dns_name_concat("*", common_suffix2, /* flags= */ 0, wc);
 
         if (r < 0)
                 return r;
@@ -2000,7 +2000,7 @@ static int dnssec_nsec_test_enclosed(DnsAnswer *answer, uint16_t type, const cha
                         if (r == 0)
                                 continue;
 
-                        r = nsec3_is_good(rr, NULL);
+                        r = nsec3_is_good(rr, /* nsec3= */ NULL);
                         if (r < 0)
                                 return r;
                         if (r == 0)

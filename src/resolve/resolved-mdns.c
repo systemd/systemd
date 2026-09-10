@@ -93,13 +93,13 @@ static int mdns_rr_compare(DnsResourceRecord * const *a, DnsResourceRecord * con
         if (r != 0)
                 return r;
 
-        r = dns_resource_record_to_wire_format(x, false);
+        r = dns_resource_record_to_wire_format(x, /* canonical= */ false);
         if (r < 0) {
                 log_warning_errno(r, "Can't wire-format RR: %m");
                 return 0;
         }
 
-        r = dns_resource_record_to_wire_format(y, false);
+        r = dns_resource_record_to_wire_format(y, /* canonical= */ false);
         if (r < 0) {
                 log_warning_errno(r, "Can't wire-format RR: %m");
                 return 0;
@@ -142,7 +142,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
         i = 0;
         DNS_ANSWER_FOREACH(rr, p->answer) {
                 if (i >= DNS_PACKET_ANCOUNT(p) && i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
-                        r = dns_resource_key_match_rr(key, rr, NULL);
+                        r = dns_resource_key_match_rr(key, rr, /* search_domain= */ NULL);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -163,7 +163,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
         i = 0;
         DNS_ANSWER_FOREACH(rr, p->answer) {
                 if (i >= DNS_PACKET_ANCOUNT(p) && i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
-                        r = dns_resource_key_match_rr(key, rr, NULL);
+                        r = dns_resource_key_match_rr(key, rr, /* search_domain= */ NULL);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -293,7 +293,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                 _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
                 DnsAnswerItem *item;
 
-                r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
+                r = dns_zone_lookup(&s->zone, key, /* ifindex= */ 0, &answer, &soa, &tentative);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to look up key: %m");
 
@@ -353,7 +353,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
 
         r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS,
                                         legacy_query ? p->question : NULL, full_answer,
-                                        NULL, false, &reply);
+                                        /* soa= */ NULL, /* tentative= */ false, &reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build reply packet: %m");
 
@@ -515,7 +515,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 if (t->state != DNS_TRANSACTION_PENDING)
                                         continue;
 
-                                r = dns_answer_match_key(p->answer, dns_transaction_key(t), NULL);
+                                r = dns_answer_match_key(p->answer, dns_transaction_key(t), /* ret_flags= */ NULL);
                                 if (r <= 0) {
                                         if (r < 0)
                                                 log_debug_errno(r, "Failed to match resource key, ignoring: %m");
@@ -524,7 +524,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
                                 unsolicited_packet = false;
                                 /* This packet matches the transaction, let's pass it on as reply */
-                                dns_transaction_process_reply(t, p, false);
+                                dns_transaction_process_reply(t, p, /* encrypted= */ false);
 
                                 /* The dns_transaction_process_reply() -> dns_transaction_complete() ->
                                  * dns_query_candidate_stop() may free multiple transactions. Hence, restart
@@ -575,15 +575,15 @@ int manager_mdns_ipv4_fd(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "mDNS-IPv4: Failed to set IP_MULTICAST_TTL: %m");
 
-        r = setsockopt_int(s, IPPROTO_IP, IP_MULTICAST_LOOP, true);
+        r = setsockopt_int(s, IPPROTO_IP, IP_MULTICAST_LOOP, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "mDNS-IPv4: Failed to set IP_MULTICAST_LOOP: %m");
 
-        r = setsockopt_int(s, IPPROTO_IP, IP_PKTINFO, true);
+        r = setsockopt_int(s, IPPROTO_IP, IP_PKTINFO, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "mDNS-IPv4: Failed to set IP_PKTINFO: %m");
 
-        r = setsockopt_int(s, IPPROTO_IP, IP_RECVTTL, true);
+        r = setsockopt_int(s, IPPROTO_IP, IP_RECVTTL, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "mDNS-IPv4: Failed to set IP_RECVTTL: %m");
 
@@ -602,7 +602,7 @@ int manager_mdns_ipv4_fd(Manager *m) {
                 log_warning("mDNS-IPv4: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "mDNS-IPv4: Failed to set SO_REUSEADDR: %m");
 
@@ -611,7 +611,7 @@ int manager_mdns_ipv4_fd(Manager *m) {
                         return log_error_errno(errno, "mDNS-IPv4: Failed to bind socket: %m");
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple mDNS responders */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "mDNS-IPv4: Failed to set SO_REUSEADDR: %m");
         }
@@ -651,19 +651,19 @@ int manager_mdns_ipv6_fd(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_MULTICAST_HOPS: %m");
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_MULTICAST_LOOP: %m");
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_V6ONLY: %m");
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVPKTINFO, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_RECVPKTINFO: %m");
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_RECVHOPLIMIT: %m");
 
@@ -677,7 +677,7 @@ int manager_mdns_ipv6_fd(Manager *m) {
                 log_warning("mDNS-IPv6: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "mDNS-IPv6: Failed to set SO_REUSEADDR: %m");
 
@@ -686,7 +686,7 @@ int manager_mdns_ipv6_fd(Manager *m) {
                         return log_error_errno(errno, "mDNS-IPv6: Failed to bind socket: %m");
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple mDNS responders */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "mDNS-IPv6: Failed to set SO_REUSEADDR: %m");
         }

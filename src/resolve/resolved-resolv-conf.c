@@ -340,7 +340,7 @@ int manager_write_resolv_conf(Manager *m) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to compile list of DNS servers, ignoring: %m");
 
-        r = manager_compile_search_domains(m, &domains, false);
+        r = manager_compile_search_domains(m, &domains, /* filter_route= */ false);
         if (r < 0)
                 return log_warning_errno(r, "Failed to compile list of search domains, ignoring: %m");
 

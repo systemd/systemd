@@ -79,7 +79,7 @@ static int dns_query_new_for_varlink(
 
         r = dns_query_new(m, ret, question_utf8, question_idna, question_bypass, ifindex, flags);
         if (r == -ENOANO)
-                return sd_varlink_error(link, "io.systemd.Resolve.QueryRefused", NULL);
+                return sd_varlink_error(link, "io.systemd.Resolve.QueryRefused", /* parameters= */ NULL);
         return r;
 }
 
@@ -91,22 +91,22 @@ static int reply_query_state(DnsQuery *q) {
         switch (q->state) {
 
         case DNS_TRANSACTION_NO_SERVERS:
-                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoNameServers", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoNameServers", /* parameters= */ NULL);
 
         case DNS_TRANSACTION_TIMEOUT:
-                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.QueryTimedOut", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.QueryTimedOut", /* parameters= */ NULL);
 
         case DNS_TRANSACTION_ATTEMPTS_MAX_REACHED:
-                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.MaxAttemptsReached", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.MaxAttemptsReached", /* parameters= */ NULL);
 
         case DNS_TRANSACTION_INVALID_REPLY:
-                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.InvalidReply", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.InvalidReply", /* parameters= */ NULL);
 
         case DNS_TRANSACTION_ERRNO:
                 return sd_varlink_error_errno(q->varlink_request, q->answer_errno);
 
         case DNS_TRANSACTION_ABORTED:
-                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.QueryAborted", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.QueryAborted", /* parameters= */ NULL);
 
         case DNS_TRANSACTION_DNSSEC_FAILED:
                 return sd_varlink_errorbo(q->varlink_request, "io.systemd.Resolve.DNSSECValidationFailed",
@@ -117,19 +117,19 @@ static int reply_query_state(DnsQuery *q) {
                                                                     "extendedDNSErrorMessage", SD_JSON_BUILD_STRING(q->answer_ede_msg)));
 
         case DNS_TRANSACTION_NO_TRUST_ANCHOR:
-                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoTrustAnchor", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoTrustAnchor", /* parameters= */ NULL);
 
         case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
-                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.ResourceRecordTypeUnsupported", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.ResourceRecordTypeUnsupported", /* parameters= */ NULL);
 
         case DNS_TRANSACTION_NETWORK_DOWN:
-                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NetworkDown", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NetworkDown", /* parameters= */ NULL);
 
         case DNS_TRANSACTION_NO_SOURCE:
-                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSource", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSource", /* parameters= */ NULL);
 
         case DNS_TRANSACTION_STUB_LOOP:
-                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.StubLoop", NULL);
+                return sd_varlink_error(q->varlink_request, "io.systemd.Resolve.StubLoop", /* parameters= */ NULL);
 
         case DNS_TRANSACTION_NOT_FOUND:
                 /* We return this as NXDOMAIN. This is only generated when a host doesn't implement LLMNR/TCP, and we
@@ -271,7 +271,7 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
 
         r = dns_query_process_cname_many(q);
         if (r == -ELOOP)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", /* parameters= */ NULL);
         if (r < 0)
                 goto finish;
         if (r == DNS_QUERY_CNAME) {
@@ -287,10 +287,10 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
                 goto finish;
 
         if (sd_json_variant_is_blank_object(array))
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", /* parameters= */ NULL);
 
         assert(canonical);
-        r = dns_name_normalize(dns_resource_key_name(canonical->key), 0, &normalized);
+        r = dns_name_normalize(dns_resource_key_name(canonical->key), /* flags= */ 0, &normalized);
         if (r < 0)
                 goto finish;
 
@@ -322,7 +322,7 @@ static int parse_as_address(sd_varlink *link, LookupParameters *p) {
         /* Make sure the data we parsed matches what is requested */
         if ((p->family != AF_UNSPEC && ff != p->family) ||
             (p->ifindex > 0 && parsed_ifindex > 0 && parsed_ifindex != p->ifindex))
-                return sd_varlink_error(link, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                return sd_varlink_error(link, "io.systemd.Resolve.NoSuchResourceRecord", /* parameters= */ NULL);
 
         ifindex = parsed_ifindex > 0 ? parsed_ifindex : p->ifindex;
 
@@ -340,7 +340,7 @@ static int parse_as_address(sd_varlink *link, LookupParameters *p) {
                                                                            SD_JSON_BUILD_PAIR_INTEGER("family", ff),
                                                                            SD_JSON_BUILD_PAIR_BYTE_ARRAY("address", &parsed, FAMILY_ADDRESS_SIZE(ff))))),
                         SD_JSON_BUILD_PAIR_STRING("name", canonical),
-                        SD_JSON_BUILD_PAIR_INTEGER("flags", SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(p->flags), ff, true, true)|
+                        SD_JSON_BUILD_PAIR_INTEGER("flags", SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(p->flags), ff, /* authenticated= */ true, /* confidential= */ true)|
                                                                           SD_RESOLVED_SYNTHETIC));
 }
 
@@ -389,15 +389,15 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
         if (r != 0)
                 return r;
 
-        r = dns_question_new_address(&question_utf8, p.family, p.name, false);
+        r = dns_question_new_address(&question_utf8, p.family, p.name, /* convert_idna= */ false);
         if (r < 0)
                 return r;
 
-        r = dns_question_new_address(&question_idna, p.family, p.name, true);
+        r = dns_question_new_address(&question_idna, p.family, p.name, /* convert_idna= */ true);
         if (r < 0 && r != -EALREADY)
                 return r;
 
-        r = dns_query_new_for_varlink(m, &q, question_utf8, question_idna ?: question_utf8, NULL, p.ifindex, p.flags, link);
+        r = dns_query_new_for_varlink(m, &q, question_utf8, question_idna ?: question_utf8, /* question_bypass= */ NULL, p.ifindex, p.flags, link);
         if (r < 0)
                 return r;
 
@@ -428,7 +428,7 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
 
         r = dns_query_process_cname_many(q);
         if (r == -ELOOP)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", /* parameters= */ NULL);
         if (r < 0)
                 goto finish;
         if (r == DNS_QUERY_CNAME) {
@@ -442,13 +442,13 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
                 _cleanup_free_ char *normalized = NULL;
 
-                r = dns_question_matches_rr(question, rr, NULL);
+                r = dns_question_matches_rr(question, rr, /* search_domain= */ NULL);
                 if (r < 0)
                         goto finish;
                 if (r == 0)
                         continue;
 
-                r = dns_name_normalize(rr->ptr.name, 0, &normalized);
+                r = dns_name_normalize(rr->ptr.name, /* flags= */ 0, &normalized);
                 if (r < 0)
                         goto finish;
 
@@ -461,7 +461,7 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
         }
 
         if (sd_json_variant_is_blank_object(array))
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", /* parameters= */ NULL);
 
         r = sd_varlink_replybo(
                         q->varlink_request,
@@ -507,7 +507,7 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
                 return r;
 
         if (FAMILY_ADDRESS_SIZE(p.family) != p.address.iov_len)
-                return sd_varlink_error(link, "io.systemd.Resolve.BadAddressSize", NULL);
+                return sd_varlink_error(link, "io.systemd.Resolve.BadAddressSize", /* parameters= */ NULL);
 
         if (validate_and_mangle_query_flags(m, &p.flags, /* name= */ NULL, /* ok= */ 0) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
@@ -518,7 +518,7 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
         if (r < 0)
                 return r;
 
-        r = dns_query_new_for_varlink(m, &q, question, question, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH, link);
+        r = dns_query_new_for_varlink(m, &q, question, question, /* question_bypass= */ NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH, link);
         if (r < 0)
                 return r;
 
@@ -604,7 +604,7 @@ static int append_srv(
                                 continue;
 
                         DNS_ANSWER_FOREACH(zz, aux->answer) {
-                                r = dns_question_matches_rr(question, zz, NULL);
+                                r = dns_question_matches_rr(question, zz, /* search_domain= */ NULL);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -623,7 +623,7 @@ static int append_srv(
                         return 0;
         }
 
-        r = dns_name_normalize(rr->srv.name, 0, &normalized);
+        r = dns_name_normalize(rr->srv.name, /* flags= */ 0, &normalized);
         if (r < 0)
                 return r;
 
@@ -639,7 +639,7 @@ static int append_srv(
         if (canonical) {
                 normalized = mfree(normalized);
 
-                r = dns_name_normalize(dns_resource_key_name(canonical->key), 0, &normalized);
+                r = dns_name_normalize(dns_resource_key_name(canonical->key), /* flags= */ 0, &normalized);
                 if (r < 0)
                         return r;
 
@@ -667,7 +667,7 @@ static int append_srv(
                         if (r == 0)
                                 continue;
 
-                        r = find_addr_records(&addresses, question, aux, NULL, NULL);
+                        r = find_addr_records(&addresses, question, aux, /* canonical= */ NULL, /* search_domain= */ NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -748,7 +748,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
                                 assert(bad->auxiliary_result != 0);
 
                                 if (bad->auxiliary_result == -ELOOP)
-                                        return (void) sd_varlink_error(query->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
+                                        return (void) sd_varlink_error(query->varlink_request, "io.systemd.Resolve.CNAMELoop", /* parameters= */ NULL);
 
                                 assert(bad->auxiliary_result < 0);
                                 r = bad->auxiliary_result;
@@ -763,7 +763,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
         DNS_ANSWER_FOREACH(rr, q->answer) {
-                r = dns_question_matches_rr(question, rr, NULL);
+                r = dns_question_matches_rr(question, rr, /* search_domain= */ NULL);
                 if (r < 0)
                         goto finish;
                 if (r == 0)
@@ -780,10 +780,10 @@ static void resolve_service_all_complete(DnsQuery *query) {
         }
 
         if (sd_json_variant_is_blank_object(srv))
-                return (void) sd_varlink_error(query->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                return (void) sd_varlink_error(query->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", /* parameters= */ NULL);
 
         DNS_ANSWER_FOREACH(rr, q->answer) {
-                r = dns_question_matches_rr(question, rr, NULL);
+                r = dns_question_matches_rr(question, rr, /* search_domain= */ NULL);
                 if (r < 0)
                         goto finish;
                 if (r == 0)
@@ -803,7 +803,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
                 goto finish;
 
         if (isempty(type))
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.InconsistentServiceRecords", NULL);
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.InconsistentServiceRecords", /* parameters= */ NULL);
 
         r = sd_varlink_replybo(
                         query->varlink_request,
@@ -855,11 +855,11 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
         /* OK, we found an SRV record for the service. Let's resolve
          * the hostname included in it */
 
-        r = dns_question_new_address(&question, q->request_family, rr->srv.name, false);
+        r = dns_question_new_address(&question, q->request_family, rr->srv.name, /* convert_idna= */ false);
         if (r < 0)
                 return r;
 
-        r = dns_query_new_for_varlink(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH, q->varlink_request);
+        r = dns_query_new_for_varlink(q->manager, &aux, question, question, /* question_bypass= */ NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH, q->varlink_request);
         if (r < 0)
                 return r;
 
@@ -901,7 +901,7 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
 
         r = dns_query_process_cname_many(q);
         if (r == -ELOOP)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", /* parameters= */ NULL);
         if (r < 0)
                 goto fail;
         if (r == DNS_QUERY_CNAME) {
@@ -913,7 +913,7 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                r = dns_question_matches_rr(question, rr, NULL);
+                r = dns_question_matches_rr(question, rr, /* search_domain= */ NULL);
                 if (r < 0)
                         goto fail;
                 if (r == 0)
@@ -943,10 +943,10 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
                 /* If there's exactly one SRV RR and it uses the root domain as hostname, then the service is
                  * explicitly not offered on the domain. Report this as a recognizable error. See RFC 2782,
                  * Section "Usage Rules". */
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.ServiceNotProvided", NULL);
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.ServiceNotProvided", /* parameters= */ NULL);
 
         if (found <= 0)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", /* parameters= */ NULL);
 
         /* Maybe we are already finished? check now... */
         resolve_service_all_complete(TAKE_PTR(q));
@@ -1016,17 +1016,17 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
 
         /* Refuse the method if SRV is filtered. */
         if (set_contains(m->refuse_record_types, INT_TO_PTR(DNS_TYPE_SRV)))
-                return sd_varlink_error(link, "io.systemd.Resolve.QueryRefused", NULL);
+                return sd_varlink_error(link, "io.systemd.Resolve.QueryRefused", /* parameters= */ NULL);
 
-        r = dns_question_new_service(&question_utf8, p.name, p.type, p.domain, !(p.flags & SD_RESOLVED_NO_TXT), false);
+        r = dns_question_new_service(&question_utf8, p.name, p.type, p.domain, !(p.flags & SD_RESOLVED_NO_TXT), /* convert_idna= */ false);
         if (r < 0)
                 return r;
 
-        r = dns_question_new_service(&question_idna, p.name, p.type, p.domain, !(p.flags & SD_RESOLVED_NO_TXT), true);
+        r = dns_question_new_service(&question_idna, p.name, p.type, p.domain, !(p.flags & SD_RESOLVED_NO_TXT), /* convert_idna= */ true);
         if (r < 0)
                 return r;
 
-        r = dns_query_new_for_varlink(m, &q, question_utf8, question_idna, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH, link);
+        r = dns_query_new_for_varlink(m, &q, question_utf8, question_idna, /* question_bypass= */ NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH, link);
         if (r < 0)
                 return r;
 
@@ -1057,7 +1057,7 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
 
         r = dns_query_process_cname_many(q);
         if (r == -ELOOP)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", /* parameters= */ NULL);
         if (r < 0)
                 goto finish;
         if (r == DNS_QUERY_CNAME) {
@@ -1074,7 +1074,7 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                r = dns_question_matches_rr(question, rr, NULL);
+                r = dns_question_matches_rr(question, rr, /* search_domain= */ NULL);
                 if (r < 0)
                         goto finish;
                 if (r == 0)
@@ -1100,7 +1100,7 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
         }
 
         if (added <= 0)
-                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", /* parameters= */ NULL);
 
         r = sd_varlink_replybo(
                         q->varlink_request,
@@ -1152,11 +1152,11 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("name"));
 
         if (!dns_type_is_valid_query(p.type))
-                return sd_varlink_error(link, "io.systemd.Resolve.ResourceRecordTypeInvalidForQuery", NULL);
+                return sd_varlink_error(link, "io.systemd.Resolve.ResourceRecordTypeInvalidForQuery", /* parameters= */ NULL);
         if (dns_type_is_zone_transfer(p.type))
-                return sd_varlink_error(link, "io.systemd.Resolve.ZoneTransfersNotPermitted", NULL);
+                return sd_varlink_error(link, "io.systemd.Resolve.ZoneTransfersNotPermitted", /* parameters= */ NULL);
         if (dns_type_is_obsolete(p.type))
-                return sd_varlink_error(link, "io.systemd.Resolve.ResourceRecordTypeObsolete", NULL);
+                return sd_varlink_error(link, "io.systemd.Resolve.ResourceRecordTypeObsolete", /* parameters= */ NULL);
 
         if (validate_and_mangle_query_flags(m, &p.flags, p.name, SD_RESOLVED_NO_SEARCH) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
@@ -1174,7 +1174,7 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         if (r < 0)
                 return r;
 
-        r = dns_query_new_for_varlink(m, &q, question, question, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH|SD_RESOLVED_CLAMP_TTL, link);
+        r = dns_query_new_for_varlink(m, &q, question, question, /* question_bypass= */ NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH|SD_RESOLVED_CLAMP_TTL, link);
         if (r < 0)
                 return r;
 
@@ -1256,7 +1256,7 @@ static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *
         if (r < 0)
                 return log_error_errno(r, "Failed to report monitor to be established: %m");
 
-        r = set_ensure_put(&m->varlink_query_results_subscription, NULL, link);
+        r = set_ensure_put(&m->varlink_query_results_subscription, /* hash_ops= */ NULL, link);
         if (r < 0)
                 return log_error_errno(r, "Failed to add subscription to set: %m");
         sd_varlink_ref(link);
@@ -1290,7 +1290,7 @@ static int vl_method_dump_cache(sd_varlink *link, sd_json_variant *parameters, s
         }
 
         if (!list) {
-                r = sd_json_variant_new_array(&list, NULL, 0);
+                r = sd_json_variant_new_array(&list, /* array= */ NULL, 0);
                 if (r < 0)
                         return r;
         }
@@ -1342,7 +1342,7 @@ static int vl_method_dump_server_state(sd_varlink *link, sd_json_variant *parame
                 }
 
         if (!list) {
-                r = sd_json_variant_new_array(&list, NULL, 0);
+                r = sd_json_variant_new_array(&list, /* array= */ NULL, 0);
                 if (r < 0)
                         return r;
         }
@@ -1391,7 +1391,7 @@ static int vl_method_flush_caches(sd_varlink *link, sd_json_variant *parameters,
 
         manager_flush_caches(m, LOG_INFO);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_reset_server_features(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -1405,7 +1405,7 @@ static int vl_method_reset_server_features(sd_varlink *link, sd_json_variant *pa
         (void) dns_stream_disconnect_all(m);
         manager_reset_server_features(m);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_subscribe_dns_configuration(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -1428,7 +1428,7 @@ static int vl_method_subscribe_dns_configuration(sd_varlink *link, sd_json_varia
         if (r < 0)
                 goto fail;
 
-        r = set_ensure_put(&m->varlink_dns_configuration_subscription, NULL, link);
+        r = set_ensure_put(&m->varlink_dns_configuration_subscription, /* hash_ops= */ NULL, link);
         if (r < 0)
                 goto fail;
         sd_varlink_ref(link);

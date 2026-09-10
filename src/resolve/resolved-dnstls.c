@@ -75,7 +75,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         if (r < 0)
                 return r;
 
-        rb = sym_BIO_new_socket(stream->fd, 0);
+        rb = sym_BIO_new_socket(stream->fd, /* close_flag= */ 0);
         if (!rb)
                 return -ENOMEM;
 
@@ -104,11 +104,11 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         if (dns_server_get_dns_over_tls_mode(server) == DNS_OVER_TLS_YES) {
                 X509_VERIFY_PARAM *v;
 
-                sym_SSL_set_verify(s, SSL_VERIFY_PEER, NULL);
+                sym_SSL_set_verify(s, SSL_VERIFY_PEER, /* callback= */ NULL);
                 v = sym_SSL_get0_param(s);
                 if (server->server_name) {
                         sym_X509_VERIFY_PARAM_set_hostflags(v, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
-                        if (sym_X509_VERIFY_PARAM_set1_host(v, server->server_name, 0) == 0)
+                        if (sym_X509_VERIFY_PARAM_set1_host(v, server->server_name, /* namelen= */ 0) == 0)
                                 return -ECONNREFUSED;
                 } else {
                         const unsigned char *ip;

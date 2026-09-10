@@ -119,12 +119,12 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 t = hashmap_get(m->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
                 if (t)
-                        dns_transaction_process_reply(t, p, false);
+                        dns_transaction_process_reply(t, p, /* encrypted= */ false);
 
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got LLMNR UDP query packet for id %u", DNS_PACKET_ID(p));
 
-                dns_scope_process_query(scope, NULL, p);
+                dns_scope_process_query(scope, /* stream= */ NULL, p);
         } else
                 log_debug("Invalid LLMNR UDP packet, ignoring.");
 
@@ -185,7 +185,7 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_MULTICAST_TTL: %m");
 
-        r = setsockopt_int(s, IPPROTO_IP, IP_MULTICAST_LOOP, true);
+        r = setsockopt_int(s, IPPROTO_IP, IP_MULTICAST_LOOP, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_MULTICAST_LOOP: %m");
 
@@ -203,7 +203,7 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
                 log_warning("LLMNR-IPv4(UDP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set SO_REUSEADDR: %m");
 
@@ -212,7 +212,7 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
                         return log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to bind socket: %m");
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple LLMNR responders */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set SO_REUSEADDR: %m");
         }
@@ -256,11 +256,11 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_MULTICAST_HOPS: %m");
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_MULTICAST_LOOP: %m");
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_V6ONLY: %m");
 
@@ -273,7 +273,7 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
                 log_warning("LLMNR-IPv6(UDP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set SO_REUSEADDR: %m");
 
@@ -282,7 +282,7 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
                         return log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to bind socket: %m");
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple LLMNR responders */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set SO_REUSEADDR: %m");
         }
@@ -330,8 +330,8 @@ static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *u
         }
 
         /* We don't configure a "complete" handler here, we rely on the default handler, thus freeing it */
-        r = dns_stream_new(m, &stream, DNS_STREAM_LLMNR_RECV, DNS_PROTOCOL_LLMNR, cfd, NULL,
-                           on_llmnr_stream_packet, NULL, DNS_STREAM_DEFAULT_TIMEOUT_USEC);
+        r = dns_stream_new(m, &stream, DNS_STREAM_LLMNR_RECV, DNS_PROTOCOL_LLMNR, cfd, /* tfo_address= */ NULL,
+                           on_llmnr_stream_packet, /* complete= */ NULL, DNS_STREAM_DEFAULT_TIMEOUT_USEC);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
@@ -352,7 +352,7 @@ static int set_llmnr_common_tcp_socket_options(int fd, int family) {
         if (r < 0)
                 log_debug_errno(r, "Failed to enable TCP_FASTOPEN on TCP listening socket, ignoring: %m");
 
-        r = setsockopt_int(fd, IPPROTO_TCP, TCP_NODELAY, true);
+        r = setsockopt_int(fd, IPPROTO_TCP, TCP_NODELAY, /* value= */ true);
         if (r < 0)
                 log_debug_errno(r, "Failed to enable TCP_NODELAY mode, ignoring: %m");
 
@@ -398,7 +398,7 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
                 log_warning("LLMNR-IPv4(TCP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set SO_REUSEADDR: %m");
 
@@ -407,7 +407,7 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
                         return log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to bind socket: %m");
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple LLMNR responders */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set SO_REUSEADDR: %m");
         }
@@ -442,7 +442,7 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
         if (s < 0)
                 return log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to create socket: %m");
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set IPV6_V6ONLY: %m");
 
@@ -463,7 +463,7 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
                 log_warning("LLMNR-IPv6(TCP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set SO_REUSEADDR: %m");
 
@@ -472,7 +472,7 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
                         return log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to bind socket: %m");
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple LLMNR responders */
-                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+                r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set SO_REUSEADDR: %m");
         }

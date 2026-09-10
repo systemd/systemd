@@ -265,32 +265,32 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWLINK, manager_process_link, NULL, m, "resolve-NEWLINK");
+        r = sd_netlink_add_match(m->rtnl, /* ret_slot= */ NULL, RTM_NEWLINK, manager_process_link, /* destroy_callback= */ NULL, m, "resolve-NEWLINK");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELLINK, manager_process_link, NULL, m, "resolve-DELLINK");
+        r = sd_netlink_add_match(m->rtnl, /* ret_slot= */ NULL, RTM_DELLINK, manager_process_link, /* destroy_callback= */ NULL, m, "resolve-DELLINK");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWADDR, manager_process_address, NULL, m, "resolve-NEWADDR");
+        r = sd_netlink_add_match(m->rtnl, /* ret_slot= */ NULL, RTM_NEWADDR, manager_process_address, /* destroy_callback= */ NULL, m, "resolve-NEWADDR");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELADDR, manager_process_address, NULL, m, "resolve-DELADDR");
+        r = sd_netlink_add_match(m->rtnl, /* ret_slot= */ NULL, RTM_DELADDR, manager_process_address, /* destroy_callback= */ NULL, m, "resolve-DELADDR");
         if (r < 0)
                 return r;
 
         /* Then, enumerate all links */
-        r = sd_rtnl_message_new_link(m->rtnl, &req, RTM_GETLINK, 0);
+        r = sd_rtnl_message_new_link(m->rtnl, &req, RTM_GETLINK, /* ifindex= */ 0);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
+        r = sd_netlink_call(m->rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
@@ -304,15 +304,15 @@ static int manager_rtnl_listen(Manager *m) {
         reply = sd_netlink_message_unref(reply);
 
         /* Finally, enumerate all addresses, too */
-        r = sd_rtnl_message_new_addr(m->rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC);
+        r = sd_rtnl_message_new_addr(m->rtnl, &req, RTM_GETADDR, /* ifindex= */ 0, AF_UNSPEC);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
+        r = sd_netlink_call(m->rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
@@ -353,7 +353,7 @@ static int manager_network_monitor_listen(Manager *m) {
 
         assert(m);
 
-        r = sd_network_monitor_new(&m->network_monitor, NULL);
+        r = sd_network_monitor_new(&m->network_monitor, /* category= */ NULL);
         if (r < 0)
                 return r;
 
@@ -424,7 +424,7 @@ static int determine_hostnames(char **full_hostname, char **llmnr_hostname, char
         if (r < 0)
                 return r;
 
-        r = dns_name_concat(n, "local", 0, mdns_hostname);
+        r = dns_name_concat(n, "local", /* flags= */ 0, mdns_hostname);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine mDNS hostname: %m");
 
@@ -464,7 +464,7 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
         if (!h)
                 return log_oom();
 
-        r = dns_label_unescape(&p, label, sizeof label, 0);
+        r = dns_label_unescape(&p, label, sizeof label, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape fallback hostname: %m");
 
@@ -474,7 +474,7 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
         if (r < 0)
                 return log_error_errno(r, "Failed to escape fallback hostname: %m");
 
-        r = dns_name_concat(n, "local", 0, &m);
+        r = dns_name_concat(n, "local", /* flags= */ 0, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to concatenate mDNS hostname: %m");
 
@@ -527,7 +527,7 @@ static int manager_watch_hostname(Manager *m) {
                 return 0;
         }
 
-        r = sd_event_add_io(m->event, &m->hostname_event_source, m->hostname_fd, 0, on_hostname_change, m);
+        r = sd_event_add_io(m->event, &m->hostname_event_source, m->hostname_fd, /* events= */ 0, on_hostname_change, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add hostname event source: %m");
 
@@ -620,7 +620,7 @@ static int manager_memory_pressure_listen(Manager *m) {
 
         assert(m);
 
-        r = sd_event_add_memory_pressure(m->event, NULL, manager_memory_pressure, m);
+        r = sd_event_add_memory_pressure(m->event, /* ret= */ NULL, manager_memory_pressure, m);
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN )? LOG_DEBUG : LOG_NOTICE, r,
                                "Failed to install memory pressure event source, ignoring: %m");
@@ -972,7 +972,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
 
         iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->allocated);
 
-        l = recvmsg_safe(fd, &mh, 0);
+        l = recvmsg_safe(fd, &mh, /* flags= */ 0);
         if (ERRNO_IS_NEG_TRANSIENT(l))
                 return 0;
         if (l <= 0)
@@ -1190,7 +1190,7 @@ static int manager_ipv4_send(
                         pi->ipi_spec_dst = *source;
         }
 
-        return sendmsg_loop(fd, &mh, 0);
+        return sendmsg_loop(fd, &mh, /* flags= */ 0);
 }
 
 static int manager_ipv6_send(
@@ -1246,7 +1246,7 @@ static int manager_ipv6_send(
                         pi->ipi6_addr = *source;
         }
 
-        return sendmsg_loop(fd, &mh, 0);
+        return sendmsg_loop(fd, &mh, /* flags= */ 0);
 }
 
 static int dns_question_to_json(DnsQuestion *q, sd_json_variant **ret) {
@@ -1451,7 +1451,7 @@ void manager_refresh_rrs(Manager *m) {
         m->mdns_host_ipv6_key = dns_resource_key_unref(m->mdns_host_ipv6_key);
 
         HASHMAP_FOREACH(l, m->links)
-                link_add_rrs(l, true);
+                link_add_rrs(l, /* force_remove= */ true);
 
         if (m->mdns_support == RESOLVE_SUPPORT_YES)
                 HASHMAP_FOREACH(s, m->dnssd_registered_services)
@@ -1459,7 +1459,7 @@ void manager_refresh_rrs(Manager *m) {
                                 log_warning("Failed to refresh DNS-SD service '%s'", s->id);
 
         HASHMAP_FOREACH(l, m->links)
-                link_add_rrs(l, false);
+                link_add_rrs(l, /* force_remove= */ false);
 }
 
 static int manager_next_random_name(const char *old, char **ret_new) {
@@ -1510,7 +1510,7 @@ int manager_next_hostname(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = dns_name_concat(h, "local", 0, &k);
+        r = dns_name_concat(h, "local", /* flags= */ 0, &k);
         if (r < 0)
                 return r;
 
@@ -1814,7 +1814,7 @@ bool manager_routable(Manager *m) {
         /* Returns true if the host has at least one interface with a routable address (regardless if IPv4 or IPv6) */
 
         HASHMAP_FOREACH(l, m->links)
-                if (link_relevant(l, AF_UNSPEC, false))
+                if (link_relevant(l, AF_UNSPEC, /* local_multicast= */ false))
                         return true;
 
         return false;
@@ -2172,7 +2172,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
         assert(m);
         assert(configuration);
 
-        r = set_ensure_put(&scopes, NULL, m->unicast_scope);
+        r = set_ensure_put(&scopes, /* hash_ops= */ NULL, m->unicast_scope);
         if (r < 0)
                 return r;
 
@@ -2204,31 +2204,31 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
         assert(configuration);
 
         if (l->unicast_scope) {
-                r = set_ensure_put(&scopes, NULL, l->unicast_scope);
+                r = set_ensure_put(&scopes, /* hash_ops= */ NULL, l->unicast_scope);
                 if (r < 0)
                         return r;
         }
 
         if (l->llmnr_ipv4_scope) {
-                r = set_ensure_put(&scopes, NULL, l->llmnr_ipv4_scope);
+                r = set_ensure_put(&scopes, /* hash_ops= */ NULL, l->llmnr_ipv4_scope);
                 if (r < 0)
                         return r;
         }
 
         if (l->llmnr_ipv6_scope) {
-                r = set_ensure_put(&scopes, NULL, l->llmnr_ipv6_scope);
+                r = set_ensure_put(&scopes, /* hash_ops= */ NULL, l->llmnr_ipv6_scope);
                 if (r < 0)
                         return r;
         }
 
         if (l->mdns_ipv4_scope) {
-                r = set_ensure_put(&scopes, NULL, l->mdns_ipv4_scope);
+                r = set_ensure_put(&scopes, /* hash_ops= */ NULL, l->mdns_ipv4_scope);
                 if (r < 0)
                         return r;
         }
 
         if (l->mdns_ipv6_scope) {
-                r = set_ensure_put(&scopes, NULL, l->mdns_ipv6_scope);
+                r = set_ensure_put(&scopes, /* hash_ops= */ NULL, l->mdns_ipv6_scope);
                 if (r < 0)
                         return r;
         }
@@ -2260,7 +2260,7 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
         assert(d);
         assert(configuration);
 
-        r = set_ensure_put(&scopes, NULL, d->scope);
+        r = set_ensure_put(&scopes, /* hash_ops= */ NULL, d->scope);
         if (r < 0)
                 return r;
 
@@ -2365,11 +2365,11 @@ int manager_start_dns_configuration_monitor(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, &m->netlink_new_route_slot, RTM_NEWROUTE, manager_process_route, NULL, m, "resolve-NEWROUTE");
+        r = sd_netlink_add_match(m->rtnl, &m->netlink_new_route_slot, RTM_NEWROUTE, manager_process_route, /* destroy_callback= */ NULL, m, "resolve-NEWROUTE");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, &m->netlink_del_route_slot, RTM_DELROUTE, manager_process_route, NULL, m, "resolve-DELROUTE");
+        r = sd_netlink_add_match(m->rtnl, &m->netlink_del_route_slot, RTM_DELROUTE, manager_process_route, /* destroy_callback= */ NULL, m, "resolve-DELROUTE");
         if (r < 0)
                 return r;
 
