@@ -16,12 +16,12 @@ const char *arg_instance = "test_instance";
 
 TEST(verify_nonexistent) {
         /* Negative cases */
-        assert_se(verify_executable(NULL, &(ExecCommand) {.flags = EXEC_COMMAND_IGNORE_FAILURE, .path = (char*) "/non/existent"}, NULL) == 0);
-        assert_se(verify_executable(NULL, &(ExecCommand) {.path = (char*) "/non/existent"}, NULL) < 0);
+        assert_se(verify_executable(NULL, &(ExecCommand) {.flags = EXEC_COMMAND_IGNORE_FAILURE, .path = (char*) "/non/existent"}, /* root= */ NULL) == 0);
+        assert_se(verify_executable(NULL, &(ExecCommand) {.path = (char*) "/non/existent"}, /* root= */ NULL) < 0);
 
         /* Ordinary cases */
-        assert_se(verify_executable(NULL, &(ExecCommand) {.path = (char*) "/bin/echo"}, NULL) == 0);
-        assert_se(verify_executable(NULL, &(ExecCommand) {.flags = EXEC_COMMAND_IGNORE_FAILURE, .path = (char*) "/bin/echo"}, NULL) == 0);
+        assert_se(verify_executable(NULL, &(ExecCommand) {.path = (char*) "/bin/echo"}, /* root= */ NULL) == 0);
+        assert_se(verify_executable(NULL, &(ExecCommand) {.flags = EXEC_COMMAND_IGNORE_FAILURE, .path = (char*) "/bin/echo"}, /* root= */ NULL) == 0);
 }
 
 static void test_verify_set_unit_path_one(const char *old, const char *expected) {
@@ -52,12 +52,12 @@ TEST(verify_set_unit_path) {
         _cleanup_free_ char *old_saved = getenv("SYSTEMD_UNIT_PATH") ? strdup(getenv("SYSTEMD_UNIT_PATH")) : NULL;
         ASSERT_TRUE(old_saved || !getenv("SYSTEMD_UNIT_PATH"));
 
-        test_verify_set_unit_path_one(NULL, ":");
+        test_verify_set_unit_path_one(/* old= */ NULL, ":");
         test_verify_set_unit_path_one("", "");
         test_verify_set_unit_path_one(":", ":");
         test_verify_set_unit_path_one("/foo:", ":/foo:");
-        test_verify_set_unit_path_one(":foo", NULL);
-        test_verify_set_unit_path_one("/foo::/bar", NULL);
+        test_verify_set_unit_path_one(":foo", /* expected= */ NULL);
+        test_verify_set_unit_path_one("/foo::/bar", /* expected= */ NULL);
 
         if (old_saved)
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", old_saved, 1));

@@ -28,7 +28,7 @@ int verb_dlopen_metadata(int argc, char *argv[], uintptr_t _data, void *userdata
                         arg_root,
                         /* fork_disable_dump= */ false,
                         /* ret= */ NULL,
-                        NULL,
+                        /* ret_package_metadata= */ NULL,
                         &dlopen_metadata);
         if (r < 0)
                 return log_error_errno(r, "Parsing \"%s\" as ELF object failed: %m", abspath);
@@ -37,7 +37,7 @@ int verb_dlopen_metadata(int argc, char *argv[], uintptr_t _data, void *userdata
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "%s does not contain any .note.dlopen sections", argv[1]);
 
         if (sd_json_format_enabled(arg_json_format_flags))
-                return sd_json_variant_dump(dlopen_metadata, arg_json_format_flags, stdout, NULL);
+                return sd_json_variant_dump(dlopen_metadata, arg_json_format_flags, stdout, /* prefix= */ NULL);
 
         _cleanup_(table_unrefp) Table *t = NULL;
         t = table_new("feature", "description", "soname", "priority");

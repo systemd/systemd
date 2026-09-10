@@ -20,7 +20,7 @@ static int dump_string(sd_bus *bus) {
 
         assert(bus);
 
-        r = bus_call_method(bus, bus_systemd_mgr, "Dump", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "Dump", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to call Dump: %s", bus_error_message(&error, r));
 
@@ -32,7 +32,7 @@ static int dump_fd(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "DumpByFileDescriptor", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "DumpByFileDescriptor", &error, &reply, /* types= */ NULL);
         if (IN_SET(r, -EACCES, -EBADR))
                 /* Fall back to non-fd method. We need to do this even if the bus supports sending
                  * fds to cater to very old managers which didn't have the fd-based method. */
@@ -60,7 +60,7 @@ static int dump_patterns_string(sd_bus *bus, char **patterns) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to call DumpUnitsMatchingPatterns: %s",
                                        bus_error_message(&error, r));
@@ -84,7 +84,7 @@ static int dump_patterns_fd(sd_bus *bus, char **patterns) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to call DumpUnitsMatchingPatternsByFileDescriptor: %s",
                                        bus_error_message(&error, r));
@@ -101,7 +101,7 @@ static int mangle_patterns(char **args, char ***ret) {
         STRV_FOREACH(arg, args) {
                 char *t;
 
-                r = unit_name_mangle_with_suffix(*arg, NULL, UNIT_NAME_MANGLE_GLOB, ".service", &t);
+                r = unit_name_mangle_with_suffix(*arg, /* operation= */ NULL, UNIT_NAME_MANGLE_GLOB, ".service", &t);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle name '%s': %m", *arg);
 
@@ -119,7 +119,7 @@ int verb_dump(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_strv_free_ char **patterns = NULL;
         int r;
 
-        r = acquire_bus(&bus, NULL);
+        r = acquire_bus(&bus, /* use_full_bus= */ NULL);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
