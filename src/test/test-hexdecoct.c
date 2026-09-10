@@ -84,7 +84,7 @@ static void test_hexmem_one(const char *in, const char *expected) {
 }
 
 TEST(hexmem) {
-        test_hexmem_one(NULL, "");
+        test_hexmem_one(/* in= */ NULL, "");
         test_hexmem_one("", "");
         test_hexmem_one("foo", "666f6f");
 }
@@ -112,89 +112,89 @@ TEST(unhexmem) {
         const char *hex_space = "  e f   a\n 2\r  14\n\r\t9\t2 \n1\r3 \r\r\t";
         const char *hex_invalid = "efa214921o";
 
-        test_unhexmem_one(NULL, 0, 0);
-        test_unhexmem_one("", 0, 0);
-        test_unhexmem_one("", SIZE_MAX, 0);
-        test_unhexmem_one("   \n \t\r   \t\t \n\n\n", SIZE_MAX, 0);
+        test_unhexmem_one(NULL, 0, /* retval= */ 0);
+        test_unhexmem_one("", 0, /* retval= */ 0);
+        test_unhexmem_one("", SIZE_MAX, /* retval= */ 0);
+        test_unhexmem_one("   \n \t\r   \t\t \n\n\n", SIZE_MAX, /* retval= */ 0);
         test_unhexmem_one(hex_invalid, strlen(hex_invalid), -EINVAL);
         test_unhexmem_one(hex_invalid, (size_t) - 1, -EINVAL);
         test_unhexmem_one(hex, strlen(hex) - 1, -EPIPE);
-        test_unhexmem_one(hex, strlen(hex), 0);
-        test_unhexmem_one(hex, SIZE_MAX, 0);
-        test_unhexmem_one(hex_space, strlen(hex_space), 0);
-        test_unhexmem_one(hex_space, SIZE_MAX, 0);
+        test_unhexmem_one(hex, strlen(hex), /* retval= */ 0);
+        test_unhexmem_one(hex, SIZE_MAX, /* retval= */ 0);
+        test_unhexmem_one(hex_space, strlen(hex_space), /* retval= */ 0);
+        test_unhexmem_one(hex_space, SIZE_MAX, /* retval= */ 0);
 }
 
 /* https://tools.ietf.org/html/rfc4648#section-10 */
 TEST(base32hexmem) {
         char *b32;
 
-        b32 = base32hexmem("", STRLEN(""), true);
+        b32 = base32hexmem("", STRLEN(""), /* padding= */ true);
         assert_se(b32);
         ASSERT_STREQ(b32, "");
         free(b32);
 
-        b32 = base32hexmem("f", STRLEN("f"), true);
+        b32 = base32hexmem("f", STRLEN("f"), /* padding= */ true);
         assert_se(b32);
         ASSERT_STREQ(b32, "CO======");
         free(b32);
 
-        b32 = base32hexmem("fo", STRLEN("fo"), true);
+        b32 = base32hexmem("fo", STRLEN("fo"), /* padding= */ true);
         assert_se(b32);
         ASSERT_STREQ(b32, "CPNG====");
         free(b32);
 
-        b32 = base32hexmem("foo", STRLEN("foo"), true);
+        b32 = base32hexmem("foo", STRLEN("foo"), /* padding= */ true);
         assert_se(b32);
         ASSERT_STREQ(b32, "CPNMU===");
         free(b32);
 
-        b32 = base32hexmem("foob", STRLEN("foob"), true);
+        b32 = base32hexmem("foob", STRLEN("foob"), /* padding= */ true);
         assert_se(b32);
         ASSERT_STREQ(b32, "CPNMUOG=");
         free(b32);
 
-        b32 = base32hexmem("fooba", STRLEN("fooba"), true);
+        b32 = base32hexmem("fooba", STRLEN("fooba"), /* padding= */ true);
         assert_se(b32);
         ASSERT_STREQ(b32, "CPNMUOJ1");
         free(b32);
 
-        b32 = base32hexmem("foobar", STRLEN("foobar"), true);
+        b32 = base32hexmem("foobar", STRLEN("foobar"), /* padding= */ true);
         assert_se(b32);
         ASSERT_STREQ(b32, "CPNMUOJ1E8======");
         free(b32);
 
-        b32 = base32hexmem("", STRLEN(""), false);
+        b32 = base32hexmem("", STRLEN(""), /* padding= */ false);
         assert_se(b32);
         ASSERT_STREQ(b32, "");
         free(b32);
 
-        b32 = base32hexmem("f", STRLEN("f"), false);
+        b32 = base32hexmem("f", STRLEN("f"), /* padding= */ false);
         assert_se(b32);
         ASSERT_STREQ(b32, "CO");
         free(b32);
 
-        b32 = base32hexmem("fo", STRLEN("fo"), false);
+        b32 = base32hexmem("fo", STRLEN("fo"), /* padding= */ false);
         assert_se(b32);
         ASSERT_STREQ(b32, "CPNG");
         free(b32);
 
-        b32 = base32hexmem("foo", STRLEN("foo"), false);
+        b32 = base32hexmem("foo", STRLEN("foo"), /* padding= */ false);
         assert_se(b32);
         ASSERT_STREQ(b32, "CPNMU");
         free(b32);
 
-        b32 = base32hexmem("foob", STRLEN("foob"), false);
+        b32 = base32hexmem("foob", STRLEN("foob"), /* padding= */ false);
         assert_se(b32);
         ASSERT_STREQ(b32, "CPNMUOG");
         free(b32);
 
-        b32 = base32hexmem("fooba", STRLEN("fooba"), false);
+        b32 = base32hexmem("fooba", STRLEN("fooba"), /* padding= */ false);
         assert_se(b32);
         ASSERT_STREQ(b32, "CPNMUOJ1");
         free(b32);
 
-        b32 = base32hexmem("foobar", STRLEN("foobar"), false);
+        b32 = base32hexmem("foobar", STRLEN("foobar"), /* padding= */ false);
         assert_se(b32);
         ASSERT_STREQ(b32, "CPNMUOJ1E8");
         free(b32);
@@ -214,50 +214,50 @@ static void test_unbase32hexmem_one(const char *hex, bool padding, int retval, c
 }
 
 TEST(unbase32hexmem) {
-        test_unbase32hexmem_one("", true, 0, "");
+        test_unbase32hexmem_one("", /* padding= */ true, /* retval= */ 0, "");
 
-        test_unbase32hexmem_one("CO======", true, 0, "f");
-        test_unbase32hexmem_one("CPNG====", true, 0, "fo");
-        test_unbase32hexmem_one("CPNMU===", true, 0, "foo");
-        test_unbase32hexmem_one("CPNMUOG=", true, 0, "foob");
-        test_unbase32hexmem_one("CPNMUOJ1", true, 0, "fooba");
-        test_unbase32hexmem_one("CPNMUOJ1E8======", true, 0, "foobar");
+        test_unbase32hexmem_one("CO======", /* padding= */ true, /* retval= */ 0, "f");
+        test_unbase32hexmem_one("CPNG====", /* padding= */ true, /* retval= */ 0, "fo");
+        test_unbase32hexmem_one("CPNMU===", /* padding= */ true, /* retval= */ 0, "foo");
+        test_unbase32hexmem_one("CPNMUOG=", /* padding= */ true, /* retval= */ 0, "foob");
+        test_unbase32hexmem_one("CPNMUOJ1", /* padding= */ true, /* retval= */ 0, "fooba");
+        test_unbase32hexmem_one("CPNMUOJ1E8======", /* padding= */ true, /* retval= */ 0, "foobar");
 
-        test_unbase32hexmem_one("A", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("A=======", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("AAA=====", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("AAAAAA==", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("AB======", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("AAAB====", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("AAAAB===", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("AAAAAAB=", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("A", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("A=======", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AAA=====", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AAAAAA==", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AB======", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AAAB====", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AAAAB===", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AAAAAAB=", /* padding= */ true, -EINVAL, /* ans= */ NULL);
 
-        test_unbase32hexmem_one("XPNMUOJ1", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("CXNMUOJ1", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("CPXMUOJ1", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("CPNXUOJ1", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("CPNMXOJ1", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("CPNMUXJ1", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("CPNMUOX1", true, -EINVAL, NULL);
-        test_unbase32hexmem_one("CPNMUOJX", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("XPNMUOJ1", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("CXNMUOJ1", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("CPXMUOJ1", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("CPNXUOJ1", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("CPNMXOJ1", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("CPNMUXJ1", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("CPNMUOX1", /* padding= */ true, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("CPNMUOJX", /* padding= */ true, -EINVAL, /* ans= */ NULL);
 
-        test_unbase32hexmem_one("", false, 0, "");
-        test_unbase32hexmem_one("CO", false, 0, "f");
-        test_unbase32hexmem_one("CPNG", false, 0, "fo");
-        test_unbase32hexmem_one("CPNMU", false, 0, "foo");
-        test_unbase32hexmem_one("CPNMUOG", false, 0, "foob");
-        test_unbase32hexmem_one("CPNMUOJ1", false, 0, "fooba");
-        test_unbase32hexmem_one("CPNMUOJ1E8", false, 0, "foobar");
-        test_unbase32hexmem_one("CPNMUOG=", false, -EINVAL, NULL);
-        test_unbase32hexmem_one("CPNMUOJ1E8======", false, -EINVAL, NULL);
+        test_unbase32hexmem_one("", /* padding= */ false, /* retval= */ 0, "");
+        test_unbase32hexmem_one("CO", /* padding= */ false, /* retval= */ 0, "f");
+        test_unbase32hexmem_one("CPNG", /* padding= */ false, /* retval= */ 0, "fo");
+        test_unbase32hexmem_one("CPNMU", /* padding= */ false, /* retval= */ 0, "foo");
+        test_unbase32hexmem_one("CPNMUOG", /* padding= */ false, /* retval= */ 0, "foob");
+        test_unbase32hexmem_one("CPNMUOJ1", /* padding= */ false, /* retval= */ 0, "fooba");
+        test_unbase32hexmem_one("CPNMUOJ1E8", /* padding= */ false, /* retval= */ 0, "foobar");
+        test_unbase32hexmem_one("CPNMUOG=", /* padding= */ false, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("CPNMUOJ1E8======", /* padding= */ false, -EINVAL, /* ans= */ NULL);
 
-        test_unbase32hexmem_one("A", false, -EINVAL, NULL);
-        test_unbase32hexmem_one("AAA", false, -EINVAL, NULL);
-        test_unbase32hexmem_one("AAAAAA", false, -EINVAL, NULL);
-        test_unbase32hexmem_one("AB", false, -EINVAL, NULL);
-        test_unbase32hexmem_one("AAAB", false, -EINVAL, NULL);
-        test_unbase32hexmem_one("AAAAB", false, -EINVAL, NULL);
-        test_unbase32hexmem_one("AAAAAAB", false, -EINVAL, NULL);
+        test_unbase32hexmem_one("A", /* padding= */ false, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AAA", /* padding= */ false, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AAAAAA", /* padding= */ false, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AB", /* padding= */ false, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AAAB", /* padding= */ false, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AAAAB", /* padding= */ false, -EINVAL, /* ans= */ NULL);
+        test_unbase32hexmem_one("AAAAAAB", /* padding= */ false, -EINVAL, /* ans= */ NULL);
 }
 
 /* https://tools.ietf.org/html/rfc4648#section-10 */
@@ -346,7 +346,7 @@ TEST(base64_append) {
         _cleanup_free_ char *buf = NULL;
         size_t len = 0;
 
-        test_base64_append_one(&buf, &len, "", NULL);
+        test_base64_append_one(&buf, &len, "", /* expected= */ NULL);
         test_base64_append_one(&buf, &len, "f",
                                "Zg==");
         test_base64_append_one(&buf, &len, "fo",
@@ -470,28 +470,28 @@ static void test_unbase64mem_one(const char *input, const char *output, int ret)
 
 TEST(unbase64mem) {
 
-        test_unbase64mem_one("", "", 0);
-        test_unbase64mem_one("Zg==", "f", 0);
-        test_unbase64mem_one("Zm8=", "fo", 0);
-        test_unbase64mem_one("Zm9v", "foo", 0);
-        test_unbase64mem_one("Zm9vYg==", "foob", 0);
-        test_unbase64mem_one("Zm9vYmE=", "fooba", 0);
-        test_unbase64mem_one("Zm9vYmFy", "foobar", 0);
+        test_unbase64mem_one("", "", /* ret= */ 0);
+        test_unbase64mem_one("Zg==", "f", /* ret= */ 0);
+        test_unbase64mem_one("Zm8=", "fo", /* ret= */ 0);
+        test_unbase64mem_one("Zm9v", "foo", /* ret= */ 0);
+        test_unbase64mem_one("Zm9vYg==", "foob", /* ret= */ 0);
+        test_unbase64mem_one("Zm9vYmE=", "fooba", /* ret= */ 0);
+        test_unbase64mem_one("Zm9vYmFy", "foobar", /* ret= */ 0);
 
-        test_unbase64mem_one(" ", "", 0);
-        test_unbase64mem_one(" \n\r ", "", 0);
-        test_unbase64mem_one("    Zg\n==       ", "f", 0);
-        test_unbase64mem_one(" Zm 8=\r", "fo", 0);
-        test_unbase64mem_one("  Zm9\n\r\r\nv   ", "foo", 0);
-        test_unbase64mem_one(" Z m9vYg==\n\r", "foob", 0);
-        test_unbase64mem_one(" Zm 9vYmE=   ", "fooba", 0);
-        test_unbase64mem_one("   Z m9v    YmFy   ", "foobar", 0);
+        test_unbase64mem_one(" ", "", /* ret= */ 0);
+        test_unbase64mem_one(" \n\r ", "", /* ret= */ 0);
+        test_unbase64mem_one("    Zg\n==       ", "f", /* ret= */ 0);
+        test_unbase64mem_one(" Zm 8=\r", "fo", /* ret= */ 0);
+        test_unbase64mem_one("  Zm9\n\r\r\nv   ", "foo", /* ret= */ 0);
+        test_unbase64mem_one(" Z m9vYg==\n\r", "foob", /* ret= */ 0);
+        test_unbase64mem_one(" Zm 9vYmE=   ", "fooba", /* ret= */ 0);
+        test_unbase64mem_one("   Z m9v    YmFy   ", "foobar", /* ret= */ 0);
 
-        test_unbase64mem_one("A", NULL, -EPIPE);
-        test_unbase64mem_one("A====", NULL, -EINVAL);
-        test_unbase64mem_one("AAB==", NULL, -EINVAL);
-        test_unbase64mem_one(" A A A B = ", NULL, -EINVAL);
-        test_unbase64mem_one(" Z m 8 = q u u x ", NULL, -ENAMETOOLONG);
+        test_unbase64mem_one("A", /* output= */ NULL, -EPIPE);
+        test_unbase64mem_one("A====", /* output= */ NULL, -EINVAL);
+        test_unbase64mem_one("AAB==", /* output= */ NULL, -EINVAL);
+        test_unbase64mem_one(" A A A B = ", /* output= */ NULL, -EINVAL);
+        test_unbase64mem_one(" Z m 8 = q u u x ", /* output= */ NULL, -ENAMETOOLONG);
 }
 
 TEST(hexdump) {

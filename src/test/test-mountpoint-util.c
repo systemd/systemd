@@ -42,13 +42,13 @@ static void test_mount_propagation_flag_one(const char *name, int ret, unsigned 
 }
 
 TEST(mount_propagation_flag) {
-        test_mount_propagation_flag_one("shared", 0, MS_SHARED);
-        test_mount_propagation_flag_one("slave", 0, MS_SLAVE);
-        test_mount_propagation_flag_one("private", 0, MS_PRIVATE);
-        test_mount_propagation_flag_one(NULL, 0, 0);
-        test_mount_propagation_flag_one("", 0, 0);
-        test_mount_propagation_flag_one("xxxx", -EINVAL, 0);
-        test_mount_propagation_flag_one(" ", -EINVAL, 0);
+        test_mount_propagation_flag_one("shared", /* ret= */ 0, MS_SHARED);
+        test_mount_propagation_flag_one("slave", /* ret= */ 0, MS_SLAVE);
+        test_mount_propagation_flag_one("private", /* ret= */ 0, MS_PRIVATE);
+        test_mount_propagation_flag_one(/* name= */ NULL, /* ret= */ 0, /* expected= */ 0);
+        test_mount_propagation_flag_one("", /* ret= */ 0, /* expected= */ 0);
+        test_mount_propagation_flag_one("xxxx", -EINVAL, /* expected= */ 0);
+        test_mount_propagation_flag_one(" ", -EINVAL, /* expected= */ 0);
 }
 
 TEST(mnt_id) {
@@ -105,7 +105,7 @@ TEST(mnt_id) {
                  * See #11505. */
                 assert_se(q = hashmap_get(h, INT_TO_PTR(mnt_id2)));
 
-                assert_se((r = path_is_mount_point_full(p, NULL, 0)) >= 0);
+                assert_se((r = path_is_mount_point_full(p, /* root= */ NULL, /* flags= */ 0)) >= 0);
                 if (r == 0) {
                         /* If the path is not a mount point anymore, then it must be a sub directory of
                          * the path corresponds to mnt_id2. */
@@ -127,20 +127,20 @@ TEST(path_is_mount_point) {
         _cleanup_free_ char *dir1 = NULL, *dir1file = NULL, *dirlink1 = NULL, *dirlink1file = NULL;
         _cleanup_free_ char *dir2 = NULL, *dir2file = NULL;
 
-        assert_se(path_is_mount_point_full("/", NULL, AT_SYMLINK_FOLLOW) > 0);
-        assert_se(path_is_mount_point_full("/", NULL, 0) > 0);
-        assert_se(path_is_mount_point_full("//", NULL, AT_SYMLINK_FOLLOW) > 0);
-        assert_se(path_is_mount_point_full("//", NULL, 0) > 0);
+        assert_se(path_is_mount_point_full("/", /* root= */ NULL, AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point_full("/", /* root= */ NULL, /* flags= */ 0) > 0);
+        assert_se(path_is_mount_point_full("//", /* root= */ NULL, AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point_full("//", /* root= */ NULL, /* flags= */ 0) > 0);
 
-        assert_se(path_is_mount_point_full("/proc", NULL, AT_SYMLINK_FOLLOW) > 0);
-        assert_se(path_is_mount_point_full("/proc", NULL, 0) > 0);
-        assert_se(path_is_mount_point_full("/proc/", NULL, AT_SYMLINK_FOLLOW) > 0);
-        assert_se(path_is_mount_point_full("/proc/", NULL, 0) > 0);
+        assert_se(path_is_mount_point_full("/proc", /* root= */ NULL, AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point_full("/proc", /* root= */ NULL, /* flags= */ 0) > 0);
+        assert_se(path_is_mount_point_full("/proc/", /* root= */ NULL, AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point_full("/proc/", /* root= */ NULL, /* flags= */ 0) > 0);
 
-        assert_se(path_is_mount_point_full("/proc/1", NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full("/proc/1", NULL, 0) == 0);
-        assert_se(path_is_mount_point_full("/proc/1/", NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full("/proc/1/", NULL, 0) == 0);
+        assert_se(path_is_mount_point_full("/proc/1", /* root= */ NULL, AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point_full("/proc/1", /* root= */ NULL, /* flags= */ 0) == 0);
+        assert_se(path_is_mount_point_full("/proc/1/", /* root= */ NULL, AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point_full("/proc/1/", /* root= */ NULL, /* flags= */ 0) == 0);
 
         /* we'll create a hierarchy of different kinds of dir/file/link
          * layouts:
@@ -174,10 +174,10 @@ TEST(path_is_mount_point) {
         assert_se(link1);
         assert_se(symlink("file2", link2) == 0);
 
-        assert_se(path_is_mount_point_full(file1, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(file1, NULL, 0) == 0);
-        assert_se(path_is_mount_point_full(link1, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(link1, NULL, 0) == 0);
+        assert_se(path_is_mount_point_full(file1, /* root= */ NULL, AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point_full(file1, /* root= */ NULL, /* flags= */ 0) == 0);
+        assert_se(path_is_mount_point_full(link1, /* root= */ NULL, AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point_full(link1, /* root= */ NULL, /* flags= */ 0) == 0);
 
         /* directory mountpoints */
         dir1 = path_join(tmp_dir, "dir1");
@@ -193,10 +193,10 @@ TEST(path_is_mount_point) {
         assert_se(dir2);
         assert_se(mkdir(dir2, 0755) == 0);
 
-        assert_se(path_is_mount_point_full(dir1, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(dir1, NULL, 0) == 0);
-        assert_se(path_is_mount_point_full(dirlink1, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(dirlink1, NULL, 0) == 0);
+        assert_se(path_is_mount_point_full(dir1, /* root= */ NULL, AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point_full(dir1, /* root= */ NULL, /* flags= */ 0) == 0);
+        assert_se(path_is_mount_point_full(dirlink1, /* root= */ NULL, AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point_full(dirlink1, /* root= */ NULL, /* flags= */ 0) == 0);
 
         /* file in subdirectory mountpoints */
         dir1file = path_join(dir1, "file");
@@ -205,30 +205,30 @@ TEST(path_is_mount_point) {
         assert_se(fd > 0);
         close(fd);
 
-        assert_se(path_is_mount_point_full(dir1file, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(dir1file, NULL, 0) == 0);
-        assert_se(path_is_mount_point_full(dirlink1file, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(dirlink1file, NULL, 0) == 0);
+        assert_se(path_is_mount_point_full(dir1file, /* root= */ NULL, AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point_full(dir1file, /* root= */ NULL, /* flags= */ 0) == 0);
+        assert_se(path_is_mount_point_full(dirlink1file, /* root= */ NULL, AT_SYMLINK_FOLLOW) == 0);
+        assert_se(path_is_mount_point_full(dirlink1file, /* root= */ NULL, /* flags= */ 0) == 0);
 
         /* these tests will only work as root */
-        if (mount(file1, file2, NULL, MS_BIND, NULL) >= 0) {
+        if (mount(file1, file2, /* filesystemtype= */ NULL, MS_BIND, /* data= */ NULL) >= 0) {
                 int rf, rt, rdf, rdt, rlf, rlt, rl1f, rl1t;
                 const char *file2d;
 
                 /* files */
                 /* capture results in vars, to avoid dangling mounts on failure */
                 log_info("%s: %s", __func__, file2);
-                rf = path_is_mount_point_full(file2, NULL, 0);
-                rt = path_is_mount_point_full(file2, NULL, AT_SYMLINK_FOLLOW);
+                rf = path_is_mount_point_full(file2, /* root= */ NULL, /* flags= */ 0);
+                rt = path_is_mount_point_full(file2, /* root= */ NULL, AT_SYMLINK_FOLLOW);
 
                 file2d = strjoina(file2, "/");
                 log_info("%s: %s", __func__, file2d);
-                rdf = path_is_mount_point_full(file2d, NULL, 0);
-                rdt = path_is_mount_point_full(file2d, NULL, AT_SYMLINK_FOLLOW);
+                rdf = path_is_mount_point_full(file2d, /* root= */ NULL, /* flags= */ 0);
+                rdt = path_is_mount_point_full(file2d, /* root= */ NULL, AT_SYMLINK_FOLLOW);
 
                 log_info("%s: %s", __func__, link2);
-                rlf = path_is_mount_point_full(link2, NULL, 0);
-                rlt = path_is_mount_point_full(link2, NULL, AT_SYMLINK_FOLLOW);
+                rlf = path_is_mount_point_full(link2, /* root= */ NULL, /* flags= */ 0);
+                rlt = path_is_mount_point_full(link2, /* root= */ NULL, AT_SYMLINK_FOLLOW);
 
                 assert_se(umount(file2) == 0);
 
@@ -246,18 +246,18 @@ TEST(path_is_mount_point) {
                 assert_se(fd > 0);
                 close(fd);
 
-                assert_se(mount(dir2, dir1, NULL, MS_BIND, NULL) >= 0);
+                assert_se(mount(dir2, dir1, /* filesystemtype= */ NULL, MS_BIND, /* data= */ NULL) >= 0);
 
                 log_info("%s: %s", __func__, dir1);
-                rf = path_is_mount_point_full(dir1, NULL, 0);
-                rt = path_is_mount_point_full(dir1, NULL, AT_SYMLINK_FOLLOW);
+                rf = path_is_mount_point_full(dir1, /* root= */ NULL, /* flags= */ 0);
+                rt = path_is_mount_point_full(dir1, /* root= */ NULL, AT_SYMLINK_FOLLOW);
                 log_info("%s: %s", __func__, dirlink1);
-                rlf = path_is_mount_point_full(dirlink1, NULL, 0);
-                rlt = path_is_mount_point_full(dirlink1, NULL, AT_SYMLINK_FOLLOW);
+                rlf = path_is_mount_point_full(dirlink1, /* root= */ NULL, /* flags= */ 0);
+                rlt = path_is_mount_point_full(dirlink1, /* root= */ NULL, AT_SYMLINK_FOLLOW);
                 log_info("%s: %s", __func__, dirlink1file);
                 /* its parent is a mount point, but not /file itself */
-                rl1f = path_is_mount_point_full(dirlink1file, NULL, 0);
-                rl1t = path_is_mount_point_full(dirlink1file, NULL, AT_SYMLINK_FOLLOW);
+                rl1f = path_is_mount_point_full(dirlink1file, /* root= */ NULL, /* flags= */ 0);
+                rl1t = path_is_mount_point_full(dirlink1file, /* root= */ NULL, AT_SYMLINK_FOLLOW);
 
                 assert_se(umount(dir1) == 0);
 
@@ -300,25 +300,25 @@ TEST(is_mount_point_at) {
 
         assert_se(mkdtemp_malloc("/tmp/not-mounted-XXXXXX", &tmpdir) >= 0);
         ASSERT_OK(path_extract_filename(tmpdir, &tmpdir_basename));
-        ASSERT_OK_ZERO(is_mount_point_at(fd, tmpdir_basename, 0));
-        ASSERT_OK_ZERO(is_mount_point_at(fd, strjoina(tmpdir_basename, "/"), 0));
+        ASSERT_OK_ZERO(is_mount_point_at(fd, tmpdir_basename, /* flags= */ 0));
+        ASSERT_OK_ZERO(is_mount_point_at(fd, strjoina(tmpdir_basename, "/"), /* flags= */ 0));
 
         safe_close(fd);
         fd = open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
 
-        ASSERT_OK_POSITIVE(is_mount_point_at(fd, NULL, 0));
-        ASSERT_OK_POSITIVE(is_mount_point_at(fd, "", 0));
-        ASSERT_OK_POSITIVE(is_mount_point_at(fd, ".", 0));
-        ASSERT_OK_POSITIVE(is_mount_point_at(fd, "./", 0));
-        ASSERT_OK_ZERO(is_mount_point_at(fd, "version", 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, "", /* flags= */ 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, ".", /* flags= */ 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, "./", /* flags= */ 0));
+        ASSERT_OK_ZERO(is_mount_point_at(fd, "version", /* flags= */ 0));
 
         ASSERT_OK(safe_getcwd(&pwd));
         ASSERT_OK_ERRNO(fchdir(fd));
 
-        ASSERT_OK_POSITIVE(is_mount_point_at(AT_FDCWD, NULL, 0));
-        ASSERT_OK_POSITIVE(is_mount_point_at(AT_FDCWD, "", 0));
-        ASSERT_OK_POSITIVE(is_mount_point_at(AT_FDCWD, "./", 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(AT_FDCWD, /* path= */ NULL, /* flags= */ 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(AT_FDCWD, "", /* flags= */ 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(AT_FDCWD, "./", /* flags= */ 0));
 
         ASSERT_OK_ERRNO(chdir(pwd));
 
@@ -326,7 +326,7 @@ TEST(is_mount_point_at) {
         fd = open("/proc/version", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         assert_se(fd >= 0);
 
-        r = is_mount_point_at(fd, NULL, 0);
+        r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
         assert_se(IN_SET(r, 0, -ENOTDIR)); /* on old kernels we can't determine if regular files are mount points if we have no directory fd */
 
         if (!mount_new_api_supported())
@@ -356,7 +356,7 @@ TEST(is_mount_point_at) {
         ASSERT_OK(readlinkat_malloc(fd, "regular", &t));
         ASSERT_STREQ(t, "/usr");
 
-        ASSERT_OK(is_mount_point_at(fd, "regular", 0));
+        ASSERT_OK(is_mount_point_at(fd, "regular", /* flags= */ 0));
 }
 
 TEST(mount_option_supported) {
@@ -366,7 +366,7 @@ TEST(mount_option_supported) {
         log_info("tmpfs supports size=64M: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
         assert_se(r > 0 || r == -EAGAIN || ERRNO_IS_NEG_PRIVILEGE(r));
 
-        r = mount_option_supported("ext4", "discard", NULL);
+        r = mount_option_supported("ext4", "discard", /* value= */ NULL);
         log_info("ext4 supports discard: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
         assert_se(r > 0 || r == -EAGAIN || ERRNO_IS_NEG_PRIVILEGE(r));
 
@@ -374,7 +374,7 @@ TEST(mount_option_supported) {
         log_info("tmpfs supports idontexist: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
         assert_se(IN_SET(r, 0, -EAGAIN) || ERRNO_IS_NEG_PRIVILEGE(r));
 
-        r = mount_option_supported("tmpfs", "ialsodontexist", NULL);
+        r = mount_option_supported("tmpfs", "ialsodontexist", /* value= */ NULL);
         log_info("tmpfs supports ialsodontexist: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
         assert_se(IN_SET(r, 0, -EAGAIN) || ERRNO_IS_NEG_PRIVILEGE(r));
 
@@ -438,7 +438,7 @@ TEST(path_get_mnt_id_at_null) {
         assert_se(id1 = id2);
         id2 = -1;
 
-        assert_se(path_get_mnt_id_at(run_fd, NULL, &id2) >= 0);
+        assert_se(path_get_mnt_id_at(run_fd, /* path= */ NULL, &id2) >= 0);
         assert_se(id1 = id2);
         id2 = -1;
 
@@ -463,7 +463,7 @@ static int intro(void) {
 
                 log_notice("Lacking privilege to create separate mount namespace, proceeding in originating mount namespace.");
         } else
-                assert_se(mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) >= 0);
+                assert_se(mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_PRIVATE | MS_REC, /* data= */ NULL) >= 0);
 
         return EXIT_SUCCESS;
 }

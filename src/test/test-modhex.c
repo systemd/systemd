@@ -36,16 +36,16 @@ TEST(normalize_recovery_key_all) {
         test_normalize_recovery_key("Iefgcelhbiduvkjvcjvuncnkvlfchdidjhtuhhdeurkllkegilkjgbrthjkbgktj",
                                     "iefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj");
 
-        test_normalize_recovery_key("iefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgkt", NULL);
-        test_normalize_recovery_key("iefgcelhbiduvkjvcjvuncnkvlfchdidjhtuhhdeurkllkegilkjgbrthjkbgkt", NULL);
-        test_normalize_recovery_key("IEFGCELHBIDUVKJVCJVUNCNKVLFCHDIDJHTUHHDEURKLLKEGILKJGBRTHJKBGKT", NULL);
+        test_normalize_recovery_key("iefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgkt", /* expected= */ NULL);
+        test_normalize_recovery_key("iefgcelhbiduvkjvcjvuncnkvlfchdidjhtuhhdeurkllkegilkjgbrthjkbgkt", /* expected= */ NULL);
+        test_normalize_recovery_key("IEFGCELHBIDUVKJVCJVUNCNKVLFCHDIDJHTUHHDEURKLLKEGILKJGBRTHJKBGKT", /* expected= */ NULL);
 
-        test_normalize_recovery_key("xefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", NULL);
-        test_normalize_recovery_key("Xefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", NULL);
-        test_normalize_recovery_key("iefgcelh+biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", NULL);
-        test_normalize_recovery_key("iefgcelhebiduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", NULL);
+        test_normalize_recovery_key("xefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", /* expected= */ NULL);
+        test_normalize_recovery_key("Xefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", /* expected= */ NULL);
+        test_normalize_recovery_key("iefgcelh+biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", /* expected= */ NULL);
+        test_normalize_recovery_key("iefgcelhebiduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", /* expected= */ NULL);
 
-        test_normalize_recovery_key("", NULL);
+        test_normalize_recovery_key("", /* expected= */ NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

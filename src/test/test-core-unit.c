@@ -24,7 +24,7 @@ static void test_unit_escape_setting_one(
                 expected_c = expected_exec;
         assert_se(s_esc = cescape(s));
 
-        assert_se(t = unit_escape_setting(s, 0, &a));
+        assert_se(t = unit_escape_setting(s, /* flags= */ 0, &a));
         assert_se(a_esc = cescape(t));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, a_esc);
         ASSERT_NULL(a);
@@ -50,13 +50,13 @@ static void test_unit_escape_setting_one(
 }
 
 TEST(unit_escape_setting) {
-        test_unit_escape_setting_one("/sbin/sbash", NULL, NULL, NULL);
+        test_unit_escape_setting_one("/sbin/sbash", /* expected_exec_env= */ NULL, /* expected_exec= */ NULL, /* expected_c= */ NULL);
         test_unit_escape_setting_one("$", "$$", "$", "$");
         test_unit_escape_setting_one("$$", "$$$$", "$$", "$$");
-        test_unit_escape_setting_one("'", "'", NULL, "\\'");
-        test_unit_escape_setting_one("\"", "\\\"", NULL, NULL);
-        test_unit_escape_setting_one("\t", "\\t", NULL, NULL);
-        test_unit_escape_setting_one(" ", NULL, NULL, NULL);
+        test_unit_escape_setting_one("'", "'", /* expected_exec= */ NULL, "\\'");
+        test_unit_escape_setting_one("\"", "\\\"", /* expected_exec= */ NULL, /* expected_c= */ NULL);
+        test_unit_escape_setting_one("\t", "\\t", /* expected_exec= */ NULL, /* expected_c= */ NULL);
+        test_unit_escape_setting_one(" ", /* expected_exec_env= */ NULL, /* expected_exec= */ NULL, /* expected_c= */ NULL);
         test_unit_escape_setting_one("$;'\"\t\n", "$$;'\\\"\\t\\n", "$;'\\\"\\t\\n", "$;\\'\\\"\\t\\n");
 }
 
@@ -79,7 +79,7 @@ static void test_unit_concat_strv_one(
         if (!expected_c)
                 expected_c = expected_none;
 
-        assert_se(a = unit_concat_strv(s, 0));
+        assert_se(a = unit_concat_strv(s, /* flags= */ 0));
         assert_se(a_esc = cescape(a));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, a_esc);
         ASSERT_STREQ(a, expected_none);
@@ -103,14 +103,14 @@ static void test_unit_concat_strv_one(
 TEST(unit_concat_strv) {
         test_unit_concat_strv_one(STRV_MAKE("a", "b", "c"),
                                   "\"a\" \"b\" \"c\"",
-                                  NULL,
-                                  NULL,
-                                  NULL);
+                                  /* expected_exec_env= */ NULL,
+                                  /* expected_exec= */ NULL,
+                                  /* expected_c= */ NULL);
         test_unit_concat_strv_one(STRV_MAKE("a", " ", "$", "$$", ""),
                                   "\"a\" \" \" \"$\" \"$$\" \"\"",
                                   "\"a\" \" \" \"$$\" \"$$$$\" \"\"",
-                                  NULL,
-                                  NULL);
+                                  /* expected_exec= */ NULL,
+                                  /* expected_c= */ NULL);
         test_unit_concat_strv_one(STRV_MAKE("\n", " ", "\t"),
                                   "\"\n\" \" \" \"\t\"",
                                   "\"\\n\" \" \" \"\\t\"",

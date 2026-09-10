@@ -63,9 +63,9 @@ TEST(parse_ip_protocol) {
 }
 
 TEST(parse_ip_protocol_full) {
-        assert_se(parse_ip_protocol_full("-1", true) == -ERANGE);
-        assert_se(parse_ip_protocol_full("0", true) == 0);
-        assert_se(parse_ip_protocol_full("11", true) == 11);
+        assert_se(parse_ip_protocol_full("-1", /* relaxed= */ true) == -ERANGE);
+        assert_se(parse_ip_protocol_full("0", /* relaxed= */ true) == 0);
+        assert_se(parse_ip_protocol_full("11", /* relaxed= */ true) == 11);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

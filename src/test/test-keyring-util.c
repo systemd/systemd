@@ -177,7 +177,7 @@ TEST(keyring_find_by_name_at) {
         int r;
 
         /* Below a root without /proc there is no /proc/keys to look at */
-        ASSERT_OK(mkdtemp_malloc(NULL, &tmp));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &tmp));
         ASSERT_OK_ERRNO(empty_fd = open(tmp, O_PATH|O_DIRECTORY|O_CLOEXEC));
         ASSERT_ERROR(keyring_find_by_name_at(empty_fd, "anything", getuid(), &serial), ENOENT);
 
@@ -212,23 +212,23 @@ TEST(keyring_find_by_name_from) {
         /* Rows that do not parse at all can only mean the kernel changed the format */
         s = "what\nis\nthis\n";
         ASSERT_NOT_NULL(f = fmemopen((void*) s, strlen(s), "r"));
-        ASSERT_ERROR(keyring_find_by_name_from(f, ".dm-verity", 0, &serial), EBADMSG);
+        ASSERT_ERROR(keyring_find_by_name_from(f, ".dm-verity", /* owner= */ 0, &serial), EBADMSG);
         f = safe_fclose(f);
 
         /* An empty file means no keys, not a format change */
         ASSERT_NOT_NULL(f = fmemopen(NULL, 1, "w+"));
-        ASSERT_ERROR(keyring_find_by_name_from(f, ".dm-verity", 0, &serial), ENOKEY);
+        ASSERT_ERROR(keyring_find_by_name_from(f, ".dm-verity", /* owner= */ 0, &serial), ENOKEY);
         f = safe_fclose(f);
 
         /* And so do rows that parse but do not match, garbage among them or not */
         s = "3bd7ab0b I------     1 perm 082f0000     0     0 keyring   .other: 3\n";
         ASSERT_NOT_NULL(f = fmemopen((void*) s, strlen(s), "r"));
-        ASSERT_ERROR(keyring_find_by_name_from(f, ".dm-verity", 0, &serial), ENOKEY);
+        ASSERT_ERROR(keyring_find_by_name_from(f, ".dm-verity", /* owner= */ 0, &serial), ENOKEY);
         f = safe_fclose(f);
 
         s = "garbage\n3bd7ab0b I------     1 perm 082f0000     0     0 keyring   .other: 3\n";
         ASSERT_NOT_NULL(f = fmemopen((void*) s, strlen(s), "r"));
-        ASSERT_ERROR(keyring_find_by_name_from(f, ".dm-verity", 0, &serial), ENOKEY);
+        ASSERT_ERROR(keyring_find_by_name_from(f, ".dm-verity", /* owner= */ 0, &serial), ENOKEY);
 }
 
 TEST(keyring_ops) {

@@ -29,7 +29,7 @@ static void test_read_login_defs_one(const char *path) {
         }
 
         UGIDAllocationRange defs;
-        assert_se(read_login_defs(&defs, path ?: name, NULL) >= 0);
+        assert_se(read_login_defs(&defs, path ?: name, /* root= */ NULL) >= 0);
 
         log_info("system_alloc_uid_min="UID_FMT, defs.system_alloc_uid_min);
         log_info("system_uid_max="UID_FMT, defs.system_uid_max);
@@ -53,7 +53,7 @@ static void test_read_login_defs_one(const char *path) {
 TEST(read_login_defs) {
         test_read_login_defs_one("/dev/null");
         test_read_login_defs_one("/etc/login.defs");
-        test_read_login_defs_one(NULL);
+        test_read_login_defs_one(/* path= */ NULL);
 }
 
 TEST(acquire_ugid_allocation_range) {

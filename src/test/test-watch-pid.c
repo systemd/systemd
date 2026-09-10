@@ -21,7 +21,7 @@ TEST(watch_pid) {
         ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
 
         ASSERT_OK(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m));
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         ASSERT_NOT_NULL(a = unit_new(m, sizeof(Service)));
         ASSERT_OK(unit_add_name(a, "a.service"));
@@ -42,25 +42,25 @@ TEST(watch_pid) {
         ASSERT_TRUE(hashmap_isempty(m->watch_pids));
         ASSERT_NULL(manager_get_unit_by_pidref(m, &pidref));
 
-        ASSERT_OK(unit_watch_pidref(a, &pidref, false));
+        ASSERT_OK(unit_watch_pidref(a, &pidref, /* exclusive= */ false));
         ASSERT_PTR_EQ(manager_get_unit_by_pidref(m, &pidref), a);
 
-        ASSERT_OK(unit_watch_pidref(a, &pidref, false));
+        ASSERT_OK(unit_watch_pidref(a, &pidref, /* exclusive= */ false));
         ASSERT_PTR_EQ(manager_get_unit_by_pidref(m, &pidref), a);
 
-        ASSERT_OK(unit_watch_pidref(b, &pidref, false));
+        ASSERT_OK(unit_watch_pidref(b, &pidref, /* exclusive= */ false));
         u = manager_get_unit_by_pidref(m, &pidref);
         ASSERT_TRUE(u == a || u == b);
 
-        ASSERT_OK(unit_watch_pidref(b, &pidref, false));
+        ASSERT_OK(unit_watch_pidref(b, &pidref, /* exclusive= */ false));
         u = manager_get_unit_by_pidref(m, &pidref);
         ASSERT_TRUE(u == a || u == b);
 
-        ASSERT_OK(unit_watch_pidref(c, &pidref, false));
+        ASSERT_OK(unit_watch_pidref(c, &pidref, /* exclusive= */ false));
         u = manager_get_unit_by_pidref(m, &pidref);
         ASSERT_TRUE(u == a || u == b || u == c);
 
-        ASSERT_OK(unit_watch_pidref(c, &pidref, false));
+        ASSERT_OK(unit_watch_pidref(c, &pidref, /* exclusive= */ false));
         u = manager_get_unit_by_pidref(m, &pidref);
         ASSERT_TRUE(u == a || u == b || u == c);
 
@@ -91,7 +91,7 @@ static int intro(void) {
         if (getuid() != 0)
                 return log_tests_skipped("not root");
 
-        r = enter_cgroup_subroot(NULL);
+        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
         if (r < 0)
                 return log_tests_skipped_errno(r, "cgroupfs not available");
 

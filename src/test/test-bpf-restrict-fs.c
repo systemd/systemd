@@ -22,7 +22,7 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
 
         STRV_FOREACH(allow_filesystem, allowed_filesystems) {
                 r = config_parse_restrict_filesystems(
-                                u->id, "filename", 1, "Service", 1, "RestrictFileSystems", 0,
+                                u->id, "filename", 1, "Service", 1, "RestrictFileSystems", /* ltype= */ 0,
                                 *allow_filesystem, ec, u);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to parse RestrictFileSystems: %m");
@@ -38,7 +38,7 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         u->load_state = UNIT_LOADED;
 
         ASSERT_OK(unit_patch_contexts(u));
-        r = unit_start(u, NULL);
+        r = unit_start(u, /* details= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Unit start failed: %m");
 
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
-        r = enter_cgroup_subroot(NULL);
+        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped_errno(r, "manager_new");
         ASSERT_OK(r);
 
-        r = manager_startup(m, NULL, NULL, NULL, NULL);
+        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL);
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_startup");
         ASSERT_OK(r);

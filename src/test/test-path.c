@@ -21,7 +21,7 @@ static char *runtime_dir = NULL;
 static int setup_test(Manager **ret) {
         int r;
 
-        r = enter_cgroup_subroot(NULL);
+        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
@@ -30,7 +30,7 @@ static int setup_test(Manager **ret) {
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         FOREACH_STRING(s,
                        "exists",
@@ -150,12 +150,12 @@ TEST_RET(path_exists) {
                 return r;
 
         Unit *unit;
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-exists.path", NULL, LOG_ERR, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-exists.path", /* path= */ NULL, LOG_ERR, &unit));
 
         Path *path = PATH(unit);
-        Service *service = service_for_path(m, path, NULL);
+        Service *service = service_for_path(m, path, /* service_name= */ NULL);
 
-        ASSERT_OK(unit_start(unit, NULL));
+        ASSERT_OK(unit_start(unit, /* details= */ NULL));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
 
         ASSERT_OK(touch(test_path));
@@ -183,12 +183,12 @@ TEST_RET(path_existsglob) {
                 return r;
 
         Unit *unit;
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-existsglob.path", NULL, LOG_ERR, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-existsglob.path", /* path= */ NULL, LOG_ERR, &unit));
 
         Path *path = PATH(unit);
-        Service *service = service_for_path(m, path, NULL);
+        Service *service = service_for_path(m, path, /* service_name= */ NULL);
 
-        ASSERT_OK(unit_start(unit, NULL));
+        ASSERT_OK(unit_start(unit, /* details= */ NULL));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
 
         ASSERT_OK(touch(test_path));
@@ -216,12 +216,12 @@ TEST_RET(path_changed) {
                 return r;
 
         Unit *unit;
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-changed.path", NULL, LOG_ERR, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-changed.path", /* path= */ NULL, LOG_ERR, &unit));
 
         Path *path = PATH(unit);
-        Service *service = service_for_path(m, path, NULL);
+        Service *service = service_for_path(m, path, /* service_name= */ NULL);
 
-        ASSERT_OK(unit_start(unit, NULL));
+        ASSERT_OK(unit_start(unit, /* details= */ NULL));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
 
         ASSERT_OK(touch(test_path));
@@ -253,12 +253,12 @@ TEST_RET(path_modified) {
                 return r;
 
         Unit *unit;
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-modified.path", NULL, LOG_ERR, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-modified.path", /* path= */ NULL, LOG_ERR, &unit));
 
         Path *path = PATH(unit);
-        Service *service = service_for_path(m, path, NULL);
+        Service *service = service_for_path(m, path, /* service_name= */ NULL);
 
-        ASSERT_OK(unit_start(unit, NULL));
+        ASSERT_OK(unit_start(unit, /* details= */ NULL));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
 
         ASSERT_OK(touch(test_path));
@@ -291,12 +291,12 @@ TEST_RET(path_unit) {
                 return r;
 
         Unit *unit;
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-unit.path", NULL, LOG_ERR, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-unit.path", /* path= */ NULL, LOG_ERR, &unit));
 
         Path *path = PATH(unit);
         Service *service = service_for_path(m, path, "path-mycustomunit.service");
 
-        ASSERT_OK(unit_start(unit, NULL));
+        ASSERT_OK(unit_start(unit, /* details= */ NULL));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
 
         ASSERT_OK(touch(test_path));
@@ -320,14 +320,14 @@ TEST_RET(path_directorynotempty) {
                 return r;
 
         Unit *unit;
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-directorynotempty.path", NULL, LOG_ERR, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-directorynotempty.path", /* path= */ NULL, LOG_ERR, &unit));
 
         Path *path = PATH(unit);
-        Service *service = service_for_path(m, path, NULL);
+        Service *service = service_for_path(m, path, /* service_name= */ NULL);
 
         ASSERT_FAIL(access(test_path, F_OK));
 
-        ASSERT_OK(unit_start(unit, NULL));
+        ASSERT_OK(unit_start(unit, /* details= */ NULL));
         check_states(m, path, service, PATH_WAITING, SERVICE_DEAD);
 
         /* MakeDirectory default to no */
@@ -360,11 +360,11 @@ TEST_RET(path_makedirectory_directorymode) {
                 return r;
 
         Unit *unit;
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-makedirectory.path", NULL, LOG_ERR, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "path-makedirectory.path", /* path= */ NULL, LOG_ERR, &unit));
 
         ASSERT_FAIL(access(test_path, F_OK));
 
-        ASSERT_OK(unit_start(unit, NULL));
+        ASSERT_OK(unit_start(unit, /* details= */ NULL));
 
         /* Check if the directory has been created */
         ASSERT_OK_ERRNO(access(test_path, F_OK));
