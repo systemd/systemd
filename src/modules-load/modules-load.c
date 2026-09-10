@@ -130,7 +130,7 @@ static int apply_file_from_path(const char *path, OrderedSet **module_set) {
 
         assert(path);
 
-        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f, &pp);
+        r = search_and_fopen_nulstr(path, "re", /* root= */ NULL, conf_file_dirs, &f, &pp);
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", path);
 
