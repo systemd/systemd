@@ -201,9 +201,17 @@ TEST(machine_tags_from_string) {
         l = strv_free(l);
 
         /* Sorted and deduplicated */
-        ASSERT_OK(machine_tags_from_string("foo:bar:foo:baz", /* graceful= */ false, &l));
+        ASSERT_OK(machine_tags_from_string("foo:bar:foo:baz", /* graceful= */ true, &l));
         assert_se(strv_equal(l, STRV_MAKE("bar", "baz", "foo")));
         l = strv_free(l);
+
+        ASSERT_OK(machine_tags_from_string("foo:bar:baz", /* graceful= */ false, &l));
+        assert_se(strv_equal(l, STRV_MAKE("bar", "baz", "foo")));
+        l = strv_free(l);
+
+        /* Fatal: a repeated tag fails the whole parse */
+        ASSERT_ERROR(machine_tags_from_string("foo:bar:foo:baz", /* graceful= */ false, &l), EINVAL);
+        assert_se(!l);
 
         /* Graceful: invalid tags are dropped, valid ones kept (sorted/deduplicated) */
         ASSERT_OK(machine_tags_from_string("foo:in valid:bar:foo", /* graceful= */ true, &l));
@@ -224,9 +232,14 @@ TEST(machine_tags_from_string) {
         assert_se(strv_equal(l, STRV_MAKE("bar=aaa", "baz", "foo2=x", "foo=aa")));
         l = strv_free(l);
 
-        /* Graceful: a duplicate key is suppressed, keeping the first (i.e. lexicographically smallest) value */
+        /* Graceful: a duplicate key is suppressed, keeping the value specified last */
         ASSERT_OK(machine_tags_from_string("foo=zzz:foo=aaa:foo=mmm", /* graceful= */ true, &l));
-        assert_se(strv_equal(l, STRV_MAKE("foo=aaa")));
+        assert_se(strv_equal(l, STRV_MAKE("foo=mmm")));
+        l = strv_free(l);
+
+        /* Graceful: deduplication follows the order in which the tags were specified, sorting happens afterwards */
+        ASSERT_OK(machine_tags_from_string("b=1:a=2:b=3:a=4:c", /* graceful= */ true, &l));
+        assert_se(strv_equal(l, STRV_MAKE("a=4", "b=3", "c")));
         l = strv_free(l);
 
         /* Graceful: a bare key and an assignment for the same name are not considered duplicates */
@@ -234,14 +247,51 @@ TEST(machine_tags_from_string) {
         assert_se(strv_equal(l, STRV_MAKE("foo", "foo=aaa")));
         l = strv_free(l);
 
+        ASSERT_OK(machine_tags_from_string("foo:foo=aaa", /* graceful= */ false, &l));
+        assert_se(strv_equal(l, STRV_MAKE("foo", "foo=aaa")));
+        l = strv_free(l);
+
+        ASSERT_OK(machine_tags_from_string("foo=x:foo:foo=y", /* graceful= */ true, &l));
+        assert_se(strv_equal(l, STRV_MAKE("foo", "foo=y")));
+        l = strv_free(l);
+
         /* Graceful: an invalid value is dropped, conflicting keys that remain are deduplicated */
         ASSERT_OK(machine_tags_from_string("foo=a_b:foo=good:foo=zzz", /* graceful= */ true, &l));
-        assert_se(strv_equal(l, STRV_MAKE("foo=good")));
+        assert_se(strv_equal(l, STRV_MAKE("foo=zzz")));
         l = strv_free(l);
 
         /* Fatal: conflicting values for the same key fail the whole parse */
         ASSERT_ERROR(machine_tags_from_string("foo=a:foo=b", /* graceful= */ false, &l), EINVAL);
         assert_se(!l);
+
+        /* Fatal: ... and so does repeating the very same assignment */
+        ASSERT_ERROR(machine_tags_from_string("foo=a:bar:foo=a", /* graceful= */ false, &l), EINVAL);
+        assert_se(!l);
+
+        ASSERT_OK(machine_tags_from_string("foo=a:bar:foo=a", /* graceful= */ true, &l));
+        assert_se(strv_equal(l, STRV_MAKE("bar", "foo=a")));
+        l = strv_free(l);
+
+        /* At most MACHINE_TAGS_MAX valid tags are accepted, in both modes, repeated keys included */
+        _cleanup_free_ char *many = NULL;
+        for (size_t i = 0; i <= MACHINE_TAGS_MAX; i++)
+                ASSERT_OK(strextendf_with_separator(&many, ":", "t%zu", i));
+        ASSERT_ERROR(machine_tags_from_string(many, /* graceful= */ false, &l), E2BIG);
+        ASSERT_ERROR(machine_tags_from_string(many, /* graceful= */ true, &l), E2BIG);
+        assert_se(!l);
+
+        many = mfree(many);
+        for (size_t i = 0; i <= MACHINE_TAGS_MAX; i++)
+                ASSERT_OK(strextendf_with_separator(&many, ":", "k=%zu", i));
+        ASSERT_ERROR(machine_tags_from_string(many, /* graceful= */ true, &l), E2BIG);
+        assert_se(!l);
+
+        many = mfree(many);
+        for (size_t i = 0; i < MACHINE_TAGS_MAX; i++)
+                ASSERT_OK(strextendf_with_separator(&many, ":", "k=%zu", i));
+        _cleanup_free_ char *expected = ASSERT_PTR(asprintf_safe("k=%u", MACHINE_TAGS_MAX - 1));
+        ASSERT_OK(machine_tags_from_string(many, /* graceful= */ true, &l));
+        assert_se(strv_equal(l, STRV_MAKE(expected)));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
