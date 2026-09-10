@@ -661,13 +661,13 @@ int vl_method_unlink(
 
         /* Only if we found neither ESP nor XBOOTLDR let's fail. */
         if (!p.context.xbootldr_path && !p.context.esp_path)
-                return sd_varlink_error(link, "io.systemd.BootControl.NoDollarBootFound", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.NoDollarBootFound", /* parameters= */ NULL);
 
         r = run_unlink(&p.context, STRV_MAKE(p.id), /* dry_run= */ false);
         if (r == -EUNATCH) /* no boot entry token is set */
-                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }

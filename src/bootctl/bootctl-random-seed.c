@@ -71,7 +71,7 @@ static int set_system_token(void) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderSystemToken"), NULL, NULL, &token_size);
+        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderSystemToken"), /* ret_attribute= */ NULL, /* ret_value= */ NULL, &token_size);
         if (r == -ENODATA)
                 log_debug_errno(r, "LoaderSystemToken EFI variable is invalid (too short?), replacing.");
         else if (r < 0) {
