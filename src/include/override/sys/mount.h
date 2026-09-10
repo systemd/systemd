@@ -28,13 +28,13 @@ enum
 };
 
 /* Mount a filesystem.  */
-extern int mount(const char *__special_file, const char *__dir, const char *__fstype, unsigned long int __rwflag, const void *__data);
+extern int mount(const char *source, const char *target, const char *filesystemtype, unsigned long int mountflags, const void *data);
 
 /* Unmount a filesystem.  */
-extern int umount(const char *__special_file);
+extern int umount(const char *target);
 
 /* Unmount a filesystem.  Force unmounting if FLAGS is set to MNT_FORCE.  */
-extern int umount2(const char *__special_file, int __flags);
+extern int umount2(const char *target, int flags);
 
 /* Open the filesystem referenced by FS_NAME so it can be configured for mounting. */
 /* Defined since glibc-2.36.
