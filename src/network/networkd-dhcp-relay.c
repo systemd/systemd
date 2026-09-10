@@ -286,7 +286,7 @@ int link_request_dhcp_relay(Link *link) {
         if (link->dhcp_relay_interface)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_DHCP_RELAY, dhcp_relay_process_request, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_DHCP_RELAY, dhcp_relay_process_request, /* ret= */ NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the DHCP relay agent: %m");
 

@@ -418,7 +418,7 @@ static void log_dhcp_pd_address(Link *link, const Address *address) {
         assert(address);
         assert(address->family == AF_INET6);
 
-        int log_level = address_get_harder(link, address, NULL) >= 0 ? LOG_DEBUG : LOG_INFO;
+        int log_level = address_get_harder(link, address, /* ret= */ NULL) >= 0 ? LOG_DEBUG : LOG_INFO;
 
         if (log_level < log_get_max_level())
                 return;
@@ -442,7 +442,7 @@ static int dhcp_pd_request_address_one(Address *address, Link *link) {
         else
                 address_unmark(existing);
 
-        return link_request_address(link, address, &link->dhcp_pd_messages, dhcp_pd_address_handler, NULL);
+        return link_request_address(link, address, &link->dhcp_pd_messages, dhcp_pd_address_handler, /* ret= */ NULL);
 }
 
 int dhcp_pd_reconfigure_address(Address *address, Link *link) {
@@ -1025,7 +1025,7 @@ static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get lifetime of DHCPv4 lease: %m");
 
-        r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, NULL);
+        r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, /* ret_n_br_addresses= */ NULL);
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get DHCPv4 6rd option: %m");
 
@@ -1098,7 +1098,7 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get server address of DHCPv4 lease: %m");
 
-        r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, NULL);
+        r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, /* ret_n_br_addresses= */ NULL);
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get DHCPv4 6rd option: %m");
 
@@ -1227,7 +1227,7 @@ int dhcp6_pd_prefix_acquired(Link *uplink) {
                         return r;
 
                 r = sd_dhcp6_lease_get_pd_lifetime_timestamp(uplink->dhcp6_lease, CLOCK_BOOTTIME,
-                                                             NULL, &lifetime_valid_usec);
+                                                             /* ret_lifetime_preferred= */ NULL, &lifetime_valid_usec);
                 if (r < 0)
                         return r;
 

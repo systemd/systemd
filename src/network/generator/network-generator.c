@@ -464,7 +464,7 @@ static int network_set_hostname(Context *context, const char *ifname, const char
         if (isempty(hostname))
                 return 0;
 
-        if (!hostname_is_valid(hostname, 0))
+        if (!hostname_is_valid(hostname, /* flags= */ 0))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid hostname '%s'.", hostname);
 
         r = network_acquire(context, ifname, &network);
@@ -573,7 +573,7 @@ static int network_set_address(
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
-        return address_new(network, family, prefixlen, addr, peer, NULL);
+        return address_new(network, family, prefixlen, addr, peer, /* ret= */ NULL);
 }
 
 static int network_set_route(
@@ -599,7 +599,7 @@ static int network_set_route(
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
 
-        return route_new(network, family, prefixlen, dest, gateway, NULL);
+        return route_new(network, family, prefixlen, dest, gateway, /* ret= */ NULL);
 }
 
 static int network_set_dns(Context *context, const char *ifname, const char *dns) {
@@ -612,7 +612,7 @@ static int network_set_dns(Context *context, const char *ifname, const char *dns
         if (isempty(dns))
                 return 0;
 
-        r = in_addr_from_string_auto(dns, NULL, NULL);
+        r = in_addr_from_string_auto(dns, /* ret_family= */ NULL, /* ret= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Invalid DNS address '%s' for '%s'", dns, ifname);
 
@@ -697,7 +697,7 @@ static int network_set_ntp(Context *context, const char *ifname, const char *val
         if (isempty(value))
                 return 0;
 
-        r = in_addr_from_string_auto(value, NULL, NULL);
+        r = in_addr_from_string_auto(value, /* ret_family= */ NULL, /* ret= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Invalid NTP address '%s' for '%s'", value, ifname);
 
@@ -884,7 +884,7 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
         if (r < 0)
                 return r;
 
-        r = network_set_route(context, ifname, family, 0, NULL, &gateway);
+        r = network_set_route(context, ifname, family, /* prefixlen= */ 0, /* dest= */ NULL, &gateway);
         if (r < 0)
                 return r;
 
@@ -1125,7 +1125,7 @@ static int parse_cmdline_bridge(Context *context, const char *key, const char *v
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, ",", 0);
+                r = extract_first_word(&p, &word, ",", /* flags= */ 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse slave interfaces for bridge '%s'", name);
                 if (r == 0)
@@ -1166,7 +1166,7 @@ static int parse_cmdline_bond(Context *context, const char *key, const char *val
         for (const char *q = slaves; ; ) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&q, &word, ",", 0);
+                r = extract_first_word(&q, &word, ",", /* flags= */ 0);
                 if (r == 0)
                         break;
                 if (r < 0)
@@ -1217,7 +1217,7 @@ static int parse_cmdline_ifname(Context *context, const char *key, const char *v
         if (r < 0)
                 return log_debug_errno(r, "Invalid MAC address '%s' for '%s'", p, name);
 
-        r = link_new(context, name, &mac, NULL);
+        r = link_new(context, name, &mac, /* ret= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create link for '%s': %m", name);
 
@@ -1242,7 +1242,7 @@ static int parse_cmdline_ifname_policy(Context *context, const char *key, const 
                 _cleanup_free_ char *word = NULL;
                 NamePolicy p;
 
-                r = extract_first_word(&q, &word, ",", 0);
+                r = extract_first_word(&q, &word, ",", /* flags= */ 0);
                 if (r == 0)
                         break;
                 if (r < 0)
@@ -1277,7 +1277,7 @@ static int parse_cmdline_ifname_policy(Context *context, const char *key, const 
         if (strv_isempty(policies))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No ifname policy specified");
 
-        r = link_new(context, NULL, &mac, &link);
+        r = link_new(context, /* name= */ NULL, &mac, &link);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create link: %m");
 
@@ -1393,12 +1393,12 @@ int context_merge_networks(Context *context) {
 
                 network->dhcp_use_dns = all->dhcp_use_dns;
 
-                r = strv_extend_strv(&network->dns, all->dns, false);
+                r = strv_extend_strv(&network->dns, all->dns, /* filter_duplicates= */ false);
                 if (r < 0)
                         return log_oom_debug();
 
                 LIST_FOREACH(routes, route, all->routes) {
-                        r = route_new(network, route->family, route->prefixlen, &route->dest, &route->gateway, NULL);
+                        r = route_new(network, route->family, route->prefixlen, &route->dest, &route->gateway, /* ret= */ NULL);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to copy route: %m");
                 }
@@ -1561,13 +1561,13 @@ void link_dump(Link *link, FILE *f) {
 
         if (!strv_isempty(link->policies)) {
                 fputs("NamePolicy=", f);
-                fputstrv(f, link->policies, " ", NULL);
+                fputstrv(f, link->policies, " ", /* space= */ NULL);
                 fputc('\n', f);
         }
 
         if (!strv_isempty(link->alt_policies)) {
                 fputs("AlternativeNamesPolicy=", f);
-                fputstrv(f, link->alt_policies, " ", NULL);
+                fputstrv(f, link->alt_policies, " ", /* space= */ NULL);
                 fputc('\n', f);
         }
 }
@@ -1585,7 +1585,7 @@ int network_format(Network *network, char **ret) {
 
         network_dump(network, f);
 
-        return memstream_finalize(&m, ret, NULL);
+        return memstream_finalize(&m, ret, /* ret_size= */ NULL);
 }
 
 int netdev_format(NetDev *netdev, char **ret) {
@@ -1601,7 +1601,7 @@ int netdev_format(NetDev *netdev, char **ret) {
 
         netdev_dump(netdev, f);
 
-        return memstream_finalize(&m, ret, NULL);
+        return memstream_finalize(&m, ret, /* ret_size= */ NULL);
 }
 
 int link_format(Link *link, char **ret) {
@@ -1617,5 +1617,5 @@ int link_format(Link *link, char **ret) {
 
         link_dump(link, f);
 
-        return memstream_finalize(&m, ret, NULL);
+        return memstream_finalize(&m, ret, /* ret_size= */ NULL);
 }

@@ -115,7 +115,7 @@ int link_get_address_full(
                 unsigned char prefixlen,         /* optional, can be 0 */
                 Address **ret);
 static inline int link_get_address(Link *link, int family, const union in_addr_union *address, Address **ret) {
-        return link_get_address_full(link, family, address, NULL, 0, ret);
+        return link_get_address_full(link, family, address, /* peer= */ NULL, /* prefixlen= */ 0, ret);
 }
 static inline int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **ret) {
         assert(address);
@@ -129,7 +129,7 @@ int manager_get_address_full(
                 unsigned char prefixlen,
                 Address **ret);
 static inline int manager_get_address(Manager *manager, int family, const union in_addr_union *address, Address **ret) {
-        return manager_get_address_full(manager, family, address, NULL, 0, ret);
+        return manager_get_address_full(manager, family, address, /* peer= */ NULL, /* prefixlen= */ 0, ret);
 }
 
 int link_request_address(

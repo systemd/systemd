@@ -18,15 +18,15 @@ static int dump_address_labels(sd_netlink *rtnl) {
 
         assert(rtnl);
 
-        r = sd_rtnl_message_new_addrlabel(rtnl, &req, RTM_GETADDRLABEL, 0, AF_INET6);
+        r = sd_rtnl_message_new_addrlabel(rtnl, &req, RTM_GETADDRLABEL, /* ifindex= */ 0, AF_INET6);
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_GETADDRLABEL message: %m");
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(rtnl, req, 0, &reply);
+        r = sd_netlink_call(rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
@@ -35,17 +35,17 @@ static int dump_address_labels(sd_netlink *rtnl) {
                 return log_oom();
 
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         r = table_set_sort(table, (size_t) 0);
         if (r < 0)
                 return r;
 
-        assert_se(cell = table_get_cell(table, 0, 0));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, /* column= */ 0));
         (void) table_set_align_percent(table, cell, 100);
         (void) table_set_ellipsize_percent(table, cell, 100);
 
-        assert_se(cell = table_get_cell(table, 0, 1));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, 1));
         (void) table_set_align_percent(table, cell, 100);
 
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
@@ -73,7 +73,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
                 if (r < 0)
                         continue;
 
-                r = table_add_cell(table, NULL, TABLE_UINT32, &label);
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_UINT32, &label);
                 if (r < 0)
                         return table_log_add_error(r);
 

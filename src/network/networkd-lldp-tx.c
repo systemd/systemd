@@ -49,7 +49,7 @@ int link_lldp_tx_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_lldp_tx_attach_event(link->lldp_tx, link->manager->event, 0);
+        r = sd_lldp_tx_attach_event(link->lldp_tx, link->manager->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 

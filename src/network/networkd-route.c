@@ -707,7 +707,7 @@ static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo
 
         Manager *manager = ASSERT_PTR(route->manager);
         r = event_reset_time(manager->event, &route->expire, CLOCK_BOOTTIME,
-                             route->lifetime_usec, 0, route_expire_handler, route, 0, "route-expiration", true);
+                             route->lifetime_usec, /* accuracy= */ 0, route_expire_handler, route, /* priority= */ 0, "route-expiration", /* force_reset= */ true);
         if (r < 0) {
                 Link *link = NULL;
                 (void) route_get_link(manager, route, &link);
@@ -745,7 +745,7 @@ static int route_update_on_existing_one(Request *req, Route *requested) {
         if (r < 0)
                 return r;
 
-        r = route_setup_timer(existing, NULL);
+        r = route_setup_timer(existing, /* cacheinfo= */ NULL);
         if (r < 0)
                 return r;
 
@@ -871,7 +871,7 @@ static int route_requeue_request(Request *req, Link *link, const Route *route) {
         if (!route_nexthops_needs_adjust(route))
                 return 0; /* The Route object does not need the adjustment. Continue with it. */
 
-        r = route_dup(route, NULL, &tmp);
+        r = route_dup(route, /* nh= */ NULL, &tmp);
         if (r < 0)
                 return r;
 
@@ -894,7 +894,7 @@ static int route_requeue_request(Request *req, Link *link, const Route *route) {
         request_detach(req);
 
         /* Request the route with the adjusted Route object combined with the same other parameters. */
-        r = link_requeue_request(link, req, tmp, NULL);
+        r = link_requeue_request(link, req, tmp, /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1028,7 +1028,7 @@ int link_request_route(
         assert(route->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
         if (route->family == AF_INET || route_is_reject(route) || ordered_set_isempty(route->nexthops))
-                return link_request_route_one(link, route, NULL, message_counter, netlink_handler);
+                return link_request_route_one(link, route, /* nh= */ NULL, message_counter, netlink_handler);
 
         RouteNextHop *nh;
         ORDERED_SET_FOREACH(nh, route->nexthops) {
@@ -1603,7 +1603,7 @@ int link_drop_routes(Link *link, bool only_static) {
                                 continue;
 
                         if (route->family == AF_INET || ordered_set_isempty(route->nexthops)) {
-                                r = link_unmark_route(other, route, NULL);
+                                r = link_unmark_route(other, route, /* nh= */ NULL);
                                 if (r < 0)
                                         return r;
 
@@ -1622,7 +1622,7 @@ int link_drop_routes(Link *link, bool only_static) {
                         Wireguard *w = WIREGUARD(other->netdev);
 
                         SET_FOREACH(route, w->routes) {
-                                r = link_unmark_route(other, route, NULL);
+                                r = link_unmark_route(other, route, /* nh= */ NULL);
                                 if (r < 0)
                                         return r;
                         }

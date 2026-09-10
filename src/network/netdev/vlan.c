@@ -146,7 +146,7 @@ int config_parse_vlan_qos_maps(
                 _cleanup_free_ char *w = NULL;
                 unsigned from, to;
 
-                r = extract_first_word(&p, &w, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &w, /* separators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {

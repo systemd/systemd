@@ -21,8 +21,8 @@ TEST(FORMAT_LIFETIME) {
         test_FORMAT_LIFETIME_one(USEC_INFINITY, "forever");
 
         /* These two are necessarily racy, especially for slow test environment. */
-        test_FORMAT_LIFETIME_one(usec_add(now_usec, 2 * USEC_PER_SEC - 1), NULL);
-        test_FORMAT_LIFETIME_one(usec_add(now_usec, 3 * USEC_PER_WEEK + USEC_PER_SEC - 1), NULL);
+        test_FORMAT_LIFETIME_one(usec_add(now_usec, 2 * USEC_PER_SEC - 1), /* expected= */ NULL);
+        test_FORMAT_LIFETIME_one(usec_add(now_usec, 3 * USEC_PER_WEEK + USEC_PER_SEC - 1), /* expected= */ NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

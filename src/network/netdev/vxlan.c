@@ -389,7 +389,7 @@ int config_parse_vxlan_ttl(
 
         r = config_parse_unsigned_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        0, UINT8_MAX, true,
+                        /* min= */ 0, UINT8_MAX, /* ignoring= */ true,
                         &v->ttl);
         if (r <= 0)
                 return r;
@@ -449,7 +449,7 @@ static int netdev_vxlan_is_ready_to_create(NetDev *netdev, Link *link) {
         if (v->independent)
                 return true;
 
-        return vxlan_get_local_address(v, link, NULL, NULL) >= 0;
+        return vxlan_get_local_address(v, link, /* ret_family= */ NULL, /* ret_address= */ NULL) >= 0;
 }
 
 static void vxlan_init(NetDev *netdev) {

@@ -68,17 +68,17 @@ int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         assert(rtnl);
 
         (void) sd_network_get_operational_state(&operational_state);
-        operational_state_to_color(NULL, operational_state, &on_color_operational, &off_color_operational);
+        operational_state_to_color(/* name= */ NULL, operational_state, &on_color_operational, &off_color_operational);
 
         (void) sd_network_get_online_state(&online_state);
-        online_state_to_color(online_state, &on_color_online, NULL);
+        online_state_to_color(online_state, &on_color_online, /* off= */ NULL);
 
         table = table_new_vertical();
         if (!table)
                 return log_oom();
 
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         r = get_netifs(&netifs_joined);
         if (r < 0)
@@ -98,7 +98,7 @@ int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (r < 0)
                 return r;
 
-        r = dump_gateways(rtnl, hwdb, table, 0);
+        r = dump_gateways(rtnl, hwdb, table, /* ifindex= */ 0);
         if (r < 0)
                 return r;
 
@@ -130,5 +130,5 @@ int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (r < 0)
                 return r;
 
-        return show_logs(0, NULL);
+        return show_logs(/* ifindex= */ 0, /* ifname= */ NULL);
 }
