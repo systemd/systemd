@@ -254,6 +254,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-51:pvr*
  KEYBOARD_KEY_66=micmute                                # Microphone mute button
  KEYBOARD_KEY_f5=prog1                                  # NitroSense button
 
+# Nitro ANV15-52
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-52:pvr*
+ KEYBOARD_KEY_f5=prog1                                  # NitroSense button
+
 ###########################################################
 # Alienware
 ###########################################################
@@ -714,6 +718,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPSpectrex360Convertible13*:*
 # ENVY x360 13
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible13*:*
  KEYBOARD_KEY_82=micmute                                # Microphone mute button
+ KEYBOARD_KEY_d7=unknown                                # EC emits e057 on every lid open
 
 # Spectre x360 16 2022
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*HP[sS][pP][eE][cC][tT][rR][eE]*x3602-in-1*:*
@@ -868,6 +873,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPEliteBookFolioG1:*
 # HP EliteBook 845 G7
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteBook845G7*:pvr*
  KEYBOARD_KEY_68=unknown                                # Fn+F12 HP Programmable Key
+ KEYBOARD_KEY_f8=!wlan                                  # Fn+F11 airplane mode switch 
 
 # HP ProBook 650
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*ProBook*650*:*
@@ -898,6 +904,10 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*455*G5*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPProBook11G2*:pvr*
  KEYBOARD_KEY_d8=!touchpad_off                          # Fn+F2: touchpad off
  KEYBOARD_KEY_d9=!touchpad_on                           # Fn+F2: touchpad on
+
+# HP ProBook x360 435 G7 - Brazilian ABNT2 keyboard
+evdev:atkbd:dmi:bvnHP*:bvr*:bd*:svnHP*:pnHPProBookx360435G7*:pvr*
+ KEYBOARD_KEY_4e=ro                                     # slash/question key
 
 # HP mt44 Mobile Thin Client
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*mt44*Mobile*Thin*Client*:*
@@ -1155,6 +1165,11 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn21SQ*:pvrThinkBook142-in-1G5IAU:*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
+
+# Lenovo ThinkBook 16p G5 IRX
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21N5*:pvrThinkBook16pG5IRX:*
+ KEYBOARD_KEY_a1=!calc
+ KEYBOARD_KEY_d7=unknown                                # Fn+F4 mic mute, also emitted by "Ideapad extra buttons", ignore
 
 evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
  KEYBOARD_KEY_62=unknown                                # Touchpad on, also emitted by "Ideapad extra buttons", ignore
@@ -2398,6 +2413,11 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositi
  KEYBOARD_KEY_76=touchpad_toggle                        # Fn+F1 toggle touchpad
  KEYBOARD_KEY_6e=search
 
+# Positivo (N15RPE-S, N15WPE-S)
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositivo*:rnN15[RW]PE*
+ KEYBOARD_KEY_76=touchpad_toggle                        # Fn+F1 toggle touchpad
+ KEYBOARD_KEY_6e=search
+
 # Positivo (CG15D)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnCG15D*
 # Positivo Motion (N14AP7, N14DP6, N14DP7, N14DP7-V2, N14DP9, N14JP6, N14KP6)
@@ -2435,6 +2455,14 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositi
 # Multilaser Ultra (UL154)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*bvr*:svnMultilaserIndustrial:pn*:pvr*:rvn*:rnUL154*
  KEYBOARD_KEY_76=touchpad_toggle                        # Fn+f2 toggle touchpad
+
+###########################################################
+# PATEN/Labtec
+###########################################################
+# Labtec USB Number Pad for Notebooks (y-UE70)
+evdev:input:b0003v1020p0501*
+ KEYBOARD_KEY_c004f=numlock                             # Numlock key
+ KEYBOARD_LED_NUMLOCK=0
 
 ###########################################################
 # Other

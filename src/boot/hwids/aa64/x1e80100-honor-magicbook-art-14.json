@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "HONOR MagicBook Art 14 Snapdragon",
+    "compatible": "honor,magicbook-art-14-snapdragon",
+    "hwids": [
+        "ea3d6abf-d171-51d9-aadc-2f01715a2526",
+        "8c4f216d-a380-5720-b036-13e1c9e6ed9f",
+        "533dd95d-f27c-5c70-bbfd-f60ed0ff9b8c",
+        "16f2294f-2175-5bac-8752-f304c65bccc3",
+        "8ca9c5e4-6465-5841-a567-b4c54597cf16",
+        "d9a47875-303e-5a56-bc53-a98ef97dda55",
+        "f470a9a4-99c0-5b88-8309-927c60430477",
+        "f05c7d5e-f47a-58de-88dc-4d92ac4c00a7",
+        "8850ea33-9bd6-5aaf-a013-45d1c87937a5",
+        "74e5317c-21cf-5cf6-bc70-5c78a3320848",
+        "b7b0f714-757e-5bee-83bf-061428e79201",
+        "9ecaf40d-d1bd-5963-888a-9757fcc95448",
+        "6a798bf3-64eb-5107-948b-810b9eabffba"
+    ]
+}

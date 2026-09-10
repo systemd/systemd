@@ -882,7 +882,7 @@ static int ndisc_option_build_flags_extension(const sd_ndisc_option *option, uin
 
         _cleanup_free_ uint8_t *buf = new(uint8_t, 8);
         if (!buf)
-                return 0;
+                return -ENOMEM;
 
         unaligned_write_be64(buf, (option->extended_flags & UINT64_C(0x00ffffffffffff00)) << 8);
         buf[0] = SD_NDISC_OPTION_FLAGS_EXTENSION;
@@ -1269,17 +1269,21 @@ static int ndisc_option_build_prefix64(const sd_ndisc_option *option, usec_t tim
 int ndisc_option_add_encrypted_dns_internal(
                 Set **options,
                 size_t offset,
-                sd_dns_resolver *res,
+                sd_dns_resolver *res, /* This takes the ownership of this object. */
                 usec_t lifetime,
                 usec_t valid_until) {
+
         assert(options);
+        assert(res);
+
+        _cleanup_(sd_dns_resolver_unrefp) sd_dns_resolver *resolver = TAKE_PTR(res);
 
         sd_ndisc_option *p = ndisc_option_new(SD_NDISC_OPTION_ENCRYPTED_DNS, offset);
         if (!p)
                 return -ENOMEM;
 
         p->encrypted_dns = (sd_ndisc_dnr) {
-                .resolver = res,
+                .resolver = TAKE_PTR(resolver),
                 .lifetime = lifetime,
                 .valid_until = valid_until,
         };
@@ -1790,8 +1794,10 @@ int ndisc_send(int fd, const struct in6_addr *dst, const struct icmp6_hdr *hdr, 
                 }
                 if (r == -ENOMEM)
                         return log_oom_debug();
-                if (r < 0)
+                if (r < 0) {
                         log_debug_errno(r, "Failed to build NDisc option %u, ignoring: %m", option->type);
+                        continue;
+                }
 
                 iov[n_iov++] = IOVEC_MAKE(buf, buf[1] * 8);
                 TAKE_PTR(buf);

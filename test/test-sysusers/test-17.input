@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Test that a group pre-existing in /etc/gshadow but missing from
+# /etc/group is handled gracefully instead of failing with EEXIST.
+g testgroup 333

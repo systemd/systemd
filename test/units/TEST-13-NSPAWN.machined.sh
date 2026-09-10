@@ -180,6 +180,24 @@ if lsattr -d /var/lib/machines >/dev/null; then
     [[ "$(machinectl show-image --property=ReadOnly --value clone2)" == yes ]]
     machinectl read-only clone2 no
     [[ "$(machinectl show-image --property=ReadOnly --value clone2)" == no ]]
+
+    # Foreign-UID cloning also needs mountfsd/nsresourced and user namespace delegation.
+    if can_do_rootless_nspawn; then
+        mkdir /var/lib/machines/foreign-source
+        echo "foreign clone contents" >/var/lib/machines/foreign-source/payload
+        chown foreign-0:foreign-0 /var/lib/machines/foreign-source{,/payload}
+        machinectl clone --read-only foreign-source foreign-clone
+        [[ "$(machinectl show-image --property=ReadOnly --value foreign-clone)" == yes ]]
+        cmp /var/lib/machines/foreign-source/payload /var/lib/machines/foreign-clone/payload
+        assert_eq "$(stat -c %u:%g /var/lib/machines/foreign-source)" \
+                  "$(stat -c %u:%g /var/lib/machines/foreign-clone)"
+        assert_eq "$(stat -c %u:%g /var/lib/machines/foreign-source/payload)" \
+                  "$(stat -c %u:%g /var/lib/machines/foreign-clone/payload)"
+        (! touch /var/lib/machines/foreign-clone/new-file)
+        machinectl remove foreign-clone foreign-source
+    else
+        echo "Skipping foreign-UID read-only clone test: rootless nspawn prerequisites not met"
+    fi
 fi
 machinectl remove clone2
 for i in {0..4}; do
@@ -193,6 +211,24 @@ machinectl list-images --all
 test -d /var/lib/machines/.hidden1
 machinectl clean
 test ! -d /var/lib/machines/.hidden1
+
+if can_do_rootless_nspawn; then
+    mkdir /var/lib/machines/foreign-error-source
+    chown foreign-0:foreign-0 /var/lib/machines/foreign-error-source
+
+    # A regular file without an image suffix is not discovered as an image, but still prevents
+    # mountfsd from creating the clone directory. The clone operation must report this failure.
+    echo "existing file" >/var/lib/machines/foreign-error-target
+    (! machinectl show-image foreign-error-target)
+    (! machinectl clone foreign-error-source foreign-error-target)
+    assert_eq "$(</var/lib/machines/foreign-error-target)" "existing file"
+
+    rm /var/lib/machines/foreign-error-target
+    machinectl clone foreign-error-source foreign-error-target
+    machinectl remove foreign-error-target foreign-error-source
+else
+    echo "Skipping foreign-UID clone error test: rootless nspawn prerequisites not met"
+fi
 
 # Prepare a simple raw container
 mkdir -p /tmp/mnt

@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2026.06.10
-# Date:    2026-06-10 20:34:02
+# Version: 2026.06.26
+# Date:    2026-06-26 20:34:02
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -11319,6 +11319,7 @@
 	4500  LV-20 Digital Camera
 	6101  fx-9750gII
 	6102  fx-CP400
+	6103  fx-CG50
 	6801  PL-40R
 	6802  MIDI Keyboard
 	6803  CTK-3500 (MIDI keyboard)
