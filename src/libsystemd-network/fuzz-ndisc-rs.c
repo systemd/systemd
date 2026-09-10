@@ -23,7 +23,7 @@ static void test_with_sd_ndisc(const uint8_t *data, size_t size) {
 
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_ndisc_new(&nd) >= 0);
-        assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
+        assert_se(sd_ndisc_attach_event(nd, e, /* priority= */ 0) >= 0);
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
@@ -45,7 +45,7 @@ static void test_with_sd_radv(const uint8_t *data, size_t size) {
 
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_radv_new(&ra) >= 0);
-        assert_se(sd_radv_attach_event(ra, e, 0) >= 0);
+        assert_se(sd_radv_attach_event(ra, e, /* priority= */ 0) >= 0);
         assert_se(sd_radv_set_ifindex(ra, 42) >= 0);
         assert_se(sd_radv_set_mac(ra, &mac_addr) >= 0);
         assert_se(sd_radv_start(ra) >= 0);
@@ -84,7 +84,7 @@ static void test_with_icmp6_packet(const uint8_t *data, size_t size) {
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        if (outside_size_range(size, 0, 2048))
+        if (outside_size_range(size, /* lower= */ 0, 2048))
                 return 0;
 
         fuzz_setup_logging();

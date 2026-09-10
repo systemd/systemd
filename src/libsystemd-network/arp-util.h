@@ -21,12 +21,12 @@ static inline int arp_send_probe(
                 int ifindex,
                 const struct in_addr *pa,
                 const struct ether_addr *ha) {
-        return arp_send_packet(fd, ifindex, pa, ha, false);
+        return arp_send_packet(fd, ifindex, pa, ha, /* announce= */ false);
 }
 static inline int arp_send_announcement(
                 int fd,
                 int ifindex,
                 const struct in_addr *pa,
                 const struct ether_addr *ha) {
-        return arp_send_packet(fd, ifindex, pa, ha, true);
+        return arp_send_packet(fd, ifindex, pa, ha, /* announce= */ true);
 }

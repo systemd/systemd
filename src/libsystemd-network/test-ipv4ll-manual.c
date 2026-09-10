@@ -37,11 +37,11 @@ static int client_run(int ifindex, const char *seed_str, const struct in_addr *s
         sd_ipv4ll *ll;
 
         assert_se(sd_ipv4ll_new(&ll) >= 0);
-        assert_se(sd_ipv4ll_attach_event(ll, e, 0) >= 0);
+        assert_se(sd_ipv4ll_attach_event(ll, e, /* priority= */ 0) >= 0);
 
         assert_se(sd_ipv4ll_set_ifindex(ll, ifindex) >= 0);
         assert_se(sd_ipv4ll_set_mac(ll, ha) >= 0);
-        assert_se(sd_ipv4ll_set_callback(ll, ll_handler, NULL) >= 0);
+        assert_se(sd_ipv4ll_set_callback(ll, ll_handler, /* userdata= */ NULL) >= 0);
 
         if (seed_str) {
                 unsigned seed;
@@ -75,11 +75,11 @@ static int test_ll(const char *ifname, const char *seed, const struct in_addr *s
         assert_se(sd_event_new(&e) >= 0);
 
         assert_se(sd_netlink_open(&rtnl) >= 0);
-        assert_se(sd_netlink_attach_event(rtnl, e, 0) >= 0);
+        assert_se(sd_netlink_attach_event(rtnl, e, /* priority= */ 0) >= 0);
 
-        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, 0) >= 0);
+        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, /* ifindex= */ 0) >= 0);
         assert_se(sd_netlink_message_append_string(m, IFLA_IFNAME, ifname) >= 0);
-        assert_se(sd_netlink_call(rtnl, m, 0, &reply) >= 0);
+        assert_se(sd_netlink_call(rtnl, m, /* timeout= */ 0, &reply) >= 0);
 
         assert_se(sd_rtnl_message_link_get_ifindex(reply, &ifindex) >= 0);
         assert_se(sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &ha) >= 0);
@@ -93,16 +93,16 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         if (argc == 2)
-                return test_ll(argv[1], NULL, NULL);
+                return test_ll(argv[1], /* seed= */ NULL, /* start_address= */ NULL);
         else if (argc == 3) {
                 int r;
                 union in_addr_union a;
 
                 r = in_addr_from_string(AF_INET, argv[2], &a);
                 if (r < 0)
-                        return test_ll(argv[1], argv[2], NULL);
+                        return test_ll(argv[1], argv[2], /* start_address= */ NULL);
                 else
-                        return test_ll(argv[1], NULL, &a.in);
+                        return test_ll(argv[1], /* seed= */ NULL, &a.in);
         } else {
                 log_error("This program takes one or two arguments.\n"
                           "\t %s <ifname> [<seed>|<start_address>]", program_invocation_short_name);

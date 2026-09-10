@@ -280,7 +280,7 @@ static void test_callback_ra(sd_ndisc *nd, sd_ndisc_event_t event, void *message
         }
 
         idx = 0;
-        sd_event_exit(e, 0);
+        sd_event_exit(e, /* code= */ 0);
 }
 
 static void test_callback_count(
@@ -301,14 +301,14 @@ static int on_recv_rs_exit(sd_event_source *s, int fd, uint32_t revents, void *u
         ASSERT_OK(icmp6_packet_receive(fd, &packet));
         ASSERT_EQ(icmp6_packet_get_type(packet), ND_ROUTER_SOLICIT);
 
-        return ASSERT_OK(sd_event_exit(ASSERT_PTR(userdata), 0));
+        return ASSERT_OK(sd_event_exit(ASSERT_PTR(userdata), /* code= */ 0));
 }
 
 static int on_recv_rs(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
         assert_se(icmp6_packet_receive(fd, &packet) >= 0);
 
-        return send_ra(0);
+        return send_ra(/* flags= */ 0);
 }
 
 TEST(rs_ifindex_mismatch) {
@@ -318,13 +318,13 @@ TEST(rs_ifindex_mismatch) {
 
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_ndisc_new(&nd) >= 0);
-        assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
+        assert_se(sd_ndisc_attach_event(nd, e, /* priority= */ 0) >= 0);
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_callback(nd, test_callback_count, &count) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
 
         test_ifindex = 43;
-        send_ra(0);
+        send_ra(/* flags= */ 0);
         assert_se(sd_event_run(e, UINT64_MAX) >= 0);
         assert_se(count == 0);
 
@@ -344,22 +344,22 @@ TEST(rs_after_zero_lifetime_ra) {
 
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_ndisc_new(&nd));
-        ASSERT_OK(sd_ndisc_attach_event(nd, e, 0));
+        ASSERT_OK(sd_ndisc_attach_event(nd, e, /* priority= */ 0));
         ASSERT_OK(sd_ndisc_set_ifindex(nd, 42));
         ASSERT_OK(sd_ndisc_set_callback(nd, test_callback_count, &count));
-        ASSERT_OK(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
-                                             30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)));
+        ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
+                                             30 * USEC_PER_SEC, /* accuracy= */ 0,
+                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)));
         ASSERT_OK(sd_ndisc_start(nd));
 
         ASSERT_EQ(write(test_fd[1], &advertisement, sizeof(advertisement)), (ssize_t) sizeof(advertisement));
         ASSERT_OK_POSITIVE(sd_event_run(e, UINT64_MAX));
         ASSERT_EQ(count, 1U);
-        ASSERT_OK_POSITIVE(sd_event_source_get_enabled(nd->timeout_event_source, NULL));
+        ASSERT_OK_POSITIVE(sd_event_source_get_enabled(nd->timeout_event_source, /* ret= */ NULL));
 
         ASSERT_OK(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_exit, e));
-        ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
-        ASSERT_OK(sd_event_source_set_time(nd->timeout_event_source, 0));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, /* own= */ true));
+        ASSERT_OK(sd_event_source_set_time(nd->timeout_event_source, /* usec= */ 0));
         ASSERT_OK(sd_event_loop(e));
 
         test_fd[1] = -EBADF;
@@ -375,15 +375,15 @@ TEST(rs) {
         assert_se(sd_ndisc_new(&nd) >= 0);
         assert_se(nd);
 
-        assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
+        assert_se(sd_ndisc_attach_event(nd, e, /* priority= */ 0) >= 0);
 
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
         assert_se(sd_ndisc_set_callback(nd, test_callback_ra, e) >= 0);
 
-        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
-                                             30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+        assert_se(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
+                                             30 * USEC_PER_SEC, /* accuracy= */ 0,
+                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_ndisc_stop(nd) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
@@ -394,7 +394,7 @@ TEST(rs) {
         assert_se(sd_ndisc_start(nd) >= 0);
 
         assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs, nd) >= 0);
-        assert_se(sd_event_source_set_io_fd_own(s, true) >= 0);
+        assert_se(sd_event_source_set_io_fd_own(s, /* own= */ true) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
 
@@ -448,7 +448,7 @@ static int on_recv_rs_invalid_domain(sd_event_source *s, int fd, uint32_t revent
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
         assert_se(icmp6_packet_receive(fd, &packet) >= 0);
 
-        return send_ra_invalid_domain(0);
+        return send_ra_invalid_domain(/* flags= */ 0);
 }
 
 TEST(invalid_domain) {
@@ -461,20 +461,20 @@ TEST(invalid_domain) {
         assert_se(sd_ndisc_new(&nd) >= 0);
         assert_se(nd);
 
-        assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
+        assert_se(sd_ndisc_attach_event(nd, e, /* priority= */ 0) >= 0);
 
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
         assert_se(sd_ndisc_set_callback(nd, test_callback_ra, e) >= 0);
 
-        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
-                                             30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+        assert_se(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
+                                             30 * USEC_PER_SEC, /* accuracy= */ 0,
+                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 
         assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_invalid_domain, nd) >= 0);
-        assert_se(sd_event_source_set_io_fd_own(s, true) >= 0);
+        assert_se(sd_event_source_set_io_fd_own(s, /* own= */ true) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
 
@@ -554,14 +554,14 @@ static void test_callback_na(sd_ndisc *nd, sd_ndisc_event_t event, void *message
         }
 
         idx = 0;
-        sd_event_exit(e, 0);
+        sd_event_exit(e, /* code= */ 0);
 }
 
 static int on_recv_rs_na(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
         assert_se(icmp6_packet_receive(fd, &packet) >= 0);
 
-        return send_na(0);
+        return send_na(/* flags= */ 0);
 }
 
 TEST(na) {
@@ -574,20 +574,20 @@ TEST(na) {
         assert_se(sd_ndisc_new(&nd) >= 0);
         assert_se(nd);
 
-        assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
+        assert_se(sd_ndisc_attach_event(nd, e, /* priority= */ 0) >= 0);
 
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
         assert_se(sd_ndisc_set_callback(nd, test_callback_na, e) >= 0);
 
-        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
-                                             30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+        assert_se(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
+                                             30 * USEC_PER_SEC, /* accuracy= */ 0,
+                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 
         assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_na, nd) >= 0);
-        assert_se(sd_event_source_set_io_fd_own(s, true) >= 0);
+        assert_se(sd_event_source_set_io_fd_own(s, /* own= */ true) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
 
@@ -604,7 +604,7 @@ static int on_recv_rs_timeout(sd_event_source *s, int fd, uint32_t revents, void
         assert_se(icmp6_packet_receive(fd, &packet) >= 0);
 
         if (++count >= 20)
-                sd_event_exit(nd->event, 0);
+                sd_event_exit(nd->event, /* code= */ 0);
 
         if (last == 0) {
                 /* initial RT = IRT + RAND*IRT  */
@@ -638,7 +638,7 @@ static int on_recv_rs_timeout(sd_event_source *s, int fd, uint32_t revents, void
 
         last = nd->retransmit_time;
 
-        assert_se(sd_event_source_set_time(nd->timeout_event_source, 0) >= 0);
+        assert_se(sd_event_source_set_time(nd->timeout_event_source, /* usec= */ 0) >= 0);
 
         return 0;
 }
@@ -653,19 +653,19 @@ TEST(timeout) {
         assert_se(sd_ndisc_new(&nd) >= 0);
         assert_se(nd);
 
-        assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
+        assert_se(sd_ndisc_attach_event(nd, e, /* priority= */ 0) >= 0);
 
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
 
-        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
-                                             30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+        assert_se(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
+                                             30 * USEC_PER_SEC, /* accuracy= */ 0,
+                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 
         assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_timeout, nd) >= 0);
-        assert_se(sd_event_source_set_io_fd_own(s, true) >= 0);
+        assert_se(sd_event_source_set_io_fd_own(s, /* own= */ true) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
 

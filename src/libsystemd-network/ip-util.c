@@ -49,7 +49,7 @@ static uint16_t checksum_finalize(uint64_t sum) {
 
 uint16_t ip_checksum(const void *buf, size_t len) {
         /* See RFC1071 */
-        return checksum_finalize(checksum_iov(0, &IOVEC_MAKE(buf, len)));
+        return checksum_finalize(checksum_iov(/* sum= */ 0, &IOVEC_MAKE(buf, len)));
 }
 
 static uint16_t iphdr_checksum(const union iphdr_union *ip) {
