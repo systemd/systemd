@@ -17,6 +17,9 @@ at_exit() {
     fi
 
     rm -f /run/systemd/networkd.conf.d/10-hoge.conf
+    if [[ -v VERIFY_DIR ]]; then
+        rm -rf "$VERIFY_DIR"
+    fi
 }
 
 trap at_exit EXIT
@@ -131,6 +134,109 @@ if systemctl --quiet is-active systemd-udevd; then
 
     assert_in 'alias test_alias' "$ip_link"
 fi
+
+# Test verify
+
+VERIFY_DIR="$(mktemp -d)"
+mkdir "$VERIFY_DIR/other"
+cat >"$VERIFY_DIR/10-good.network" <<EOF
+[Match]
+Name=test3
+
+[Network]
+DHCP=yes
+EOF
+cp "$VERIFY_DIR/10-good.network" "$VERIFY_DIR/other/10-good.network"
+cat >"$VERIFY_DIR/10-unknown-key.network" <<EOF
+[Match]
+Name=test3
+
+[Network]
+DHCP=yes
+Foo=bar
+EOF
+cat >"$VERIFY_DIR/10-no-match.network" <<EOF
+[Network]
+DHCP=yes
+EOF
+cat >"$VERIFY_DIR/10-condition.network" <<EOF
+[Match]
+Name=test3
+Host=networkctl-test-no-such-host
+
+[Network]
+DHCP=yes
+EOF
+cat >"$VERIFY_DIR/10-member.network" <<EOF
+[Match]
+Name=test3
+
+[Network]
+Bridge=test3-br
+EOF
+cat >"$VERIFY_DIR/10-good.netdev" <<EOF
+[NetDev]
+Name=test3
+Kind=dummy
+EOF
+cat >"$VERIFY_DIR/10-unknown-key.netdev" <<EOF
+[NetDev]
+Name=test3
+Kind=dummy
+Foo=bar
+EOF
+cat >"$VERIFY_DIR/10-no-kind.netdev" <<EOF
+[NetDev]
+Name=test3
+EOF
+cat >"$VERIFY_DIR/10-bridge.netdev" <<EOF
+[NetDev]
+Name=test3-br
+Kind=bridge
+EOF
+: >"$VERIFY_DIR/10-empty.network"
+ln -s /dev/null "$VERIFY_DIR/10-masked.netdev"
+
+VERIFY=(/usr/lib/systemd/systemd-networkd verify)
+
+# Fails, and says why: $1 is the expected message, the rest are the files to verify.
+assert_verify_fails() {
+    local expected="$1" output
+    shift
+
+    if output="$("${VERIFY[@]}" "$@" 2>&1)"; then
+        echo "FAIL: ${VERIFY[*]} $* unexpectedly succeeded" >&2
+        return 1
+    fi
+    assert_in "$expected" "$output"
+}
+
+/usr/lib/systemd/systemd-networkd --help | grep -q '^  verify '
+"${VERIFY[@]}" --help | grep -q '^  verify '
+(! "${VERIFY[@]}")
+
+"${VERIFY[@]}" "$VERIFY_DIR/10-good.network" "$VERIFY_DIR/10-good.netdev"
+# relative paths work too
+(cd "$VERIFY_DIR" && "${VERIFY[@]}" 10-good.network)
+# the same file name in two directories is two files, not a conflict
+"${VERIFY[@]}" "$VERIFY_DIR/10-good.network" "$VERIFY_DIR/other/10-good.network"
+# a .network may refer to a .netdev given in the same invocation, in any order
+assert_not_in "could not be found" "$("${VERIFY[@]}" "$VERIFY_DIR/10-member.network" "$VERIFY_DIR/10-bridge.netdev" 2>&1)"
+# masked or empty files and files whose conditions do not match are skipped, as the daemon skips them
+assert_in "Masked or empty, skipping" "$("${VERIFY[@]}" "$VERIFY_DIR/10-empty.network" "$VERIFY_DIR/10-masked.netdev" 2>&1)"
+assert_in "Conditions do not match this host, skipping" "$("${VERIFY[@]}" "$VERIFY_DIR/10-condition.network" 2>&1)"
+
+# a parser warning networkd would only log is an error here
+assert_verify_fails "Unknown key 'Foo'" "$VERIFY_DIR/10-unknown-key.network"
+assert_verify_fails "The configuration parser reported problems" "$VERIFY_DIR/10-unknown-key.network"
+assert_verify_fails "The configuration parser reported problems" "$VERIFY_DIR/10-unknown-key.netdev"
+assert_verify_fails "No valid settings found in the \[Match\] section" "$VERIFY_DIR/10-no-match.network"
+assert_verify_fails "NetDev has no Kind= configured" "$VERIFY_DIR/10-no-kind.netdev"
+# one bad file fails the whole invocation, wherever it is in the list
+assert_verify_fails "NetDev has no Kind= configured" "$VERIFY_DIR/10-good.network" "$VERIFY_DIR/10-no-kind.netdev"
+assert_verify_fails "NetDev has no Kind= configured" "$VERIFY_DIR/10-no-kind.netdev" "$VERIFY_DIR/10-good.network"
+assert_verify_fails "Not a .network or .netdev file" "/usr/lib/systemd/network/$LINK_NAME"
+assert_verify_fails "No such file or directory" "$VERIFY_DIR/does-not-exist.network"
 
 mkdir -p /run/systemd/networkd.conf.d
 cat >/run/systemd/networkd.conf.d/10-hoge.conf <<EOF
