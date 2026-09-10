@@ -761,7 +761,7 @@ static bool tpm2_get_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORI
 }
 
 bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg) {
-        return tpm2_get_capability_alg(c, alg, NULL);
+        return tpm2_get_capability_alg(c, alg, /* ret= */ NULL);
 }
 
 /* Get the TPMA_CC for a TPM2_CC. Returns true if the TPM supports the command and the TPMA_CC is provided,
@@ -784,7 +784,7 @@ static bool tpm2_get_capability_command(Tpm2Context *c, TPM2_CC command, TPMA_CC
 }
 
 bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command) {
-        return tpm2_get_capability_command(c, command, NULL);
+        return tpm2_get_capability_command(c, command, /* ret= */ NULL);
 }
 
 /* Returns true if the TPM supports the ECC curve, otherwise false. */
@@ -1095,7 +1095,7 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                         return log_oom_debug();
         }
 
-        rc = sym_Esys_Initialize(&context->esys_context, context->tcti_context, NULL);
+        rc = sym_Esys_Initialize(&context->esys_context, context->tcti_context, /* abiVersion= */ NULL);
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to initialize TPM context: %s", sym_Tss2_RC_Decode(rc));
@@ -2164,7 +2164,7 @@ static int tpm2_read_ek_cert(
         if (!cert)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Failed to parse EK certificate for template '%s' from NV index 0x%08" PRIx32 ": %s",
-                                       ek_template_names[profile], cert_index, sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                                       ek_template_names[profile], cert_index, sym_ERR_error_string(sym_ERR_get_error(), /* buf= */ NULL));
 
         *ret_cert = TAKE_PTR(cert);
         return 1;
@@ -2793,7 +2793,7 @@ void tpm2_tpms_pcr_selection_move(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b) 
                 return;
 
         tpm2_tpms_pcr_selection_add(a, b);
-        tpm2_tpms_pcr_selection_from_mask(0, b->hash, b);
+        tpm2_tpms_pcr_selection_from_mask(/* mask= */ 0, b->hash, b);
 }
 
 #define FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml)    \
@@ -3818,7 +3818,7 @@ int tpm2_pcr_read(
                                 ESYS_TR_NONE,
                                 ESYS_TR_NONE,
                                 &remaining,
-                                NULL,
+                                /* pcrUpdateCounter= */ NULL,
                                 &current_read,
                                 &current_values);
                 if (rc != TSS2_RC_SUCCESS)
@@ -3881,7 +3881,7 @@ int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_
 
                 if (hash_count == 1 && pcr_values[0].hash == 0) {
                         uint32_t mask;
-                        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, 0, &mask);
+                        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, /* hash= */ 0, &mask);
                         if (r < 0)
                                 return r;
 
@@ -3899,7 +3899,7 @@ int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_
                         continue;
 
                 TPML_PCR_SELECTION selection;
-                r = tpm2_tpml_pcr_selection_from_pcr_values(v, 1, &selection, NULL, NULL);
+                r = tpm2_tpml_pcr_selection_from_pcr_values(v, 1, &selection, /* ret_values= */ NULL, /* ret_n_values= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -4503,7 +4503,7 @@ int tpm2_make_encryption_session(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        NULL,
+                        /* nonceCaller= */ NULL,
                         TPM2_SE_HMAC,
                         &SESSION_TEMPLATE_SYM_AES_128_CFB,
                         TPM2_ALG_SHA256,
@@ -4610,7 +4610,7 @@ int tpm2_make_policy_session(
                         encryption_session ? encryption_session->esys_handle : ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        NULL,
+                        /* nonceCaller= */ NULL,
                         TPM2_SE_POLICY,
                         &SESSION_TEMPLATE_SYM_AES_128_CFB,
                         TPM2_ALG_SHA256,
@@ -5097,7 +5097,7 @@ int tpm2_policy_signed_hmac_sha256(
                                        "Failed to determine NoneTPM of auth session: %s",
                                        sym_Tss2_RC_Decode(rc));
 
-        be32_t expiration = htobe64(0);
+        be32_t expiration = htobe64(/* value= */ 0);
         const TPM2B_DIGEST cpHashA = {};  /* For now, we do not make use of the cpHashA stuff */
         const TPM2B_NONCE policyRef = {}; /* ditto, we do not bother with policyRef */
 
@@ -5470,7 +5470,7 @@ int tpm2_policy_pcr(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        NULL,
+                        /* pcrDigest= */ NULL,
                         pcr_selection);
         if (rc == TPM2_RC_PCR_CHANGED)
                 return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
@@ -5587,7 +5587,7 @@ static int tpm2_policy_authorize(
         log_debug("Adding PCR signature policy.");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *pubkey_handle = NULL;
-        r = tpm2_load_external(c, NULL, public, NULL, &pubkey_handle);
+        r = tpm2_load_external(c, /* session= */ NULL, public, /* private= */ NULL, &pubkey_handle);
         if (r < 0)
                 return r;
 
@@ -5790,7 +5790,7 @@ static int tpm2_build_sealing_policy(
         if (pubkey_pcr_mask != 0) {
                 TPML_PCR_SELECTION pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(pubkey_pcr_mask, (TPMI_ALG_HASH)pcr_bank, &pcr_selection);
-                r = tpm2_policy_authorize(c, session, &pcr_selection, public, pubkey_policy_ref, fp, fp_size, signature_json, NULL);
+                r = tpm2_policy_authorize(c, session, &pcr_selection, public, pubkey_policy_ref, fp, fp_size, signature_json, /* ret_policy_digest= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -5817,7 +5817,7 @@ static int tpm2_build_sealing_policy(
                                 c,
                                 session,
                                 nv_handle,
-                                NULL);
+                                /* ret_policy_digest= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -5825,13 +5825,13 @@ static int tpm2_build_sealing_policy(
         if (hash_pcr_mask != 0) {
                 TPML_PCR_SELECTION pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, (TPMI_ALG_HASH)pcr_bank, &pcr_selection);
-                r = tpm2_policy_pcr(c, session, &pcr_selection, NULL);
+                r = tpm2_policy_pcr(c, session, &pcr_selection, /* ret_policy_digest= */ NULL);
                 if (r < 0)
                         return r;
         }
 
         if (use_pin) {
-                r = tpm2_policy_auth_value(c, session, NULL);
+                r = tpm2_policy_auth_value(c, session, /* ret_policy_digest= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -7319,7 +7319,7 @@ int tpm2_unseal(Tpm2Context *c,
                          * tpmKey is verified. In the non-srk model, with pin, the bindKey provides
                          * protections. */
                         _cleanup_(tpm2_handle_freep) Tpm2Handle *hmac_key = NULL;
-                        r = tpm2_load(c, primary_handle, NULL, &public, &private, &hmac_key);
+                        r = tpm2_load(c, primary_handle, /* session= */ NULL, &public, &private, &hmac_key);
                         if (r < 0)
                                 return r;
 
@@ -8244,7 +8244,7 @@ int tpm2_unseal_data(
                 return r;
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *what = NULL;
-        r = tpm2_load(c, primary_handle, NULL, &public, &private, &what);
+        r = tpm2_load(c, primary_handle, /* session= */ NULL, &public, &private, &what);
         if (r < 0)
                 return r;
 
@@ -8688,9 +8688,9 @@ int tpm2_pcr_extend_bytes(
                  * some unrelated purpose, who knows). Hence we instead measure an HMAC signature of a
                  * private non-secret string instead. */
                 if (iovec_is_set(secret) > 0) {
-                        if (!sym_HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL))
+                        if (!sym_HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, /* md_len= */ NULL))
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
-                } else if (sym_EVP_Digest(data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
+                } else if (sym_EVP_Digest(data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, /* size= */ NULL, implementation, /* impl= */ NULL) != 1)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
 
                 values.count++;
@@ -9034,9 +9034,9 @@ static int nvpcr_extend_bytes(
                 data = &iovec_empty;
 
         if (iovec_is_set(secret)) {
-                if (!sym_HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, digest.iov_base, NULL))
+                if (!sym_HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, digest.iov_base, /* md_len= */ NULL))
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
-        } else if (sym_EVP_Digest(data->iov_base, data->iov_len, digest.iov_base, NULL, implementation, NULL) != 1)
+        } else if (sym_EVP_Digest(data->iov_base, data->iov_len, digest.iov_base, /* size= */ NULL, implementation, /* impl= */ NULL) != 1)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
@@ -9601,7 +9601,7 @@ int tpm2_pcr_prediction_to_json(
         }
 
         if (!aj) {
-                r = sd_json_variant_new_array(&aj, NULL, 0);
+                r = sd_json_variant_new_array(&aj, /* array= */ NULL, 0);
                 if (r < 0)
                         return r;
         }
@@ -9939,7 +9939,7 @@ int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path)
         if (!path)
                 path = "pcrlock.json";
 
-        r = search_and_fopen_nulstr(path, ret_file ? "re" : NULL, NULL, search, ret_file, ret_path);
+        r = search_and_fopen_nulstr(path, ret_file ? "re" : NULL, /* root= */ NULL, search, ret_file, ret_path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM2 pcrlock policy file '%s': %m", path);
 
@@ -10309,13 +10309,13 @@ int tpm2_tpmt_signature_to_pem(const TPMT_SIGNATURE *signature, char **ret) {
                 label = "ECDSA SIGNATURE";
                 _cleanup_(BN_freep) BIGNUM *bn_r = sym_BN_bin2bn(
                                 signature->signature.ecdsa.signatureR.buffer,
-                                signature->signature.ecdsa.signatureR.size, NULL);
+                                signature->signature.ecdsa.signatureR.size, /* ret= */ NULL);
                 if (!bn_r)
                         return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature r to BIGNUM");
 
                 _cleanup_(BN_freep) BIGNUM *bn_s = sym_BN_bin2bn(
                                 signature->signature.ecdsa.signatureS.buffer,
-                                signature->signature.ecdsa.signatureS.size, NULL);
+                                signature->signature.ecdsa.signatureS.size, /* ret= */ NULL);
                 if (!bn_s)
                         return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature s to BIGNUM");
 
@@ -10330,7 +10330,7 @@ int tpm2_tpmt_signature_to_pem(const TPMT_SIGNATURE *signature, char **ret) {
 
                 /* We want to allocate our own buffer so we can have a common cleanup path for this
                  * and RSA signatures. */
-                r = sym_i2d_ECDSA_SIG(ecdsaSig, NULL);
+                r = sym_i2d_ECDSA_SIG(ecdsaSig, /* out= */ NULL);
                 if (r <= 0)
                         return log_openssl_errors(LOG_DEBUG, "Failed to determine ECDSA signature size");
                 sig_len = r;
@@ -11012,7 +11012,7 @@ int tpm2_nv_certify(
                         audit_session ? audit_session->esys_handle : ESYS_TR_NONE,
                         qualifying_data,
                         &SIG_SCHEME_TEMPLATE_NULL,
-                        nv_public->dataSize, 0,
+                        nv_public->dataSize, /* offset= */ 0,
                         &certify_info,
                         ret_signature ? &signature : NULL);
         if (rc == TPM2_RC_EXCLUSIVE)
@@ -11184,7 +11184,7 @@ int tpm2_make_pcr_json_array(uint32_t pcr_mask, sd_json_variant **ret) {
         }
 
         if (!a)
-                return sd_json_variant_new_array(ret, NULL, 0);
+                return sd_json_variant_new_array(ret, /* array= */ NULL, 0);
 
         *ret = TAKE_PTR(a);
         return 0;
@@ -11828,11 +11828,11 @@ int verb_has_tpm2_generic(bool quiet) {
                 else
                         printf("%spartial%s\n", ansi_yellow(), ansi_normal());
 
-                print_field(NULL, "firmware", FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE));
-                print_field(NULL, "driver", FLAGS_SET(s, TPM2_SUPPORT_DRIVER));
-                print_field(NULL, "system", FLAGS_SET(s, TPM2_SUPPORT_SYSTEM));
-                print_field(NULL, "subsystem", FLAGS_SET(s, TPM2_SUPPORT_SUBSYSTEM));
-                print_field(NULL, "libraries", FLAGS_SET(s, TPM2_SUPPORT_LIBRARIES));
+                print_field(/* prefix= */ NULL, "firmware", FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE));
+                print_field(/* prefix= */ NULL, "driver", FLAGS_SET(s, TPM2_SUPPORT_DRIVER));
+                print_field(/* prefix= */ NULL, "system", FLAGS_SET(s, TPM2_SUPPORT_SYSTEM));
+                print_field(/* prefix= */ NULL, "subsystem", FLAGS_SET(s, TPM2_SUPPORT_SUBSYSTEM));
+                print_field(/* prefix= */ NULL, "libraries", FLAGS_SET(s, TPM2_SUPPORT_LIBRARIES));
                 print_field("  ", "libtss2-esys.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_ESYS));
                 print_field("  ", "libtss2-rc.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_RC));
                 print_field("  ", "libtss2-mu.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_MU));
@@ -12020,11 +12020,11 @@ int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret) {
                                 return log_oom_debug();
         }
 
-        r = search_and_fopen(path, "re", NULL, (const char**) search, &f, &discovered_path);
+        r = search_and_fopen(path, "re", /* root= */ NULL, (const char**) search, &f, &discovered_path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM PCR signature file '%s': %m", path);
 
-        r = sd_json_parse_file(f, discovered_path, 0, ret, NULL, NULL);
+        r = sd_json_parse_file(f, discovered_path, /* flags= */ 0, ret, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse TPM PCR signature JSON object '%s': %m", discovered_path);
 
@@ -12052,7 +12052,7 @@ int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pu
                                 return log_oom_debug();
         }
 
-        r = search_and_fopen(path, "re", NULL, (const char**) search, &f, &discovered_path);
+        r = search_and_fopen(path, "re", /* root= */ NULL, (const char**) search, &f, &discovered_path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM PCR public key file '%s': %m", path);
 

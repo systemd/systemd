@@ -22,7 +22,7 @@ int mkdirat_label(int dirfd, const char *path, mode_t mode, LabelContext *label_
         if (r < 0)
                 return r;
 
-        return mac_smack_fix_full(dirfd, path, NULL, 0);
+        return mac_smack_fix_full(dirfd, path, /* label_path= */ NULL, /* flags= */ 0);
 }
 
 int mkdirat_safe_label(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, LabelContext *label_context) {
@@ -30,5 +30,5 @@ int mkdirat_safe_label(int dir_fd, const char *path, mode_t mode, uid_t uid, gid
 }
 
 int mkdirat_parents_label(int dir_fd, const char *path, mode_t mode, LabelContext *label_context) {
-        return mkdirat_parents_internal(dir_fd, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_label, label_context);
+        return mkdirat_parents_internal(dir_fd, path, mode, UID_INVALID, UID_INVALID, /* flags= */ 0, mkdirat_label, label_context);
 }

@@ -36,7 +36,7 @@ typedef enum GetHostnameFlags {
 int gethostname_full(GetHostnameFlags flags, char **ret);
 
 static inline int gethostname_strict(char **ret) {
-        return gethostname_full(0, ret);
+        return gethostname_full(/* flags= */ 0, ret);
 }
 
 static inline char* gethostname_malloc(void) {

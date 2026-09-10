@@ -399,7 +399,7 @@ static int image_update_quota(Image *i, int fd) {
                 return 0;
 
         BtrfsQuotaInfo quota;
-        r = btrfs_subvol_get_subtree_quota_fd(fd, 0, &quota);
+        r = btrfs_subvol_get_subtree_quota_fd(fd, /* subvol_id= */ 0, &quota);
         if (r < 0)
                 return r;
 
@@ -568,7 +568,7 @@ static int image_make(
 
                                 /* It's a btrfs subvolume */
 
-                                r = btrfs_subvol_get_info_fd(fd, 0, &info);
+                                r = btrfs_subvol_get_info_fd(fd, /* subvol_id= */ 0, &info);
                                 if (r < 0)
                                         return r;
 
@@ -608,7 +608,7 @@ static int image_make(
                               path,
                               read_only || (file_attr & FS_IMMUTABLE_FL),
                               crtime,
-                              0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
+                              /* mtime= */ 0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
                               fh,
                               on_mount_id,
                               (uint64_t) st->st_ino,
@@ -707,8 +707,8 @@ static int image_make(
                               pretty,
                               path,
                               !(st->st_mode & 0222) || read_only,
-                              0,
-                              0,
+                              /* crtime= */ 0,
+                              /* mtime= */ 0,
                               fh,
                               on_mount_id,
                               (uint64_t) st->st_ino,
@@ -1430,7 +1430,7 @@ int image_remove(Image *i, RuntimeScope scope) {
 
         case IMAGE_DIRECTORY:
                 /* Allow deletion of read-only directories */
-                (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
+                (void) chattr_path(i->path, /* value= */ 0, FS_IMMUTABLE_FL);
 
                 _fallthrough_;
 
@@ -1531,7 +1531,7 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         if (r < 0)
                 return r;
 
-        r = image_find(scope, IMAGE_MACHINE, new_name, NULL, NULL);
+        r = image_find(scope, IMAGE_MACHINE, new_name, /* root= */ NULL, /* ret= */ NULL);
         if (r >= 0)
                 return -EEXIST;
         if (r != -ENOENT)
@@ -1544,7 +1544,7 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
                 (void) read_attr_at(AT_FDCWD, i->path, &file_attr);
 
                 if (file_attr & FS_IMMUTABLE_FL)
-                        (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
+                        (void) chattr_path(i->path, /* value= */ 0, FS_IMMUTABLE_FL);
 
                 _fallthrough_;
         case IMAGE_SUBVOLUME:
@@ -1773,7 +1773,7 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
         if (r < 0)
                 return r;
 
-        r = image_find(scope, i->class, new_name, NULL, NULL);
+        r = image_find(scope, i->class, new_name, /* root= */ NULL, /* ret= */ NULL);
         if (r >= 0)
                 return -EEXIST;
         if (r != -ENOENT)
@@ -2081,9 +2081,9 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
          * we didn't use to have a concept of subtree quota, and hence
          * only modified the subvolume quota. */
 
-        (void) btrfs_qgroup_set_limit(i->path, 0, referenced_max);
-        (void) btrfs_subvol_auto_qgroup(i->path, 0, true);
-        r = btrfs_subvol_set_subtree_quota_limit(i->path, 0, referenced_max);
+        (void) btrfs_qgroup_set_limit(i->path, /* qgroupid= */ 0, referenced_max);
+        (void) btrfs_subvol_auto_qgroup(i->path, /* subvol_id= */ 0, /* create_intermediary_qgroup= */ true);
+        r = btrfs_subvol_set_subtree_quota_limit(i->path, /* subvol_id= */ 0, referenced_max);
         if (r < 0)
                 return r;
 
@@ -2256,7 +2256,7 @@ int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_pol
                                                        i->name);
                 }
 
-                r = chase("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
+                r = chase("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, /* ret_fd= */ NULL);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/hostname in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -2271,7 +2271,7 @@ int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_pol
                 if (r < 0)
                         log_debug_errno(r, "Failed to read machine ID in image %s, ignoring: %m", i->name);
 
-                r = chase("/etc/machine-info", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
+                r = chase("/etc/machine-info", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, /* ret_fd= */ NULL);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-info in image %s: %m", i->name);
                 else if (r >= 0) {

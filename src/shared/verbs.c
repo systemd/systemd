@@ -225,7 +225,7 @@ static int verb_add_help_one(Table *table, const Verb *verb) {
                         break;
         }
 
-        r = table_add_cell(table, NULL, TABLE_STRING, cell);
+        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, cell);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -375,7 +375,7 @@ static int print_verb_option_help(
         }
 
         if (cmd->flags & COMMAND_HELP_SEPARATE)
-                (void) table_sync_all_column_widths(0, tables);
+                (void) table_sync_all_column_widths(/* column= */ 0, tables);
 
         const Option *optns = options_find_namespace(options, options_end, cmd->option_namespace);
         if (!optns)
@@ -409,9 +409,9 @@ static int print_verb_option_help(
         }
 
         if (cmd->flags & COMMAND_HELP_SEPARATE)
-                (void) table_sync_all_column_widths(0, tables + n_verbs);
+                (void) table_sync_all_column_widths(/* column= */ 0, tables + n_verbs);
         else
-                (void) table_sync_all_column_widths(0, tables);
+                (void) table_sync_all_column_widths(/* column= */ 0, tables);
 
         for (size_t i = 0; i < n_verbs + n_opts; i++) {
                 if (table_isempty(tables[i]))

@@ -305,7 +305,7 @@ int probe_filesystem_full(
 
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
-        (void) sym_blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+        (void) sym_blkid_probe_lookup_value(b, "TYPE", &fstype, /* ret_size= */ NULL);
         if (fstype) {
                 log_debug("Probed fstype '%s' on partition %s.", fstype, path);
                 return strdup_to_full(ret_fstype, fstype);
@@ -363,7 +363,7 @@ int probe_partition_table(int fd, char **ret_pttype) {
 
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
-        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, /* len= */ NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, /* ret_size= */ NULL);
         if (!pttype) {
                 log_debug("No partition table detected.");
                 *ret_pttype = NULL;
@@ -603,7 +603,7 @@ static int dissected_image_probe_filesystems(
                         /* If we have an fd referring to the partition block device, use that. Otherwise go
                          * via the whole block device or backing regular file, and read via offset. */
                         if (p->mount_node_fd >= 0)
-                                r = probe_filesystem_full(p->mount_node_fd, p->node, 0, UINT64_MAX, /* restrict_fstypes= */ true, &p->fstype);
+                                r = probe_filesystem_full(p->mount_node_fd, p->node, /* offset= */ 0, UINT64_MAX, /* restrict_fstypes= */ true, &p->fstype);
                         else
                                 r = probe_filesystem_full(fd, p->node, p->offset, p->size, /* restrict_fstypes= */ true, &p->fstype);
                         if (r < 0)
@@ -787,7 +787,7 @@ static int acquire_sig_for_roothash(
                 buf[partition_size] = 0;
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        r = sd_json_parse(buf, 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        r = sd_json_parse(buf, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse signature JSON data: %m");
 
@@ -1015,7 +1015,7 @@ static int dissect_image_from_unpartitioned(
         if (r < 0)
                 return r;
 
-        r = image_policy_check_partition_flags(policy, PARTITION_ROOT, 0); /* we have no gpt partition flags, hence check against all bits off */
+        r = image_policy_check_partition_flags(policy, PARTITION_ROOT, /* gpt_flags= */ 0); /* we have no gpt partition flags, hence check against all bits off */
         if (r < 0)
                 return r;
 
@@ -1147,7 +1147,7 @@ static int dissect_image(
                 return r;
 
         errno = 0;
-        r = sym_blkid_probe_set_device(b, fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, fd, /* offset= */ 0, /* size= */ 0);
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
@@ -1187,7 +1187,7 @@ static int dissect_image(
 
                 /* If flags permit this, also allow using non-partitioned single-filesystem images */
 
-                (void) sym_blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
+                (void) sym_blkid_probe_lookup_value(b, "USAGE", &usage, /* ret_size= */ NULL);
                 if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
                         _cleanup_free_ char *t = NULL;
                         const char *fstype = NULL;
@@ -1198,7 +1198,7 @@ static int dissect_image(
                         /* OK, we have found a file system, that's our root partition then. */
 
                         if (!root_fstype_string) {
-                                (void) sym_blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+                                (void) sym_blkid_probe_lookup_value(b, "TYPE", &fstype, /* ret_size= */ NULL);
 
                                 /* blkid will return FAT's serial number as UUID, hence it is quite possible that
                                 * parsing this will fail. We'll ignore the ID, since it's just too short to be
@@ -1250,7 +1250,7 @@ static int dissect_image(
                 }
         }
 
-        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, /* ret_size= */ NULL);
         if (!pttype)
                 return -ENOPKG;
 
@@ -2246,7 +2246,7 @@ static int run_fsck(int node_fd, const char *fstype) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         "(fsck)",
-                        NULL,
+                        /* stdio_fds= */ NULL,
                         &node_fd, 1, /* Leave the node fd open */
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_CLOEXEC_OFF,
                         &pidref);
@@ -2260,7 +2260,7 @@ static int run_fsck(int node_fd, const char *fstype) {
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
 
-        exit_status = pidref_wait_for_terminate_and_check("fsck", &pidref, 0);
+        exit_status = pidref_wait_for_terminate_and_check("fsck", &pidref, /* flags= */ 0);
         if (exit_status < 0)
                 return log_debug_errno(exit_status, "Failed to fork off fsck: %m");
 
@@ -2496,7 +2496,7 @@ static int mount_partition(
                         if (r < 0 && r != -EROFS)
                                 return r;
 
-                        r = chase(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);
+                        r = chase(directory, where, CHASE_PREFIX_ROOT, &chased, /* ret_fd= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -2575,7 +2575,7 @@ static int mount_partition(
                         return m->fsmount_fd;
 
                 if (grow)
-                        (void) fs_grow(node, m->fsmount_fd, NULL);
+                        (void) fs_grow(node, m->fsmount_fd, /* mount_path= */ NULL);
         }
 
         return 1;
@@ -2614,7 +2614,7 @@ static int mount_point_is_available(const char *where, const char *path, bool mi
         /* Check whether <path> is suitable as a mountpoint, i.e. is an empty directory
          * or does not exist at all (when missing_ok). */
 
-        r = chase(path, where, CHASE_PREFIX_ROOT, &p, NULL);
+        r = chase(path, where, CHASE_PREFIX_ROOT, &p, /* ret_fd= */ NULL);
         if (r == -ENOENT)
                 return missing_ok;
         if (r < 0)
@@ -2685,7 +2685,7 @@ int dissected_image_mount(
 
                 /* First mount the root fs. If there's none we use a tmpfs. */
                 if (m->partitions[PARTITION_ROOT].found) {
-                        r = mount_partition(PARTITION_ROOT, m->partitions + PARTITION_ROOT, where, NULL, uid_shift, uid_range, userns_fd, flags);
+                        r = mount_partition(PARTITION_ROOT, m->partitions + PARTITION_ROOT, where, /* directory= */ NULL, uid_shift, uid_range, userns_fd, flags);
                         if (r < 0)
                                 return r;
 
@@ -3030,7 +3030,7 @@ static int decrypt_partition(
 
         cryptsetup_enable_logging(cd);
 
-        r = sym_crypt_load(cd, CRYPT_LUKS, NULL);
+        r = sym_crypt_load(cd, CRYPT_LUKS, /* params= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
@@ -3088,7 +3088,7 @@ static int verity_can_reuse(
         if (!root_hash_existing.iov_base)
                 return -ENOMEM;
 
-        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, root_hash_existing.iov_base, &root_hash_existing.iov_len, NULL, 0);
+        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, root_hash_existing.iov_base, &root_hash_existing.iov_len, /* passphrase= */ NULL, /* passphrase_size= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_volume_key_get failed: %m");
         if (!iovec_equal(&verity->root_hash, &root_hash_existing))
@@ -3108,7 +3108,7 @@ static char* dm_deferred_remove_clean(char *name) {
         if (!name)
                 return NULL;
 
-        (void) sym_crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
+        (void) sym_crypt_deactivate_by_name(/* cd= */ NULL, name, CRYPT_DEACTIVATE_DEFERRED);
         return mfree(name);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
@@ -3197,7 +3197,7 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
                         continue;
                 }
 
-                c = sym_PEM_read_X509(f, NULL, NULL, NULL);
+                c = sym_PEM_read_X509(f, NULL, /* cb= */ NULL, NULL);
                 if (!c) {
                         log_debug("Failed to load X509 certificate '%s', ignoring.", *i);
                         continue;
@@ -3209,7 +3209,7 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
                 TAKE_PTR(c);
         }
 
-        r = sym_PKCS7_verify(p7, sk, NULL, bio, NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY);
+        r = sym_PKCS7_verify(p7, sk, /* store= */ NULL, bio, /* out= */ NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY);
         if (r)
                 log_debug("Userspace PKCS#7 validation succeeded.");
         else
@@ -3409,7 +3409,7 @@ static int verity_partition(
 
         cryptsetup_enable_logging(cd);
 
-        r = sym_crypt_load(cd, CRYPT_VERITY, NULL);
+        r = sym_crypt_load(cd, CRYPT_VERITY, /* params= */ NULL);
         if (r < 0)
                 return r;
 
@@ -3485,7 +3485,7 @@ static int verity_partition(
                 if (fd < 0) {
                         /* devmapper might say that the device exists, but the devlink might not yet have been
                          * created. Check and wait for the udev event in that case. */
-                        r = device_wait_for_devlink(node, "block", verity_timeout(), NULL);
+                        r = device_wait_for_devlink(node, "block", verity_timeout(), /* ret= */ NULL);
                         /* Fallback to activation with a unique device if it's taking too long */
                         if (r == -ETIMEDOUT && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                                 break;
@@ -3639,7 +3639,7 @@ int dissected_image_decrypt(
                         goto fail;
 
                 if (!p->decrypted_fstype && p->mount_node_fd >= 0 && p->decrypted_node) {
-                        r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, 0, UINT64_MAX, /* restrict_fstypes= */ true, &p->decrypted_fstype);
+                        r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, /* offset= */ 0, UINT64_MAX, /* restrict_fstypes= */ true, &p->decrypted_fstype);
                         if (r < 0 && r != -EUCLEAN)
                                 goto fail;
                 }
@@ -3723,7 +3723,7 @@ static int decrypted_image_relinquish(DecryptedImage *d) {
                 if (p->relinquished)
                         continue;
 
-                r = sym_crypt_deactivate_by_name(NULL, p->name, CRYPT_DEACTIVATE_DEFERRED);
+                r = sym_crypt_deactivate_by_name(/* cd= */ NULL, p->name, CRYPT_DEACTIVATE_DEFERRED);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to mark %s for auto-removal: %m", p->name);
 
@@ -4300,7 +4300,7 @@ int dissected_image_acquire_metadata(
                 error_pipe[0] = safe_close(error_pipe[0]);
 
                 if (userns_fd < 0)
-                        r = detach_mount_namespace_harder(0, 0);
+                        r = detach_mount_namespace_harder(/* target_uid= */ 0, /* target_gid= */ 0);
                 else
                         r = detach_mount_namespace_userns(userns_fd);
                 if (r < 0) {
@@ -4380,7 +4380,7 @@ int dissected_image_acquire_metadata(
                                                "/lib/systemd/systemd",      /* systemd on /usr/ non-merged systems */
                                                "/sbin/init") {              /* traditional path the Linux kernel invokes */
 
-                                        r = chase(init, t, CHASE_PREFIX_ROOT, NULL, NULL);
+                                        r = chase(init, t, CHASE_PREFIX_ROOT, /* ret_path= */ NULL, /* ret_fd= */ NULL);
                                         if (r < 0) {
                                                 if (r != -ENOENT)
                                                         log_debug_errno(r, "Failed to resolve %s, ignoring: %m", init);
@@ -4399,7 +4399,7 @@ int dissected_image_acquire_metadata(
 
                         default:
                                 NULSTR_FOREACH(p, paths[k]) {
-                                        fd = chase_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                                        fd = chase_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path= */ NULL);
                                         if (fd >= 0)
                                                 break;
                                 }
@@ -4410,7 +4410,7 @@ int dissected_image_acquire_metadata(
                                 goto next;
                         }
 
-                        r = copy_bytes(fd, fds[2*k+1], UINT64_MAX, 0);
+                        r = copy_bytes(fd, fds[2*k+1], UINT64_MAX, /* copy_flags= */ 0);
                         if (r < 0)
                                 report_errno_and_exit(error_pipe[1], r);
 
@@ -4515,7 +4515,7 @@ int dissected_image_acquire_metadata(
                 }}
         }
 
-        r = pidref_wait_for_terminate_and_check("(sd-dissect)", &child, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-dissect)", &child, /* flags= */ 0);
         if (r < 0)
                 goto finish;
 
@@ -4787,7 +4787,7 @@ int mount_image_privately_interactively(
         flags |= DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES;
 
-        r = verity_settings_load(&verity, image, NULL, NULL);
+        r = verity_settings_load(&verity, image, /* root_hash_path= */ NULL, /* root_hash_sig_path= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to load root hash data: %m");
 
@@ -4820,7 +4820,7 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, image_policy, flags);
+        r = dissected_image_decrypt_interactively(dissected_image, /* passphrase= */ NULL, &verity, image_policy, flags);
         if (r < 0)
                 return r;
 
@@ -4913,7 +4913,7 @@ int verity_dissect_and_mount(
          * The caller might also give us a pre-loaded VeritySettings, in which case we just use it. It will
          * also be extended, as dissected_image_load_verity_sig_partition() is invoked. */
         if (!verity) {
-                r = verity_settings_load(&local_verity, src, NULL, NULL);
+                r = verity_settings_load(&local_verity, src, /* root_hash_path= */ NULL, /* root_hash_sig_path= */ NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to load root hash: %m");
 
@@ -5018,7 +5018,7 @@ int verity_dissect_and_mount(
                 r = mkdir_p_label(dest, 0755);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create destination directory %s: %m", dest);
-                r = umount_recursive(dest, 0);
+                r = umount_recursive(dest, /* flags= */ 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to umount under destination directory %s: %m", dest);
         }

@@ -53,15 +53,15 @@ static inline int copy_file_fd_at(int dir_fdf, const char *from, int fdt, CopyFl
         return copy_file_fd_at_full(dir_fdf, from, fdt, copy_flags, progress, userdata);
 }
 static inline int copy_file_fd_full(const char *from, int fdt, CopyFlags copy_flags) {
-        return copy_file_fd_at_full(AT_FDCWD, from, fdt, copy_flags, NULL, NULL);
+        return copy_file_fd_at_full(AT_FDCWD, from, fdt, copy_flags, /* progress= */ NULL, /* userdata= */ NULL);
 }
 static inline int copy_file_fd(const char *from, int fdt, CopyFlags copy_flags) {
-        return copy_file_fd_at(AT_FDCWD, from, fdt, copy_flags, NULL, NULL);
+        return copy_file_fd_at(AT_FDCWD, from, fdt, copy_flags, /* progress= */ NULL, /* userdata= */ NULL);
 }
 
 int copy_file_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, int open_flags, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
 static inline int copy_file_at(int dir_fdf, const char *from, int dir_fdt, const char *to, int open_flags, mode_t mode, CopyFlags copy_flags) {
-        return copy_file_at_full(dir_fdf, from, dir_fdt, to, open_flags, mode, 0, 0, copy_flags, NULL, NULL);
+        return copy_file_at_full(dir_fdf, from, dir_fdt, to, open_flags, mode, /* chattr_flags= */ 0, /* chattr_mask= */ 0, copy_flags, /* progress= */ NULL, /* userdata= */ NULL);
 }
 static inline int copy_file_full(const char *from, const char *to, int open_flags, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata) {
         return copy_file_at_full(AT_FDCWD, from, AT_FDCWD, to, open_flags, mode, chattr_flags, chattr_mask, copy_flags, progress, userdata);
@@ -72,13 +72,13 @@ static inline int copy_file(const char *from, const char *to, int open_flags, mo
 
 int copy_file_atomic_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
 static inline int copy_file_atomic_at(int dir_fdf, const char *from, int dir_fdt, const char *to, mode_t mode, CopyFlags copy_flags) {
-        return copy_file_atomic_at_full(dir_fdf, from, dir_fdt, to, mode, 0, 0, copy_flags, NULL, NULL);
+        return copy_file_atomic_at_full(dir_fdf, from, dir_fdt, to, mode, /* chattr_flags= */ 0, /* chattr_mask= */ 0, copy_flags, /* progress= */ NULL, /* userdata= */ NULL);
 }
 static inline int copy_file_atomic_full(const char *from, const char *to, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata) {
         return copy_file_atomic_at_full(AT_FDCWD, from, AT_FDCWD, to, mode, chattr_flags, chattr_mask, copy_flags, progress, userdata);
 }
 static inline int copy_file_atomic(const char *from, const char *to, mode_t mode, CopyFlags copy_flags) {
-        return copy_file_atomic_full(from, to, mode, 0, 0, copy_flags, NULL, NULL);
+        return copy_file_atomic_full(from, to, mode, /* chattr_flags= */ 0, /* chattr_mask= */ 0, copy_flags, /* progress= */ NULL, /* userdata= */ NULL);
 }
 
 /* ts_clamp: upper bound for the timestamps of created inodes. $SOURCE_DATE_EPOCH semantic, see
@@ -86,20 +86,46 @@ static inline int copy_file_atomic(const char *from, const char *to, mode_t mode
  * the source's own timestamps. */
 int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, usec_t ts_clamp, Hashmap *denylist, Hashmap *subvolumes, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
 static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Hashmap *subvolumes) {
-        return copy_tree_at_full(fdf, from, fdt, to, override_uid, override_gid, copy_flags, USEC_INFINITY, denylist, subvolumes, NULL, NULL, NULL);
+        return copy_tree_at_full(
+                        fdf,
+                        from,
+                        fdt,
+                        to,
+                        override_uid,
+                        override_gid,
+                        copy_flags,
+                        USEC_INFINITY,
+                        denylist,
+                        subvolumes,
+                        /* progress_path= */ NULL,
+                        /* progress_bytes= */ NULL,
+                        /* userdata= */ NULL);
 }
 static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Hashmap *subvolumes) {
-        return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, USEC_INFINITY, denylist, subvolumes, NULL, NULL, NULL);
+        return copy_tree_at_full(
+                        AT_FDCWD,
+                        from,
+                        AT_FDCWD,
+                        to,
+                        override_uid,
+                        override_gid,
+                        copy_flags,
+                        USEC_INFINITY,
+                        denylist,
+                        subvolumes,
+                        /* progress_path= */ NULL,
+                        /* progress_bytes= */ NULL,
+                        /* userdata= */ NULL);
 }
 
 int copy_directory_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
 static inline int copy_directory_at(int dir_fdf, const char *from, int dir_fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags) {
-        return copy_directory_at_full(dir_fdf, from, dir_fdt, to, override_uid, override_gid, copy_flags, NULL, NULL, NULL);
+        return copy_directory_at_full(dir_fdf, from, dir_fdt, to, override_uid, override_gid, copy_flags, /* progress_path= */ NULL, /* progress_bytes= */ NULL, /* userdata= */ NULL);
 }
 
 int copy_bytes_full(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags, void **ret_remains, size_t *ret_remains_size, copy_progress_bytes_t progress, void *userdata);
 static inline int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
-        return copy_bytes_full(fdf, fdt, max_bytes, copy_flags, NULL, NULL, NULL, NULL);
+        return copy_bytes_full(fdf, fdt, max_bytes, copy_flags, /* ret_remains= */ NULL, /* ret_remains_size= */ NULL, /* progress= */ NULL, /* userdata= */ NULL);
 }
 
 /* See ts_clamp above. Covers atime, mtime, and with COPY_CRTIME the birth time. */
@@ -111,7 +137,7 @@ int copy_access(int fdf, int fdt);
 int copy_owner(int fdf, int fdt);
 int copy_rights_with_fallback(int fdf, int fdt, const char *patht);
 static inline int copy_rights(int fdf, int fdt) {
-        return copy_rights_with_fallback(fdf, fdt, NULL); /* no fallback */
+        return copy_rights_with_fallback(fdf, fdt, /* patht= */ NULL); /* no fallback */
 }
 int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_flags);
 

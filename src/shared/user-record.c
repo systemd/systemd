@@ -2413,7 +2413,7 @@ static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h
         assert(h);
         assert(ret);
 
-        r = user_group_record_mangle(h->json, USER_RECORD_EXTRACT_SIGNABLE|USER_RECORD_PERMISSIVE, &v, NULL);
+        r = user_group_record_mangle(h->json, USER_RECORD_EXTRACT_SIGNABLE|USER_RECORD_PERMISSIVE, &v, /* ret_mask= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2437,7 +2437,7 @@ static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h
                         if (!sd_json_variant_is_object(e))
                                 return -EINVAL;
 
-                        r = per_machine_match(e, 0);
+                        r = per_machine_match(e, /* flags= */ 0);
                         if (r < 0)
                                 return r;
                         if (r == 0) {

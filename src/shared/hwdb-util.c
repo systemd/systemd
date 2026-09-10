@@ -676,7 +676,7 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
         if (r < 0)
                 return log_error_errno(r, "Failed to write database %s: %m", hwdb_bin);
 
-        r = label_fix(hwdb_bin, 0);
+        r = label_fix(hwdb_bin, /* flags= */ 0);
         if (r < 0)
                 return r;
 

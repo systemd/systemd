@@ -253,7 +253,7 @@ int install_file(int source_atfd, const char *source_name,
                                         /* The exchange didn't work, let's remove the target first, and try again */
 
                                         if (dfd >= 0)
-                                                (void) rm_rf_children(TAKE_FD(dfd), REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD, NULL);
+                                                (void) rm_rf_children(TAKE_FD(dfd), REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD, /* root_dev= */ NULL);
 
                                         r = unlinkat_maybe_dir(target_atfd, target_name);
                                         if (r < 0)
@@ -264,7 +264,7 @@ int install_file(int source_atfd, const char *source_name,
                                 } else {
                                         /* The exchange worked, hence let's remove the source (i.e. the old target) */
                                         if (dfd >= 0)
-                                                (void) rm_rf_children(TAKE_FD(dfd), REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD, NULL);
+                                                (void) rm_rf_children(TAKE_FD(dfd), REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD, /* root_dev= */ NULL);
 
                                         r = unlinkat_maybe_dir(source_atfd, source_name);
                                         if (r < 0)

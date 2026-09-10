@@ -157,7 +157,7 @@ int mount_options_to_string(const MountOptions *mount_options, char **ret);
 
 int probe_filesystem_full(int fd, const char *path, uint64_t offset, uint64_t size, bool restrict_fstypes, char **ret_fstype);
 static inline int probe_filesystem(const char *path, char **ret_fstype) {
-        return probe_filesystem_full(-1, path, 0, UINT64_MAX, /* restrict_fstypes= */ false, ret_fstype);
+        return probe_filesystem_full(-1, path, /* offset= */ 0, UINT64_MAX, /* restrict_fstypes= */ false, ret_fstype);
 }
 
 int probe_partition_table(int fd, char **ret_pttype);

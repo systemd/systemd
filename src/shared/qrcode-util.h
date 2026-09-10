@@ -17,5 +17,5 @@ int print_qrcode_full(
 int dlopen_qrencode(int log_level) _dlopen_loader_;
 
 static inline int print_qrcode(FILE *out, const char *header, const char *string) {
-        return print_qrcode_full(out, header, string, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, true);
+        return print_qrcode_full(out, header, string, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, /* check_tty= */ true);
 }

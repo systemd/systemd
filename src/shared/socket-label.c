@@ -86,7 +86,7 @@ int socket_address_listen(
 
         assert(a);
 
-        r = socket_address_verify(a, true);
+        r = socket_address_verify(a, /* strict= */ true);
         if (r < 0)
                 return r;
 
@@ -127,7 +127,7 @@ int socket_address_listen(
                 }
 
                 if (reuse_port) {
-                        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEPORT, true);
+                        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEPORT, /* value= */ true);
                         if (r < 0)
                                 log_warning_errno(r, "SO_REUSEPORT failed: %m");
                 }
@@ -145,7 +145,7 @@ int socket_address_listen(
                 }
         }
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
         if (r < 0)
                 return r;
 

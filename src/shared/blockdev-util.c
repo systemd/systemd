@@ -388,7 +388,7 @@ int lock_whole_block_device(dev_t devt, int open_flags, int operation) {
         if (r < 0)
                 return r;
 
-        lock_fd = device_open_from_devnum(S_IFBLK, whole_devt, open_flags|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, NULL);
+        lock_fd = device_open_from_devnum(S_IFBLK, whole_devt, open_flags|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, /* ret_devname= */ NULL);
         if (lock_fd < 0)
                 return lock_fd;
 
@@ -510,7 +510,7 @@ int blockdev_partscan_enabled_fd(int fd) {
 
         assert(fd >= 0);
 
-        r = block_device_new_from_fd(fd, 0, &dev);
+        r = block_device_new_from_fd(fd, /* flags= */ 0, &dev);
         if (r < 0)
                 return r;
 
@@ -763,7 +763,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         assert(dev || fd >= 0);
 
         if (!dev) {
-                r = block_device_new_from_fd(fd, 0, &dev_unref);
+                r = block_device_new_from_fd(fd, /* flags= */ 0, &dev_unref);
                 if (r < 0)
                         return r;
 

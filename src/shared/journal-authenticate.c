@@ -299,7 +299,7 @@ static int journal_auth_setup(JournalAuthContext *c) {
         if (r < 0)
                 return r;
 
-        _cleanup_(EVP_MAC_freep) EVP_MAC *hmac = sym_EVP_MAC_fetch(NULL, "HMAC", NULL);
+        _cleanup_(EVP_MAC_freep) EVP_MAC *hmac = sym_EVP_MAC_fetch(/* libctx= */ NULL, "HMAC", /* properties= */ NULL);
         if (!hmac)
                 return log_openssl_errors(LOG_DEBUG, "EVP_MAC_fetch() failed");
 
@@ -311,7 +311,7 @@ static int journal_auth_setup(JournalAuthContext *c) {
         if (!bld)
                 return log_openssl_errors(LOG_DEBUG, "OSSL_PARAM_BLD_new() failed");
 
-        if (sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_MAC_PARAM_DIGEST, "SHA256", 0) <= 0)
+        if (sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_MAC_PARAM_DIGEST, "SHA256", /* bsize= */ 0) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "OSSL_PARAM_BLD_push_utf8_string() failed");
 
         _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);

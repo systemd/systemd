@@ -33,7 +33,7 @@ int lsm_supported(const char *name) {
         for (const char *p = lsm_list;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, ",", 0);
+                r = extract_first_word(&p, &word, ",", /* flags= */ 0);
                 if (r == 0)
                         return false;
                 if (r < 0)

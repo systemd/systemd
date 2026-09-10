@@ -117,7 +117,7 @@ void cryptsetup_enable_logging(struct crypt_device *cd) {
                          * all, and if this failed we already generated a debug log message that should help
                          * to track things down. */
 
-        sym_crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+        sym_crypt_set_log_callback(cd, cryptsetup_log_glue, /* usrptr= */ NULL);
         sym_crypt_set_debug_level(DEBUG_LOGGING ? CRYPT_DEBUG_ALL : CRYPT_DEBUG_NONE);
 }
 
@@ -170,7 +170,7 @@ int cryptsetup_get_token_as_json(
         if (r < 0)
                 return r;
 
-        r = sd_json_parse(text, 0, &v, NULL, NULL);
+        r = sd_json_parse(text, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return r == -ENOMEM ? r : -EUCLEAN; /* Report unparseable token data in a single way for callers to skip */
 
@@ -195,7 +195,7 @@ int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v) {
         _cleanup_free_ char *text = NULL;
         int r;
 
-        r = sd_json_variant_format(v, 0, &text);
+        r = sd_json_variant_format(v, /* flags= */ 0, &text);
         if (r < 0)
                 return log_debug_errno(r, "Failed to format token data for LUKS: %m");
 
@@ -350,7 +350,7 @@ int dlopen_cryptsetup(int log_level) {
          * whenever allocating a "struct crypt_device" context. Why set both? To be defensive: maybe some
          * other code loaded into this process also changes the global log functions of libcryptsetup, who
          * knows? And if so, we still want our own objects to log via our own infra, at the very least.) */
-        cryptsetup_enable_logging(NULL);
+        cryptsetup_enable_logging(/* cd= */ NULL);
 
         const char *e = secure_getenv("SYSTEMD_CRYPTSETUP_TOKEN_PATH");
         if (e) {
@@ -382,7 +382,7 @@ int cryptsetup_get_keyslot_from_token(sd_json_variant *v) {
         if (!sd_json_variant_is_array(w) || sd_json_variant_elements(w) != 1)
                 return -EMEDIUMTYPE;
 
-        w = sd_json_variant_by_index(w, 0);
+        w = sd_json_variant_by_index(w, /* index= */ 0);
         if (!w)
                 return -ENOENT;
         if (!sd_json_variant_is_string(w))

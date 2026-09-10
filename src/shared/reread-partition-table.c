@@ -300,7 +300,7 @@ static int reread_partition_table_full(sd_device *dev, int fd, RereadPartitionTa
                 return log_oom_debug();
 
         errno = 0;
-        r = sym_blkid_probe_set_device(b, fd, /* off= */ 0, /* size= */ 0);
+        r = sym_blkid_probe_set_device(b, fd, /* offset= */ 0, /* size= */ 0);
         if (r != 0)
                 return log_device_debug_errno(dev, errno_or_else(ENOMEM), "Failed to open block device '%s': %m", p);
 
@@ -319,7 +319,7 @@ static int reread_partition_table_full(sd_device *dev, int fd, RereadPartitionTa
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
         const char *pttype = NULL;
-        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, /* ret_size= */ NULL);
         if (!streq_ptr(pttype, "gpt")) {
                 log_device_debug(dev, "Didn't find a GPT partition table on '%s', falling back to BLKRRPART.", p);
                 return fallback_ioctl(dev, fd, flags);

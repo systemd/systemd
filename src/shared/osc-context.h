@@ -14,7 +14,7 @@ int osc_context_open_service(const char *unit, sd_id128_t invocation_id, char **
 int osc_context_close(sd_id128_t id, char **ret_seq);
 
 static inline void osc_context_closep(sd_id128_t *context_id) {
-        (void) osc_context_close(*ASSERT_PTR(context_id), NULL);
+        (void) osc_context_close(*ASSERT_PTR(context_id), /* ret_seq= */ NULL);
 }
 
 int osc_context_id_from_invocation_id(sd_id128_t id, sd_id128_t *ret);

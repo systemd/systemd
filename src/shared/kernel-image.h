@@ -26,5 +26,5 @@ static inline int inspect_kernel(
                 int dir_fd,
                 const char *filename,
                 KernelImageType *ret_type) {
-        return inspect_kernel_full(dir_fd, filename, ret_type, NULL, NULL, NULL);
+        return inspect_kernel_full(dir_fd, filename, ret_type, /* ret_cmdline= */ NULL, /* ret_uname= */ NULL, /* ret_pretty_name= */ NULL);
 }

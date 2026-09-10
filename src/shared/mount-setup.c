@@ -330,7 +330,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
 
         /* Relabel again, since we now mounted something fresh here */
         if (relabel)
-                (void) label_fix(p->where, 0);
+                (void) label_fix(p->where, /* flags= */ 0);
 
         if (FLAGS_SET(p->mode, MNT_CHECK_WRITABLE))
                 if (access(p->where, W_OK) < 0) {
@@ -390,7 +390,7 @@ static int relabel_cb(
 
         default:
                 /* Otherwise, label it, even if we had trouble stat()ing it and similar. SELinux can figure this out */
-                (void) label_fix(path, 0);
+                (void) label_fix(path, /* flags= */ 0);
                 return RECURSE_DIR_CONTINUE;
         }
 }
@@ -398,7 +398,7 @@ static int relabel_cb(
 static int relabel_tree(const char *path) {
         int r;
 
-        r = recurse_dir_at(AT_FDCWD, path, 0, UINT_MAX, RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, relabel_cb, NULL);
+        r = recurse_dir_at(AT_FDCWD, path, /* statx_mask= */ 0, UINT_MAX, RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, relabel_cb, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to recursively relabel '%s': %m", path);
 
@@ -417,7 +417,7 @@ static int relabel_extra(void) {
          * possible.
          */
 
-        r = conf_files_list(&files, ".relabel", NULL,
+        r = conf_files_list(&files, ".relabel", /* root= */ NULL,
                             CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR | CONF_FILES_WARN,
                             "/run/systemd/relabel-extra.d/");
         if (r < 0)
@@ -456,7 +456,7 @@ static int relabel_extra(void) {
                         }
 
                         log_debug("Relabelling additional file/directory '%s'.", line);
-                        (void) label_fix(line, 0);
+                        (void) label_fix(line, /* flags= */ 0);
                         (void) relabel_tree(line);
                         c++;
                 }
@@ -508,7 +508,7 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
         /* Create a few default symlinks, which are normally created
          * by udevd, but some scripts might need them before we start
          * udevd. */
-        dev_setup(NULL, UID_INVALID, GID_INVALID);
+        dev_setup(/* prefix= */ NULL, UID_INVALID, GID_INVALID);
 
         /* Mark the root directory as shared in regards to mount propagation. The kernel defaults to "private", but we
          * think it makes more sense to have a default of "shared" so that nspawn and the container tools work out of
@@ -517,7 +517,7 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
          * container manager we assume the container manager knows what it is doing (for example, because it set up
          * some directories with different propagation modes). */
         if (detect_container() <= 0 && !leave_propagation)
-                if (mount(NULL, "/", NULL, MS_REC|MS_SHARED, NULL) < 0)
+                if (mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_REC|MS_SHARED, /* data= */ NULL) < 0)
                         log_warning_errno(errno, "Failed to set up the root directory for shared mount propagation: %m");
 
         /* Create a few directories we always want around, Note that sd_booted() checks for /run/systemd/system, so

@@ -66,7 +66,7 @@ static int do_spawn(
                 char *_argv[2];
 
                 if (set_systemd_exec_pid) {
-                        r = setenv_systemd_exec_pid(false);
+                        r = setenv_systemd_exec_pid(/* update_only= */ false);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to set $SYSTEMD_EXEC_PID, ignoring: %m");
                 }
@@ -283,7 +283,7 @@ int execute_strv(
                 _exit(r < 0 ? EXIT_FAILURE : r);
         }
 
-        r = pidref_wait_for_terminate_and_check(process_name, &executor_pidref, 0);
+        r = pidref_wait_for_terminate_and_check(process_name, &executor_pidref, /* flags= */ 0);
         if (r < 0)
                 return r;
         if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
@@ -356,7 +356,7 @@ static int gather_environment_generate(int fd, void *arg) {
                 return -errno;
         }
 
-        r = load_env_file_pairs(f, NULL, &new);
+        r = load_env_file_pairs(f, /* fname= */ NULL, &new);
         if (r < 0)
                 return r;
 
@@ -557,7 +557,7 @@ int shall_fork_agent(void) {
 
         /* Check if we have a controlling terminal. If not (ENXIO here), we aren't actually invoked
          * interactively on a terminal, hence fail. */
-        r = get_ctty_devnr(0, NULL);
+        r = get_ctty_devnr(/* pid= */ 0, /* ret= */ NULL);
         if (r == -ENXIO)
                 return false;
         if (r < 0)

@@ -196,7 +196,7 @@ static int condition_test_version_cmp(const char *condition, const char *ver) {
                 const char *s;
                 int r;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse condition string \"%s\": %m", p);
                 if (r == 0)
@@ -213,7 +213,7 @@ static int condition_test_version_cmp(const char *condition, const char *ver) {
                                 /* For backwards compatibility, allow whitespace between the operator and
                                  * value, without quoting, but only in the first expression. */
                                 word = mfree(word);
-                                r = extract_first_word(&p, &word, NULL, 0);
+                                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                                 if (r < 0)
                                         return log_debug_errno(r, "Failed to parse condition string \"%s\": %m", p);
                                 if (r == 0)
@@ -280,7 +280,7 @@ static int condition_test_osrelease(Condition *c, char **env) {
                 CompareOperator operator;
                 const char *word;
 
-                r = extract_first_word(&parameter, &condition, NULL, EXTRACT_UNQUOTE);
+                r = extract_first_word(&parameter, &condition, /* separators= */ NULL, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse parameter: %m");
                 if (r == 0)
@@ -362,7 +362,7 @@ static int condition_test_memory(Condition *c, char **env) {
         m = physical_memory();
 
         p = c->parameter;
-        operator = parse_compare_operator(&p, 0);
+        operator = parse_compare_operator(&p, /* flags= */ 0);
         if (operator < 0)
                 operator = COMPARE_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
 
@@ -388,7 +388,7 @@ static int condition_test_cpus(Condition *c, char **env) {
                 return log_debug_errno(n, "Failed to determine CPUs in affinity mask: %m");
 
         p = c->parameter;
-        operator = parse_compare_operator(&p, 0);
+        operator = parse_compare_operator(&p, /* flags= */ 0);
         if (operator < 0)
                 operator = COMPARE_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
 
@@ -431,7 +431,7 @@ static int condition_test_user(Condition *c, char **env) {
         if (streq(username, c->parameter))
                 return 1;
 
-        r = get_user_creds(c->parameter, USER_CREDS_ALLOW_MISSING, NULL, &id, NULL, NULL, NULL);
+        r = get_user_creds(c->parameter, USER_CREDS_ALLOW_MISSING, /* ret_username= */ NULL, &id, /* ret_gid= */ NULL, /* ret_home= */ NULL, /* ret_shell= */ NULL);
         if (r < 0)
                 return 0;
 
@@ -603,7 +603,7 @@ static int condition_test_firmware_smbios_field(const char *expression) {
                 return operator;
 
         /* Parse expected value */
-        r = extract_first_word(&expression, &expected_value, NULL, EXTRACT_UNQUOTE);
+        r = extract_first_word(&expression, &expected_value, /* separators= */ NULL, EXTRACT_UNQUOTE);
         if (r < 0)
                 return r;
         if (r == 0 || !isempty(expression))
@@ -614,7 +614,7 @@ static int condition_test_firmware_smbios_field(const char *expression) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid SMBIOS field name.");
 
         const char *p = strjoina("/sys/class/dmi/id/", field);
-        r = read_virtual_file(p, SIZE_MAX, &actual_value, NULL);
+        r = read_virtual_file(p, SIZE_MAX, &actual_value, /* ret_size= */ NULL);
         if (r < 0) {
                 log_debug_errno(r, "Failed to read %s: %m", p);
                 if (r == -ENOENT)
@@ -1033,7 +1033,7 @@ static int condition_test_path_is_directory(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_DIRECTORY);
 
-        return is_dir(c->parameter, true) > 0;
+        return is_dir(c->parameter, /* follow= */ true) > 0;
 }
 
 static int condition_test_path_is_symbolic_link(Condition *c, char **env) {
@@ -1245,7 +1245,7 @@ static int condition_test_psi(Condition *c, char **env) {
         else {
                 const char *timespan;
 
-                timespan = skip_leading_chars(fourth, NULL);
+                timespan = skip_leading_chars(fourth, /* bad= */ NULL);
                 if (!timespan)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s.", c->parameter);
 
@@ -1321,7 +1321,7 @@ static int condition_test_kernel_module_loaded(Condition *c, char **env) {
         }
 
         _cleanup_free_ char *initstate = NULL;
-        r = read_virtual_file_at(dir_fd, "initstate", SIZE_MAX, &initstate, NULL);
+        r = read_virtual_file_at(dir_fd, "initstate", SIZE_MAX, &initstate, /* ret_size= */ NULL);
         if (r == -ENOENT) {
                 log_debug_errno(r, "'%s/' exists but '%s/initstate' does not, kernel module '%s' is built-in, hence loaded.", p, p, normalized);
                 return true;

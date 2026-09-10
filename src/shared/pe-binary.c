@@ -417,13 +417,13 @@ int pe_hash(int fd,
         if (!mdctx)
                 return log_oom_debug();
 
-        if (sym_EVP_DigestInit_ex(mdctx, md, NULL) != 1)
+        if (sym_EVP_DigestInit_ex(mdctx, md, /* impl= */ NULL) != 1)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to allocate message digest.");
 
         /* Everything from beginning of file to CheckSum field in PE header */
         p = (uint64_t) le32toh(dos_header->e_lfanew) +
                 offsetof(PeHeader, optional.CheckSum);
-        r = hash_file(fd, mdctx, 0, p);
+        r = hash_file(fd, mdctx, /* offset= */ 0, p);
         if (r < 0)
                 return r;
         p += sizeof(le32_t);
@@ -599,7 +599,7 @@ int uki_hash(int fd,
                 if (!mdctx)
                         return log_oom_debug();
 
-                if (sym_EVP_DigestInit_ex(mdctx, md, NULL) != 1)
+                if (sym_EVP_DigestInit_ex(mdctx, md, /* impl= */ NULL) != 1)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to allocate message digest.");
 
                 r = hash_file(fd, mdctx, le32toh(section->PointerToRawData), MIN(le32toh(section->VirtualSize), le32toh(section->SizeOfRawData)));

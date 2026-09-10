@@ -175,7 +175,7 @@ int read_credential(const char *name, void **ret, size_t *ret_size) {
                         AT_FDCWD, fn,
                         UINT64_MAX, SIZE_MAX,
                         READ_FULL_FILE_SECURE,
-                        NULL,
+                        /* bind_name= */ NULL,
                         (char**) ret, ret_size);
 }
 
@@ -223,7 +223,7 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
                         AT_FDCWD, fn,
                         UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX,
                         READ_FULL_FILE_SECURE|READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
-                        NULL,
+                        /* bind_name= */ NULL,
                         (char**) &data, &sz);
         if (r == -ENOENT)
                 goto not_found;
@@ -296,7 +296,7 @@ int read_credential_strings_many_internal(
         if (!first_name)
                 return 0;
 
-        r = read_credential(first_name, &b, NULL);
+        r = read_credential(first_name, &b, /* ret_size= */ NULL);
         if (r == -ENXIO) /* No creds passed at all? Bail immediately. */
                 return 0;
         if (r == -ENOENT)
@@ -320,7 +320,7 @@ int read_credential_strings_many_internal(
 
                 value = ASSERT_PTR(va_arg(ap, char **));
 
-                r = read_credential(name, &bb, NULL);
+                r = read_credential(name, &bb, /* ret_size= */ NULL);
                 if (r == -ENOENT)
                         all = false;
                 else if (r < 0)
@@ -337,7 +337,7 @@ int read_credential_bool(const char *name) {
         _cleanup_free_ void *data = NULL;
         int r;
 
-        r = read_credential(name, &data, NULL);
+        r = read_credential(name, &data, /* ret_size= */ NULL);
         if (r < 0)
                 return IN_SET(r, -ENXIO, -ENOENT) ? 0 : r;
 
@@ -357,14 +357,14 @@ int get_credential_user_password(const char *username, char **ret_password, bool
         if (!cn)
                 return -ENOMEM;
 
-        r = read_credential(cn, (void**) &creds_password, NULL);
+        r = read_credential(cn, (void**) &creds_password, /* ret_size= */ NULL);
         if (r == -ENOENT) {
                 free(cn);
                 cn = strjoin("passwd.plaintext-password.", username);
                 if (!cn)
                         return -ENOMEM;
 
-                r = read_credential(cn, (void**) &creds_password, NULL);
+                r = read_credential(cn, (void**) &creds_password, /* ret_size= */ NULL);
                 if (r < 0)
                         log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
                 else
@@ -471,7 +471,7 @@ static int make_credential_host_secret(
 
         CLEANUP_TMPFILE_AT(dfd, t);
 
-        r = chattr_secret(fd, 0);
+        r = chattr_secret(fd, /* flags= */ 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to set file attributes for secrets file, ignoring: %m");
 
@@ -800,7 +800,7 @@ static int sha256_hash_host_and_tpm2_key(
         if (!md)
                 return log_oom();
 
-        if (sym_EVP_DigestInit_ex(md, sym_EVP_sha256(), NULL) != 1)
+        if (sym_EVP_DigestInit_ex(md, sym_EVP_sha256(), /* impl= */ NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initial SHA256 context.");
 
         if (iovec_is_set(host_key) && sym_EVP_DigestUpdate(md, host_key->iov_base, host_key->iov_len) != 1)
@@ -1121,7 +1121,7 @@ int encrypt_credential_and_warn(
         if (!context)
                 return log_openssl_errors(LOG_ERR, "Failed to allocate encryption object");
 
-        if (sym_EVP_EncryptInit_ex(context, cc, NULL, md, iv.iov_base) != 1)
+        if (sym_EVP_EncryptInit_ex(context, cc, /* impl= */ NULL, md, iv.iov_base) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to initialize encryption context");
 
         tsz = sym_EVP_CIPHER_CTX_get_tag_length(context);
@@ -1202,7 +1202,7 @@ int encrypt_credential_and_warn(
         }
 
         /* Pass the encrypted + TPM2 header + scoped header as AAD */
-        if (sym_EVP_EncryptUpdate(context, NULL, &added, output.iov_base, p) != 1)
+        if (sym_EVP_EncryptUpdate(context, /* out= */ NULL, &added, output.iov_base, p) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to write AAD data");
 
         /* Now construct the metadata header */
@@ -1594,7 +1594,7 @@ int decrypt_credential_and_warn(
         if (!context)
                 return log_openssl_errors(LOG_ERR, "Failed to allocate decryption object");
 
-        if (sym_EVP_DecryptInit_ex(context, cc, NULL, NULL, NULL) != 1)
+        if (sym_EVP_DecryptInit_ex(context, cc, /* impl= */ NULL, /* key= */ NULL, /* iv= */ NULL) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to initialize decryption context");
 
         tsz = sym_EVP_CIPHER_CTX_get_tag_length(context);
@@ -1603,13 +1603,13 @@ int decrypt_credential_and_warn(
         if (tag_size != (uint32_t) tsz)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected tag size in header.");
 
-        if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_IVLEN, le32toh(h->iv_size), NULL) != 1)
+        if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_IVLEN, le32toh(h->iv_size), /* ptr= */ NULL) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to set IV size on decryption context");
 
-        if (sym_EVP_DecryptInit_ex(context, NULL, NULL, md, h->iv) != 1)
+        if (sym_EVP_DecryptInit_ex(context, /* cipher= */ NULL, /* impl= */ NULL, md, h->iv) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to set IV and key");
 
-        if (sym_EVP_DecryptUpdate(context, NULL, &added, input->iov_base, p) != 1)
+        if (sym_EVP_DecryptUpdate(context, /* out= */ NULL, &added, input->iov_base, p) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to write AAD data");
 
         plaintext.iov_base = malloc(input->iov_len - p - tag_size);

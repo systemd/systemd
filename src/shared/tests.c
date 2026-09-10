@@ -175,10 +175,10 @@ bool userns_has_single_user(void) {
          * and as such happens more often than not, so we make sure to deal with it so that all tests pass
          * in such environments. */
 
-        if (uid_range_load_userns(NULL, UID_RANGE_USERNS_INSIDE, &uidrange) < 0)
+        if (uid_range_load_userns(/* path= */ NULL, UID_RANGE_USERNS_INSIDE, &uidrange) < 0)
                 return false;
 
-        if (uid_range_load_userns(NULL, GID_RANGE_USERNS_INSIDE, &gidrange) < 0)
+        if (uid_range_load_userns(/* path= */ NULL, GID_RANGE_USERNS_INSIDE, &gidrange) < 0)
                 return false;
 
         return uidrange->n_entries == 1 && uidrange->entries[0].nr == 1 &&
@@ -214,7 +214,7 @@ static int allocate_scope(void) {
 
         /* Let's try to run this test in a scope of its own, with delegation turned on, so that PID 1 doesn't
          * interfere with our cgroup management. */
-        if (cg_pid_get_path(0, &cgroup_root) >= 0 && cg_is_delegated(cgroup_root) && stderr_is_journal()) {
+        if (cg_pid_get_path(/* pid= */ 0, &cgroup_root) >= 0 && cg_is_delegated(cgroup_root) && stderr_is_journal()) {
                 log_debug("Already running as a unit with delegated cgroup, not allocating a cgroup subroot.");
                 return 0;
         }
@@ -268,7 +268,7 @@ static int allocate_scope(void) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to start transient scope unit: %s", bus_error_message(&error, r));
 
@@ -276,7 +276,7 @@ static int allocate_scope(void) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR, NULL);
+        r = bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL);
         if (r < 0)
                 return r;
 
@@ -298,7 +298,7 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         if (r < 0)
                 log_warning_errno(r, "Couldn't allocate a scope unit for this test, proceeding without.");
 
-        r = cg_pid_get_path(0, &cgroup_root);
+        r = cg_pid_get_path(/* pid= */ 0, &cgroup_root);
         if (IN_SET(r, -ENOMEDIUM, -ENOENT))
                 return log_warning_errno(r, "cg_pid_get_path(0, ...) failed: %m");
         ASSERT_OK(r);
@@ -313,7 +313,7 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         /* If this fails, then we don't mind as the later cgroup operations will fail too, and it's fine if
          * we handle any errors at that point. */
 
-        r = cg_create_and_attach(cgroup_subroot, 0);
+        r = cg_create_and_attach(cgroup_subroot, /* pid= */ 0);
         if (r < 0)
                 return r;
 
@@ -324,15 +324,15 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
 }
 
 int enter_cgroup_subroot(char **ret_cgroup) {
-        return enter_cgroup(ret_cgroup, true);
+        return enter_cgroup(ret_cgroup, /* enter_subroot= */ true);
 }
 
 int enter_cgroup_root(char **ret_cgroup) {
-        return enter_cgroup(ret_cgroup, false);
+        return enter_cgroup(ret_cgroup, /* enter_subroot= */ false);
 }
 
 int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len) {
-        return unhexmem_full(hex, strlen_ptr(hex), false, name, name_len);
+        return unhexmem_full(hex, strlen_ptr(hex), /* secure= */ false, name, name_len);
 }
 
 const char* ci_environment(void) {
@@ -475,7 +475,7 @@ void log_test_failed_internal(const char *file, int line, const char *func, cons
 
         va_start(ap, format);
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        log_internalv(LOG_ERR, 0, file, line, func, format, ap);
+        log_internalv(LOG_ERR, /* error= */ 0, file, line, func, format, ap);
         REENABLE_WARNING;
         va_end(ap);
 

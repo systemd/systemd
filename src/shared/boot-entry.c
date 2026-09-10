@@ -31,7 +31,7 @@ static int entry_token_load_one(int rfd, const char *dir, BootEntryTokenType *ty
         if (!p)
                 return log_oom();
 
-        r = chase_and_fopenat_unlocked(rfd, rfd, p, /* chase_flags= */ 0, "re", NULL, &f);
+        r = chase_and_fopenat_unlocked(rfd, rfd, p, /* chase_flags= */ 0, "re", /* ret_path= */ NULL, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

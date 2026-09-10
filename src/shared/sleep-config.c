@@ -76,7 +76,7 @@ static int config_parse_sleep_mode(
                 if (!modes)
                         return log_oom();
         } else {
-                r = strv_split_full(&modes, rvalue, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                r = strv_split_full(&modes, rvalue, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
                         return log_oom();
         }
@@ -208,7 +208,7 @@ int sleep_state_supported(char * const *states) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to read /sys/power/state: %m");
 
-        r = string_contains_word_strv(supported_sysfs, NULL, states, &found);
+        r = string_contains_word_strv(supported_sysfs, /* separators= */ NULL, states, &found);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /sys/power/state: %m");
         if (r > 0) {
@@ -247,7 +247,7 @@ int sleep_mode_supported(const char *path, char * const *modes) {
                 char *mode;
                 size_t l;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse %s: %m", path);
                 if (r == 0)

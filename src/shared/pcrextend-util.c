@@ -147,7 +147,7 @@ static int device_get_file_system_word(
                 return -ENOMEM;
 
         errno = 0;
-        r = sym_blkid_probe_set_device(b, block_fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, block_fd, /* offset= */ 0, /* size= */ 0);
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
@@ -172,7 +172,7 @@ static int device_get_file_system_word(
         FOREACH_STRING(field, "TYPE", "UUID", "LABEL", "PART_ENTRY_UUID", "PART_ENTRY_TYPE", "PART_ENTRY_NAME") {
                 const char *v = NULL;
 
-                (void) sym_blkid_probe_lookup_value(b, field, &v, NULL);
+                (void) sym_blkid_probe_lookup_value(b, field, &v, /* ret_size= */ NULL);
 
                 _cleanup_free_ char *escaped = xescape(strempty(v), ":"); /* Avoid ambiguity around ":" */
                 if (!escaped)
@@ -205,11 +205,11 @@ int pcrextend_file_system_word(const char *path, char **ret_word, char **ret_nor
         assert(path);
         assert(ret_word);
 
-        dfd = chase_and_open(path, NULL, 0, O_DIRECTORY|O_CLOEXEC, &normalized_path);
+        dfd = chase_and_open(path, /* root= */ NULL, /* chase_flags= */ 0, O_DIRECTORY|O_CLOEXEC, &normalized_path);
         if (dfd < 0)
                 return log_error_errno(dfd, "Failed to open path '%s': %m", path);
 
-        r = is_mount_point_at(dfd, NULL, 0);
+        r = is_mount_point_at(dfd, /* path= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if path '%s' is mount point: %m", normalized_path);
         if (r == 0)

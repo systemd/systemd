@@ -309,7 +309,7 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
         }
 
         /* Ensure we have a kernel object for this. */
-        r = bpf_program_load_kernel(p, NULL, 0);
+        r = bpf_program_load_kernel(p, /* log_buf= */ NULL, /* log_size= */ 0);
         if (r < 0)
                 return r;
 
@@ -513,7 +513,7 @@ int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **b
         assert(bpfp);
 
         /* Extract first word: the fd number */
-        r = extract_first_word(&v, &sfd, NULL, 0);
+        r = extract_first_word(&v, &sfd, /* separators= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -524,7 +524,7 @@ int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **b
                 return r;
 
         /* Extract second word: the attach type */
-        r = extract_first_word(&v, &sat, NULL, 0);
+        r = extract_first_word(&v, &sat, /* separators= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -538,7 +538,7 @@ int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **b
         if (isempty(v))
                 return -EINVAL;
 
-        l = cunescape(v, 0, &unescaped);
+        l = cunescape(v, /* flags= */ 0, &unescaped);
         if (l < 0)
                 return l;
 
