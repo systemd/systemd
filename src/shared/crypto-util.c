@@ -743,7 +743,7 @@ bool dlopen_libcrypto_has_argon2id(void) {
         if (dlopen_libcrypto(LOG_DEBUG) < 0)
                 return false;
 
-        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(/* propq= */ NULL, "ARGON2ID", /* propq= */ NULL);
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(/* libctx= */ NULL, "ARGON2ID", /* properties= */ NULL);
         return !!kdf;
 #else
         return false;
@@ -856,7 +856,7 @@ int openssl_pubkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret) {
         if (!f)
                 return log_oom_debug();
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = sym_PEM_read_PUBKEY(f, /* x= */ NULL, /* pam_password_cb= */ NULL, /* userdata= */ NULL);
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = sym_PEM_read_PUBKEY(f, /* x= */ NULL, /* cb= */ NULL, /* u= */ NULL);
         if (!pkey)
                 return log_openssl_errors(LOG_DEBUG, "Failed to parse PEM");
 
@@ -1327,7 +1327,7 @@ int kdf_argon2id_derive(
         if (r < 0)
                 return r;
 
-        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(/* propq= */ NULL, "ARGON2ID", /* propq= */ NULL);
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = sym_EVP_KDF_fetch(/* libctx= */ NULL, "ARGON2ID", /* properties= */ NULL);
         if (!kdf)
                 return log_openssl_errors(LOG_DEBUG, "Failed to create new EVP_KDF for ARGON2ID");
 
@@ -2761,7 +2761,7 @@ static int load_x509_certificate_from_provider(const char *provider, const char 
         _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = sym_OSSL_STORE_open(
                         certificate_uri,
                         /* ui_method= */ NULL,
-                        /* ui_method= */ NULL,
+                        /* ui_data= */ NULL,
                         /* post_process= */ NULL,
                         /* post_process_data= */ NULL);
         if (!store)

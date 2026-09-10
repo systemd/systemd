@@ -1888,7 +1888,7 @@ static int on_monitor_ringbuf_io(sd_event_source *s, int fd, uint32_t events, vo
         struct ring_buffer *rb = ASSERT_PTR(userdata);
         int r;
 
-        r = sym_ring_buffer__poll(rb, /* timeout_msec= */ 0);
+        r = sym_ring_buffer__poll(rb, /* timeout_ms= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to consume BPF ring buffer: %m");
 

@@ -416,7 +416,7 @@ static int split_unit_string(const char *s, const char *field, const char *exten
         if (isempty(s))
                 return 0;
 
-        split = strv_split(s, /* separators= whitespace */ NULL);
+        split = strv_split(s, /* separators= */ NULL);
         if (!split)
                 return log_oom();
 

@@ -48,7 +48,7 @@ static int network_save(Network *network, const char *dest_dir) {
         r = generator_open_unit_file_full(
                         dest_dir,
                         /* source= */ NULL,
-                        /* name= */ NULL,
+                        /* filename= */ NULL,
                         &f,
                         /* ret_final_path= */ NULL,
                         &temp_path);
@@ -82,7 +82,7 @@ static int netdev_save(NetDev *netdev, const char *dest_dir) {
         r = generator_open_unit_file_full(
                         dest_dir,
                         /* source= */ NULL,
-                        /* name= */ NULL,
+                        /* filename= */ NULL,
                         &f,
                         /* ret_final_path= */ NULL,
                         &temp_path);
@@ -113,7 +113,7 @@ static int link_save(Link *link, const char *dest_dir) {
         r = generator_open_unit_file_full(
                         dest_dir,
                         /* source= */ NULL,
-                        /* name= */ NULL,
+                        /* filename= */ NULL,
                         &f,
                         /* ret_final_path= */ NULL,
                         &temp_path);

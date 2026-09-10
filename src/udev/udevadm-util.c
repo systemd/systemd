@@ -186,7 +186,7 @@ int udev_ping(usec_t timeout_usec, bool ignore_connection_failure) {
                 return ignore ? 0 : r;  /* nothing to do or error */
         }
 
-        r = varlink_call_and_log(link, "io.systemd.service.Ping", /* parameters= */ NULL, /* reply= */ NULL);
+        r = varlink_call_and_log(link, "io.systemd.service.Ping", /* parameters= */ NULL, /* ret_parameters= */ NULL);
         if (r < 0)
                 return r;
 

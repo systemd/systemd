@@ -990,7 +990,7 @@ int dns_packet_truncate_rrs(DnsPacket *p, size_t max_size, bool reserve_opt) {
 
         for (unsigned i = 0; i < DNS_PACKET_QDCOUNT(p); i++) {
                 r = dns_packet_read_key(p, /* ret= */ NULL, /* ret_cache_flush_or_qu= */ NULL,
-                                        /* ret_start= */ NULL);
+                                        /* start= */ NULL);
                 if (r < 0)
                         return r;
         }
