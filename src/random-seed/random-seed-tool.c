@@ -163,7 +163,7 @@ static int load_seed_file(
         if (!buf)
                 return log_oom();
 
-        k = loop_read(seed_fd, buf, seed_size, false);
+        k = loop_read(seed_fd, buf, seed_size, /* do_poll= */ false);
         if (k < 0) {
                 log_warning_errno(k, "Failed to read seed from %s: %m", RANDOM_SEED);
                 return 0;
@@ -238,7 +238,7 @@ static int save_seed_file(
 
         /* This is just a safety measure. Given that we are root and most likely created the file ourselves
          * the mode and owner should be correct anyway. */
-        r = fchmod_and_chown(seed_fd, 0600, 0, 0);
+        r = fchmod_and_chown(seed_fd, 0600, /* uid= */ 0, /* gid= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust seed file ownership and access mode: %m");
 
@@ -263,7 +263,7 @@ static int save_seed_file(
 
         if (!getrandom_worked) {
                 /* Retry with classic /dev/urandom */
-                k = loop_read(urandom_fd, buf, seed_size, false);
+                k = loop_read(urandom_fd, buf, seed_size, /* do_poll= */ false);
                 if (k < 0)
                         return log_error_errno(k, "Failed to read new seed from /dev/urandom: %m");
                 if (k == 0)
