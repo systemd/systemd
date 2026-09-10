@@ -229,7 +229,7 @@ static int mac_smack_label_post(int dir_fd, const char *path, bool created, Labe
         if (!created)
                 return 0;
 
-        return mac_smack_fix_full(dir_fd, path, NULL, 0);
+        return mac_smack_fix_full(dir_fd, path, /* label_path= */ NULL, /* flags= */ 0);
 }
 
 int mac_smack_init(void) {

@@ -86,7 +86,7 @@ static int watchdog_get_pretimeout_governor(char **ret_gov) {
 
         log_info("Watchdog: reading from %s", sys_fn);
 
-        r = read_virtual_file(sys_fn, WATCHDOG_GOV_NAME_MAXLEN - 1, ret_gov, NULL);
+        r = read_virtual_file(sys_fn, WATCHDOG_GOV_NAME_MAXLEN - 1, ret_gov, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 
@@ -350,7 +350,7 @@ static int watchdog_update_timeout(void) {
          * time, we want to configure the pretimeout before it is enabled. */
         (void) watchdog_update_pretimeout();
 
-        r = watchdog_set_enable(true);
+        r = watchdog_set_enable(/* enable= */ true);
         if (r < 0)
                 return r;
 
@@ -589,7 +589,7 @@ void watchdog_close(bool disarm) {
                 return;
 
         if (disarm) {
-                (void) watchdog_set_enable(false);
+                (void) watchdog_set_enable(/* enable= */ false);
 
                 /* To be sure, use magic close logic, too */
                 for (;;) {

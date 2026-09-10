@@ -322,7 +322,7 @@ int journal_importer_process_data(JournalImporter *imp) {
                         /* chomp newline */
                         n--;
 
-                        if (!journal_field_valid(line, sep - line, true)) {
+                        if (!journal_field_valid(line, sep - line, /* allow_protected= */ true)) {
                                 char buf[64], *t;
 
                                 t = strndupa_safe(line, MIN((size_t) (sep - line), sizeof buf));
@@ -341,7 +341,7 @@ int journal_importer_process_data(JournalImporter *imp) {
                         if (r < 0)
                                 return r;
                 } else {
-                        if (!journal_field_valid(line, n - 1, true)) {
+                        if (!journal_field_valid(line, n - 1, /* allow_protected= */ true)) {
                                 char buf[64], *t;
 
                                 t = strndupa_safe(line, MIN(n - 1, sizeof buf));

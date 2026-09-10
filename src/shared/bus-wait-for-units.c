@@ -124,14 +124,14 @@ static WaitForItem* wait_for_item_free(WaitForItem *item) {
                 if (FLAGS_SET(item->flags, BUS_WAIT_REFFED) && item->bus_path && item->parent->bus) {
                         r = sd_bus_call_method_async(
                                         item->parent->bus,
-                                        NULL,
+                                        /* ret_slot= */ NULL,
                                         "org.freedesktop.systemd1",
                                         item->bus_path,
                                         "org.freedesktop.systemd1.Unit",
                                         "Unref",
-                                        NULL,
-                                        NULL,
-                                        NULL);
+                                        /* callback= */ NULL,
+                                        /* userdata= */ NULL,
+                                        /* types= */ NULL);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to drop reference to unit %s, ignoring: %m", item->bus_path);
                 }
@@ -189,7 +189,7 @@ static void bus_wait_for_units_clear(BusWaitForUnits *d) {
         d->bus = sd_bus_unref(d->bus);
 
         while ((item = hashmap_first(d->items)))
-                call_unit_callback_and_wait(d, item, false);
+                call_unit_callback_and_wait(d, item, /* good= */ false);
 
         d->items = hashmap_free(d->items);
 }
@@ -233,7 +233,7 @@ static void wait_for_item_fail(WaitForItem *item) {
 
         d->has_failed = true;
 
-        call_unit_callback_and_wait(d, item, false);
+        call_unit_callback_and_wait(d, item, /* good= */ false);
         bus_wait_for_units_check_ready(d);
 }
 
@@ -250,7 +250,7 @@ static void bus_wait_for_units_setup_failed(BusWaitForUnits *d) {
         d->has_failed = true;
 
         while ((item = hashmap_first(d->items)))
-                call_unit_callback_and_wait(d, item, false);
+                call_unit_callback_and_wait(d, item, /* good= */ false);
 
         bus_wait_for_units_check_ready(d);
 }
@@ -365,7 +365,7 @@ static void wait_for_item_check_ready(WaitForItem *item) {
                 return;
         }
 
-        call_unit_callback_and_wait(d, item, true);
+        call_unit_callback_and_wait(d, item, /* good= */ true);
         bus_wait_for_units_check_ready(d);
 }
 
@@ -455,7 +455,7 @@ static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) 
         assert(item);
         assert(m);
 
-        r = bus_message_map_all_properties(m, map, BUS_MAP_STRDUP, NULL, item);
+        r = bus_message_map_all_properties(m, map, BUS_MAP_STRDUP, /* reterr_error= */ NULL, item);
         if (r < 0)
                 return r;
 
@@ -800,10 +800,10 @@ int bus_wait_for_units_new(sd_bus *bus, BusWaitForUnits **ret) {
                         bus,
                         &d->slot_disconnected,
                         "org.freedesktop.DBus.Local",
-                        NULL,
+                        /* path= */ NULL,
                         "org.freedesktop.DBus.Local",
                         "Disconnected",
-                        match_disconnected, NULL, d);
+                        match_disconnected, /* install_callback= */ NULL, d);
         if (r < 0)
                 return r;
 
@@ -861,7 +861,7 @@ int bus_wait_for_units_new(sd_bus *bus, BusWaitForUnits **ret) {
         /* The Reloading signal is only sent to subscribed clients on the API bus, hence subscribe. (The
          * UnitRemoved signal is also sent to clients holding a reference on the unit, which we always do,
          * but subscribing covers it too.) */
-        r = bus_call_method_async(bus, &d->slot_subscribe, bus_systemd_mgr, "Subscribe", on_subscribe, d, NULL);
+        r = bus_call_method_async(bus, &d->slot_subscribe, bus_systemd_mgr, "Subscribe", on_subscribe, d, /* types= */ NULL);
         if (r < 0)
                 return r;
         bus_wait_for_units_pending_inc(d);
@@ -892,7 +892,7 @@ BusWaitForUnits* bus_wait_for_units_free(BusWaitForUnits *d) {
                 return NULL;
 
         if (d->subscribed && d->bus) {
-                r = bus_call_method_async(d->bus, NULL, bus_systemd_mgr, "Unsubscribe", NULL, NULL, NULL);
+                r = bus_call_method_async(d->bus, /* ret_slot= */ NULL, bus_systemd_mgr, "Unsubscribe", /* callback= */ NULL, /* userdata= */ NULL, /* types= */ NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to unsubscribe from service manager signals, ignoring: %m");
         }
@@ -948,14 +948,14 @@ int bus_wait_for_units_add_unit(
         if (!FLAGS_SET(item->flags, BUS_WAIT_REFFED)) {
                 r = sd_bus_call_method_async(
                                 d->bus,
-                                NULL,
+                                /* ret_slot= */ NULL,
                                 "org.freedesktop.systemd1",
                                 item->bus_path,
                                 "org.freedesktop.systemd1.Unit",
                                 "Ref",
-                                NULL,
-                                NULL,
-                                NULL);
+                                /* callback= */ NULL,
+                                /* userdata= */ NULL,
+                                /* types= */ NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add reference to unit %s: %m", unit);
 
@@ -1006,7 +1006,7 @@ int bus_wait_for_units_run(BusWaitForUnits *d) {
 
         while (d->state == BUS_WAIT_RUNNING) {
 
-                r = sd_bus_process(d->bus, NULL);
+                r = sd_bus_process(d->bus, /* ret= */ NULL);
                 if (r < 0)
                         return r;
                 if (r > 0)

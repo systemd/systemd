@@ -466,7 +466,7 @@ int hibernation_is_safe(void) {
 
         bypass_space_check = getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0;
 
-        r = find_suitable_hibernation_device_full(NULL, &size, &used);
+        r = find_suitable_hibernation_device_full(/* ret_device= */ NULL, &size, &used);
         if (IN_SET(r, -ENOSPC, -ESTALE) && bypass_space_check)
                 /* If we don't have any available swap space at all, or the specified resume device is missing,
                  * and $SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK is set, skip all remaining checks since
@@ -530,7 +530,7 @@ int clear_efi_hibernate_location_and_warn(void) {
         if (!is_efi_boot())
                 return 0;
 
-        r = efi_set_variable(EFI_SYSTEMD_VARIABLE_STR("HibernateLocation"), NULL, 0);
+        r = efi_set_variable(EFI_SYSTEMD_VARIABLE_STR("HibernateLocation"), /* value= */ NULL, /* size= */ 0);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

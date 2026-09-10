@@ -124,7 +124,7 @@ static int show_cgroup_one_by_path(
                 pids[n++] = pid;
         }
 
-        show_pid_array(pids, n, prefix, n_columns, false, more, flags);
+        show_pid_array(pids, n, prefix, n_columns, /* extra= */ false, more, flags);
 
         return 0;
 }
@@ -252,7 +252,7 @@ int show_cgroup_by_path(
                         continue;
 
                 if (!shown_pids) {
-                        (void) show_cgroup_one_by_path(path, prefix, n_columns, true, flags);
+                        (void) show_cgroup_one_by_path(path, prefix, n_columns, /* more= */ true, flags);
                         shown_pids = true;
                 }
 
@@ -353,7 +353,7 @@ static int show_extra_pids(
                 copy[j++] = pids[i];
         }
 
-        show_pid_array(copy, j, prefix, n_columns, true, false, flags);
+        show_pid_array(copy, j, prefix, n_columns, /* extra= */ true, /* more= */ false, flags);
 
         return 0;
 }
@@ -420,7 +420,7 @@ int show_cgroup_get_path_and_warn(
                 _cleanup_free_ char *unit = NULL;
                 const char *m;
 
-                if (!hostname_is_valid(machine, 0))
+                if (!hostname_is_valid(machine, /* flags= */ 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine name is not valid: %s", machine);
 
                 m = strjoina("/run/systemd/machines/", machine);
@@ -428,7 +428,7 @@ int show_cgroup_get_path_and_warn(
                 if (r < 0)
                         return log_error_errno(r, "Failed to load machine data: %m");
 
-                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, &bus);
+                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, /* host= */ NULL, RUNTIME_SCOPE_SYSTEM, &bus);
                 if (r < 0)
                         return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, RUNTIME_SCOPE_SYSTEM);
 
