@@ -23,7 +23,7 @@ int reboot_now(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open bus connection: %m");
 
-        r = bus_call_method(bus, bus_login_mgr, "RebootWithFlags", &error, NULL, "t",
+        r = bus_call_method(bus, bus_login_mgr, "RebootWithFlags", &error, /* ret_reply= */ NULL, "t",
                             (uint64_t) SD_LOGIND_ROOT_CHECK_INHIBITORS);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue reboot request: %s", bus_error_message(&error, r));

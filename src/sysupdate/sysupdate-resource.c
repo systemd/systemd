@@ -255,7 +255,7 @@ static int resource_load_from_directory(
                 return log_error_errno(errno, "Failed to open directory '%s': %m", rr->path);
         }
 
-        return resource_load_from_directory_recursive(rr, d, NULL, NULL, m, false, false);
+        return resource_load_from_directory_recursive(rr, d, /* relpath= */ NULL, /* relpath_for_matching= */ NULL, m, /* ancestor_is_partial= */ false, /* ancestor_is_pending= */ false);
 }
 
 static int resource_load_from_blockdev(Resource *rr) {
@@ -392,7 +392,7 @@ static int download_manifest(
         r = pidref_safe_fork_full(
                         "(sd-pull)",
                         (int[]) { -EBADF, pfd[1], STDERR_FILENO },
-                        NULL, 0,
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
                         &pidref);
         if (r < 0)
@@ -596,7 +596,7 @@ static int resource_load_from_web(
                  * normalization check. */
                 if (path_is_absolute(fn) || !path_is_normalized(fn) || strchr(fn, '%'))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid filename specified at manifest line %zu, refusing.", line_nr);
-                if (string_has_cc(fn, NULL))
+                if (string_has_cc(fn, /* ok= */ NULL))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Filename contains control characters at manifest line %zu, refusing.", line_nr);
 
                 /* Magic files can't be in subdirectories */
@@ -934,7 +934,7 @@ int resource_resolve_path(
                         chase_flags |= CHASE_PROHIBIT_SYMLINKS;
                 }
 
-                r = chase(rr->path, relative_to, chase_flags, &resolved, NULL);
+                r = chase(rr->path, relative_to, chase_flags, &resolved, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve '%s' (relative to '%s'): %m", rr->path, relative_to);
 
