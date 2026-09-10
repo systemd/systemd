@@ -144,7 +144,7 @@ static int generate_device_mount(
         if (r < 0)
                 return r;
 
-        r = generator_open_unit_file(arg_dest, NULL, u, &f);
+        r = generator_open_unit_file(arg_dest, /* source= */ NULL, u, &f);
         if (r < 0)
                 return r;
 
@@ -207,7 +207,7 @@ static int generate_device_umount(const char *name,
         if (r < 0)
                 return r;
 
-        r = generator_open_unit_file(arg_dest, NULL, u, &f);
+        r = generator_open_unit_file(arg_dest, /* source= */ NULL, u, &f);
         if (r < 0)
                 return r;
 
@@ -325,21 +325,21 @@ static int create_disk(
 
         keyfile_can_timeout = fstab_filter_options(options,
                                                    "keyfile-timeout\0",
-                                                   NULL, &keyfile_timeout_value, NULL, NULL);
+                                                   /* ret_namefound= */ NULL, &keyfile_timeout_value, /* ret_values= */ NULL, /* ret_filtered= */ NULL);
         if (keyfile_can_timeout < 0)
                 return log_error_errno(keyfile_can_timeout, "Failed to parse keyfile-timeout= option value: %m");
 
         detached_header = fstab_filter_options(
                 options,
                 "header\0",
-                NULL,
+                /* ret_namefound= */ NULL,
                 &header_path,
-                NULL,
+                /* ret_values= */ NULL,
                 headerdev ? &filtered_header : NULL);
         if (detached_header < 0)
                 return log_error_errno(detached_header, "Failed to parse header= option value: %m");
 
-        tmp = fstab_filter_options(options, "tmp\0", NULL, &tmp_fstype, NULL, NULL);
+        tmp = fstab_filter_options(options, "tmp\0", /* ret_namefound= */ NULL, &tmp_fstype, /* ret_values= */ NULL, /* ret_filtered= */ NULL);
         if (tmp < 0)
                 return log_error_errno(tmp, "Failed to parse tmp= option value: %m");
 
@@ -376,7 +376,7 @@ static int create_disk(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Key device is specified, but path to the key file is missing.");
 
-        r = generator_open_unit_file(arg_dest, NULL, n, &f);
+        r = generator_open_unit_file(arg_dest, /* source= */ NULL, n, &f);
         if (r < 0)
                 return r;
 
@@ -440,7 +440,7 @@ static int create_disk(
                         name,
                         headerdev,
                         "headerdev",
-                        NULL,
+                        /* device_timeout= */ NULL,
                         /* canfail= */ false, /* header is always necessary */
                         /* readonly= */ false, /* LUKS2 recovery requires rw header access */
                         &unit,
@@ -635,7 +635,7 @@ static int filter_header_device(const char *options,
         assert(ret_headerdev);
         assert(ret_filtered_headerdev_options);
 
-        r = fstab_filter_options(options, "header\0", NULL, &headerspec, NULL, &filtered_headerspec);
+        r = fstab_filter_options(options, "header\0", /* ret_namefound= */ NULL, &headerspec, /* ret_values= */ NULL, &filtered_headerspec);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse header= option value: %m");
 
@@ -930,7 +930,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (!arg_disks)
                 return log_oom();
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse kernel command line: %m");
 
