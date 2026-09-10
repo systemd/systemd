@@ -471,7 +471,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 return log_oom();
 
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         if (!sd_id128_is_null(f.coredump_id)) {
                 r = table_add_many(table,
