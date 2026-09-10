@@ -108,7 +108,7 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
         /* Create a temporary file we can dump information about deleted images into. We use a temporary file for this
          * instead of a pipe or so, since this might grow quit large in theory and we don't want to process this
          * continuously */
-        result_fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC);
+        result_fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC);
         if (result_fd < 0)
                 return log_debug_errno(result_fd, "Failed to open tmpfile: %m");
 
