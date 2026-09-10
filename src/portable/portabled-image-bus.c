@@ -70,7 +70,7 @@ int bus_image_common_get_os_release(
 }
 
 static int bus_image_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_image_common_get_os_release(NULL, message, NULL, userdata, error);
+        return bus_image_common_get_os_release(NULL, message, /* name_or_path= */ NULL, userdata, error);
 }
 
 static int append_fd(sd_bus_message *m, PortableMetadata *d) {
@@ -118,8 +118,8 @@ int bus_image_common_get_metadata(
         if (!m)
                 m = ASSERT_PTR(ASSERT_PTR(image)->userdata);
 
-        bool have_exti = sd_bus_message_is_method_call(message, NULL, "GetImageMetadataWithExtensions") ||
-                         sd_bus_message_is_method_call(message, NULL, "GetMetadataWithExtensions");
+        bool have_exti = sd_bus_message_is_method_call(message, /* interface= */ NULL, "GetImageMetadataWithExtensions") ||
+                         sd_bus_message_is_method_call(message, /* interface= */ NULL, "GetMetadataWithExtensions");
 
         if (have_exti) {
                 r = sd_bus_message_read_strv(message, &extension_images);
@@ -168,7 +168,7 @@ int bus_image_common_get_metadata(
                         &os_release,
                         &extension_releases,
                         &unit_files,
-                        NULL,
+                        /* ret_valid_prefixes= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -254,7 +254,7 @@ int bus_image_common_get_metadata(
 }
 
 static int bus_image_method_get_metadata(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_image_common_get_metadata(NULL, message, NULL, userdata, error);
+        return bus_image_common_get_metadata(NULL, message, /* name_or_path= */ NULL, userdata, error);
 }
 
 static int bus_image_method_get_state(
@@ -270,7 +270,7 @@ static int bus_image_method_get_state(
 
         assert(message);
 
-        if (sd_bus_message_is_method_call(message, NULL, "GetStateWithExtensions")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "GetStateWithExtensions")) {
                 uint64_t input_flags = 0;
 
                 r = sd_bus_message_read_strv(message, &extension_images);
@@ -293,7 +293,7 @@ static int bus_image_method_get_state(
                         sd_bus_message_get_bus(message),
                         image->path,
                         extension_images,
-                        0,
+                        /* flags= */ 0,
                         &state,
                         error);
         if (r < 0)
@@ -326,8 +326,8 @@ int bus_image_common_attach(
                 m = image->userdata;
         }
 
-        if (sd_bus_message_is_method_call(message, NULL, "AttachImageWithExtensions") ||
-            sd_bus_message_is_method_call(message, NULL, "AttachWithExtensions")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "AttachImageWithExtensions") ||
+            sd_bus_message_is_method_call(message, /* interface= */ NULL, "AttachWithExtensions")) {
                 r = sd_bus_message_read_strv(message, &extension_images);
                 if (r < 0)
                         return r;
@@ -341,8 +341,8 @@ int bus_image_common_attach(
         if (r < 0)
                 return r;
 
-        if (sd_bus_message_is_method_call(message, NULL, "AttachImageWithExtensions") ||
-            sd_bus_message_is_method_call(message, NULL, "AttachWithExtensions")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "AttachImageWithExtensions") ||
+            sd_bus_message_is_method_call(message, /* interface= */ NULL, "AttachWithExtensions")) {
                 uint64_t input_flags = 0;
 
                 r = sd_bus_message_read(message, "st", &copy_mode, &input_flags);
@@ -405,7 +405,7 @@ int bus_image_common_attach(
 }
 
 static int bus_image_method_attach(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_image_common_attach(NULL, message, NULL, userdata, error);
+        return bus_image_common_attach(NULL, message, /* name_or_path= */ NULL, userdata, error);
 }
 
 static int bus_image_method_detach(
@@ -425,13 +425,13 @@ static int bus_image_method_detach(
 
         CLEANUP_ARRAY(changes, n_changes, portable_changes_free);
 
-        if (sd_bus_message_is_method_call(message, NULL, "DetachWithExtensions")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "DetachWithExtensions")) {
                 r = sd_bus_message_read_strv(message, &extension_images);
                 if (r < 0)
                         return r;
         }
 
-        if (sd_bus_message_is_method_call(message, NULL, "DetachWithExtensions")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "DetachWithExtensions")) {
                 uint64_t input_flags = 0;
 
                 r = sd_bus_message_read(message, "t", &input_flags);
@@ -522,8 +522,8 @@ int bus_image_common_remove(
                         m->runtime_scope,
                         sd_bus_message_get_bus(message),
                         image->path,
-                        NULL,
-                        0,
+                        /* extension_image_paths= */ NULL,
+                        /* flags= */ 0,
                         &state,
                         error);
         if (r < 0)
@@ -552,7 +552,7 @@ int bus_image_common_remove(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new(m, &child, message, errno_pipe_fd[0], NULL);
+        r = operation_new(m, &child, message, errno_pipe_fd[0], /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -563,7 +563,7 @@ int bus_image_common_remove(
 }
 
 static int bus_image_method_remove(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_image_common_remove(NULL, message, NULL, userdata, error);
+        return bus_image_common_remove(NULL, message, /* name_or_path= */ NULL, userdata, error);
 }
 
 /* Given two PortableChange arrays, return a new array that has all elements of the first that are
@@ -653,8 +653,8 @@ int bus_image_common_reattach(
                 m = image->userdata;
         }
 
-        if (sd_bus_message_is_method_call(message, NULL, "ReattachImageWithExtensions") ||
-            sd_bus_message_is_method_call(message, NULL, "ReattachWithExtensions")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "ReattachImageWithExtensions") ||
+            sd_bus_message_is_method_call(message, /* interface= */ NULL, "ReattachWithExtensions")) {
                 r = sd_bus_message_read_strv(message, &extension_images);
                 if (r < 0)
                         return r;
@@ -668,8 +668,8 @@ int bus_image_common_reattach(
         if (r < 0)
                 return r;
 
-        if (sd_bus_message_is_method_call(message, NULL, "ReattachImageWithExtensions") ||
-            sd_bus_message_is_method_call(message, NULL, "ReattachWithExtensions")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "ReattachImageWithExtensions") ||
+            sd_bus_message_is_method_call(message, /* interface= */ NULL, "ReattachWithExtensions")) {
                 uint64_t input_flags = 0;
 
                 r = sd_bus_message_read(message, "st", &copy_mode, &input_flags);
@@ -758,7 +758,7 @@ int bus_image_common_reattach(
 }
 
 static int bus_image_method_reattach(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_image_common_reattach(NULL, message, NULL, userdata, error);
+        return bus_image_common_reattach(NULL, message, /* name_or_path= */ NULL, userdata, error);
 }
 
 int bus_image_common_mark_read_only(
@@ -799,11 +799,11 @@ int bus_image_common_mark_read_only(
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int bus_image_method_mark_read_only(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_image_common_mark_read_only(NULL, message, NULL, userdata, error);
+        return bus_image_common_mark_read_only(NULL, message, /* name_or_path= */ NULL, userdata, error);
 }
 
 int bus_image_common_set_limit(
@@ -847,11 +847,11 @@ int bus_image_common_set_limit(
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int bus_image_method_set_limit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_image_common_set_limit(NULL, message, NULL, userdata, error);
+        return bus_image_common_set_limit(NULL, message, /* name_or_path= */ NULL, userdata, error);
 }
 
 const sd_bus_vtable image_vtable[] = {
@@ -1040,7 +1040,7 @@ int bus_image_acquire(
         if (image_name_is_valid(name_or_path)) {
 
                 /* If it's a short name, let's search for it */
-                r = image_find(m->runtime_scope, IMAGE_PORTABLE, name_or_path, NULL, &loaded);
+                r = image_find(m->runtime_scope, IMAGE_PORTABLE, name_or_path, /* root= */ NULL, &loaded);
                 if (r == -ENOENT)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PORTABLE_IMAGE,
                                                  "No image '%s' found.", name_or_path);
@@ -1124,7 +1124,7 @@ int bus_image_object_find(
                 /* The path is "/org/freedesktop/portable1/image" itself */
                 goto not_found;
 
-        r = bus_image_acquire(m, sd_bus_get_current_message(bus), e, NULL, BUS_IMAGE_REFUSE_BY_PATH, NULL, &image, error);
+        r = bus_image_acquire(m, sd_bus_get_current_message(bus), e, /* image= */ NULL, BUS_IMAGE_REFUSE_BY_PATH, /* polkit_action= */ NULL, &image, error);
         if (r == -ENOENT)
                 goto not_found;
         if (r < 0)
