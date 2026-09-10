@@ -16,7 +16,7 @@ project('systemd', 'c',
 
 add_test_setup(
         'default',
-        exclude_suites : ['clang-tidy', 'coccinelle', 'unused-symbols', 'integration-tests'],
+        exclude_suites : ['clang-tidy', 'coccinelle', 'argument-comments', 'unused-symbols', 'integration-tests'],
         exe_wrapper : find_program('tools/test-crash-trace.sh'),
         is_default : true,
 )
@@ -2889,6 +2889,7 @@ test_dlopen = executables_by_name.get('test-dlopen')
 nss_targets = []
 pam_targets = []
 module_targets = []
+module_sources = []
 modules_by_name = {}
 foreach dict : modules
         name = dict.get('name')
@@ -2905,6 +2906,8 @@ foreach dict : modules
         if not build
                 continue
         endif
+
+        module_sources += dict.get('sources', [])
 
         kwargs = {}
         foreach key, val : dict
@@ -3274,6 +3277,36 @@ if meson.version().version_compare('>=1.4.0')
                                 )
                         endif
                 endforeach
+        endforeach
+
+        # One test per top-level source directory over the compiled .c files, which covers the headers
+        # they include. Generated sources are not below src/ relative to the source directory. The NSS,
+        # PAM and cryptsetup token modules are not in sources.
+        argument_comments_sources = {}
+        foreach source : sources + module_sources
+                if not source.full_path().endswith('.c') or source.full_path().endswith('.bpf.c')
+                        continue
+                endif
+
+                source_parts = fs.relative_to(source.full_path(), meson.project_source_root()).split('/')
+                if source_parts.length() > 2 and source_parts[0] == 'src'
+                        argument_comments_sources += {
+                                source_parts[1] : argument_comments_sources.get(source_parts[1], []) + [source],
+                        }
+                endif
+        endforeach
+
+        argument_comments_args = ['-p', meson.project_build_root(), '--root', meson.project_source_root()]
+        foreach source_dir, source_dir_sources : argument_comments_sources
+                test(
+                        'argument-comments-@0@'.format(source_dir),
+                        check_argument_comments_py,
+                        args : argument_comments_args + source_dir_sources,
+                        suite : 'argument-comments',
+                        depends : generated_sources,
+                        is_parallel : false, # the script parallelizes over its files by itself
+                        timeout : 300,
+                )
         endforeach
 endif
 
