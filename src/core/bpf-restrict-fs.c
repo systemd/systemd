@@ -57,7 +57,7 @@ int bpf_restrict_fs_setup(Manager *m) {
                                        sym_bpf_map__name(obj->maps.cgroup_hash));
 
         /* Dummy map to satisfy the verifier */
-        _cleanup_close_ int inner_map_fd = compat_bpf_map_create(BPF_MAP_TYPE_HASH, NULL, sizeof(uint32_t), sizeof(uint32_t), 128U, NULL);
+        _cleanup_close_ int inner_map_fd = compat_bpf_map_create(BPF_MAP_TYPE_HASH, /* map_name= */ NULL, sizeof(uint32_t), sizeof(uint32_t), 128U, /* opts= */ NULL);
         if (inner_map_fd < 0)
                 return log_error_errno(errno, "bpf-restrict-fs: Failed to create BPF map: %m");
 
@@ -96,7 +96,7 @@ int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer
 
         int inner_map_fd = compat_bpf_map_create(
                         BPF_MAP_TYPE_HASH,
-                        NULL,
+                        /* map_name= */ NULL,
                         sizeof(uint32_t),
                         sizeof(uint32_t),
                         128U, /* Should be enough for all filesystem types */

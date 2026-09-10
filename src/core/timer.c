@@ -86,12 +86,12 @@ static int timer_add_default_dependencies(Timer *t) {
         if (!UNIT(t)->default_dependencies)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_TIMERS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_TIMERS_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(t)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
 
@@ -100,7 +100,7 @@ static int timer_add_default_dependencies(Timer *t) {
                                 continue;
 
                         FOREACH_STRING(target, SPECIAL_TIME_SYNC_TARGET, SPECIAL_TIME_SET_TARGET) {
-                                r = unit_add_dependency_by_name(UNIT(t), UNIT_AFTER, target, true, UNIT_DEPENDENCY_DEFAULT);
+                                r = unit_add_dependency_by_name(UNIT(t), UNIT_AFTER, target, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
                                 if (r < 0)
                                         return r;
                         }
@@ -109,7 +109,7 @@ static int timer_add_default_dependencies(Timer *t) {
                 }
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 static int timer_add_trigger_dependencies(Timer *t) {
@@ -125,7 +125,7 @@ static int timer_add_trigger_dependencies(Timer *t) {
         if (r < 0)
                 return r;
 
-        return unit_add_two_dependencies(UNIT(t), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
+        return unit_add_two_dependencies(UNIT(t), UNIT_BEFORE, UNIT_TRIGGERS, x, /* add_reference= */ true, UNIT_DEPENDENCY_IMPLICIT);
 }
 
 static int timer_setup_persistent(Timer *t) {
@@ -204,7 +204,7 @@ static int timer_load(Unit *u) {
 
         assert(u->load_state == UNIT_STUB);
 
-        r = unit_load_fragment_and_dropin(u, true);
+        r = unit_load_fragment_and_dropin(u, /* fragment_required= */ true);
         if (r < 0)
                 return r;
 
@@ -285,7 +285,7 @@ static void timer_set_state(Timer *t, TimerState state) {
         assert(t);
 
         if (t->state != state)
-                bus_unit_send_pending_change_signal(UNIT(t), false);
+                bus_unit_send_pending_change_signal(UNIT(t), /* including_new= */ false);
 
         old_state = t->state;
         t->state = state;
@@ -314,7 +314,7 @@ static int timer_coldplug(Unit *u) {
                 return 0;
 
         if (t->deserialized_state == TIMER_WAITING)
-                timer_enter_waiting(t, false);
+                timer_enter_waiting(t, /* time_change= */ false);
         else
                 timer_set_state(t, t->deserialized_state);
 
@@ -677,7 +677,7 @@ static void timer_enter_running(Timer *t) {
         job_set_activation_details(job, details);
 
         if (t->stamp_path)
-                touch_file(t->stamp_path, true, t->last_trigger.realtime, UID_INVALID, GID_INVALID, MODE_INVALID);
+                touch_file(t->stamp_path, /* parents= */ true, t->last_trigger.realtime, UID_INVALID, GID_INVALID, MODE_INVALID);
 
         timer_set_state(t, TIMER_RUNNING);
         return;
@@ -719,11 +719,11 @@ static int timer_start(Unit *u) {
 
                 } else if (errno == ENOENT)
                         /* The timer has never run before, make sure a stamp file exists. */
-                        (void) touch_file(t->stamp_path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
+                        (void) touch_file(t->stamp_path, /* parents= */ true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
         }
 
         t->result = TIMER_SUCCESS;
-        timer_enter_waiting(t, false);
+        timer_enter_waiting(t, /* time_change= */ false);
         return 1;
 }
 
@@ -831,14 +831,14 @@ static void timer_trigger_notify(Unit *u, Unit *other) {
         case TIMER_ELAPSED:
 
                 /* Recalculate sleep time */
-                timer_enter_waiting(t, false);
+                timer_enter_waiting(t, /* time_change= */ false);
                 break;
 
         case TIMER_RUNNING:
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
                         log_unit_debug(UNIT(t), "Got notified about unit deactivation.");
-                        timer_enter_waiting(t, false);
+                        timer_enter_waiting(t, /* time_change= */ false);
                 }
                 break;
 
@@ -880,7 +880,7 @@ static void timer_time_change(Unit *u) {
                 timer_enter_running(t);
         } else {
                 log_unit_debug(u, "Time change, recalculating next elapse.");
-                timer_enter_waiting(t, true);
+                timer_enter_waiting(t, /* time_change= */ true);
         }
 }
 
@@ -895,7 +895,7 @@ static void timer_timezone_change(Unit *u) {
                 timer_enter_running(t);
         } else {
                 log_unit_debug(u, "Timezone change, recalculating next elapse.");
-                timer_enter_waiting(t, false);
+                timer_enter_waiting(t, /* time_change= */ false);
         }
 }
 
