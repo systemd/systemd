@@ -473,13 +473,11 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (dual_timestamp_is_set(&i.timestamp)) {
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Since");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(table, NULL, "%s; %s",
-                                           FORMAT_TIMESTAMP(i.timestamp.realtime),
-                                           FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.timestamp.monotonic));
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Since",
+                                   TABLE_STRINGF, "%s; %s",
+                                   FORMAT_TIMESTAMP(i.timestamp.realtime),
+                                   FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.timestamp.monotonic));
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -495,15 +493,13 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
 
                 (void) pid_get_comm(i.leader, &name);
 
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Leader");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(table, NULL, PID_FMT "%s%s%s",
-                                           i.leader,
-                                           !isempty(name) ? " (" : "",
-                                           strempty(name),
-                                           !isempty(name) ? ")" : "");
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Leader",
+                                   TABLE_STRINGF, PID_FMT "%s%s%s",
+                                   i.leader,
+                                   !isempty(name) ? " (" : "",
+                                   strempty(name),
+                                   !isempty(name) ? ")" : "");
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -549,39 +545,16 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        if (i.service) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Service",
-                                   TABLE_STRING, i.service);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (i.type) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Type",
-                                   TABLE_STRING, i.type);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (i.class) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Class",
-                                   TABLE_STRING, i.class);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i.desktop)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Desktop",
-                                   TABLE_STRING, i.desktop);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Idle");
+        r = table_add_many(table,
+                           TABLE_FIELD, "Service",
+                           TABLE_STRING_NON_EMPTY, i.service,
+                           TABLE_FIELD, "Type",
+                           TABLE_STRING_NON_EMPTY, i.type,
+                           TABLE_FIELD, "Class",
+                           TABLE_STRING_NON_EMPTY, i.class,
+                           TABLE_FIELD, "Desktop",
+                           TABLE_STRING_NON_EMPTY, i.desktop,
+                           TABLE_FIELD, "Idle");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -595,14 +568,12 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        if (i.scope) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Unit",
-                                   TABLE_SET_MINIMUM_WIDTH, STRLEN("Display"), /* For alignment with show_unit_cgroup */
-                                   TABLE_STRING, i.scope);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        r = table_add_many(table,
+                           TABLE_FIELD, "Unit",
+                           TABLE_SET_MINIMUM_WIDTH, STRLEN("Display"), /* For alignment with show_unit_cgroup */
+                           TABLE_STRING_NON_EMPTY, i.scope);
+        if (r < 0)
+                return table_log_add_error(r);
 
         /* We don't use the table to show the header, in order to make the width of the column stable. */
         printf("%s%s - %s (" UID_FMT ")%s\n", ansi_highlight(), i.id, i.name, i.uid, ansi_normal());
@@ -664,13 +635,11 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
         table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (dual_timestamp_is_set(&i.timestamp)) {
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Since");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(table, NULL, "%s; %s",
-                                           FORMAT_TIMESTAMP(i.timestamp.realtime),
-                                           FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.timestamp.monotonic));
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Since",
+                                   TABLE_STRINGF, "%s; %s",
+                                   FORMAT_TIMESTAMP(i.timestamp.realtime),
+                                   FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.timestamp.monotonic));
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -697,18 +666,12 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
 
         r = table_add_many(table,
                            TABLE_FIELD, "Linger",
-                           TABLE_BOOLEAN, i.linger);
+                           TABLE_BOOLEAN, i.linger,
+                           TABLE_FIELD, "Unit",
+                           TABLE_SET_MINIMUM_WIDTH, STRLEN("Sessions"), /* For alignment with show_unit_cgroup */
+                           TABLE_STRING_NON_EMPTY, i.slice);
         if (r < 0)
                 return table_log_add_error(r);
-
-        if (i.slice) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Unit",
-                                   TABLE_SET_MINIMUM_WIDTH, STRLEN("Sessions"), /* For alignment with show_unit_cgroup */
-                                   TABLE_STRING, i.slice);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
 
         printf("%s%s (" UID_FMT ")%s\n", ansi_highlight(), i.name, i.uid, ansi_normal());
 
