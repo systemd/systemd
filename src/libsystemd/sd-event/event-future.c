@@ -9,6 +9,22 @@
 #include "event-util.h"
 #include "fd-util.h"
 
+int event_source_inherit_fiber_priority(sd_event_source *s) {
+        int64_t priority;
+        int r;
+
+        assert(s);
+
+        if (!sd_fiber_is_running())
+                return 0;
+
+        r = sd_fiber_get_priority(&priority);
+        if (r < 0)
+                return r;
+
+        return sd_event_source_set_priority(s, priority);
+}
+
 typedef struct IoFuture {
         sd_event_source *source;
 } IoFuture;
@@ -84,8 +100,8 @@ int future_new_io(sd_event *e, int fd, uint32_t events, sd_future **ret) {
         if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
                 return -ECANCELED;
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        r = sd_future_new(&io_future_ops, &f);
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(e, &io_future_ops, &f);
         if (r < 0)
                 return r;
 
@@ -110,17 +126,101 @@ int future_new_io(sd_event *e, int fd, uint32_t events, sd_future **ret) {
         if (r < 0)
                 return r;
 
-        if (sd_fiber_is_running()) {
-                int64_t priority;
+        r = event_source_inherit_fiber_priority(iof->source);
+        if (r < 0)
+                return r;
 
-                r = sd_fiber_get_priority(&priority);
-                if (r < 0)
-                        return r;
+        *ret = TAKE_PTR(f);
+        return 0;
+}
 
-                r = sd_event_source_set_priority(iof->source, priority);
-                if (r < 0)
-                        return r;
-        }
+int future_group_add_io(sd_future *group, int fd, uint32_t events) {
+        _cleanup_(sd_future_cancel_unrefp) sd_future *io = NULL;
+        int r;
+
+        assert(group);
+
+        r = future_new_io(sd_future_get_event(group), fd, events, &io);
+        if (r < 0)
+                return r;
+
+        r = sd_future_group_add(group, io);
+        if (r < 0)
+                return r;
+
+        /* The group owns a reference now: release ours without cancelling the child. */
+        io = sd_future_unref(io);
+        return 0;
+}
+
+typedef struct DeferFuture {
+        sd_event_source *source;
+        int result;
+} DeferFuture;
+
+static void* defer_future_alloc(void) {
+        return new0(DeferFuture, 1);
+}
+
+static void defer_future_free(sd_future *f) {
+        DeferFuture *df = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+
+        sd_event_source_disable_unref(df->source);
+        free(df);
+}
+
+static int defer_future_cancel(sd_future *f) {
+        DeferFuture *df = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        int r;
+
+        r = sd_event_source_set_enabled(df->source, SD_EVENT_OFF);
+        RET_GATHER(r, sd_future_resolve(f, -ECANCELED));
+        return r;
+}
+
+static int defer_future_set_priority(sd_future *f, int64_t priority) {
+        DeferFuture *df = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        return sd_event_source_set_priority(df->source, priority);
+}
+
+static const sd_future_ops defer_future_ops = {
+        .size = sizeof(sd_future_ops),
+        .alloc = defer_future_alloc,
+        .free = defer_future_free,
+        .cancel = defer_future_cancel,
+        .set_priority = defer_future_set_priority,
+};
+
+static int defer_handler(sd_event_source *s, void *userdata) {
+        sd_future *f = ASSERT_PTR(userdata);
+        DeferFuture *df = ASSERT_PTR(sd_future_get_private(f));
+        return sd_future_resolve(f, df->result);
+}
+
+int future_new_defer(sd_event *e, int result, sd_future **ret) {
+        int r;
+
+        assert(e);
+        assert(ret);
+
+        if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
+                return -ECANCELED;
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(e, &defer_future_ops, &f);
+        if (r < 0)
+                return r;
+
+        DeferFuture *df = sd_future_get_private(f);
+        df->result = result;
+
+        r = sd_event_add_defer(e, &df->source, defer_handler, f);
+        if (r < 0)
+                return r;
+
+        r = event_source_inherit_fiber_priority(df->source);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(f);
         return 0;
@@ -200,8 +300,8 @@ static int future_new_time_internal(
         if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
                 return -ECANCELED;
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        r = sd_future_new(&time_future_ops, &f);
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(e, &time_future_ops, &f);
         if (r < 0)
                 return r;
 
@@ -212,17 +312,9 @@ static int future_new_time_internal(
         if (r < 0)
                 return r;
 
-        if (sd_fiber_is_running()) {
-                int64_t priority;
-
-                r = sd_fiber_get_priority(&priority);
-                if (r < 0)
-                        return r;
-
-                r = sd_event_source_set_priority(tf->source, priority);
-                if (r < 0)
-                        return r;
-        }
+        r = event_source_inherit_fiber_priority(tf->source);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(f);
         return 0;
@@ -234,6 +326,25 @@ int future_new_time(sd_event *e, clockid_t clock, uint64_t usec, uint64_t accura
 
 int future_new_time_relative(sd_event *e, clockid_t clock, uint64_t usec, uint64_t accuracy, int result, sd_future **ret) {
         return future_new_time_internal(sd_event_add_time_relative, e, clock, usec, accuracy, result, ret);
+}
+
+int future_group_add_time_relative(sd_future *group, clockid_t clock, uint64_t usec, uint64_t accuracy, int result) {
+        _cleanup_(sd_future_cancel_unrefp) sd_future *timer = NULL;
+        int r;
+
+        assert(group);
+
+        r = future_new_time_relative(sd_future_get_event(group), clock, usec, accuracy, result, &timer);
+        if (r < 0)
+                return r;
+
+        r = sd_future_group_add(group, timer);
+        if (r < 0)
+                return r;
+
+        /* The group owns a reference now: release ours without cancelling the child. */
+        timer = sd_future_unref(timer);
+        return 0;
 }
 
 int event_run_suspend(sd_event *e, uint64_t timeout) {
@@ -271,25 +382,32 @@ int event_run_suspend(sd_event *e, uint64_t timeout) {
         if (fd < 0)
                 return fd;
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
-        r = future_new_io(outer, fd, EPOLLIN, &io);
+        /* Wait for the inner-loop fd to become readable OR (optionally) the timeout to fire. */
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;
+        r = sd_future_group_new(outer, &group);
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *timer = NULL;
+        r = sd_future_group_set_policy(group, SD_FUTURE_GROUP_WAIT_ANY);
+        if (r < 0)
+                return r;
+
+        r = future_group_add_io(group, fd, EPOLLIN);
+        if (r < 0)
+                return r;
+
         if (timeout != USEC_INFINITY) {
-                r = future_new_time_relative(
-                                outer,
+                r = future_group_add_time_relative(
+                                group,
                                 CLOCK_MONOTONIC,
                                 timeout,
                                 /* accuracy= */ 1,
-                                /* result= */ 0,
-                                &timer);
+                                /* result= */ 0);
                 if (r < 0)
                         return r;
         }
 
-        r = sd_fiber_suspend();
+        r = sd_fiber_await(group);
         if (r < 0)
                 return r;
 
