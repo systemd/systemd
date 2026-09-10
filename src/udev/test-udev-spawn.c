@@ -22,8 +22,8 @@ static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result
         ASSERT_OK_ERRNO(setenv("SYSTEMD_PIDFD", yes_no(with_pidfd), 1));
 
         ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net/lo"));
-        ASSERT_NOT_NULL((event = udev_event_new(dev, NULL, EVENT_TEST_SPAWN)));
-        ASSERT_OK_ZERO(udev_event_spawn(event, false, cmd, result_buf, buf_size, NULL));
+        ASSERT_NOT_NULL((event = udev_event_new(dev, /* worker= */ NULL, EVENT_TEST_SPAWN)));
+        ASSERT_OK_ZERO(udev_event_spawn(event, /* accept_failure= */ false, cmd, result_buf, buf_size, /* ret_truncated= */ NULL));
 
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_PIDFD"));
 }
@@ -103,19 +103,19 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        test_event_spawn_cat(true, SIZE_MAX);
-        test_event_spawn_cat(false, SIZE_MAX);
-        test_event_spawn_cat(true, 5);
-        test_event_spawn_cat(false, 5);
+        test_event_spawn_cat(/* with_pidfd= */ true, SIZE_MAX);
+        test_event_spawn_cat(/* with_pidfd= */ false, SIZE_MAX);
+        test_event_spawn_cat(/* with_pidfd= */ true, 5);
+        test_event_spawn_cat(/* with_pidfd= */ false, 5);
 
         assert_se(path_make_absolute_cwd(argv[0], &self) >= 0);
         path_simplify(self);
 
-        test_event_spawn_self(self, "test1", true);
-        test_event_spawn_self(self, "test1", false);
+        test_event_spawn_self(self, "test1", /* with_pidfd= */ true);
+        test_event_spawn_self(self, "test1", /* with_pidfd= */ false);
 
-        test_event_spawn_self(self, "test2", true);
-        test_event_spawn_self(self, "test2", false);
+        test_event_spawn_self(self, "test2", /* with_pidfd= */ true);
+        test_event_spawn_self(self, "test2", /* with_pidfd= */ false);
 
         return 0;
 }
