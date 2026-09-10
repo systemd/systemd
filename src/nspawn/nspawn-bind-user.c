@@ -56,7 +56,7 @@ static int write_and_symlink(
         if (symlink(f, q) < 0)
                 return log_error_errno(errno, "Failed to create symlink '%s': %m", q);
 
-        r = userns_lchown(q, 0, 0);
+        r = userns_lchown(q, /* uid= */ 0, /* gid= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust access mode of '%s': %m", q);
 
@@ -64,7 +64,7 @@ static int write_and_symlink(
         if (r < 0)
                 return log_error_errno(r, "Failed to write %s: %m", p);
 
-        r = userns_lchown(p, 0, 0);
+        r = userns_lchown(p, /* uid= */ 0, /* gid= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust access mode of '%s': %m", p);
 
@@ -124,11 +124,11 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
         if (r < 0)
                 return r;
 
-        r = userns_mkdir(root, "/run/host/home", 0755, 0, 0);
+        r = userns_mkdir(root, "/run/host/home", 0755, /* uid= */ 0, /* gid= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/host/home: %m");
 
-        r = userns_mkdir(root, "/run/host/userdb", 0755, 0, 0);
+        r = userns_mkdir(root, "/run/host/userdb", 0755, /* uid= */ 0, /* gid= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/host/userdb: %m");
 
@@ -164,7 +164,7 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
                                 d->payload_group->group_name,
                                 d->payload_group->gid,
                                 ".group",
-                                0);
+                                /* extra_flags= */ 0);
                 if (r < 0)
                         return r;
 
@@ -202,7 +202,7 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
                                 d->payload_user->user_name,
                                 d->payload_user->uid,
                                 ".user",
-                                0);
+                                /* extra_flags= */ 0);
                 if (r < 0)
                         return r;
 
