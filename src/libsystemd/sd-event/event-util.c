@@ -143,7 +143,7 @@ int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handle
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_io_fd_own(s, true);
+        r = sd_event_source_set_io_fd_own(s, /* own= */ true);
         if (r < 0)
                 return r;
 
@@ -194,7 +194,7 @@ int event_add_child_pidref(
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_child_pidfd_own(s, true);
+        r = sd_event_source_set_child_pidfd_own(s, /* own= */ true);
         if (r < 0)
                 return r;
 

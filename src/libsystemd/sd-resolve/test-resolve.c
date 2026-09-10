@@ -29,7 +29,7 @@ static int getaddrinfo_handler(sd_resolve_query *q, int ret, const struct addrin
         for (i = ai; i; i = i->ai_next) {
                 _cleanup_free_ char *addr = NULL;
 
-                assert_se(sockaddr_pretty(i->ai_addr, i->ai_addrlen, false, true, &addr) == 0);
+                assert_se(sockaddr_pretty(i->ai_addr, i->ai_addrlen, /* translate_ipv6= */ false, /* include_port= */ true, &addr) == 0);
                 puts(addr);
         }
 
@@ -71,18 +71,18 @@ int main(int argc, char *argv[]) {
         assert_se(sd_resolve_default(&resolve) >= 0);
 
         /* Test a floating resolver query */
-        r = sd_resolve_getaddrinfo(resolve, NULL, "redhat.com", "http", NULL, getaddrinfo_handler, NULL);
+        r = sd_resolve_getaddrinfo(resolve, /* ret= */ NULL, "redhat.com", "http", /* hints= */ NULL, getaddrinfo_handler, /* userdata= */ NULL);
         if (r < 0)
                 log_error_errno(r, "sd_resolve_getaddrinfo(): %m");
 
         /* Make a name -> address query */
-        r = sd_resolve_getaddrinfo(resolve, &q1, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints, getaddrinfo_handler, NULL);
+        r = sd_resolve_getaddrinfo(resolve, &q1, argc >= 2 ? argv[1] : "www.heise.de", /* service= */ NULL, &hints, getaddrinfo_handler, /* userdata= */ NULL);
         if (r < 0)
                 log_error_errno(r, "sd_resolve_getaddrinfo(): %m");
 
         /* Make an address -> name query */
         sa.in.sin_addr.s_addr = inet_addr(argc >= 3 ? argv[2] : "193.99.144.71");
-        r = sd_resolve_getnameinfo(resolve, &q2, &sa.sa, sockaddr_len(&sa), 0, SD_RESOLVE_GET_BOTH, getnameinfo_handler, NULL);
+        r = sd_resolve_getnameinfo(resolve, &q2, &sa.sa, sockaddr_len(&sa), /* flags= */ 0, SD_RESOLVE_GET_BOTH, getnameinfo_handler, /* userdata= */ NULL);
         if (r < 0)
                 log_error_errno(r, "sd_resolve_getnameinfo(): %m");
 

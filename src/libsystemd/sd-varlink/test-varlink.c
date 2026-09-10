@@ -41,13 +41,13 @@ static int method_something(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         a = sd_json_variant_by_key(parameters, "a");
         if (!a)
-                return ASSERT_ERROR(sd_varlink_error(link, "io.test.BadParameters", NULL), EBADR);
+                return ASSERT_ERROR(sd_varlink_error(link, "io.test.BadParameters", /* parameters= */ NULL), EBADR);
 
         x = sd_json_variant_integer(a);
 
         b = sd_json_variant_by_key(parameters, "b");
         if (!b)
-                return ASSERT_ERROR(sd_varlink_error(link, "io.test.BadParameters", NULL), EBADR);
+                return ASSERT_ERROR(sd_varlink_error(link, "io.test.BadParameters", /* parameters= */ NULL), EBADR);
 
         y = sd_json_variant_integer(b);
 
@@ -147,7 +147,7 @@ static int method_passfd(sd_varlink *link, sd_json_variant *parameters, sd_varli
 static int method_fail_with_errno(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         int r;
 
-        r = sd_varlink_dispatch(link, parameters, NULL, NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -199,7 +199,7 @@ static int overload_reply(sd_varlink *link, sd_json_variant *parameters, const c
         /* Local disconnect errors carry empty parameters. Ensure we propagate
          * a consistent empty object for API reliability. */
         ASSERT_TRUE(sd_json_variant_is_blank_object(parameters));
-        sd_event_exit(sd_varlink_get_event(link), 0);
+        sd_event_exit(sd_varlink_get_event(link), /* code= */ 0);
 
         return 0;
 }
@@ -320,11 +320,11 @@ static int client_fiber(void *arg) {
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(o, "method")), "io.test.IDontExist");
         ASSERT_STREQ(e, SD_VARLINK_ERROR_METHOD_NOT_FOUND);
 
-        ASSERT_OK(sd_varlink_call(c, "io.test.FailWithErrno", NULL, &o, &e));
+        ASSERT_OK(sd_varlink_call(c, "io.test.FailWithErrno", /* parameters= */ NULL, &o, &e));
         ASSERT_ERROR(sd_varlink_error_to_errno(e, o), EHWPOISON);
         flood_test(arg);
 
-        ASSERT_OK(sd_varlink_send(c, "io.test.Done", NULL));
+        ASSERT_OK(sd_varlink_send(c, "io.test.Done", /* parameters= */ NULL));
 
         return 0;
 }
@@ -332,14 +332,14 @@ static int client_fiber(void *arg) {
 static int block_fd_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         char c;
 
-        ASSERT_OK(fd_nonblock(fd, false));
+        ASSERT_OK(fd_nonblock(fd, /* nonblock= */ false));
 
         ASSERT_OK_EQ_ERRNO(read(fd, &c, sizeof(c)), (ssize_t) sizeof(c));
         /* When a character is written to this pipe we'll block until the pipe is closed. */
 
         ASSERT_OK_ZERO_ERRNO(read(fd, &c, sizeof(c)));
 
-        ASSERT_OK(fd_nonblock(fd, true));
+        ASSERT_OK(fd_nonblock(fd, /* nonblock= */ true));
 
         ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_OFF));
 
@@ -363,11 +363,11 @@ TEST(chat) {
         ASSERT_OK(sd_event_default(&e));
 
         ASSERT_OK_ERRNO(pipe2(block_fds, O_NONBLOCK|O_CLOEXEC));
-        ASSERT_OK(sd_event_add_io(e, &block_event, block_fds[0], EPOLLIN, block_fd_handler, NULL));
+        ASSERT_OK(sd_event_add_io(e, &block_event, block_fds[0], EPOLLIN, block_fd_handler, /* userdata= */ NULL));
         ASSERT_OK(sd_event_source_set_priority(block_event, SD_EVENT_PRIORITY_IMPORTANT));
         block_write_fd = TAKE_FD(block_fds[1]);
 
-        ASSERT_OK(varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID, NULL));
+        ASSERT_OK(varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID, /* userdata= */ NULL));
         ASSERT_OK(sd_varlink_server_set_info(s, "Vendor", "Product", "Version", "URL"));
         ASSERT_OK(varlink_set_info_systemd(s));
         ASSERT_OK(sd_varlink_server_set_description(s, "our-server"));
@@ -379,7 +379,7 @@ TEST(chat) {
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.Done", method_done));
         ASSERT_OK(sd_varlink_server_bind_connect(s, on_connect));
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
         ASSERT_OK(sd_varlink_server_set_connections_max(s, OVERLOAD_CONNECTIONS));
 
         ASSERT_OK(sd_json_build(&v, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_INTEGER("a", 7),
@@ -391,7 +391,7 @@ TEST(chat) {
 
         ASSERT_OK(sd_varlink_invoke(c, "io.test.DoSomething", v));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         ASSERT_OK(sd_fiber_new(e, "client", client_fiber, (void*) sp, /* destroy= */ NULL, &f));
 
@@ -428,9 +428,9 @@ TEST(invalid_parameter) {
         ASSERT_OK(sd_event_default(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        ASSERT_OK(sd_varlink_server_new(&s, 0));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_server_bind_method(s, "foo.mytest.Invalid", method_invalid));
 
@@ -441,7 +441,7 @@ TEST(invalid_parameter) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_bind_reply(c, reply_invalid));
 
@@ -500,9 +500,9 @@ TEST(mandatory_type_with_optional_field) {
         ASSERT_OK(sd_event_default(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        ASSERT_OK(sd_varlink_server_new(&s, 0));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_server_bind_method(s, "foo.mytest.MandatoryTypeWithOptionalField", method_mandatory_type_with_optional_field));
 
@@ -513,7 +513,7 @@ TEST(mandatory_type_with_optional_field) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_bind_reply(c, reply_valid_hi));
 
@@ -541,9 +541,9 @@ TEST(sentinel_error) {
         ASSERT_OK(sd_event_default(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        ASSERT_OK(sd_varlink_server_new(&s, 0));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.ErrorSentinel", method_with_error_sentinel));
 
@@ -554,7 +554,7 @@ TEST(sentinel_error) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_bind_reply(c, reply_sentinel_error));
 
@@ -581,9 +581,9 @@ TEST(sentinel_empty) {
         ASSERT_OK(sd_event_default(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        ASSERT_OK(sd_varlink_server_new(&s, 0));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.EmptySentinel", method_with_empty_sentinel));
 
@@ -594,7 +594,7 @@ TEST(sentinel_empty) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_bind_reply(c, reply_sentinel_empty));
 
@@ -621,9 +621,9 @@ TEST(sentinel_with_explicit_reply) {
         ASSERT_OK(sd_event_default(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        ASSERT_OK(sd_varlink_server_new(&s, 0));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.SentinelButReply", method_with_sentinel_but_reply));
 
@@ -634,7 +634,7 @@ TEST(sentinel_with_explicit_reply) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_bind_reply(c, reply_sentinel_explicit));
 
@@ -669,9 +669,9 @@ TEST(sentinel_oneway) {
         ASSERT_OK(sd_event_default(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        ASSERT_OK(sd_varlink_server_new(&s, 0));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewaySentinel", method_with_oneway_sentinel));
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.Pong", method_oneway_sentinel_pong));
@@ -683,7 +683,7 @@ TEST(sentinel_oneway) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         /* Send a oneway call with a sentinel — the sentinel should be silently ignored. */
         ASSERT_OK(sd_varlink_send(c, "io.test.OnewaySentinel", /* parameters= */ NULL));
@@ -708,9 +708,9 @@ TEST(fiber_sentinel_error) {
         ASSERT_OK(sd_event_default(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        ASSERT_OK(sd_varlink_server_new(&s, 0));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FiberSentinelError", method_fiber_sentinel_error));
 
@@ -721,7 +721,7 @@ TEST(fiber_sentinel_error) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_bind_reply(c, reply_sentinel_error));
 
@@ -748,9 +748,9 @@ TEST(fiber_errno) {
         ASSERT_OK(sd_event_default(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        ASSERT_OK(sd_varlink_server_new(&s, 0));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FiberErrno", method_fiber_errno));
 
@@ -761,7 +761,7 @@ TEST(fiber_errno) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_bind_reply(c, reply_fiber_errno));
 
@@ -787,9 +787,9 @@ TEST(fiber_no_reply) {
         ASSERT_OK(sd_event_default(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        ASSERT_OK(sd_varlink_server_new(&s, 0));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FiberNoReply", method_fiber_no_reply));
 
@@ -800,7 +800,7 @@ TEST(fiber_no_reply) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_bind_reply(c, reply_fiber_no_reply));
 
@@ -840,9 +840,9 @@ TEST(fiber_stash) {
         ASSERT_OK(sd_event_default(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        ASSERT_OK(sd_varlink_server_new(&s, 0));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FiberStash", method_fiber_stash));
 
@@ -853,7 +853,7 @@ TEST(fiber_stash) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_bind_reply(c, reply_fiber_stash));
 
@@ -923,7 +923,7 @@ TEST(sentinel_with_fds) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.FDSentinel", method_with_fd_sentinel));
 
@@ -936,7 +936,7 @@ TEST(sentinel_with_fds) {
         ASSERT_OK(sd_varlink_set_allow_fd_passing_input(c, true));
         ASSERT_OK(sd_varlink_set_allow_fd_passing_output(c, true));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         int state = 0;
         sd_varlink_set_userdata(c, &state);
@@ -978,9 +978,9 @@ TEST(notify_then_error) {
         ASSERT_OK(sd_event_new(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        ASSERT_OK(sd_varlink_server_new(&s, 0));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
 
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.NotifyThenError", method_with_notify_then_error));
 
@@ -991,7 +991,7 @@ TEST(notify_then_error) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
 
         int state = 0;
         sd_varlink_set_userdata(c, &state);
@@ -1093,7 +1093,7 @@ TEST(upgrade) {
         ASSERT_OK(varlink_server_bind_fiber(s, "io.test.Upgrade", method_upgrade));
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.UpgradeWithoutFlag", method_upgrade_without_flag));
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(sd_fiber_new(e, "upgrade-client", upgrade_client_fiber, (void*) sp, /* destroy= */ NULL, &f));
 
@@ -1168,7 +1168,7 @@ TEST(upgrade_pipelining) {
         /* method_upgrade does raw I/O on the upgraded socket, so bind as a fiber method. */
         ASSERT_OK(varlink_server_bind_fiber(s, "io.test.Upgrade", method_upgrade));
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(sd_fiber_new(e, "upgrade-pipelining-client", upgrade_pipelining_client_fiber, (void*) sp, /* destroy= */ NULL, &f));
 
@@ -1289,7 +1289,7 @@ TEST(respond_upgrade) {
          * sd_varlink_respond_and_upgradebo() API, which never blocks the event loop on a single client. */
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.RespondUpgrade", method_respond_upgrade));
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
         ASSERT_OK(sd_fiber_new(e, "respond-upgrade-client", respond_upgrade_client_fiber, (void*) sp, /* destroy= */ NULL, &f));
 
@@ -1392,7 +1392,7 @@ TEST(execute_directory) {
                                              eds));
                 ASSERT_OK(sd_varlink_server_bind_method(eds->server, "io.test.ExecDirPing", method_execute_dir_ping));
                 ASSERT_OK(sd_varlink_server_listen_address(eds->server, j, 0600));
-                ASSERT_OK(sd_varlink_server_attach_event(eds->server, e, 0));
+                ASSERT_OK(sd_varlink_server_attach_event(eds->server, e, /* priority= */ 0));
         }
 
         ExecDirClientArgs args = {
@@ -1400,7 +1400,7 @@ TEST(execute_directory) {
                 .n_servers = ELEMENTSOF(names),
                 .reply_count = &reply_count,
         };
-        ASSERT_OK(sd_fiber_new(e, "execute-dir-client", execute_dir_client_fiber, &args, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "execute-dir-client", execute_dir_client_fiber, &args, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -1444,7 +1444,7 @@ TEST(ctrunc) {
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.CTrunc", method_ctrunc));
 
         int connfd[2];
@@ -1455,7 +1455,7 @@ TEST(ctrunc) {
         ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
         ASSERT_OK(sd_varlink_set_allow_fd_passing_input(c, true));
         ASSERT_OK(sd_varlink_set_allow_fd_passing_output(c, true));
-        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
         ASSERT_OK(sd_varlink_bind_reply(c, reply_ctrunc));
 
         /* Open a batch of memfds we'll attach to the call. We push duplicates so the originals

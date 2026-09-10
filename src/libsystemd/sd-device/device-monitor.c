@@ -99,7 +99,7 @@ int device_monitor_allow_unicast_sender(sd_device_monitor *m, sd_device_monitor 
 _public_ int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, size_t size) {
         assert_return(m, -EINVAL);
 
-        return fd_set_rcvbuf(m->sock, size, false);
+        return fd_set_rcvbuf(m->sock, size, /* increase= */ false);
 }
 
 _public_ int sd_device_monitor_get_fd(sd_device_monitor *m) {
@@ -172,7 +172,7 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
 
         if (fd < 0) {
                 /* enable receiving of sender credentials */
-                r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
+                r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, /* value= */ true);
                 if (r < 0)
                         return log_monitor_errno(m, r, "Failed to set socket option SO_PASSCRED: %m");
 
@@ -227,7 +227,7 @@ _public_ int sd_device_monitor_is_running(sd_device_monitor *m) {
         if (!m)
                 return 0;
 
-        return sd_event_source_get_enabled(m->event_source, NULL);
+        return sd_event_source_get_enabled(m->event_source, /* ret= */ NULL);
 }
 
 static int device_monitor_update_multicast_groups(sd_device_monitor *m, bool add) {
@@ -300,7 +300,7 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
         assert_return(m->sock >= 0, -ESTALE);
 
         if (!m->event) {
-                r = sd_device_monitor_attach_event(m, NULL);
+                r = sd_device_monitor_attach_event(m, /* event= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -554,7 +554,7 @@ _public_ int sd_device_monitor_receive(sd_device_monitor *m, sd_device **ret) {
 
         iov = IOVEC_MAKE(message.buf, n);
 
-        n = recvmsg_safe(m->sock, &smsg, 0);
+        n = recvmsg_safe(m->sock, &smsg, /* flags= */ 0);
         if (n < 0) {
                 if (!ERRNO_IS_NEG_TRANSIENT(n))
                         log_monitor_errno(m, n, "Failed to receive message: %s",
@@ -640,7 +640,7 @@ _public_ int sd_device_monitor_receive(sd_device_monitor *m, sd_device **ret) {
 }
 
 static uint32_t string_hash32(const char *str) {
-        return MurmurHash2(str, strlen(str), 0);
+        return MurmurHash2(str, strlen(str), /* seed= */ 0);
 }
 
 /* Get a bunch of bit numbers out of the hash, and set the bits in our bit field */

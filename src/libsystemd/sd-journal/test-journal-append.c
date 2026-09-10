@@ -57,7 +57,7 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
         ASSERT_NOT_NULL(mmap_cache = mmap_cache_new());
 
         /* journal_file_open() requires a valid machine id */
-        if (sd_id128_get_machine(NULL) < 0)
+        if (sd_id128_get_machine(/* ret= */ NULL) < 0)
                 return log_tests_skipped("No valid machine ID found");
 
         ASSERT_OK(mkdtemp_malloc("/tmp/journal-append-XXXXXX", &tempdir));

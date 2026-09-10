@@ -288,7 +288,7 @@ static int genl_family_get_by_name_internal(
         if (r < 0)
                 return r;
 
-        if (sd_netlink_call(nl, req, 0, &reply) < 0) {
+        if (sd_netlink_call(nl, req, /* timeout= */ 0, &reply) < 0) {
                 (void) genl_family_new_unsupported(nl, name, policy_set);
                 return -EOPNOTSUPP;
         }
@@ -433,7 +433,7 @@ int sd_genl_message_get_command(sd_netlink *nl, sd_netlink_message *m, uint8_t *
         if (r < 0)
                 return r;
 
-        r = genl_get_policy_set_and_header_size(nl, nlmsg_type, NULL, &size);
+        r = genl_get_policy_set_and_header_size(nl, nlmsg_type, /* ret_policy_set= */ NULL, &size);
         if (r < 0)
                 return r;
 

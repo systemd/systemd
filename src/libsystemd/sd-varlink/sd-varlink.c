@@ -254,7 +254,7 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
         if (r < 0)
                 return r;
 
-        r = fd_nonblock(server_fd, false);
+        r = fd_nonblock(server_fd, /* nonblock= */ false);
         if (r < 0)
                 return log_debug_errno(r, "Failed to disable O_NONBLOCK for varlink socket: %m");
 
@@ -479,11 +479,11 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         input_pipe[0] = safe_close(input_pipe[0]);
         output_pipe[1] = safe_close(output_pipe[1]);
 
-        r = fd_nonblock(input_pipe[1], true);
+        r = fd_nonblock(input_pipe[1], /* nonblock= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to make input pipe non-blocking: %m");
 
-        r = fd_nonblock(output_pipe[0], true);
+        r = fd_nonblock(output_pipe[0], /* nonblock= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to make output pipe non-blocking: %m");
 
@@ -598,7 +598,7 @@ _public_ int sd_varlink_connect_url(sd_varlink **ret, const char *url) {
         }
 
         if (scheme == SCHEME_EXEC)
-                return sd_varlink_connect_exec(ret, c, NULL);
+                return sd_varlink_connect_exec(ret, c, /* argv= */ NULL);
 
         return sd_varlink_connect_address(ret, c ?: p);
 }
@@ -787,7 +787,7 @@ static int varlink_dispatch_local_error(sd_varlink *v, const char *error) {
         if (!v->reply_callback)
                 return 0;
 
-        r = sd_json_variant_new_object(&empty, NULL, 0);
+        r = sd_json_variant_new_object(&empty, /* array= */ NULL, 0);
         if (r < 0)
                 return r;
 
@@ -831,7 +831,7 @@ static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
         /* Convert NULL or JSON null to empty object for method handlers (backward compatibility) */
         if (!*v || sd_json_variant_is_null(*v)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
-                r = sd_json_variant_new_object(&empty, NULL, 0);
+                r = sd_json_variant_new_object(&empty, /* array= */ NULL, 0);
                 if (r < 0)
                         return r;
                 return json_variant_unref_and_replace(*v, empty);
@@ -998,7 +998,7 @@ static int generic_method_get_interface_description(
 
         assert(link);
 
-        r = sd_json_dispatch(parameters, dispatch_table, 0, &name);
+        r = sd_json_dispatch(parameters, dispatch_table, /* flags= */ 0, &name);
         if (r < 0)
                 return r;
 
@@ -1053,7 +1053,7 @@ static int varlink_dispatch_sentinel(sd_varlink *v) {
                  * satisfy any mandatory output fields the method declares. */
                 r = varlink_reply_terminator(v);
         else {
-                r = sd_varlink_error(v, sentinel, NULL);
+                r = sd_varlink_error(v, sentinel, /* parameters= */ NULL);
                 /* sd_varlink_error() deliberately returns a negative
                  * errno mapped from the error id on success (so method
                  * callbacks can `return sd_varlink_error(...);` to
@@ -1322,7 +1322,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                                 if (v->state == VARLINK_PROCESSING_METHOD) {
                                         r = sd_varlink_error(v, missing_upgrade ? SD_VARLINK_ERROR_EXPECTED_UPGRADE
-                                                                                : SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                                                                                : SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
                                         /* If we didn't manage to enqueue an error response, then fail the
                                          * connection completely. Otherwise ignore the error from
                                          * sd_varlink_error() here, as it is synthesized from the function's
@@ -1463,12 +1463,12 @@ static int varlink_handle_upgrade_fds(sd_varlink *v, int *ret_input_fd, int *ret
                 if (output_fd < 0)
                         return varlink_log_errno(v, errno, "Failed to dup upgraded connection fd: %m");
         } else {
-                r = fd_nonblock(output_fd, false);
+                r = fd_nonblock(output_fd, /* nonblock= */ false);
                 if (r < 0)
                         return varlink_log_errno(v, r, "Failed to set output fd to blocking mode: %m");
         }
 
-        r = fd_nonblock(input_fd, false);
+        r = fd_nonblock(input_fd, /* nonblock= */ false);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to set input fd to blocking mode: %m");
 
@@ -1666,7 +1666,7 @@ _public_ int sd_varlink_get_current_parameters(sd_varlink *v, sd_json_variant **
 
         p = sd_json_variant_by_key(v->current, "parameters");
         if (!p || sd_json_variant_is_null(p))
-                return sd_json_variant_new_object(ret, NULL, 0);
+                return sd_json_variant_new_object(ret, /* array= */ NULL, 0);
 
         *ret = sd_json_variant_ref(p);
         return 0;
@@ -2110,7 +2110,7 @@ _public_ int sd_varlink_call(
                 sd_json_variant **ret_parameters,
                 const char **ret_error_id) {
 
-        return sd_varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
+        return sd_varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, /* ret_flags= */ NULL);
 }
 
 _public_ int sd_varlink_call_and_upgrade(
@@ -2247,7 +2247,7 @@ _public_ int sd_varlink_callb(
         int r;
 
         va_start(ap, ret_error_id);
-        r = sd_varlink_callb_ap(v, method, ret_parameters, ret_error_id, NULL, ap);
+        r = sd_varlink_callb_ap(v, method, ret_parameters, ret_error_id, /* ret_flags= */ NULL, ap);
         va_end(ap);
         return r;
 }
@@ -2408,7 +2408,7 @@ _public_ int sd_varlink_collect(
                 sd_json_variant **ret_parameters,
                 const char **ret_error_id) {
 
-        return sd_varlink_collect_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
+        return sd_varlink_collect_full(v, method, parameters, ret_parameters, ret_error_id, /* ret_flags= */ NULL);
 }
 
 _public_ int sd_varlink_collectb(
@@ -2431,7 +2431,7 @@ _public_ int sd_varlink_collectb(
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        return sd_varlink_collect_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
+        return sd_varlink_collect_full(v, method, parameters, ret_parameters, ret_error_id, /* ret_flags= */ NULL);
 }
 
 static int varlink_reply_internal(sd_varlink *v, sd_json_variant *parameters, bool skip_validation) {
@@ -2794,7 +2794,7 @@ _public_ int sd_varlink_error_invalid_parameter(sd_varlink *v, sd_json_variant *
             sd_json_variant_elements(parameters) > 0) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters_obj = NULL;
 
-                r = sd_json_buildo(&parameters_obj, SD_JSON_BUILD_PAIR_VARIANT("parameter", sd_json_variant_by_index(parameters, 0)));
+                r = sd_json_buildo(&parameters_obj, SD_JSON_BUILD_PAIR_VARIANT("parameter", sd_json_variant_by_index(parameters, /* index= */ 0)));
                 if (r < 0)
                         return r;
 
@@ -2846,7 +2846,7 @@ _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
         /* If we want to reply with a notify connection but the caller didn't set "more", then return an
          * error indicating that we expected to be called with "more" set */
         if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PENDING_METHOD))
-                return sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                return sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
 
         if (!IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
@@ -3368,7 +3368,7 @@ static int count_connection(sd_varlink_server *server, const struct ucred *ucred
         if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_ACCOUNT_UID)) {
                 assert(uid_is_valid(ucred->uid));
 
-                r = hashmap_ensure_allocated(&server->by_uid, NULL);
+                r = hashmap_ensure_allocated(&server->by_uid, /* hash_ops= */ NULL);
                 if (r < 0)
                         return varlink_server_log_errno(server, r, "Failed to allocate UID hash table: %m");
 
@@ -3575,11 +3575,11 @@ _public_ int sd_varlink_server_listen_fd(sd_varlink_server *s, int fd) {
         assert_return(s, -EINVAL);
         assert_return(fd >= 0, -EBADF);
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(fd, /* nonblock= */ true);
         if (r < 0)
                 return r;
 
-        r = fd_cloexec(fd, true);
+        r = fd_cloexec(fd, /* cloexec= */ true);
         if (r < 0)
                 return r;
 
@@ -3696,11 +3696,11 @@ _public_ int sd_varlink_server_add_connection_stdio(sd_varlink_server *s, sd_var
         if (r < 0)
                 return r;
 
-        r = fd_nonblock(input_fd, true);
+        r = fd_nonblock(input_fd, /* nonblock= */ true);
         if (r < 0)
                 return r;
 
-        r = fd_nonblock(output_fd, true);
+        r = fd_nonblock(output_fd, /* nonblock= */ true);
         if (r < 0)
                 return r;
 
@@ -3772,7 +3772,7 @@ _public_ int sd_varlink_server_listen_name(sd_varlink_server *s, const char *nam
                 if (b) /* Listening socket? */
                         r = sd_varlink_server_listen_fd(s, fd);
                 else /* Otherwise assume connection socket */
-                        r = sd_varlink_server_add_connection(s, fd, NULL);
+                        r = sd_varlink_server_add_connection(s, fd, /* ret= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -3853,7 +3853,7 @@ _public_ int sd_varlink_server_loop_auto(sd_varlink_server *server) {
                         return r;
         }
 
-        r = sd_varlink_server_attach_event(server, event, 0);
+        r = sd_varlink_server_attach_event(server, event, /* priority= */ 0);
         if (r < 0)
                 return r;
 
@@ -3893,7 +3893,7 @@ static void varlink_server_test_exit_on_idle(sd_varlink_server *s) {
 
         if (s->exit_on_idle && s->event && s->n_connections == 0) {
                 varlink_server_log(s, "Exit-on-idle triggered.");
-                (void) sd_event_exit(s->event, 0);
+                (void) sd_event_exit(s->event, /* code= */ 0);
         }
 }
 

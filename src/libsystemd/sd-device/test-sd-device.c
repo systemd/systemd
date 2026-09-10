@@ -43,7 +43,7 @@ TEST(mdio_bus) {
         r = ASSERT_OK(pidref_safe_fork(
                         "(mdio_bus)",
                         FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
-                        NULL));
+                        /* ret= */ NULL));
         if (r == 0) {
                 const char *syspath = "/sys/bus/mdio_bus/drivers/Qualcomm Atheros AR8031!AR8033";
                 const char *id = "+drivers:mdio_bus:Qualcomm Atheros AR8031!AR8033";
@@ -60,7 +60,7 @@ TEST(mdio_bus) {
                 };
 
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_DEVICE_VERIFY_SYSFS", "0", /* overwrite= */ false));
-                ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", "/sys/bus/", "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", "/sys/bus/", "tmpfs", /* flags= */ 0, /* options= */ NULL));
                 r = mkdir_p(syspath, 0755);
                 if (ERRNO_IS_NEG_PRIVILEGE(r)) {
                         log_tests_skipped("Lacking privileges to create %s", syspath);
@@ -275,11 +275,11 @@ static void test_sd_device_one(sd_device *d) {
 
         ASSERT_OK(sd_device_get_devpath(d, &val));
 
-        r = sd_device_get_devtype(d, NULL);
+        r = sd_device_get_devtype(d, /* ret= */ NULL);
         if (r < 0)
                 ASSERT_ERROR(r, ENOENT);
 
-        r = sd_device_get_driver(d, NULL);
+        r = sd_device_get_driver(d, /* ret= */ NULL);
         if (r < 0)
                 ASSERT_ERROR(r, ENOENT);
 
@@ -292,12 +292,12 @@ static void test_sd_device_one(sd_device *d) {
                 ASSERT_TRUE(in_charset(val, DIGITS));
                 ASSERT_FALSE(ascii_isdigit(val[-1]));
 
-                r = device_get_sysnum_unsigned(d, NULL);
+                r = device_get_sysnum_unsigned(d, /* ret= */ NULL);
                 if (r < 0)
                         ASSERT_ERROR(r, ERANGE); /* sysnum may be too large. */
         }
 
-        r = sd_device_get_sysattr_value(d, "nsid", NULL);
+        r = sd_device_get_sysattr_value(d, "nsid", /* ret= */ NULL);
         if (r < 0)
                 ASSERT_TRUE(ERRNO_IS_NEG_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
         else {
@@ -352,7 +352,7 @@ static void test_sd_device_one(sd_device *d) {
 static void exclude_problematic_devices(sd_device_enumerator *e) {
         /* On some CI environments, it seems some loop block devices and corresponding bdi devices sometimes
          * disappear during running this test. Let's exclude them here for stability. */
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", /* match= */ false));
         ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
         /* On some CI environments, it seems dm block devices sometimes disappear during running this test.
          * Let's exclude them here for stability. */
@@ -360,7 +360,7 @@ static void exclude_problematic_devices(sd_device_enumerator *e) {
         /* Several other unit tests create and remove virtual network interfaces, e.g. test-netlink and
          * test-local-addresses. When one of these tests run in parallel with this unit test, the enumerated
          * device may disappear. Let's exclude them here for stability. */
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", /* match= */ false));
 }
 
 TEST(sd_device_enumerator_devices) {
@@ -397,7 +397,7 @@ static void test_sd_device_enumerator_filter_subsystem_one(
         assert(ret_n_removed_dev);
 
         ASSERT_OK(sd_device_enumerator_new(&e));
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, subsystem, true));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, subsystem, /* match= */ true));
         exclude_problematic_devices(e);
 
         FOREACH_DEVICE(e, d) {
@@ -498,7 +498,7 @@ static bool test_sd_device_enumerator_filter_subsystem_trial_many(void) {
 
 static int on_inotify(sd_event_source *s, const struct inotify_event *event, void *userdata) {
         if (test_sd_device_enumerator_filter_subsystem_trial_many())
-                return sd_event_exit(sd_event_source_get_event(s), 0);
+                return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 
         return sd_event_exit(sd_event_source_get_event(s), -EBUSY);
 }
@@ -518,7 +518,7 @@ TEST(sd_device_enumerator_filter_subsystem) {
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         ASSERT_OK(sd_event_default(&event));
-        ASSERT_OK(sd_event_add_inotify(event, NULL, "/run/udev" , IN_DELETE, on_inotify, NULL));
+        ASSERT_OK(sd_event_add_inotify(event, /* ret= */ NULL, "/run/udev" , IN_DELETE, on_inotify, /* userdata= */ NULL));
 
         if (udev_queue_is_empty() == 0) {
                 log_debug("udev queue is not empty, waiting for all queued events to be processed.");
@@ -534,12 +534,12 @@ TEST(sd_device_enumerator_add_match_sysattr) {
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", true));
-        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true));
-        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "hoge", true));
-        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "foo", true));
-        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "bar", false));
-        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "baz", false));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", /* match= */ true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", /* match= */ true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "hoge", /* match= */ true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "foo", /* match= */ true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "bar", /* match= */ false));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "baz", /* match= */ false));
 
         ASSERT_NOT_NULL((dev = sd_device_enumerator_get_device_first(e)));
         ASSERT_OK(sd_device_get_ifindex(dev, &ifindex));
@@ -555,13 +555,13 @@ TEST(sd_device_enumerator_add_match_property) {
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", true));
-        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", /* match= */ true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", /* match= */ true));
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "IFINDE*", "1*"));
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "IFINDE*", "hoge"));
-        ASSERT_OK(sd_device_enumerator_add_match_property(e, "IFINDE*", NULL));
+        ASSERT_OK(sd_device_enumerator_add_match_property(e, "IFINDE*", /* value= */ NULL));
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "AAAAA", "BBBB"));
-        ASSERT_OK(sd_device_enumerator_add_match_property(e, "FOOOO", NULL));
+        ASSERT_OK(sd_device_enumerator_add_match_property(e, "FOOOO", /* value= */ NULL));
 
         ASSERT_NOT_NULL((dev = sd_device_enumerator_get_device_first(e)));
         ASSERT_OK(sd_device_get_ifindex(dev, &ifindex));
@@ -575,8 +575,8 @@ TEST(sd_device_enumerator_add_match_property_required) {
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", true));
-        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", /* match= */ true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", /* match= */ true));
         ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "IFINDE*", "1*"));
 
         /* Only one required match which should be satisfied. */
@@ -586,9 +586,9 @@ TEST(sd_device_enumerator_add_match_property_required) {
 
         /* Now let's add a bunch of garbage properties which should not be satisfied. */
         ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "IFINDE*", "hoge"));
-        ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "IFINDE*", NULL));
+        ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "IFINDE*", /* value= */ NULL));
         ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "AAAAA", "BBBB"));
-        ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "FOOOO", NULL));
+        ASSERT_OK(sd_device_enumerator_add_match_property_required(e, "FOOOO", /* value= */ NULL));
 
         ASSERT_NULL(sd_device_enumerator_get_device_first(e));
 }
@@ -628,7 +628,7 @@ TEST(sd_device_enumerator_add_match_parent) {
         exclude_problematic_devices(e);
 
         if (!slow_tests_enabled())
-                ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
+                ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true));
 
         FOREACH_DEVICE(e, dev) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *p = NULL;
@@ -655,7 +655,7 @@ TEST(sd_device_enumerator_add_match_parent) {
                 check_parent_match(p, dev);
 
                 /* If the device does not have subsystem, then it is not enumerated. */
-                r = sd_device_get_subsystem(parent, NULL);
+                r = sd_device_get_subsystem(parent, /* ret= */ NULL);
                 if (r < 0) {
                         ASSERT_ERROR(r, ENOENT);
                         continue;
@@ -674,7 +674,7 @@ TEST(sd_device_enumerator_add_all_parents) {
         exclude_problematic_devices(e);
 
         /* filter in only a subsystem */
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true));
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition"));
 
         unsigned devices_count_with_parents = 0;
@@ -713,7 +713,7 @@ TEST(sd_device_get_child) {
         exclude_problematic_devices(e);
 
         if (!slow_tests_enabled())
-                ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
+                ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true));
 
         FOREACH_DEVICE(e, dev) {
                 const char *syspath, *parent_syspath, *expected_suffix, *suffix;
@@ -779,10 +779,10 @@ TEST(sd_device_new_from_nulstr) {
         }
 
         /* For issue #23799 */
-        ASSERT_OK(device_add_tag(device, "tag1", false));
-        ASSERT_OK(device_add_tag(device, "tag2", false));
-        ASSERT_OK(device_add_tag(device, "current-tag1", true));
-        ASSERT_OK(device_add_tag(device, "current-tag2", true));
+        ASSERT_OK(device_add_tag(device, "tag1", /* both= */ false));
+        ASSERT_OK(device_add_tag(device, "tag2", /* both= */ false));
+        ASSERT_OK(device_add_tag(device, "current-tag1", /* both= */ true));
+        ASSERT_OK(device_add_tag(device, "current-tag2", /* both= */ true));
 
         /* These properties are necessary for device_new_from_nulstr(). See device_verify(). */
         ASSERT_OK(device_add_property_internal(device, "SEQNUM", "1"));
@@ -874,7 +874,7 @@ TEST(sd_device_new_from_path) {
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
         exclude_problematic_devices(e);
 
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true));
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVNAME", "*"));
 
         FOREACH_DEVICE(e, dev) {
@@ -959,7 +959,7 @@ TEST(device_add_property) {
         ASSERT_STREQ(val, "bar");
 
         /* remove an existing property */
-        ASSERT_OK(device_add_property(dev, "hoge", NULL));
+        ASSERT_OK(device_add_property(dev, "hoge", /* value= */ NULL));
         ASSERT_ERROR(sd_device_get_property_value(dev, "hoge", &val), ENOENT);
 
         /* add a property again */

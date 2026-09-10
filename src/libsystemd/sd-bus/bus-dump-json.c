@@ -18,12 +18,12 @@ static int json_transform_array_or_struct(sd_bus_message *m, sd_json_variant **r
         assert(m);
         assert(ret);
 
-        r = sd_json_variant_new_array(&array, NULL, 0);
+        r = sd_json_variant_new_array(&array, /* array= */ NULL, 0);
         if (r < 0)
                 return r;
 
         for (;;) {
-                r = sd_bus_message_at_end(m, false);
+                r = sd_bus_message_at_end(m, /* complete= */ false);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -76,7 +76,7 @@ static int json_transform_dict_array(sd_bus_message *m, sd_json_variant **ret) {
                 const char *contents;
                 char type;
 
-                r = sd_bus_message_at_end(m, false);
+                r = sd_bus_message_at_end(m, /* complete= */ false);
                 if (r < 0)
                         return r;
                 if (r > 0)

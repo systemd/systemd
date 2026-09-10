@@ -64,7 +64,7 @@ TEST(message_getlink) {
 
         /* we'd really like to test NEWLINK, but let's not mess with the running kernel */
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, ifindex));
-        ASSERT_OK_EQ(sd_netlink_call(rtnl, message, 0, &reply), 1);
+        ASSERT_OK_EQ(sd_netlink_call(rtnl, message, /* timeout= */ 0, &reply), 1);
 
         /* u8 */
         ASSERT_OK(sd_netlink_message_read_u8(reply, IFLA_CARRIER, &u8_data));
@@ -101,9 +101,9 @@ TEST(message_address) {
         ifindex = (int) if_nametoindex("lo");
 
         ASSERT_OK(sd_rtnl_message_new_addr(rtnl, &message, RTM_GETADDR, ifindex, AF_INET));
-        ASSERT_OK(sd_netlink_message_set_request_dump(message, true));
+        ASSERT_OK(sd_netlink_message_set_request_dump(message, /* dump= */ true));
 
-        ASSERT_OK(r = sd_netlink_call(rtnl, message, 0, &reply));
+        ASSERT_OK(r = sd_netlink_call(rtnl, message, /* timeout= */ 0, &reply));
 
         /* If the loopback device is down we won't get any results. */
         if (r > 0) {
@@ -168,12 +168,12 @@ TEST(netlink_event_loop) {
         ASSERT_NOT_NULL((userdata = strdup("foo")));
 
         ASSERT_OK(sd_event_default(&event));
-        ASSERT_OK(sd_netlink_attach_event(rtnl, event, 0));
+        ASSERT_OK(sd_netlink_attach_event(rtnl, event, /* priority= */ 0));
 
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex));
-        ASSERT_OK(sd_netlink_call_async(rtnl, NULL, m, link_handler, NULL, userdata, 0, NULL));
+        ASSERT_OK(sd_netlink_call_async(rtnl, /* ret_slot= */ NULL, m, link_handler, /* destroy_callback= */ NULL, userdata, /* usec= */ 0, /* description= */ NULL));
 
-        ASSERT_OK(sd_event_run(event, 0));
+        ASSERT_OK(sd_event_run(event, /* timeout= */ 0));
 
         ASSERT_OK(sd_netlink_detach_event(rtnl));
         ASSERT_NULL(rtnl = sd_netlink_unref(rtnl));
@@ -197,19 +197,19 @@ TEST(netlink_call_async) {
         ASSERT_NOT_NULL((userdata = strdup("foo")));
 
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex));
-        ASSERT_OK(sd_netlink_call_async(rtnl, &slot, m, link_handler, test_async_destroy, userdata, 0, "hogehoge"));
+        ASSERT_OK(sd_netlink_call_async(rtnl, &slot, m, link_handler, test_async_destroy, userdata, /* usec= */ 0, "hogehoge"));
 
         ASSERT_PTR_EQ(sd_netlink_slot_get_netlink(slot), rtnl);
 
         ASSERT_PTR_EQ(sd_netlink_slot_get_userdata(slot), userdata);
-        ASSERT_PTR_EQ(sd_netlink_slot_set_userdata(slot, NULL), userdata);
+        ASSERT_PTR_EQ(sd_netlink_slot_set_userdata(slot, /* userdata= */ NULL), userdata);
         ASSERT_NULL(sd_netlink_slot_get_userdata(slot));
         ASSERT_NULL(sd_netlink_slot_set_userdata(slot, userdata));
         ASSERT_PTR_EQ(sd_netlink_slot_get_userdata(slot), userdata);
 
         ASSERT_OK_EQ(sd_netlink_slot_get_destroy_callback(slot, &destroy_callback), 1);
         ASSERT_PTR_EQ(destroy_callback, test_async_destroy);
-        ASSERT_OK(sd_netlink_slot_set_destroy_callback(slot, NULL));
+        ASSERT_OK(sd_netlink_slot_set_destroy_callback(slot, /* callback= */ NULL));
         ASSERT_OK_ZERO(sd_netlink_slot_get_destroy_callback(slot, &destroy_callback));
         ASSERT_NULL(destroy_callback);
         ASSERT_OK(sd_netlink_slot_set_destroy_callback(slot, test_async_destroy));
@@ -222,11 +222,11 @@ TEST(netlink_call_async) {
 
         ASSERT_OK_EQ(sd_netlink_slot_get_description(slot, &description), 1);
         ASSERT_STREQ(description, "hogehoge");
-        ASSERT_OK(sd_netlink_slot_set_description(slot, NULL));
+        ASSERT_OK(sd_netlink_slot_set_description(slot, /* description= */ NULL));
         ASSERT_OK_ZERO(sd_netlink_slot_get_description(slot, &description));
         ASSERT_NULL(description);
 
-        ASSERT_OK(sd_netlink_wait(rtnl, 0));
+        ASSERT_OK(sd_netlink_wait(rtnl, /* timeout= */ 0));
         ASSERT_OK(sd_netlink_process(rtnl, &reply));
 
         ASSERT_NULL(rtnl = sd_netlink_unref(rtnl));
@@ -290,13 +290,13 @@ TEST(async_destroy_callback) {
 
         /* destroy callback is called after processing message */
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex));
-        ASSERT_OK(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0, NULL));
+        ASSERT_OK(sd_netlink_call_async(rtnl, /* ret_slot= */ NULL, m, link_handler2, test_async_object_destroy, t, /* usec= */ 0, /* description= */ NULL));
 
         ASSERT_EQ(t->n_ref, 1U);
         ASSERT_PTR_EQ(test_async_object_ref(t), t);
         ASSERT_EQ(t->n_ref, 2U);
 
-        ASSERT_OK(sd_netlink_wait(rtnl, 0));
+        ASSERT_OK(sd_netlink_wait(rtnl, /* timeout= */ 0));
         ASSERT_OK_EQ(sd_netlink_process(rtnl, &reply), 1);
         ASSERT_EQ(t->n_ref, 1U);
 
@@ -304,7 +304,7 @@ TEST(async_destroy_callback) {
 
         /* destroy callback is called when asynchronous call is cancelled, that is, slot is freed. */
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex));
-        ASSERT_OK(sd_netlink_call_async(rtnl, &slot, m, link_handler2, test_async_object_destroy, t, 0, NULL));
+        ASSERT_OK(sd_netlink_call_async(rtnl, &slot, m, link_handler2, test_async_object_destroy, t, /* usec= */ 0, /* description= */ NULL));
 
         ASSERT_EQ(t->n_ref, 1U);
         ASSERT_PTR_EQ(test_async_object_ref(t), t);
@@ -317,7 +317,7 @@ TEST(async_destroy_callback) {
 
         /* destroy callback is also called by sd_netlink_unref() */
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex));
-        ASSERT_OK(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0, NULL));
+        ASSERT_OK(sd_netlink_call_async(rtnl, /* ret_slot= */ NULL, m, link_handler2, test_async_object_destroy, t, /* usec= */ 0, /* description= */ NULL));
 
         ASSERT_EQ(t->n_ref, 1U);
         ASSERT_PTR_EQ(test_async_object_ref(t), t);
@@ -349,14 +349,14 @@ TEST(pipe) {
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &m2, RTM_GETLINK, ifindex));
 
         counter++;
-        ASSERT_OK(sd_netlink_call_async(rtnl, NULL, m1, pipe_handler, NULL, &counter, 0, NULL));
+        ASSERT_OK(sd_netlink_call_async(rtnl, /* ret_slot= */ NULL, m1, pipe_handler, /* destroy_callback= */ NULL, &counter, /* usec= */ 0, /* description= */ NULL));
 
         counter++;
-        ASSERT_OK(sd_netlink_call_async(rtnl, NULL, m2, pipe_handler, NULL, &counter, 0, NULL));
+        ASSERT_OK(sd_netlink_call_async(rtnl, /* ret_slot= */ NULL, m2, pipe_handler, /* destroy_callback= */ NULL, &counter, /* usec= */ 0, /* description= */ NULL));
 
         while (counter > 0) {
-                ASSERT_OK(sd_netlink_wait(rtnl, 0));
-                ASSERT_OK(sd_netlink_process(rtnl, NULL));
+                ASSERT_OK(sd_netlink_wait(rtnl, /* timeout= */ 0));
+                ASSERT_OK(sd_netlink_process(rtnl, /* ret= */ NULL));
         }
 
         ASSERT_NULL(rtnl = sd_netlink_unref(rtnl));
@@ -371,7 +371,7 @@ TEST(message_container) {
 
         ASSERT_OK(sd_netlink_open(&rtnl));
 
-        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0));
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, /* ifindex= */ 0));
 
         ASSERT_OK(sd_netlink_message_open_container(m, IFLA_LINKINFO));
         ASSERT_OK(sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "vlan"));
@@ -402,9 +402,9 @@ TEST(sd_netlink_add_match) {
 
         ASSERT_OK(sd_netlink_open(&rtnl));
 
-        ASSERT_OK(sd_netlink_add_match(rtnl, &s1, RTM_NEWLINK, link_handler, NULL, NULL, NULL));
-        ASSERT_OK(sd_netlink_add_match(rtnl, &s2, RTM_NEWLINK, link_handler, NULL, NULL, NULL));
-        ASSERT_OK(sd_netlink_add_match(rtnl, NULL, RTM_NEWLINK, link_handler, NULL, NULL, NULL));
+        ASSERT_OK(sd_netlink_add_match(rtnl, &s1, RTM_NEWLINK, link_handler, /* destroy_callback= */ NULL, /* userdata= */ NULL, /* description= */ NULL));
+        ASSERT_OK(sd_netlink_add_match(rtnl, &s2, RTM_NEWLINK, link_handler, /* destroy_callback= */ NULL, /* userdata= */ NULL, /* description= */ NULL));
+        ASSERT_OK(sd_netlink_add_match(rtnl, /* ret_slot= */ NULL, RTM_NEWLINK, link_handler, /* destroy_callback= */ NULL, /* userdata= */ NULL, /* description= */ NULL));
 
         ASSERT_NULL(s1 = sd_netlink_slot_unref(s1));
         ASSERT_NULL(s2 = sd_netlink_slot_unref(s2));
@@ -418,9 +418,9 @@ TEST(dump_addresses) {
 
         ASSERT_OK(sd_netlink_open(&rtnl));
 
-        ASSERT_OK(sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC));
-        ASSERT_OK(sd_netlink_message_set_request_dump(req, true));
-        ASSERT_OK(sd_netlink_call(rtnl, req, 0, &reply));
+        ASSERT_OK(sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, /* ifindex= */ 0, AF_UNSPEC));
+        ASSERT_OK(sd_netlink_message_set_request_dump(req, /* dump= */ true));
+        ASSERT_OK(sd_netlink_call(rtnl, req, /* timeout= */ 0, &reply));
 
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
                 uint16_t type;
@@ -572,7 +572,7 @@ TEST(genl) {
 
         ASSERT_OK(sd_genl_socket_open(&genl));
         ASSERT_OK(sd_event_default(&event));
-        ASSERT_OK(sd_netlink_attach_event(genl, event, 0));
+        ASSERT_OK(sd_netlink_attach_event(genl, event, /* priority= */ 0));
 
         ASSERT_OK(sd_genl_message_new(genl, CTRL_GENL_NAME, CTRL_CMD_GETFAMILY, &m));
         ASSERT_OK(sd_genl_message_get_family_name(genl, m, &name));
@@ -580,22 +580,31 @@ TEST(genl) {
         ASSERT_OK(sd_genl_message_get_command(genl, m, &cmd));
         ASSERT_EQ(cmd, CTRL_CMD_GETFAMILY);
 
-        ASSERT_OK(sd_genl_add_match(genl, NULL, CTRL_GENL_NAME, "notify", 0, genl_ctrl_match_callback, NULL, NULL, "genl-ctrl-notify"));
+        ASSERT_OK(sd_genl_add_match(
+                        genl,
+                        /* ret_slot= */ NULL,
+                        CTRL_GENL_NAME,
+                        "notify",
+                        /* command= */ 0,
+                        genl_ctrl_match_callback,
+                        /* destroy_callback= */ NULL,
+                        /* userdata= */ NULL,
+                        "genl-ctrl-notify"));
 
         ASSERT_NULL(m = sd_netlink_message_unref(m));
         ASSERT_FAIL(sd_genl_message_new(genl, "should-not-exist", CTRL_CMD_GETFAMILY, &m));
         ASSERT_ERROR(sd_genl_message_new(genl, "should-not-exist", CTRL_CMD_GETFAMILY, &m), EOPNOTSUPP);
 
         /* These families may not be supported by kernel. Hence, ignore results. */
-        (void) sd_genl_message_new(genl, FOU_GENL_NAME, 0, &m);
+        (void) sd_genl_message_new(genl, FOU_GENL_NAME, /* cmd= */ 0, &m);
         ASSERT_NULL(m = sd_netlink_message_unref(m));
-        (void) sd_genl_message_new(genl, L2TP_GENL_NAME, 0, &m);
+        (void) sd_genl_message_new(genl, L2TP_GENL_NAME, /* cmd= */ 0, &m);
         ASSERT_NULL(m = sd_netlink_message_unref(m));
-        (void) sd_genl_message_new(genl, MACSEC_GENL_NAME, 0, &m);
+        (void) sd_genl_message_new(genl, MACSEC_GENL_NAME, /* cmd= */ 0, &m);
         ASSERT_NULL(m = sd_netlink_message_unref(m));
-        (void) sd_genl_message_new(genl, NL80211_GENL_NAME, 0, &m);
+        (void) sd_genl_message_new(genl, NL80211_GENL_NAME, /* cmd= */ 0, &m);
         ASSERT_NULL(m = sd_netlink_message_unref(m));
-        (void) sd_genl_message_new(genl, NETLBL_NLTYPE_UNLABELED_NAME, 0, &m);
+        (void) sd_genl_message_new(genl, NETLBL_NLTYPE_UNLABELED_NAME, /* cmd= */ 0, &m);
 
         for (;;) {
                 ASSERT_OK(r = sd_event_run(event, 500 * USEC_PER_MSEC));
@@ -616,7 +625,7 @@ static void remove_dummy_interfacep(int *ifindex) {
         ASSERT_OK(sd_netlink_open(&rtnl));
 
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_DELLINK, *ifindex));
-        ASSERT_OK_EQ(sd_netlink_call(rtnl, message, 0, NULL), 1);
+        ASSERT_OK_EQ(sd_netlink_call(rtnl, message, /* timeout= */ 0, /* ret= */ NULL), 1);
 }
 
 TEST(rtnl_set_link_name) {
@@ -631,11 +640,11 @@ TEST(rtnl_set_link_name) {
 
         ASSERT_OK(sd_netlink_open(&rtnl));
 
-        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_NEWLINK, 0));
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_NEWLINK, /* ifindex= */ 0));
         ASSERT_OK(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-netlink"));
         ASSERT_OK(sd_netlink_message_open_container(message, IFLA_LINKINFO));
         ASSERT_OK(sd_netlink_message_append_string(message, IFLA_INFO_KIND, "dummy"));
-        r = sd_netlink_call(rtnl, message, 0, &reply);
+        r = sd_netlink_call(rtnl, message, /* timeout= */ 0, &reply);
         if (r == -EPERM)
                 return (void) log_tests_skipped("missing required capabilities");
         if (r == -EOPNOTSUPP)
@@ -645,9 +654,9 @@ TEST(rtnl_set_link_name) {
         ASSERT_NULL(message = sd_netlink_message_unref(message));
         ASSERT_NULL(reply = sd_netlink_message_unref(reply));
 
-        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, 0));
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, /* ifindex= */ 0));
         ASSERT_OK(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-netlink"));
-        ASSERT_OK_EQ(sd_netlink_call(rtnl, message, 0, &reply), 1);
+        ASSERT_OK_EQ(sd_netlink_call(rtnl, message, /* timeout= */ 0, &reply), 1);
 
         ASSERT_OK(sd_rtnl_message_link_get_ifindex(reply, &ifindex));
         ASSERT_GT(ifindex, 0);
@@ -667,7 +676,7 @@ TEST(rtnl_set_link_name) {
         ASSERT_TRUE(strv_contains(alternative_names, "testlongalternativename"));
         ASSERT_TRUE(strv_contains(alternative_names, "test-shortname"));
 
-        ASSERT_ERROR(rtnl_set_link_name(&rtnl, ifindex, "testlongalternativename", NULL), EINVAL);
+        ASSERT_ERROR(rtnl_set_link_name(&rtnl, ifindex, "testlongalternativename", /* alternative_names= */ NULL), EINVAL);
         ASSERT_OK(rtnl_set_link_name(&rtnl, ifindex, "test-shortname", STRV_MAKE("testlongalternativename", "test-shortname", "test-additional-name")));
 
         ASSERT_NULL(alternative_names = strv_free(alternative_names));
@@ -685,21 +694,21 @@ TEST(rtnl_set_link_name) {
         ASSERT_FALSE(strv_contains(alternative_names, "test-shortname"));
 
         _cleanup_free_ char *resolved = NULL;
-        ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", NULL), ifindex);
+        ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", /* ret= */ NULL), ifindex);
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname");
         ASSERT_NULL(resolved = mfree(resolved));
 
         ASSERT_OK(rtnl_rename_link(&rtnl, "test-shortname", "test-shortname"));
         ASSERT_OK(rtnl_rename_link(&rtnl, "test-shortname", "test-shortname2"));
-        ASSERT_OK(rtnl_rename_link(NULL, "test-shortname2", "test-shortname3"));
+        ASSERT_OK(rtnl_rename_link(/* rtnl= */ NULL, "test-shortname2", "test-shortname3"));
 
-        ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", NULL), ifindex);
+        ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", /* ret= */ NULL), ifindex);
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname3");
         ASSERT_NULL(resolved = mfree(resolved));
 
-        ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-shortname3", NULL), ifindex);
+        ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-shortname3", /* ret= */ NULL), ifindex);
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-shortname3", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname3");
         ASSERT_NULL(resolved = mfree(resolved));

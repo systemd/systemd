@@ -96,7 +96,7 @@ _public_ int sd_listen_fds(int unset_environment) {
         }
 
         for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
-                r = fd_cloexec(fd, true);
+                r = fd_cloexec(fd, /* cloexec= */ true);
                 if (r < 0)
                         goto finish;
         }
@@ -694,15 +694,15 @@ finish:
 }
 
 _public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
-        return sd_pid_notify_barrier(0, unset_environment, timeout);
+        return sd_pid_notify_barrier(/* pid= */ 0, unset_environment, timeout);
 }
 
 _public_ int sd_pid_notify(pid_t pid, int unset_environment, const char *state) {
-        return sd_pid_notify_with_fds(pid, unset_environment, state, NULL, 0);
+        return sd_pid_notify_with_fds(pid, unset_environment, state, /* fds= */ NULL, /* n_fds= */ 0);
 }
 
 _public_ int sd_notify(int unset_environment, const char *state) {
-        return sd_pid_notify_with_fds(0, unset_environment, state, NULL, 0);
+        return sd_pid_notify_with_fds(/* pid= */ 0, unset_environment, state, /* fds= */ NULL, /* n_fds= */ 0);
 }
 
 _public_ int sd_pid_notifyf(pid_t pid, int unset_environment, const char *format, ...) {

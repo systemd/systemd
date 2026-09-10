@@ -21,7 +21,7 @@ static int timer_callback(sd_event_source *s, uint64_t usec, void *userdata) {
                 return r;
 
         if (sd_fiber_is_running() && *count >= 3)
-                return sd_event_exit(sd_event_source_get_event(s), 0);
+                return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 
         return 0;
 }
@@ -38,7 +38,7 @@ static int event_run_fiber_func(void *userdata) {
 
         /* Add a timer to the inner event loop that fires every 5ms */
         r = sd_event_add_time_relative(inner, &inner_timer, CLOCK_MONOTONIC,
-                                       5 * USEC_PER_MSEC, 0, timer_callback,
+                                       5 * USEC_PER_MSEC, /* accuracy= */ 0, timer_callback,
                                        userdata);
         if (r < 0)
                 return r;
@@ -60,7 +60,7 @@ TEST(sd_event_loop_fiber) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *outer_timer = NULL;
         int outer_timer_count = 0;
         ASSERT_OK(sd_event_add_time_relative(outer, &outer_timer, CLOCK_MONOTONIC,
-                                             5 * USEC_PER_MSEC, 0, timer_callback,
+                                             5 * USEC_PER_MSEC, /* accuracy= */ 0, timer_callback,
                                              &outer_timer_count));
 
         /* Create a fiber that will create and run the inner event loop */
@@ -100,7 +100,7 @@ TEST(sd_event_run_fiber_timeout) {
 
         /* Create a fiber that will run sd_event_run() with timeout */
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(outer, "event-timeout", event_run_fiber_timeout_func, NULL, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(outer, "event-timeout", event_run_fiber_timeout_func, /* userdata= */ NULL, /* destroy= */ NULL, &f));
 
         /* Run the outer event loop */
         ASSERT_OK(sd_event_loop(outer));
@@ -119,7 +119,7 @@ static int sd_event_run_zero_timeout_fiber(void *userdata) {
                 return r;
 
         /* With zero timeout on an empty event loop, should return 0 immediately */
-        r = sd_event_run(inner, 0);
+        r = sd_event_run(inner, /* timeout= */ 0);
         if (r != 0)
                 return r < 0 ? r : -EIO;
 
@@ -132,7 +132,7 @@ TEST(sd_event_run_zero_timeout) {
         ASSERT_OK(sd_event_set_exit_on_idle(outer, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(outer, "run-suspend-zero", sd_event_run_zero_timeout_fiber, NULL, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(outer, "run-suspend-zero", sd_event_run_zero_timeout_fiber, /* userdata= */ NULL, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(outer));
         ASSERT_OK_ZERO(sd_future_result(f));
@@ -148,7 +148,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         /* Drain the fd */
         (void) read(fd, buf, sizeof(buf));
 
-        return sd_event_exit(sd_event_source_get_event(s), 0);
+        return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 }
 
 static int sd_event_run_immediate_fiber(void *userdata) {
@@ -235,7 +235,7 @@ TEST(sd_event_run_io) {
         ASSERT_OK(sd_fiber_new(outer, "run-suspend-io", sd_event_run_io_fiber, pipefd, /* destroy= */ NULL, &f));
 
         /* First iteration: fiber runs, adds IO source, suspends because no data */
-        ASSERT_OK_POSITIVE(sd_event_run(outer, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(outer, /* timeout= */ 0));
 
         /* Write data to the pipe to wake the inner event loop */
         ASSERT_OK_EQ_ERRNO(write(pipefd[1], "Y", 1), 1);
@@ -313,7 +313,7 @@ TEST(sd_event_run_loop) {
 static int inner_timer_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         int *counter = ASSERT_PTR(userdata);
         (*counter)++;
-        return sd_event_exit(sd_event_source_get_event(s), 0);
+        return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 }
 
 static int sd_event_run_timer_fiber(void *userdata) {
@@ -327,7 +327,7 @@ static int sd_event_run_timer_fiber(void *userdata) {
 
         /* Add a timer that fires after 10ms */
         r = sd_event_add_time_relative(inner, &source, CLOCK_MONOTONIC,
-                                       10 * USEC_PER_MSEC, 0, inner_timer_handler,
+                                       10 * USEC_PER_MSEC, /* accuracy= */ 0, inner_timer_handler,
                                        &counter);
         if (r < 0)
                 return r;
@@ -349,7 +349,7 @@ TEST(sd_event_run_timer) {
         ASSERT_OK(sd_event_set_exit_on_idle(outer, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(outer, "run-suspend-timer", sd_event_run_timer_fiber, NULL, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(outer, "run-suspend-timer", sd_event_run_timer_fiber, /* userdata= */ NULL, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(outer));
         ASSERT_OK_ZERO(sd_future_result(f));

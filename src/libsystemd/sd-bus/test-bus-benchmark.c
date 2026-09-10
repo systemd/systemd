@@ -41,7 +41,7 @@ static void server(sd_bus *b, size_t *result) {
                         continue;
 
                 if (sd_bus_message_is_method_call(m, "benchmark.server", "Ping"))
-                        assert_se(sd_bus_reply_method_return(m, NULL) >= 0);
+                        assert_se(sd_bus_reply_method_return(m, /* types= */ NULL) >= 0);
                 else if (sd_bus_message_is_method_call(m, "benchmark.server", "Work")) {
                         const void *p;
                         size_t sz;
@@ -49,7 +49,7 @@ static void server(sd_bus *b, size_t *result) {
                         /* Make sure the mmap is mapped */
                         assert_se(sd_bus_message_read_array(m, 'y', &p, &sz) > 0);
 
-                        r = sd_bus_reply_method_return(m, NULL);
+                        r = sd_bus_reply_method_return(m, /* types= */ NULL);
                         assert_se(r >= 0);
                 } else if (sd_bus_message_is_method_call(m, "benchmark.server", "Exit")) {
                         uint64_t res;
@@ -58,7 +58,7 @@ static void server(sd_bus *b, size_t *result) {
                         *result = res;
                         return;
 
-                } else if (!sd_bus_message_is_signal(m, NULL, NULL))
+                } else if (!sd_bus_message_is_signal(m, /* interface= */ NULL, /* member= */ NULL))
                         assert_not_reached();
         }
 }
@@ -72,7 +72,7 @@ static void transaction(sd_bus *b, size_t sz, const char *server_name) {
 
         memset(p, 0x80, sz);
 
-        assert_se(sd_bus_call(b, m, 0, NULL, &reply) >= 0);
+        assert_se(sd_bus_call(b, m, /* usec= */ 0, /* reterr_error= */ NULL, &reply) >= 0);
 }
 
 static void client_bisect(const char *address, const char *server_name) {
@@ -90,7 +90,7 @@ static void client_bisect(const char *address, const char *server_name) {
         r = sd_bus_start(b);
         assert_se(r >= 0);
 
-        r = sd_bus_call_method(b, server_name, "/", "benchmark.server", "Ping", NULL, NULL, NULL);
+        r = sd_bus_call_method(b, server_name, "/", "benchmark.server", "Ping", /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL);
         assert_se(r >= 0);
 
         lsize = 1;
@@ -144,7 +144,7 @@ static void client_bisect(const char *address, const char *server_name) {
         b->use_memfd = 1;
         assert_se(sd_bus_message_new_method_call(b, &x, server_name, "/", "benchmark.server", "Exit") >= 0);
         assert_se(sd_bus_message_append(x, "t", csize) >= 0);
-        assert_se(sd_bus_send(b, x, NULL) >= 0);
+        assert_se(sd_bus_send(b, x, /* ret_cookie= */ NULL) >= 0);
 
         sd_bus_unref(b);
 }
@@ -172,7 +172,7 @@ static void client_chart(Type type, const char *address, const char *server_name
         r = sd_bus_start(b);
         assert_se(r >= 0);
 
-        r = sd_bus_call_method(b, server_name, "/", "benchmark.server", "Ping", NULL, NULL, NULL);
+        r = sd_bus_call_method(b, server_name, "/", "benchmark.server", "Ping", /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL);
         assert_se(r >= 0);
 
         switch (type) {
@@ -203,7 +203,7 @@ static void client_chart(Type type, const char *address, const char *server_name
         b->use_memfd = 1;
         assert_se(sd_bus_message_new_method_call(b, &x, server_name, "/", "benchmark.server", "Exit") >= 0);
         assert_se(sd_bus_message_append(x, "t", csize) >= 0);
-        assert_se(sd_bus_send(b, x, NULL) >= 0);
+        assert_se(sd_bus_send(b, x, /* ret_cookie= */ NULL) >= 0);
 
         sd_bus_unref(b);
 }

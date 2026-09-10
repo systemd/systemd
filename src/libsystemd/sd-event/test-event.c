@@ -75,7 +75,7 @@ static int child_handler(sd_event_source *s, const siginfo_t *si, void *userdata
 
         ASSERT_PTR_EQ(userdata, INT_TO_PTR('f'));
 
-        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
+        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), /* code= */ 0));
         sd_event_source_unref(s);
 
         return 1;
@@ -114,7 +114,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
 
         ASSERT_OK(sd_event_add_child(sd_event_source_get_event(s), &p, pid, WEXITED, child_handler, INT_TO_PTR('f')));
         ASSERT_OK(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT));
-        ASSERT_OK(sd_event_source_set_child_process_own(p, true));
+        ASSERT_OK(sd_event_source_set_child_process_own(p, /* own= */ true));
 
         /* We can't use structured initialization here, since the structure contains various unions and these
          * fields lie in overlapping (carefully aligned) unions that LLVM is allergic to allow assignments
@@ -126,7 +126,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
         plain_si.si_uid = getuid();
         plain_si.si_value.sival_int = 4711;
 
-        ASSERT_OK(sd_event_source_send_child_signal(p, SIGUSR2, &plain_si, 0));
+        ASSERT_OK(sd_event_source_send_child_signal(p, SIGUSR2, &plain_si, /* flags= */ 0));
 
         sd_event_source_unref(s);
 
@@ -216,7 +216,7 @@ TEST(basic) {
 
         /* Test whether we cleanly can destroy an io event source from its own handler */
         got_unref = false;
-        ASSERT_OK(sd_event_add_io(e, &t, k[0], EPOLLIN, unref_handler, NULL));
+        ASSERT_OK(sd_event_add_io(e, &t, k[0], EPOLLIN, unref_handler, /* userdata= */ NULL));
         ASSERT_OK_EQ_ERRNO(write(k[1], &ch, 1), 1);
         ASSERT_OK_POSITIVE(sd_event_run(e, UINT64_MAX));
         ASSERT_TRUE(got_unref);
@@ -237,7 +237,7 @@ TEST(basic) {
         ASSERT_OK(sd_event_add_io(e, &y, b[0], EPOLLIN, io_handler, INT_TO_PTR('b')));
 
         do_quit = false;
-        ASSERT_OK(sd_event_add_time(e, &z, CLOCK_MONOTONIC, 0, 0, time_handler, INT_TO_PTR('c')));
+        ASSERT_OK(sd_event_add_time(e, &z, CLOCK_MONOTONIC, /* usec= */ 0, /* accuracy= */ 0, time_handler, INT_TO_PTR('c')));
         ASSERT_OK(sd_event_add_exit(e, &q, exit_handler, INT_TO_PTR('g')));
 
         ASSERT_OK(sd_event_source_set_priority(x, 99));
@@ -251,7 +251,7 @@ TEST(basic) {
 
         /* Test for floating event sources */
         ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN+1));
-        ASSERT_OK(sd_event_add_signal(e, NULL, SIGRTMIN+1, NULL, NULL));
+        ASSERT_OK(sd_event_add_signal(e, /* ret= */ NULL, SIGRTMIN+1, /* callback= */ NULL, /* userdata= */ NULL));
 
         ASSERT_OK_ERRNO(write(a[1], &ch, 1));
         ASSERT_OK_ERRNO(write(b[1], &ch, 1));
@@ -282,7 +282,7 @@ TEST(basic) {
         sd_event_source_unref(y);
 
         do_quit = true;
-        ASSERT_OK(sd_event_add_post(e, NULL, post_handler, NULL));
+        ASSERT_OK(sd_event_add_post(e, /* ret= */ NULL, post_handler, /* userdata= */ NULL));
         ASSERT_OK_ZERO(sd_event_now(e, CLOCK_MONOTONIC, &event_now));
         ASSERT_OK(sd_event_source_set_time(z, event_now + 200 * USEC_PER_MSEC));
         ASSERT_OK(sd_event_source_set_enabled(z, SD_EVENT_ONESHOT));
@@ -317,7 +317,7 @@ TEST(sd_event_now) {
         ASSERT_ERROR(sd_event_now(e, -1, &event_now), EOPNOTSUPP);
         ASSERT_ERROR(sd_event_now(e, 900 /* arbitrary big number */, &event_now), EOPNOTSUPP);
 
-        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0));
 
         ASSERT_OK_ZERO(sd_event_now(e, CLOCK_MONOTONIC, &event_now));
         ASSERT_OK_ZERO(sd_event_now(e, CLOCK_REALTIME, &event_now));
@@ -344,9 +344,9 @@ TEST(rtqueue) {
         ASSERT_OK(sd_event_default(&e));
 
         ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN+2, SIGRTMIN+3, SIGUSR2));
-        ASSERT_OK(sd_event_add_signal(e, &u, SIGRTMIN+2, rtqueue_handler, NULL));
-        ASSERT_OK(sd_event_add_signal(e, &v, SIGRTMIN+3, rtqueue_handler, NULL));
-        ASSERT_OK(sd_event_add_signal(e, &s, SIGUSR2, rtqueue_handler, NULL));
+        ASSERT_OK(sd_event_add_signal(e, &u, SIGRTMIN+2, rtqueue_handler, /* userdata= */ NULL));
+        ASSERT_OK(sd_event_add_signal(e, &v, SIGRTMIN+3, rtqueue_handler, /* userdata= */ NULL));
+        ASSERT_OK(sd_event_add_signal(e, &s, SIGUSR2, rtqueue_handler, /* userdata= */ NULL));
 
         ASSERT_OK(sd_event_source_set_priority(v, -10));
 
@@ -375,7 +375,7 @@ TEST(rtqueue) {
         ASSERT_EQ(n_rtqueue, 4);
         ASSERT_EQ(last_rtqueue_sigval, 1); /* SIGRTMIN+2 */
 
-        ASSERT_OK_ZERO(sd_event_run(e, 0)); /* the other SIGUSR2 is dropped, because the first one was still queued */
+        ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0)); /* the other SIGUSR2 is dropped, because the first one was still queued */
         ASSERT_EQ(n_rtqueue, 4);
         ASSERT_EQ(last_rtqueue_sigval, 1);
 
@@ -416,7 +416,7 @@ static void maybe_exit(sd_event_source *s, struct inotify_context *c) {
                                 return;
         }
 
-        sd_event_exit(sd_event_source_get_event(s), 0);
+        sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 }
 
 static int inotify_handler(sd_event_source *s, const struct inotify_event *ev, void *userdata) {
@@ -436,7 +436,7 @@ static int inotify_handler(sd_event_source *s, const struct inotify_event *ev, v
                 log_info("inotify-handler for %s <%s>: overflow", path, description);
                 c->create_overflow |= bit;
         } else if (ev->mask & IN_CREATE) {
-                ASSERT_TRUE(path_equal_or_inode_same(path, c->path, 0));
+                ASSERT_TRUE(path_equal_or_inode_same(path, c->path, /* flags= */ 0));
                 if (streq(ev->name, "sub"))
                         log_debug("inotify-handler for %s <%s>: create on %s", path, description, ev->name);
                 else {
@@ -506,11 +506,11 @@ static void test_inotify_one(unsigned n_create_events) {
         ASSERT_OK(sd_event_source_set_description(c, "2"));
 
         ASSERT_OK(sd_event_source_get_inotify_path(a, &pp));
-        ASSERT_TRUE(path_equal_or_inode_same(pp, p, 0));
+        ASSERT_TRUE(path_equal_or_inode_same(pp, p, /* flags= */ 0));
         ASSERT_OK(sd_event_source_get_inotify_path(b, &pp));
-        ASSERT_TRUE(path_equal_or_inode_same(pp, p, 0));
+        ASSERT_TRUE(path_equal_or_inode_same(pp, p, /* flags= */ 0));
         ASSERT_OK(sd_event_source_get_inotify_path(b, &pp));
-        ASSERT_TRUE(path_equal_or_inode_same(pp, p, 0));
+        ASSERT_TRUE(path_equal_or_inode_same(pp, p, /* flags= */ 0));
 
         q = strjoina(p, "/sub");
         ASSERT_OK(touch(q));
@@ -556,7 +556,7 @@ static int pidfd_handler(sd_event_source *s, const siginfo_t *si, void *userdata
 
         ASSERT_PTR_EQ(userdata, INT_TO_PTR('p'));
 
-        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
+        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), /* code= */ 0));
         sd_event_source_unref(s);
 
         return 0;
@@ -581,11 +581,11 @@ TEST(pidfd) {
 
         ASSERT_OK(sd_event_default(&e));
         ASSERT_OK(sd_event_add_child_pidfd(e, &s, pidfd, WEXITED, pidfd_handler, INT_TO_PTR('p')));
-        ASSERT_OK(sd_event_source_set_child_pidfd_own(s, true));
+        ASSERT_OK(sd_event_source_set_child_pidfd_own(s, /* own= */ true));
 
         /* This one should never trigger, since our second child lives forever */
         ASSERT_OK(sd_event_add_child(e, &t, pid2, WEXITED, pidfd_handler, INT_TO_PTR('q')));
-        ASSERT_OK(sd_event_source_set_child_process_own(t, true));
+        ASSERT_OK(sd_event_source_set_child_process_own(t, /* own= */ true));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -658,7 +658,7 @@ TEST(ratelimit) {
         ASSERT_EQ(count, 10U);
         log_info("ratelimit_io_handler: called %u times, event source not ratelimited", count);
 
-        ASSERT_OK(sd_event_source_set_ratelimit(s, 0, 0));
+        ASSERT_OK(sd_event_source_set_ratelimit(s, /* interval_usec= */ 0, /* burst= */ 0));
         ASSERT_OK(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 5));
 
         count = 0;
@@ -685,7 +685,7 @@ TEST(ratelimit) {
         ASSERT_EQ(count, 10U);
 
         /* In order to get rid of active rate limit client needs to disable it explicitly */
-        ASSERT_OK(sd_event_source_set_ratelimit(s, 0, 0));
+        ASSERT_OK(sd_event_source_set_ratelimit(s, /* interval_usec= */ 0, /* burst= */ 0));
         ASSERT_OK_ZERO(sd_event_source_is_ratelimited(s));
 
         ASSERT_OK(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 10));
@@ -733,7 +733,7 @@ static int inotify_self_destroy_handler(sd_event_source *s, const struct inotify
 
         ASSERT_TRUE(FLAGS_SET(ev->mask, IN_ATTRIB));
 
-        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
+        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), /* code= */ 0));
 
         *p = sd_event_source_unref(*p); /* here's what we actually intend to test: we destroy the event
                                          * source from inside the event source handler */
@@ -806,7 +806,7 @@ TEST(inotify_process_buffered_data) {
         ASSERT_OK_POSITIVE(sd_event_prepare(e)); /* issue #23826: this was 0. */
         ASSERT_OK_POSITIVE(sd_event_dispatch(e));
         ASSERT_OK_ZERO(sd_event_prepare(e));
-        ASSERT_OK_ZERO(sd_event_wait(e, 0));
+        ASSERT_OK_ZERO(sd_event_wait(e, /* timeout= */ 0));
 }
 
 static int inotify_handler_issue_38265(sd_event_source *s, const struct inotify_event *event, void *userdata) {
@@ -827,8 +827,8 @@ TEST(inotify_issue_38265) {
         ASSERT_OK(sd_event_default(&e));
 
         /* Create inode data that watches IN_MODIFY */
-        ASSERT_OK(sd_event_add_inotify(e, &a, t, IN_CREATE | IN_MODIFY, inotify_handler_issue_38265, NULL));
-        ASSERT_OK(sd_event_add_inotify(e, &b, t, IN_CREATE, inotify_handler_issue_38265, NULL));
+        ASSERT_OK(sd_event_add_inotify(e, &a, t, IN_CREATE | IN_MODIFY, inotify_handler_issue_38265, /* userdata= */ NULL));
+        ASSERT_OK(sd_event_add_inotify(e, &b, t, IN_CREATE, inotify_handler_issue_38265, /* userdata= */ NULL));
 
         /* Then drop the event source that is interested in IN_MODIFY */
         ASSERT_NULL(a = sd_event_source_unref(a));
@@ -851,7 +851,7 @@ TEST(fork) {
         ASSERT_OK_ZERO(sd_event_prepare(e));
 
         /* Check that after a fork the cleanup functions return NULL */
-        r = pidref_safe_fork("(bus-fork-test)", FORK_WAIT|FORK_LOG, NULL);
+        r = pidref_safe_fork("(bus-fork-test)", FORK_WAIT|FORK_LOG, /* ret= */ NULL);
         if (r == 0) {
                 ASSERT_NOT_NULL(e);
                 ASSERT_NULL(sd_event_ref(e));
@@ -872,8 +872,8 @@ TEST(sd_event_source_set_io_fd) {
         ASSERT_OK_ERRNO(pipe2(pfd_a, O_CLOEXEC));
         ASSERT_OK_ERRNO(pipe2(pfd_b, O_CLOEXEC));
 
-        ASSERT_OK(sd_event_add_io(e, &s, pfd_a[0], EPOLLIN, NULL, INT_TO_PTR(-ENOANO)));
-        ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
+        ASSERT_OK(sd_event_add_io(e, &s, pfd_a[0], EPOLLIN, /* callback= */ NULL, INT_TO_PTR(-ENOANO)));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, /* own= */ true));
         TAKE_FD(pfd_a[0]);
 
         ASSERT_OK(sd_event_source_set_io_fd(s, pfd_b[0]));
@@ -903,7 +903,7 @@ TEST(leave_ratelimit) {
          * and which hence will only see EOF and constant EPOLLHUP */
         ASSERT_OK_ERRNO(pipe2(pfd, O_CLOEXEC));
         ASSERT_OK(sd_event_add_io(e, &s, pfd[0], EPOLLIN, hup_callback, &c));
-        ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, /* own= */ true));
         ASSERT_OK(sd_event_source_set_ratelimit(s, 5*USEC_PER_MINUTE, 5));
 
         pfd[0] = -EBADF;
@@ -958,7 +958,7 @@ static int defer_adds_post_handler(sd_event_source *s, void *userdata) {
         sd_event *e = sd_event_source_get_event(s);
 
         /* Add a post event source from within the defer handler */
-        ASSERT_OK(sd_event_add_post(e, NULL, defer_post_handler, userdata));
+        ASSERT_OK(sd_event_add_post(e, /* ret= */ NULL, defer_post_handler, userdata));
 
         return 0;
 }
@@ -970,7 +970,7 @@ TEST(defer_add_post) {
         ASSERT_OK(sd_event_default(&e));
 
         /* Add a oneshot defer event source that will add a post event source */
-        ASSERT_OK(sd_event_add_defer(e, NULL, defer_adds_post_handler, &dispatched_post));
+        ASSERT_OK(sd_event_add_defer(e, /* ret= */ NULL, defer_adds_post_handler, &dispatched_post));
 
         /* Run one iteration - this should dispatch the defer handler */
         ASSERT_OK_POSITIVE(sd_event_run(e, UINT64_MAX));
@@ -979,7 +979,7 @@ TEST(defer_add_post) {
         ASSERT_FALSE(dispatched_post);
 
         /* Run another iteration - this should dispatch the post handler */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         /* Now the post handler should have been dispatched */
         ASSERT_TRUE(dispatched_post);
@@ -991,7 +991,7 @@ static int child_handler_wnowait(sd_event_source *s, const siginfo_t *si, void *
         (*counter)++;
 
         if (*counter == 5)
-                ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
+                ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), /* code= */ 0));
 
         return 0;
 }
@@ -1110,7 +1110,7 @@ TEST(exit_on_idle) {
         ASSERT_OK(sd_event_source_set_priority(p, SD_EVENT_PRIORITY_IMPORTANT));
 
         /* And neither should this exit event source. */
-        ASSERT_OK(sd_event_add_exit(e, NULL, exit_on_idle_exit_handler, NULL));
+        ASSERT_OK(sd_event_add_exit(e, /* ret= */ NULL, exit_on_idle_exit_handler, /* userdata= */ NULL));
 
         /* Run the event loop - it should exit after we disable the event source */
         ASSERT_OK(sd_event_loop(e));
@@ -1132,7 +1132,7 @@ static int defer_fair_handler(sd_event_source *s, void *userdata) {
 
         /* If we're about to increment above 5, exit the event loop */
         if (*counter >= 5)
-                return sd_event_exit(sd_event_source_get_event(s), 0);
+                return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 
         (*counter)++;
 
@@ -1176,7 +1176,7 @@ TEST(child_autoreap_ebusy) {
         /* First, verify that adding a child source works with default signal disposition */
         ASSERT_OK_POSITIVE(pidref_safe_fork("(child-autoreaping-ebusy)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &pidref));
 
-        ASSERT_OK(event_add_child_pidref(e, &s, &pidref, WEXITED, NULL, NULL));
+        ASSERT_OK(event_add_child_pidref(e, &s, &pidref, WEXITED, /* callback= */ NULL, /* userdata= */ NULL));
         s = sd_event_source_unref(s);
 
         /* Now set SIGCHLD to SIG_IGN to enable kernel autoreaping */
@@ -1184,7 +1184,7 @@ TEST(child_autoreap_ebusy) {
         new_sa.sa_handler = SIG_IGN;
         ASSERT_OK_ERRNO(sigaction(SIGCHLD, &new_sa, &old_sa));
 
-        ASSERT_ERROR(event_add_child_pidref(e, &s, &pidref, WEXITED, NULL, NULL), EBUSY);
+        ASSERT_ERROR(event_add_child_pidref(e, &s, &pidref, WEXITED, /* callback= */ NULL, /* userdata= */ NULL), EBUSY);
 
         /* Restore original SIGCHLD disposition */
         ASSERT_OK_ERRNO(sigaction(SIGCHLD, &old_sa, NULL));

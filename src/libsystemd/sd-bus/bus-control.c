@@ -96,7 +96,7 @@ _public_ int sd_bus_request_name(
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "RequestName",
-                        NULL,
+                        /* reterr_error= */ NULL,
                         &reply,
                         "su",
                         name,
@@ -136,7 +136,7 @@ static int default_request_name_handler(
 
         assert(m);
 
-        if (sd_bus_message_is_method_error(m, NULL)) {
+        if (sd_bus_message_is_method_error(m, /* name= */ NULL)) {
                 const sd_bus_error *e = ASSERT_PTR(sd_bus_message_get_error(m));
                 r = sd_bus_error_get_errno(e);
 
@@ -257,7 +257,7 @@ _public_ int sd_bus_release_name(
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "ReleaseName",
-                        NULL,
+                        /* reterr_error= */ NULL,
                         &reply,
                         "s",
                         name);
@@ -293,7 +293,7 @@ static int default_release_name_handler(
 
         assert(m);
 
-        if (sd_bus_message_is_method_error(m, NULL)) {
+        if (sd_bus_message_is_method_error(m, /* name= */ NULL)) {
                 const sd_bus_error *e = ASSERT_PTR(sd_bus_message_get_error(m));
                 r = sd_bus_error_get_errno(e);
 
@@ -381,9 +381,9 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***ret_acquired, char ***ret_ac
                                 "/org/freedesktop/DBus",
                                 "org.freedesktop.DBus",
                                 "ListNames",
-                                NULL,
+                                /* reterr_error= */ NULL,
                                 &reply,
-                                NULL);
+                                /* types= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -401,9 +401,9 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***ret_acquired, char ***ret_ac
                                 "/org/freedesktop/DBus",
                                 "org.freedesktop.DBus",
                                 "ListActivatableNames",
-                                NULL,
+                                /* reterr_error= */ NULL,
                                 &reply,
-                                NULL);
+                                /* types= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -468,7 +468,7 @@ _public_ int sd_bus_get_name_creds(
                                 "/org/freedesktop/DBus",
                                 "org.freedesktop.DBus",
                                 "GetNameOwner",
-                                NULL,
+                                /* reterr_error= */ NULL,
                                 &reply_unique,
                                 "s",
                                 name);
@@ -700,7 +700,7 @@ _public_ int sd_bus_get_name_creds(
                                                 "/org/freedesktop/DBus",
                                                 "org.freedesktop.DBus",
                                                 "GetConnectionUnixProcessID",
-                                                NULL,
+                                                /* reterr_error= */ NULL,
                                                 &reply,
                                                 "s",
                                                 unique ?: name);
@@ -731,7 +731,7 @@ _public_ int sd_bus_get_name_creds(
                                                 "/org/freedesktop/DBus",
                                                 "org.freedesktop.DBus",
                                                 "GetConnectionUnixUser",
-                                                NULL,
+                                                /* reterr_error= */ NULL,
                                                 &reply,
                                                 "s",
                                                 unique ?: name);
@@ -782,7 +782,7 @@ _public_ int sd_bus_get_name_creds(
                 }
 
                 if (pidref_is_set(&pidref)) {
-                        r = bus_creds_add_more(c, mask, &pidref, 0);
+                        r = bus_creds_add_more(c, mask, &pidref, /* tid= */ 0);
                         if (r < 0 && r != -ESRCH) /* Return the error, but ignore ESRCH which just means the process is already gone */
                                 return r;
                 }
@@ -948,7 +948,7 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
                 c->mask |= SD_BUS_CREDS_PIDFD;
         }
 
-        r = bus_creds_add_more(c, mask, &pidref, 0);
+        r = bus_creds_add_more(c, mask, &pidref, /* tid= */ 0);
         if (r < 0 && r != -ESRCH) /* If the process vanished, then don't complain, just return what we got */
                 return r;
 
@@ -997,7 +997,7 @@ int bus_add_match_internal(
                         bus,
                         m,
                         timeout_usec,
-                        NULL,
+                        /* reterr_error= */ NULL,
                         &reply);
         if (r < 0)
                 return r;
@@ -1069,13 +1069,13 @@ int bus_remove_match_internal(
 
         return sd_bus_call_method_async(
                         bus,
-                        NULL,
+                        /* ret_slot= */ NULL,
                         "org.freedesktop.DBus",
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
                         "RemoveMatch",
-                        NULL,
-                        NULL,
+                        /* callback= */ NULL,
+                        /* userdata= */ NULL,
                         "s",
                         e);
 }
@@ -1115,7 +1115,7 @@ _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_
         if (r < 0)
                 return r;
 
-        r = sd_bus_call(bus, m, 0, NULL, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, /* reterr_error= */ NULL, &reply);
         if (r < 0)
                 return r;
 
