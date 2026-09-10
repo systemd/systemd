@@ -196,7 +196,7 @@ static int manager_address_label_configure(AddressLabel *label, Manager *manager
         assert(manager->rtnl);
         assert(req);
 
-        r = sd_rtnl_message_new_addrlabel(manager->rtnl, &m, RTM_NEWADDRLABEL, 0, AF_INET6);
+        r = sd_rtnl_message_new_addrlabel(manager->rtnl, &m, RTM_NEWADDRLABEL, /* ifindex= */ 0, AF_INET6);
         if (r < 0)
                 return r;
 
@@ -254,10 +254,10 @@ int link_request_static_address_labels(Link *link) {
 
         HASHMAP_FOREACH(label, link->network->address_labels_by_section) {
                 r = link_queue_request_full(link, REQUEST_TYPE_ADDRESS_LABEL,
-                                            label, NULL, trivial_hash_func, trivial_compare_func,
+                                            label, /* free_func= */ NULL, trivial_hash_func, trivial_compare_func,
                                             link_address_label_process_request,
                                             &link->static_address_label_messages,
-                                            link_address_label_configure_handler, NULL);
+                                            link_address_label_configure_handler, /* ret= */ NULL);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to request address label: %m");
         }
@@ -283,10 +283,10 @@ int manager_request_static_address_labels(Manager *manager) {
 
         HASHMAP_FOREACH(label, manager->address_labels_by_section) {
                 r = manager_queue_request_full(manager, REQUEST_TYPE_ADDRESS_LABEL,
-                                               label, NULL, trivial_hash_func, trivial_compare_func,
+                                               label, /* free_func= */ NULL, trivial_hash_func, trivial_compare_func,
                                                manager_address_label_process_request,
                                                &manager->static_address_label_messages,
-                                               manager_address_label_configure_handler, NULL);
+                                               manager_address_label_configure_handler, /* ret= */ NULL);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to request address label: %m");
         }

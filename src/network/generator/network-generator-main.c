@@ -217,7 +217,7 @@ static int run(int argc, char *argv[]) {
                 return log_oom();
 
         if (strv_isempty(args)) {
-                r = proc_cmdline_parse(parse_cmdline_item, &context, 0);
+                r = proc_cmdline_parse(parse_cmdline_item, &context, /* flags= */ 0);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse kernel command line: %m");
         } else {
