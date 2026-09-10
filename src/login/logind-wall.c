@@ -146,9 +146,9 @@ int manager_setup_wall_message_timer(Manager *m) {
 
         r = event_reset_time(m->event, &m->wall_message_timeout_source,
                              CLOCK_REALTIME,
-                             n + elapse, 0,
+                             n + elapse, /* accuracy= */ 0,
                              wall_message_timeout_handler, m,
-                             0, "wall-message-timer", true);
+                             /* priority= */ 0, "wall-message-timer", /* force_reset= */ true);
 
         if (r < 0) {
                 m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
