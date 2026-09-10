@@ -458,6 +458,11 @@ static int automount_send_ready(Automount *a, Set *tokens, int status) {
         if (set_isempty(tokens))
                 return 0;
 
+        /* We have nothing to talk to the autofs with, e.g. because open_dev_autofs() failed at coldplug and
+         * left us with the deserialized pipe and tokens. Report that instead of asserting below. */
+        if (UNIT(a)->manager->dev_autofs_fd < 0 || !a->where)
+                return -EBADF;
+
         ioctl_fd = open_ioctl_fd(UNIT(a)->manager->dev_autofs_fd, a->where, a->dev_id);
         if (ioctl_fd < 0)
                 return ioctl_fd;
