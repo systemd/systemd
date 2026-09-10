@@ -19,9 +19,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        dummy_manager_new(&m, NULL, 0);
+        dummy_manager_new(&m, /* buffer= */ NULL, /* size= */ 0);
 
-        sealed_fd = memfd_new_and_seal(NULL, data, size);
+        sealed_fd = memfd_new_and_seal(/* name= */ NULL, data, size);
         assert_se(sealed_fd >= 0);
         ucred = (struct ucred) {
                 .pid = getpid_cached(),

@@ -226,7 +226,7 @@ static int show(Context *c) {
                 if (!arg_merge && !arg_quiet) {
                         sd_id128_t boot_id;
 
-                        r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
+                        r = sd_journal_get_monotonic_usec(j, /* ret_monotonic= */ NULL, &boot_id);
                         if (r >= 0) {
                                 if (c->previous_boot_id_valid &&
                                     !sd_id128_equal(boot_id, c->previous_boot_id))
@@ -287,7 +287,7 @@ static int show(Context *c) {
                         }
                 }
 
-                r = show_journal_entry(stdout, j, arg_output, 0, flags,
+                r = show_journal_entry(stdout, j, arg_output, /* n_columns= */ 0, flags,
                                        arg_output_fields, highlight, &c->ellipsized,
                                        &c->previous_ts_output, &c->previous_boot_id_output);
                 c->need_seek = true;
@@ -485,7 +485,7 @@ static int setup_event(Context *c, int fd) {
         else if (r < 0)
                 return log_error_errno(r, "Failed to add io event source for stdout: %m");
 
-        r = sd_event_add_defer(e, NULL, on_first_event, c);
+        r = sd_event_add_defer(e, /* ret= */ NULL, on_first_event, c);
         if (r < 0)
                 return log_error_errno(r, "Failed to add defer event source: %m");
 

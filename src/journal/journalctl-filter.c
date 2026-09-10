@@ -372,7 +372,7 @@ static int add_matches_for_path(sd_journal *j, const char *path) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "An extra path in match filter is currently not supported with --root, --image, or -M/--machine.");
 
-        r = chase_and_stat(path, NULL, 0, &p, &st);
+        r = chase_and_stat(path, /* root= */ NULL, /* chase_flags= */ 0, &p, &st);
         if (r < 0)
                 return log_error_errno(r, "Couldn't canonicalize path '%s': %m", path);
 

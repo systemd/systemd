@@ -56,7 +56,7 @@ void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdat
         assert(server);
         assert(link);
 
-        follow_state_free(sd_varlink_set_userdata(link, NULL));
+        follow_state_free(sd_varlink_set_userdata(link, /* userdata= */ NULL));
 }
 
 static int entry_to_json_and_send(sd_journal *j, sd_varlink *link, bool follow) {
@@ -121,7 +121,7 @@ fail:
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = sd_varlink_ref(fs->link);
 
         /* drop our state before replying, so that the disconnect callback won't free it a second time */
-        follow_state_free(sd_varlink_set_userdata(link, NULL));
+        follow_state_free(sd_varlink_set_userdata(link, /* userdata= */ NULL));
 
         (void) sd_varlink_error_errno(link, r);
 
@@ -217,7 +217,7 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         r = journal_add_unit_matches(j, MATCH_UNIT_ALL, /* mangle_flags= */ 0, p.units, p.uid, p.user_units);
         if (r == -ENODATA)
-                return sd_varlink_error(link, "io.systemd.JournalAccess.NoMatches", NULL);
+                return sd_varlink_error(link, "io.systemd.JournalAccess.NoMatches", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 

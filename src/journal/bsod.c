@@ -49,7 +49,7 @@ static int acquire_first_emergency_log_message(char **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
-        r = add_match_this_boot(j, NULL);
+        r = add_match_this_boot(j, /* machine= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add boot ID filter: %m");
 

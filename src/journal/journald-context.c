@@ -81,7 +81,7 @@ static size_t cache_max(void) {
                 uint64_t mem_total;
                 int r;
 
-                r = procfs_memory_get(&mem_total, NULL);
+                r = procfs_memory_get(&mem_total, /* ret_used= */ NULL);
                 if (r < 0) {
                         log_warning_errno(r, "Cannot query /proc/meminfo for MemTotal: %m");
                         cached = CACHE_MAX_FALLBACK;
@@ -141,7 +141,7 @@ static int client_context_new(Manager *m, pid_t pid, ClientContext **ret) {
                 .capability_quintet = CAPABILITY_QUINTET_NULL,
         };
 
-        r = hashmap_ensure_put(&m->client_contexts, NULL, PID_TO_PTR(pid), c);
+        r = hashmap_ensure_put(&m->client_contexts, /* hash_ops= */ NULL, PID_TO_PTR(pid), c);
         if (r < 0)
                 return r;
 
@@ -456,7 +456,7 @@ static int client_context_read_extra_fields(
                 if (!eq)
                         return -EBADMSG;
 
-                if (!journal_field_valid((const char *) field, eq - field, false))
+                if (!journal_field_valid((const char *) field, eq - field, /* allow_protected= */ false))
                         return -EBADMSG;
 
                 if (!GREEDY_REALLOC(iovec, n_iovec+1))
@@ -681,7 +681,7 @@ static void client_context_try_shrink_to(Manager *m, size_t limit) {
 }
 
 void client_context_flush_regular(Manager *m) {
-        client_context_try_shrink_to(m, 0);
+        client_context_try_shrink_to(m, /* limit= */ 0);
 }
 
 void client_context_flush_all(Manager *m) {
