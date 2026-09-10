@@ -424,7 +424,7 @@ static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 sd_json_variant *v = streq_ptr(argv[0], "list-interfaces") ?
                         sd_json_variant_by_key(reply, "interfaces") : reply;
 
-                return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                return sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
         }
 }
 
@@ -561,7 +561,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                         }
                 } else {
                         pager_open(arg_pager_flags);
-                        sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                        sd_json_variant_dump(reply, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 }
         }
 
@@ -587,7 +587,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON array: %m");
 
-                        sd_json_variant_dump(j, arg_json_format_flags, stdout, NULL);
+                        sd_json_variant_dump(j, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 }
         }
 
@@ -631,7 +631,7 @@ static int reply_callback(
         }
 
         if (!arg_quiet)
-                sd_json_variant_dump(parameters, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(parameters, arg_json_format_flags, stdout, /* prefix= */ NULL);
 
         return r;
 }
@@ -664,7 +664,7 @@ static int dup_stdio_fd(int fd, int flags, int *ret_nonblock_reset) {
                 return -errno;
 
         /* The dup shares the open file description, whoever uses it after us expects it blocking again. */
-        r = fd_nonblock(dup_fd, true);
+        r = fd_nonblock(dup_fd, /* nonblock= */ true);
         if (r < 0)
                 return r;
         *ret_nonblock_reset = r > 0 ? fd : -EBADF;
@@ -690,7 +690,7 @@ static int exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
         if (r < 0)
                 return log_error_errno(r, "Failed to rearrange file descriptors: %m");
 
-        r = fd_cloexec_many(fds, n_fds, false);
+        r = fd_cloexec_many(fds, n_fds, /* cloexec= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to disable O_CLOEXEC for file descriptors: %m");
 
@@ -866,11 +866,11 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
         /* No --exec: bidirectional proxy between stdin/stdout and the upgraded socket */
 
         /* splice() into a socket honours the socket's O_NONBLOCK, not SPLICE_F_NONBLOCK. */
-        r = fd_nonblock(input_fd, true);
+        r = fd_nonblock(input_fd, /* nonblock= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to set upgraded input fd to non-blocking mode: %m");
 
-        r = fd_nonblock(output_fd, true);
+        r = fd_nonblock(output_fd, /* nonblock= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to set upgraded output fd to non-blocking mode: %m");
 
@@ -1039,7 +1039,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return r;
 
                 pager_open(arg_pager_flags);
-                sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(reply, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 return r;
 
         } else if (arg_method_flags & SD_VARLINK_METHOD_ONEWAY) {
@@ -1176,7 +1176,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                 pager_open(arg_pager_flags);
 
-                sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(reply, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 return r;
         }
 
@@ -1194,11 +1194,11 @@ static int verb_validate_idl(int argc, char *argv[], uintptr_t _data, void *user
         fname = argc > 1 ? argv[1] : NULL;
 
         if (fname) {
-                r = read_full_file(fname, &text, NULL);
+                r = read_full_file(fname, &text, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read interface description file '%s': %m", fname);
         } else {
-                r = read_full_stream(stdin, &text, NULL);
+                r = read_full_stream(stdin, &text, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read interface description from stdin: %m");
 
@@ -1568,7 +1568,7 @@ static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, s
         int r;
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, /* parameters= */ NULL);
 
         if (arg_polkit_action) {
                 /* Pass POLKIT_DONT_REPLY so that the helper never answers the client itself: it only does
@@ -1586,7 +1586,7 @@ static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, s
                 if (r < 0) {
                         if (!ERRNO_IS_NEG_PRIVILEGE(r))
                                 log_warning_errno(r, "Failed to check polkit authorization, denying: %m");
-                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
                 }
                 if (r == 0) /* polkit query in flight, we are dispatched again once it is answered */
                         return 0;
@@ -1753,7 +1753,7 @@ static void monitor_json_buffer_display_json(const MonitorJsonBuffer *buf, sd_js
                         SD_JSON_BUILD_PAIR_CONDITION(!!data, "data", SD_JSON_BUILD_VARIANT(data)),
                         SD_JSON_BUILD_PAIR_CONDITION(truncated, "truncated", SD_JSON_BUILD_BOOLEAN(true)));
 
-        (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
 }
 
 static void monitor_json_buffer_display_pretty(const MonitorJsonBuffer *buf, sd_json_variant *data, const char *msg, size_t msg_len, bool truncated) {
@@ -1935,7 +1935,7 @@ static int on_monitor_reply(
         }
 
         if (!(flags & SD_VARLINK_REPLY_CONTINUES))
-                return sd_event_exit(c->event, 0);
+                return sd_event_exit(c->event, /* code= */ 0);
 
         if (c->ringbuf_fd >= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Received unexpected additional reply from monitor.");
@@ -1949,7 +1949,7 @@ static int on_monitor_reply(
         if (c->ringbuf_fd < 0)
                 return log_error_errno(c->ringbuf_fd, "Failed to take ring buffer fd from varlink connection: %m");
 
-        c->rb = sym_ring_buffer__new(c->ringbuf_fd, on_bpf_ringbuf_sample, &c->json_buffers, NULL);
+        c->rb = sym_ring_buffer__new(c->ringbuf_fd, on_bpf_ringbuf_sample, &c->json_buffers, /* opts= */ NULL);
         if (!c->rb)
                 return log_error_errno(errno, "Failed to create BPF ring buffer consumer: %m");
 
@@ -1957,7 +1957,7 @@ static int on_monitor_reply(
         if (poll_fd < 0)
                 return log_error_errno(poll_fd, "Failed to get poll fd of ring buffer: %m");
 
-        r = sd_event_add_io(c->event, NULL, poll_fd, EPOLLIN, on_monitor_ringbuf_io, c->rb);
+        r = sd_event_add_io(c->event, /* ret= */ NULL, poll_fd, EPOLLIN, on_monitor_ringbuf_io, c->rb);
         if (r < 0)
                 return log_error_errno(r, "Failed to add ring buffer poll fd to event loop: %m");
 
@@ -1989,8 +1989,8 @@ static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata)
 
         c.event = event;
 
-        (void) sd_event_add_signal(event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
-        (void) sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
 
         r = sd_varlink_connect_address(&link, "/run/systemd/io.systemd.VarlinkMonitor");
         if (r < 0)
