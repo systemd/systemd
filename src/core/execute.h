@@ -513,6 +513,12 @@ static inline bool exec_input_is_inheritable(ExecInput i) {
         return exec_input_is_terminal(i) || IN_SET(i, EXEC_INPUT_SOCKET, EXEC_INPUT_NAMED_FD);
 }
 
+static inline bool exec_output_is_file(ExecOutput o) {
+        /* The output types that refer to a regular file (StandardOutput=file:…, append:…, truncate:…), i.e.
+         * that require a companion path in ExecContext.stdio_file[] */
+        return IN_SET(o, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND, EXEC_OUTPUT_FILE_TRUNCATE);
+}
+
 int exec_spawn(
                 Unit *unit,
                 ExecCommand *command,
@@ -534,6 +540,7 @@ void exec_command_reset_status_list_array(ExecCommand **c, size_t n);
 void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_append_list(ExecCommand **l, ExecCommand *e);
+int exec_command_to_setting(const ExecCommand *c, char **ret);
 int exec_command_set(ExecCommand *c, const char *path, ...) _sentinel_;
 int exec_command_append(ExecCommand *c, const char *path, ...) _sentinel_;
 
