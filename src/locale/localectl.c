@@ -108,47 +108,19 @@ static int print_status_info(StatusInfo *i) {
                            TABLE_FIELD, "System Locale",
                            TABLE_STRV, i->locale,
                            TABLE_FIELD, "VC Keymap",
-                           TABLE_STRING, i->vconsole_keymap);
-        if (r < 0)
-                return table_log_add_error(r);
-
-        if (!isempty(i->vconsole_keymap_toggle)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "VC Toggle Keymap",
-                                   TABLE_STRING, i->vconsole_keymap_toggle);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        r = table_add_many(table,
+                           TABLE_STRING, i->vconsole_keymap,
+                           TABLE_FIELD, "VC Toggle Keymap",
+                           TABLE_STRING_NON_EMPTY, i->vconsole_keymap_toggle,
                            TABLE_FIELD, "X11 Layout",
-                           TABLE_STRING, i->x11_layout);
+                           TABLE_STRING, i->x11_layout,
+                           TABLE_FIELD, "X11 Model",
+                           TABLE_STRING_NON_EMPTY, i->x11_model,
+                           TABLE_FIELD, "X11 Variant",
+                           TABLE_STRING_NON_EMPTY, i->x11_variant,
+                           TABLE_FIELD, "X11 Options",
+                           TABLE_STRING_NON_EMPTY, i->x11_options);
         if (r < 0)
                 return table_log_add_error(r);
-
-        if (!isempty(i->x11_model)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "X11 Model",
-                                   TABLE_STRING, i->x11_model);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->x11_variant)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "X11 Variant",
-                                   TABLE_STRING, i->x11_variant);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (!isempty(i->x11_options)) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "X11 Options",
-                                   TABLE_STRING, i->x11_options);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
 
         return table_print_or_warn(table);
 }
