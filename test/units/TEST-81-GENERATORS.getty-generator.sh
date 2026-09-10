@@ -11,9 +11,10 @@ set +o histexpand
 
 GENERATOR_BIN="/usr/lib/systemd/system-generators/systemd-getty-generator"
 OUT_DIR="$(mktemp -d /tmp/getty-generator.XXX)"
+CREDENTIALS_DIR="$(mktemp -d /tmp/getty-generator-creds.XXX)"
 
 at_exit() {
-    rm -frv "${OUT_DIR:?}"
+    rm -frv "${OUT_DIR:?}" "${CREDENTIALS_DIR:?}"
 }
 
 trap at_exit EXIT
@@ -128,6 +129,12 @@ if in_container; then
     PID1_ENVIRON="container_ttys=tty0 pts/0 /dev/tty0\0SYSTEMD_GETTY_AUTO=0" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
     check_none
 
+    : "getty-generator: getty.auto=false credential with trailing newline (container)"
+    printf 'false\n' >"$CREDENTIALS_DIR/getty.auto"
+    PID1_ENVIRON="container_ttys=tty0 pts/0 /dev/tty0" CREDENTIALS_DIRECTORY="$CREDENTIALS_DIR" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+    check_none
+    rm -f "$CREDENTIALS_DIR/getty.auto"
+
     : "getty-generator: SYSTEMD_GETTY_AUTO=console in PID1's environment (container)"
     PID1_ENVIRON="container_ttys=tty0 pts/0 /dev/tty0\0SYSTEMD_GETTY_AUTO=console" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
     check_none
@@ -186,6 +193,12 @@ check_builtin
 : "getty-generator: SYSTEMD_GETTY_AUTO=0 in PID1's environment"
 PID1_ENVIRON="SYSTEMD_GETTY_AUTO=0" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 check_none
+
+: "getty-generator: getty.auto=false credential with trailing newline"
+printf 'false\n' >"$CREDENTIALS_DIR/getty.auto"
+CREDENTIALS_DIRECTORY="$CREDENTIALS_DIR" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+check_none
+rm -f "$CREDENTIALS_DIR/getty.auto"
 
 : "getty-generator: SYSTEMD_GETTY_AUTO=container in PID1's environment"
 PID1_ENVIRON="SYSTEMD_GETTY_AUTO=container" run_and_list "$GENERATOR_BIN" "$OUT_DIR"

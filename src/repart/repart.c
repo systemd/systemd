@@ -5905,12 +5905,13 @@ static int shallow_join_strv(char ***ret, char **a, char **b) {
 
         STRV_FOREACH(i, a)
                 *(iter++) = *i;
+        *iter = NULL;
 
         STRV_FOREACH(i, b)
-                if (!strv_contains(joined, *i))
+                if (!strv_contains(joined, *i)) {
                         *(iter++) = *i;
-
-        *iter = NULL;
+                        *iter = NULL;
+                }
 
         *ret = TAKE_PTR(joined);
         return 0;
@@ -6359,7 +6360,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 timespec_store(&tspec, ts);
 
                                 if (futimens(pfd, (const struct timespec[2]) { TIMESPEC_OMIT, tspec }) < 0)
-                                        return -errno;
+                                        return log_error_errno(errno, "Failed to set timestamp of '%s': %m", dn);
                         }
                 }
         }

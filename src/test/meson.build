@@ -163,6 +163,7 @@ simple_tests += files(
         'test-path-util.c',
         'test-percent-util.c',
         'test-pidref.c',
+        'test-plymouth-util.c',
         'test-pretty-print.c',
         'test-printf.c',
         'test-prioq.c',
@@ -283,6 +284,10 @@ executables += [
                 'sources' : files('test-cryptolib.c'),
                 'dependencies' : libopenssl,
                 'conditions' : ['HAVE_OPENSSL'],
+        },
+        test_template + {
+                'sources' : files('test-dbus-name-holder.c'),
+                'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-display-quota.c'),

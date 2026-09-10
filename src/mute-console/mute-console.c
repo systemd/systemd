@@ -274,6 +274,10 @@ static int vl_method_mute(
 
         assert(link);
 
+        /* Refuse multiple requests per connection. */
+        if (sd_varlink_get_userdata(link))
+                return -EBUSY;
+
         _cleanup_free_ Context *nc = new(Context, 1);
         if (!nc)
                 return -ENOMEM;

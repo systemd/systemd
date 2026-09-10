@@ -9,6 +9,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -672,6 +673,12 @@ int make_filesystem(
                                 return log_oom();
                 }
 
+                /* mkfs.erofs defaults to the page size and rejects block sizes larger than
+                 * that, so only pass an explicit block size when it is actually smaller. */
+                if (sector_size > 0 && sector_size < (uint64_t) page_size() &&
+                    strv_extendf(&argv, "-b%"PRIu64, sector_size) < 0)
+                        return log_oom();
+
                 if (strv_extend_many(&argv, node, root) < 0)
                         return log_oom();
 
@@ -716,14 +723,14 @@ int make_filesystem(
 
                 STRV_FOREACH_PAIR(k, v, env)
                         if (setenv(*k, *v, /* replace= */ true) < 0) {
-                                log_error_errno(r, "Failed to set %s=%s environment variable: %m", *k, *v);
+                                log_error_errno(errno, "Failed to set %s=%s environment variable: %m", *k, *v);
                                 _exit(EXIT_FAILURE);
                         }
 
                 /* mkfs.btrfs refuses to operate on block devices with mounted partitions, even if operating
                  * on unformatted free space, so let's trick it and other mkfs tools into thinking no
                  * partitions are mounted. See https://github.com/kdave/btrfs-progs/issues/640 for more
-                 ° information. */
+                 * information. */
                  if (fork_flags & FORK_NEW_MOUNTNS)
                         (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/null", "/proc/self/mounts", NULL, MS_BIND, NULL);
 

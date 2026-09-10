@@ -500,6 +500,8 @@ static int manager_stop(Manager *manager, ManagerState state) {
                 assert_not_reached();
         }
 
+        (void) sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
+
         manager->state = state;
 
         Link *link;
@@ -907,7 +909,18 @@ static int manager_enumerate_links(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_link);
+        r = manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_link);
+        if (r < 0)
+                return r;
+
+        /* Slave interfaces enumerated before the master could not register themselves, as the master Link
+         * object did not exist yet at that time. Register them now, so that the slaves set correctly
+         * reflects the kernel state. */
+        Link *link;
+        HASHMAP_FOREACH(link, m->links_by_index)
+                RET_GATHER(r, link_append_to_master(link));
+
+        return r;
 }
 
 static int manager_enumerate_qdisc(Manager *m) {
@@ -1241,6 +1254,9 @@ int manager_reload(Manager *m, sd_bus_message *message) {
         int r;
 
         assert(m);
+
+        if (m->state != MANAGER_RUNNING)
+                return -ESHUTDOWN; /* Refuse reloading if we are stopping or restarting. */
 
         log_debug("Reloading...");
         (void) notify_reloading();
