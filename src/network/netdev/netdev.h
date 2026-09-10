@@ -216,6 +216,7 @@ extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 #define NETDEV(n) (&(n)->meta)
 
 int netdev_attach_name(NetDev *netdev, const char *name);
+int netdev_attach(NetDev *netdev);
 NetDev* netdev_detach_name(NetDev *netdev, const char *name);
 void netdev_detach(NetDev *netdev);
 int netdev_set_ifindex_internal(NetDev *netdev, int ifindex);
