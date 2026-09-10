@@ -2100,7 +2100,9 @@ static int print_property(
                                 return bus_log_parse_error(r);
 
                         return 1;
-                } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink")) {
+                } else if (STR_IN_SET(name,
+                                      "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink",
+                                      "LogsDirectorySymlink", "ConfigurationDirectorySymlink")) {
                         const char *a, *p;
                         uint64_t symlink_flags;
 
@@ -2108,8 +2110,15 @@ static int print_property(
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(sst)", &a, &p, &symlink_flags)) > 0)
-                                bus_print_property_valuef(name, expected_value, flags, "%s:%s", a, p);
+                        while ((r = sd_bus_message_read(m, "(sst)", &a, &p, &symlink_flags)) > 0) {
+                                const char *flags_string = exec_directory_flags_to_string(symlink_flags);
+                                if (!flags_string)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Invalid flags for %s=.", name);
+
+                                bus_print_property_valuef(name, expected_value, flags, "%s:%s%s%s", a, p,
+                                                          isempty(flags_string) ? "" : ":", flags_string);
+                        }
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
