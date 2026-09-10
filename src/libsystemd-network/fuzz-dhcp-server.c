@@ -68,7 +68,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fuzz_setup_logging();
 
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
-        _cleanup_close_ int dir_fd = ASSERT_OK(mkdtemp_open(NULL, 0, &tmpdir));
+        _cleanup_close_ int dir_fd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &tmpdir));
 
         _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
@@ -81,7 +81,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         ASSERT_OK(sd_dhcp_server_attach_event(server, event, SD_EVENT_PRIORITY_NORMAL));
         server->socket_fd = TAKE_FD(socket_fd[0]);
         ASSERT_OK(sd_dhcp_server_set_lease_file(server, dir_fd, "leases"));
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 0, 0));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, /* offset= */ 0, /* size= */ 0));
 
         /* add leases to the pool to expose additional code paths */
         ASSERT_OK(add_lease(server, &address, 2));

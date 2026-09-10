@@ -127,7 +127,7 @@ TEST(client_basic) {
         v = 0;
         ASSERT_OK(sd_dhcp6_client_get_information_request(client, &v));
         ASSERT_TRUE(v);
-        ASSERT_OK(sd_dhcp6_client_set_information_request(client, 0));
+        ASSERT_OK(sd_dhcp6_client_set_information_request(client, /* enabled= */ 0));
         v = 42;
         ASSERT_OK(sd_dhcp6_client_get_information_request(client, &v));
         ASSERT_FALSE(v);
@@ -220,10 +220,10 @@ TEST(option) {
         ASSERT_EQ(sizeof(packet), sizeof(result));
 
         offset = 0;
-        ASSERT_ERROR(dhcp6_option_parse(packet, 0, &offset, &optcode, &optlen, &optval), EBADMSG);
+        ASSERT_ERROR(dhcp6_option_parse(packet, /* buflen= */ 0, &offset, &optcode, &optlen, &optval), EBADMSG);
 
         offset = 3;
-        ASSERT_ERROR(dhcp6_option_parse(packet, 0, &offset, &optcode, &optlen, &optval), EBADMSG);
+        ASSERT_ERROR(dhcp6_option_parse(packet, /* buflen= */ 0, &offset, &optcode, &optlen, &optval), EBADMSG);
 
         /* Tests for reading unaligned data. */
         ASSERT_NOT_NULL(buf = new(uint8_t, sizeof(packet)));
@@ -348,28 +348,28 @@ TEST(option_status) {
         option = (DHCP6Option*) option1;
         ASSERT_EQ(sizeof(option1), sizeof(DHCP6Option) + be16toh(option->len));
 
-        r = dhcp6_option_parse_ia(NULL, 0, be16toh(option->code), be16toh(option->len), option->data, &ia);
+        r = dhcp6_option_parse_ia(/* client= */ NULL, /* iaid= */ 0, be16toh(option->code), be16toh(option->len), option->data, &ia);
         ASSERT_ERROR(r, ENOANO);
 
-        r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
+        r = dhcp6_option_parse_ia(/* client= */ NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         ASSERT_ERROR(r, EINVAL);
 
         option->len = htobe16(17);
-        r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
+        r = dhcp6_option_parse_ia(/* client= */ NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         ASSERT_ERROR(r, EBADMSG);
 
         option->len = htobe16(sizeof(DHCP6Option));
-        r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
+        r = dhcp6_option_parse_ia(/* client= */ NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         ASSERT_ERROR(r, EBADMSG);
 
         option = (DHCP6Option*) option2;
         ASSERT_EQ(sizeof(option2), sizeof(DHCP6Option) + be16toh(option->len));
-        r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
+        r = dhcp6_option_parse_ia(/* client= */ NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         ASSERT_ERROR(r, ENODATA);
 
         option = (DHCP6Option*) option3;
         ASSERT_EQ(sizeof(option3), sizeof(DHCP6Option) + be16toh(option->len));
-        r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
+        r = dhcp6_option_parse_ia(/* client= */ NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         ASSERT_OK(r);
         ASSERT_NOT_NULL(ia);
         ASSERT_NOT_NULL(ia->addresses);
@@ -377,7 +377,7 @@ TEST(option_status) {
 
         option = (DHCP6Option*) option4;
         ASSERT_EQ(sizeof(option4), sizeof(DHCP6Option) + be16toh(option->len));
-        r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
+        r = dhcp6_option_parse_ia(/* client= */ NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         ASSERT_OK(r);
         ASSERT_NOT_NULL(ia);
         ASSERT_NOT_NULL(ia->addresses);
@@ -388,7 +388,7 @@ TEST(option_status) {
 
         option = (DHCP6Option*) option5;
         ASSERT_EQ(sizeof(option5), sizeof(DHCP6Option) + be16toh(option->len));
-        r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
+        r = dhcp6_option_parse_ia(/* client= */ NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         ASSERT_OK(r);
         ASSERT_NOT_NULL(ia);
         ASSERT_NOT_NULL(ia->addresses);
@@ -398,7 +398,7 @@ TEST(option_status) {
          * valid prefix behind. */
         option = (DHCP6Option*) option6;
         ASSERT_EQ(sizeof(option6), sizeof(DHCP6Option) + be16toh(option->len));
-        r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
+        r = dhcp6_option_parse_ia(/* client= */ NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         ASSERT_ERROR(r, ENODATA);
         ASSERT_NULL(ia);
 }
@@ -1077,7 +1077,7 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
                         break;
                 }
 
-                ASSERT_OK(sd_dhcp6_client_set_information_request(client, false));
+                ASSERT_OK(sd_dhcp6_client_set_information_request(client, /* enabled= */ false));
                 ASSERT_OK(sd_dhcp6_client_start(client));
                 ASSERT_OK(dhcp6_client_set_transaction_id(
                                 client, ((const DHCP6Message*) msg_advertise)->transaction_id));
@@ -1110,7 +1110,7 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
                         break;
 
                 case 7:
-                        ASSERT_OK(sd_event_exit(sd_dhcp6_client_get_event(client), 0));
+                        ASSERT_OK(sd_event_exit(sd_dhcp6_client_get_event(client), /* code= */ 0));
                         break;
 
                 default:
@@ -1165,7 +1165,7 @@ int dhcp6_network_send_udp_socket(int s, const struct in6_addr *a, const void *p
                 break;
 
         case 3:
-                test_client_callback(client_ref, DHCP6_CLIENT_EVENT_TEST_ADVERTISED, NULL);
+                test_client_callback(client_ref, DHCP6_CLIENT_EVENT_TEST_ADVERTISED, /* userdata= */ NULL);
                 test_client_verify_request(packet, len);
                 ASSERT_OK_EQ_ERRNO(write(test_fd[1], msg_reply, sizeof(msg_reply)),
                                    (ssize_t) sizeof(msg_reply));
@@ -1213,23 +1213,23 @@ TEST(dhcp6_client) {
 
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
-                                             30 * USEC_PER_SEC, 0,
+                                             30 * USEC_PER_SEC, /* accuracy= */ 0,
                                              /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)));
 
         ASSERT_OK(sd_dhcp6_client_new(&client));
-        ASSERT_OK(sd_dhcp6_client_attach_event(client, e, 0));
+        ASSERT_OK(sd_dhcp6_client_attach_event(client, e, /* priority= */ 0));
         ASSERT_OK_ZERO(sd_dhcp6_client_set_ifindex(client, test_ifindex));
         ASSERT_OK(sd_dhcp6_client_set_local_address(client, &local_address));
         ASSERT_OK(sd_dhcp6_client_set_fqdn(client, "host.lab.intra"));
         ASSERT_OK(sd_dhcp6_client_set_iaid(client, unaligned_read_be32((uint8_t[]) { IA_ID_BYTES })));
-        ASSERT_OK(sd_dhcp6_client_set_send_release(client, true));
+        ASSERT_OK(sd_dhcp6_client_set_send_release(client, /* enable= */ true));
 
         ASSERT_OK(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DNS_SERVER));
         ASSERT_OK(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DOMAIN));
         ASSERT_OK(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_NTP_SERVER));
         ASSERT_OK(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_SNTP_SERVER));
 
-        ASSERT_OK(sd_dhcp6_client_set_information_request(client, true));
+        ASSERT_OK(sd_dhcp6_client_set_information_request(client, /* enabled= */ true));
         ASSERT_OK(sd_dhcp6_client_set_callback(client, test_client_callback, /* userdata= */ NULL));
 
         /* Nothing to renew when the client is not running. */
