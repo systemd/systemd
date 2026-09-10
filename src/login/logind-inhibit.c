@@ -96,7 +96,7 @@ static int inhibitor_save(Inhibitor *i) {
 
         assert(i);
 
-        r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label("/run/systemd/inhibit", 0755, /* uid= */ 0, /* gid= */ 0, MKDIR_WARN_MODE);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/systemd/inhibit/: %m");
 
@@ -253,7 +253,7 @@ int inhibitor_load(Inhibitor *i) {
         }
 
         if (who) {
-                l = cunescape(who, 0, &cc);
+                l = cunescape(who, /* flags= */ 0, &cc);
                 if (l < 0)
                         return log_debug_errno(l, "Failed to unescape \"who\" of inhibitor: %m");
 
@@ -261,7 +261,7 @@ int inhibitor_load(Inhibitor *i) {
         }
 
         if (why) {
-                l = cunescape(why, 0, &cc);
+                l = cunescape(why, /* flags= */ 0, &cc);
                 if (l < 0)
                         return log_debug_errno(l, "Failed to unescape \"why\" of inhibitor: %m");
 
@@ -299,7 +299,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
 
         /* Create FIFO */
         if (!i->fifo_path) {
-                r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0, MKDIR_WARN_MODE);
+                r = mkdir_safe_label("/run/systemd/inhibit", 0755, /* uid= */ 0, /* gid= */ 0, MKDIR_WARN_MODE);
                 if (r < 0)
                         return r;
 
@@ -319,7 +319,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
         }
 
         if (!i->event_source) {
-                r = sd_event_add_io(i->manager->event, &i->event_source, i->fifo_fd, 0, inhibitor_dispatch_fifo, i);
+                r = sd_event_add_io(i->manager->event, &i->event_source, i->fifo_fd, /* events= */ 0, inhibitor_dispatch_fifo, i);
                 if (r < 0)
                         return r;
 

@@ -191,7 +191,7 @@ static int acquire_user_record(pam_handle_t *pamh, UserRecord **ret_record) {
         assert(pamh);
 
         const char *username = NULL;
-        r = sym_pam_get_user(pamh, &username, NULL);
+        r = sym_pam_get_user(pamh, &username, /* prompt= */ NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get user name: @PAMERR@");
         if (isempty(username))
@@ -242,7 +242,7 @@ static int acquire_user_record(pam_handle_t *pamh, UserRecord **ret_record) {
                         return pam_syslog_pam_error(pamh, LOG_ERR, PAM_USER_UNKNOWN,
                                                     "User record of user '%s' has no UID, refusing.", username);
 
-                r = sd_json_variant_format(ur->json, 0, &formatted);
+                r = sd_json_variant_format(ur->json, /* flags= */ 0, &formatted);
                 if (r < 0)
                         return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to format user JSON: %m");
 
@@ -514,7 +514,7 @@ static bool getenv_harder_bool(pam_handle_t *pamh, bool debug, const char *key, 
         assert(pamh);
         assert(key);
 
-        v = getenv_harder(pamh, debug, key, NULL);
+        v = getenv_harder(pamh, debug, key, /* fallback= */ NULL);
         if (!v) {
                 pam_debug_syslog(pamh, debug, "Using fallback %s=%s", key, true_false(fallback));
                 return fallback;
@@ -536,7 +536,7 @@ static uint32_t getenv_harder_uint32(pam_handle_t *pamh, bool debug, const char 
         assert(pamh);
         assert(key);
 
-        const char *v = getenv_harder(pamh, debug, key, NULL);
+        const char *v = getenv_harder(pamh, debug, key, /* fallback= */ NULL);
         if (!v) {
                 pam_debug_syslog(pamh, debug, "Using fallback %s=%"PRIu32, key, fallback);
                 return fallback;
@@ -1291,12 +1291,12 @@ static int register_session(
                  * process and returns a dummy session_fd (no longer a fifo). However because logind cannot
                  * be restarted (known long-standing issue), we must still be prepared to receive a fifo fd
                  * from a running logind older than v258. */
-                if (sd_is_fifo(session_fd, NULL) > 0) {
+                if (sd_is_fifo(session_fd, /* path= */ NULL) > 0) {
                         _cleanup_close_ int fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
                         if (fd < 0)
                                 return pam_syslog_errno(pamh, LOG_ERR, errno, "Failed to dup session fd: %m");
 
-                        r = sym_pam_set_data(pamh, "systemd.session-fd", FD_TO_PTR(fd), NULL);
+                        r = sym_pam_set_data(pamh, "systemd.session-fd", FD_TO_PTR(fd), /* cleanup= */ NULL);
                         if (r != PAM_SUCCESS)
                                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to install session fd: @PAMERR@");
                         TAKE_FD(fd);
@@ -1539,7 +1539,7 @@ static int setup_runtime_directory(
                 /* If this is an area switch request, always reset $XDG_RUNTIME_DIR if we got nothing
                  * to ensure the main runtime dir won't be clobbered. */
                 if (area)
-                        return update_environment(pamh, "XDG_RUNTIME_DIR", NULL);
+                        return update_environment(pamh, "XDG_RUNTIME_DIR", /* value= */ NULL);
 
                 return PAM_SUCCESS;
         }
@@ -1862,13 +1862,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
 
-        c.seat = getenv_harder(pamh, debug, "XDG_SEAT", NULL);
-        c.vtnr = getenv_harder_uint32(pamh, debug, "XDG_VTNR", 0);
+        c.seat = getenv_harder(pamh, debug, "XDG_SEAT", /* fallback= */ NULL);
+        c.vtnr = getenv_harder_uint32(pamh, debug, "XDG_VTNR", /* fallback= */ 0);
         c.type = getenv_harder(pamh, debug, "XDG_SESSION_TYPE", type_pam);
         c.class = getenv_harder(pamh, debug, "XDG_SESSION_CLASS", class_pam);
         c.desktop = getenv_harder(pamh, debug, "XDG_SESSION_DESKTOP", desktop_pam);
         c.area = getenv_harder(pamh, debug, "XDG_AREA", area_pam);
-        c.incomplete = getenv_harder_bool(pamh, debug, "XDG_SESSION_INCOMPLETE", false);
+        c.incomplete = getenv_harder_bool(pamh, debug, "XDG_SESSION_INCOMPLETE", /* fallback= */ false);
         inhibit_what = getenv_harder(pamh, debug, "XDG_SESSION_INHIBIT", inhibit_what);
         inhibit_why = getenv_harder(pamh, debug, "XDG_SESSION_INHIBIT_WHY", inhibit_why);
 
@@ -1887,7 +1887,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                          yes_no(c.incomplete),
                          strempty(inhibit_what));
 
-        const char *extra_device_access = getenv_harder(pamh, debug, "XDG_SESSION_EXTRA_DEVICE_ACCESS", NULL);
+        const char *extra_device_access = getenv_harder(pamh, debug, "XDG_SESSION_EXTRA_DEVICE_ACCESS", /* fallback= */ NULL);
         if (extra_device_access) {
                 c.extra_device_access = strv_split(extra_device_access, ":");
                 if (!c.extra_device_access)
@@ -1968,7 +1968,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         (void) close_osc_context(pamh, debug);
 
-        (void) sym_pam_set_data(pamh, "systemd.inhibit-fd", NULL, NULL);
+        (void) sym_pam_set_data(pamh, "systemd.inhibit-fd", /* data= */ NULL, /* cleanup= */ NULL);
 
         id = sym_pam_getenv(pamh, "XDG_SESSION_ID");
         if (id) {
@@ -2009,7 +2009,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                         if (r != PAM_SUCCESS)
                                 return r;
 
-                        r = bus_call_method(bus, bus_login_mgr, "ReleaseSession", &error, NULL, "s", id);
+                        r = bus_call_method(bus, bus_login_mgr, "ReleaseSession", &error, /* ret_reply= */ NULL, "s", id);
                         if (r < 0)
                                 return pam_syslog_pam_error(pamh, LOG_ERR, PAM_SESSION_ERR,
                                                             "Failed to release session: %s", bus_error_message(&error, r));
