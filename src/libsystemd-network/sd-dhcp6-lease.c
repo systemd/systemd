@@ -750,7 +750,7 @@ int sd_dhcp6_lease_get_vendor_options(sd_dhcp6_lease *lease, sd_dhcp6_option ***
 
         if (ret) {
                 if (!lease->sorted_vendor_options) {
-                        r = set_dump_sorted(lease->vendor_options, (void***) &lease->sorted_vendor_options, NULL);
+                        r = set_dump_sorted(lease->vendor_options, (void***) &lease->sorted_vendor_options, /* ret_n= */ NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -850,7 +850,7 @@ static int dhcp6_lease_parse_message(
 
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
-                        if (dhcp6_lease_get_clientid(lease, NULL, NULL) >= 0)
+                        if (dhcp6_lease_get_clientid(lease, /* ret_id= */ NULL, /* ret_len= */ NULL) >= 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple client IDs",
                                                               dhcp6_message_type_to_string(message->type));
 
@@ -861,7 +861,7 @@ static int dhcp6_lease_parse_message(
                         break;
 
                 case SD_DHCP6_OPTION_SERVERID:
-                        if (dhcp6_lease_get_serverid(lease, NULL, NULL) >= 0)
+                        if (dhcp6_lease_get_serverid(lease, /* ret_id= */ NULL, /* ret_len= */ NULL) >= 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple server IDs",
                                                               dhcp6_message_type_to_string(message->type));
 
@@ -1050,7 +1050,7 @@ static int dhcp6_lease_parse_message(
                                  FORMAT_TIMESPAN(client->information_refresh_time_usec, USEC_PER_SEC));
 
         } else {
-                r = dhcp6_lease_get_serverid(lease, NULL, NULL);
+                r = dhcp6_lease_get_serverid(lease, /* ret_id= */ NULL, /* ret_len= */ NULL);
                 if (r < 0)
                         return log_dhcp6_client_errno(client, r, "%s has no server id",
                                                       dhcp6_message_type_to_string(message->type));

@@ -65,8 +65,8 @@ int ndisc_router_solicit_parse(sd_radv *ra, sd_ndisc_router_solicit *rs) {
          * The link-layer address of the sender, if known. MUST NOT be included if the Source
          * Address is the unspecified address. Otherwise, it SHOULD be included on link
          * layers that have addresses. */
-        if (ndisc_option_get_mac(rs->options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, NULL) >= 0&&
-            sd_ndisc_router_solicit_get_sender_address(rs, NULL) == -ENODATA)
+        if (ndisc_option_get_mac(rs->options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, /* ret= */ NULL) >= 0&&
+            sd_ndisc_router_solicit_get_sender_address(rs, /* ret= */ NULL) == -ENODATA)
                 return log_radv_errno(ra, SYNTHETIC_ERRNO(EBADMSG),
                                       "Router Solicitation message from null address unexpectedly contains source link-layer address option, ignoring datagaram.");
 
