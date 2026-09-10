@@ -464,7 +464,7 @@ static int get_extension_release_metadata(
                 _cleanup_free_ char *f = NULL, *buf = NULL, *resolved = NULL;
                 _cleanup_strv_free_ char **mounted_extensions = NULL;
 
-                r = chase(*p, c->root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                r = chase(*p, c->root, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(c->root), *p);
                         continue;
@@ -484,7 +484,7 @@ static int get_extension_release_metadata(
                 if (!f)
                         return log_oom();
 
-                r = read_full_file(f, &buf, NULL);
+                r = read_full_file(f, &buf, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open '%s': %m", f);
 
@@ -733,7 +733,7 @@ static int mount_overlayfs(
                 return log_oom();
 
         STRV_FOREACH(l, layers) {
-                r = append_overlayfs_path_option(&options, separator ? ":" : "", NULL, *l);
+                r = append_overlayfs_path_option(&options, separator ? ":" : "", /* option= */ NULL, *l);
                 if (r < 0)
                         return r;
 
@@ -904,7 +904,7 @@ static int resolve_hierarchy(const Context *c, const char *hierarchy, char **ret
         assert(hierarchy);
         assert(ret_resolved_hierarchy);
 
-        r = chase(hierarchy, c->root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
+        r = chase(hierarchy, c->root, CHASE_PREFIX_ROOT, &resolved_path, /* ret_fd= */ NULL);
         if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Failed to resolve hierarchy '%s': %m", hierarchy);
 
@@ -1009,7 +1009,7 @@ static int resolve_mutable_directory(
                         return log_error_errno(r, "Failed to fix SELinux label for '%s/%s': %m", strempty(root), skip_leading_slash(path));
         }
 
-        r = chase(path, root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
+        r = chase(path, root, CHASE_PREFIX_ROOT, &resolved_path, /* ret_fd= */ NULL);
         if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
 
@@ -1077,7 +1077,7 @@ static int determine_used_extensions(const char *hierarchy, char **paths, char *
         STRV_FOREACH(p, paths) {
                 _cleanup_free_ char *resolved = NULL;
 
-                r = chase(hierarchy, *p, CHASE_PREFIX_ROOT, &resolved, NULL);
+                r = chase(hierarchy, *p, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         log_debug_errno(r, "Hierarchy '%s' in extension '%s' doesn't exist, not merging.", hierarchy, *p);
                         continue;
@@ -1115,7 +1115,7 @@ static int maybe_import_mutable_directory(const Context *c, OverlayFSPaths *op) 
         if (c->mutable != MUTABLE_IMPORT || !op->resolved_mutable_directory)
                 return 0;
 
-        r = path_equal_or_inode_same_full(op->resolved_hierarchy, op->resolved_mutable_directory, 0);
+        r = path_equal_or_inode_same_full(op->resolved_hierarchy, op->resolved_mutable_directory, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r > 0)
@@ -1148,7 +1148,7 @@ static int maybe_import_ignored_mutable_directory(const Context *c, OverlayFSPat
         if (!path)
                 return log_oom();
 
-        r = chase(path, c->root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
+        r = chase(path, c->root, CHASE_PREFIX_ROOT, &resolved_path, /* ret_fd= */ NULL);
         if (r == -ENOENT) {
                 log_debug("Mutable directory for %s does not exist, not importing", op->hierarchy);
                 return 0;
@@ -1156,7 +1156,7 @@ static int maybe_import_ignored_mutable_directory(const Context *c, OverlayFSPat
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
 
-        r = path_equal_or_inode_same_full(op->resolved_hierarchy, resolved_path, 0);
+        r = path_equal_or_inode_same_full(op->resolved_hierarchy, resolved_path, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
 
@@ -1239,7 +1239,7 @@ static int hierarchy_as_lower_dir(const Context *c, OverlayFSPaths *op) {
                 return 0;
         }
 
-        r = path_equal_or_inode_same_full(op->resolved_hierarchy, op->resolved_mutable_directory, 0);
+        r = path_equal_or_inode_same_full(op->resolved_hierarchy, op->resolved_mutable_directory, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r > 0) {
@@ -1653,7 +1653,7 @@ static int make_mounts_read_only(ImageClass image_class, const char *overlay_pat
                 if (!f)
                         return log_oom();
 
-                r = mount_nofollow_verbose(LOG_ERR, f, f, NULL, MS_BIND, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, f, f, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1663,7 +1663,7 @@ static int make_mounts_read_only(ImageClass image_class, const char *overlay_pat
         } else {
                 /* The overlayfs superblock is read-only. Let's also mark the bind mount read-only. Extra
                  * turbo safety 😎 */
-                r = bind_remount_recursive(overlay_path, MS_RDONLY, MS_RDONLY, NULL);
+                r = bind_remount_recursive(overlay_path, MS_RDONLY, MS_RDONLY, /* deny_list= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make bind mount '%s' read-only: %m", overlay_path);
         }
@@ -1811,7 +1811,7 @@ static int unmerge_hierarchy(const Context *c, const char *p, const char *submou
                         _cleanup_free_ char *work_dir_in_root = NULL;
                         ssize_t l;
 
-                        l = cunescape_length(escaped_work_dir_in_root, r, 0, &work_dir_in_root);
+                        l = cunescape_length(escaped_work_dir_in_root, r, /* flags= */ 0, &work_dir_in_root);
                         if (l < 0)
                                 return log_error_errno(l, "Failed to unescape work directory path: %m");
                         if (path_is_absolute(work_dir_in_root) || !path_is_normalized(work_dir_in_root))
@@ -1867,7 +1867,7 @@ static int unmerge_subprocess(
 
         /* Mark the whole of /run as MS_SLAVE, so that we can mount stuff below it that doesn't show up on
          * the host otherwise. */
-        r = mount_nofollow_verbose(LOG_ERR, NULL, "/run", NULL, MS_SLAVE|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, "/run", /* fstype= */ NULL, MS_SLAVE|MS_REC, /* options= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1883,7 +1883,7 @@ static int unmerge_subprocess(
                 if (!submounts_path)
                         return log_oom();
 
-                r = chase(*h, c->root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                r = chase(*h, c->root, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(c->root), *h);
                         continue;
@@ -1986,7 +1986,7 @@ static int merge_subprocess(
 
         /* Mark the whole of /run as MS_SLAVE, so that we can mount stuff below it that doesn't show up on
          * the host otherwise. */
-        r = mount_nofollow_verbose(LOG_ERR, NULL, "/run", NULL, MS_SLAVE|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, "/run", /* fstype= */ NULL, MS_SLAVE|MS_REC, /* options= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to remount /run/ MS_SLAVE: %m");
 
@@ -1999,7 +1999,7 @@ static int merge_subprocess(
          * but let the kernel do that entirely automatically, once our namespace dies. Note that this file
          * system won't be visible to anyone but us, since we opened our own namespace and then made the
          * /run/ hierarchy (which our workspace is contained in) MS_SLAVE, see above. */
-        r = mount_nofollow_verbose(LOG_ERR, image_class_info[c->image_class].short_identifier, workspace, "tmpfs", 0, "mode=0700");
+        r = mount_nofollow_verbose(LOG_ERR, image_class_info[c->image_class].short_identifier, workspace, "tmpfs", /* flags= */ 0, "mode=0700");
         if (r < 0)
                 return r;
 
@@ -2044,12 +2044,12 @@ static int merge_subprocess(
                                 }
                         }
 
-                        r = mount_nofollow_verbose(LOG_ERR, img->path, p, NULL, MS_BIND, NULL);
+                        r = mount_nofollow_verbose(LOG_ERR, img->path, p, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
                         if (r < 0)
                                 return r;
 
                         /* Make this a read-only bind mount */
-                        r = bind_remount_recursive(p, MS_RDONLY, MS_RDONLY, NULL);
+                        r = bind_remount_recursive(p, MS_RDONLY, MS_RDONLY, /* deny_list= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make bind mount '%s' read-only: %m", p);
 
@@ -2070,7 +2070,7 @@ static int merge_subprocess(
                                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
-                        r = verity_settings_load(&verity_settings, img->path, NULL, NULL);
+                        r = verity_settings_load(&verity_settings, img->path, /* root_hash_path= */ NULL, /* root_hash_sig_path= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read verity artifacts for %s: %m", img->path);
 
@@ -2400,7 +2400,7 @@ static int merge_subprocess(
                 if (!submounts_path)
                         return log_oom();
 
-                r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
+                r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), *h);
 
@@ -2473,7 +2473,7 @@ static int merge_subprocess(
                 if (r < 0)
                         return log_error_errno(r, "Failed to check if '%s' exists: %m", p);
 
-                r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
+                r = chase(*h, c->root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(c->root), *h);
 
@@ -2482,7 +2482,7 @@ static int merge_subprocess(
                         return log_error_errno(r, "Failed to create hierarchy mount point '%s': %m", resolved);
 
                 /* Using MS_REC to potentially bring in our read-only bind mount of metadata. */
-                r = mount_nofollow_verbose(LOG_ERR, p, resolved, NULL, MS_BIND|MS_REC, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, p, resolved, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2574,7 +2574,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 _cleanup_strv_free_ char **l = NULL;
                 struct stat st;
 
-                r = chase(*p, c.root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                r = chase(*p, c.root, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(c.root), *p);
                         continue;
@@ -2603,7 +2603,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 if (!f)
                         return log_oom();
 
-                r = read_full_file(f, &buf, NULL);
+                r = read_full_file(f, &buf, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open '%s': %m", f);
 
@@ -2672,7 +2672,7 @@ static int look_for_merged_hierarchies(const Context *c, const char **ret_which)
         STRV_FOREACH(p, c->hierarchies) {
                 _cleanup_free_ char *resolved = NULL;
 
-                r = chase(*p, c->root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                r = chase(*p, c->root, CHASE_PREFIX_ROOT, &resolved, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(c->root), *p);
                         continue;
@@ -2814,7 +2814,7 @@ static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_var
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 VERB_NOARG(verb_unmerge, "unmerge", "Unmerge extensions from relevant hierarchies");
@@ -2888,7 +2888,7 @@ static int vl_method_unmerge(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int refresh(const Context *c) {
@@ -3001,7 +3001,7 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int refresh_class(ImageClass image_class) {
@@ -3039,7 +3039,7 @@ static int vl_method_on_completed_update(sd_varlink *link, sd_json_variant *para
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 VERB_NOARG(verb_list, "list", "List installed extensions");
@@ -3159,7 +3159,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return version();
 
                 OPTION_LONG("root", "PATH", "Operate relative to root PATH"):
-                        r = parse_path_argument(opts.arg, false, &arg_root);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         /* If --root= is provided, do not reload the service manager */
@@ -3190,7 +3190,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("noexec", "BOOL", "Whether to mount extension overlay with noexec"):
-                        r = parse_boolean_argument("--noexec", opts.arg, NULL);
+                        r = parse_boolean_argument("--noexec", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 
