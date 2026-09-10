@@ -183,7 +183,7 @@ int machine_save(Machine *m) {
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable(m->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
+        r = fopen_tmpfile_linkable(m->state_file, O_WRONLY, &temp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create state file '%s': %m", m->state_file);
 
@@ -1169,7 +1169,7 @@ int machine_copy_from_to_operation(
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract file name of '%s' path: %m", container_path);
 
-        host_fd = open_parent(host_path, O_CLOEXEC, 0);
+        host_fd = open_parent(host_path, /* flags= */ 0, /* mode= */ 0);
         if (host_fd < 0)
                 return log_debug_errno(host_fd, "Failed to open host directory '%s': %m", host_path);
 
@@ -1203,7 +1203,7 @@ int machine_copy_from_to_operation(
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
                 _cleanup_close_ int container_fd = -EBADF;
-                container_fd = open_parent(container_path, O_CLOEXEC, 0);
+                container_fd = open_parent(container_path, /* flags= */ 0, /* mode= */ 0);
                 if (container_fd < 0) {
                         log_debug_errno(container_fd, "Failed to open container directory: %m");
                         report_errno_and_exit(errno_pipe_fd[1], container_fd);

@@ -155,9 +155,9 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
                 if (!p)
                         return -EINVAL;
 
-                fd = open(prefix, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                fd = xopenat(AT_FDCWD, prefix, O_PATH|O_DIRECTORY);
                 if (fd < 0)
-                        return -errno;
+                        return fd;
         } else
                 p = path;
 
@@ -214,9 +214,9 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
         r = path_extract_directory(p, &pp);
         if (r == -EDESTADDRREQ) {
                 /* only fname is passed, no prefix to operate on */
-                dfd = open(".", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                dfd = fd_reopen(AT_FDCWD, O_RDONLY|O_DIRECTORY);
                 if (dfd < 0)
-                        return -errno;
+                        return dfd;
         } else if (r == -EADDRNOTAVAIL)
                 /* only root dir or "." was passed, i.e. there is no parent to extract, in that case there's nothing to do. */
                 return 0;
@@ -228,7 +228,7 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
                 if (r < 0)
                         return r;
 
-                dfd = chase_and_open(pp, root, CHASE_PREFIX_ROOT, O_CLOEXEC|O_DIRECTORY, NULL);
+                dfd = chase_and_open(pp, root, CHASE_PREFIX_ROOT, O_DIRECTORY, /* ret_path= */ NULL);
                 if (dfd < 0)
                         return dfd;
         }
@@ -248,7 +248,7 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
 
         _cleanup_close_ int nfd = xopenat_full(
                                 dfd, bn,
-                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,
+                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW,
                                 flags,
                                 m);
         if (nfd == -EEXIST)

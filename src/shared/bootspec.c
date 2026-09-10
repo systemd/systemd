@@ -13,11 +13,11 @@
 #include "efi-loader.h"
 #include "efivars.h"
 #include "env-file.h"
-#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
+#include "fs-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "parse-util.h"
@@ -773,7 +773,7 @@ static int boot_entries_find_type1(
         assert(root);
         assert(dir);
 
-        dir_fd = chase_and_open(dir, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY|O_CLOEXEC, &full);
+        dir_fd = chase_and_open(dir, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY, &full);
         if (dir_fd == -ENOENT)
                 return 0;
         if (dir_fd < 0)
@@ -1347,9 +1347,9 @@ static int boot_entries_find_unified_extras(
                 if (!location)
                         return log_oom();
 
-                _cleanup_close_ int pin_fd = openat(dirfd(d), de->d_name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                _cleanup_close_ int pin_fd = xopenat(dirfd(d), de->d_name, O_PATH|O_NOFOLLOW);
                 if (pin_fd < 0) {
-                        log_debug_errno(errno, "Failed to pin '%s', ignoring: %m", location);
+                        log_debug_errno(pin_fd, "Failed to pin '%s', ignoring: %m", location);
                         continue;
                 }
 
@@ -1369,7 +1369,7 @@ static int boot_entries_find_unified_extras(
 
                 _cleanup_free_ char *cmdline = NULL;
                 if (type == BOOT_ENTRY_ADDON) {
-                        _cleanup_close_ int fd = fd_reopen(pin_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                        _cleanup_close_ int fd = fd_reopen(pin_fd, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to open '%s', ignoring: %m", location);
                                 continue;
@@ -1397,7 +1397,7 @@ static int boot_entries_find_unified_global_extras(
 
         assert(extras);
 
-        _cleanup_close_ int where_fd = RET_NERRNO(open(where, O_DIRECTORY|O_CLOEXEC));
+        _cleanup_close_ int where_fd = xopenat(AT_FDCWD, where, O_DIRECTORY);
         if (where_fd == -ENOENT)
                 return 0;
         if (where_fd < 0)
@@ -1464,9 +1464,9 @@ static int boot_entries_find_unified(
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                _cleanup_close_ int fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOFOLLOW|O_NOCTTY);
+                _cleanup_close_ int fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_NOCTTY);
                 if (fd < 0) {
-                        log_warning_errno(errno, "Failed to open %s/%s, ignoring: %m", full, de->d_name);
+                        log_warning_errno(fd, "Failed to open %s/%s, ignoring: %m", full, de->d_name);
                         continue;
                 }
 

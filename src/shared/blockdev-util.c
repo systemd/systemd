@@ -233,9 +233,9 @@ int block_device_new_from_path(const char *path, BlockDeviceLookupFlags flags, s
         assert(path);
         assert(ret);
 
-        fd = open(path, O_CLOEXEC|O_PATH);
+        fd = xopenat(AT_FDCWD, path, O_PATH);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return block_device_new_from_fd(fd, flags, ret);
 }
@@ -316,9 +316,9 @@ int get_block_device(const char *path, dev_t *ret) {
         assert(path);
         assert(ret);
 
-        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return get_block_device_fd(fd, ret);
 }
@@ -366,9 +366,9 @@ int get_block_device_harder(const char *path, dev_t *ret) {
         assert(path);
         assert(ret);
 
-        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return get_block_device_harder_fd(fd, ret);
 }
@@ -635,9 +635,9 @@ int fd_get_whole_disk(int fd, bool backing, dev_t *ret) {
 int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = open(path, O_CLOEXEC|O_PATH);
+        fd = xopenat(AT_FDCWD, path, O_PATH);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return fd_get_whole_disk(fd, backing, ret);
 }

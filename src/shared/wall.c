@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hostname-setup.h"
 #include "io-util.h"
 #include "path-util.h"
@@ -28,9 +29,9 @@ static int write_to_terminal(const char *tty, const char *message) {
         assert(tty);
         assert(message);
 
-        fd = open(tty, O_WRONLY|O_NONBLOCK|O_NOCTTY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, tty, O_WRONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (!isatty_safe(fd))
                 return -ENOTTY;

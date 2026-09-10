@@ -223,7 +223,7 @@ static int archive_unpack_regular(
         assert(path);
 
         _cleanup_free_ char *tmp = NULL;
-        _cleanup_close_ int fd = open_tmpfile_linkable_at(parent_fd, filename, O_CLOEXEC|O_WRONLY, &tmp);
+        _cleanup_close_ int fd = open_tmpfile_linkable_at(parent_fd, filename, O_WRONLY, &tmp);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create regular file '%s': %m", path);
 
@@ -310,7 +310,7 @@ static int archive_unpack_whiteout(
         assert(path);
 
         _cleanup_free_ char *tmp = NULL;
-        _cleanup_close_ int fd = open_tmpfile_linkable_at(parent_fd, filename, O_CLOEXEC|O_WRONLY, &tmp);
+        _cleanup_close_ int fd = open_tmpfile_linkable_at(parent_fd, filename, O_WRONLY, &tmp);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create whiteout file for '%s': %m", path);
 
@@ -369,7 +369,7 @@ static int archive_unpack_directory(
          * they are more of a "shared" concept, and we try to reuse existing inodes. Note that we create the
          * dir inode in mode 0700, so that we can fully access it (but others cannot). We'll adjust the modes
          * right before closing the inode. */
-        _cleanup_close_ int fd = open_mkdir_at(parent_fd, filename, O_CLOEXEC, 0700);
+        _cleanup_close_ int fd = open_mkdir_at(parent_fd, filename, /* flags= */ 0, 0700);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create directory '%s': %m", path);
 
@@ -413,9 +413,9 @@ static int archive_unpack_symlink(
         if (r < 0)
                 return log_error_errno(r, "Failed to create symlink '%s' → '%s': %m", path, target);
 
-        _cleanup_close_ int fd = openat(parent_fd, filename, O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        _cleanup_close_ int fd = xopenat(parent_fd, filename, O_PATH|O_NOFOLLOW);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open symlink '%s' we just created: %m", path);
+                return log_error_errno(fd, "Failed to open symlink '%s' we just created: %m", path);
 
         r = fd_verify_symlink(fd);
         if (r < 0)
@@ -450,9 +450,9 @@ static int archive_unpack_special_inode(
         if (r < 0)
                 return log_error_errno(r, "Failed to create special node '%s': %m", path);
 
-        _cleanup_close_ int fd = openat(parent_fd, filename, O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        _cleanup_close_ int fd = xopenat(parent_fd, filename, O_PATH|O_NOFOLLOW);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open special node '%s' we just created: %m", path);
+                return log_error_errno(fd, "Failed to open special node '%s' we just created: %m", path);
 
         struct stat st;
         if (fstat(fd, &st) < 0)
@@ -1047,7 +1047,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                 }
                         } else {
                                 /* This is some intermediary node in the path that we haven't opened yet. Create it with default attributes */
-                                fd = open_mkdir_at(parent_fd, e, O_CLOEXEC, 0700);
+                                fd = open_mkdir_at(parent_fd, e, /* flags= */ 0, 0700);
                                 if (fd < 0)
                                         return log_error_errno(fd, "Failed to create directory '%s': %m", j);
 
@@ -1539,7 +1539,7 @@ static int archive_item(
         _cleanup_close_ int data_fd = -EBADF;
         if (S_ISREG(sx->stx_mode)) {
                 /* Convert the O_PATH fd into a proper fd */
-                data_fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
+                data_fd = fd_reopen(inode_fd, O_RDONLY);
                 if (data_fd < 0)
                         return log_error_errno(data_fd, "Failed to open '%s': %m", path);
 

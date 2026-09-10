@@ -26,9 +26,9 @@ int fsync_directory_of_file(int fd) {
                 return -errno;
 
         if (S_ISDIR(st.st_mode)) {
-                dfd = openat(fd, "..", O_RDONLY|O_DIRECTORY|O_CLOEXEC, 0);
+                dfd = xopenat(fd, "..", O_RDONLY|O_DIRECTORY);
                 if (dfd < 0)
-                        return -errno;
+                        return dfd;
 
         } else if (!S_ISREG(st.st_mode)) { /* Regular files are OK regardless if O_PATH or not, for all other
                                             * types check O_PATH flag */
@@ -62,7 +62,7 @@ int fsync_directory_of_file(int fd) {
                 if (!path_is_absolute(path))
                         return -EINVAL;
 
-                dfd = open_parent(path, O_CLOEXEC|O_NOFOLLOW, 0);
+                dfd = open_parent(path, O_NOFOLLOW, /* mode= */ 0);
                 if (dfd < 0)
                         return dfd;
         }
@@ -92,17 +92,17 @@ int fsync_path_at(int at_fd, const char *path) {
 
         if (isempty(path)) {
                 if (at_fd == AT_FDCWD) {
-                        opened_fd = open(".", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                        opened_fd = fd_reopen(at_fd, O_RDONLY|O_DIRECTORY);
                         if (opened_fd < 0)
-                                return -errno;
+                                return opened_fd;
 
                         fd = opened_fd;
                 } else
                         fd = at_fd;
         } else {
-                opened_fd = openat(at_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                opened_fd = xopenat(at_fd, path, O_RDONLY|O_NONBLOCK);
                 if (opened_fd < 0)
-                        return -errno;
+                        return opened_fd;
 
                 fd = opened_fd;
         }
@@ -117,16 +117,16 @@ int fsync_parent_at(int at_fd, const char *path) {
                 if (at_fd != AT_FDCWD)
                         return fsync_directory_of_file(at_fd);
 
-                opened_fd = open("..", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                opened_fd = xopenat(AT_FDCWD, "..", O_RDONLY|O_DIRECTORY);
                 if (opened_fd < 0)
-                        return -errno;
+                        return opened_fd;
 
                 return RET_NERRNO(fsync(opened_fd));
         }
 
-        opened_fd = openat(at_fd, path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        opened_fd = xopenat(at_fd, path, O_PATH|O_NOFOLLOW);
         if (opened_fd < 0)
-                return -errno;
+                return opened_fd;
 
         return fsync_directory_of_file(opened_fd);
 }
@@ -138,11 +138,14 @@ int fsync_path_and_parent_at(int at_fd, const char *path) {
                 if (at_fd != AT_FDCWD)
                         return fsync_full(at_fd);
 
-                opened_fd = open(".", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        } else
-                opened_fd = openat(at_fd, path, O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
-        if (opened_fd < 0)
-                return -errno;
+                opened_fd = fd_reopen(at_fd, O_RDONLY|O_DIRECTORY);
+                if (opened_fd < 0)
+                        return opened_fd;
+        } else {
+                opened_fd = xopenat(at_fd, path, O_RDONLY|O_NOFOLLOW|O_NONBLOCK);
+                if (opened_fd < 0)
+                        return opened_fd;
+        }
 
         return fsync_full(opened_fd);
 }
@@ -154,11 +157,14 @@ int syncfs_path(int at_fd, const char *path) {
                 if (at_fd != AT_FDCWD)
                         return RET_NERRNO(syncfs(at_fd));
 
-                fd = open(".", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        } else
-                fd = openat(at_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-        if (fd < 0)
-                return -errno;
+                fd = fd_reopen(at_fd, O_RDONLY|O_DIRECTORY);
+                if (fd < 0)
+                        return fd;
+        } else {
+                fd = xopenat(at_fd, path, O_RDONLY|O_NONBLOCK);
+                if (fd < 0)
+                        return fd;
+        }
 
         return RET_NERRNO(syncfs(fd));
 }

@@ -234,14 +234,14 @@ int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags) {
         } else if (errno != 0)
                 return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
 
-        _cleanup_close_ int child_fd = openat(dirfd(d), child, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW|O_NONBLOCK);
+        _cleanup_close_ int child_fd = xopenat(dirfd(d), child, O_DIRECTORY|O_NOFOLLOW|O_NONBLOCK);
         if (child_fd < 0) {
-                if (IN_SET(errno, ENOTDIR, ELOOP)) {
-                        log_debug_errno(errno, "Child '%s' of directory '%s' is not a directory, leaving things as they are.", child, path);
+                if (IN_SET(child_fd, -ENOTDIR, -ELOOP)) {
+                        log_debug_errno(child_fd, "Child '%s' of directory '%s' is not a directory, leaving things as they are.", child, path);
                         return 0;
                 }
 
-                return log_debug_errno(errno, "Failed to open file '%s/%s': %m", path, child);
+                return log_debug_errno(child_fd, "Failed to open file '%s/%s': %m", path, child);
         }
 
         if (fstat(child_fd, &st) < 0)
@@ -310,9 +310,9 @@ int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags) {
 int import_mangle_os_tree(const char *path, int userns_fd, ImportFlags flags) {
         assert(path);
 
-        _cleanup_close_ int fd = open(path, O_DIRECTORY|O_CLOEXEC|O_PATH);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, path, O_DIRECTORY|O_PATH);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", path);
+                return log_error_errno(fd, "Failed to open '%s': %m", path);
 
         return import_mangle_os_tree_fd(fd, userns_fd, flags);
 }

@@ -294,7 +294,7 @@ int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) 
         struct dirent *buf;
         size_t m;
 
-        fd = xopenat(dir_fd, path, O_DIRECTORY|O_CLOEXEC);
+        fd = xopenat_full(dir_fd, path, O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID); /* path may be NULL */
         if (fd < 0)
                 return fd;
 
@@ -484,7 +484,7 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         assert(ret);
 
         if (!isempty(path)) {
-                fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC);
+                fd = xopenat(dir_fd, path, O_PATH);
                 if (fd < 0)
                         return fd;
                 dir_fd = fd;
@@ -517,9 +517,9 @@ int path_is_read_only_fs(const char *path) {
 
         assert(path);
 
-        fd = open(path, O_CLOEXEC | O_PATH);
+        fd = xopenat(AT_FDCWD, path, O_PATH);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return fd_is_read_only_fs(fd);
 }
@@ -548,9 +548,9 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
                  * between via O_PATH, unless we already have an fd for it. */
 
                 if (!isempty(filea)) {
-                        pin_a = openat(fda, filea, O_PATH|O_CLOEXEC|(FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? O_NOFOLLOW : 0));
+                        pin_a = xopenat(fda, filea, O_PATH|(FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? O_NOFOLLOW : 0));
                         if (pin_a < 0)
-                                return -errno;
+                                return pin_a;
 
                         fda = pin_a;
                         filea = NULL;
@@ -558,9 +558,9 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
                 }
 
                 if (!isempty(fileb)) {
-                        pin_b = openat(fdb, fileb, O_PATH|O_CLOEXEC|(FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? O_NOFOLLOW : 0));
+                        pin_b = xopenat(fdb, fileb, O_PATH|(FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? O_NOFOLLOW : 0));
                         if (pin_b < 0)
-                                return -errno;
+                                return pin_b;
 
                         fdb = pin_b;
                         fileb = NULL;

@@ -13,6 +13,7 @@
 #include "dlopen-note.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "import-common.h"
 #include "import-util.h"
 #include "install-file.h"
@@ -174,9 +175,9 @@ static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdat
         }
 
         if (path) {
-                open_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                open_fd = xopenat(AT_FDCWD, path, O_DIRECTORY|O_RDONLY);
                 if (open_fd < 0)
-                        return log_error_errno(errno, "Failed to open directory to import: %m");
+                        return log_error_errno(open_fd, "Failed to open directory to import: %m");
 
                 fd = open_fd;
 

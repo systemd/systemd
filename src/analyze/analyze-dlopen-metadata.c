@@ -17,7 +17,7 @@ int verb_dlopen_metadata(int argc, char *argv[], uintptr_t _data, void *userdata
 
         _cleanup_free_ char *abspath = NULL;
         _cleanup_close_ int fd = -EBADF;
-        fd = chase_and_open(argv[1], arg_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, &abspath);
+        fd = chase_and_open(argv[1], arg_root, CHASE_PREFIX_ROOT, O_RDONLY, &abspath);
         if (fd < 0)
                 return log_error_errno(fd, "Could not open \"%s\": %m", argv[1]);
 

@@ -607,6 +607,36 @@ TEST(read_full_file_full) {
         ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 10000, 99, 0, NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, 0U);
         rbuf = mfree(rbuf);
+
+        /* A NULL filename reads the file the fd refers to */
+        _cleanup_close_ int fd = -EBADF;
+        ASSERT_OK_ERRNO(fd = open(fn, O_RDONLY|O_CLOEXEC));
+        ASSERT_OK(read_full_file_at(fd, /* filename= */ NULL, &rbuf, &rbuf_size));
+        ASSERT_EQ(rbuf_size, sizeof(buf));
+        ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
+}
+
+TEST(xfopenat_empty_path) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *line = NULL;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK(write_string_file_at(tfd, "file", "hello", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(fd = openat(tfd, "file", O_RDONLY|O_CLOEXEC));
+
+        /* A NULL or empty path reopens the fd for reading... */
+        ASSERT_OK(xfopenat(fd, /* path= */ NULL, "re", 0, &f));
+        ASSERT_OK(read_line(f, SIZE_MAX, &line));
+        ASSERT_STREQ(line, "hello");
+        f = safe_fclose(f);
+        ASSERT_OK(xfopenat(fd, "", "re", 0, &f));
+        f = safe_fclose(f);
+
+        /* ...but creating something needs a name */
+        ASSERT_ERROR(xfopenat(tfd, "", "we", 0, &f), ENOENT);
+        ASSERT_ERROR(xfopenat(tfd, /* path= */ NULL, "ae", 0, &f), ENOENT);
 }
 
 static void test_read_virtual_file_one(size_t max_size) {
@@ -682,7 +712,7 @@ TEST(fdopen_independent) {
         ASSERT_OK_ERRNO(r = fcntl(fileno(f), F_GETFL));
         ASSERT_EQ((r & O_ACCMODE_STRICT), O_RDONLY);
         ASSERT_OK_ERRNO(r = fcntl(fileno(f), F_GETFD));
-        ASSERT_FALSE(FLAGS_SET(r, FD_CLOEXEC));
+        ASSERT_TRUE(FLAGS_SET(r, FD_CLOEXEC));
         f = safe_fclose(f);
 
         ASSERT_OK(fdopen_independent(fd, "r+e", &f));
@@ -889,6 +919,39 @@ TEST(read_boolean_file) {
         _cleanup_free_ char *bn = NULL;
         ASSERT_OK(path_extract_filename(fn, &bn));
         ASSERT_OK_EQ(read_boolean_file_at(dfd, bn), true);
+}
+
+TEST(xfopenat_dangling_symlink) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK_ERRNO(symlinkat("target", tfd, "link"));
+
+        /* The creating modes go through openat_report_new() now, which refuses to create through a dangling symlink */
+        ASSERT_ERROR(xfopenat(tfd, "link", "w", /* open_flags= */ 0, &f), ELOOP);
+        ASSERT_ERROR(xfopenat(tfd, "link", "a", /* open_flags= */ 0, &f), ELOOP);
+
+        /* Once the target exists the symlink is followed as before */
+        ASSERT_OK(xfopenat(tfd, "target", "w", /* open_flags= */ 0, &f));
+        f = safe_fclose(f);
+        ASSERT_OK(xfopenat(tfd, "link", "w", /* open_flags= */ 0, &f));
+}
+
+TEST(xfopenat_cloexec) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int fl;
+
+        /* O_CLOEXEC is implied, even without "e" in the mode */
+        ASSERT_OK(xfopenat(AT_FDCWD, "/proc/self/status", "r", /* open_flags= */ 0, &f));
+        ASSERT_OK_ERRNO(fl = fcntl(fileno(f), F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+
+        ASSERT_OK(search_and_open("/proc/self/status", O_RDONLY, /* root= */ NULL, /* search= */ NULL, &fd, /* ret_path= */ NULL));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

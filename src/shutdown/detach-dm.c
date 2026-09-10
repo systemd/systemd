@@ -15,6 +15,7 @@
 #include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "list.h"
 #include "shutdown.h"
 
@@ -99,17 +100,17 @@ static int delete_dm(DeviceMapper *m) {
         assert(major(m->devnum) != 0);
         assert(m->path);
 
-        fd = open(m->path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        fd = xopenat(AT_FDCWD, m->path, O_RDONLY|O_NONBLOCK);
         if (fd < 0)
-                log_debug_errno(errno, "Failed to open DM block device %s for syncing, ignoring: %m", m->path);
+                log_debug_errno(fd, "Failed to open DM block device %s for syncing, ignoring: %m", m->path);
         else {
                 (void) sync_with_progress(fd);
                 fd = safe_close(fd);
         }
 
-        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, "/dev/mapper/control", O_RDWR);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open %s: %m", "/dev/mapper/control");
+                return log_debug_errno(fd, "Failed to open %s: %m", "/dev/mapper/control");
 
         return RET_NERRNO(ioctl(fd, DM_DEV_REMOVE, &(struct dm_ioctl) {
                 .version = {

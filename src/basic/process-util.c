@@ -2123,9 +2123,9 @@ int posix_spawn_wrapper(
                 if (r < 0)
                         return r;
 
-                cgroup_fd = open(resolved_cgroup, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                cgroup_fd = xopenat(AT_FDCWD, resolved_cgroup, O_PATH|O_DIRECTORY);
                 if (cgroup_fd < 0)
-                        return -errno;
+                        return cgroup_fd;
 
                 r = posix_spawnattr_setcgroup_np(&attr, cgroup_fd);
                 if (r == 0)

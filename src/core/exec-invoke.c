@@ -138,9 +138,9 @@ static int open_null_as(int flags, int nfd) {
 
         assert(nfd >= 0);
 
-        fd = open("/dev/null", flags|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, "/dev/null", flags|O_NOCTTY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return move_fd(fd, nfd, false);
 }
@@ -278,12 +278,12 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
         if (IN_SET(flags & O_ACCMODE_STRICT, O_WRONLY, O_RDWR))
                 flags |= O_CREAT;
 
-        fd = open(path, flags|O_NOCTTY, mode);
+        fd = xopenat_full(AT_FDCWD, path, flags|O_NOCTTY, /* xopen_flags= */ 0, mode);
         if (fd >= 0)
                 return TAKE_FD(fd);
 
-        if (errno != ENXIO) /* ENXIO is returned when we try to open() an AF_UNIX file system socket on Linux */
-                return -errno;
+        if (fd != -ENXIO) /* ENXIO is returned when we try to open() an AF_UNIX file system socket on Linux */
+                return fd;
 
         /* So, it appears the specified path could be an AF_UNIX socket. Let's see if we can connect to it. */
 
@@ -746,7 +746,7 @@ static void write_confirm_error(int err, const char *vc, const char *unit_id) {
         assert(vc);
         assert(unit_id);
 
-        fd = open_terminal(vc, O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(vc, O_WRONLY|O_NOCTTY);
         if (fd < 0)
                 return;
 
@@ -2760,9 +2760,9 @@ static int set_exec_storage_quota(int fd, uint32_t proj_id, const ExecQuotaLimit
                  * used for quotactl_fd(SET) and is passed again for fstatvfs(), the total number of blocks is not
                  * reported accurately (instead, the block limit is reported as total blocks). Thus, use the FD
                  * associated with the parent, so that total blocks is accurate */
-                fd_parent = openat(fd, "..", O_PATH|O_CLOEXEC|O_DIRECTORY);
+                fd_parent = xopenat(fd, "..", O_PATH|O_DIRECTORY);
                 if (fd_parent < 0)
-                        return -errno;
+                        return fd_parent;
 
                 uint32_t xattr_flags = 0;
                 r = read_fs_xattr_fd(fd_parent, &xattr_flags, /* ret_projid= */ NULL);
@@ -2849,9 +2849,9 @@ static int apply_exec_quotas(
         if (!IN_SET(type, EXEC_DIRECTORY_STATE, EXEC_DIRECTORY_CACHE, EXEC_DIRECTORY_LOGS))
                 return 0;
 
-        fd = open(target_dir, O_PATH|O_CLOEXEC|O_DIRECTORY);
+        fd = xopenat(AT_FDCWD, target_dir, O_PATH|O_DIRECTORY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open %s: %m", target_dir);
+                return log_debug_errno(fd, "Failed to open %s: %m", target_dir);
 
         /* Get the project ID of the current directory */
         uint32_t proj_id;
@@ -3757,9 +3757,9 @@ static int pin_rootfs(
                  * mountfsd will want this later, and it wants a fully opened fd, so that security checks
                  * have been passed */
                 _cleanup_close_ int reopened_fd = -EBADF;
-                reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDWR);
+                reopened_fd = fd_reopen(result.fd, O_NONBLOCK|O_NOCTTY|O_RDWR);
                 if (ERRNO_IS_NEG_FS_WRITE_REFUSED(reopened_fd))
-                        reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+                        reopened_fd = fd_reopen(result.fd, O_NONBLOCK|O_NOCTTY|O_RDONLY);
                 if (reopened_fd < 0) {
                         *reterr_path = strdup(context->root_image);
                         return log_debug_errno(reopened_fd, "Failed to open image '%s': %m", context->root_image);
@@ -4519,9 +4519,9 @@ static int get_open_file_fd(const OpenFile *of) {
 
         assert(of);
 
-        ofd = open(of->path, O_PATH | O_CLOEXEC);
+        ofd = xopenat(AT_FDCWD, of->path, O_PATH);
         if (ofd < 0)
-                return log_debug_errno(errno, "Failed to open '%s' as O_PATH: %m", of->path);
+                return log_debug_errno(ofd, "Failed to open '%s' as O_PATH: %m", of->path);
 
         if (fstat(ofd, &st) < 0)
                 return log_debug_errno( errno, "Failed to stat '%s': %m", of->path);
@@ -4542,7 +4542,7 @@ static int get_open_file_fd(const OpenFile *of) {
                 else if (FLAGS_SET(of->flags, OPENFILE_TRUNCATE))
                         flags |= O_TRUNC;
 
-                fd = fd_reopen(ofd, flags|O_NOCTTY|O_CLOEXEC);
+                fd = fd_reopen(ofd, flags|O_NOCTTY);
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to reopen file '%s': %m", of->path);
 

@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "daemon-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "networkd-manager.h"
 #include "socket-util.h"
@@ -141,9 +142,9 @@ static int netdev_create_tuntap(NetDev *netdev) {
 
         assert(netdev->manager);
 
-        fd = open(TUN_DEV, O_RDWR|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, TUN_DEV, O_RDWR);
         if (fd < 0)
-                return log_netdev_error_errno(netdev, errno,  "Failed to open " TUN_DEV ": %m");
+                return log_netdev_error_errno(netdev, fd,  "Failed to open " TUN_DEV ": %m");
 
         if (netdev->kind == NETDEV_KIND_TAP)
                 ifr.ifr_flags |= IFF_TAP;

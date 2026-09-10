@@ -483,7 +483,7 @@ static int acquire_key_handle(Tpm2Context *c, Tpm2Handle **ret_handle, struct io
         _cleanup_close_ int dir_fd = xopenat_lock_full(
                         AT_FDCWD,
                         REPORT_SIGN_TPM2_PERSISTENT_DIR,
-                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        O_DIRECTORY|O_CREAT,
                         /* xopen_flags= */ 0,
                         /* mode= */ 0700,
                         LOCK_BSD,
@@ -495,7 +495,7 @@ static int acquire_key_handle(Tpm2Context *c, Tpm2Handle **ret_handle, struct io
         _cleanup_close_ int runtime_dir_fd = xopenat_lock_full(
                         AT_FDCWD,
                         REPORT_SIGN_TPM2_RUNTIME_DIR,
-                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        O_DIRECTORY|O_CREAT,
                         /* xopen_flags = */ 0,
                         /* mode= */ 0700,
                         LOCK_BSD,

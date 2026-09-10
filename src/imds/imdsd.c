@@ -29,6 +29,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-ifname.h"
+#include "fs-util.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
 #include "imds-util.h"
@@ -464,9 +465,9 @@ static int context_save_ifname(Context *c) {
         if (!d)
                 return 0;
 
-        _cleanup_close_ int dirfd = open(d, O_PATH|O_CLOEXEC);
+        _cleanup_close_ int dirfd = xopenat(AT_FDCWD, d, O_PATH);
         if (dirfd < 0)
-                return context_log_errno(c, LOG_ERR, errno, "Failed to open runtime directory: %m");
+                return context_log_errno(c, LOG_ERR, dirfd, "Failed to open runtime directory: %m");
 
         _cleanup_free_ char *ifname = NULL;
         r = rtnl_get_ifname_full(&c->rtnl, c->ifindex, &ifname, /* ret_altnames= */ NULL);
@@ -549,10 +550,10 @@ static CacheResult context_process_cache(Context *c) {
 
         c->cache_filename = TAKE_PTR(fn);
 
-        _cleanup_close_ int fd = openat(c->cache_dir_fd, c->cache_filename, O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int fd = xopenat(c->cache_dir_fd, c->cache_filename, O_RDONLY);
         if (fd < 0) {
-                if (errno != ENOENT)
-                        return context_log_errno(c, LOG_ERR, errno, "Failed to open cache file '%s': %m", c->cache_filename);
+                if (fd != -ENOENT)
+                        return context_log_errno(c, LOG_ERR, fd, "Failed to open cache file '%s': %m", c->cache_filename);
         } else {
                 _cleanup_free_ char *d = NULL;
                 size_t l;
@@ -1080,7 +1081,7 @@ static int context_acquire_data(Context *c) {
         if (c->cache_dir_fd >= 0 &&
             c->cache_filename &&
             c->cache_fd < 0) {
-                c->cache_fd = open_tmpfile_linkable_at(c->cache_dir_fd, c->cache_filename, O_WRONLY|O_CLOEXEC, &c->cache_temporary_filename);
+                c->cache_fd = open_tmpfile_linkable_at(c->cache_dir_fd, c->cache_filename, O_WRONLY, &c->cache_temporary_filename);
                 if (c->cache_fd < 0)
                         return context_log_errno(c, LOG_ERR, c->cache_fd, "Failed to create cache file '%s': %m", c->cache_filename);
 
@@ -1349,9 +1350,9 @@ static int context_load_ifname(Context *c) {
         if (!e)
                 return 0;
 
-        _cleanup_close_ int dirfd = open(e, O_PATH|O_CLOEXEC);
+        _cleanup_close_ int dirfd = xopenat(AT_FDCWD, e, O_PATH);
         if (dirfd < 0)
-                return context_log_errno(c, LOG_ERR, errno, "Failed to open runtime directory: %m");
+                return context_log_errno(c, LOG_ERR, dirfd, "Failed to open runtime directory: %m");
 
         _cleanup_free_ char *ifname = NULL;
         r = read_one_line_file_at(dirfd, "ifname", &ifname);
@@ -1641,7 +1642,7 @@ static int setup_network(void) {
 
         _cleanup_free_ char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable_at(network_dir_fd, "85-imds-early.network", O_WRONLY|O_CLOEXEC, &t, &f);
+        r = fopen_tmpfile_linkable_at(network_dir_fd, "85-imds-early.network", O_WRONLY, &t, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create 85-imds-early.network file: %m");
 

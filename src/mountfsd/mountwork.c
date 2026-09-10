@@ -924,9 +924,9 @@ static DirectoryOwnership validate_directory_fd(
                 }
 
                 /* Go one level up */
-                _cleanup_close_ int new_parent_fd = openat(fd, "..", O_DIRECTORY|O_PATH|O_CLOEXEC);
+                _cleanup_close_ int new_parent_fd = xopenat(fd, "..", O_DIRECTORY|O_PATH);
                 if (new_parent_fd < 0)
-                        return log_debug_errno(errno, "Failed to open parent directory of directory file descriptor: %m");
+                        return log_debug_errno(new_parent_fd, "Failed to open parent directory of directory file descriptor: %m");
 
                 struct statx new_stx;
                 r = xstatx_full(new_parent_fd,
@@ -1415,7 +1415,7 @@ static int vl_method_make_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, p.mode);
+        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, /* flags= */ 0, p.mode);
         if (fd < 0)
                 return fd;
 

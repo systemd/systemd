@@ -25,6 +25,7 @@
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "memfd-util.h"
@@ -184,13 +185,13 @@ static int xen_kexec_command(uint64_t cmd) {
             (cmd == KEXEC_CMD_kexec && sizeof(xen_kexec_exec_t) > size))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "page_size is too small for hypercall");
 
-        privcmd_fd = open("/dev/xen/privcmd", O_RDWR|O_CLOEXEC);
+        privcmd_fd = xopenat(AT_FDCWD, "/dev/xen/privcmd", O_RDWR);
         if (privcmd_fd < 0)
-                return log_debug_errno(errno, "Cannot access /dev/xen/privcmd: %m");
+                return log_debug_errno(privcmd_fd, "Cannot access /dev/xen/privcmd: %m");
 
-        buf_fd = open("/dev/xen/hypercall", O_RDWR|O_CLOEXEC);
+        buf_fd = xopenat(AT_FDCWD, "/dev/xen/hypercall", O_RDWR);
         if (buf_fd < 0)
-                return log_debug_errno(errno, "Cannot access /dev/xen/hypercall: %m");
+                return log_debug_errno(buf_fd, "Cannot access /dev/xen/hypercall: %m");
 
         buffer = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, buf_fd, 0);
         if (buffer == MAP_FAILED)

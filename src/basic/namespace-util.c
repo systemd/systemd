@@ -14,6 +14,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -86,7 +87,7 @@ static int pidref_namespace_open_by_type_internal(const PidRef *pidref, Namespac
         const char *p;
 
         p = pid_namespace_path(pidref->pid, type);
-        nsfd = RET_NERRNO(open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC));
+        nsfd = xopenat(AT_FDCWD, p, O_RDONLY|O_NOCTTY);
         if (nsfd == -ENOENT) {
                 r = proc_mounted();
                 if (r == 0)
@@ -179,7 +180,7 @@ int pidref_namespace_open(
                 const char *root;
 
                 root = procfs_file_alloca(pidref->pid, "root");
-                root_fd = RET_NERRNO(open(root, O_CLOEXEC|O_DIRECTORY));
+                root_fd = xopenat(AT_FDCWD, root, O_DIRECTORY);
                 if (root_fd == -ENOENT && proc_mounted() == 0)
                         return -ENOSYS;
                 if (root_fd < 0)

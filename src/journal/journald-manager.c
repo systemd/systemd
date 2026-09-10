@@ -656,10 +656,10 @@ static int manager_archive_offline_user_journals(Manager *m) {
                 if (!full)
                         return log_oom();
 
-                fd = openat(dirfd(d), de->d_name, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
+                fd = xopenat(dirfd(d), de->d_name, O_RDWR|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
                 if (fd < 0) {
-                        log_ratelimit_full_errno(IN_SET(errno, ELOOP, ENOENT) ? LOG_DEBUG : LOG_WARNING,
-                                                 errno, JOURNAL_LOG_RATELIMIT,
+                        log_ratelimit_full_errno(IN_SET(fd, -ELOOP, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
+                                                 fd, JOURNAL_LOG_RATELIMIT,
                                                  "Failed to open journal file '%s' for rotation: %m", full);
                         continue;
                 }
@@ -1922,10 +1922,9 @@ static int manager_open_hostname(Manager *m) {
 
         assert(m);
 
-        m->hostname_fd = open("/proc/sys/kernel/hostname",
-                              O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        m->hostname_fd = xopenat(AT_FDCWD, "/proc/sys/kernel/hostname", O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (m->hostname_fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", "/proc/sys/kernel/hostname");
+                return log_error_errno(m->hostname_fd, "Failed to open %s: %m", "/proc/sys/kernel/hostname");
 
         r = sd_event_add_io(m->event, &m->hostname_event_source, m->hostname_fd, 0, dispatch_hostname_change, m);
         if (r < 0)
@@ -2091,9 +2090,9 @@ int manager_map_seqnum_file(
         if (!fn)
                 return -ENOMEM;
 
-        fd = open(fn, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
+        fd = xopenat_full(AT_FDCWD, fn, O_RDWR|O_CREAT|O_NOCTTY|O_NOFOLLOW, /* xopen_flags= */ 0, 0644);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         r = posix_fallocate_loop(fd, 0, size);
         if (r < 0)

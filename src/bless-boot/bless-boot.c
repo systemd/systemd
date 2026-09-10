@@ -368,12 +368,12 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
         STRV_FOREACH(p, arg_path) {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = open(*p, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                fd = xopenat(AT_FDCWD, *p, O_DIRECTORY|O_RDONLY);
                 if (fd < 0) {
-                        if (errno == ENOENT)
+                        if (fd == -ENOENT)
                                 continue;
 
-                        return log_error_errno(errno, "Failed to open $BOOT partition '%s': %m", *p);
+                        return log_error_errno(fd, "Failed to open $BOOT partition '%s': %m", *p);
                 }
 
                 if (faccessat(fd, skip_leading_slash(path), F_OK, 0) >= 0) {
@@ -497,9 +497,9 @@ static int verb_set(int argc, char *argv[], uintptr_t data, void *userdata) {
         STRV_FOREACH(p, arg_path) {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = open(*p, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                fd = xopenat(AT_FDCWD, *p, O_DIRECTORY|O_RDONLY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open $BOOT partition '%s': %m", *p);
+                        return log_error_errno(fd, "Failed to open $BOOT partition '%s': %m", *p);
 
                 r = rename_in_dir_idempotent(fd, skip_leading_slash(source1), skip_leading_slash(target));
                 if (r == -EEXIST)

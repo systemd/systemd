@@ -1621,9 +1621,9 @@ int verify_timezone(const char *name, int log_level) {
 
         t = strjoina("/usr/share/zoneinfo/", name);
 
-        fd = open(t, O_RDONLY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, t, O_RDONLY);
         if (fd < 0)
-                return log_full_errno(log_level, errno, "Failed to open timezone file '%s': %m", t);
+                return log_full_errno(log_level, fd, "Failed to open timezone file '%s': %m", t);
 
         r = fd_verify_regular(fd);
         if (r < 0)
