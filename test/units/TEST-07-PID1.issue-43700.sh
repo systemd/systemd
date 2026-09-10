@@ -20,6 +20,10 @@ MOUNT_POINT=/tmp/TEST-07-PID1-issue-43700
 UNIT=$(systemd-escape --path "$MOUNT_POINT")
 STAT_ERR=/tmp/TEST-07-PID1-issue-43700.stderr
 CURSOR=/tmp/TEST-07-PID1-issue-43700.cursor
+GENERATOR=/run/systemd/system-generators/TEST-07-PID1-issue-43700
+# Not below /tmp: PID 1 runs generators with a private one, so we would never see these
+MARKER=/run/TEST-07-PID1-issue-43700.reloading
+RELEASE=/run/TEST-07-PID1-issue-43700.release
 
 at_exit() {
     set +e
@@ -29,7 +33,7 @@ at_exit() {
     while [[ -n "$(fstype "$MOUNT_POINT")" ]]; do
         umount -l "$MOUNT_POINT" || break
     done
-    rm -f /run/systemd/system/"$UNIT".{auto,}mount "$STAT_ERR" "$CURSOR"
+    rm -f /run/systemd/system/"$UNIT".{auto,}mount "$STAT_ERR" "$CURSOR" "$GENERATOR" "$MARKER" "$RELEASE"
     systemctl unmask "$UNIT".automount
     systemctl daemon-reload
     systemctl reset-failed "$UNIT".automount "$UNIT".mount
@@ -158,3 +162,59 @@ journalctl --cursor-file="$CURSOR" --grep "tearing down automount point '$MOUNT_
 systemctl unmask "$UNIT".automount
 rm /run/systemd/system/"$UNIT".{auto,}mount
 systemctl daemon-reload
+
+# A request arriving while PID 1 reloads sits unread in the pipe when the vanished unit is torn down, so
+# its token is unknown to PID 1. It must still be failed rather than left blocked. Generators run
+# synchronously, so one that waits for us holds the reload open for as long as it takes to get a request
+# into that window.
+write_automount
+write_hanging_mount
+systemctl daemon-reload
+systemctl start "$UNIT".automount
+
+mkdir -p "$(dirname "$GENERATOR")"
+cat >"$GENERATOR" <<EOF
+#!/bin/sh
+touch $MARKER
+# Wait for the test to park its request, but give up eventually rather than hold PID 1 forever if the
+# test died before it got there
+i=0
+while [ ! -e $RELEASE ] && [ \$i -lt 200 ]; do
+    i=\$((i + 1))
+    sleep .1
+done
+EOF
+chmod +x "$GENERATOR"
+rm /run/systemd/system/"$UNIT".{auto,}mount
+rm -f "$MARKER" "$RELEASE"
+systemctl daemon-reload &
+RELOAD_PID=$!
+# Wait for the generator to run: PID 1 dispatches no events until the reload is through, so a request
+# made from here on is one it cannot have read. Assuming that instead of waiting for it would make the
+# case pass on an answered token, which fails with the same ENOENT.
+timeout 30 bash -c "until [[ -e $MARKER ]]; do sleep .1; done"
+timeout -k 5 -s KILL 60 stat "$MOUNT_POINT"/x 2>"$STAT_ERR" &
+WAITER_PID=$!
+# The request is parked in the kernel while the autofs is still armed, i.e. before PID 1 got to the
+# teardown, so it was made inside the reload and PID 1 never read it. These waits are unhurried because
+# the generator holds the reload until they are through. timeout(1) has to fork stat(1) first, and
+# /proc/PID/wchan needs a kernel with CONFIG_KALLSYMS to name the frame.
+timeout 10 bash -c "until pgrep -P $WAITER_PID >/dev/null; do sleep .1; done"
+STAT_PID=$(pgrep -P "$WAITER_PID")
+timeout 10 bash -c "until grep autofs /proc/$STAT_PID/wchan >/dev/null; do sleep .2; done"
+[[ "$(fstype "$MOUNT_POINT")" == autofs ]]
+touch "$RELEASE"
+wait "$RELOAD_PID"
+rm "$GENERATOR" "$MARKER" "$RELEASE"
+
+# The kernel fails unread requests with ENOENT once the autofs is catatonic
+rc=0
+wait "$WAITER_PID" || rc=$?
+unset WAITER_PID
+[[ $rc -ne 0 && $rc -ne 137 ]]
+grep -F 'No such file or directory' "$STAT_ERR"
+journalctl --sync
+journalctl --cursor-file="$CURSOR" --grep "tearing down automount point '$MOUNT_POINT'"
+(! systemctl is-active "$UNIT".automount)
+(! systemctl is-failed "$UNIT".automount)
+[[ -z "$(fstype "$MOUNT_POINT")" ]]
