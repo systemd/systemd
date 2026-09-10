@@ -16,6 +16,7 @@
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"
 #include "networkd-serialize.h"
+#include "networkd-verify.h"
 #include "service-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -41,6 +42,11 @@ static int run(int argc, char *argv[]) {
         LIBSELINUX_NOTE(recommended);
 
         log_setup();
+
+        /* Offline check of config files, dispatched before the service option parser
+         * rejects positional arguments. */
+        if (argc >= 2 && streq(argv[1], "verify"))
+                return networkd_verify_files(strv_skip(argv, 2));
 
         r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
                                /* runtime_scope= */ NULL,

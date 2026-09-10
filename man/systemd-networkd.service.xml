@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-networkd.service" conditional='ENABLE_NETWORKD'>
+<refentry id="systemd-networkd.service" conditional='ENABLE_NETWORKD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-networkd.service</title>
@@ -24,6 +25,11 @@
   <refsynopsisdiv>
     <para><filename>systemd-networkd.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-networkd</filename></para>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-networkd</command>
+      <arg choice="plain">verify</arg>
+      <arg choice="plain" rep="repeat"><replaceable>FILE</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -89,6 +95,17 @@
     <filename>.netdev</filename> files, see
     <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Verifying Configuration Files</title>
+    <para>When invoked as <command>systemd-networkd verify <replaceable>FILE</replaceable>…</command>, the
+    specified <filename>.network</filename> and <filename>.netdev</filename> files are loaded the same way the
+    service would load them, without applying them, and the command fails if a file cannot be loaded or if
+    loading it emits a warning, e.g. for an unknown section, an unknown key or an unparsable value. Files are
+    given by path. Drop-ins for a file are searched in the usual configuration directories.</para>
+
+    <xi:include href="version-info.xml" xpointer="v263"/>
   </refsect1>
 
   <refsect1>
