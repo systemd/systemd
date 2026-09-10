@@ -2172,7 +2172,7 @@ static int monitor_reply(
                 /* The first message coming in will just indicate that we are now subscribed. We let our
                  * caller know if they asked for it. Once the caller sees this they should know that we are
                  * not going to miss any queries anymore. */
-                (void) sd_notify(/* unset_environment=false */ false, "READY=1");
+                (void) sd_notify(/* unset_environment= */ false, "READY=1");
                 return 0;
         }
 

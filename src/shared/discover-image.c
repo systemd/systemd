@@ -673,7 +673,7 @@ static int image_make(
                         r = extract_image_basename(
                                         path,
                                         /* class_suffix= */ NULL,
-                                        /* format_suffix= */ NULL,
+                                        /* format_suffixes= */ NULL,
                                         &pretty_buffer,
                                         /* ret_suffix= */ NULL);
                         if (r < 0)
@@ -1227,7 +1227,7 @@ int image_discover(
                                 r = extract_image_basename(
                                                 fname,
                                                 /* class_suffix= */ NULL,
-                                                /* format_suffix= */ NULL,
+                                                /* format_suffixes= */ NULL,
                                                 &pretty,
                                                 /* ret_suffix= */ NULL);
                                 if (r < 0) {

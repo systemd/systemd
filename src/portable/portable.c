@@ -1092,8 +1092,8 @@ int portable_extract(
                         &os_release,
                         &unit_files,
                         ret_valid_prefixes ? &valid_prefixes : NULL,
-                        /* pinned_root_image_policy= */ NULL,
-                        /* pinned_ext_image_policy= */ NULL,
+                        /* ret_pinned_root_image_policy= */ NULL,
+                        /* ret_pinned_ext_image_policy= */ NULL,
                         error);
         if (r < 0)
                 return r;

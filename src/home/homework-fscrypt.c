@@ -647,7 +647,7 @@ static int fscrypt_slot_try_v2(
         if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_IVLEN, (int) iv->iov_len, /* ptr= */ NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set GCM IV length.");
 
-        if (sym_EVP_DecryptInit_ex(context, /* type= */ NULL, /* impl= */ NULL, derived, iv->iov_base) != 1)
+        if (sym_EVP_DecryptInit_ex(context, /* cipher= */ NULL, /* impl= */ NULL, derived, iv->iov_base) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set decryption key/IV.");
 
         if (__builtin_add_overflow(encrypted->iov_len, (size_t) sym_EVP_CIPHER_get_block_size(cc), &decrypted_size))
@@ -1110,7 +1110,7 @@ static int fscrypt_slot_set(
         if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_IVLEN, (int) sizeof(iv), /* ptr= */ NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set GCM IV length.");
 
-        if (sym_EVP_EncryptInit_ex(context, /* type= */ NULL, /* impl= */ NULL, derived, iv) != 1)
+        if (sym_EVP_EncryptInit_ex(context, /* cipher= */ NULL, /* impl= */ NULL, derived, iv) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set encryption key/IV.");
 
         if (!ADD_SAFE(&encrypted_size, volume_key->iov_len, (size_t) sym_EVP_CIPHER_get_block_size(cc)))

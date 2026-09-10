@@ -498,7 +498,7 @@ static int load_leases_file(int dir_fd, const char *path, SavedInfo *ret) {
                         /* flags= */ SD_JSON_PARSE_MUST_BE_OBJECT,
                         &v,
                         /* reterr_line= */ NULL,
-                        /* ret_column= */ NULL);
+                        /* reterr_column= */ NULL);
         if (r < 0)
                 return r;
 

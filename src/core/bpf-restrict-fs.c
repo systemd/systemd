@@ -100,7 +100,7 @@ int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer
                         sizeof(uint32_t),
                         sizeof(uint32_t),
                         128U, /* Should be enough for all filesystem types */
-                        NULL);
+                        /* opts= */ NULL);
         if (inner_map_fd < 0)
                 return log_error_errno(errno, "bpf-restrict-fs: Failed to create inner BPF map: %m");
 

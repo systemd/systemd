@@ -1771,7 +1771,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
                         /* flags= */ 0,
                         &j,
                         /* reterr_line= */ NULL,
-                        /* ret_column= */ NULL);
+                        /* reterr_column= */ NULL);
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse component file %s, ignoring: %m", path);
                 return 0;

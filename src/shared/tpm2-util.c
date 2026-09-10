@@ -10008,7 +10008,7 @@ int tpm2_pcrlock_policy_load(
                         /* flags= */ 0,
                         &v,
                         /* reterr_line= */ NULL,
-                        /* ret_column= */ NULL);
+                        /* reterr_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse existing pcrlock policy file '%s': %m", discovered_path);
 
@@ -10052,7 +10052,7 @@ static int pcrlock_policy_load_credential(
                        /* flags= */ 0,
                        &v,
                        /* reterr_line= */ NULL,
-                       /* ret_column= */ NULL);
+                       /* reterr_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse pcrlock policy: %m");
 

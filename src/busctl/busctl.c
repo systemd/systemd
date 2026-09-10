@@ -1328,7 +1328,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
                 log_info("Monitoring bus message stream.");
 
-        (void) sd_notify(/* unset_environment=false */ false, "READY=1");
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
 
         for (;;) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;

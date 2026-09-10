@@ -128,7 +128,7 @@ int bpf_socket_bind_supported(void) {
         if (dlopen_bpf(LOG_WARNING) < 0)
                 return false;
 
-        r = prepare_socket_bind_bpf(/* unit= */ NULL, /* allow_rules= */ NULL, /* deny_rules= */ NULL, &obj);
+        r = prepare_socket_bind_bpf(/* unit= */ NULL, /* allow= */ NULL, /* deny= */ NULL, &obj);
         if (r < 0) {
                 log_debug_errno(r, "bpf-socket-bind: socket bind filtering is not supported: %m");
                 return false;

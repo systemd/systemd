@@ -1611,7 +1611,7 @@ static int discover_root(char **ret) {
                         /* verity= */ NULL,
                         /* mount_options= */ NULL,
                         /* image_policy= */ NULL,
-                        /* image_filter= */ NULL,
+                        /* filter= */ NULL,
                         /* flags= */ 0,
                         &image);
         if (r < 0)
@@ -3258,7 +3258,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (arg_ephemeral) {
                         r = create_ephemeral_snapshot(arg_directory,
                                                       arg_runtime_scope,
-                                                      /* read-only */ false,
+                                                      /* read_only= */ false,
                                                       &tree_global_lock,
                                                       &tree_local_lock,
                                                       &snapshot_directory);

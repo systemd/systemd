@@ -119,7 +119,7 @@ int reload_udevd(void) {
 
         (void) sd_varlink_set_description(vl, "udev");
 
-        return varlink_call_and_log(vl, "io.systemd.service.Reload", /* parameters= */ NULL, /* reply= */ NULL);
+        return varlink_call_and_log(vl, "io.systemd.service.Reload", /* parameters= */ NULL, /* ret_parameters= */ NULL);
 }
 
 bool networkd_is_running(void) {

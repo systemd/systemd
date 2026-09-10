@@ -224,7 +224,7 @@ TEST(loop_block) {
                                   /* verity= */ NULL,
                                   /* mount_options= */ NULL,
                                   /* image_policy= */ NULL,
-                                  /* image_filter= */ NULL,
+                                  /* filter= */ NULL,
                                   /* flags= */ 0,
                                   &dissected));
         verify_dissected_image(dissected);

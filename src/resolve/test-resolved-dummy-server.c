@@ -442,7 +442,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
-        (void) sd_notify(/* unset_environment=false */ false, "READY=1");
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
 
         r = sd_event_loop(event);
         if (r < 0)

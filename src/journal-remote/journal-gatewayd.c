@@ -1292,8 +1292,8 @@ static int run(int argc, char *argv[]) {
         d = sym_MHD_start_daemon(
                         flags,
                         /* port= */ 19531,
-                        /* acp= */ NULL,
-                        /* acp_cls= */ NULL,
+                        /* apc= */ NULL,
+                        /* apc_cls= */ NULL,
                         request_handler,
                         /* dh_cls= */ NULL,
                         MHD_OPTION_ARRAY,

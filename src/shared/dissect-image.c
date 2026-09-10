@@ -603,9 +603,9 @@ static int dissected_image_probe_filesystems(
                         /* If we have an fd referring to the partition block device, use that. Otherwise go
                          * via the whole block device or backing regular file, and read via offset. */
                         if (p->mount_node_fd >= 0)
-                                r = probe_filesystem_full(p->mount_node_fd, p->node, 0, UINT64_MAX, /* bool restrict_fstypes= */ true, &p->fstype);
+                                r = probe_filesystem_full(p->mount_node_fd, p->node, 0, UINT64_MAX, /* restrict_fstypes= */ true, &p->fstype);
                         else
-                                r = probe_filesystem_full(fd, p->node, p->offset, p->size, /* bool restrict_fstypes= */ true, &p->fstype);
+                                r = probe_filesystem_full(fd, p->node, p->offset, p->size, /* restrict_fstypes= */ true, &p->fstype);
                         if (r < 0)
                                 return r;
                 }
@@ -3639,7 +3639,7 @@ int dissected_image_decrypt(
                         goto fail;
 
                 if (!p->decrypted_fstype && p->mount_node_fd >= 0 && p->decrypted_node) {
-                        r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, 0, UINT64_MAX, /* bool restrict_fstypes= */ true, &p->decrypted_fstype);
+                        r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, 0, UINT64_MAX, /* restrict_fstypes= */ true, &p->decrypted_fstype);
                         if (r < 0 && r != -EUCLEAN)
                                 goto fail;
                 }

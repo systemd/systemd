@@ -211,7 +211,7 @@ static int is_tmpfs_with_noswap(dev_t devno) {
         if (!fs)
                 return -ENODEV;
 
-        r = sym_mnt_fs_get_option(fs, "noswap", /* value= */ NULL, /* valuesz= */ NULL);
+        r = sym_mnt_fs_get_option(fs, "noswap", /* value= */ NULL, /* valsz= */ NULL);
         if (r < 0)
                 return r;
 
