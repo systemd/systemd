@@ -238,12 +238,12 @@ static ssize_t udev_event_subst_format(
                         const char *start, *p;
                         unsigned i;
 
-                        p = skip_leading_chars(event->program_result, NULL);
+                        p = skip_leading_chars(event->program_result, /* bad= */ NULL);
 
                         for (i = 1; i < index; i++) {
                                 while (*p && !strchr(WHITESPACE, *p))
                                         p++;
-                                p = skip_leading_chars(p, NULL);
+                                p = skip_leading_chars(p, /* bad= */ NULL);
                                 if (*p == '\0')
                                         break;
                         }
@@ -273,7 +273,7 @@ static ssize_t udev_event_subst_format(
                         return -EINVAL;
 
                 /* try to read the value specified by "[dmi/id]product_name" */
-                if (udev_resolve_subsys_kernel(attr, vbuf, sizeof(vbuf), true) == 0)
+                if (udev_resolve_subsys_kernel(attr, vbuf, sizeof(vbuf), /* read_value= */ true) == 0)
                         val = vbuf;
 
                 /* try to read the attribute the device */
@@ -290,7 +290,7 @@ static ssize_t udev_event_subst_format(
                 /* strip trailing whitespace, and replace unwanted characters */
                 if (val != vbuf)
                         strscpy_full(vbuf, sizeof(vbuf), val, &truncated);
-                delete_trailing_chars(vbuf, NULL);
+                delete_trailing_chars(vbuf, /* bad= */ NULL);
                 count = udev_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
                 if (count > 0)
                         log_device_debug(dev, "%i character(s) replaced", count);
@@ -399,7 +399,7 @@ size_t udev_event_apply_format(
                 ssize_t subst_len;
                 bool t;
 
-                r = get_subst_type(&s, false, &type, attr);
+                r = get_subst_type(&s, /* strict= */ false, &type, attr);
                 if (r < 0) {
                         log_device_warning_errno(event->dev, r, "Invalid format string, ignoring: %s", src);
                         break;
@@ -450,7 +450,7 @@ int udev_check_format(const char *value, size_t *offset, const char **hint) {
         int r;
 
         while (*s) {
-                r = get_subst_type(&s, true, &type, attr);
+                r = get_subst_type(&s, /* strict= */ true, &type, attr);
                 if (r < 0) {
                         if (offset)
                                 *offset = s - value;

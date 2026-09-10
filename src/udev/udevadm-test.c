@@ -154,7 +154,7 @@ int verb_test_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         /* don't read info from the db */
         device_seal(dev);
 
-        event = udev_event_new(dev, NULL, EVENT_UDEVADM_TEST);
+        event = udev_event_new(dev, /* worker= */ NULL, EVENT_UDEVADM_TEST);
         if (!event)
                 return log_oom();
         event->trace = arg_verbose;
