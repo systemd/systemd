@@ -69,6 +69,8 @@ static int print_status_info(const StatusInfo *i) {
         if (!table)
                 return log_oom();
 
+        table_set_ersatz_string(table, TABLE_ERSATZ_NA);
+
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
@@ -102,7 +104,7 @@ static int print_status_info(const StatusInfo *i) {
                 n = 0;
         r = table_add_many(table,
                            TABLE_FIELD, "Local time",
-                           TABLE_STRING, n > 0 ? a : "n/a");
+                           TABLE_STRING, n > 0 ? a : NULL);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -117,7 +119,7 @@ static int print_status_info(const StatusInfo *i) {
                 n = 0;
         r = table_add_many(table,
                            TABLE_FIELD, "Universal time",
-                           TABLE_STRING, n > 0 ? a : "n/a");
+                           TABLE_STRING, n > 0 ? a : NULL);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -132,13 +134,10 @@ static int print_status_info(const StatusInfo *i) {
                 n = 0;
         r = table_add_many(table,
                            TABLE_FIELD, "RTC time",
-                           TABLE_STRING, n > 0 ? a : "n/a");
+                           TABLE_STRING, n > 0 ? a : NULL);
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Time zone");
-        if (r < 0)
-                return table_log_add_error(r);
         if (timestamp_is_set(t)) {
                 r = localtime_or_gmtime_usec(t, /* utc= */ false, &tm);
                 if (r < 0) {
@@ -148,15 +147,13 @@ static int print_status_info(const StatusInfo *i) {
                         n = strftime(a, sizeof a, "%Z, %z", &tm);
         } else
                 n = 0;
-        r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->timezone), n > 0 ? a : "n/a");
-        if (r < 0)
-                return table_log_add_error(r);
-
         r = table_add_many(table,
+                           TABLE_FIELD, "Time zone",
+                           TABLE_STRINGF, "%s (%s)", strna(i->timezone), n > 0 ? a : "n/a",
                            TABLE_FIELD, "System clock synchronized",
                            TABLE_BOOLEAN, i->ntp_synced,
                            TABLE_FIELD, "NTP service",
-                           TABLE_STRING, i->ntp_capable ? (i->ntp_active ? "active" : "inactive") : "n/a",
+                           TABLE_STRING, i->ntp_capable ? (i->ntp_active ? "active" : "inactive") : NULL,
                            TABLE_FIELD, "RTC in local TZ",
                            TABLE_BOOLEAN, i->rtc_local);
         if (r < 0)
@@ -430,22 +427,14 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
          *  d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2"
          */
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Server");
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->server_address), strna(i->server_name));
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Poll interval");
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_add_cell_stringf(table, NULL, "%s (min: %s; max %s)",
-                                   FORMAT_TIMESPAN(i->poll_interval, 0),
-                                   FORMAT_TIMESPAN(i->poll_min, 0),
-                                   FORMAT_TIMESPAN(i->poll_max, 0));
+        r = table_add_many(table,
+                           TABLE_FIELD, "Server",
+                           TABLE_STRINGF, "%s (%s)", strna(i->server_address), strna(i->server_name),
+                           TABLE_FIELD, "Poll interval",
+                           TABLE_STRINGF, "%s (min: %s; max %s)",
+                           FORMAT_TIMESPAN(i->poll_interval, 0),
+                           FORMAT_TIMESPAN(i->poll_min, 0),
+                           FORMAT_TIMESPAN(i->poll_max, 0));
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -491,37 +480,19 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Precision");
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_add_cell_stringf(table, NULL, "%s (%" PRIi32 ")",
-                                   FORMAT_TIMESPAN(DIV_ROUND_UP((nsec_t) (exp2(i->precision) * NSEC_PER_SEC), NSEC_PER_USEC), 0),
-                                   i->precision);
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Root distance");
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_add_cell_stringf(table, NULL, "%s (max: %s)",
-                                   FORMAT_TIMESPAN(root_distance, 0),
-                                   FORMAT_TIMESPAN(i->root_distance_max, 0));
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Offset");
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_add_cell_stringf(table, NULL, "%s%s",
-                                   offset_sign ? "+" : "-",
-                                   FORMAT_TIMESPAN(offset, 0));
-        if (r < 0)
-                return table_log_add_error(r);
-
         r = table_add_many(table,
+                           TABLE_FIELD, "Precision",
+                           TABLE_STRINGF, "%s (%" PRIi32 ")",
+                           FORMAT_TIMESPAN(DIV_ROUND_UP((nsec_t) (exp2(i->precision) * NSEC_PER_SEC), NSEC_PER_USEC), 0),
+                           i->precision,
+                           TABLE_FIELD, "Root distance",
+                           TABLE_STRINGF, "%s (max: %s)",
+                           FORMAT_TIMESPAN(root_distance, 0),
+                           FORMAT_TIMESPAN(i->root_distance_max, 0),
+                           TABLE_FIELD, "Offset",
+                           TABLE_STRINGF, "%s%s",
+                           offset_sign ? "+" : "-",
+                           FORMAT_TIMESPAN(offset, 0),
                            TABLE_FIELD, "Delay",
                            TABLE_STRING, FORMAT_TIMESPAN(delay, 0),
                            TABLE_FIELD, "Jitter",
@@ -532,11 +503,9 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 return table_log_add_error(r);
 
         if (!i->spike) {
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Frequency");
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(table, NULL, "%+.3fppm", (double) i->freq / 0x10000);
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Frequency",
+                                   TABLE_STRINGF, "%+.3fppm", (double) i->freq / 0x10000);
                 if (r < 0)
                         return table_log_add_error(r);
         }
