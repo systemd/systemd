@@ -27,7 +27,7 @@ bool suitable_user_name(const char *name) {
          * restrictive, so that we can change the rules server-side without having to update things
          * client-side too. */
 
-        if (!valid_user_group_name(name, 0))
+        if (!valid_user_group_name(name, /* flags= */ 0))
                 return false;
 
         /* We generally rely on NSS to tell us which users not to care for, but let's filter out some
@@ -52,7 +52,7 @@ int suitable_realm(const char *realm) {
 
         /* Similar to the above: let's validate the realm a bit stricter server-side than client side */
 
-        r = dns_name_normalize(realm, 0, &normalized); /* this also checks general validity */
+        r = dns_name_normalize(realm, /* flags= */ 0, &normalized); /* this also checks general validity */
         if (r == -EINVAL)
                 return 0;
         if (r < 0)
@@ -136,7 +136,7 @@ int bus_message_append_secret(sd_bus_message *m, UserRecord *secret) {
         if (!v)
                 return -EINVAL;
 
-        r = sd_json_variant_format(v, 0, &formatted);
+        r = sd_json_variant_format(v, /* flags= */ 0, &formatted);
         if (r < 0)
                 return r;
 
