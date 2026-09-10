@@ -32,7 +32,7 @@ static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (hwdb_bypass())
                 return 0;
 
-        return hwdb_update(arg_root, arg_hwdb_bin_dir, arg_strict, false);
+        return hwdb_update(arg_root, arg_hwdb_bin_dir, arg_strict, /* compat= */ false);
 }
 
 VERB_COMMON_HELP_AUTO_HIDDEN();
