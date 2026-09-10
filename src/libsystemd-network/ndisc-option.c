@@ -1538,7 +1538,7 @@ static int ndisc_option_build_encrypted_dns(const sd_ndisc_option *option, usec_
                 poff += plen;
         }
 
-        unaligned_write_be16(buf + off, LESS_BY(poff, off));
+        unaligned_write_be16(buf + off, LESS_BY(poff, off + sizeof(uint16_t)));
         off = poff;
 
 padding:
