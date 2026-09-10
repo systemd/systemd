@@ -289,7 +289,7 @@ static int pull_job_open_disk(PullJob *j) {
                 if (!j->checksum_ctx)
                         return log_oom();
 
-                r = sym_EVP_DigestInit_ex(j->checksum_ctx, sym_EVP_sha256(), NULL);
+                r = sym_EVP_DigestInit_ex(j->checksum_ctx, sym_EVP_sha256(), /* impl= */ NULL);
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Failed to initialize hash context.");
@@ -367,7 +367,7 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
                 if (http_status_etag_exists(status)) {
                         log_info("Image already downloaded. Skipping download.");
                         j->etag_exists = true;
-                        return pull_job_finish(j, 0);
+                        return pull_job_finish(j, /* ret= */ 0);
                 } else if (http_status_need_authentication(status)) {
                         log_info("Access to image requires authentication.");
                         return pull_job_finish(j, -ENOKEY);
@@ -508,7 +508,7 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
 
         log_info("Acquired %s for %s.", FORMAT_BYTES(j->written_uncompressed), pull_job_description(j));
 
-        return pull_job_finish(j, 0);
+        return pull_job_finish(j, /* ret= */ 0);
 }
 
 static int pull_job_detect_compression(PullJob *j) {
@@ -622,7 +622,7 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
                         if (strv_contains(j->old_etags, j->etag)) {
                                 log_info("Image already downloaded. Skipping download. (%s)", j->etag);
                                 j->etag_exists = true;
-                                pull_job_finish(j, 0);
+                                pull_job_finish(j, /* ret= */ 0);
                                 return sz;
                         }
 
