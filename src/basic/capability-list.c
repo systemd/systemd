@@ -165,7 +165,7 @@ int capability_set_from_string(const char *s, uint64_t *ret) {
                 _cleanup_free_ char *word = NULL;
                 int r;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
                 if (r < 0)
                         return r;
                 if (r == 0)

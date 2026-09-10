@@ -90,11 +90,11 @@ bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b
 
 int fd_set_sndbuf(int fd, size_t n, bool increase);
 static inline int fd_inc_sndbuf(int fd, size_t n) {
-        return fd_set_sndbuf(fd, n, true);
+        return fd_set_sndbuf(fd, n, /* increase= */ true);
 }
 int fd_set_rcvbuf(int fd, size_t n, bool increase);
 static inline int fd_increase_rxbuf(int fd, size_t n) {
-        return fd_set_rcvbuf(fd, n, true);
+        return fd_set_rcvbuf(fd, n, /* increase= */ true);
 }
 
 DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int);
@@ -108,7 +108,7 @@ typedef enum {
 bool ifname_valid_char(char a) _const_;
 bool ifname_valid_full(const char *p, IfnameValidFlags flags) _pure_;
 static inline bool ifname_valid(const char *p) {
-        return ifname_valid_full(p, 0);
+        return ifname_valid_full(p, /* flags= */ 0);
 }
 bool address_label_valid(const char *p) _pure_;
 

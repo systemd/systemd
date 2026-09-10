@@ -48,7 +48,7 @@ int rmdir_parents(const char *path, const char *stop) {
                 char *slash = NULL;
 
                 /* skip the last component. */
-                r = path_find_last_component(p, /* accept_dot_dot= */ false, (const char **) &slash, NULL);
+                r = path_find_last_component(p, /* accept_dot_dot= */ false, (const char **) &slash, /* ret= */ NULL);
                 if (r <= 0)
                         return r;
                 if (slash == p)
@@ -424,7 +424,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
 }
 
 int touch(const char *path) {
-        return touch_file(path, false, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
+        return touch_file(path, /* parents= */ false, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
 }
 
 int symlinkat_idempotent(const char *target, int atfd, const char *linkpath, bool make_relative) {
@@ -477,7 +477,7 @@ int symlinkat_atomic_full_label(const char *target, int atfd, const char *linkpa
         }
 
         _cleanup_free_ char *t = NULL;
-        r = tempfn_random(linkpath, NULL, &t);
+        r = tempfn_random(linkpath, /* extra= */ NULL, &t);
         if (r < 0)
                 return r;
 
@@ -511,7 +511,7 @@ int mknodat_atomic(int atfd, const char *path, mode_t mode, dev_t dev) {
 
         assert(path);
 
-        r = tempfn_random(path, NULL, &t);
+        r = tempfn_random(path, /* extra= */ NULL, &t);
         if (r < 0)
                 return r;
 
@@ -534,7 +534,7 @@ int mkfifoat_atomic(int dir_fd, const char *path, mode_t mode) {
         assert(path);
 
         /* We're only interested in the (random) filename.  */
-        r = tempfn_random(path, NULL, &t);
+        r = tempfn_random(path, /* extra= */ NULL, &t);
         if (r < 0)
                 return r;
 
@@ -611,7 +611,7 @@ static int getenv_tmp_dir(const char **ret_path) {
                         goto next;
                 }
 
-                r = is_dir(e, true);
+                r = is_dir(e, /* follow= */ true);
                 if (r < 0)
                         goto next;
                 if (r == 0) {
@@ -993,7 +993,7 @@ int parse_cifs_service(
         if (!h)
                 return -ENOMEM;
 
-        if (!hostname_is_valid(h, 0))
+        if (!hostname_is_valid(h, /* flags= */ 0))
                 return -EINVAL;
 
         e++;

@@ -81,7 +81,7 @@ int statx_verify_regular(const struct statx *stx) {
 }
 
 int verify_regular_at(int fd, const char *path, bool follow) {
-        return verify_stat_at(fd, path, follow, stat_verify_regular, true);
+        return verify_stat_at(fd, path, follow, stat_verify_regular, /* verify= */ true);
 }
 
 int fd_verify_regular(int fd) {
@@ -120,11 +120,11 @@ int fd_verify_directory(int fd) {
         if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
                 return 0;
 
-        return verify_stat_at(fd, NULL, false, stat_verify_directory, true);
+        return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_directory, /* verify= */ true);
 }
 
 int is_dir_at(int fd, const char *path, bool follow) {
-        return verify_stat_at(fd, path, follow, stat_verify_directory, false);
+        return verify_stat_at(fd, path, follow, stat_verify_directory, /* verify= */ false);
 }
 
 int is_dir(const char *path, bool follow) {
@@ -153,7 +153,7 @@ int fd_verify_symlink(int fd) {
 
 int is_symlink(const char *path) {
         assert(!isempty(path));
-        return verify_stat_at(AT_FDCWD, path, false, stat_verify_symlink, false);
+        return verify_stat_at(AT_FDCWD, path, /* follow= */ false, stat_verify_symlink, /* verify= */ false);
 }
 
 static int mode_verify_socket(mode_t mode) {
@@ -207,7 +207,7 @@ int fd_verify_linked(int fd) {
         if (fd == XAT_FDROOT)
                 return 0;
 
-        return verify_stat_at(fd, NULL, false, stat_verify_linked, true);
+        return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_linked, /* verify= */ true);
 }
 
 int stat_verify_block(const struct stat *st) {
@@ -264,7 +264,7 @@ int stat_verify_device_node(const struct stat *st) {
 
 int is_device_node(const char *path) {
         assert(!isempty(path));
-        return verify_stat_at(AT_FDCWD, path, false, stat_verify_device_node, false);
+        return verify_stat_at(AT_FDCWD, path, /* follow= */ false, stat_verify_device_node, /* verify= */ false);
 }
 
 int stat_verify_regular_or_block(const struct stat *st) {
@@ -354,7 +354,7 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
         if (path_equal(path_startswith(fn, root ?: "/"), "dev/null"))
                 return true;
 
-        r = chase_and_stat(fn, root, CHASE_PREFIX_ROOT, NULL, &st);
+        r = chase_and_stat(fn, root, CHASE_PREFIX_ROOT, /* ret_path= */ NULL, &st);
         if (r < 0)
                 return r;
 

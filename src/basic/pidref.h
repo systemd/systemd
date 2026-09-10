@@ -84,7 +84,7 @@ int pidref_set_pidfd_take(PidRef *pidref, int fd); /* takes ownership of the pas
 int pidref_set_pidfd_consume(PidRef *pidref, int fd); /* takes ownership of the passed pidfd in both success and failure */
 int pidref_set_parent(PidRef *ret);
 static inline int pidref_set_self(PidRef *pidref) {
-        return pidref_set_pid(pidref, 0);
+        return pidref_set_pid(pidref, /* pid= */ 0);
 }
 
 bool pidref_is_self(PidRef *pidref);
@@ -112,7 +112,7 @@ static inline void pidref_done_sigterm_wait(PidRef *pidref) {
                 return;
 
         (void) pidref_kill(pidref, SIGTERM);
-        (void) pidref_wait_for_terminate(pidref, NULL);
+        (void) pidref_wait_for_terminate(pidref, /* ret_si= */ NULL);
         pidref_done(pidref);
 }
 
@@ -121,7 +121,7 @@ static inline void pidref_done_sigkill_wait(PidRef *pidref) {
                 return;
 
         (void) pidref_kill(pidref, SIGKILL);
-        (void) pidref_wait_for_terminate(pidref, NULL);
+        (void) pidref_wait_for_terminate(pidref, /* ret_si= */ NULL);
         pidref_done(pidref);
 }
 

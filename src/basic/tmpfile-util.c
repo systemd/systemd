@@ -50,7 +50,7 @@ int fopen_temporary_at(int dir_fd, const char *path, FILE **ret_file, char **ret
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
-        r = tempfn_random(path, NULL, &t);
+        r = tempfn_random(path, /* extra= */ NULL, &t);
         if (r < 0)
                 return r;
 
@@ -76,7 +76,7 @@ int fopen_temporary_child_at(int dir_fd, const char *path, FILE **ret_file, char
                         return r;
         }
 
-        r = tempfn_random_child(path, NULL, &t);
+        r = tempfn_random_child(path, /* extra= */ NULL, &t);
         if (r < 0)
                 return r;
 
@@ -300,7 +300,7 @@ int open_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **r
                 log_debug_errno(fd, "Failed to use O_TMPFILE for %s: %m", target);
 
         _cleanup_free_ char *tmp = NULL;
-        r = tempfn_random(target, NULL, &tmp);
+        r = tempfn_random(target, /* extra= */ NULL, &tmp);
         if (r < 0)
                 return r;
 

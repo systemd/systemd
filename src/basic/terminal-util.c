@@ -979,7 +979,7 @@ int terminal_reset_ansi_seq(int fd) {
         if (getenv_terminal_is_dumb())
                 return 0;
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(fd, /* nonblock= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
         if (r > 0)
@@ -1018,7 +1018,7 @@ void reset_dev_console_fd(int fd, bool switch_to_text) {
         if (r < 0)
                 log_warning_errno(r, "Failed to get /dev/console size, ignoring: %m");
         else if (r > 0) {
-                r = terminal_set_size_fd(fd, NULL, rows, cols);
+                r = terminal_set_size_fd(fd, /* ident= */ NULL, rows, cols);
                 if (r < 0)
                         log_warning_errno(r, "Failed to set configured terminal size on /dev/console, ignoring: %m");
         } else
@@ -1197,7 +1197,7 @@ int get_kernel_consoles(char ***ret) {
         for (const char *p = line;;) {
                 _cleanup_free_ char *tty = NULL, *path = NULL;
 
-                r = extract_first_word(&p, &tty, NULL, 0);
+                r = extract_first_word(&p, &tty, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1494,7 +1494,7 @@ int getttyname_harder(int fd, char **ret) {
                 return r;
 
         if (streq(s, "tty"))
-                return get_ctty(0, NULL, ret);
+                return get_ctty(/* pid= */ 0, /* ret_devnr= */ NULL, ret);
 
         *ret = TAKE_PTR(s);
         return 0;
@@ -1714,7 +1714,7 @@ int openpt_allocate_in_namespace(
 
         pair[1] = safe_close(pair[1]);
 
-        fd = receive_one_fd(pair[0], 0);
+        fd = receive_one_fd(pair[0], /* flags= */ 0);
         if (fd < 0)
                 return fd;
 
@@ -1787,7 +1787,7 @@ bool dev_console_colors_enabled(void) {
                 return false;
 
         if (getenv_for_pid(1, "TERM", &s) <= 0)
-                (void) proc_cmdline_get_key("TERM", 0, &s);
+                (void) proc_cmdline_get_key("TERM", /* flags= */ 0, &s);
 
         return !streq_ptr(s, "dumb");
 }
@@ -1815,7 +1815,7 @@ int vt_restore(int fd) {
         if (ioctl(fd, VT_SETMODE, &mode) < 0)
                 RET_GATHER(ret, log_debug_errno(errno, "Failed to set VT_AUTO mode, ignoring: %m"));
 
-        r = fchmod_and_chown(fd, TTY_MODE, 0, GID_INVALID);
+        r = fchmod_and_chown(fd, TTY_MODE, /* uid= */ 0, GID_INVALID);
         if (r < 0)
                 RET_GATHER(ret, log_debug_errno(r, "Failed to chmod()/chown() VT, ignoring: %m"));
 
@@ -2648,7 +2648,7 @@ int terminal_get_size(
 
         /* Put the output fd in non-blocking mode with a write timeout, to avoid blocking indefinitely on
          * write if the terminal is not consuming data (e.g. serial console with flow control). */
-        r = fd_nonblock(output_fd, true);
+        r = fd_nonblock(output_fd, /* nonblock= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
         if (r > 0)
@@ -2756,7 +2756,7 @@ static int scan_terminfo_response(
                 return r;
 
         assert(((const char *) dec)[dec_size] == '\0'); /* unhexmem appends NUL for our convenience */
-        if (memchr(dec, '\0', dec_size) || string_has_cc(dec, NULL) || !filename_is_valid(dec))
+        if (memchr(dec, '\0', dec_size) || string_has_cc(dec, /* ok= */ NULL) || !filename_is_valid(dec))
                 return -EUCLEAN;
 
         *ret_name = TAKE_PTR(dec);
@@ -2888,7 +2888,7 @@ int terminal_is_pty_fd(int fd) {
         if (!isatty_safe(fd))
                 return false;
 
-        r = is_fs_type_at(fd, NULL, DEVPTS_SUPER_MAGIC);
+        r = is_fs_type_at(fd, /* path= */ NULL, DEVPTS_SUPER_MAGIC);
         if (r != 0)
                 return r;
 
