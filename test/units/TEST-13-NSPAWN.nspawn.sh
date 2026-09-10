@@ -854,7 +854,7 @@ rootidmap_cleanup() {
 
 testcase_rootidmap() {
     local root cmd permissions
-    local owner=1000
+    local uid=1000 gid=1001
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.rootidmap-path.XXX)"
     # Create ext4 image, as ext4 supports idmapped-mounts.
@@ -865,7 +865,7 @@ testcase_rootidmap() {
     trap "rootidmap_cleanup /tmp/rootidmap/" RETURN
 
     touch /tmp/rootidmap/bind/file
-    chown -R "$owner:$owner" /tmp/rootidmap/bind
+    chown -R "$uid:$gid" /tmp/rootidmap/bind
 
     create_dummy_container "$root"
     cmd='PERMISSIONS=$(stat -c "%u:%g" /mnt/file); if [[ $PERMISSIONS != "0:0" ]]; then echo "*** wrong permissions: $PERMISSIONS"; return 1; fi; touch /mnt/other_file'
@@ -883,7 +883,7 @@ testcase_rootidmap() {
     fi
 
     permissions=$(stat -c "%u:%g" /tmp/rootidmap/bind/other_file)
-    if [[ $permissions != "$owner:$owner" ]]; then
+    if [[ $permissions != "$uid:$gid" ]]; then
         echo "*** wrong permissions: $permissions"
         [[ "$IS_USERNS_SUPPORTED" == "yes" ]] && return 1
     fi
@@ -898,7 +898,7 @@ owneridmap_cleanup() {
 
 testcase_owneridmap() {
     local root cmd permissions
-    local owner=1000
+    local uid=1000 gid=1001
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.owneridmap-path.XXX)"
     # Create ext4 image, as ext4 supports idmapped-mounts.
@@ -909,7 +909,7 @@ testcase_owneridmap() {
     trap "owneridmap_cleanup /tmp/owneridmap/" RETURN
 
     touch /tmp/owneridmap/bind/file
-    chown -R "$owner:$owner" /tmp/owneridmap/bind
+    chown -R "$uid:$gid" /tmp/owneridmap/bind
 
     # Allow users to read and execute / in order to execute binaries
     chmod o+rx "$root"
@@ -955,7 +955,7 @@ EOF
     fi
 
     permissions=$(stat -c "%u:%g" /tmp/owneridmap/bind/other_file)
-    if [[ $permissions != "$owner:$owner" ]]; then
+    if [[ $permissions != "$uid:$gid" ]]; then
         echo "*** wrong permissions: $permissions"
         [[ "$IS_USERNS_SUPPORTED" == "yes" ]] && return 1
     fi
@@ -1549,15 +1549,14 @@ testcase_link_journal_host() {
 
     hoge="/var/log/journal/$(cat "$root"/etc/machine-id)/"
     mkdir -p "$hoge"
-    # The systemd-journal group is not mapped, so ensure the directory is owned by root:root
-    chown root:root "$hoge"
+    chown root:systemd-journal "$hoge"
 
     for i in no yes pick; do
         systemd-nspawn \
             --register=no --directory="$root" --private-users="$i" --link-journal=host \
-            bash -xec 'p="/var/log/journal/$(cat /etc/machine-id)"; mountpoint "$p"; [[ "$(stat "$p" --format=%u)" == 0 ]]; touch "$p/hoge"'
+            bash -xec 'p="/var/log/journal/$(cat /etc/machine-id)"; mountpoint "$p"; [[ "$(stat "$p" --format=%u:%g)" == 0:0 ]]; touch "$p/hoge"'
 
-        [[ "$(stat "${hoge}/hoge" --format=%u)" == 0 ]]
+        [[ "$(stat "${hoge}/hoge" --format=%U:%G)" == root:systemd-journal ]]
         rm "${hoge}/hoge"
     done
 
