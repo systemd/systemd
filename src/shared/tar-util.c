@@ -87,12 +87,14 @@ static void open_inode_done(OpenInode *of) {
                 of->fd = safe_close(of->fd);
                 of->path = mfree(of->path);
         }
+
         xattr_done_many(of->xattr, of->n_xattr);
+        of->xattr = NULL;
+        of->n_xattr = 0;
+
 #if HAVE_ACL
-        if (of->acl_access)
-                sym_acl_free(of->acl_access);
-        if (of->acl_default)
-                sym_acl_free(of->acl_default);
+        acl_freep(&of->acl_access);
+        acl_freep(&of->acl_default);
 #endif
 }
 
@@ -691,6 +693,10 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         assert(input_fd >= 0);
         assert(tree_fd >= 0);
 
+        r = dlopen_libarchive();
+        if (r < 0)
+                return r;
+
         _cleanup_(archive_read_freep) struct archive *a = NULL;
         a = sym_archive_read_new();
         if (!a)
@@ -785,11 +791,10 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
 
                 /* Finalize all inodes we won't need anymore now (go backwards, i.e. close inner fds first) */
                 while (n_open_inodes > i) {
-                        r = open_inode_finalize(open_inodes + n_open_inodes - 1);
+                        n_open_inodes--;
+                        r = open_inode_finalize(open_inodes + n_open_inodes);
                         if (r < 0)
                                 return r;
-
-                        n_open_inodes--;
                 }
 
                 /* And now create all remaining components */
@@ -1193,7 +1198,7 @@ static int archive_write_acl(
                 assert_cc(ACL_UNDEFINED_TAG == 0);   /* safety check, we assume that holes are filled with ACL_UNDEFINED_TAG */
                 assert_cc(ELEMENTSOF(tag_map) <= 64); /* safety check, we assume that the tag ids are all packed and low */
 
-                int tag = ntag >= 0 && ntag <= (acl_tag_t) ELEMENTSOF(tag_map) ? tag_map[ntag] : ACL_UNDEFINED_TAG;
+                int tag = ntag >= 0 && ntag < (acl_tag_t) ELEMENTSOF(tag_map) ? tag_map[ntag] : ACL_UNDEFINED_TAG;
 
                 bool skip = false;
                 id_t qualifier = UID_INVALID;
@@ -1447,6 +1452,10 @@ int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
 
         assert(tree_fd >= 0);
         assert(output_fd >= 0);
+
+        r = dlopen_libarchive();
+        if (r < 0)
+                return r;
 
         _cleanup_(archive_write_freep) struct archive *a = sym_archive_write_new();
         if (!a)
