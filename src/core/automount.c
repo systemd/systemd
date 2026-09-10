@@ -49,6 +49,7 @@ static int automount_start_expire(Automount *a);
 static void automount_stop_expire(Automount *a);
 static int automount_send_ready(Automount *a, Set *tokens, int status);
 static void automount_enter_dead(Automount *a, AutomountResult f);
+static int open_ioctl_fd(int dev_autofs_fd, const char *where, dev_t devid);
 
 static void automount_init(Unit *u) {
         Automount *a = ASSERT_PTR(AUTOMOUNT(u));
@@ -60,6 +61,18 @@ static void automount_init(Unit *u) {
         UNIT(a)->ignore_on_isolate = true;
 }
 
+static int autofs_set_catatonic(int dev_autofs_fd, int ioctl_fd) {
+        struct autofs_dev_ioctl param;
+
+        assert(dev_autofs_fd >= 0);
+        assert(ioctl_fd >= 0);
+
+        init_autofs_dev_ioctl(&param);
+        param.ioctlfd = ioctl_fd;
+
+        return RET_NERRNO(ioctl(dev_autofs_fd, AUTOFS_DEV_IOCTL_CATATONIC, &param));
+}
+
 static void unmount_autofs(Automount *a, bool keep_mount_point) {
         int r;
 
@@ -67,9 +80,6 @@ static void unmount_autofs(Automount *a, bool keep_mount_point) {
 
         if (a->pipe_fd < 0)
                 return;
-
-        a->pipe_event_source = sd_event_source_disable_unref(a->pipe_event_source);
-        a->pipe_fd = safe_close(a->pipe_fd);
 
         if (!keep_mount_point) {
                 /* Nothing else can answer requests the kernel already queued for us, and it keeps their
@@ -81,11 +91,27 @@ static void unmount_autofs(Automount *a, bool keep_mount_point) {
                 if (r < 0)
                         log_unit_warning_errno(UNIT(a), r, "Failed to release pending automount expire requests, ignoring: %m");
 
+                /* Requests the kernel queued since we last read the pipe are not known to us. Turning
+                 * the autofs catatonic fails them with ENOENT; merely closing the pipe would get the kernel
+                 * there only once yet another request fails to reach us. Done after answering the known ones,
+                 * so that the kernel does not discard those tokens first. */
                 if (a->where) {
-                        r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
+                        _cleanup_close_ int ioctl_fd = -EBADF;
+
+                        ioctl_fd = open_ioctl_fd(UNIT(a)->manager->dev_autofs_fd, a->where, a->dev_id);
+                        r = ioctl_fd < 0 ? ioctl_fd : autofs_set_catatonic(UNIT(a)->manager->dev_autofs_fd, ioctl_fd);
                         if (r < 0)
-                                log_unit_error_errno(UNIT(a), r, "Failed to unmount: %m");
+                                log_unit_warning_errno(UNIT(a), r, "Failed to make automount point catatonic, ignoring: %m");
                 }
+        }
+
+        a->pipe_event_source = sd_event_source_disable_unref(a->pipe_event_source);
+        a->pipe_fd = safe_close(a->pipe_fd);
+
+        if (!keep_mount_point && a->where) {
+                r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
+                if (r < 0)
+                        log_unit_error_errno(UNIT(a), r, "Failed to unmount: %m");
         }
 }
 

@@ -19,6 +19,7 @@ export LC_ALL=C
 MOUNT_POINT=/tmp/TEST-07-PID1-issue-43700
 UNIT=$(systemd-escape --path "$MOUNT_POINT")
 STAT_ERR=/tmp/TEST-07-PID1-issue-43700.stderr
+GENERATOR=/run/systemd/system-generators/TEST-07-PID1-issue-43700
 
 at_exit() {
     set +e
@@ -28,7 +29,7 @@ at_exit() {
     while mountpoint -q "$MOUNT_POINT"; do
         umount -l "$MOUNT_POINT" || break
     done
-    rm -f /run/systemd/system/"$UNIT".{auto,}mount "$STAT_ERR"
+    rm -f /run/systemd/system/"$UNIT".{auto,}mount "$STAT_ERR" "$GENERATOR"
     systemctl daemon-reload
     systemctl reset-failed "$UNIT".automount "$UNIT".mount
     rmdir "$MOUNT_POINT"
@@ -130,3 +131,40 @@ EOF
     (! mountpoint -q "$MOUNT_POINT")
     systemctl reset-failed "$UNIT".automount
 done
+
+# A request arriving while PID 1 reloads sits unread in the pipe when the vanished unit is torn down, so
+# its token is unknown to PID 1. It must still be failed rather than left blocked. A generator that
+# sleeps holds the reload open long enough to place the request in that window.
+write_automount
+cat >/run/systemd/system/"$UNIT".mount <<EOF
+[Mount]
+What=/dev/disk/by-label/does-not-exist
+Where=$MOUNT_POINT
+Type=ext4
+EOF
+systemctl daemon-reload
+systemctl start "$UNIT".automount
+
+mkdir -p "$(dirname "$GENERATOR")"
+cat >"$GENERATOR" <<'EOF'
+#!/bin/sh
+sleep 5
+EOF
+chmod +x "$GENERATOR"
+rm /run/systemd/system/"$UNIT".{auto,}mount
+systemctl daemon-reload &
+RELOAD_PID=$!
+sleep 1
+timeout -k 5 -s KILL 60 stat "$MOUNT_POINT"/x 2>"$STAT_ERR" &
+WAITER_PID=$!
+wait "$RELOAD_PID"
+rm "$GENERATOR"
+
+# The kernel fails unread requests with ENOENT once the autofs is catatonic
+rc=0
+wait "$WAITER_PID" || rc=$?
+unset WAITER_PID
+[[ $rc -ne 0 && $rc -ne 124 ]]
+grep -F 'No such file or directory' "$STAT_ERR"
+(! mountpoint -q "$MOUNT_POINT")
+systemctl reset-failed "$UNIT".automount
