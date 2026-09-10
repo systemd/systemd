@@ -101,6 +101,9 @@ executables += [
                 'sources' : files('test-dns-answer.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-dns-browse-services.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-dns-cache.c'),
         },
         resolve_test_template + {
@@ -120,6 +123,9 @@ executables += [
         },
         resolve_test_template + {
                 'sources' : files('test-resolved-etc-hosts.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-resolved-manager.c'),
         },
         resolve_test_template + {
                 'sources' : files('test-resolved-packet.c'),

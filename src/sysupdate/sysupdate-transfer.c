@@ -463,7 +463,7 @@ static int config_parse_partition_flags(
 
         assert(rvalue);
 
-        r = safe_atou64(rvalue, &t->partition_flags);
+        r = safe_atoux64(rvalue, &t->partition_flags);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse partition flags, ignoring: %s", rvalue);
@@ -600,6 +600,11 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Target Type= must be one of partition, regular-file, directory, subvolume.");
 
+        if (t->target.type == RESOURCE_PARTITION && !t->target.partition_type_set) {
+                t->target.partition_type = gpt_partition_type_from_uuid(SD_GPT_LINUX_GENERIC);
+                t->target.partition_type_set = true;
+        }
+
         if ((IN_SET(t->source.type, RESOURCE_URL_FILE, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE) &&
              !IN_SET(t->target.type, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE)) ||
             (IN_SET(t->source.type, RESOURCE_URL_TAR, RESOURCE_TAR, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
@@ -704,7 +709,8 @@ static void transfer_remove_temporary(Transfer *t) {
         if (!IN_SET(t->target.type, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME))
                 return;
 
-        /* Removes all temporary files/dirs from previous runs in the target directory, i.e. all those starting with '.#' */
+        /* Removes all incomplete files/dirs from previous runs in the target directory. Clean both the
+         * current partial sysupdate prefix and the legacy '.#' prefix. */
 
         d = opendir(t->target.path);
         if (!d) {
@@ -726,7 +732,7 @@ static void transfer_remove_temporary(Transfer *t) {
                         break;
                 }
 
-                if (!startswith(de->d_name, ".#"))
+                if (!STARTSWITH_SET(de->d_name, ".#", ".sysupdate.partial."))
                         continue;
 
                 r = rm_rf_child(dirfd(d), de->d_name, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD);
@@ -1242,8 +1248,7 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
                 if (!r)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as GPT partition label, refusing: %s", formatted_pattern);
 
-                if (!t->target.partition_type_set)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Partition type must be set for partition targets.");
+                assert(t->target.partition_type_set);
 
                 /* Derive temporary partition type UUIDs for partial/pending states from the configured
                  * partition type. This avoids the need for label prefixes. */

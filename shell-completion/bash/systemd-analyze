@@ -77,7 +77,8 @@ _systemd_analyze() {
     )
 
     local -A VERBS=(
-        [STANDALONE]='time blame unit-files unit-paths exit-status compare-versions timestamp timespan pcrs nvpcrs srk has-tpm2 identify-tpm2 smbios11 chid image-policy'
+        [STANDALONE]='time unit-files unit-paths compare-versions timestamp timespan srk has-tpm2 smbios11 image-policy'
+        [STANDALONE_JSON]='blame exit-status pcrs nvpcrs identify-tpm2 chid'
         [CRITICAL_CHAIN]='critical-chain'
         [DOT]='dot'
         [DUMP]='dump'
@@ -151,6 +152,11 @@ _systemd_analyze() {
     elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --global --no-pager'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[STANDALONE_JSON]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user --global --no-pager --json=off --json=pretty --json=short'
         fi
 
     elif __contains_word "$verb" ${VERBS[CRITICAL_CHAIN]}; then

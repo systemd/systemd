@@ -98,14 +98,11 @@ ELAPSED=$((END_SEC-START_SEC))
 
 # Test time-limited scopes
 START_SEC=$(date -u '+%s')
-set +e
-systemd-run --scope --property=RuntimeMaxSec=3s sleep 30
-RESULT=$?
+(! systemd-run --scope --property=RuntimeMaxSec=3s sleep 30)
 END_SEC=$(date -u '+%s')
 ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 3 ]]
 [[ "$ELAPSED" -le 10 ]]
-[[ "$RESULT" -ne 0 ]]
 
 # Test transactions with cycles
 # Provides coverage for issues like https://github.com/systemd/systemd/issues/26872
@@ -121,12 +118,15 @@ EOF
 done
 systemctl daemon-reload
 for i in {0..19}; do
-    systemctl start "transaction-cycle$i.service"
+    # This intentionally fails with:
+    #   Failed to start transaction-cycle0.service: Transaction order is cyclic. See system logs for details.
+    systemctl start "transaction-cycle$i.service" || :
 done
 
 IDS_FILE="/tmp/TEST-03-JOBS-CYCLE-IDS-$RANDOM"
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}' | jq '.runtime.TransactionsWithOrderingCycle' >"$IDS_FILE"
 [[ "$(jq length "$IDS_FILE")" -ge 20 ]]
+journalctl --sync
 for i in {0..19}; do
     journalctl -b TRANSACTION_ID="$(jq -r ".[$i]" "$IDS_FILE")" --grep "cycle starting with"
 done
@@ -146,7 +146,7 @@ systemctl --quiet is-active sleep-infinity-simple.service
 systemctl restart propagatestopto-only.target
 assert_rc 3 systemctl --quiet is-active sleep-infinity-simple.service
 
-systemctl start propagatesstopto-indirect.target propagatestopto-and-pullin.target
+systemctl start propagatestopto-indirect.target propagatestopto-and-pullin.target
 systemctl --quiet is-active propagatestopto-indirect.target
 systemctl --quiet is-active propagatestopto-and-pullin.target
 
@@ -168,6 +168,8 @@ assert_rc 3 systemctl --quiet is-active succeeds-on-restart.target
 systemctl start fails-on-restart.target || :
 assert_rc 3 systemctl --quiet is-active fails-on-restart.target
 
+systemctl stop fails-on-restart.service
+
 COUNTER_FILE=/tmp/test-03-restart-counter
 export FAILURE_FLAG_FILE=/tmp/test-03-restart-failure-flag
 
@@ -175,6 +177,7 @@ assert_rc 3 systemctl --quiet is-active sleep-infinity-restart-normal.service
 assert_rc 3 systemctl --quiet is-active sleep-infinity-restart-direct.service
 assert_rc 3 systemctl --quiet is-active counter.service
 echo 0 >"$COUNTER_FILE"
+rm -f "$FAILURE_FLAG_FILE"
 
 systemctl start counter.service
 assert_eq "$(cat "$COUNTER_FILE")" "1"
@@ -182,15 +185,32 @@ systemctl --quiet is-active sleep-infinity-restart-normal.service
 systemctl --quiet is-active sleep-infinity-restart-direct.service
 systemctl --quiet is-active counter.service
 
-systemctl kill --signal=KILL sleep-infinity-restart-direct.service
-systemctl --quiet is-active counter.service
-assert_eq "$(cat "$COUNTER_FILE")" "1"
-[[ ! -f "$FAILURE_FLAG_FILE" ]]
-
-systemctl kill --signal=KILL sleep-infinity-restart-normal.service
-timeout 10 bash -c 'while [[ ! -f $FAILURE_FLAG_FILE ]]; do sleep .5; done'
+# RestartMode=direct + restart: explicit restart should get propagated as TRY_RESTART to the still active
+# counter.service
+systemctl restart sleep-infinity-restart-direct.service
 timeout 10 bash -c 'while ! systemctl --quiet is-active counter.service; do sleep .5; done'
 assert_eq "$(cat "$COUNTER_FILE")" "2"
+[[ ! -f "$FAILURE_FLAG_FILE" ]]
+
+# RestartMode=direct + kill: the fail/inactive state shouldn't get propagated to the counter.service
+systemctl kill --signal=KILL sleep-infinity-restart-direct.service
+systemctl --quiet is-active counter.service
+assert_eq "$(cat "$COUNTER_FILE")" "2"
+[[ ! -f "$FAILURE_FLAG_FILE" ]]
+
+# RestartMode=normal + restart: explicit restart should get propagated as TRY_RESTART to the still active
+# counter.service
+systemctl restart sleep-infinity-restart-normal.service
+timeout 10 bash -c 'while ! systemctl --quiet is-active counter.service; do sleep .5; done'
+assert_eq "$(cat "$COUNTER_FILE")" "3"
+[[ ! -f "$FAILURE_FLAG_FILE" ]]
+
+# RestartMode=normal + kill: the fail/inactive state should get propagated to the counter.service, which in
+# turn should be stopped
+systemctl kill --signal=KILL sleep-infinity-restart-normal.service
+timeout 10 bash -c 'while [[ ! -f $FAILURE_FLAG_FILE ]]; do sleep .5; done'
+timeout 10 bash -c 'while systemctl --quiet is-active counter.service; do sleep .5; done'
+assert_eq "$(cat "$COUNTER_FILE")" "3"
 
 # Test shortcutting auto restart
 

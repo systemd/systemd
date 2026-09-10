@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Test that a user pre-existing in /etc/shadow but missing from
+# /etc/passwd is handled gracefully (existing entry is updated).
+u testuser 444 "Test User"

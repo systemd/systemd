@@ -1387,7 +1387,7 @@ int decrypt_credential_and_warn(
                 if (r == -EADDRNOTAVAIL)
                         return log_error_errno(r, "NV index referenced by key is missing, unwritten, or unusable, it could be for another system.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 #else
@@ -1420,7 +1420,9 @@ int decrypt_credential_and_warn(
         if (sd_id128_equal(h->id, CRED_AES256_GCM_BY_NULL) && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
                 log_warning("Warning: using a null key for decryption and authentication. Confidentiality or authenticity are not provided.");
 
-        sha256_hash_host_and_tpm2_key(&host_key, &tpm2_key, md);
+        r = sha256_hash_host_and_tpm2_key(&host_key, &tpm2_key, md);
+        if (r < 0)
+                return r;
 
         if (CRED_KEY_IS_SCOPED(h->id)) {
                 r = mangle_uid_into_key(uid, md);

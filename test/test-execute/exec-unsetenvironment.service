@@ -3,7 +3,9 @@
 Description=Test for UnsetEnvironment
 
 [Service]
-ExecStart=bash -x -c 'test "$$FOO" = "bar" && test "$${QUUX-X}" = "X" && test "$$VAR3" = "value3" && test "$${VAR4-X}" = "X" && test "$$VAR5" = "value5" && test "$${X%b-X}" = "X"'
+# Variable expansion in the command line is done by the service manager before UnsetEnvironment= is
+# applied, so $VAR6 is expanded, but the variable is not part of the environment of the executed bash.
+ExecStart=bash -x -c 'test "$$FOO" = "bar" && test "$${QUUX-X}" = "X" && test "$$VAR3" = "value3" && test "$${VAR4-X}" = "X" && test "$$VAR5" = "value5" && test "$${X%b-X}" = "X" && test "$$1" = "value6" && test "$${VAR6-X}" = "X"' x $VAR6
 Type=oneshot
-Environment=FOO=bar QUUX=waldo VAR3=value3 VAR4=value4 VAR5=value5 X%b=%U
-UnsetEnvironment=QUUX=waldo VAR3=somethingelse VAR4 X%b=%U
+Environment=FOO=bar QUUX=waldo VAR3=value3 VAR4=value4 VAR5=value5 X%b=%U VAR6=value6
+UnsetEnvironment=QUUX=waldo VAR3=somethingelse VAR4 X%b=%U VAR6
