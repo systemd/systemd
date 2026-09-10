@@ -16,6 +16,7 @@
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"
 #include "networkd-serialize.h"
+#include "networkd-verify.h"
 #include "service-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -24,12 +25,17 @@
 COMMAND(
         "systemd-networkd\0",
         "Manage and configure network devices, create virtual network devices.",
+        .argspec = "[verify FILE…]\0",
         .man_pages = "systemd-networkd.service(8)\0",
         .option_namespace = "service",
         .option_groups =
                 "Options\0"
                 "Bus introspection\0",
 );
+
+/* Without a verb the daemon runs. */
+VERB_SCOPE(, verb_verify, "verify", "FILE...\0", 2, VERB_ANY, 0,
+           "Check .network and .netdev files offline");
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -42,16 +48,17 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
-                               /* runtime_scope= */ NULL,
-                               argc, argv);
+        char **args = NULL;
+        r = service_parse_argv_full(BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
+                                    /* runtime_scope= */ NULL,
+                                    argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        umask(0022);
+        if (!strv_isempty(args))
+                return dispatch_verb(args, /* userdata= */ NULL);
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        umask(0022);
 
         /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
          * privileges are already dropped and we can't create our runtime directory. */

@@ -982,7 +982,8 @@ static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
         assert(netdev);
         assert(sa);
 
-        if (!sa->key_file)
+        /* See wireguard_verify(): no key material I/O outside the daemon. */
+        if (!sa->key_file || netdev->manager->test_mode)
                 return 0;
 
         r = read_full_file_full(

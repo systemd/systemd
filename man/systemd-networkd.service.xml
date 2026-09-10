@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-networkd.service" conditional='ENABLE_NETWORKD'>
+<refentry id="systemd-networkd.service" conditional='ENABLE_NETWORKD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-networkd.service</title>
@@ -24,6 +25,11 @@
   <refsynopsisdiv>
     <para><filename>systemd-networkd.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-networkd</filename></para>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-networkd</command>
+      <arg choice="plain">verify</arg>
+      <arg choice="plain" rep="repeat"><replaceable>FILE</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -89,6 +95,25 @@
     <filename>.netdev</filename> files, see
     <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Verifying Configuration Files</title>
+    <para><command>systemd-networkd verify <replaceable>FILE</replaceable>…</command> loads the given
+    <filename>.network</filename> and <filename>.netdev</filename> files with the daemon's configuration parser,
+    without applying anything, and exits non-zero if any file could not be loaded or made the parser complain,
+    e.g. about an unknown section, an unknown key or an unparsable value. All files are checked; netdevs are
+    loaded first so that <filename>.network</filename> files may refer to them regardless of argument order.
+    Files that the daemon would skip are skipped here as well and reported: empty or masked files, and files
+    whose <varname>Condition*=</varname> settings do not match the host running the check.</para>
+
+    <para>The check is a parser-level one. Settings the daemon accepts syntactically but ignores or overrides at
+    runtime, for example a <varname>Bridge=</varname> naming a netdev that is not among the verified files, are
+    logged but do not fail the check. Key material referenced via <varname>PrivateKeyFile=</varname> or
+    <varname>KeyFile=</varname> is not read. Drop-in directories are looked up by file name in the usual
+    configuration directories of the host, and <filename>networkd.conf</filename> is not consulted.</para>
+
+    <xi:include href="version-info.xml" xpointer="v263"/>
   </refsect1>
 
   <refsect1>

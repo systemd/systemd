@@ -16,7 +16,8 @@ int _service_parse_argv(
                 const Verb *verbs_end,
                 const BusObjectImplementation* const* bus_objects,
                 RuntimeScope *runtime_scope,
-                int argc, char *argv[]) {
+                int argc, char *argv[],
+                char ***ret_args) {
 
         assert(argc >= 0);
         assert(argv);
@@ -76,7 +77,9 @@ int _service_parse_argv(
                         break;
                 }
 
-        if (option_parser_get_n_args(&opts) > 0)
+        if (ret_args)
+                *ret_args = option_parser_get_args(&opts);
+        else if (option_parser_get_n_args(&opts) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         return 1; /* Further action */
