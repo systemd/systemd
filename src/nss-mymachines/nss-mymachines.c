@@ -51,7 +51,7 @@ static int count_addresses(sd_bus_message *m, int af, unsigned *ret) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_rewind(m, false);
+        r = sd_bus_message_rewind(m, /* complete= */ false);
         if (r < 0)
                 return r;
 
@@ -122,7 +122,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         if (r < 0)
                 goto fail;
 
-        r = bus_call_method(bus, bus_machine_mgr, "GetMachineAddresses", NULL, &reply, "s", name);
+        r = bus_call_method(bus, bus_machine_mgr, "GetMachineAddresses", /* reterr_error= */ NULL, &reply, "s", name);
         if (r < 0)
                 goto fail;
 
@@ -274,7 +274,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         if (r < 0)
                 goto fail;
 
-        r = bus_call_method(bus, bus_machine_mgr, "GetMachineAddresses", NULL, &reply, "s", name);
+        r = bus_call_method(bus, bus_machine_mgr, "GetMachineAddresses", /* reterr_error= */ NULL, &reply, "s", name);
         if (r < 0)
                 goto fail;
 
