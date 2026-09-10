@@ -2,6 +2,7 @@
 #pragma once
 
 #include "logind-forward.h"
+#include "login-util.h"
 #include "pidref.h"
 #include "time-util.h"
 
@@ -28,6 +29,7 @@ typedef enum InhibitMode {
 
 typedef struct Inhibitor {
         Manager *manager;
+        User *user;
 
         sd_event_source *event_source;
 
@@ -37,6 +39,7 @@ typedef struct Inhibitor {
         bool started;
 
         InhibitWhat what;
+        InhibitWhatUser what_user;
         char *who;
         char *why;
         InhibitMode mode;
@@ -50,7 +53,10 @@ typedef struct Inhibitor {
         int fifo_fd;
 } Inhibitor;
 
+extern const struct hash_ops inhibitor_hash_ops;
+
 int inhibitor_new(Manager *m, const char* id, Inhibitor **ret);
+int inhibitor_new_user(User *i, const char* id, Inhibitor **ret);
 Inhibitor* inhibitor_free(Inhibitor *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Inhibitor*, inhibitor_free);
@@ -82,11 +88,20 @@ bool manager_is_inhibited(
 
 int inhibitor_build_json(Inhibitor *i, sd_json_variant **ret);
 
+InhibitWhatUser user_inhibit_what(User *u, InhibitMode mm);
+
 static inline bool inhibit_what_is_valid(InhibitWhat w) {
         return w > 0 && w < _INHIBIT_WHAT_MAX;
 }
 
 const char* inhibit_what_to_string(InhibitWhat w);
 int inhibit_what_from_string(const char *s);
+
+static inline bool inhibit_what_user_is_valid(uint64_t w) {
+        return w > 0 && w < _INHIBIT_WHAT_USER_MAX;
+}
+
+const char* inhibit_what_user_to_string(InhibitWhatUser k);
+int inhibit_what_user_from_string(const char *s);
 
 DECLARE_STRING_TABLE_LOOKUP(inhibit_mode, InhibitMode);

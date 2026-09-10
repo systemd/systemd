@@ -84,9 +84,9 @@ _loginctl () {
 
     local -A VERBS=(
         [SESSIONS]='session-status show-session activate lock-session unlock-session terminate-session kill-session'
-        [USERS]='user-status show-user enable-linger disable-linger terminate-user kill-user'
+        [USERS]='user-status show-user enable-linger disable-linger terminate-user kill-user secure-lock-user'
         [SEATS]='seat-status show-seat terminate-seat'
-        [STANDALONE]='list-sessions lock-sessions unlock-sessions list-users list-seats flush-devices'
+        [STANDALONE]='list-sessions lock-sessions unlock-sessions list-users list-seats flush-devices secure-lock-users'
         [ATTACH]='attach'
     )
 
