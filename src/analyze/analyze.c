@@ -162,13 +162,13 @@ int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char *proper
 }
 
 void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timespan) {
-        if (calendar && calendar_spec_from_string(p, NULL) >= 0)
+        if (calendar && calendar_spec_from_string(p, /* ret= */ NULL) >= 0)
                 log_notice("Hint: this expression is a valid calendar specification. "
                            "Use 'systemd-analyze calendar \"%s\"' instead?", p);
-        if (timestamp && parse_timestamp(p, NULL) >= 0)
+        if (timestamp && parse_timestamp(p, /* ret= */ NULL) >= 0)
                 log_notice("Hint: this expression is a valid timestamp. "
                            "Use 'systemd-analyze timestamp \"%s\"' instead?", p);
-        if (timespan && parse_time(p, NULL, USEC_PER_SEC) >= 0)
+        if (timespan && parse_time(p, /* ret= */ NULL, USEC_PER_SEC) >= 0)
                 log_notice("Hint: this expression is a valid timespan. "
                            "Use 'systemd-analyze timespan \"%s\"' instead?", p);
 }

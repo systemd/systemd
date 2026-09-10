@@ -140,7 +140,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
 
                 if (strv_contains(*units, *c)) {
                         r = list_dependencies_print("...", level + 1, (branches << 1) | (to_print ? 1 : 0),
-                                                    true, NULL, boot);
+                                                    /* last= */ true, /* times= */ NULL, boot);
                         if (r < 0)
                                 return r;
                         continue;
@@ -206,7 +206,7 @@ static int list_dependencies(sd_bus *bus, const char *name) {
                         printf("%s\n", id);
         }
 
-        return list_dependencies_one(bus, name, 0, &units, 0);
+        return list_dependencies_one(bus, name, /* level= */ 0, &units, /* branches= */ 0);
 }
 
 int verb_critical_chain(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -214,7 +214,7 @@ int verb_critical_chain(int argc, char *argv[], uintptr_t _data, void *userdata)
         _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
         int n, r;
 
-        r = acquire_bus(&bus, NULL);
+        r = acquire_bus(&bus, /* use_full_bus= */ NULL);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 

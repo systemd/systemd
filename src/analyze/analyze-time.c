@@ -14,7 +14,7 @@ int verb_time(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *buf = NULL;
         int r;
 
-        r = acquire_bus(&bus, NULL);
+        r = acquire_bus(&bus, /* use_full_bus= */ NULL);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
