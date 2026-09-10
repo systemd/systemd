@@ -21,12 +21,12 @@ TEST(nss_user_alias) {
         _cleanup_(user_record_unrefp) UserRecord *u = NULL;
         sd_json_variant *aliases;
 
-        ASSERT_OK(nss_passwd_to_user_record(&pwd, NULL, "testuser@example.test", &u));
+        ASSERT_OK(nss_passwd_to_user_record(&pwd, /* spwd= */ NULL, "testuser@example.test", &u));
         ASSERT_TRUE(user_record_matches_user_name(u, "testuser@example.test"));
         ASSERT_TRUE(strv_contains(u->aliases, "testuser@example.test"));
 
         aliases = ASSERT_NOT_NULL(sd_json_variant_by_key(u->json, "aliases"));
-        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_index(aliases, 0)), "testuser@example.test");
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_index(aliases, /* index= */ 0)), "testuser@example.test");
 }
 
 TEST(nss_user_invalid_alias) {
@@ -40,7 +40,7 @@ TEST(nss_user_invalid_alias) {
         };
         _cleanup_(user_record_unrefp) UserRecord *u = NULL;
 
-        ASSERT_OK(nss_passwd_to_user_record(&pwd, NULL, "testuser/bad", &u));
+        ASSERT_OK(nss_passwd_to_user_record(&pwd, /* spwd= */ NULL, "testuser/bad", &u));
         ASSERT_FALSE(user_record_matches_user_name(u, "testuser/bad"));
         ASSERT_TRUE(strv_isempty(u->aliases));
         ASSERT_NULL(sd_json_variant_by_key(u->json, "aliases"));
@@ -57,7 +57,7 @@ TEST(nss_user_alias_realm) {
         };
         _cleanup_(user_record_unrefp) UserRecord *u = NULL;
 
-        ASSERT_OK(nss_passwd_to_user_record(&pwd, NULL, "testuser-short", &u));
+        ASSERT_OK(nss_passwd_to_user_record(&pwd, /* spwd= */ NULL, "testuser-short", &u));
         u->realm = ASSERT_NOT_NULL(strdup("example.test"));
 
         ASSERT_TRUE(user_record_matches_user_name(u, "testuser-short@example.test"));
@@ -74,7 +74,7 @@ TEST(nss_user_alias_same_as_canonical_noop) {
         };
         _cleanup_(user_record_unrefp) UserRecord *u = NULL;
 
-        ASSERT_OK(nss_passwd_to_user_record(&pwd, NULL, "testuser", &u));
+        ASSERT_OK(nss_passwd_to_user_record(&pwd, /* spwd= */ NULL, "testuser", &u));
         ASSERT_TRUE(strv_isempty(u->aliases));
         ASSERT_NULL(sd_json_variant_by_key(u->json, "aliases"));
 }
@@ -90,7 +90,7 @@ TEST(nss_user_null_alias_noop) {
         };
         _cleanup_(user_record_unrefp) UserRecord *u = NULL;
 
-        ASSERT_OK(nss_passwd_to_user_record(&pwd, NULL, NULL, &u));
+        ASSERT_OK(nss_passwd_to_user_record(&pwd, /* spwd= */ NULL, /* alias_name= */ NULL, &u));
         ASSERT_TRUE(strv_isempty(u->aliases));
         ASSERT_NULL(sd_json_variant_by_key(u->json, "aliases"));
 }
@@ -107,7 +107,7 @@ TEST(nss_user_alias_fuzzy_match) {
         _cleanup_(user_record_unrefp) UserRecord *u = NULL;
         UserDBMatch match = USERDB_MATCH_NULL;
 
-        ASSERT_OK(nss_passwd_to_user_record(&pwd, NULL, "external-login", &u));
+        ASSERT_OK(nss_passwd_to_user_record(&pwd, /* spwd= */ NULL, "external-login", &u));
         match.fuzzy_names = ASSERT_NOT_NULL(strv_new("ternal"));
 
         ASSERT_TRUE(user_record_match(u, &match));

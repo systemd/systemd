@@ -17,12 +17,12 @@ TEST(nss_group_alias) {
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
         sd_json_variant *aliases;
 
-        ASSERT_OK(nss_group_to_group_record(&grp, NULL, "domain users@example.test", &g));
+        ASSERT_OK(nss_group_to_group_record(&grp, /* sgrp= */ NULL, "domain users@example.test", &g));
         ASSERT_TRUE(group_record_matches_group_name(g, "domain users@example.test"));
         ASSERT_TRUE(strv_contains(g->aliases, "domain users@example.test"));
 
         aliases = ASSERT_NOT_NULL(sd_json_variant_by_key(g->json, "aliases"));
-        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_index(aliases, 0)), "domain users@example.test");
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_index(aliases, /* index= */ 0)), "domain users@example.test");
 }
 
 TEST(nss_group_invalid_alias) {
@@ -32,7 +32,7 @@ TEST(nss_group_invalid_alias) {
         };
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
 
-        ASSERT_OK(nss_group_to_group_record(&grp, NULL, "domain/users", &g));
+        ASSERT_OK(nss_group_to_group_record(&grp, /* sgrp= */ NULL, "domain/users", &g));
         ASSERT_FALSE(group_record_matches_group_name(g, "domain/users"));
         ASSERT_TRUE(strv_isempty(g->aliases));
         ASSERT_NULL(sd_json_variant_by_key(g->json, "aliases"));
@@ -45,7 +45,7 @@ TEST(nss_group_alias_realm) {
         };
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
 
-        ASSERT_OK(nss_group_to_group_record(&grp, NULL, "domain-users", &g));
+        ASSERT_OK(nss_group_to_group_record(&grp, /* sgrp= */ NULL, "domain-users", &g));
         g->realm = ASSERT_NOT_NULL(strdup("example.test"));
 
         ASSERT_TRUE(group_record_matches_group_name(g, "domain-users@example.test"));
@@ -58,7 +58,7 @@ TEST(nss_group_alias_same_as_canonical_noop) {
         };
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
 
-        ASSERT_OK(nss_group_to_group_record(&grp, NULL, "domain users", &g));
+        ASSERT_OK(nss_group_to_group_record(&grp, /* sgrp= */ NULL, "domain users", &g));
         ASSERT_TRUE(strv_isempty(g->aliases));
         ASSERT_NULL(sd_json_variant_by_key(g->json, "aliases"));
 }
@@ -70,7 +70,7 @@ TEST(nss_group_null_alias_noop) {
         };
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
 
-        ASSERT_OK(nss_group_to_group_record(&grp, NULL, NULL, &g));
+        ASSERT_OK(nss_group_to_group_record(&grp, /* sgrp= */ NULL, /* alias_name= */ NULL, &g));
         ASSERT_TRUE(strv_isempty(g->aliases));
         ASSERT_NULL(sd_json_variant_by_key(g->json, "aliases"));
 }
@@ -83,7 +83,7 @@ TEST(nss_group_alias_fuzzy_match) {
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
         UserDBMatch match = USERDB_MATCH_NULL;
 
-        ASSERT_OK(nss_group_to_group_record(&grp, NULL, "external-group", &g));
+        ASSERT_OK(nss_group_to_group_record(&grp, /* sgrp= */ NULL, "external-group", &g));
         match.fuzzy_names = ASSERT_NOT_NULL(strv_new("ternal"));
 
         ASSERT_TRUE(group_record_match(g, &match));

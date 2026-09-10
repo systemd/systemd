@@ -59,7 +59,7 @@ TEST_RET(info) {
         BtrfsQuotaInfo quota;
         int r;
 
-        r = btrfs_subvol_get_info_fd(dir_fd, 0, &info);
+        r = btrfs_subvol_get_info_fd(dir_fd, /* subvol_id= */ 0, &info);
         if (r == -ENOTTY)
                 return log_tests_skipped("BTRFS_IOC_GET_SUBVOL_INFO not supported "
                                          "(missing 32-bit compat handler in kernel?)");
@@ -67,7 +67,7 @@ TEST_RET(info) {
         log_info("otime: %s", FORMAT_TIMESTAMP(info.otime));
         log_info("read-only (search): %s", yes_no(info.read_only));
 
-        r = btrfs_qgroup_get_quota_fd(dir_fd, 0, &quota);
+        r = btrfs_qgroup_get_quota_fd(dir_fd, /* qgroupid= */ 0, &quota);
         if (r < 0)
                 log_info_errno(r, "Failed to get quota info: %m");
         else {
@@ -90,11 +90,11 @@ TEST(subvol) {
         ASSERT_OK(btrfs_subvol_make(dir_fd, "test1"));
         ASSERT_OK(write_string_file_at(dir_fd, "test1/file", "ljsadhfljasdkfhlkjdsfha", WRITE_STRING_FILE_CREATE));
 
-        ASSERT_OK(btrfs_subvol_snapshot_at(dir_fd, "test1", dir_fd, "test2", 0));
+        ASSERT_OK(btrfs_subvol_snapshot_at(dir_fd, "test1", dir_fd, "test2", /* flags= */ 0));
         ASSERT_OK(btrfs_subvol_snapshot_at(dir_fd, "test1", dir_fd, "test3", BTRFS_SNAPSHOT_READ_ONLY));
 
         _unused_ _cleanup_close_ int locked_fd = ASSERT_OK(btrfs_subvol_snapshot_at(dir_fd, "test1", dir_fd, "test4", BTRFS_SNAPSHOT_LOCK_BSD));
-        ASSERT_ERROR(xopenat_lock(dir_fd, "test4", 0, LOCK_BSD, LOCK_EX|LOCK_NB), EAGAIN);
+        ASSERT_ERROR(xopenat_lock(dir_fd, "test4", /* open_flags= */ 0, LOCK_BSD, LOCK_EX|LOCK_NB), EAGAIN);
 
         /* The destroy ioctl needs CAP_SYS_ADMIN; without it, leave cleanup to rm_rf_subvolume_and_freep. */
         ASSERT_OK_OR(btrfs_subvol_remove_at(dir_fd, "test1", BTRFS_REMOVE_QUOTA), -EPERM);
@@ -157,7 +157,7 @@ TEST(quota) {
         ASSERT_OK(btrfs_subvol_make(dir_fd, "quotatest"));
         /* The qgroup/quota ioctls require CAP_SYS_ADMIN; skip the rest of the test if we don't have it
          * or quotas are not enabled on this filesystem. */
-        r = btrfs_subvol_auto_qgroup(qt, 0, true);
+        r = btrfs_subvol_auto_qgroup(qt, /* subvol_id= */ 0, /* create_intermediary_qgroup= */ true);
         if (r == -EPERM)
                 return (void) log_tests_skipped("not running privileged");
         if (IN_SET(r, -ENOTCONN, -ENOENT))
@@ -165,18 +165,18 @@ TEST(quota) {
         ASSERT_OK(r);
 
         ASSERT_OK(btrfs_subvol_make(dir_fd, "quotatest/beneath"));
-        ASSERT_OK(btrfs_subvol_auto_qgroup(beneath, 0, false));
-        ASSERT_OK(btrfs_qgroup_set_limit(beneath, 0, 4ULL * 1024 * 1024 * 1024));
+        ASSERT_OK(btrfs_subvol_auto_qgroup(beneath, /* subvol_id= */ 0, /* create_intermediary_qgroup= */ false));
+        ASSERT_OK(btrfs_qgroup_set_limit(beneath, /* qgroupid= */ 0, 4ULL * 1024 * 1024 * 1024));
 
-        ASSERT_OK(btrfs_subvol_set_subtree_quota_limit(qt, 0, 5ULL * 1024 * 1024 * 1024));
+        ASSERT_OK(btrfs_subvol_set_subtree_quota_limit(qt, /* subvol_id= */ 0, 5ULL * 1024 * 1024 * 1024));
 
         ASSERT_OK(btrfs_subvol_snapshot_at(dir_fd, "quotatest", dir_fd, "quotatest2",
                                            BTRFS_SNAPSHOT_RECURSIVE|BTRFS_SNAPSHOT_QUOTA));
 
-        ASSERT_OK(btrfs_qgroup_get_quota(snap_beneath, 0, &quota));
+        ASSERT_OK(btrfs_qgroup_get_quota(snap_beneath, /* qgroupid= */ 0, &quota));
         ASSERT_EQ(quota.referenced_max, 4ULL * 1024 * 1024 * 1024);
 
-        ASSERT_OK(btrfs_subvol_get_subtree_quota(qt2, 0, &quota));
+        ASSERT_OK(btrfs_subvol_get_subtree_quota(qt2, /* subvol_id= */ 0, &quota));
         ASSERT_EQ(quota.referenced_max, 5ULL * 1024 * 1024 * 1024);
 
         ASSERT_OK_OR(btrfs_subvol_remove_at(dir_fd, "quotatest", BTRFS_REMOVE_QUOTA|BTRFS_REMOVE_RECURSIVE), -EPERM);
@@ -202,7 +202,7 @@ TEST(physical_offset) {
         _cleanup_free_ char *path = ASSERT_NOT_NULL(path_join(dir, "swapfile"));
         r = ASSERT_OK(pidref_safe_fork("(mkswapfile)",
                         FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_WAIT,
-                        NULL));
+                        /* ret= */ NULL));
         if (r == 0) {
                 execlp(btrfs_progs, "btrfs", "filesystem", "mkswapfile", "-s", "1m", path, NULL);
                 _exit(EXIT_FAILURE);
@@ -243,7 +243,7 @@ TEST(physical_offset) {
         _cleanup_fclose_ FILE *f = ASSERT_NOT_NULL(take_fdopen(&pipe_fds[0], "r"));
         _cleanup_free_ char *out = NULL;
         ASSERT_OK(read_full_stream(f, &out, /* ret_size= */ NULL));
-        ASSERT_OK_EQ(pidref_wait_for_terminate_and_check("(btrfs-inspect)", &inspect, 0), 0);
+        ASSERT_OK_EQ(pidref_wait_for_terminate_and_check("(btrfs-inspect)", &inspect, /* flags= */ 0), 0);
 
         uint64_t expected;
         ASSERT_OK(safe_atou64(strstrip(out), &expected));

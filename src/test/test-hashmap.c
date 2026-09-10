@@ -19,7 +19,7 @@ TEST(ordered_hashmap_next) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *m = NULL;
         int i;
 
-        assert_se(m = ordered_hashmap_new(NULL));
+        assert_se(m = ordered_hashmap_new(/* hash_ops= */ NULL));
         for (i = -2; i <= 2; i++)
                 assert_se(ordered_hashmap_put(m, INT_TO_PTR(i), INT_TO_PTR(i+10)) == 1);
         for (i = -2; i <= 1; i++)
@@ -72,7 +72,7 @@ TEST(iterated_cache) {
         Hashmap *m;
         IteratedCache *c;
 
-        assert_se(m = hashmap_new(NULL));
+        assert_se(m = hashmap_new(/* hash_ops= */ NULL));
         assert_se(c = hashmap_iterated_cache_new(m));
         compare_cache(m, c);
 

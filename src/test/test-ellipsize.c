@@ -86,13 +86,13 @@ static void test_ellipsize_one(const char *p) {
         t = ellipsize(p, columns(), 70);
         puts(t);
         free(t);
-        t = ellipsize(p, columns(), 0);
+        t = ellipsize(p, columns(), /* percent= */ 0);
         puts(t);
         free(t);
         t = ellipsize(p, columns(), 100);
         puts(t);
         free(t);
-        t = ellipsize(p, 0, 50);
+        t = ellipsize(p, /* length= */ 0, 50);
         puts(t);
         free(t);
         t = ellipsize(p, 1, 50);
@@ -147,14 +147,14 @@ TEST(ellipsize_ansi_cats) {
 
         /* Make sure we don't cut off in the middle of an ANSI escape sequence. */
 
-        e = ellipsize("01" ANSI_NORMAL "23", 4, 0);
+        e = ellipsize("01" ANSI_NORMAL "23", 4, /* percent= */ 0);
         puts(e);
         ASSERT_STREQ(e, "01" ANSI_NORMAL "23");
         f = ellipsize("ab" ANSI_NORMAL "cd", 4, 90);
         puts(f);
         ASSERT_STREQ(f, "ab" ANSI_NORMAL "cd");
 
-        g = ellipsize("🐱🐱" ANSI_NORMAL "🐱🐱" ANSI_NORMAL, 5, 0);
+        g = ellipsize("🐱🐱" ANSI_NORMAL "🐱🐱" ANSI_NORMAL, 5, /* percent= */ 0);
         puts(g);
         ASSERT_STREQ(g, "…" ANSI_NORMAL "🐱🐱" ANSI_NORMAL);
         h = ellipsize("🐱🐱" ANSI_NORMAL "🐱🐱" ANSI_NORMAL, 5, 90);
@@ -168,7 +168,7 @@ TEST(ellipsize_ansi_two_byte) {
         /* Fe escape sequences are just two bytes long (ESC followed by 0x40…0x5F). Make sure they are
          * skipped over like the longer CSI sequences are, in particular when one terminates the string. */
 
-        e = ellipsize("🐱🐱" "\x1bM" "🐱🐱" "\x1bM", 5, 0);
+        e = ellipsize("🐱🐱" "\x1bM" "🐱🐱" "\x1bM", 5, /* percent= */ 0);
         puts(e);
         ASSERT_STREQ(e, "…" "\x1bM" "🐱🐱" "\x1bM");
 

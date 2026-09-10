@@ -59,8 +59,8 @@ static void test_xescape_full_one(bool eight_bits) {
 }
 
 TEST(xescape_full) {
-        test_xescape_full_one(false);
-        test_xescape_full_one(true);
+        test_xescape_full_one(/* eight_bits= */ false);
+        test_xescape_full_one(/* eight_bits= */ true);
 }
 
 TEST(xescape_full_ellipsis) {
@@ -75,62 +75,62 @@ TEST(xescape_full_ellipsis) {
 TEST(cunescape) {
         _cleanup_free_ char *unescaped = NULL;
 
-        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) < 0);
+        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", /* flags= */ 0, &unescaped) < 0);
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", UNESCAPE_RELAX, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00");
         unescaped = mfree(unescaped);
 
         /* incomplete sequences */
-        assert_se(cunescape("\\x0", 0, &unescaped) < 0);
+        assert_se(cunescape("\\x0", /* flags= */ 0, &unescaped) < 0);
         assert_se(cunescape("\\x0", UNESCAPE_RELAX, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, "\\x0");
         unescaped = mfree(unescaped);
 
-        assert_se(cunescape("\\x", 0, &unescaped) < 0);
+        assert_se(cunescape("\\x", /* flags= */ 0, &unescaped) < 0);
         assert_se(cunescape("\\x", UNESCAPE_RELAX, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, "\\x");
         unescaped = mfree(unescaped);
 
-        assert_se(cunescape("\\", 0, &unescaped) < 0);
+        assert_se(cunescape("\\", /* flags= */ 0, &unescaped) < 0);
         assert_se(cunescape("\\", UNESCAPE_RELAX, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, "\\");
         unescaped = mfree(unescaped);
 
-        assert_se(cunescape("\\11", 0, &unescaped) < 0);
+        assert_se(cunescape("\\11", /* flags= */ 0, &unescaped) < 0);
         assert_se(cunescape("\\11", UNESCAPE_RELAX, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, "\\11");
         unescaped = mfree(unescaped);
 
-        assert_se(cunescape("\\1", 0, &unescaped) < 0);
+        assert_se(cunescape("\\1", /* flags= */ 0, &unescaped) < 0);
         assert_se(cunescape("\\1", UNESCAPE_RELAX, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, "\\1");
         unescaped = mfree(unescaped);
 
-        assert_se(cunescape("\\u0000", 0, &unescaped) < 0);
+        assert_se(cunescape("\\u0000", /* flags= */ 0, &unescaped) < 0);
         assert_se(cunescape("\\u00DF\\U000000df\\u03a0\\U00000041", UNESCAPE_RELAX, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, "ßßΠA");
         unescaped = mfree(unescaped);
 
         /* UTF-16 surrogates cannot be encoded as valid UTF-8 and must be rejected */
-        ASSERT_ERROR(cunescape("\\ud800", 0, &unescaped), EINVAL);
-        ASSERT_ERROR(cunescape("\\udfff", 0, &unescaped), EINVAL);
+        ASSERT_ERROR(cunescape("\\ud800", /* flags= */ 0, &unescaped), EINVAL);
+        ASSERT_ERROR(cunescape("\\udfff", /* flags= */ 0, &unescaped), EINVAL);
 
         /* The code points immediately outside the surrogate range must still decode */
-        ASSERT_OK(cunescape("\\ud7ff", 0, &unescaped));
+        ASSERT_OK(cunescape("\\ud7ff", /* flags= */ 0, &unescaped));
         unescaped = mfree(unescaped);
-        ASSERT_OK(cunescape("\\ue000", 0, &unescaped));
+        ASSERT_OK(cunescape("\\ue000", /* flags= */ 0, &unescaped));
         unescaped = mfree(unescaped);
 
         /* Noncharacters (e.g. U+FFFE) are valid scalar values, encode fine as UTF-8, and are
          * relied upon by callers (systemd.mount-extra=), so unlike \U they stay accepted here */
-        ASSERT_OK(cunescape("\\ufffe", 0, &unescaped));
+        ASSERT_OK(cunescape("\\ufffe", /* flags= */ 0, &unescaped));
         unescaped = mfree(unescaped);
 
-        assert_se(cunescape("\\073", 0, &unescaped) >= 0);
+        assert_se(cunescape("\\073", /* flags= */ 0, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, ";");
         unescaped = mfree(unescaped);
 
-        assert_se(cunescape("A=A\\\\x0aB", 0, &unescaped) >= 0);
+        assert_se(cunescape("A=A\\\\x0aB", /* flags= */ 0, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, "A=A\\x0aB");
         unescaped = mfree(unescaped);
 
@@ -180,48 +180,48 @@ static void test_shell_maybe_quote_one(const char *s, ShellEscapeFlags flags, co
 }
 
 TEST(shell_maybe_quote) {
-        test_shell_maybe_quote_one("", 0, "");
+        test_shell_maybe_quote_one("", /* flags= */ 0, "");
         test_shell_maybe_quote_one("", SHELL_ESCAPE_EMPTY, "\"\"");
         test_shell_maybe_quote_one("", SHELL_ESCAPE_POSIX, "");
         test_shell_maybe_quote_one("", SHELL_ESCAPE_POSIX | SHELL_ESCAPE_EMPTY, "\"\"");
-        test_shell_maybe_quote_one("\\", 0, "\"\\\\\"");
+        test_shell_maybe_quote_one("\\", /* flags= */ 0, "\"\\\\\"");
         test_shell_maybe_quote_one("\\", SHELL_ESCAPE_POSIX, "$'\\\\'");
-        test_shell_maybe_quote_one("\"", 0, "\"\\\"\"");
+        test_shell_maybe_quote_one("\"", /* flags= */ 0, "\"\\\"\"");
         test_shell_maybe_quote_one("\"", SHELL_ESCAPE_POSIX, "$'\"'");
-        test_shell_maybe_quote_one("foobar", 0, "foobar");
+        test_shell_maybe_quote_one("foobar", /* flags= */ 0, "foobar");
         test_shell_maybe_quote_one("foobar", SHELL_ESCAPE_POSIX, "foobar");
-        test_shell_maybe_quote_one("foo bar", 0, "\"foo bar\"");
+        test_shell_maybe_quote_one("foo bar", /* flags= */ 0, "\"foo bar\"");
         test_shell_maybe_quote_one("foo bar", SHELL_ESCAPE_POSIX, "$'foo bar'");
-        test_shell_maybe_quote_one("foo\tbar", 0, "\"foo\\tbar\"");
+        test_shell_maybe_quote_one("foo\tbar", /* flags= */ 0, "\"foo\\tbar\"");
         test_shell_maybe_quote_one("foo\tbar", SHELL_ESCAPE_POSIX, "$'foo\\tbar'");
-        test_shell_maybe_quote_one("foo\nbar", 0, "\"foo\\nbar\"");
+        test_shell_maybe_quote_one("foo\nbar", /* flags= */ 0, "\"foo\\nbar\"");
         test_shell_maybe_quote_one("foo\nbar", SHELL_ESCAPE_POSIX, "$'foo\\nbar'");
-        test_shell_maybe_quote_one("foo \"bar\" waldo", 0, "\"foo \\\"bar\\\" waldo\"");
+        test_shell_maybe_quote_one("foo \"bar\" waldo", /* flags= */ 0, "\"foo \\\"bar\\\" waldo\"");
         test_shell_maybe_quote_one("foo \"bar\" waldo", SHELL_ESCAPE_POSIX, "$'foo \"bar\" waldo'");
-        test_shell_maybe_quote_one("foo$bar", 0, "\"foo\\$bar\"");
+        test_shell_maybe_quote_one("foo$bar", /* flags= */ 0, "\"foo\\$bar\"");
         test_shell_maybe_quote_one("foo$bar", SHELL_ESCAPE_EMPTY, "\"foo\\$bar\"");
         test_shell_maybe_quote_one("foo$bar", SHELL_ESCAPE_POSIX, "$'foo$bar'");
         test_shell_maybe_quote_one("foo$bar", SHELL_ESCAPE_POSIX | SHELL_ESCAPE_EMPTY, "$'foo$bar'");
 
         /* Exclamation mark is special in the interactive shell, but we don't treat it so. */
-        test_shell_maybe_quote_one("foo!bar", 0, "\"foo!bar\"");
+        test_shell_maybe_quote_one("foo!bar", /* flags= */ 0, "\"foo!bar\"");
         test_shell_maybe_quote_one("foo!bar", SHELL_ESCAPE_POSIX, "$'foo!bar'");
 
         /* Control characters and unicode */
-        test_shell_maybe_quote_one("a\nb\001", 0, "\"a\\nb\\001\"");
+        test_shell_maybe_quote_one("a\nb\001", /* flags= */ 0, "\"a\\nb\\001\"");
         test_shell_maybe_quote_one("a\nb\001", SHELL_ESCAPE_POSIX, "$'a\\nb\\001'");
 
-        test_shell_maybe_quote_one("głąb", 0, "głąb");
+        test_shell_maybe_quote_one("głąb", /* flags= */ 0, "głąb");
         test_shell_maybe_quote_one("głąb", SHELL_ESCAPE_POSIX, "głąb");
 
-        test_shell_maybe_quote_one("głąb\002\003", 0, "\"głąb\\002\\003\"");
+        test_shell_maybe_quote_one("głąb\002\003", /* flags= */ 0, "\"głąb\\002\\003\"");
         test_shell_maybe_quote_one("głąb\002\003", SHELL_ESCAPE_POSIX, "$'głąb\\002\\003'");
 
-        test_shell_maybe_quote_one("głąb\002\003rząd", 0, "\"głąb\\002\\003rząd\"");
+        test_shell_maybe_quote_one("głąb\002\003rząd", /* flags= */ 0, "\"głąb\\002\\003rząd\"");
         test_shell_maybe_quote_one("głąb\002\003rząd", SHELL_ESCAPE_POSIX, "$'głąb\\002\\003rząd'");
 
         /* Bogus UTF-8 strings */
-        test_shell_maybe_quote_one("\250\350", 0, "\"\\250\\350\"");
+        test_shell_maybe_quote_one("\250\350", /* flags= */ 0, "\"\\250\\350\"");
         test_shell_maybe_quote_one("\250\350", SHELL_ESCAPE_POSIX, "$'\\250\\350'");
 }
 

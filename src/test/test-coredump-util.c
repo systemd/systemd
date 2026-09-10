@@ -138,22 +138,22 @@ TEST(parse_auxv) {
         assert_se(dir_fd >= 0);
 
         if (__BYTE_ORDER == __LITTLE_ENDIAN) {
-                test_parse_auxv_one(ELFCLASS32, dir_fd, "resolved.arm32", 0, 193, 193, 193, 193);
-                test_parse_auxv_one(ELFCLASS64, dir_fd, "bash.riscv64", 0, 1001, 1001, 1001, 1001);
-                test_parse_auxv_one(ELFCLASS32, dir_fd, "sleep.i686", 0, 1000, 1000, 1000, 1000);
+                test_parse_auxv_one(ELFCLASS32, dir_fd, "resolved.arm32", /* expect_at_secure= */ 0, 193, 193, 193, 193);
+                test_parse_auxv_one(ELFCLASS64, dir_fd, "bash.riscv64", /* expect_at_secure= */ 0, 1001, 1001, 1001, 1001);
+                test_parse_auxv_one(ELFCLASS32, dir_fd, "sleep.i686", /* expect_at_secure= */ 0, 1000, 1000, 1000, 1000);
                 /* after chgrp and chmod g+s */
                 test_parse_auxv_one(ELFCLASS32, dir_fd, "sleep32.i686", 1, 1000, 1000, 1000, 10);
                 test_parse_auxv_one(ELFCLASS64, dir_fd, "sleep64.amd64", 1, 1000, 1000, 1000, 10);
 
-                test_parse_auxv_one(ELFCLASS64, dir_fd, "sudo.aarch64", 1, 1494200408, 0, 1494200408, 1494200408);
-                test_parse_auxv_one(ELFCLASS64, dir_fd, "sudo.amd64", 1, 1000, 0, 1000, 1000);
+                test_parse_auxv_one(ELFCLASS64, dir_fd, "sudo.aarch64", 1, 1494200408, /* expect_euid= */ 0, 1494200408, 1494200408);
+                test_parse_auxv_one(ELFCLASS64, dir_fd, "sudo.amd64", 1, 1000, /* expect_euid= */ 0, 1000, 1000);
 
                 /* Those run unprivileged, but start as root. */
-                test_parse_auxv_one(ELFCLASS64, dir_fd, "dbus-broker-launch.amd64", 0, 0, 0, 0, 0);
-                test_parse_auxv_one(ELFCLASS64, dir_fd, "dbus-broker-launch.aarch64", 0, 0, 0, 0, 0);
-                test_parse_auxv_one(ELFCLASS64, dir_fd, "polkitd.aarch64", 0, 0, 0, 0, 0);
+                test_parse_auxv_one(ELFCLASS64, dir_fd, "dbus-broker-launch.amd64", /* expect_at_secure= */ 0, /* expect_uid= */ 0, /* expect_euid= */ 0, /* expect_gid= */ 0, /* expect_egid= */ 0);
+                test_parse_auxv_one(ELFCLASS64, dir_fd, "dbus-broker-launch.aarch64", /* expect_at_secure= */ 0, /* expect_uid= */ 0, /* expect_euid= */ 0, /* expect_gid= */ 0, /* expect_egid= */ 0);
+                test_parse_auxv_one(ELFCLASS64, dir_fd, "polkitd.aarch64", /* expect_at_secure= */ 0, /* expect_uid= */ 0, /* expect_euid= */ 0, /* expect_gid= */ 0, /* expect_egid= */ 0);
         } else {
-                test_parse_auxv_one(ELFCLASS64, dir_fd, "cat.s390x", 0, 3481, 3481, 3481, 3481);
+                test_parse_auxv_one(ELFCLASS64, dir_fd, "cat.s390x", /* expect_at_secure= */ 0, 3481, 3481, 3481, 3481);
         }
 }
 

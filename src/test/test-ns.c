@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
                 .proc_subset = PROC_SUBSET_PID,
         };
 
-        r = setup_namespace(&p, NULL);
+        r = setup_namespace(&p, /* reterr_path= */ NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to set up namespace: %m");
 

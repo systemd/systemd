@@ -24,43 +24,43 @@ TEST(basic_mask_and_enable) {
         InstallChange *changes = NULL;
         size_t n_changes = 0;
 
-        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", NULL), -ENOENT);
-        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", NULL), -ENOENT);
-        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", NULL), -ENOENT);
-        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", NULL), -ENOENT);
-        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", NULL), -ENOENT);
-        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", NULL), -ENOENT);
-        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "g.service", NULL), -ENOENT);
-        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "h.service", NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", /* ret= */ NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", /* ret= */ NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", /* ret= */ NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", /* ret= */ NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", /* ret= */ NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", /* ret= */ NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "g.service", /* ret= */ NULL), -ENOENT);
+        ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "h.service", /* ret= */ NULL), -ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/a.service");
         assert_se(write_string_file(p,
                                     "[Install]\n"
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", NULL) >= 0);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", /* ret= */ NULL) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         p = strjoina(root, "/usr/lib/systemd/system/b.service");
         assert_se(symlink("a.service", p) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", NULL) >= 0);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", /* ret= */ NULL) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
         p = strjoina(root, "/usr/lib/systemd/system/c.service");
         assert_se(symlink("/usr/lib/systemd/system/a.service", p) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", NULL) >= 0);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", /* ret= */ NULL) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
         p = strjoina(root, "/usr/lib/systemd/system/d.service");
         assert_se(symlink("c.service", p) >= 0);
 
         /* This one is interesting, as d follows a relative, then an absolute symlink */
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", NULL) >= 0);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", /* ret= */ NULL) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
-        assert_se(unit_file_mask(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_mask(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/dev/null");
@@ -76,11 +76,11 @@ TEST(basic_mask_and_enable) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_MASKED);
 
         /* Enabling a masked unit should fail! */
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) == -ERFKILL);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) == -ERFKILL);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_unmask(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_unmask(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/a.service");
@@ -88,7 +88,7 @@ TEST(basic_mask_and_enable) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) == 1);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) == 1);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/a.service");
@@ -103,12 +103,12 @@ TEST(basic_mask_and_enable) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
         /* Enabling it again should succeed but be a NOP */
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 0);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/a.service");
@@ -122,13 +122,13 @@ TEST(basic_mask_and_enable) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
         /* Disabling a disabled unit must succeed but be a NOP */
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 0);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
         /* Let's enable this indirectly via a symlink */
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("d.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("d.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/a.service");
@@ -144,7 +144,7 @@ TEST(basic_mask_and_enable) {
 
         /* Let's try to reenable */
 
-        assert_se(unit_file_reenable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("b.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_reenable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("b.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 2);
         assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/a.service");
@@ -165,13 +165,13 @@ TEST(basic_mask_and_enable) {
         p = strjoina(root, "/usr/lib/systemd/system/e.service");
         assert_se(symlink("../../../../../../dev/null", p) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", NULL) >= 0);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", /* ret= */ NULL) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", &state) >= 0 && state == UNIT_FILE_MASKED);
 
         assert_se(unlink(p) == 0);
         assert_se(symlink("/usr/../dev/null", p) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", NULL) >= 0);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", /* ret= */ NULL) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", &state) >= 0 && state == UNIT_FILE_MASKED);
 
         assert_se(unlink(p) == 0);
@@ -183,10 +183,10 @@ TEST(basic_mask_and_enable) {
                                     "[Install]\n"
                                     "WantedBy=x.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", NULL) >= 0);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", /* ret= */ NULL) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("f.service"), &changes, &n_changes) == 1);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("f.service"), &changes, &n_changes) == 1);
         assert_se(n_changes == 2);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/f.service");
@@ -209,7 +209,7 @@ TEST(basic_mask_and_enable) {
                                     "[Install]\n"
                                     "Alias=h.service\n", WRITE_STRING_FILE_CREATE));
 
-        ASSERT_GT(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("g.service"), &changes, &n_changes), 0);
+        ASSERT_GT(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("g.service"), &changes, &n_changes), 0);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -258,9 +258,9 @@ TEST(linked_units) {
                                     "[Install]\n"
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", NULL) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked2.service", NULL) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked3.service", NULL) == -ENOENT);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", /* ret= */ NULL) == -ENOENT);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked2.service", /* ret= */ NULL) == -ENOENT);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked3.service", /* ret= */ NULL) == -ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/linked2.service");
         assert_se(symlink("/opt/linked2.service", p) >= 0);
@@ -273,7 +273,7 @@ TEST(linked_units) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked3.service", &state) >= 0 && state == UNIT_FILE_LINKED);
 
         /* First, let's link the unit into the search path */
-        assert_se(unit_file_link(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("/opt/linked.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_link(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("/opt/linked.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/opt/linked.service");
@@ -285,7 +285,7 @@ TEST(linked_units) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", &state) >= 0 && state == UNIT_FILE_LINKED);
 
         /* Let's unlink it from the search path again */
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("linked.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
@@ -293,10 +293,10 @@ TEST(linked_units) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", NULL) == -ENOENT);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", /* ret= */ NULL) == -ENOENT);
 
         /* Now, let's not just link it, but also enable it */
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("/opt/linked.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("/opt/linked.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 3);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/linked.service");
         q = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
@@ -327,7 +327,7 @@ TEST(linked_units) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked-alias.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
         /* And let's unlink it again */
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("linked.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 3);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/linked.service");
         q = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
@@ -348,9 +348,9 @@ TEST(linked_units) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", NULL) == -ENOENT);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", /* ret= */ NULL) == -ENOENT);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("linked2.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked2.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 2);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/linked2.service");
         q = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked2.service");
@@ -369,7 +369,7 @@ TEST(linked_units) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("linked3.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked3.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         assert_se(startswith(changes[0].path, root));
@@ -393,7 +393,7 @@ TEST(default) {
 
         assert_se(unit_file_get_default(RUNTIME_SCOPE_SYSTEM, root, &def) == -ENOENT);
 
-        assert_se(unit_file_set_default(RUNTIME_SCOPE_SYSTEM, 0, root, "idontexist.target", &changes, &n_changes) == -ENOENT);
+        assert_se(unit_file_set_default(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, "idontexist.target", &changes, &n_changes) == -ENOENT);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == -ENOENT);
         ASSERT_STREQ(changes[0].path, "idontexist.target");
@@ -402,7 +402,7 @@ TEST(default) {
 
         assert_se(unit_file_get_default(RUNTIME_SCOPE_SYSTEM, root, &def) == -ENOENT);
 
-        assert_se(unit_file_set_default(RUNTIME_SCOPE_SYSTEM, 0, root, "test-default.target", &changes, &n_changes) >= 0);
+        assert_se(unit_file_set_default(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, "test-default.target", &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/test-default-real.target");
@@ -432,7 +432,15 @@ TEST(add_dependency) {
         p = strjoina(root, "/usr/lib/systemd/system/add-dependency-test-service.service");
         assert_se(symlink("real-add-dependency-test-service.service", p) >= 0);
 
-        assert_se(unit_file_add_dependency(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("add-dependency-test-service.service"), "add-dependency-test-target.target", UNIT_WANTS, &changes, &n_changes) >= 0);
+        assert_se(unit_file_add_dependency(
+                                  RUNTIME_SCOPE_SYSTEM,
+                                  /* flags= */ 0,
+                                  root,
+                                  STRV_MAKE("add-dependency-test-service.service"),
+                                  "add-dependency-test-target.target",
+                                  UNIT_WANTS,
+                                  &changes,
+                                  &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/real-add-dependency-test-service.service");
@@ -473,7 +481,7 @@ TEST(template_enable) {
 
         log_info("== %s with template@.service enabled ==", __func__);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("template@.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/template@.service");
@@ -489,7 +497,7 @@ TEST(template_enable) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("template@.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
         ASSERT_STREQ(changes[0].path, p);
@@ -505,7 +513,7 @@ TEST(template_enable) {
 
         log_info("== %s with template@foo.service enabled ==", __func__);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("template@foo.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@foo.service"), &changes, &n_changes) >= 0);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/template@.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/template@foo.service");
@@ -520,7 +528,7 @@ TEST(template_enable) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("template@foo.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@foo.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
         ASSERT_STREQ(changes[0].path, p);
@@ -538,7 +546,7 @@ TEST(template_enable) {
 
         log_info("== %s with template-symlink@quux.service enabled ==", __func__);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("template-symlink@quux.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template-symlink@quux.service"), &changes, &n_changes) >= 0);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/template@.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/template@quux.service");
@@ -583,7 +591,7 @@ TEST(indirect) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectb.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectc.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("indirectc.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("indirectc.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/indirectb.service");
@@ -596,7 +604,7 @@ TEST(indirect) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectb.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectc.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("indirectc.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("indirectc.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/indirectb.service");
@@ -645,7 +653,7 @@ TEST(preset_and_list) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-yes.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("preset-yes.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/preset-yes.service");
@@ -658,7 +666,7 @@ TEST(preset_and_list) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-yes.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("preset-yes.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/preset-yes.service");
@@ -670,7 +678,7 @@ TEST(preset_and_list) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-no.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("preset-no.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
         assert_se(n_changes == 0);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
@@ -679,7 +687,7 @@ TEST(preset_and_list) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
 
         assert_se(n_changes > 0);
 
@@ -701,7 +709,7 @@ TEST(preset_and_list) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        ASSERT_OK(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, NULL, NULL, &h));
+        ASSERT_OK(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, /* states= */ NULL, /* patterns= */ NULL, &h));
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-yes.service");
         q = strjoina(root, "/usr/lib/systemd/system/preset-no.service");
@@ -725,8 +733,8 @@ TEST(preset_and_list) {
 
         assert_se(got_yes && got_no);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-ignore.service"), &changes, &n_changes) >= 0);
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-ignore.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("preset-ignore.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("preset-ignore.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 }
 
@@ -736,13 +744,13 @@ TEST(revert) {
         InstallChange *changes = NULL;
         size_t n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", NULL) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "yy.service", NULL) == -ENOENT);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", /* ret= */ NULL) == -ENOENT);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "yy.service", /* ret= */ NULL) == -ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/xx.service");
         assert_se(write_string_file(p, "# Empty\n", WRITE_STRING_FILE_CREATE) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", NULL) >= 0);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", /* ret= */ NULL) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", &state) >= 0 && state == UNIT_FILE_STATIC);
 
         /* Initially there's nothing to revert */
@@ -806,7 +814,7 @@ TEST(preset_order) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("prefix-1.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("prefix-1.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/prefix-1.service");
@@ -818,7 +826,7 @@ TEST(preset_order) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("prefix-2.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("prefix-2.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
         assert_se(n_changes == 0);
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
@@ -914,7 +922,7 @@ TEST(with_dropin) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4b.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("with-dropin-1.service"), &changes, &n_changes) == 1);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-1.service"), &changes, &n_changes) == 1);
         assert_se(n_changes == 2);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         assert_se(changes[1].type == INSTALL_CHANGE_SYMLINK);
@@ -927,7 +935,7 @@ TEST(with_dropin) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("with-dropin-2.service"), &changes, &n_changes) == 1);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-2.service"), &changes, &n_changes) == 1);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(n_changes == 2);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
@@ -941,7 +949,7 @@ TEST(with_dropin) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("with-dropin-3.service"), &changes, &n_changes) == 1);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-3.service"), &changes, &n_changes) == 1);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(n_changes == 2);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
@@ -955,7 +963,7 @@ TEST(with_dropin) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("with-dropin-4a.service"), &changes, &n_changes) == 2);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-4a.service"), &changes, &n_changes) == 2);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(n_changes == 2);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
@@ -1023,7 +1031,7 @@ TEST(with_dropin_template) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("with-dropin-1@instance-1.service"), &changes, &n_changes) == 1);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-1@instance-1.service"), &changes, &n_changes) == 1);
         assert_se(n_changes == 2);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         assert_se(changes[1].type == INSTALL_CHANGE_SYMLINK);
@@ -1036,7 +1044,7 @@ TEST(with_dropin_template) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("with-dropin-2@instance-1.service"), &changes, &n_changes) == 1);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-2@instance-1.service"), &changes, &n_changes) == 1);
         assert_se(n_changes == 2);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         assert_se(changes[1].type == INSTALL_CHANGE_SYMLINK);
@@ -1049,7 +1057,7 @@ TEST(with_dropin_template) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("with-dropin-2@instance-2.service"), &changes, &n_changes) == 1);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-2@instance-2.service"), &changes, &n_changes) == 1);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/with-dropin-2@.service");
@@ -1058,7 +1066,7 @@ TEST(with_dropin_template) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("with-dropin-3@.service"), &changes, &n_changes) == 1);
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-3@.service"), &changes, &n_changes) == 1);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/with-dropin-3@.service");
@@ -1098,7 +1106,7 @@ TEST(preset_multiple_instances) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         /* Preset a single instantiated unit specified in the list */
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("foo@bar0.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("foo@bar0.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
@@ -1107,7 +1115,7 @@ TEST(preset_multiple_instances) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("foo@bar0.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("foo@bar0.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
         assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/foo@bar0.service");
@@ -1120,7 +1128,7 @@ TEST(preset_multiple_instances) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar1.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
         assert_se(n_changes > 0);
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
@@ -1143,7 +1151,7 @@ static void verify_one(
         if (i != last_info)
                 log_info("-- %s --", (last_info = i)->name);
 
-        r = unit_file_verify_alias(i, alias, &alias2, NULL, NULL);
+        r = unit_file_verify_alias(i, alias, &alias2, /* changes= */ NULL, /* n_changes= */ NULL);
         log_info_errno(r, "alias %s ← %s: %d/%m (expected %d)%s%s%s",
                        i->name, alias, r, expected,
                        alias2 ? " [" : "", strempty(alias2),
@@ -1167,139 +1175,139 @@ TEST(verify_alias) {
                 di_inst_template = { .name = (char*) "template4@inst.service",
                                      .default_instance = (char*) "di" };
 
-        verify_one(&plain_service, "alias.service", 0, NULL);
-        verify_one(&plain_service, "alias.socket", -EXDEV, NULL);
-        verify_one(&plain_service, "alias@.service", -EXDEV, NULL);
-        verify_one(&plain_service, "alias@inst.service", -EXDEV, NULL);
+        verify_one(&plain_service, "alias.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&plain_service, "alias.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "alias@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "alias@inst.service", -EXDEV, /* updated_name= */ NULL);
 
         /* Setting WantedBy= and RequiredBy= through Alias= is supported for the sake of backwards
          * compatibility. */
-        verify_one(&plain_service, "foo.target.wants/plain.service", 0, NULL);
-        verify_one(&plain_service, "foo.target.wants/plain.socket", -EXDEV, NULL);
-        verify_one(&plain_service, "foo.target.wants/plain@.service", -EXDEV, NULL);
-        verify_one(&plain_service, "foo.target.wants/service", -EXDEV, NULL);
-        verify_one(&plain_service, "foo.target.requires/plain.service", 0, NULL);
-        verify_one(&plain_service, "foo.target.requires/plain.socket", -EXDEV, NULL);
-        verify_one(&plain_service, "foo.target.requires/plain@.service", -EXDEV, NULL);
-        verify_one(&plain_service, "foo.target.requires/service", -EXDEV, NULL);
-        verify_one(&plain_service, "asdf.requires/plain.service", -EXDEV, NULL); /* invalid unit name component */
+        verify_one(&plain_service, "foo.target.wants/plain.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&plain_service, "foo.target.wants/plain.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "foo.target.wants/plain@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "foo.target.wants/service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "foo.target.requires/plain.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&plain_service, "foo.target.requires/plain.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "foo.target.requires/plain@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "foo.target.requires/service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "asdf.requires/plain.service", -EXDEV, /* updated_name= */ NULL); /* invalid unit name component */
         /* The newly-added UpheldBy= (.upholds/) and other suffixes should be rejected */
-        verify_one(&plain_service, "foo.target.upholds/plain.service", -EXDEV, NULL);
-        verify_one(&plain_service, "foo.target.upholds/plain.socket", -EXDEV, NULL);
-        verify_one(&plain_service, "foo.target.upholds/plain@.service", -EXDEV, NULL);
-        verify_one(&plain_service, "foo.target.upholds/service", -EXDEV, NULL);
-        verify_one(&plain_service, "foo.service/plain.service", -EXDEV, NULL); /* missing dir suffix */
-        verify_one(&plain_service, "foo.target.conf/plain.service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.upholds/plain.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "foo.target.upholds/plain.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "foo.target.upholds/plain@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "foo.target.upholds/service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&plain_service, "foo.service/plain.service", -EXDEV, /* updated_name= */ NULL); /* missing dir suffix */
+        verify_one(&plain_service, "foo.target.conf/plain.service", -EXDEV, /* updated_name= */ NULL);
 
-        verify_one(&bare_template, "alias.service", -EXDEV, NULL);
-        verify_one(&bare_template, "alias.socket", -EXDEV, NULL);
-        verify_one(&bare_template, "alias@.socket", -EXDEV, NULL);
-        verify_one(&bare_template, "alias@inst.socket", -EXDEV, NULL);
+        verify_one(&bare_template, "alias.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "alias.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "alias@.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "alias@inst.socket", -EXDEV, /* updated_name= */ NULL);
         /* A general alias alias@.service → template1@.service. */
-        verify_one(&bare_template, "alias@.service", 0, NULL);
+        verify_one(&bare_template, "alias@.service", /* expected= */ 0, /* updated_name= */ NULL);
         /* Only a specific instance is aliased, see the discussion in https://github.com/systemd/systemd/pull/13119. */
-        verify_one(&bare_template, "alias@inst.service", 0, NULL);
-        verify_one(&bare_template, "foo.target.wants/plain.service", -EXDEV, NULL);
-        verify_one(&bare_template, "foo.target.wants/plain.socket", -EXDEV, NULL);
-        verify_one(&bare_template, "foo.target.wants/plain@.service", -EXDEV, NULL);
+        verify_one(&bare_template, "alias@inst.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&bare_template, "foo.target.wants/plain.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "foo.target.wants/plain.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "foo.target.wants/plain@.service", -EXDEV, /* updated_name= */ NULL);
          /* Name mismatch: we cannot allow this, because plain@foo.service would be pulled in by foo.target,
           * but would not be resolvable on its own, since systemd doesn't know how to load the fragment. */
-        verify_one(&bare_template, "foo.target.wants/plain@foo.service", -EXDEV, NULL);
-        verify_one(&bare_template, "foo.target.wants/template1@foo.service", 0, NULL);
-        verify_one(&bare_template, "foo.target.wants/service", -EXDEV, NULL);
-        verify_one(&bare_template, "foo.target.requires/plain.service", -EXDEV, NULL);
-        verify_one(&bare_template, "foo.target.requires/plain.socket", -EXDEV, NULL);
-        verify_one(&bare_template, "foo.target.requires/plain@.service", -EXDEV, NULL); /* instance missing */
-        verify_one(&bare_template, "foo.target.requires/template1@inst.service", 0, NULL);
-        verify_one(&bare_template, "foo.target.requires/service", -EXDEV, NULL);
-        verify_one(&bare_template, "foo.target.conf/plain.service", -EXDEV, NULL);
-        verify_one(&bare_template, "FOO@.target.requires/plain@.service", -EXDEV, NULL); /* template name mismatch */
-        verify_one(&bare_template, "FOO@inst.target.requires/plain@.service", -EXDEV, NULL);
-        verify_one(&bare_template, "FOO@inst.target.requires/plain@inst.service", -EXDEV, NULL);
-        verify_one(&bare_template, "FOO@.target.requires/template1@.service", 0, NULL); /* instance propagated */
-        verify_one(&bare_template, "FOO@inst.target.requires/template1@.service", -EXDEV, NULL); /* instance missing */
-        verify_one(&bare_template, "FOO@inst.target.requires/template1@inst.service", 0, NULL); /* instance provided */
+        verify_one(&bare_template, "foo.target.wants/plain@foo.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "foo.target.wants/template1@foo.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&bare_template, "foo.target.wants/service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "foo.target.requires/plain.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "foo.target.requires/plain.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "foo.target.requires/plain@.service", -EXDEV, /* updated_name= */ NULL); /* instance missing */
+        verify_one(&bare_template, "foo.target.requires/template1@inst.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&bare_template, "foo.target.requires/service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "foo.target.conf/plain.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "FOO@.target.requires/plain@.service", -EXDEV, /* updated_name= */ NULL); /* template name mismatch */
+        verify_one(&bare_template, "FOO@inst.target.requires/plain@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "FOO@inst.target.requires/plain@inst.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&bare_template, "FOO@.target.requires/template1@.service", /* expected= */ 0, /* updated_name= */ NULL); /* instance propagated */
+        verify_one(&bare_template, "FOO@inst.target.requires/template1@.service", -EXDEV, /* updated_name= */ NULL); /* instance missing */
+        verify_one(&bare_template, "FOO@inst.target.requires/template1@inst.service", /* expected= */ 0, /* updated_name= */ NULL); /* instance provided */
 
-        verify_one(&di_template, "alias.service", -EXDEV, NULL);
-        verify_one(&di_template, "alias.socket", -EXDEV, NULL);
-        verify_one(&di_template, "alias@.socket", -EXDEV, NULL);
-        verify_one(&di_template, "alias@inst.socket", -EXDEV, NULL);
-        verify_one(&di_template, "alias@inst.service", 0, NULL);
-        verify_one(&di_template, "alias@.service", 0, NULL);
-        verify_one(&di_template, "alias@di.service", 0, NULL);
-        verify_one(&di_template, "foo.target.wants/plain.service", -EXDEV, NULL);
-        verify_one(&di_template, "foo.target.wants/plain.socket", -EXDEV, NULL);
-        verify_one(&di_template, "foo.target.wants/plain@.service", -EXDEV, NULL);
-        verify_one(&di_template, "foo.target.wants/plain@di.service", -EXDEV, NULL);
-        verify_one(&di_template, "foo.target.wants/template2@di.service", 0, NULL);
-        verify_one(&di_template, "foo.target.wants/service", -EXDEV, NULL);
-        verify_one(&di_template, "foo.target.requires/plain.service", -EXDEV, NULL);
-        verify_one(&di_template, "foo.target.requires/plain.socket", -EXDEV, NULL);
-        verify_one(&di_template, "foo.target.requires/plain@.service", -EXDEV, NULL);
-        verify_one(&di_template, "foo.target.requires/plain@di.service", -EXDEV, NULL);
-        verify_one(&di_template, "foo.target.requires/plain@foo.service", -EXDEV, NULL);
-        verify_one(&di_template, "foo.target.requires/template2@.service", -EXDEV, NULL); /* instance missing */
-        verify_one(&di_template, "foo.target.requires/template2@di.service", 0, NULL);
-        verify_one(&di_template, "foo.target.requires/service", -EXDEV, NULL);
-        verify_one(&di_template, "foo.target.conf/plain.service", -EXDEV, NULL);
+        verify_one(&di_template, "alias.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "alias.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "alias@.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "alias@inst.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "alias@inst.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&di_template, "alias@.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&di_template, "alias@di.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.wants/plain.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.wants/plain.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.wants/plain@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.wants/plain@di.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.wants/template2@di.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.wants/service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.requires/plain.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.requires/plain.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.requires/plain@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.requires/plain@di.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.requires/plain@foo.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.requires/template2@.service", -EXDEV, /* updated_name= */ NULL); /* instance missing */
+        verify_one(&di_template, "foo.target.requires/template2@di.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.requires/service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_template, "foo.target.conf/plain.service", -EXDEV, /* updated_name= */ NULL);
 
-        verify_one(&inst_template, "alias.service", -EXDEV, NULL);
-        verify_one(&inst_template, "alias.socket", -EXDEV, NULL);
-        verify_one(&inst_template, "alias@.socket", -EXDEV, NULL);
-        verify_one(&inst_template, "alias@inst.socket", -EXDEV, NULL);
-        verify_one(&inst_template, "alias@inst.service", 0, NULL);
-        verify_one(&inst_template, "alias@.service", 0, "alias@inst.service");
-        verify_one(&inst_template, "alias@di.service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.wants/plain.service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.wants/plain.socket", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.wants/plain@.service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.wants/plain@di.service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.wants/plain@inst.service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.wants/template3@foo.service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.wants/template3@inst.service", 0, NULL);
-        verify_one(&inst_template, "bar.target.wants/service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.requires/plain.service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.requires/plain.socket", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.requires/plain@.service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.requires/plain@di.service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.requires/plain@inst.service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.requires/template3@foo.service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.requires/template3@inst.service", 0, NULL);
-        verify_one(&inst_template, "bar.target.requires/service", -EXDEV, NULL);
-        verify_one(&inst_template, "bar.target.conf/plain.service", -EXDEV, NULL);
-        verify_one(&inst_template, "BAR@.target.requires/plain@.service", -EXDEV, NULL); /* template name mismatch */
-        verify_one(&inst_template, "BAR@inst.target.requires/plain@.service", -EXDEV, NULL);
-        verify_one(&inst_template, "BAR@inst.target.requires/plain@inst.service", -EXDEV, NULL);
-        verify_one(&inst_template, "BAR@.target.requires/template3@.service", -EXDEV, NULL); /* instance missing */
-        verify_one(&inst_template, "BAR@inst.target.requires/template3@.service", -EXDEV, NULL); /* instance missing */
-        verify_one(&inst_template, "BAR@inst.target.requires/template3@inst.service", 0, NULL); /* instance provided */
-        verify_one(&inst_template, "BAR@inst.target.requires/template3@ins2.service", -EXDEV, NULL); /* instance mismatch */
+        verify_one(&inst_template, "alias.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "alias.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "alias@.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "alias@inst.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "alias@inst.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&inst_template, "alias@.service", /* expected= */ 0, "alias@inst.service");
+        verify_one(&inst_template, "alias@di.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.wants/plain.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.wants/plain.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.wants/plain@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.wants/plain@di.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.wants/plain@inst.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.wants/template3@foo.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.wants/template3@inst.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.wants/service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.requires/plain.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.requires/plain.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.requires/plain@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.requires/plain@di.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.requires/plain@inst.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.requires/template3@foo.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.requires/template3@inst.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.requires/service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "bar.target.conf/plain.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "BAR@.target.requires/plain@.service", -EXDEV, /* updated_name= */ NULL); /* template name mismatch */
+        verify_one(&inst_template, "BAR@inst.target.requires/plain@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "BAR@inst.target.requires/plain@inst.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&inst_template, "BAR@.target.requires/template3@.service", -EXDEV, /* updated_name= */ NULL); /* instance missing */
+        verify_one(&inst_template, "BAR@inst.target.requires/template3@.service", -EXDEV, /* updated_name= */ NULL); /* instance missing */
+        verify_one(&inst_template, "BAR@inst.target.requires/template3@inst.service", /* expected= */ 0, /* updated_name= */ NULL); /* instance provided */
+        verify_one(&inst_template, "BAR@inst.target.requires/template3@ins2.service", -EXDEV, /* updated_name= */ NULL); /* instance mismatch */
 
         /* explicit alias overrides DefaultInstance */
-        verify_one(&di_inst_template, "alias.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "alias.socket", -EXDEV, NULL);
-        verify_one(&di_inst_template, "alias@.socket", -EXDEV, NULL);
-        verify_one(&di_inst_template, "alias@inst.socket", -EXDEV, NULL);
-        verify_one(&di_inst_template, "alias@inst.service", 0, NULL);
-        verify_one(&di_inst_template, "alias@.service", 0, "alias@inst.service");
-        verify_one(&di_inst_template, "alias@di.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.wants/plain.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.wants/plain.socket", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.wants/plain@.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.wants/plain@di.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.wants/template4@foo.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.wants/template4@inst.service", 0, NULL);
-        verify_one(&di_inst_template, "goo.target.wants/template4@di.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.wants/service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.requires/plain.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.requires/plain.socket", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.requires/plain@.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.requires/plain@di.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.requires/plain@inst.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.requires/template4@foo.service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.requires/template4@inst.service", 0, NULL);
-        verify_one(&di_inst_template, "goo.target.requires/service", -EXDEV, NULL);
-        verify_one(&di_inst_template, "goo.target.conf/plain.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "alias.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "alias.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "alias@.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "alias@inst.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "alias@inst.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "alias@.service", /* expected= */ 0, "alias@inst.service");
+        verify_one(&di_inst_template, "alias@di.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.wants/plain.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.wants/plain.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.wants/plain@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.wants/plain@di.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.wants/template4@foo.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.wants/template4@inst.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.wants/template4@di.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.wants/service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.requires/plain.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.requires/plain.socket", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.requires/plain@.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.requires/plain@di.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.requires/plain@inst.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.requires/template4@foo.service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.requires/template4@inst.service", /* expected= */ 0, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.requires/service", -EXDEV, /* updated_name= */ NULL);
+        verify_one(&di_inst_template, "goo.target.conf/plain.service", -EXDEV, /* updated_name= */ NULL);
 }
 
 static int intro(void) {

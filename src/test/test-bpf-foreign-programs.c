@@ -209,7 +209,7 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
                         if (r < 0)
                                 return log_error_errno(r, "Failed to compose option string: %m");
                         r = config_parse_bpf_foreign_program(
-                                        u->id, "filename", 1, "Service", 1, test_suite[i].option_name, 0, option, cc, u);
+                                        u->id, "filename", 1, "Service", 1, test_suite[i].option_name, /* ltype= */ 0, option, cc, u);
 
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse option string '%s': %m", option);
@@ -223,7 +223,7 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
                                 paths = &cc->ip_filters_egress;
 
                         r = config_parse_ip_filter_bpf_progs(
-                                        u->id, "filename", 1, "Service", 1, test_suite[i].option_name, 0, option, paths, u);
+                                        u->id, "filename", 1, "Service", 1, test_suite[i].option_name, /* ltype= */ 0, option, paths, u);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse option string '%s': %m", option);
                 }
@@ -247,7 +247,7 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
         u->load_state = UNIT_LOADED;
 
         ASSERT_OK(unit_patch_contexts(u));
-        r = unit_start(u, NULL);
+        r = unit_start(u, /* details= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Unit start failed: %m");
 
@@ -294,7 +294,7 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
-        r = enter_cgroup_subroot(NULL);
+        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
@@ -303,7 +303,7 @@ int main(int argc, char *argv[]) {
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         ASSERT_OK(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m));
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         ASSERT_OK(test_bpf_cgroup_programs(m,
                                 "single_prog.service", single_prog, ELEMENTSOF(single_prog)));

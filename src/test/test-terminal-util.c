@@ -144,7 +144,7 @@ TEST(get_ctty) {
         dev_t devnr;
         int r;
 
-        r = get_ctty(0, &devnr, &ctty);
+        r = get_ctty(/* pid= */ 0, &devnr, &ctty);
         if (r < 0) {
                 log_notice_errno(r, "Apparently called without a controlling TTY, cutting get_ctty() test short: %m");
                 return;
@@ -392,29 +392,29 @@ TEST(pty_open_peer) {
 TEST(terminal_new_session) {
         int r;
 
-        _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));
+        _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, /* ret_peer_path= */ NULL));
         _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
 
         r = pidref_safe_fork_full(
                         "test-term-session",
                         (int[]) { peer_fd, peer_fd, peer_fd },
-                        NULL, 0,
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_REARRANGE_STDIO,
-                        NULL);
+                        /* ret= */ NULL);
         ASSERT_OK(r);
         if (r == 0) {
                 ASSERT_OK(terminal_new_session());
-                ASSERT_OK(get_ctty_devnr(0, NULL));
+                ASSERT_OK(get_ctty_devnr(/* pid= */ 0, /* ret= */ NULL));
 
                 terminal_detach_session();
-                ASSERT_ERROR(get_ctty_devnr(0, NULL), ENXIO);
+                ASSERT_ERROR(get_ctty_devnr(/* pid= */ 0, /* ret= */ NULL), ENXIO);
 
                 ASSERT_OK(terminal_new_session());
-                ASSERT_OK(get_ctty_devnr(0, NULL));
+                ASSERT_OK(get_ctty_devnr(/* pid= */ 0, /* ret= */ NULL));
 
                 terminal_detach_session();
                 ASSERT_OK(rearrange_stdio(-EBADF, STDOUT_FILENO, STDERR_FILENO));
-                ASSERT_ERROR(get_ctty_devnr(0, NULL), ENXIO);
+                ASSERT_ERROR(get_ctty_devnr(/* pid= */ 0, /* ret= */ NULL), ENXIO);
                 ASSERT_ERROR(terminal_new_session(), ENXIO);
 
                 _exit(EXIT_SUCCESS);

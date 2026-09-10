@@ -74,7 +74,7 @@ TEST_RET(bootspec_sort) {
                 ASSERT_OK(write_string_file(j, entry->contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
         }
 
-        ASSERT_OK(boot_config_load(&config, d, NULL));
+        ASSERT_OK(boot_config_load(&config, d, /* xbootldr_path= */ NULL));
 
         assert_se(config.n_entries == 6);
 
@@ -107,44 +107,44 @@ static void test_extract_tries_one(const char *fname, int ret, const char *strip
 }
 
 TEST_RET(bootspec_extract_tries) {
-        test_extract_tries_one("foo.conf", 0, "foo.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("foo.conf", /* ret= */ 0, "foo.conf", UINT_MAX, UINT_MAX);
 
-        test_extract_tries_one("foo+0.conf", 0, "foo.conf", 0, UINT_MAX);
-        test_extract_tries_one("foo+1.conf", 0, "foo.conf", 1, UINT_MAX);
-        test_extract_tries_one("foo+2.conf", 0, "foo.conf", 2, UINT_MAX);
-        test_extract_tries_one("foo+33.conf", 0, "foo.conf", 33, UINT_MAX);
+        test_extract_tries_one("foo+0.conf", /* ret= */ 0, "foo.conf", /* tries_left= */ 0, UINT_MAX);
+        test_extract_tries_one("foo+1.conf", /* ret= */ 0, "foo.conf", 1, UINT_MAX);
+        test_extract_tries_one("foo+2.conf", /* ret= */ 0, "foo.conf", 2, UINT_MAX);
+        test_extract_tries_one("foo+33.conf", /* ret= */ 0, "foo.conf", 33, UINT_MAX);
 
         assert_cc(INT_MAX == INT32_MAX);
-        test_extract_tries_one("foo+2147483647.conf", 0, "foo.conf", 2147483647, UINT_MAX);
-        test_extract_tries_one("foo+2147483648.conf", -ERANGE, NULL, UINT_MAX, UINT_MAX);
+        test_extract_tries_one("foo+2147483647.conf", /* ret= */ 0, "foo.conf", 2147483647, UINT_MAX);
+        test_extract_tries_one("foo+2147483648.conf", -ERANGE, /* stripped= */ NULL, UINT_MAX, UINT_MAX);
 
-        test_extract_tries_one("foo+33-0.conf", 0, "foo.conf", 33, 0);
-        test_extract_tries_one("foo+33-1.conf", 0, "foo.conf", 33, 1);
-        test_extract_tries_one("foo+33-107.conf", 0, "foo.conf", 33, 107);
-        test_extract_tries_one("foo+33-107.efi", 0, "foo.efi", 33, 107);
-        test_extract_tries_one("foo+33-2147483647.conf", 0, "foo.conf", 33, 2147483647);
-        test_extract_tries_one("foo+33-2147483648.conf", -ERANGE, NULL, UINT_MAX, UINT_MAX);
+        test_extract_tries_one("foo+33-0.conf", /* ret= */ 0, "foo.conf", 33, /* tries_done= */ 0);
+        test_extract_tries_one("foo+33-1.conf", /* ret= */ 0, "foo.conf", 33, 1);
+        test_extract_tries_one("foo+33-107.conf", /* ret= */ 0, "foo.conf", 33, 107);
+        test_extract_tries_one("foo+33-107.efi", /* ret= */ 0, "foo.efi", 33, 107);
+        test_extract_tries_one("foo+33-2147483647.conf", /* ret= */ 0, "foo.conf", 33, 2147483647);
+        test_extract_tries_one("foo+33-2147483648.conf", -ERANGE, /* stripped= */ NULL, UINT_MAX, UINT_MAX);
 
-        test_extract_tries_one("foo+007-000008.conf", 0, "foo.conf", 7, 8);
+        test_extract_tries_one("foo+007-000008.conf", /* ret= */ 0, "foo.conf", 7, 8);
 
-        test_extract_tries_one("foo-1.conf", 0, "foo-1.conf", UINT_MAX, UINT_MAX);
-        test_extract_tries_one("foo-999.conf", 0, "foo-999.conf", UINT_MAX, UINT_MAX);
-        test_extract_tries_one("foo-.conf", 0, "foo-.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("foo-1.conf", /* ret= */ 0, "foo-1.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("foo-999.conf", /* ret= */ 0, "foo-999.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("foo-.conf", /* ret= */ 0, "foo-.conf", UINT_MAX, UINT_MAX);
 
-        test_extract_tries_one("foo+.conf", 0, "foo+.conf", UINT_MAX, UINT_MAX);
-        test_extract_tries_one("+.conf", 0, "+.conf", UINT_MAX, UINT_MAX);
-        test_extract_tries_one("-.conf", 0, "-.conf", UINT_MAX, UINT_MAX);
-        test_extract_tries_one("", 0, "", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("foo+.conf", /* ret= */ 0, "foo+.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("+.conf", /* ret= */ 0, "+.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("-.conf", /* ret= */ 0, "-.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("", /* ret= */ 0, "", UINT_MAX, UINT_MAX);
 
-        test_extract_tries_one("+1.", 0, ".", 1, UINT_MAX);
-        test_extract_tries_one("+1-7.", 0, ".", 1, 7);
+        test_extract_tries_one("+1.", /* ret= */ 0, ".", 1, UINT_MAX);
+        test_extract_tries_one("+1-7.", /* ret= */ 0, ".", 1, 7);
 
-        test_extract_tries_one("some+name+24324-22.efi", 0, "some+name.efi", 24324, 22);
-        test_extract_tries_one("sels+2-3+7-6.", 0, "sels+2-3.", 7, 6);
-        test_extract_tries_one("a+1-2..", 0, "a+1-2..", UINT_MAX, UINT_MAX);
-        test_extract_tries_one("ses.sgesge.+4-1.efi", 0, "ses.sgesge..efi", 4, 1);
-        test_extract_tries_one("abc+0x4.conf", 0, "abc+0x4.conf", UINT_MAX, UINT_MAX);
-        test_extract_tries_one("def+1-0x3.conf", 0, "def+1-0x3.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("some+name+24324-22.efi", /* ret= */ 0, "some+name.efi", 24324, 22);
+        test_extract_tries_one("sels+2-3+7-6.", /* ret= */ 0, "sels+2-3.", 7, 6);
+        test_extract_tries_one("a+1-2..", /* ret= */ 0, "a+1-2..", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("ses.sgesge.+4-1.efi", /* ret= */ 0, "ses.sgesge..efi", 4, 1);
+        test_extract_tries_one("abc+0x4.conf", /* ret= */ 0, "abc+0x4.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("def+1-0x3.conf", /* ret= */ 0, "def+1-0x3.conf", UINT_MAX, UINT_MAX);
 
         return 0;
 }
@@ -185,7 +185,7 @@ TEST_RET(bootspec_boot_config_find_entry) {
                 assert_se(write_string_file(j, entry->contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
         }
 
-        assert_se(boot_config_load(&config, d, NULL) >= 0);
+        assert_se(boot_config_load(&config, d, /* xbootldr_path= */ NULL) >= 0);
         assert_se(config.n_entries == 2);
 
         /* Test finding the first entry */

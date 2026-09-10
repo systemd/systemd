@@ -6,7 +6,7 @@
 TEST(session_id_valid) {
         /* Invalid Session ID */
         assert_se(!session_id_valid(""));
-        assert_se(!session_id_valid(NULL));
+        assert_se(!session_id_valid(/* id= */ NULL));
         assert_se(!session_id_valid("abc-123"));
         assert_se(!session_id_valid("abc_123"));
         assert_se(!session_id_valid("abc123*"));

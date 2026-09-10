@@ -110,31 +110,31 @@ TEST_RET(test_image_policy_to_string) {
         test_policy_equiv("=unused+absent", image_policy_equiv_ignore);
         test_policy_equiv("root=ignore:=ignore", image_policy_equiv_ignore);
 
-        assert_se(image_policy_from_string("pfft", /* graceful= */ false, NULL) == -EINVAL);
-        assert_se(image_policy_from_string("öäüß", /* graceful= */ false, NULL) == -EINVAL);
-        assert_se(image_policy_from_string(":", /* graceful= */ false, NULL) == -EINVAL);
-        assert_se(image_policy_from_string("a=", /* graceful= */ false, NULL) == -EBADSLT);
-        assert_se(image_policy_from_string("=a", /* graceful= */ false, NULL) == -EBADRQC);
-        assert_se(image_policy_from_string("==", /* graceful= */ false, NULL) == -EBADRQC);
-        assert_se(image_policy_from_string("root=verity:root=encrypted", /* graceful= */ false, NULL) == -ENOTUNIQ);
-        assert_se(image_policy_from_string("root=grbl", /* graceful= */ false, NULL) == -EBADRQC);
-        assert_se(image_policy_from_string("wowza=grbl", /* graceful= */ false, NULL) == -EBADSLT);
+        assert_se(image_policy_from_string("pfft", /* graceful= */ false, /* ret= */ NULL) == -EINVAL);
+        assert_se(image_policy_from_string("öäüß", /* graceful= */ false, /* ret= */ NULL) == -EINVAL);
+        assert_se(image_policy_from_string(":", /* graceful= */ false, /* ret= */ NULL) == -EINVAL);
+        assert_se(image_policy_from_string("a=", /* graceful= */ false, /* ret= */ NULL) == -EBADSLT);
+        assert_se(image_policy_from_string("=a", /* graceful= */ false, /* ret= */ NULL) == -EBADRQC);
+        assert_se(image_policy_from_string("==", /* graceful= */ false, /* ret= */ NULL) == -EBADRQC);
+        assert_se(image_policy_from_string("root=verity:root=encrypted", /* graceful= */ false, /* ret= */ NULL) == -ENOTUNIQ);
+        assert_se(image_policy_from_string("root=grbl", /* graceful= */ false, /* ret= */ NULL) == -EBADRQC);
+        assert_se(image_policy_from_string("wowza=grbl", /* graceful= */ false, /* ret= */ NULL) == -EBADSLT);
 
-        assert_se(image_policy_from_string("pfft", /* graceful= */ true, NULL) == -EINVAL);
-        assert_se(image_policy_from_string("öäüß", /* graceful= */ true, NULL) == -EINVAL);
-        assert_se(image_policy_from_string(":", /* graceful= */ true, NULL) == -EINVAL);
-        assert_se(image_policy_from_string("a=", /* graceful= */ true, NULL) == 0);
-        assert_se(image_policy_from_string("=a", /* graceful= */ true, NULL) == 0);
-        assert_se(image_policy_from_string("==", /* graceful= */ true, NULL) == 0);
-        assert_se(image_policy_from_string("root=verity:root=encrypted", /* graceful= */ true, NULL) == -ENOTUNIQ);
-        assert_se(image_policy_from_string("root=grbl", /* graceful= */ true, NULL) == 0);
-        assert_se(image_policy_from_string("wowza=grbl", /* graceful= */ true, NULL) == 0);
+        assert_se(image_policy_from_string("pfft", /* graceful= */ true, /* ret= */ NULL) == -EINVAL);
+        assert_se(image_policy_from_string("öäüß", /* graceful= */ true, /* ret= */ NULL) == -EINVAL);
+        assert_se(image_policy_from_string(":", /* graceful= */ true, /* ret= */ NULL) == -EINVAL);
+        assert_se(image_policy_from_string("a=", /* graceful= */ true, /* ret= */ NULL) == 0);
+        assert_se(image_policy_from_string("=a", /* graceful= */ true, /* ret= */ NULL) == 0);
+        assert_se(image_policy_from_string("==", /* graceful= */ true, /* ret= */ NULL) == 0);
+        assert_se(image_policy_from_string("root=verity:root=encrypted", /* graceful= */ true, /* ret= */ NULL) == -ENOTUNIQ);
+        assert_se(image_policy_from_string("root=grbl", /* graceful= */ true, /* ret= */ NULL) == 0);
+        assert_se(image_policy_from_string("wowza=grbl", /* graceful= */ true, /* ret= */ NULL) == 0);
 
         return 0;
 }
 
 TEST(extend) {
-        assert_se(partition_policy_flags_extend(0) == _PARTITION_POLICY_MASK);
+        assert_se(partition_policy_flags_extend(/* flags= */ 0) == _PARTITION_POLICY_MASK);
         assert_se(partition_policy_flags_extend(_PARTITION_POLICY_MASK) == _PARTITION_POLICY_MASK);
         assert_se(partition_policy_flags_extend(PARTITION_POLICY_UNPROTECTED) == (PARTITION_POLICY_UNPROTECTED|_PARTITION_POLICY_PFLAGS_MASK));
         assert_se(partition_policy_flags_extend(PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_READ_ONLY_ON) == (PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_READ_ONLY_ON|_PARTITION_POLICY_GROWFS_MASK));
@@ -155,10 +155,10 @@ static void test_policy_intersect_one(const char *a, const char *b, const char *
                 assert_se(image_policy_union(x, y, &t) >= 0);
 
         _cleanup_free_ char *s1 = NULL, *s2 = NULL, *s3 = NULL, *s4 = NULL;
-        assert_se(image_policy_to_string(x, false, &s1) >= 0);
-        assert_se(image_policy_to_string(y, false, &s2) >= 0);
-        assert_se(image_policy_to_string(z, false, &s3) >= 0);
-        assert_se(image_policy_to_string(t, false, &s4) >= 0);
+        assert_se(image_policy_to_string(x, /* simplify= */ false, &s1) >= 0);
+        assert_se(image_policy_to_string(y, /* simplify= */ false, &s2) >= 0);
+        assert_se(image_policy_to_string(z, /* simplify= */ false, &s3) >= 0);
+        assert_se(image_policy_to_string(t, /* simplify= */ false, &s4) >= 0);
 
         log_info("%s %s %s → %s vs. %s", s1, intersect ? "^" : "U", s2, s3, s4);
 
@@ -196,12 +196,12 @@ static void test_policy_ignore_designators_one(const char *a, const PartitionDes
         ASSERT_OK(image_policy_from_string(b, /* graceful= */ false, &y));
 
         _cleanup_free_ char *s1 = NULL, *s2 = NULL, *s3 = NULL;
-        ASSERT_OK(image_policy_to_string(x, true, &s1));
-        ASSERT_OK(image_policy_to_string(y, true, &s2));
+        ASSERT_OK(image_policy_to_string(x, /* simplify= */ true, &s1));
+        ASSERT_OK(image_policy_to_string(y, /* simplify= */ true, &s2));
 
         ASSERT_OK(image_policy_ignore_designators(x, array, n, &t));
 
-        ASSERT_OK(image_policy_to_string(t, true, &s3));
+        ASSERT_OK(image_policy_to_string(t, /* simplify= */ true, &s3));
 
         log_info("%s → %s vs. %s", s1, s2, s3);
 
@@ -209,7 +209,7 @@ static void test_policy_ignore_designators_one(const char *a, const PartitionDes
 }
 
 TEST(image_policy_ignore_designators) {
-        test_policy_ignore_designators_one("-", NULL, 0, "-");
+        test_policy_ignore_designators_one("-", /* array= */ NULL, 0, "-");
         test_policy_ignore_designators_one("-", ((const PartitionDesignator[]) { PARTITION_ROOT }), 1, "-");
         test_policy_ignore_designators_one("*", ((const PartitionDesignator[]) { PARTITION_ROOT }), 1, "root=ignore:=open");
         test_policy_ignore_designators_one("*", ((const PartitionDesignator[]) { PARTITION_ROOT, PARTITION_USR }), 2, "root=ignore:usr=ignore:=open");

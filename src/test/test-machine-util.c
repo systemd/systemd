@@ -131,14 +131,14 @@ TEST(machine_storage_name_split) {
         ASSERT_STREQ(v, "/dev/sda");
 
         /* NULL outputs — validate-only mode */
-        ASSERT_OK(machine_storage_name_split("fs:vol-1", NULL, NULL));
+        ASSERT_OK(machine_storage_name_split("fs:vol-1", /* ret_provider= */ NULL, /* ret_volume= */ NULL));
 
-        ASSERT_ERROR(machine_storage_name_split(NULL, NULL, NULL), EINVAL);
-        ASSERT_ERROR(machine_storage_name_split("", NULL, NULL), EINVAL);
-        ASSERT_ERROR(machine_storage_name_split("no-colon", NULL, NULL), EINVAL);
-        ASSERT_ERROR(machine_storage_name_split(":vol", NULL, NULL), EINVAL);
-        ASSERT_ERROR(machine_storage_name_split("block:", NULL, NULL), EINVAL);
-        ASSERT_ERROR(machine_storage_name_split("bl\x01ock:vol", NULL, NULL), EINVAL);
+        ASSERT_ERROR(machine_storage_name_split(NULL, /* ret_provider= */ NULL, /* ret_volume= */ NULL), EINVAL);
+        ASSERT_ERROR(machine_storage_name_split("", /* ret_provider= */ NULL, /* ret_volume= */ NULL), EINVAL);
+        ASSERT_ERROR(machine_storage_name_split("no-colon", /* ret_provider= */ NULL, /* ret_volume= */ NULL), EINVAL);
+        ASSERT_ERROR(machine_storage_name_split(":vol", /* ret_provider= */ NULL, /* ret_volume= */ NULL), EINVAL);
+        ASSERT_ERROR(machine_storage_name_split("block:", /* ret_provider= */ NULL, /* ret_volume= */ NULL), EINVAL);
+        ASSERT_ERROR(machine_storage_name_split("bl\x01ock:vol", /* ret_provider= */ NULL, /* ret_volume= */ NULL), EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
