@@ -509,7 +509,7 @@ bool pattern_skip_glob_directory_prefix(const char **pattern) {
 int pattern_valid(const char *pattern) {
         int r;
 
-        r = pattern_split(pattern, NULL);
+        r = pattern_split(pattern, /* ret= */ NULL);
         if (r == -EINVAL)
                 return false;
         if (r < 0)
