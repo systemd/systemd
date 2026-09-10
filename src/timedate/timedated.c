@@ -164,7 +164,7 @@ static int context_parse_ntp_services_from_environment(Context *c) {
         for (p = env;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, ":", 0);
+                r = extract_first_word(&p, &word, ":", /* flags= */ 0);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -276,7 +276,7 @@ static int context_read_data(Context *c) {
 
         free_and_replace(c->zone, t);
 
-        c->local_rtc = clock_is_localtime(NULL) > 0;
+        c->local_rtc = clock_is_localtime(/* adjtime_path= */ NULL) > 0;
 
         return 0;
 }
@@ -330,7 +330,7 @@ static int context_write_data_local_rtc(Context *c) {
 
         assert(c);
 
-        r = read_full_file(etc_adjtime(), &s, NULL);
+        r = read_full_file(etc_adjtime(), &s, /* ret_size= */ NULL);
         if (r < 0) {
                 if (r != -ENOENT)
                         return r;
@@ -437,7 +437,7 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
                                 map,
                                 BUS_MAP_STRDUP,
                                 &error,
-                                NULL,
+                                /* ret_reply= */ NULL,
                                 u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
@@ -475,7 +475,7 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                                                       "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP",
                                                       NULL);
                 while ((cm = set_steal_first(c->set_ntp_calls))) {
-                        r = sd_bus_reply_method_return(cm, NULL);
+                        r = sd_bus_reply_method_return(cm, /* types= */ NULL);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to reply to SetNTP method call, ignoring: %m");
                         sd_bus_message_unref(cm);
@@ -545,7 +545,7 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
                                 bus_systemd_mgr,
                                 "EnableUnitFiles",
                                 error,
-                                NULL,
+                                /* ret_reply= */ NULL,
                                 "asbb", 1,
                                 u->name,
                                 false, true);
@@ -555,7 +555,7 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
                                 bus_systemd_mgr,
                                 "DisableUnitFiles",
                                 error,
-                                NULL,
+                                /* ret_reply= */ NULL,
                                 "asb", 1,
                                 u->name,
                                 false);
@@ -687,7 +687,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid or not installed time zone '%s'", z);
 
         if (streq_ptr(z, c->zone))
-                return sd_bus_reply_method_return(m, NULL);
+                return sd_bus_reply_method_return(m, /* types= */ NULL);
 
         r = bus_verify_polkit_async_full(
                         m,
@@ -722,7 +722,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         tzset();
 
         /* 3. Tell the kernel our timezone */
-        r = clock_set_timezone(NULL);
+        r = clock_set_timezone(/* ret_minutesdelta= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to tell kernel about timezone, ignoring: %m");
 
@@ -751,7 +751,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                                               "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone",
                                               NULL);
 
-        return sd_bus_reply_method_return(m, NULL);
+        return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
 static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -767,7 +767,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                 return r;
 
         if (lrtc == c->local_rtc && !fix_system)
-                return sd_bus_reply_method_return(m, NULL);
+                return sd_bus_reply_method_return(m, /* types= */ NULL);
 
         r = bus_verify_polkit_async_full(
                         m,
@@ -798,7 +798,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         }
 
         /* 2. Tell the kernel our timezone */
-        r = clock_set_timezone(NULL);
+        r = clock_set_timezone(/* ret_minutesdelta= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to tell kernel about timezone, ignoring: %m");
 
@@ -854,7 +854,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                                               "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "LocalRTC",
                                               NULL);
 
-        return sd_bus_reply_method_return(m, NULL);
+        return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
 static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -889,7 +889,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid absolute time");
 
         if (relative && utc == 0)
-                return sd_bus_reply_method_return(m, NULL);
+                return sd_bus_reply_method_return(m, /* types= */ NULL);
 
         if (relative) {
                 usec_t n = now(CLOCK_REALTIME);
@@ -952,7 +952,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                    LOG_ITEM("REALTIME="USEC_FMT, timespec_load(&ts)),
                    LOG_MESSAGE("Changed local time to %s", strnull(FORMAT_TIMESTAMP(timespec_load(&ts)))));
 
-        return sd_bus_reply_method_return(m, NULL);
+        return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
 static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -1003,7 +1003,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                                 &slot,
                                 bus_systemd_mgr,
                                 "JobRemoved",
-                                match_job_removed, NULL, c);
+                                match_job_removed, /* install_callback= */ NULL, c);
                 if (r < 0)
                         return r;
         }
@@ -1035,11 +1035,11 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                         if (!streq(u->load_state, "loaded"))
                                 continue;
 
-                        q = unit_enable_or_disable(u, bus, error, false);
+                        q = unit_enable_or_disable(u, bus, error, /* enable= */ false);
                         if (q < 0)
                                 r = q;
 
-                        q = unit_start_or_stop(u, bus, error, false);
+                        q = unit_start_or_stop(u, bus, error, /* start= */ false);
                         if (q < 0)
                                 r = q;
                 }
@@ -1149,11 +1149,11 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(bus, NULL, "org.freedesktop.timedate1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(bus, /* ret_slot= */ NULL, "org.freedesktop.timedate1", /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(bus, event, 0);
+        r = sd_bus_attach_event(bus, event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
@@ -1221,7 +1221,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = sd_notify(false, NOTIFY_READY_MESSAGE);
+        r = sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
