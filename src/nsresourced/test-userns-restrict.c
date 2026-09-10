@@ -74,7 +74,7 @@ TEST(userns_restrict) {
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
         /* Make sure the dir is owned by the transient UID we'll be using so we don't get rejected with a
          * permission error before we even get to the BPF-LSM. */
         ASSERT_OK_ERRNO(chown(t, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
@@ -186,7 +186,7 @@ TEST(userns_restrict_overlayfs) {
          * We also check that an overlay mounted read-only but with such an upper is refused, since it could
          * otherwise be remounted read-write afterwards without re-entering the hook. */
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
         ASSERT_OK_ERRNO(chown(t, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
 
         ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
@@ -198,7 +198,7 @@ TEST(userns_restrict_overlayfs) {
          * i.e. one that outlives the user namespace. This has to happen here as root: the managed client
          * cannot create these itself, as the path hooks already block a transient-owned inode on a file
          * system that outlives it. */
-        ASSERT_OK(mkdtemp_malloc(NULL, &th));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &th));
         ASSERT_OK_ERRNO(chown(th, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
         ASSERT_NOT_NULL(hlower = path_join(th, "lower"));
         ASSERT_NOT_NULL(hupper = path_join(th, "upper"));
@@ -218,7 +218,7 @@ TEST(userns_restrict_overlayfs) {
          * disk as non-transient ids. Set it up as root and attach it at a path the client can point
          * upperdir= at. */
         idmapped_upper = ASSERT_OK(make_idmapped_tmpfs_fsmount(userns_fd));
-        ASSERT_OK(mkdtemp_malloc(NULL, &ti));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &ti));
         ASSERT_OK_ERRNO(move_mount(idmapped_upper, "", -EBADF, ti, MOVE_MOUNT_F_EMPTY_PATH));
 
         /* And a fourth upper, for the refuse path of the idmap check: an init-owned tmpfs idmapped so that
@@ -238,17 +238,17 @@ TEST(userns_restrict_overlayfs) {
                                               .attr_set = MOUNT_ATTR_IDMAP,
                                               .userns_fd = bad_userns_fd,
                                       }, sizeof(struct mount_attr)));
-        ASSERT_OK(mkdtemp_malloc(NULL, &tb));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &tb));
         ASSERT_OK_ERRNO(move_mount(bad_upper, "", -EBADF, tb, MOVE_MOUNT_F_EMPTY_PATH));
 
         r = ASSERT_OK(pidref_safe_fork("(test-ovl)", FORK_DEATHSIG_SIGKILL, &pidref));
         if (r == 0) {
                 ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
                 ASSERT_OK_ERRNO(unshare(CLONE_NEWNS));
-                ASSERT_OK_ERRNO(mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL));
+                ASSERT_OK_ERRNO(mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_SLAVE|MS_REC, /* data= */ NULL));
 
                 /* Hold the overlay layers on a tmpfs of our own, so nothing touches the host. */
-                ASSERT_OK_ERRNO(mount("tmpfs", t, "tmpfs", 0, NULL));
+                ASSERT_OK_ERRNO(mount("tmpfs", t, "tmpfs", /* mountflags= */ 0, /* data= */ NULL));
 
                 _cleanup_free_ char *lower = NULL, *lower2 = NULL, *upper = NULL, *work = NULL,
                         *merged = NULL;
@@ -282,7 +282,7 @@ TEST(userns_restrict_overlayfs) {
                 _cleanup_free_ char *rw_opts = NULL;
                 ASSERT_NOT_NULL(rw_opts = strjoin("lowerdir=", lower, ",upperdir=", upper,
                                                   ",workdir=", work));
-                ASSERT_OK_ERRNO(mount("overlay", merged, "overlay", 0, rw_opts));
+                ASSERT_OK_ERRNO(mount("overlay", merged, "overlay", /* mountflags= */ 0, rw_opts));
 
                 /* A write through the overlay really lands on the upper (our tmpfs), which the path hooks
                  * never see directly. chown() over the merged mount reaches path_chown, which sees the
@@ -304,7 +304,7 @@ TEST(userns_restrict_overlayfs) {
                 _cleanup_free_ char *bad_opts = NULL;
                 ASSERT_NOT_NULL(bad_opts = strjoin("lowerdir=", hlower, ",upperdir=", hupper,
                                                    ",workdir=", hwork));
-                ASSERT_ERROR_ERRNO(mount("overlay", hmerged, "overlay", 0, bad_opts), EPERM);
+                ASSERT_ERROR_ERRNO(mount("overlay", hmerged, "overlay", /* mountflags= */ 0, bad_opts), EPERM);
 
                 /* The same persistent upper, but mounted read-only, must be refused too: it still has an
                  * upper, so allowing it on the strength of the (mutable) read-only flag would let the client
@@ -322,7 +322,7 @@ TEST(userns_restrict_overlayfs) {
                 ASSERT_OK_ERRNO(mkdir(iwork, 0755));
                 ASSERT_NOT_NULL(idmapped_opts = strjoin("lowerdir=", lower, ",upperdir=", iupper,
                                                         ",workdir=", iwork));
-                ASSERT_OK_ERRNO(mount("overlay", merged, "overlay", 0, idmapped_opts));
+                ASSERT_OK_ERRNO(mount("overlay", merged, "overlay", /* mountflags= */ 0, idmapped_opts));
                 ASSERT_OK_ERRNO(umount(merged));
 
                 /* Finally the idmapped upper whose idmapping does NOT map our transient range away (it
@@ -333,7 +333,7 @@ TEST(userns_restrict_overlayfs) {
                 ASSERT_NOT_NULL(bwork = path_join(tb, "work"));
                 ASSERT_NOT_NULL(bad_idmapped_opts = strjoin("lowerdir=", lower, ",upperdir=", bupper,
                                                             ",workdir=", bwork));
-                ASSERT_ERROR_ERRNO(mount("overlay", merged, "overlay", 0, bad_idmapped_opts), EPERM);
+                ASSERT_ERROR_ERRNO(mount("overlay", merged, "overlay", /* mountflags= */ 0, bad_idmapped_opts), EPERM);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -352,7 +352,7 @@ static void write_child_mappings(PidRef *child, int parent_userns_fd) {
          * there, mirroring what write_userns() does in nsresourcework.c. */
         int r;
 
-        r = ASSERT_OK(pidref_safe_fork("(sd-write-map)", FORK_DEATHSIG_SIGKILL|FORK_WAIT|FORK_LOG, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(sd-write-map)", FORK_DEATHSIG_SIGKILL|FORK_WAIT|FORK_LOG, /* ret= */ NULL));
         if (r == 0) {
                 char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
 
