@@ -353,12 +353,12 @@ XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
                 {}
         };
 
-        r = config_parse(NULL, service->path, NULL,
+        r = config_parse(/* unit= */ NULL, service->path, NULL,
                          "Desktop Entry\0",
                          xdg_config_item_table_lookup, items,
                          CONFIG_PARSE_RELAXED | CONFIG_PARSE_WARN,
                          service,
-                         NULL);
+                         /* ret_stat= */ NULL);
         /* If parsing failed, only hide the file so it will still mask others. */
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse %s, ignoring it", service->path);
@@ -394,7 +394,7 @@ int xdg_autostart_format_exec_start(
          *
          * NOTE: Technically, XDG only specifies " as quotes, while this also accepts '.
          */
-        r = strv_split_full(&exec_split, exec, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX);
+        r = strv_split_full(&exec_split, exec, /* separators= */ NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX);
         if (r < 0)
                 return r;
 
@@ -406,7 +406,7 @@ int xdg_autostart_format_exec_start(
                 _cleanup_free_ char *c = NULL, *raw = NULL, *percent = NULL, *tilde_expanded = NULL;
                 ssize_t l;
 
-                l = cunescape(exec_split[i], 0, &c);
+                l = cunescape(exec_split[i], /* flags= */ 0, &c);
                 if (l < 0)
                         return log_debug_errno(l, "Failed to unescape '%s': %m", exec_split[i]);
 
@@ -569,7 +569,7 @@ int xdg_autostart_service_generate_unit(
         /* The TryExec key cannot be checked properly from the systemd unit, it is trivial to check using
          * find_executable though. */
         if (service->try_exec) {
-                r = find_executable(service->try_exec, NULL);
+                r = find_executable(service->try_exec, /* ret_filename= */ NULL);
                 if (r < 0) {
                         log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                        "%s: not generating unit, could not find TryExec= binary %s: %m",
