@@ -137,7 +137,7 @@ TEST(mdns_answer_contains_service_ifindex) {
         ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 2, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         ASSERT_OK_POSITIVE(mdns_answer_contains_service(&sb_all, answer, &service));
 
-        ASSERT_OK_POSITIVE(dns_answer_add(answer2, rr, 0, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer2, rr, /* ifindex= */ 0, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         ASSERT_OK_POSITIVE(mdns_answer_contains_service(&sb_scoped, answer2, &service));
 
         ASSERT_OK_POSITIVE(dns_answer_add(answer3, rr, 3, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
