@@ -192,8 +192,8 @@ TEST(dns_scope_check_conflicts_llmnr_sends_advisory) {
         ASSERT_EQ(ordered_hashmap_size(env.scope.conflict_queue), 1u);
         ASSERT_NOT_NULL(env.scope.conflict_event_source);
 
-        ASSERT_OK(sd_event_source_set_time(env.scope.conflict_event_source, 0));
-        ASSERT_OK_POSITIVE(sd_event_run(env.manager.event, 0));
+        ASSERT_OK(sd_event_source_set_time(env.scope.conflict_event_source, /* usec= */ 0));
+        ASSERT_OK_POSITIVE(sd_event_run(env.manager.event, /* timeout= */ 0));
         ASSERT_OK(dns_packet_new(&sent, DNS_PROTOCOL_LLMNR, DNS_PACKET_SIZE_MAX, DNS_PACKET_SIZE_MAX));
         ssize_t n = ASSERT_OK_ERRNO(recv(env.sockets[1], DNS_PACKET_DATA(sent), sent->allocated, MSG_DONTWAIT));
         ASSERT_GE(n, (ssize_t) DNS_PACKET_HEADER_SIZE);
@@ -224,7 +224,7 @@ TEST(dns_scope_check_conflicts_mdns_no_advisory) {
         /* mDNS has no such advisory, differing answers from several responders are not our business */
         ASSERT_TRUE(ordered_hashmap_isempty(env.scope.conflict_queue));
         ASSERT_NULL(env.scope.conflict_event_source);
-        ASSERT_OK(sd_event_run(env.manager.event, 0));
+        ASSERT_OK(sd_event_run(env.manager.event, /* timeout= */ 0));
         assert_no_packet(&env);
 }
 
@@ -261,7 +261,7 @@ TEST(dns_scope_check_conflicts_mdns_nsec_no_advisory) {
         dns_scope_check_conflicts(&env.scope, p);
         ASSERT_TRUE(ordered_hashmap_isempty(env.scope.conflict_queue));
         ASSERT_NULL(env.scope.conflict_event_source);
-        ASSERT_OK(sd_event_run(env.manager.event, 0));
+        ASSERT_OK(sd_event_run(env.manager.event, /* timeout= */ 0));
         assert_no_packet(&env);
 }
 

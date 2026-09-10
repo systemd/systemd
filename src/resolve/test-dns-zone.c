@@ -36,7 +36,7 @@ TEST(dns_zone_put_simple) {
 
         ASSERT_TRUE(dns_zone_is_empty(zone));
 
-        ASSERT_OK(dns_zone_put(zone, scope, rr, 0));
+        ASSERT_OK(dns_zone_put(zone, scope, rr, /* probe= */ 0));
 
         ASSERT_FALSE(dns_zone_is_empty(zone));
 
@@ -58,7 +58,7 @@ TEST(dns_zone_put_any_class_is_invalid) {
         rr = dns_resource_record_new_full(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(rr);
 
-        ASSERT_ERROR(dns_zone_put(zone, scope, rr, 0), EINVAL);
+        ASSERT_ERROR(dns_zone_put(zone, scope, rr, /* probe= */ 0), EINVAL);
 
         ASSERT_TRUE(dns_zone_is_empty(zone));
 }
@@ -76,7 +76,7 @@ TEST(dns_zone_put_any_type_is_invalid) {
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com");
         ASSERT_NOT_NULL(rr);
 
-        ASSERT_ERROR(dns_zone_put(zone, scope, rr, 0), EINVAL);
+        ASSERT_ERROR(dns_zone_put(zone, scope, rr, /* probe= */ 0), EINVAL);
 
         ASSERT_TRUE(dns_zone_is_empty(zone));
 }
@@ -99,7 +99,7 @@ TEST(dns_zone_remove_rr_match) {
         ASSERT_NOT_NULL(rr_in);
         rr_in->a.in_addr.s_addr = htobe32(0xc0a8017f);
 
-        ASSERT_OK(dns_zone_put(zone, scope, rr_in, 0));
+        ASSERT_OK(dns_zone_put(zone, scope, rr_in, /* probe= */ 0));
 
         rr_out = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(rr_out);
@@ -124,14 +124,14 @@ TEST(dns_zone_remove_rr_match_one) {
         ASSERT_NOT_NULL(rr_in);
         rr_in->a.in_addr.s_addr = htobe32(0xc0a8017f);
 
-        ASSERT_OK(dns_zone_put(zone, scope, rr_in, 0));
+        ASSERT_OK(dns_zone_put(zone, scope, rr_in, /* probe= */ 0));
         dns_resource_record_unref(rr_in);
 
         rr_in = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com");
         ASSERT_NOT_NULL(rr_in);
         rr_in->cname.name = strdup("www.example.com");
 
-        ASSERT_OK(dns_zone_put(zone, scope, rr_in, 0));
+        ASSERT_OK(dns_zone_put(zone, scope, rr_in, /* probe= */ 0));
 
         rr_out = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(rr_out);
@@ -157,7 +157,7 @@ TEST(dns_zone_remove_rr_different_payload) {
         ASSERT_NOT_NULL(rr_in);
         rr_in->a.in_addr.s_addr = htobe32(0xc0a8017f);
 
-        ASSERT_OK(dns_zone_put(zone, scope, rr_in, 0));
+        ASSERT_OK(dns_zone_put(zone, scope, rr_in, /* probe= */ 0));
 
         rr_out = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(rr_out);
@@ -185,16 +185,16 @@ TEST(dns_zone_remove_rrs_by_key) {
 
         rr1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(rr1);
-        dns_zone_put(zone, scope, rr1, 0);
+        dns_zone_put(zone, scope, rr1, /* probe= */ 0);
 
         rr2 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
         ASSERT_NOT_NULL(rr2);
-        dns_zone_put(zone, scope, rr2, 0);
+        dns_zone_put(zone, scope, rr2, /* probe= */ 0);
 
         rr3 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com");
         ASSERT_NOT_NULL(rr3);
         rr3->cname.name = strdup("www.example.com");
-        dns_zone_put(zone, scope, rr3, 0);
+        dns_zone_put(zone, scope, rr3, /* probe= */ 0);
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
         ASSERT_NOT_NULL(key);
@@ -225,21 +225,21 @@ static void add_zone_rrs(DnsScope *scope) {
 
         rr1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(rr1);
-        dns_zone_put(&scope->zone, scope, rr1, 0);
+        dns_zone_put(&scope->zone, scope, rr1, /* probe= */ 0);
 
         rr2 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
         ASSERT_NOT_NULL(rr2);
-        dns_zone_put(&scope->zone, scope, rr2, 0);
+        dns_zone_put(&scope->zone, scope, rr2, /* probe= */ 0);
 
         rr3 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com");
         ASSERT_NOT_NULL(rr3);
         rr3->cname.name = strdup("www.example.com");
-        dns_zone_put(&scope->zone, scope, rr3, 0);
+        dns_zone_put(&scope->zone, scope, rr3, /* probe= */ 0);
 
         rr4 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NS, "app.example.com");
         ASSERT_NOT_NULL(rr4);
         rr4->cname.name = strdup("ns1.app.example.com");
-        dns_zone_put(&scope->zone, scope, rr4, 0);
+        dns_zone_put(&scope->zone, scope, rr4, /* probe= */ 0);
 }
 
 TEST(dns_zone_lookup_match_a) {
@@ -261,7 +261,7 @@ TEST(dns_zone_lookup_match_a) {
         ASSERT_EQ(dns_answer_size(answer), 1u);
         ASSERT_EQ(dns_answer_size(soa), 0u);
 
-        ASSERT_TRUE(dns_answer_match_key(answer, qkey, NULL));
+        ASSERT_TRUE(dns_answer_match_key(answer, qkey, /* ret_flags= */ NULL));
 }
 
 TEST(dns_zone_lookup_match_cname) {
@@ -283,7 +283,7 @@ TEST(dns_zone_lookup_match_cname) {
         ASSERT_EQ(dns_answer_size(answer), 1u);
         ASSERT_EQ(dns_answer_size(soa), 0u);
 
-        ASSERT_TRUE(dns_answer_match_key(answer, qkey, NULL));
+        ASSERT_TRUE(dns_answer_match_key(answer, qkey, /* ret_flags= */ NULL));
 }
 
 TEST(dns_zone_lookup_match_any) {
@@ -308,12 +308,12 @@ TEST(dns_zone_lookup_match_any) {
 
         akey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(akey);
-        ASSERT_TRUE(dns_answer_match_key(answer, akey, NULL));
+        ASSERT_TRUE(dns_answer_match_key(answer, akey, /* ret_flags= */ NULL));
         dns_resource_key_unref(akey);
 
         akey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
         ASSERT_NOT_NULL(akey);
-        ASSERT_TRUE(dns_answer_match_key(answer, akey, NULL));
+        ASSERT_TRUE(dns_answer_match_key(answer, akey, /* ret_flags= */ NULL));
         dns_resource_key_unref(akey);
 }
 
@@ -339,7 +339,7 @@ TEST(dns_zone_lookup_match_any_apex) {
 
         akey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com");
         ASSERT_NOT_NULL(akey);
-        ASSERT_TRUE(dns_answer_match_key(answer, akey, NULL));
+        ASSERT_TRUE(dns_answer_match_key(answer, akey, /* ret_flags= */ NULL));
         dns_resource_key_unref(akey);
 }
 
@@ -385,7 +385,7 @@ TEST(dns_zone_lookup_match_nothing_with_soa) {
 
         akey = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SOA, "example.com");
         ASSERT_NOT_NULL(akey);
-        ASSERT_TRUE(dns_answer_match_key(soa, akey, NULL));
+        ASSERT_TRUE(dns_answer_match_key(soa, akey, /* ret_flags= */ NULL));
         dns_resource_key_unref(akey);
 }
 
