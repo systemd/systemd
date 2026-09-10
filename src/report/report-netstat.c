@@ -258,7 +258,7 @@ static int netstat_generate(
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate RTM_GETLINK message: %m");
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable dump mode on RTM_GETLINK message: %m");
 
