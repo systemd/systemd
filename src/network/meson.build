@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd_networkd_sources = files(
-        'networkd.c'
+        'networkd.c',
+        'networkd-verify.c',
 )
 systemd_networkd_export_sources = files(
         'netdev/bareudp.c',
