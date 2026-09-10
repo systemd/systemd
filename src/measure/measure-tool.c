@@ -377,7 +377,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, ascii_strlower(b), (uint32_t) TPM2_PCR_KERNEL_BOOT) < 0)
                         return log_oom();
 
-                r = read_virtual_file(p, 4096, &s, NULL);
+                r = read_virtual_file(p, 4096, &s, /* ret_size= */ NULL);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -433,7 +433,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                         pager_open(arg_pager_flags);
 
-                sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
         }
 
         return 0;
@@ -457,7 +457,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                         if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%i", pcr_states[i].bank, TPM2_PCR_KERNEL_BOOT) < 0)
                                 return log_oom();
 
-                        r = read_virtual_file(p, 4096, &s, NULL);
+                        r = read_virtual_file(p, 4096, &s, /* ret_size= */ NULL);
                         if (r == -ENOENT && access("/sys/class/tpm/tpm0/", F_OK) >= 0)
                                 return log_error_errno(r, "TPM device exists, but cannot open '%s'; either the kernel is too old, or selected PCR bank is not supported: %m", p);
                         if (r < 0)
@@ -535,7 +535,7 @@ static int verb_calculate(int argc, char *argv[], uintptr_t _data, void *userdat
         if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                 pager_open(arg_pager_flags);
 
-        sd_json_variant_dump(w, arg_json_format_flags, stdout, NULL);
+        sd_json_variant_dump(w, arg_json_format_flags, stdout, /* prefix= */ NULL);
         return 0;
 }
 
@@ -617,7 +617,7 @@ static int build_policy_digest(bool sign) {
                 if (!pubkeyf)
                         return log_error_errno(errno, "Failed to open public key file '%s': %m", arg_public_key);
 
-                pubkey = sym_PEM_read_PUBKEY(pubkeyf, NULL, NULL, NULL);
+                pubkey = sym_PEM_read_PUBKEY(pubkeyf, NULL, /* cb= */ NULL, NULL);
                 if (!pubkey)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key '%s'.", arg_public_key);
         } else if (certificate) {
@@ -653,7 +653,7 @@ static int build_policy_digest(bool sign) {
         if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                 pager_open(arg_pager_flags);
 
-        sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
 
         return 0;
 }
