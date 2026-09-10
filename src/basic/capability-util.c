@@ -302,7 +302,7 @@ static int drop_from_file(const char *fn, uint64_t keep) {
         lo = after & UINT32_MAX;
         hi = (after >> 32) & UINT32_MAX;
 
-        return write_string_filef(fn, 0, "%" PRIu32 " %" PRIu32, lo, hi);
+        return write_string_filef(fn, /* flags= */ 0, "%" PRIu32 " %" PRIu32, lo, hi);
 }
 
 int capability_bounding_set_drop_usermode(uint64_t keep) {
