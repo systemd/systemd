@@ -133,7 +133,7 @@ static int exit_event_and_return(int argc, char *argv[]) {
 static int exit_event_and_fail(int argc, char *argv[]) {
         assert_test_argv(argc, argv);
 
-        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 0));
+        ASSERT_OK(sd_event_exit(sd_fiber_get_event(), /* code= */ 0));
         return -ENOANO;
 }
 

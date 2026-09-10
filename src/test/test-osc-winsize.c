@@ -121,7 +121,7 @@ TEST(osc_winsize_format) {
         ASSERT_EQ(ws.lines, 24U);
         seq = mfree(seq);
 
-        ASSERT_OK(osc_winsize_format(OSC_WINSIZE_CANCEL, 0, 0, &seq));
+        ASSERT_OK(osc_winsize_format(OSC_WINSIZE_CANCEL, /* columns= */ 0, /* lines= */ 0, &seq));
         ASSERT_STREQ(seq, "\x1B]2811;?\x1B\\");
         round_trip(seq, &ws);
         ASSERT_EQ(ws.type, OSC_WINSIZE_CANCEL);

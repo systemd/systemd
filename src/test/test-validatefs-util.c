@@ -51,8 +51,8 @@ TEST(read_none) {
 
         /* No constraints means everything passes */
         ASSERT_OK(validate_fields_check_mount_point(&f, /* root= */ NULL, "/foo", LOG_DEBUG));
-        ASSERT_OK(validate_fields_check_gpt_label(&f, NULL, LOG_DEBUG));
-        ASSERT_OK(validate_fields_check_gpt_type(&f, NULL, LOG_DEBUG));
+        ASSERT_OK(validate_fields_check_gpt_label(&f, /* label= */ NULL, LOG_DEBUG));
+        ASSERT_OK(validate_fields_check_gpt_type(&f, /* type= */ NULL, LOG_DEBUG));
 }
 
 TEST(read_and_check) {
@@ -62,10 +62,10 @@ TEST(read_and_check) {
 
         PREPARE_DIR(t, fd);
 
-        ASSERT_OK(xsetxattr_strv(fd, NULL, AT_EMPTY_PATH, "user.validatefs.gpt_type_uuid",
+        ASSERT_OK(xsetxattr_strv(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_type_uuid",
                                  STRV_MAKE(SD_ID128_TO_UUID_STRING(SD_GPT_HOME), SD_ID128_TO_UUID_STRING(SD_GPT_SRV))));
-        ASSERT_OK(xsetxattr_strv(fd, NULL, AT_EMPTY_PATH, "user.validatefs.gpt_label", STRV_MAKE("foo", "bar")));
-        ASSERT_OK(xsetxattr_strv(fd, NULL, AT_EMPTY_PATH, "user.validatefs.mount_point", STRV_MAKE("/home", "/srv")));
+        ASSERT_OK(xsetxattr_strv(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_label", STRV_MAKE("foo", "bar")));
+        ASSERT_OK(xsetxattr_strv(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.mount_point", STRV_MAKE("/home", "/srv")));
 
         ASSERT_OK_POSITIVE(validate_fields_read(fd, LOG_DEBUG, &f));
         ASSERT_TRUE(validate_fields_need_gpt(&f));
@@ -87,12 +87,12 @@ TEST(read_and_check) {
         ASSERT_OK(validate_fields_check_gpt_label(&f, "bar", LOG_DEBUG));
         ASSERT_ERROR(validate_fields_check_gpt_label(&f, "baz", LOG_DEBUG), EPERM);
         ASSERT_ERROR(validate_fields_check_gpt_label(&f, "", LOG_DEBUG), EPERM);
-        ASSERT_ERROR(validate_fields_check_gpt_label(&f, NULL, LOG_DEBUG), EPERM);
+        ASSERT_ERROR(validate_fields_check_gpt_label(&f, /* label= */ NULL, LOG_DEBUG), EPERM);
 
         ASSERT_OK(validate_fields_check_gpt_type(&f, &SD_GPT_HOME, LOG_DEBUG));
         ASSERT_OK(validate_fields_check_gpt_type(&f, &SD_GPT_SRV, LOG_DEBUG));
         ASSERT_ERROR(validate_fields_check_gpt_type(&f, &SD_GPT_VAR, LOG_DEBUG), EPERM);
-        ASSERT_ERROR(validate_fields_check_gpt_type(&f, NULL, LOG_DEBUG), EPERM);
+        ASSERT_ERROR(validate_fields_check_gpt_type(&f, /* type= */ NULL, LOG_DEBUG), EPERM);
 }
 
 TEST(read_empty_label) {
@@ -102,13 +102,13 @@ TEST(read_empty_label) {
 
         PREPARE_DIR(t, fd);
 
-        ASSERT_OK(xsetxattr_strv(fd, NULL, AT_EMPTY_PATH, "user.validatefs.gpt_label", STRV_MAKE("")));
+        ASSERT_OK(xsetxattr_strv(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.validatefs.gpt_label", STRV_MAKE("")));
 
         ASSERT_OK_POSITIVE(validate_fields_read(fd, LOG_DEBUG, &f));
         ASSERT_TRUE(validate_fields_need_gpt(&f));
 
         /* An empty label constraint is fulfilled by an unlabelled partition */
-        ASSERT_OK(validate_fields_check_gpt_label(&f, NULL, LOG_DEBUG));
+        ASSERT_OK(validate_fields_check_gpt_label(&f, /* label= */ NULL, LOG_DEBUG));
         ASSERT_OK(validate_fields_check_gpt_label(&f, "", LOG_DEBUG));
         ASSERT_ERROR(validate_fields_check_gpt_label(&f, "foo", LOG_DEBUG), EPERM);
 }
@@ -122,7 +122,7 @@ static void test_read_invalid_one(const char *name, char * const *l) {
 
         PREPARE_DIR(t, fd);
 
-        ASSERT_OK(xsetxattr_strv(fd, NULL, AT_EMPTY_PATH, name, l));
+        ASSERT_OK(xsetxattr_strv(fd, /* path= */ NULL, AT_EMPTY_PATH, name, l));
         ASSERT_ERROR(validate_fields_read(fd, LOG_DEBUG, &f), EINVAL);
 }
 

@@ -118,9 +118,17 @@ static void test_execute_directory_one(bool gather_stdout) {
                 return;
 
         if (gather_stdout)
-                execute_directories("test", dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+                execute_directories("test", dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, /* argv= */ NULL, /* envp= */ NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         else
-                execute_directories("test", dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+                execute_directories(
+                                "test",
+                                dirs,
+                                DEFAULT_TIMEOUT_USEC,
+                                /* callbacks= */ NULL,
+                                /* callback_args= */ NULL,
+                                /* argv= */ NULL,
+                                /* envp= */ NULL,
+                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(chdir(tmp_lo) == 0);
         assert_se(access("it_works", F_OK) >= 0);
@@ -132,8 +140,8 @@ static void test_execute_directory_one(bool gather_stdout) {
 }
 
 TEST(execute_directory) {
-        test_execute_directory_one(true);
-        test_execute_directory_one(false);
+        test_execute_directory_one(/* gather_stdout= */ true);
+        test_execute_directory_one(/* gather_stdout= */ false);
 }
 
 TEST(execution_order) {
@@ -191,10 +199,10 @@ TEST(execution_order) {
                 return;
 
         execute_directories(__func__,
-                            dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL,
+                            dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, /* argv= */ NULL, /* envp= */ NULL,
                             EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
-        assert_se(read_full_file(output, &contents, NULL) >= 0);
+        assert_se(read_full_file(output, &contents, /* ret_size= */ NULL) >= 0);
         ASSERT_STREQ(contents, "30-override\n80-foo\n90-bar\nlast\n");
 }
 
@@ -274,7 +282,7 @@ TEST(stdout_gathering) {
                 return;
 
         r = execute_directories(__func__,
-                                dirs, DEFAULT_TIMEOUT_USEC, gather_stdouts, args, NULL, NULL,
+                                dirs, DEFAULT_TIMEOUT_USEC, gather_stdouts, args, /* argv= */ NULL, /* envp= */ NULL,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
@@ -342,7 +350,7 @@ TEST(environment_gathering) {
                 return;
 
         r = execute_directories(__func__,
-                                dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL,
+                                dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, /* argv= */ NULL, /* envp= */ NULL,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
@@ -360,7 +368,7 @@ TEST(environment_gathering) {
         assert_se(env);
 
         r = execute_directories(__func__,
-                                dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env,
+                                dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, /* argv= */ NULL, env,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
@@ -373,7 +381,7 @@ TEST(environment_gathering) {
         ASSERT_STREQ(strv_env_get(env, "PATH"), DEFAULT_PATH_WITHOUT_SBIN ":/no/such/file");
 
         /* reset environ PATH */
-        assert_se(set_unset_env("PATH", old, true) == 0);
+        assert_se(set_unset_env("PATH", old, /* overwrite= */ true) == 0);
 }
 
 TEST(error_catching) {
@@ -443,7 +451,7 @@ TEST(exec_command_flags_to_strv) {
 
         opts = strv_free(opts);
 
-        ASSERT_OK(exec_command_flags_to_strv(0, &opts));
+        ASSERT_OK(exec_command_flags_to_strv(/* flags= */ 0, &opts));
         assert_se(strv_isempty(opts));
 
         opts = strv_free(opts);

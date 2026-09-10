@@ -9,7 +9,7 @@ TEST(taint_string) {
         assert_se(a);
         log_debug("taint string: '%s'", a);
 
-        assert_se(!!strstr(a, "local-hwclock") == (clock_is_localtime(NULL) > 0));
+        assert_se(!!strstr(a, "local-hwclock") == (clock_is_localtime(/* adjtime_path= */ NULL) > 0));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

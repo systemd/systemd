@@ -182,7 +182,7 @@ TEST(open_seekable_data_fd) {
         _cleanup_close_ int dir_fd = -EBADF, fd = -EBADF;
         struct stat st1, st2;
 
-        dir_fd = ASSERT_OK(mkdtemp_open(NULL, O_PATH, &t));
+        dir_fd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, O_PATH, &t));
         ASSERT_OK(write_string_file_at(dir_fd, "file", "hallo", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
 
         fd = ASSERT_OK(open_seekable_data_fd(dir_fd, "file", /* max_size= */ 5));

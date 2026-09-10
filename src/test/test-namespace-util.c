@@ -75,7 +75,7 @@ TEST(namespace_enter) {
         ASSERT_OK(r);
 
         _cleanup_close_ int mntns_fd = -EBADF, userns_fd = -EBADF, root_fd = -EBADF;
-        ASSERT_OK(pidref_namespace_open(&pidref, NULL, &mntns_fd, NULL, &userns_fd, &root_fd));
+        ASSERT_OK(pidref_namespace_open(&pidref, /* ret_pidns_fd= */ NULL, &mntns_fd, /* ret_netns_fd= */ NULL, &userns_fd, &root_fd));
 
         /* Without any mapping the namespace is still being set up, we can't tell yet if root is mapped. */
         ASSERT_ERROR(userns_has_root_mapping(userns_fd), ENODATA);
@@ -84,7 +84,7 @@ TEST(namespace_enter) {
         r = ASSERT_OK(pidref_safe_fork(
                         "test-ns-enter-2",
                         FORK_LOG|FORK_WAIT|FORK_DEATHSIG_SIGKILL,
-                        NULL));
+                        /* ret= */ NULL));
         if (r == 0) {
                 ASSERT_ERROR(namespace_enter(-EBADF, mntns_fd, -EBADF, userns_fd, root_fd), EINVAL);
                 _exit(EXIT_SUCCESS);
@@ -93,7 +93,7 @@ TEST(namespace_enter) {
         r = ASSERT_OK(pidref_safe_fork(
                         "test-ns-enter-3",
                         FORK_LOG|FORK_WAIT|FORK_DEATHSIG_SIGKILL,
-                        NULL));
+                        /* ret= */ NULL));
         if (r == 0) {
                 ASSERT_OK(drop_capability(CAP_SYS_ADMIN));
                 ASSERT_ERROR(namespace_enter(-EBADF, mntns_fd, -EBADF, userns_fd, root_fd), EINVAL);
@@ -109,7 +109,7 @@ TEST(namespace_enter_nothing) {
         r = ASSERT_OK(pidref_safe_fork(
                         "test-ns-enter-nothing",
                         FORK_LOG|FORK_WAIT|FORK_DEATHSIG_SIGKILL,
-                        NULL));
+                        /* ret= */ NULL));
         if (r == 0) {
                 ASSERT_OK(drop_capability(CAP_SYS_ADMIN));
 
@@ -224,7 +224,7 @@ TEST(namespace_enter_peercred) {
         }
 
         transport[1] = safe_close(transport[1]);
-        fd = ASSERT_OK(receive_one_fd(transport[0], 0));
+        fd = ASSERT_OK(receive_one_fd(transport[0], /* flags= */ 0));
         ASSERT_OK(getpeercred(fd, &ucred));
         ASSERT_EQ(ucred.uid, uid);
         ASSERT_EQ(ucred.gid, gid);

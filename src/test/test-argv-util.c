@@ -34,13 +34,13 @@ static void test_rename_process_now(const char *p, int ret) {
                 return;
 #endif
 
-        assert_se(pid_get_comm(0, &comm) >= 0);
+        assert_se(pid_get_comm(/* pid= */ 0, &comm) >= 0);
         log_debug("comm = <%s>", comm);
         assert_se(strneq(comm, p, TASK_COMM_LEN-1));
         /* We expect comm to be at most 16 bytes (TASK_COMM_LEN). The kernel may raise this limit in the
          * future. We'd only check the initial part, at least until we recompile, but this will still pass. */
 
-        r = pid_get_cmdline(0, SIZE_MAX, 0, &cmdline);
+        r = pid_get_cmdline(/* pid= */ 0, SIZE_MAX, /* flags= */ 0, &cmdline);
         assert_se(r >= 0);
         /* we cannot expect cmdline to be renamed properly without privileges */
         if (geteuid() == 0) {
@@ -73,7 +73,7 @@ static void test_rename_process_one(const char *p, int ret) {
 }
 
 TEST(rename_process_invalid) {
-        ASSERT_ERROR(rename_process(NULL), EINVAL);
+        ASSERT_ERROR(rename_process(/* name= */ NULL), EINVAL);
         ASSERT_ERROR(rename_process(""), EINVAL);
 }
 
@@ -85,9 +85,9 @@ TEST(rename_process_multi) {
         if (r == 0) {
                 /* child */
                 test_rename_process_now("one", 1);
-                test_rename_process_now("more", 0); /* longer than "one", hence truncated */
+                test_rename_process_now("more", /* ret= */ 0); /* longer than "one", hence truncated */
                 (void) setresuid(99, 99, 99); /* change uid when running privileged */
-                test_rename_process_now("time!", 0);
+                test_rename_process_now("time!", /* ret= */ 0);
                 test_rename_process_now("0", 1); /* shorter than "one", should fit */
                 _exit(EXIT_SUCCESS);
         }
@@ -95,7 +95,7 @@ TEST(rename_process_multi) {
 
 TEST(rename_process) {
         test_rename_process_one("foo", 1); /* should always fit */
-        test_rename_process_one("this is a really really long process name, followed by some more words", 0); /* unlikely to fit */
+        test_rename_process_one("this is a really really long process name, followed by some more words", /* ret= */ 0); /* unlikely to fit */
         test_rename_process_one("1234567", 1); /* should always fit */
 }
 
