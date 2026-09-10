@@ -106,7 +106,7 @@ static int copy_one_blob(
         if (fchown(dest, uid, uid) < 0)
                 return log_debug_errno(errno, "Failed to chown blob %s: %m", name);
 
-        r = copy_bytes(src_fd, dest, BLOB_DIR_MAX_SIZE, 0);
+        r = copy_bytes(src_fd, dest, BLOB_DIR_MAX_SIZE, /* copy_flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to copy blob %s: %m", name);
 
@@ -126,7 +126,7 @@ static int copy_one_blob(
 
         /* The file's contents still match the blob manifest, so it's safe to expose it in the directory */
 
-        r = link_tmpfile_at(dest, dest_dfd, dest_tmpname, name, 0);
+        r = link_tmpfile_at(dest, dest_dfd, dest_tmpname, name, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to link blob %s: %m", name);
         dest_tmpname = mfree(dest_tmpname);
@@ -161,7 +161,7 @@ static int replace_blob_at(
                 return log_debug_errno(errno, "Failed to open src blob dir: %m");
         }
 
-        r = tempfn_random(dest_name, NULL, &fn);
+        r = tempfn_random(dest_name, /* extra= */ NULL, &fn);
         if (r < 0)
                 return r;
 
@@ -235,7 +235,7 @@ int home_reconcile_blob_dirs(UserRecord *h, int root_fd, int reconciled) {
                 assert(reconciled == USER_RECONCILE_EMBEDDED_WON);
 
                 r = replace_blob_at(root_fd, ".identity-blob", sys_base_dfd, h->user_name,
-                                    h->blob_manifest, 0755, 0);
+                                    h->blob_manifest, 0755, /* uid= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to replace system blobs with embedded blobs: %m");
 
@@ -270,7 +270,7 @@ int home_apply_new_blob_dir(UserRecord *h, Hashmap *blobs) {
                 return 0;
         }
 
-        r = tempfn_random(h->user_name, NULL, &fn);
+        r = tempfn_random(h->user_name, /* extra= */ NULL, &fn);
         if (r < 0)
                 return r;
 
@@ -279,7 +279,7 @@ int home_apply_new_blob_dir(UserRecord *h, Hashmap *blobs) {
                 return log_error_errno(errno, "Failed to create system blob dir: %m");
 
         HASHMAP_FOREACH_KEY(v, filename, blobs) {
-                r = copy_one_blob(PTR_TO_FD(v), dfd, filename, &total_size, 0, h->blob_manifest);
+                r = copy_one_blob(PTR_TO_FD(v), dfd, filename, &total_size, /* uid= */ 0, h->blob_manifest);
                 if (r == -EFBIG)
                         break;
                 if (r < 0) {

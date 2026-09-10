@@ -560,7 +560,7 @@ static int fscrypt_slot_try_v1(
         /* We only use the first half of the derived key */
         assert(sizeof(derived) >= (size_t) sym_EVP_CIPHER_get_key_length(cc));
 
-        if (sym_EVP_DecryptInit_ex(context, cc, NULL, derived, NULL) != 1)
+        if (sym_EVP_DecryptInit_ex(context, cc, /* impl= */ NULL, derived, /* iv= */ NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize decryption context.");
 
         decrypted_size = encrypted_size + sym_EVP_CIPHER_get_key_length(cc) * 2;
@@ -836,7 +836,7 @@ static int fscrypt_setup(
                 nr = startswith(xa, "trusted.fscrypt_slot");
                 if (!nr)
                         continue;
-                if (safe_atou32(nr, NULL) < 0)
+                if (safe_atou32(nr, /* ret_u= */ NULL) < 0)
                         continue;
 
                 r = fgetxattr_malloc(setup->root_fd, xa, &value, &vsize);
@@ -1024,19 +1024,19 @@ int home_setup_fscrypt(
         if (r < 0)
                 return r;
 
-        r = mount_follow_verbose(LOG_ERR, ip, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND, NULL);
+        r = mount_follow_verbose(LOG_ERR, ip, HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0)
                 return r;
 
         setup->undo_mount = true;
 
         /* Turn off any form of propagation for this */
-        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_PRIVATE, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_PRIVATE, /* options= */ NULL);
         if (r < 0)
                 return r;
 
         /* Adjust MS_SUID and similar flags */
-        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
+        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), /* options= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1368,7 +1368,7 @@ int home_create_fscrypt(
         if (r < 0)
                 return r;
 
-        r = home_sync_and_statfs(setup->root_fd, NULL);
+        r = home_sync_and_statfs(setup->root_fd, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1383,11 +1383,11 @@ int home_create_fscrypt(
                         SD_ID128_NULL,
                         SD_ID128_NULL,
                         SD_ID128_NULL,
-                        NULL,
-                        NULL,
+                        /* luks_cipher= */ NULL,
+                        /* luks_cipher_mode= */ NULL,
                         UINT64_MAX,
-                        NULL,
-                        NULL,
+                        /* file_system_type= */ NULL,
+                        /* home_directory= */ NULL,
                         h->uid,
                         (gid_t) h->uid);
         if (r < 0)

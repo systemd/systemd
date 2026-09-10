@@ -459,7 +459,7 @@ static int manager_add_home_by_record(
                 if (h->state == HOME_UNFIXATED)
                         h->state = _HOME_STATE_INVALID;
         } else {
-                r = home_new(m, hr, NULL, &h);
+                r = home_new(m, hr, /* sysfs= */ NULL, &h);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate new home object: %m");
 
@@ -838,15 +838,15 @@ int manager_augment_record_with_uid(
         r = user_record_add_binding(
                         hr,
                         _USER_STORAGE_INVALID,
-                        NULL,
+                        /* image_path= */ NULL,
                         SD_ID128_NULL,
                         SD_ID128_NULL,
                         SD_ID128_NULL,
-                        NULL,
-                        NULL,
+                        /* luks_cipher= */ NULL,
+                        /* luks_cipher_mode= */ NULL,
                         UINT64_MAX,
-                        NULL,
-                        NULL,
+                        /* file_system_type= */ NULL,
+                        /* home_directory= */ NULL,
                         uid,
                         (gid_t) uid);
         if (r < 0)
@@ -913,7 +913,7 @@ static int manager_assess_image(
                 if (r < 0)
                         return log_error_errno(r, "Failed to split image name into user name/realm: %m");
 
-                return manager_add_home_by_image(m, user_name, realm, path, NULL, USER_LUKS, UID_INVALID);
+                return manager_add_home_by_image(m, user_name, realm, path, /* sysfs= */ NULL, USER_LUKS, UID_INVALID);
         }
 
         if (S_ISDIR(st.st_mode)) {
@@ -969,7 +969,7 @@ static int manager_assess_image(
                                 storage = USER_FSCRYPT;
                 }
 
-                return manager_add_home_by_image(m, user_name, realm, path, NULL, storage, st.st_uid);
+                return manager_add_home_by_image(m, user_name, realm, path, /* sysfs= */ NULL, storage, st.st_uid);
         }
 
         return -EMEDIUMTYPE;
@@ -1042,7 +1042,7 @@ static int manager_connect_bus(Manager *m) {
         } else
                 busname = "org.freedesktop.home1";
 
-        r = sd_bus_request_name_async(m->bus, NULL, busname, 0, NULL, NULL);
+        r = sd_bus_request_name_async(m->bus, /* ret_slot= */ NULL, busname, /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
@@ -1261,7 +1261,7 @@ static int manager_on_device(sd_device_monitor *monitor, sd_device *d, void *use
                 if (h)
                         manager_revalidate_image(m, h);
                 else
-                        manager_enqueue_gc(m, NULL);
+                        manager_enqueue_gc(m, /* focus= */ NULL);
         } else
                 (void) manager_add_device(m, d);
 
@@ -1279,7 +1279,7 @@ static int manager_watch_devices(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate device monitor: %m");
 
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "block", NULL);
+        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "block", /* devtype= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to configure device monitor match: %m");
 
@@ -1304,7 +1304,7 @@ static int manager_enumerate_devices(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
         if (r < 0)
                 return r;
 
@@ -1329,7 +1329,7 @@ static int manager_load_key_pair(Manager *m) {
                 m->private_key = NULL;
         }
 
-        r = search_and_fopen_nulstr("local.private", "re", NULL, KEY_PATHS_NULSTR, &f, NULL);
+        r = search_and_fopen_nulstr("local.private", "re", /* root= */ NULL, KEY_PATHS_NULSTR, &f, /* ret_path= */ NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1345,7 +1345,7 @@ static int manager_load_key_pair(Manager *m) {
         if (st.st_uid != 0 || (st.st_mode & 0077) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Private key file is readable by more than the root user");
 
-        m->private_key = sym_PEM_read_PrivateKey(f, NULL, NULL, NULL);
+        m->private_key = sym_PEM_read_PrivateKey(f, NULL, /* cb= */ NULL, NULL);
         if (!m->private_key)
                 return log_openssl_errors(LOG_ERR, "Failed to load private key pair");
 
@@ -1402,7 +1402,7 @@ static int manager_generate_key_pair(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open key file for writing: %m");
 
-        if (sym_PEM_write_PrivateKey(fprivate, m->private_key, NULL, NULL, 0, NULL, NULL) <= 0)
+        if (sym_PEM_write_PrivateKey(fprivate, m->private_key, /* enc= */ NULL, /* kstr= */ NULL, /* klen= */ 0, /* cb= */ NULL, NULL) <= 0)
                 return log_openssl_errors(LOG_ERR, "Failed to write private key pair.");
 
         (void) fchmod(fileno(fprivate), 0400); /* Make private key root readable */
@@ -1504,7 +1504,7 @@ static int manager_load_public_key_one(Manager *m, const char *path) {
         if (st.st_uid != 0 || (st.st_mode & 0022) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Public key file %s is writable by more than the root user, refusing.", path);
 
-        pkey = sym_PEM_read_PUBKEY(f, &pkey, NULL, NULL);
+        pkey = sym_PEM_read_PUBKEY(f, &pkey, /* cb= */ NULL, NULL);
         if (!pkey)
                 return log_openssl_errors(LOG_ERR, "Failed to parse public key file %s.", path);
 
@@ -1529,7 +1529,7 @@ static int manager_load_public_keys(Manager *m) {
         r = conf_files_list_nulstr(
                         &files,
                         ".public",
-                        NULL,
+                        /* root= */ NULL,
                         CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                         KEY_PATHS_NULSTR);
         if (r < 0)
@@ -1578,7 +1578,7 @@ int manager_startup(Manager *m) {
         (void) manager_enumerate_devices(m);
 
         /* Let's clean up home directories whose devices got removed while we were not running */
-        (void) manager_enqueue_gc(m, NULL);
+        (void) manager_enqueue_gc(m, /* focus= */ NULL);
 
         /* Let's clean up blob directories for home dirs that no longer exist */
         (void) manager_gc_blob(m);
@@ -1643,7 +1643,7 @@ void manager_revalidate_image(Manager *m, Home *h) {
                                         return;
                                 }
 
-                                r = home_schedule_operation(h, o, NULL);
+                                r = home_schedule_operation(h, o, /* error= */ NULL);
                                 if (r < 0)
                                         log_warning_errno(r, "Failed to enqueue forced home directory %s deactivation, ignoring: %m", h->user_name);
                         }
@@ -1848,10 +1848,10 @@ static int manager_rebalance_calculate(Manager *m) {
                                 &h->rebalance_size,
                                 &h->rebalance_usage,
                                 &h->rebalance_free,
-                                NULL,
-                                NULL,
+                                /* ret_disk_ceiling= */ NULL,
+                                /* ret_disk_floor= */ NULL,
                                 &fstype,
-                                NULL);
+                                /* ret_access_mode= */ NULL);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to get free space of home '%s', ignoring.", h->user_name);
                         continue;
@@ -2000,7 +2000,7 @@ static void manager_rebalance_reply_messages(Manager *m) {
                 if (!msg)
                         break;
 
-                r = sd_bus_reply_method_return(msg, NULL);
+                r = sd_bus_reply_method_return(msg, /* types= */ NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to reply to rebalance method call, ignoring: %m");
         }
@@ -2115,7 +2115,7 @@ int manager_schedule_rebalance(Manager *m, bool immediately) {
                  * already running one) */
 
                 if (m->rebalance_event_source) {
-                        r = sd_event_source_set_time(m->rebalance_event_source, 0);
+                        r = sd_event_source_set_time(m->rebalance_event_source, /* usec= */ 0);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to schedule immediate rebalancing: %m");
                                 goto turn_off;
@@ -2127,7 +2127,7 @@ int manager_schedule_rebalance(Manager *m, bool immediately) {
                                 goto turn_off;
                         }
                 } else {
-                        r = sd_event_add_time(m->event, &m->rebalance_event_source, CLOCK_MONOTONIC, 0, USEC_PER_SEC, on_rebalance_timer, m);
+                        r = sd_event_add_time(m->event, &m->rebalance_event_source, CLOCK_MONOTONIC, /* usec= */ 0, USEC_PER_SEC, on_rebalance_timer, m);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to allocate rebalance event source: %m");
                                 goto turn_off;

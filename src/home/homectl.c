@@ -204,7 +204,7 @@ static int verb_list_homes(int argc, char *argv[], uintptr_t _data, void *userda
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_mgr, "ListHomes", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_mgr, "ListHomes", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list homes: %s", bus_error_message(&error, r));
 
@@ -296,7 +296,7 @@ static int acquire_existing_password(
                  * only for testing purposes, and do not document the behaviour, so that people won't
                  * actually use this outside of testing. */
 
-                r = user_record_set_password(hr, STRV_MAKE(envpw), true);
+                r = user_record_set_password(hr, STRV_MAKE(envpw), /* prepend= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to store password: %m");
 
@@ -332,7 +332,7 @@ static int acquire_existing_password(
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire password: %m");
 
-        r = user_record_set_password(hr, password, true);
+        r = user_record_set_password(hr, password, /* prepend= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to store password: %m");
 
@@ -360,7 +360,7 @@ static int acquire_recovery_key(
                  * only for testing purposes, and do not document the behaviour, so that people won't
                  * actually use this outside of testing. */
 
-                r = user_record_set_password(hr, STRV_MAKE(envpw), true); /* recovery keys are stored in the record exactly like regular passwords! */
+                r = user_record_set_password(hr, STRV_MAKE(envpw), /* prepend= */ true); /* recovery keys are stored in the record exactly like regular passwords! */
                 if (r < 0)
                         return log_error_errno(r, "Failed to store recovery key: %m");
 
@@ -393,7 +393,7 @@ static int acquire_recovery_key(
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire recovery keys: %m");
 
-        r = user_record_set_password(hr, recovery_key, true);
+        r = user_record_set_password(hr, recovery_key, /* prepend= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to store recovery keys: %m");
 
@@ -417,7 +417,7 @@ static int acquire_token_pin(
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire PIN from environment: %m");
         if (r > 0) {
-                r = user_record_set_token_pin(hr, STRV_MAKE(envpin), false);
+                r = user_record_set_token_pin(hr, STRV_MAKE(envpin), /* prepend= */ false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to store token PIN: %m");
 
@@ -450,7 +450,7 @@ static int acquire_token_pin(
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire security token PIN: %m");
 
-        r = user_record_set_token_pin(hr, pin, false);
+        r = user_record_set_token_pin(hr, pin, /* prepend= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to store security token PIN: %m");
 
@@ -653,7 +653,7 @@ static void dump_home_record(UserRecord *hr) {
         }
 
         if (!sd_json_format_enabled(arg_json_format_flags))
-                user_record_show(hr, true);
+                user_record_show(hr, /* show_full_group_info= */ true);
         else {
                 _cleanup_(user_record_unrefp) UserRecord *stripped = NULL;
 
@@ -668,7 +668,7 @@ static void dump_home_record(UserRecord *hr) {
                 if (stripped)
                         hr = stripped;
 
-                sd_json_variant_dump(hr->json, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(hr->json, arg_json_format_flags, stdout, /* prefix= */ NULL);
         }
 }
 
@@ -1072,12 +1072,12 @@ static int acquire_new_home_record(sd_json_variant *input, UserRecord **ret, cha
                         return r;
         }
 
-        r = update_last_change(&v, true, false);
+        r = update_last_change(&v, /* with_password= */ true, /* override= */ false);
         if (r < 0)
                 return r;
 
         if (DEBUG_LOGGING)
-                sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY, NULL, NULL);
+                sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY, NULL, /* prefix= */ NULL);
 
         hr = user_record_new();
         if (!hr)
@@ -1350,7 +1350,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
         if (r < 0)
                 return r;
 
-        r = acquire_merged_blob_dir(hr, false, &blobs);
+        r = acquire_merged_blob_dir(hr, /* existing= */ false, &blobs);
         if (r < 0)
                 return r;
 
@@ -1430,7 +1430,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, BUS_ERROR_LOW_PASSWORD_QUALITY)) {
                                 _cleanup_(erase_and_freep) char *new_password = NULL;
@@ -1447,7 +1447,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to hash passwords: %m");
                         } else {
-                                r = handle_generic_user_record_error(hr->user_name, hr, &error, r, false);
+                                r = handle_generic_user_record_error(hr->user_name, hr, &error, r, /* emphasize_current_password= */ false);
                                 if (r < 0)
                                         return r;
                         }
@@ -1602,7 +1602,7 @@ static int acquire_updated_home_record(
                 return r;
 
         if (DEBUG_LOGGING)
-                sd_json_variant_dump(json, SD_JSON_FORMAT_PRETTY, NULL, NULL);
+                sd_json_variant_dump(json, SD_JSON_FORMAT_PRETTY, NULL, /* prefix= */ NULL);
 
         hr = user_record_new();
         if (!hr)
@@ -1686,7 +1686,7 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
         if (r < 0)
                 return r;
 
-        r = acquire_merged_blob_dir(hr, true, &blobs);
+        r = acquire_merged_blob_dir(hr, /* existing= */ true, &blobs);
         if (r < 0)
                 return r;
 
@@ -1732,7 +1732,7 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0) {
                         if (and_change_password &&
                             sd_bus_error_has_name(&error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN))
@@ -1741,7 +1741,7 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
                                  * first. */
                                 return log_error_errno(r, "Security token not inserted, refusing.");
 
-                        r = handle_generic_user_record_error(hr->user_name, hr, &error, r, false);
+                        r = handle_generic_user_record_error(hr->user_name, hr, &error, r, /* emphasize_current_password= */ false);
                         if (r < 0)
                                 return r;
                 } else
@@ -1773,13 +1773,13 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0) {
                         if (and_change_password &&
                             sd_bus_error_has_name(&error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN))
                                 return log_error_errno(r, "Security token not inserted, refusing.");
 
-                        r = handle_generic_user_record_error(hr->user_name, hr, &error, r, false);
+                        r = handle_generic_user_record_error(hr->user_name, hr, &error, r, /* emphasize_current_password= */ false);
                         if (r < 0)
                                 return r;
                 } else
@@ -1809,12 +1809,12 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN))
                                 return log_error_errno(r, "Security token not inserted, refusing.");
 
-                        r = handle_generic_user_record_error(hr->user_name, hr, &error, r, false);
+                        r = handle_generic_user_record_error(hr->user_name, hr, &error, r, /* emphasize_current_password= */ false);
                         if (r < 0)
                                 return r;
                 } else
@@ -1868,7 +1868,7 @@ static int verb_passwd_home(int argc, char *argv[], uintptr_t _data, void *userd
         if (!new_secret)
                 return log_oom();
 
-        r = acquire_new_password(username, new_secret, /* suggest= */ true, NULL);
+        r = acquire_new_password(username, new_secret, /* suggest= */ true, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1892,13 +1892,13 @@ static int verb_passwd_home(int argc, char *argv[], uintptr_t _data, void *userd
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, BUS_ERROR_LOW_PASSWORD_QUALITY)) {
 
                                 log_error_errno(r, "%s", bus_error_message(&error, r));
 
-                                r = acquire_new_password(username, new_secret, /* suggest= */ false, NULL);
+                                r = acquire_new_password(username, new_secret, /* suggest= */ false, /* ret= */ NULL);
 
                         } else if (sd_bus_error_has_name(&error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN))
 
@@ -1907,7 +1907,7 @@ static int verb_passwd_home(int argc, char *argv[], uintptr_t _data, void *userd
                                  * first. */
                                 return log_error_errno(r, "Security token not inserted, refusing.");
                         else
-                                r = handle_generic_user_record_error(username, old_secret, &error, r, true);
+                                r = handle_generic_user_record_error(username, old_secret, &error, r, /* emphasize_current_password= */ true);
                         if (r < 0)
                                 return r;
                 } else
@@ -1995,9 +1995,9 @@ static int verb_resize_home(int argc, char *argv[], uintptr_t _data, void *userd
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0) {
-                        r = handle_generic_user_record_error(argv[1], secret, &error, r, false);
+                        r = handle_generic_user_record_error(argv[1], secret, &error, r, /* emphasize_current_password= */ false);
                         if (r < 0)
                                 return r;
                 } else
@@ -2031,7 +2031,7 @@ static int verb_remove_home(int argc, char *argv[], uintptr_t _data, void *userd
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to remove home: %s", bus_error_message(&error, r));
                         if (ret == 0)
@@ -2076,7 +2076,7 @@ static int verb_activate_home(int argc, char *argv[], uintptr_t _data, void *use
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                         if (r < 0) {
                                 r = handle_generic_user_record_error(*i, secret, &error, r, /* emphasize_current_password= */ false);
                                 if (r < 0) {
@@ -2161,7 +2161,7 @@ static int verb_deactivate_all_homes(int argc, char *argv[], uintptr_t _data, vo
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to deactivate all homes: %s", bus_error_message(&error, r));
 
@@ -2222,7 +2222,7 @@ static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdat
                 r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
                 m = sd_bus_message_unref(m);
                 if (r < 0) {
-                        r = handle_generic_user_record_error(argv[1], secret, &error, r, false);
+                        r = handle_generic_user_record_error(argv[1], secret, &error, r, /* emphasize_current_password= */ false);
                         if (r < 0)
                                 return r;
 
@@ -2282,7 +2282,7 @@ static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdat
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_HOME_BUSY))
                         log_notice("Not deactivating home directory of %s, as it is still used.", argv[1]);
@@ -2317,9 +2317,9 @@ static int authenticate_home(sd_bus *bus, const char *name) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0) {
-                        r = handle_generic_user_record_error(name, secret, &error, r, false);
+                        r = handle_generic_user_record_error(name, secret, &error, r, /* emphasize_current_password= */ false);
                         if (r >= 0)
                                 continue;
                 }
@@ -2378,7 +2378,7 @@ static int verb_adopt_home(int argc, char *argv[], uintptr_t _data, void *userda
                         return bus_log_create_error(r);
 
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to adopt home: %s", bus_error_message(&error, r));
                         if (ret == 0)
@@ -2417,7 +2417,7 @@ static int register_home_common(sd_bus *bus, sd_json_variant *v) {
                 return bus_log_create_error(r);
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to register home: %s", bus_error_message(&error, r));
 
@@ -2517,7 +2517,7 @@ static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void 
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        r = bus_call_method(bus, bus_mgr, "ListSigningKeys", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_mgr, "ListSigningKeys", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list signing keys: %s", bus_error_message(&error, r));
 
@@ -2804,7 +2804,7 @@ static int verb_lock_home(int argc, char *argv[], uintptr_t _data, void *userdat
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to lock home: %s", bus_error_message(&error, r));
                         if (ret == 0)
@@ -2848,9 +2848,9 @@ static int verb_unlock_home(int argc, char *argv[], uintptr_t _data, void *userd
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                         if (r < 0) {
-                                r = handle_generic_user_record_error(*i, secret, &error, r, false);
+                                r = handle_generic_user_record_error(*i, secret, &error, r, /* emphasize_current_password= */ false);
                                 if (r < 0) {
                                         if (ret == 0)
                                                 ret = r;
@@ -2881,7 +2881,7 @@ static int verb_lock_all_homes(int argc, char *argv[], uintptr_t _data, void *us
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to lock all homes: %s", bus_error_message(&error, r));
 
@@ -2905,7 +2905,7 @@ static int verb_rebalance(int argc, char *argv[], uintptr_t _data, void *userdat
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_REBALANCE_NOT_NEEDED))
                         log_info("No homes needed rebalancing.");
@@ -3271,7 +3271,7 @@ static int parse_ssh_authorized_keys(sd_json_variant **identity, const char *fie
                 /* Otherwise, assume it's a literal key. Let's do some superficial checks
                  * before accepting it though. */
 
-                if (string_has_cc(arg, NULL))
+                if (string_has_cc(arg, /* ok= */ NULL))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Authorized key contains control characters, refusing.");
                 if (arg[0] == '#')
@@ -4368,7 +4368,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("fido2-with-client-pin", "BOOL",
                             "Whether to require entering a PIN to unlock the account"):
-                        r = parse_boolean_argument("--fido2-with-client-pin=", opts.arg, NULL);
+                        r = parse_boolean_argument("--fido2-with-client-pin=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -4377,7 +4377,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("fido2-with-user-presence", "BOOL",
                             "Whether to require user presence to unlock the account"):
-                        r = parse_boolean_argument("--fido2-with-user-presence=", opts.arg, NULL);
+                        r = parse_boolean_argument("--fido2-with-user-presence=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -4386,7 +4386,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("fido2-with-user-verification", "BOOL",
                             "Whether to require user verification to unlock the account"):
-                        r = parse_boolean_argument("--fido2-with-user-verification=", opts.arg, NULL);
+                        r = parse_boolean_argument("--fido2-with-user-verification=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -5053,12 +5053,12 @@ static int fallback_shell(int argc, char *argv[]) {
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
                         if (r < 0) {
                                 if (sd_bus_error_has_name(&error, BUS_ERROR_HOME_NOT_REFERENCED))
                                         return log_error_errno(r, "Called without reference on home taken, can't operate.");
 
-                                r = handle_generic_user_record_error(hr->user_name, secret, &error, r, false);
+                                r = handle_generic_user_record_error(hr->user_name, secret, &error, r, /* emphasize_current_password= */ false);
                                 if (r < 0)
                                         return r;
 
