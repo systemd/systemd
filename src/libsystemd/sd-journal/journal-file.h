@@ -213,6 +213,18 @@ static inline size_t journal_file_entry_item_size(JournalFile *f) {
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
 
+int journal_file_data_payload_full(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                sd_journal_data_flags_t flags,
+                size_t data_threshold,
+                int fd,
+                const void **ret_data,
+                size_t *ret_size);
+
 int journal_file_data_payload(
                 JournalFile *f,
                 Object *o,
