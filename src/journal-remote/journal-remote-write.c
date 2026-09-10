@@ -94,7 +94,7 @@ int writer_write(Writer *w,
         assert(w);
         assert(!iovw_isempty(iovw));
 
-        if (journal_file_rotate_suggested(w->journal, 0, LOG_DEBUG)) {
+        if (journal_file_rotate_suggested(w->journal, /* max_file_usec= */ 0, LOG_DEBUG)) {
                 log_info("%s: Journal header limits reached or header out-of-date, rotating",
                          w->journal->path);
 
@@ -102,7 +102,7 @@ int writer_write(Writer *w,
                 if (r < 0)
                         return r;
 
-                r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, /* verbose= */ true);
+                r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, /* max_retention_usec= */ 0, /* oldest_usec= */ NULL, /* verbose= */ true);
                 if (r < 0)
                         return r;
         }
@@ -131,7 +131,7 @@ int writer_write(Writer *w,
                 return r;
 
         log_debug("%s: Successfully rotated journal", w->journal->path);
-        r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, /* verbose= */ true);
+        r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, /* max_retention_usec= */ 0, /* oldest_usec= */ NULL, /* verbose= */ true);
         if (r < 0)
                 return r;
 

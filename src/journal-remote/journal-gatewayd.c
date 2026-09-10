@@ -134,7 +134,7 @@ static int open_journal(RequestMeta *m) {
         if (arg_directory)
                 return sd_journal_open_directory(&m->journal, arg_directory, arg_journal_type);
         else if (arg_file)
-                return sd_journal_open_files(&m->journal, (const char**) arg_file, 0);
+                return sd_journal_open_files(&m->journal, (const char**) arg_file, /* flags= */ 0);
         else
                 return sd_journal_open(&m->journal, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
 }
@@ -270,8 +270,8 @@ static ssize_t request_reader_entries(
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
-                r = show_journal_entry(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH,
-                                   NULL, NULL, NULL, &previous_ts, &previous_boot_id);
+                r = show_journal_entry(m->tmp, m->journal, m->mode, /* n_columns= */ 0, OUTPUT_FULL_WIDTH,
+                                   /* output_fields= */ NULL, /* highlight= */ NULL, /* ellipsized= */ NULL, &previous_ts, &previous_boot_id);
                 if (r < 0) {
                         log_error_errno(r, "Failed to serialize item: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
@@ -629,7 +629,7 @@ static int request_handler_entries(
         if (r < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to seek in journal.");
 
-        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_entries, m, NULL);
+        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_entries, m, /* crfc= */ NULL);
         if (!response)
                 return respond_oom(connection);
 
@@ -757,7 +757,7 @@ static int request_handler_fields(
         if (r < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to query unique fields.");
 
-        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_fields, m, NULL);
+        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_fields, m, /* crfc= */ NULL);
         if (!response)
                 return respond_oom(connection);
 
@@ -812,7 +812,7 @@ static int request_handler_file(
         if (fstat(fd, &st) < 0)
                 return mhd_respondf(connection, errno, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m");
 
-        response = sym_MHD_create_response_from_fd_at_offset64(st.st_size, fd, 0);
+        response = sym_MHD_create_response_from_fd_at_offset64(st.st_size, fd, /* offset= */ 0);
         if (!response)
                 return respond_oom(connection);
         TAKE_FD(fd);
@@ -834,7 +834,7 @@ static int get_virtualization(char **v) {
         if (r < 0)
                 return r;
 
-        r = bus_get_property_string(bus, bus_systemd_mgr, "Virtualization", NULL, &b);
+        r = bus_get_property_string(bus, bus_systemd_mgr, "Virtualization", /* reterr_error= */ NULL, &b);
         if (r < 0)
                 return r;
 
@@ -1039,7 +1039,7 @@ static int request_handler_boots(
         if (r < 0)
                 return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to seek in journal: %m");
 
-        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_boots, m, NULL);
+        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_boots, m, /* crfc= */ NULL);
         if (!response)
                 return respond_oom(connection);
 
@@ -1075,7 +1075,7 @@ static mhd_result request_handler(
         }
 
         if (arg_trust_pem) {
-                r = check_permissions(connection, &code, NULL);
+                r = check_permissions(connection, &code, /* hostname= */ NULL);
                 if (r < 0)
                         return code;
         }
@@ -1124,8 +1124,8 @@ static int parse_argv(int argc, char *argv[]) {
                         r = read_full_file_full(
                                         AT_FDCWD, opts.arg, UINT64_MAX, SIZE_MAX,
                                         READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &arg_cert_pem, NULL);
+                                        /* bind_name= */ NULL,
+                                        &arg_cert_pem, /* ret_size= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read certificate file: %m");
                         assert(arg_cert_pem);
@@ -1138,8 +1138,8 @@ static int parse_argv(int argc, char *argv[]) {
                         r = read_full_file_full(
                                         AT_FDCWD, opts.arg, UINT64_MAX, SIZE_MAX,
                                         READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &arg_key_pem, NULL);
+                                        /* bind_name= */ NULL,
+                                        &arg_key_pem, /* ret_size= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read key file: %m");
                         assert(arg_key_pem);
@@ -1153,8 +1153,8 @@ static int parse_argv(int argc, char *argv[]) {
                         r = read_full_file_full(
                                         AT_FDCWD, opts.arg, UINT64_MAX, SIZE_MAX,
                                         READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &arg_trust_pem, NULL);
+                                        /* bind_name= */ NULL,
+                                        &arg_trust_pem, /* ret_size= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read CA certificate file: %m");
                         assert(arg_trust_pem);
@@ -1260,7 +1260,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigaction(SIGTERM, &sigterm, NULL) >= 0);
 
-        r = setup_gnutls_logger(NULL);
+        r = setup_gnutls_logger(/* categories= */ NULL);
         if (r < 0)
                 return r;
 
