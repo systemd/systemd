@@ -286,6 +286,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   ```
 
   This guidance should be applied tree-wide, including in test files.
+  `tools/check-argument-comments.py` enforces it for every bare `NULL`, `0`,
+  `true` and `false`, not only the ones meaning "unset", passed for a parameter
+  with a telling name. Single-letter names, `argN`, reserved `__names`, calls
+  into libc and other code outside the tree, and calls produced by macro bodies
+  are exempt. Calls through the `sym_*` pointers of the dlopen() wrappers use
+  the names from the library's header. It also checks that an existing comment
+  names the right parameter. `meson test -C build --suite=argument-comments`
+  checks the whole tree. Once `meson compile -C build gensources` has run,
+  `tools/check-argument-comments.py -p build --diff "$(git merge-base main HEAD)" src`
+  checks only what a branch changed, and `--fix` inserts the missing comments.
 
 - Please do not introduce new circular dependencies between header files.
   Effectively this means that if a.h includes b.h, then b.h cannot include a.h,
