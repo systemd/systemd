@@ -411,7 +411,7 @@ static int oci_hostname(const char *name, sd_json_variant *v, sd_json_dispatch_f
 
         assert_se(n = sd_json_variant_string(v));
 
-        if (!hostname_is_valid(n, 0))
+        if (!hostname_is_valid(n, /* flags= */ 0))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "Hostname string is not a valid hostname: %s", n);
 
@@ -679,7 +679,7 @@ static int oci_uid_gid_mappings(const char *name, sd_json_variant *v, sd_json_di
                 return json_log(v, flags, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                 "UID/GID mappings with more than one entry are not supported.");
 
-        assert_se(e = sd_json_variant_by_index(v, 0));
+        assert_se(e = sd_json_variant_by_index(v, /* index= */ 0));
 
         r = oci_dispatch(e, table, flags, &data);
         if (r < 0)
@@ -2086,7 +2086,7 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
 
         path = strjoina(bundle, "/config.json");
 
-        r = sd_json_parse_file(f, path, 0, &oci, &line, &column);
+        r = sd_json_parse_file(f, path, /* flags= */ 0, &oci, &line, &column);
         if (r < 0) {
                 if (line != 0 && column != 0)
                         return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", path, line, column);
@@ -2128,7 +2128,7 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
                 return log_error_errno(r, "Failed to parse OCI bundle configuration file '%s': %m", path);
 
         if (s->properties) {
-                r = sd_bus_message_seal(s->properties, 0, 0);
+                r = sd_bus_message_seal(s->properties, /* cookie= */ 0, /* timeout_usec= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Cannot seal properties bus message: %m");
         }

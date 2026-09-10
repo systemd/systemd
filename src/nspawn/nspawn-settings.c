@@ -82,13 +82,13 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         if (!s)
                 return -ENOMEM;
 
-        r = config_parse(NULL, path, f,
+        r = config_parse(/* unit= */ NULL, path, f,
                          "Exec\0"
                          "Network\0"
                          "Files\0",
                          config_item_perf_lookup, nspawn_gperf_lookup,
                          CONFIG_PARSE_WARN,
-                         s, NULL);
+                         s, /* ret_stat= */ NULL);
         if (r < 0)
                 return r;
 
@@ -293,7 +293,7 @@ int config_parse_capability(
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&rvalue, &word, NULL, 0);
+                r = extract_first_word(&rvalue, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -769,7 +769,7 @@ int config_parse_syscall_filter(
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&items, &word, NULL, 0);
+                r = extract_first_word(&items, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -999,7 +999,7 @@ int config_parse_bind_user(
         for (const char* p = rvalue;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -1009,7 +1009,7 @@ int config_parse_bind_user(
                 if (r == 0)
                         break;
 
-                if (!valid_user_group_name(word, 0)) {
+                if (!valid_user_group_name(word, /* flags= */ 0)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "User name '%s' not valid, ignoring.", word);
                         return 0;
                 }

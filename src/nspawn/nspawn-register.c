@@ -157,7 +157,7 @@ int allocate_scope(
         if (r < 0)
                 return log_error_errno(r, "Could not watch job: %m");
 
-        r = unit_name_mangle_with_suffix(machine_name, "as machine name", 0, ".scope", &scope);
+        r = unit_name_mangle_with_suffix(machine_name, "as machine name", /* flags= */ 0, ".scope", &scope);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 
@@ -196,7 +196,7 @@ int allocate_scope(
                 return r;
 
         if (properties_message) {
-                r = sd_bus_message_copy(m, properties_message, true);
+                r = sd_bus_message_copy(m, properties_message, /* all= */ true);
                 if (r < 0)
                         return bus_log_create_error(r);
         }
@@ -226,7 +226,7 @@ int allocate_scope(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0) {
                 /* If this failed with a property we couldn't write, this is quite likely because the server
                  * doesn't support PIDFDs yet, let's try without. */
@@ -286,7 +286,7 @@ int terminate_scope(
                         bus_systemd_mgr,
                         "KillUnit",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "ssi",
                         scope,
                         "all",
