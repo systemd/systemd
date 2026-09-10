@@ -62,7 +62,7 @@ static int load_kexec_kernel(void) {
         }
 
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
-        r = boot_config_load_auto(&config, NULL, NULL);
+        r = boot_config_load_auto(&config, /* override_esp_path= */ NULL, /* override_xbootldr_path= */ NULL);
         if (r == -ENOKEY)
                 /* The call doesn't log about ENOKEY, let's do so here. */
                 return log_error_errno(r,
@@ -217,7 +217,7 @@ static int set_exit_code(uint8_t code) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "SetExitCode", &error, NULL, "y", code);
+        r = bus_call_method(bus, bus_systemd_mgr, "SetExitCode", &error, /* ret_reply= */ NULL, "y", code);
         if (r < 0)
                 return log_error_errno(r, "Failed to set exit code: %s", bus_error_message(&error, r));
 

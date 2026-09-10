@@ -43,7 +43,7 @@ static int set_property_one(sd_bus *bus, const char *name, char **properties) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set unit properties on %s: %s",
                                        name, bus_error_message(&error, r));
@@ -62,7 +62,7 @@ int verb_set_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         polkit_agent_open_maybe();
 
-        r = expand_unit_names(bus, STRV_MAKE(argv[1]), NULL, &names, NULL);
+        r = expand_unit_names(bus, STRV_MAKE(argv[1]), /* suffix= */ NULL, &names, /* ret_expanded= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand '%s' into names: %m", argv[1]);
 

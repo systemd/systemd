@@ -24,14 +24,14 @@ int verb_reset_failed(int argc, char *argv[], uintptr_t data, void *userdata) {
 
         polkit_agent_open_maybe();
 
-        r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
+        r = expand_unit_names(bus, strv_skip(argv, 1), /* suffix= */ NULL, &names, /* ret_expanded= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                q = bus_call_method(bus, bus_systemd_mgr, "ResetFailedUnit", &error, NULL, "s", *name);
+                q = bus_call_method(bus, bus_systemd_mgr, "ResetFailedUnit", &error, /* ret_reply= */ NULL, "s", *name);
                 if (q < 0) {
                         log_error_errno(q, "Failed to reset failed state of unit %s: %s", *name, bus_error_message(&error, q));
                         if (r == 0)

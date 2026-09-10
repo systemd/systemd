@@ -19,7 +19,7 @@ static int match_startup_finished(sd_bus_message *m, void *userdata, sd_bus_erro
         char **state = ASSERT_PTR(userdata);
         int r;
 
-        r = bus_get_property_string(sd_bus_message_get_bus(m), bus_systemd_mgr, "SystemState", NULL, state);
+        r = bus_get_property_string(sd_bus_message_get_bus(m), bus_systemd_mgr, "SystemState", /* reterr_error= */ NULL, state);
 
         sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), r);
         return 0;
@@ -46,14 +46,14 @@ int verb_is_system_running(int argc, char *argv[], uintptr_t _data, void *userda
         if (arg_wait) {
                 r = sd_event_default(&event);
                 if (r >= 0)
-                        r = sd_bus_attach_event(bus, event, 0);
+                        r = sd_bus_attach_event(bus, event, /* priority= */ 0);
                 if (r >= 0)
                         r = bus_match_signal_async(
                                         bus,
                                         &slot_startup_finished,
                                         bus_systemd_mgr,
                                         "StartupFinished",
-                                        match_startup_finished, NULL, &state);
+                                        match_startup_finished, /* install_callback= */ NULL, &state);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to request match for StartupFinished: %m");
                         arg_wait = false;
