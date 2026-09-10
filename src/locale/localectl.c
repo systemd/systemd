@@ -76,7 +76,7 @@ static int print_status_info(StatusInfo *i) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to read /proc/cmdline: %m");
 
-                r = locale_context_build_env(&c, &kernel_locale, NULL);
+                r = locale_context_build_env(&c, &kernel_locale, /* ret_unset= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to build locale settings from kernel command line: %m");
         }
@@ -86,9 +86,9 @@ static int print_status_info(StatusInfo *i) {
                 return log_oom();
 
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
-        assert_se(cell = table_get_cell(table, 0, 0));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, /* column= */ 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_UNSET);
@@ -176,7 +176,7 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
                                    "org.freedesktop.locale1",
                                    "/org/freedesktop/locale1",
                                    map,
-                                   0,
+                                   /* flags= */ 0,
                                    &error,
                                    &m,
                                    &info);
@@ -209,7 +209,7 @@ static int verb_set_locale(int argc, char *argv[], uintptr_t _data, void *userda
                 return bus_log_create_error(r);
 
         /* We use a longer timeout for the method call in case localed is running locale-gen */
-        r = sd_bus_call(bus, m, LOCALE_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        r = sd_bus_call(bus, m, LOCALE_SLOW_BUS_CALL_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
@@ -250,7 +250,7 @@ static int verb_set_vconsole_keymap(int argc, char *argv[], uintptr_t _data, voi
                         bus_locale,
                         "SetVConsoleKeyboard",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "ssbb", map, toggle_map, arg_convert, arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set keymap: %s", bus_error_message(&error, r));
@@ -295,7 +295,7 @@ static int verb_set_x11_keymap(int argc, char *argv[], uintptr_t _data, void *us
                         bus_locale,
                         "SetX11Keyboard",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "ssssbb", layout, model, variant, options,
                                   arg_convert, arg_ask_password);
         if (r < 0)

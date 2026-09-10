@@ -34,7 +34,7 @@ static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char 
 
         fmt = strjoina("libxkbcommon: ", format);
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        log_internalv(LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__, fmt, args);
+        log_internalv(LOG_DEBUG, /* error= */ 0, PROJECT_FILE, __LINE__, __func__, fmt, args);
         REENABLE_WARNING;
 }
 
