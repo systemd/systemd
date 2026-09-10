@@ -532,6 +532,16 @@ testcase_tags() {
                  jq --raw-output '.MachineInformationData[] | select(startswith("TAGS="))')" \
             'TAGS=good:-invalid'
 
+    # If the same key is assigned more than once by hand, the assignment specified last wins, and the
+    # resulting list is sorted afterwards.
+    echo 'TAGS=role=a:role=b:zeta:alpha' >/etc/machine-info
+    assert_eq "$(hostnamectl tags)" 'alpha:role=b:zeta'
+    assert_eq "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Tags)" \
+            'as 3 "alpha" "role=b" "zeta"'
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' |
+                 jq --raw-output '.MachineInformationData[] | select(startswith("TAGS="))')" \
+            'TAGS=role=a:role=b:zeta:alpha'
+
     hostnamectl tags ""
 }
 

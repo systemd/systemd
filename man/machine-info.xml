@@ -164,7 +164,9 @@
           Example: <literal>TAGS=role=webserver:env=production:berlin</literal>. The same key may not be
           assigned more than one distinct value: <literal>role=webserver:role=database</literal> is refused
           (but a key may coexist with the corresponding unparameterized tag, e.g.
-          <literal>role:role=webserver</literal>).</para>
+          <literal>role:role=webserver</literal>). Note that when this file is read, invalid tags are
+          ignored, and if the same key is nonetheless assigned more than once, the assignment specified
+          last takes effect.</para>
 
           <para>The configured tags may be matched against with the
           <varname>ConditionMachineTag=</varname> and <varname>AssertMachineTag=</varname> unit settings, see
