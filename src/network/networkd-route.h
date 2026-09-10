@@ -95,10 +95,10 @@ bool route_can_update(Manager *manager, const Route *existing, const Route *requ
 
 int link_drop_routes(Link *link, bool only_static);
 static inline int link_drop_static_routes(Link *link) {
-        return link_drop_routes(link, true);
+        return link_drop_routes(link, /* only_static= */ true);
 }
 static inline int link_drop_unmanaged_routes(Link *link) {
-        return link_drop_routes(link, false);
+        return link_drop_routes(link, /* only_static= */ false);
 }
 void link_forget_routes(Link *link);
 

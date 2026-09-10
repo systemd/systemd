@@ -466,7 +466,7 @@ static int hierarchy_token_bucket_class_verify(TClass *tclass) {
         if (htb->ceil_rate == 0)
                 htb->ceil_rate = htb->rate;
 
-        r = tc_init(NULL, &hz);
+        r = tc_init(/* ret_ticks_in_usec= */ NULL, &hz);
         if (r < 0)
                 return log_error_errno(r, "Failed to read /proc/net/psched: %m");
 

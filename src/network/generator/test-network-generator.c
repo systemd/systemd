@@ -653,7 +653,7 @@ int main(int argc, char *argv[]) {
                            "ip", "::::hogehoge:BOOTIF:dhcp",
                            "BOOTIF", "01-00:11:22:33:44:55",
                            "rd.bootif", "0",
-                           NULL
+                           /* expected= */ NULL
                            );
 
         return 0;
