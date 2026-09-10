@@ -143,7 +143,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
 
         /* Make sure all keys files exist before we start enrolling them by loading them from the disk first. */
         FOREACH_ELEMENT(sb_var, sb_vars) {
-                err = file_read(dir, sb_var->filename, 0, 0, &sb_var->buffer, &sb_var->size);
+                err = file_read(dir, sb_var->filename, /* offset= */ 0, /* size= */ 0, &sb_var->buffer, &sb_var->size);
                 if (err != EFI_SUCCESS && sb_var->required) {
                         log_error_status(err, "Failed to read file %ls\\%ls: %m", path, sb_var->filename);
                         goto out_deallocate;

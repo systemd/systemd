@@ -203,7 +203,7 @@ void smbios_foreach(SmbiosForeachFunc func, void *userdata) {
 
 bool smbios_in_hypervisor(void) {
         /* Look up BIOS Information (Type 0). */
-        const SmbiosTableType0 *type0 = (const SmbiosTableType0 *) get_smbios_table(0, sizeof(SmbiosTableType0), /* ret_size_left= */ NULL);
+        const SmbiosTableType0 *type0 = (const SmbiosTableType0 *) get_smbios_table(/* type= */ 0, sizeof(SmbiosTableType0), /* ret_size_left= */ NULL);
         if (!type0)
                 return false;
 
