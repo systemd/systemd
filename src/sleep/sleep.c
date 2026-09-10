@@ -143,7 +143,7 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to build JSON object: %m");
 
-        r = sd_json_variant_format(v, 0, &formatted);
+        r = sd_json_variant_format(v, /* flags= */ 0, &formatted);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to format JSON object: %m");
 
@@ -225,7 +225,7 @@ static int lock_all_homes(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to disable auto-start of LockAllHomes() message: %m");
 
-        r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC, &error, NULL);
+        r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC, &error, /* ret_reply= */ NULL);
         if (r < 0) {
                 if (!bus_error_is_unknown_service(&error))
                         return log_error_errno(r, "Failed to lock home directories: %s", bus_error_message(&error, r));
@@ -460,11 +460,11 @@ static int custom_timer_suspend(const SleepConfig *sleep_config, SleepOperation 
                 if (timerfd_settime(tfd, 0, &ts, NULL) < 0)
                         return log_error_errno(errno, "Error setting battery estimate timer: %m");
 
-                r = execute(sleep_config, main_operation, SLEEP_SUSPEND, NULL);
+                r = execute(sleep_config, main_operation, SLEEP_SUSPEND, /* action= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = fd_wait_for_event(tfd, POLLIN, 0);
+                r = fd_wait_for_event(tfd, POLLIN, /* timeout= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Error polling timerfd: %m");
                 /* Store fd_wait status */
@@ -563,7 +563,7 @@ static int execute_s2h(const SleepConfig *sleep_config, SleepOperation main_oper
                         }
 
                         log_debug("Attempting to suspend...");
-                        r = execute(sleep_config, main_operation, SLEEP_SUSPEND, NULL);
+                        r = execute(sleep_config, main_operation, SLEEP_SUSPEND, /* action= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -578,7 +578,7 @@ static int execute_s2h(const SleepConfig *sleep_config, SleepOperation main_oper
 
                         if (tfd >= 0) {
                                 /* Check if our HibernateDelaySec timer fired */
-                                r = fd_wait_for_event(tfd, POLLIN, 0);
+                                r = fd_wait_for_event(tfd, POLLIN, /* timeout= */ 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Error polling timerfd: %m");
                                 if (FLAGS_SET(r, POLLIN)) {
@@ -606,7 +606,7 @@ static int execute_s2h(const SleepConfig *sleep_config, SleepOperation main_oper
         /* For above custom timer, if 1 is returned, system will directly hibernate */
 
         log_debug("Attempting to hibernate");
-        r = execute(sleep_config, main_operation, SLEEP_HIBERNATE, NULL);
+        r = execute(sleep_config, main_operation, SLEEP_HIBERNATE, /* action= */ NULL);
         if (r < 0) {
                 log_notice("Couldn't hibernate, will try to suspend again.");
 
@@ -661,7 +661,7 @@ static int verb_operate(int argc, char *argv[], uintptr_t data, void *userdata) 
                 break;
 
         case SLEEP_HYBRID_SLEEP:
-                r = execute(sleep_config, operation, SLEEP_HYBRID_SLEEP, NULL);
+                r = execute(sleep_config, operation, SLEEP_HYBRID_SLEEP, /* action= */ NULL);
                 if (r < 0) {
                         /* If we can't hybrid sleep, then let's try to suspend at least. After all, the user
                          * asked us to do both: suspend + hibernate, and it's almost certainly the
@@ -675,7 +675,7 @@ static int verb_operate(int argc, char *argv[], uintptr_t data, void *userdata) 
 
         case SLEEP_SUSPEND:
         case SLEEP_HIBERNATE:
-                r = execute(sleep_config, operation, operation, NULL);
+                r = execute(sleep_config, operation, operation, /* action= */ NULL);
                 break;
 
         default:
