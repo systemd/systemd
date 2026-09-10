@@ -142,11 +142,12 @@
         <varlistentry>
           <term><varname>TAGS=</varname></term>
 
-          <listitem><para>A colon-separated list of tags attached to this machine. Tags are short labels that
-          may be used to classify and group machines for management purposes, for example to identify the role
-          a machine plays in a deployment (<literal>webserver</literal>, <literal>database</literal>), the
-          fleet or organizational unit it belongs to, or any other administrator-defined attribute. Example:
-          <literal>TAGS=webserver:frontend:berlin</literal>.</para>
+          <listitem><para>A colon-separated list of tags attached to this machine. Tags are labels used to
+          classify and group machines for management purposes, for example to identify the role a machine
+          plays in a deployment (<literal>company.role=webserver</literal>,
+          <literal>company.role=database</literal>), the fleet or organizational unit it belongs to, or any
+          other administrator-defined attribute. Example:
+          <literal>TAGS=company.role=webserver:company.division=frontend:company.location=berlin</literal>.</para>
 
           <para>Each individual tag must be 1…255 characters long and may consist only of the ASCII
           alphanumeric characters, <literal>-</literal>, <literal>.</literal> and <literal>=</literal>. The
@@ -161,12 +162,18 @@
           restrictions as an unparameterized tag, in particular it may not be empty and may not end in
           <literal>-</literal> or <literal>.</literal>. The value (the part after the first
           <literal>=</literal>) may be empty and is otherwise unrestricted within the allowed character set.
-          Example: <literal>TAGS=role=webserver:env=production:berlin</literal>. The same key may not be
-          assigned more than one distinct value: <literal>role=webserver:role=database</literal> is refused
-          (but a key may coexist with the corresponding unparameterized tag, e.g.
-          <literal>role:role=webserver</literal>). Note that when this file is read, invalid tags are
-          ignored, and if the same key is nonetheless assigned more than once, the assignment specified
-          last takes effect.</para>
+          Example:
+          <literal>TAGS=company.role=webserver:company.env=production:company.location=berlin</literal>. The
+          same key may not be assigned more than one distinct value:
+          <literal>company.role=webserver:company.role=database</literal> is refused (but a key may coexist
+          with the corresponding unparameterized tag, e.g.
+          <literal>company.role:company.role=webserver</literal>). Note that when this file is read, invalid
+          tags are ignored, and if the same key is nonetheless assigned more than once, the assignment
+          specified last takes effect.</para>
+
+          <para>It is recommended for tags to be namespaced. In particular, tags given by an organization or
+          company should be prefixed with some identifier for the organization before the first dot. Personal
+          or purely local tags do not need to namespaced.</para>
 
           <para>The configured tags may be matched against with the
           <varname>ConditionMachineTag=</varname> and <varname>AssertMachineTag=</varname> unit settings, see
@@ -234,7 +241,7 @@
 ICON_NAME=computer-tablet
 CHASSIS=tablet
 DEPLOYMENT=production
-TAGS=demo:berlin:role=webserver</programlisting>
+TAGS=room=kitchen:company.location=berlin:company.role=personal</programlisting>
   </refsect1>
 
   <refsect1>
