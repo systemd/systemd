@@ -43,7 +43,7 @@ jobs:
       - uses: systemd/mkosi@131adaca5eb5f1551bc564ae4497ff940890a374
 
       - name: Check that tabs are not used in Python code
-        run: sh -c '! git grep -P "\\t" -- src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
+        run: sh -c '! git grep -P "\\t" -- src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py tools/check-argument-comments.py'
 
       - name: Build tools tree
         run: |
@@ -58,7 +58,7 @@ jobs:
       - name: Run mypy
         run: |
           mkosi box -- mypy --version
-          mkosi box -- mypy src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi box -- mypy src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py tools/check-argument-comments.py
 
       - name: Run ruff format
         run: |
@@ -85,6 +85,11 @@ jobs:
 
       - name: Run clang-tidy
         run: mkosi box -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit --quiet
+
+      - name: Run argument comment checks
+        run: |
+          mkosi box -- python3 -c 'import clang.cindex'
+          mkosi box -- meson test -C build --suite=argument-comments --print-errorlogs --no-stdsplit --quiet
 
       - name: Run coccinelle checks
         run: mkosi box -- meson test -C build --suite=coccinelle --print-errorlogs --no-stdsplit
