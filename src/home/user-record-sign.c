@@ -25,7 +25,7 @@ static int user_record_signable_json(UserRecord *ur, char **ret) {
         if (r < 0)
                 return r;
 
-        return sd_json_variant_format(j, 0, ret);
+        return sd_json_variant_format(j, /* flags= */ 0, ret);
 }
 
 int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
@@ -64,7 +64,7 @@ int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
                 return r;
 
         if (DEBUG_LOGGING)
-                sd_json_variant_dump(v, SD_JSON_FORMAT_CENSOR_SENSITIVE|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL);
+                sd_json_variant_dump(v, SD_JSON_FORMAT_CENSOR_SENSITIVE|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO, NULL, /* prefix= */ NULL);
 
         signed_ur = user_record_new();
         if (!signed_ur)
@@ -122,7 +122,7 @@ int user_record_verify(UserRecord *ur, EVP_PKEY *public_key) {
                 if (!md_ctx)
                         return -ENOMEM;
 
-                if (sym_EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, public_key) <= 0)
+                if (sym_EVP_DigestVerifyInit(md_ctx, /* pctx= */ NULL, /* type= */ NULL, NULL, public_key) <= 0)
                         return log_openssl_errors(LOG_DEBUG, "Failed to initialize signature verification");
 
                 if (sym_EVP_DigestVerify(md_ctx, signature, signature_size, (uint8_t*) text, strlen(text)) <= 0) {
