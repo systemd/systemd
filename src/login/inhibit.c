@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
@@ -14,6 +15,7 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "errno-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "log.h"
@@ -35,6 +37,7 @@ static const char *arg_what = NULL;
 static const char *arg_who = NULL;
 static const char *arg_why = NULL;
 static const char *arg_mode = NULL;
+static int arg_signal = SIGNO_INVALID;
 static bool arg_ask_password = true;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
@@ -71,6 +74,55 @@ static int inhibit(sd_bus *bus, sd_bus_error *error) {
                 return r;
 
         return RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
+}
+
+typedef struct Context {
+        PidRef *child;      /* The command we are wrapping... */
+        const char *name;   /* ...and how to call it in log messages */
+} Context;
+
+static int on_prepare_for(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
+        Context *c = ASSERT_PTR(userdata);
+        int b, r;
+
+        assert(message);
+        assert(pidref_is_set(c->child));
+
+        r = sd_bus_message_read(message, "b", &b);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+        if (!b)
+                /* We are resuming, so nothing to do */
+                return 0;
+
+        const char *operation = streq_ptr(sd_bus_message_get_member(message), "PrepareForShutdown") ?
+                "shut down" : "sleep";
+
+        log_info("Forwarding SIG%s to '%s', because the system is about to %s.",
+                 signal_to_string(arg_signal), c->name, operation);
+
+        r = pidref_kill(c->child, arg_signal);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send SIG%s to '%s', ignoring: %m",
+                                  signal_to_string(arg_signal), c->name);
+
+        return 0;
+}
+
+static int subscribe_prepare_for(sd_bus *bus, const char *member, Context *context) {
+        int r;
+
+        assert(bus);
+        assert(member);
+        assert(context);
+
+        r = bus_match_signal(bus, /* ret_slot= */ NULL, bus_login_mgr, member, on_prepare_for, context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to subscribe to %s signal: %m", member);
+
+        return 0;
 }
 
 static int print_inhibitors(sd_bus *bus) {
@@ -235,6 +287,16 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         arg_mode = opts.arg;
                         break;
 
+                OPTION_LONG("signal", "SIGNAL",
+                            "Signal to send to the command once the delayed operation "
+                            "is about to be executed (requires --mode=delay)"):
+                        r = signal_from_string(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --signal=%s: %m", opts.arg);
+
+                        arg_signal = r;
+                        break;
+
                 OPTION_LONG("list", NULL, "List active inhibitors"):
                         arg_action = ACTION_LIST;
                         break;
@@ -247,6 +309,16 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
         if (arg_action == ACTION_INHIBIT && strv_isempty(args))
                 arg_action = ACTION_LIST;
+
+        if (arg_signal >= 0) {
+                if (arg_action != ACTION_INHIBIT)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--signal= requires a command to execute.");
+
+                if (!streq_ptr(arg_mode, "delay"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--signal= is only supported with --mode=delay.");
+        }
 
         *remaining_args = args;
         return 1;
@@ -273,6 +345,7 @@ static int run(int argc, char *argv[]) {
                 return print_inhibitors(bus);
         else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_event_unrefp) sd_event *event = NULL;
                 _cleanup_strv_free_ char **arguments = NULL;
                 _cleanup_free_ char *w = NULL;
                 _cleanup_close_ int fd = -EBADF;
@@ -297,6 +370,35 @@ static int run(int argc, char *argv[]) {
                 if (!arg_mode)
                         arg_mode = "block";
 
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                Context context = {
+                        .child = &pidref,
+                        .name = args[0],
+                };
+
+                if (arg_signal >= 0) {
+                        r = sd_event_new(&event);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+                        /* Should be before locking so that we cannot miss a notification race */
+                        if (string_contains_word(arg_what, ":", "sleep")) {
+                                r = subscribe_prepare_for(bus, "PrepareForSleep", &context);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        if (string_contains_word(arg_what, ":", "shutdown")) {
+                                r = subscribe_prepare_for(bus, "PrepareForShutdown", &context);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        r = sd_bus_attach_event(bus, event, SD_EVENT_PRIORITY_NORMAL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to attach bus to event loop: %m");
+                }
+
                 fd = inhibit(bus, &error);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to inhibit: %s", bus_error_message(&error, fd));
@@ -305,7 +407,6 @@ static int run(int argc, char *argv[]) {
                 if (!arguments)
                         return log_oom();
 
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
                 r = pidref_safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pidref);
                 if (r < 0)
                         return r;
@@ -315,6 +416,19 @@ static int run(int argc, char *argv[]) {
                         log_open();
                         log_error_errno(errno, "Failed to execute '%s': %m", arguments[0]);
                         _exit(EXIT_FAILURE);
+                }
+
+                if (event) {
+                        _cleanup_(sd_event_source_unrefp) sd_event_source *child_source = NULL;
+
+                        r = event_add_child_pidref(event, &child_source, &pidref, WEXITED|WNOWAIT,
+                                                   /* callback= */ NULL, /* userdata= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate child event source: %m");
+
+                        r = sd_event_loop(event);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to run event loop: %m");
                 }
 
                 return pidref_wait_for_terminate_and_check(args[0], &pidref, WAIT_LOG_ABNORMAL);
