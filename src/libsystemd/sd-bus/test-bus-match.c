@@ -112,7 +112,7 @@ static void test_match_run_strv_modified(sd_bus *bus) {
 
         assert_se(sd_bus_message_new_signal(bus, &m, "/", "a.b", "c") >= 0);
         assert_se(sd_bus_message_append(m, "as", 2, "pi", "pa") >= 0);
-        assert_se(sd_bus_message_seal(m, 1, 0) >= 0);
+        assert_se(sd_bus_message_seal(m, 1, /* timeout_usec= */ 0) >= 0);
 
         /* Let the leaf gating pass for our synthetic message/matches. */
         m->read_counter = 1;
@@ -161,23 +161,23 @@ int main(int argc, char *argv[]) {
         assert_se(match_add(slots, &root, "arg4has='po'", 17) >= 0);
         assert_se(match_add(slots, &root, "arg4='pi'", 18) >= 0);
 
-        bus_match_dump(stdout, &root, 0);
+        bus_match_dump(stdout, &root, /* level= */ 0);
 
         assert_se(sd_bus_message_new_signal(bus, &m, "/foo/bar", "bar.x", "waldo") >= 0);
         assert_se(sd_bus_message_append(m, "ssssas", "one", "two", "/prefix/three", "prefix.four", 3, "pi", "pa", "po") >= 0);
-        assert_se(sd_bus_message_seal(m, 1, 0) >= 0);
+        assert_se(sd_bus_message_seal(m, 1, /* timeout_usec= */ 0) >= 0);
 
         zero(mask);
-        assert_se(bus_match_run(NULL, &root, m) == 0);
+        assert_se(bus_match_run(/* bus= */ NULL, &root, m) == 0);
         assert_se(mask_contains((unsigned[]) { 9, 8, 7, 5, 10, 12, 13, 14, 15, 16, 17 }, 11));
 
         assert_se(bus_match_remove(&root, &slots[8].match_callback) >= 0);
         assert_se(bus_match_remove(&root, &slots[13].match_callback) >= 0);
 
-        bus_match_dump(stdout, &root, 0);
+        bus_match_dump(stdout, &root, /* level= */ 0);
 
         zero(mask);
-        assert_se(bus_match_run(NULL, &root, m) == 0);
+        assert_se(bus_match_run(/* bus= */ NULL, &root, m) == 0);
         assert_se(mask_contains((unsigned[]) { 9, 5, 10, 12, 14, 7, 15, 16, 17 }, 9));
 
         for (BusMatchNodeType i = 0; i < _BUS_MATCH_NODE_TYPE_MAX; i++) {

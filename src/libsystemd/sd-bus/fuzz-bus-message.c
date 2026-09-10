@@ -23,7 +23,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(buffer = memdup(data, size));
 
-        r = bus_message_from_malloc(bus, buffer, size, NULL, 0, /* got_ctrunc= */ false, NULL, &m);
+        r = bus_message_from_malloc(bus, buffer, size, /* fds= */ NULL, /* n_fds= */ 0, /* got_ctrunc= */ false, /* label= */ NULL, &m);
         if (r == -EBADMSG)
                 return 0;
         assert_se(r >= 0);
@@ -36,9 +36,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         if (sd_bus_message_dump_json(m, SD_BUS_MESSAGE_DUMP_WITH_HEADER, &v) >= 0)
-                (void) sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY | SD_JSON_FORMAT_COLOR_AUTO, g, NULL);
+                (void) sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY | SD_JSON_FORMAT_COLOR_AUTO, g, /* prefix= */ NULL);
 
-        r = sd_bus_message_rewind(m, true);
+        r = sd_bus_message_rewind(m, /* complete= */ true);
         assert_se(r >= 0);
 
         return 0;

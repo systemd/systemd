@@ -86,7 +86,7 @@ int rtnl_resolve_ifname_full(
         if (FLAGS_SET(flags, RESOLVE_IFNAME_MAIN) && ifname_valid(name)) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
 
-                r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, 0);
+                r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, /* ifindex= */ 0);
                 if (r < 0)
                         return r;
 
@@ -94,7 +94,7 @@ int rtnl_resolve_ifname_full(
                 if (r < 0)
                         return r;
 
-                r = sd_netlink_call(*rtnl, message, 0, &reply);
+                r = sd_netlink_call(*rtnl, message, /* timeout= */ 0, &reply);
                 if (r >= 0)
                         return parse_newlink_message(reply, ret_name, ret_altnames);
                 if (r != -ENODEV)
@@ -106,7 +106,7 @@ int rtnl_resolve_ifname_full(
             ifname_valid_full(name, IFNAME_VALID_ALTERNATIVE)) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
 
-                r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, 0);
+                r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, /* ifindex= */ 0);
                 if (r < 0)
                         return r;
 
@@ -114,7 +114,7 @@ int rtnl_resolve_ifname_full(
                 if (r < 0)
                         return r;
 
-                r = sd_netlink_call(*rtnl, message, 0, &reply);
+                r = sd_netlink_call(*rtnl, message, /* timeout= */ 0, &reply);
                 if (r >= 0)
                         return parse_newlink_message(reply, ret_name, ret_altnames);
                 if (r != -ENODEV)
@@ -164,7 +164,7 @@ static int set_link_name(sd_netlink *rtnl, int ifindex, const char *name) {
         if (r < 0)
                 return r;
 
-        return sd_netlink_call(rtnl, message, 0, NULL);
+        return sd_netlink_call(rtnl, message, /* timeout= */ 0, /* ret= */ NULL);
 }
 
 int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_name) {
@@ -370,7 +370,7 @@ int rtnl_set_link_properties(
                         return r;
         }
 
-        r = sd_netlink_call(*rtnl, message, 0, NULL);
+        r = sd_netlink_call(*rtnl, message, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -417,7 +417,7 @@ static int rtnl_update_link_alternative_names(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(*rtnl, message, 0, NULL);
+        r = sd_netlink_call(*rtnl, message, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -455,7 +455,7 @@ int rtnl_set_link_alternative_names_by_ifname(
         }
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
-        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_NEWLINKPROP, 0);
+        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_NEWLINKPROP, /* ifindex= */ 0);
         if (r < 0)
                 return r;
 
@@ -475,7 +475,7 @@ int rtnl_set_link_alternative_names_by_ifname(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(*rtnl, message, 0, NULL);
+        r = sd_netlink_call(*rtnl, message, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -516,7 +516,7 @@ int rtnl_get_link_info_full(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(*rtnl, message, 0, &reply);
+        r = sd_netlink_call(*rtnl, message, /* timeout= */ 0, &reply);
         if (r == -EINVAL)
                 return -ENODEV; /* The device does not exist */
         if (r < 0)

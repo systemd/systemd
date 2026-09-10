@@ -31,23 +31,23 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(z = mkostemp_safe(pz));
         (void) unlink(pz);
 
-        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 1, 2, NULL, &p, &sp));
+        ASSERT_OK(mmap_cache_fd_get(fx, 0, /* keep_always= */ false, 1, 2, /* st= */ NULL, &p, &sp));
         ASSERT_GE(sp, 2U);
 
-        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 2, 2, NULL, &q, &sq));
+        ASSERT_OK(mmap_cache_fd_get(fx, 0, /* keep_always= */ false, 2, 2, /* st= */ NULL, &q, &sq));
 
         ASSERT_PTR_EQ((uint8_t*) p + 1, (uint8_t*) q);
         ASSERT_EQ(sq, sp - 1);
 
-        ASSERT_OK(mmap_cache_fd_get(fx, 1, false, 3, 2, NULL, &q, &sq));
+        ASSERT_OK(mmap_cache_fd_get(fx, 1, /* keep_always= */ false, 3, 2, /* st= */ NULL, &q, &sq));
 
         ASSERT_PTR_EQ((uint8_t*) p + 2, (uint8_t*) q);
         ASSERT_EQ(sq, sp - 2);
 
-        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 16ULL*1024ULL*1024ULL, 2, NULL, &p, &sp));
+        ASSERT_OK(mmap_cache_fd_get(fx, 0, /* keep_always= */ false, 16ULL*1024ULL*1024ULL, 2, /* st= */ NULL, &p, &sp));
         ASSERT_GE(sp, 2U);
 
-        ASSERT_OK(mmap_cache_fd_get(fx, 1, false, 16ULL*1024ULL*1024ULL+1, 2, NULL, &q, &sq));
+        ASSERT_OK(mmap_cache_fd_get(fx, 1, /* keep_always= */ false, 16ULL*1024ULL*1024ULL+1, 2, /* st= */ NULL, &q, &sq));
 
         ASSERT_PTR_EQ((uint8_t*) p + 1, (uint8_t*) q);
         ASSERT_EQ(sq, sp - 1);

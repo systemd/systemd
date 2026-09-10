@@ -27,36 +27,36 @@ TEST(bus_set_address_system_remote) {
         assert_se(sd_bus_new(&b) >= 0);
         if (!strv_isempty(saved_argv + 1)) {
                 STRV_FOREACH(a, saved_argv + 1)
-                        test_one_address(b, *a, 0, NULL);
+                        test_one_address(b, *a, /* result= */ 0, /* expected= */ NULL);
                 return;
         };
 
         test_one_address(b, "host",
-                         0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=host,argv4=systemd-stdio-bridge");
+                         /* result= */ 0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=host,argv4=systemd-stdio-bridge");
         test_one_address(b, "host:123",
-                         0, "unixexec:path=ssh,argv1=-xT,argv2=-p,argv3=123,argv4=--,argv5=host,argv6=systemd-stdio-bridge");
+                         /* result= */ 0, "unixexec:path=ssh,argv1=-xT,argv2=-p,argv3=123,argv4=--,argv5=host,argv6=systemd-stdio-bridge");
         test_one_address(b, "host:123:123",
-                         -EINVAL, NULL);
+                         -EINVAL, /* expected= */ NULL);
         test_one_address(b, "host:",
-                         -EINVAL, NULL);
+                         -EINVAL, /* expected= */ NULL);
         test_one_address(b, "user@host",
-                         0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=user%40host,argv4=systemd-stdio-bridge");
+                         /* result= */ 0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=user%40host,argv4=systemd-stdio-bridge");
         test_one_address(b, "user@host@host",
-                         -EINVAL, NULL);
+                         -EINVAL, /* expected= */ NULL);
         test_one_address(b, "[::1]",
-                         0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=%3a%3a1,argv4=systemd-stdio-bridge");
+                         /* result= */ 0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=%3a%3a1,argv4=systemd-stdio-bridge");
         test_one_address(b, "user@[::1]",
-                         0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=user%40%3a%3a1,argv4=systemd-stdio-bridge");
+                         /* result= */ 0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=user%40%3a%3a1,argv4=systemd-stdio-bridge");
         test_one_address(b, "user@[::1]:99",
-                         0, "unixexec:path=ssh,argv1=-xT,argv2=-p,argv3=99,argv4=--,argv5=user%40%3a%3a1,argv6=systemd-stdio-bridge");
+                         /* result= */ 0, "unixexec:path=ssh,argv1=-xT,argv2=-p,argv3=99,argv4=--,argv5=user%40%3a%3a1,argv6=systemd-stdio-bridge");
         test_one_address(b, "user@[::1]:",
-                         -EINVAL, NULL);
+                         -EINVAL, /* expected= */ NULL);
         test_one_address(b, "user@[::1:",
-                         -EINVAL, NULL);
+                         -EINVAL, /* expected= */ NULL);
         test_one_address(b, "user@",
-                         -EINVAL, NULL);
+                         -EINVAL, /* expected= */ NULL);
         test_one_address(b, "user@@",
-                         -EINVAL, NULL);
+                         -EINVAL, /* expected= */ NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

@@ -29,7 +29,7 @@ static int broadcast_groups_get(sd_netlink *nl) {
                         if (groups[i] & (1U << j)) {
                                 unsigned group = i * sizeof(uint32_t) * 8 + j + 1;
 
-                                r = hashmap_ensure_put(&nl->broadcast_group_refs, NULL, UINT_TO_PTR(group), UINT_TO_PTR(1));
+                                r = hashmap_ensure_put(&nl->broadcast_group_refs, /* hash_ops= */ NULL, UINT_TO_PTR(group), UINT_TO_PTR(1));
                                 if (r < 0)
                                         return r;
                         }
@@ -41,7 +41,7 @@ int socket_bind(sd_netlink *nl) {
         socklen_t addrlen;
         int r;
 
-        r = setsockopt_int(nl->fd, SOL_NETLINK, NETLINK_PKTINFO, true);
+        r = setsockopt_int(nl->fd, SOL_NETLINK, NETLINK_PKTINFO, /* value= */ true);
         if (r < 0)
                 return r;
 
@@ -66,7 +66,7 @@ static unsigned broadcast_group_get_ref(sd_netlink *nl, unsigned group) {
 static int broadcast_group_set_ref(sd_netlink *nl, unsigned group, unsigned n_ref) {
         assert(nl);
 
-        return hashmap_ensure_replace(&nl->broadcast_group_refs, NULL, UINT_TO_PTR(group), UINT_TO_PTR(n_ref));
+        return hashmap_ensure_replace(&nl->broadcast_group_refs, /* hash_ops= */ NULL, UINT_TO_PTR(group), UINT_TO_PTR(n_ref));
 }
 
 static int broadcast_group_join(sd_netlink *nl, unsigned group) {
@@ -183,7 +183,7 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
                          * recvmsg_safe() returns in case the payload or cdata is truncated. Given we just
                          * want to drop the message we also don't care if its payload or cdata was
                          * truncated. */
-                        n = recvmsg_safe(fd, &msg, 0);
+                        n = recvmsg_safe(fd, &msg, /* flags= */ 0);
                         if (n < 0 && !IN_SET(n, -ECHRNG, -EXFULL))
                                 return (int) n;
                 }
@@ -312,7 +312,7 @@ static int parse_message_one(sd_netlink *nl, uint32_t group, const struct nlmsgh
                 goto finalize;
 
         /* check that we support this message type */
-        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, hdr->nlmsg_flags, NULL, &size);
+        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, hdr->nlmsg_flags, /* ret_policy_set= */ NULL, &size);
         if (r == -EOPNOTSUPP) {
                 log_debug("sd-netlink: ignored message with unknown type: %i", hdr->nlmsg_type);
                 goto finalize;
@@ -362,7 +362,7 @@ int socket_read_message(sd_netlink *nl) {
         assert(nl);
 
         /* read nothing, just get the pending message size */
-        r = socket_recv_message(nl->fd, NULL, 0, NULL, true);
+        r = socket_recv_message(nl->fd, /* buf= */ NULL, /* buf_size= */ 0, /* ret_mcast_group= */ NULL, /* peek= */ true);
         if (r <= 0)
                 return r;
         len = (size_t) r;
@@ -372,7 +372,7 @@ int socket_read_message(sd_netlink *nl) {
                 return -ENOMEM;
 
         /* read the pending message */
-        r = socket_recv_message(nl->fd, nl->rbuffer, MALLOC_SIZEOF_SAFE(nl->rbuffer), &group, false);
+        r = socket_recv_message(nl->fd, nl->rbuffer, MALLOC_SIZEOF_SAFE(nl->rbuffer), &group, /* peek= */ false);
         if (r <= 0)
                 return r;
         len = (size_t) r;

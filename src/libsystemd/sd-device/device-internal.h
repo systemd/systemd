@@ -106,7 +106,7 @@ struct sd_device {
 int device_new_aux(sd_device **ret);
 int device_add_property_aux(sd_device *device, const char *key, const char *value, bool db);
 static inline int device_add_property_internal(sd_device *device, const char *key, const char *value) {
-        return device_add_property_aux(device, key, value, false);
+        return device_add_property_aux(device, key, value, /* db= */ false);
 }
 
 int device_set_syspath(sd_device *device, const char *_syspath, bool verify);
