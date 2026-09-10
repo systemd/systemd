@@ -2882,6 +2882,7 @@ static const BusProperty timer_properties[] = {
         { "OnClockChange",                         bus_append_parse_boolean                      },
         { "FixedRandomDelay",                      bus_append_parse_boolean                      },
         { "DeferReactivation",                     bus_append_parse_boolean                      },
+        { "CatchUp",                               bus_append_parse_boolean                      },
         { "AccuracySec",                           bus_append_parse_sec_rename                   },
         { "RandomizedDelaySec",                    bus_append_parse_sec_rename                   },
         { "RandomizedOffsetSec",                   bus_append_parse_sec_rename                   },
