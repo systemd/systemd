@@ -39,6 +39,7 @@ typedef struct CustomMount {
         char *source; /* for overlayfs this is the upper directory */
         char *destination;
         uid_t destination_uid;
+        gid_t destination_gid;
         char *options;
         char *work_dir;
         char **lower;
