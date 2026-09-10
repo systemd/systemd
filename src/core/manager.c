@@ -1891,6 +1891,7 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
                 return false;
         if (!IN_SET(deserialized ? SERVICE(u)->deserialized_state : SERVICE(u)->state,
                     SERVICE_RUNNING,
+                    SERVICE_RUNNING_REVALIDATING,
                     SERVICE_REFRESH_EXTENSIONS,
                     SERVICE_REFRESH_CREDENTIALS,
                     SERVICE_RELOAD,
@@ -2580,6 +2581,14 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
         Job *j;
 
         assert(m);
+
+        /* If the API bus is connected but not fully set up yet (see bus_init_api()), postpone
+         * dispatching the queue, otherwise subscribers restored from a previous reexec would miss
+         * messages. The pending Varlink reload reply does not depend on the API bus, but it is held
+         * back too, so that the order between D-Bus messages and Varlink replies is preserved for
+         * clients that monitor both. */
+        if (m->api_bus && !m->api_bus_ready)
+                return 0;
 
         /* When we are reloading, let's not wait with generating signals, since we need to exit the manager as quickly
          * as we can. There's no point in throttling generation of signals in that case. */
@@ -3967,9 +3976,9 @@ static int manager_run_environment_generators(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
 
-        paths = env_generator_binary_paths(m->runtime_scope);
-        if (!paths)
-                return log_oom();
+        r = env_generator_binary_paths(m->runtime_scope, &paths);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize environment generator search paths: %m");
 
         if (!generator_path_any(paths))
                 return 0;
@@ -4120,9 +4129,9 @@ static int manager_run_generators(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_GENERATORS))
                 return 0;
 
-        paths = generator_binary_paths(m->runtime_scope);
-        if (!paths)
-                return log_oom();
+        r = generator_binary_paths(m->runtime_scope, &paths);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize generator search paths: %m");
 
         if (!generator_path_any(paths))
                 return 0;
