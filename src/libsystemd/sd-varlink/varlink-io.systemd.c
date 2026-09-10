@@ -7,6 +7,10 @@ static SD_VARLINK_DEFINE_ERROR(Disconnected);
 static SD_VARLINK_DEFINE_ERROR(TimedOut);
 static SD_VARLINK_DEFINE_ERROR(Protocol);
 
+/* This one we invented, and use for method calls that are implemented, but cannot serve the specific
+ * operation requested of them */
+static SD_VARLINK_DEFINE_ERROR(OperationNotSupported);
+
 /* This one we invented, and use for generically propagating system errors (errno) to clients */
 static SD_VARLINK_DEFINE_ERROR(
                 System,
@@ -27,4 +31,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Some form of protocol error (also synthesized locally, does not cross wire)"),
                 &vl_error_Protocol,
                 SD_VARLINK_SYMBOL_COMMENT("A generic Linux system error (\"errno\"s)."),
-                &vl_error_System);
+                &vl_error_System,
+                SD_VARLINK_SYMBOL_COMMENT("The method call is implemented, but the operation requested of it is not supported."),
+                &vl_error_OperationNotSupported);
