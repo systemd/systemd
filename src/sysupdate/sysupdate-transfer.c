@@ -462,7 +462,7 @@ static int config_parse_partition_flags(
 
         assert(rvalue);
 
-        r = safe_atou64(rvalue, &t->partition_flags);
+        r = safe_atoux64(rvalue, &t->partition_flags);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse partition flags, ignoring: %s", rvalue);
@@ -702,7 +702,8 @@ static void transfer_remove_temporary(Transfer *t) {
         if (!IN_SET(t->target.type, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME))
                 return;
 
-        /* Removes all temporary files/dirs from previous runs in the target directory, i.e. all those starting with '.#' */
+        /* Removes all incomplete files/dirs from previous runs in the target directory. Clean both the
+         * current partial sysupdate prefix and the legacy '.#' prefix. */
 
         d = opendir(t->target.path);
         if (!d) {
@@ -724,7 +725,7 @@ static void transfer_remove_temporary(Transfer *t) {
                         break;
                 }
 
-                if (!startswith(de->d_name, ".#"))
+                if (!STARTSWITH_SET(de->d_name, ".#", ".sysupdate.partial."))
                         continue;
 
                 r = rm_rf_child(dirfd(d), de->d_name, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD);

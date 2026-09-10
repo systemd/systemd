@@ -8,6 +8,7 @@
 #define AUTOFS_SUPER_MAGIC	0x0187
 #define CEPH_SUPER_MAGIC	0x00c36400
 #define CODA_SUPER_MAGIC	0x73757245
+#define CONFIGFS_MAGIC		0x62656570	/* some random number */
 #define CRAMFS_MAGIC		0x28cd3d45	/* some random number */
 #define CRAMFS_MAGIC_WEND	0x453dcd28	/* magic number with the wrong endianess */
 #define DEBUGFS_MAGIC          0x64626720
@@ -105,5 +106,6 @@
 #define PID_FS_MAGIC		0x50494446	/* "PIDF" */
 #define GUEST_MEMFD_MAGIC	0x474d454d	/* "GMEM" */
 #define NULL_FS_MAGIC		0x4E554C4C	/* "NULL" */
+#define FAIL_FS_MAGIC		0x4641494C	/* "FAIL" */
 
 #endif /* __LINUX_MAGIC_H__ */

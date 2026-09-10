@@ -49,6 +49,7 @@ NAME_TO_MAGIC = {
     'ext4':            ['EXT4_SUPER_MAGIC'],
     'exfat':           ['EXFAT_SUPER_MAGIC'],
     'f2fs':            ['F2FS_SUPER_MAGIC'],
+    'failfs':          ['FAIL_FS_MAGIC'],
     # fuseblk is so closely related to fuse that it shares the same magic
     'fuseblk':         ['FUSE_SUPER_MAGIC'],
     'fuse':            ['FUSE_SUPER_MAGIC'],

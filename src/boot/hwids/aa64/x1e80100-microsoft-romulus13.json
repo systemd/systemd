@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "Microsoft Corporation Surface",
+    "compatible": "microsoft,romulus13",
+    "hwids": [
+        "4ecd5e53-42ea-51a3-9602-aecdfee5c09d",
+        "53368ca9-12d5-5ee1-820b-ce979fa2cb0b",
+        "cb196e28-20bc-5e78-93f1-0ac41726bcf8",
+        "fdfca0f3-41b6-5872-a2ea-53539fd5160c",
+        "11696377-327d-5ad1-b01d-02a7dbb9b99a",
+        "892e90c9-31e3-5131-a217-a02632dba5e9",
+        "786c71b6-f60e-51c7-9ddc-f2999b75a3c5",
+        "f0d12ad9-f530-5b56-96d8-897dd704059e",
+        "3c329240-a447-5ec5-b79b-d1149420ac62",
+        "224ba2ff-14c1-5b33-ac10-079ccc217be2",
+        "924900a0-9be2-53ca-90d7-b0e38827f5c5",
+        "95c06fde-19b0-55dc-9ca6-55403bae23f5",
+        "c735618b-d526-5f71-9651-8d149340d620"
+    ]
+}
