@@ -1134,6 +1134,76 @@ EOF
 
 test_sysupdate_notify_confext_mutable
 
+cleanup_sysupdate_notify_confext_before_sysext() {
+    local notify_socket_was_active="$1"
+
+    if [[ "$notify_socket_was_active" == "yes" ]]; then
+        systemctl restart systemd-sysupdate-notify-sysext.socket || :
+    else
+        systemctl stop systemd-sysupdate-notify-sysext.socket || :
+    fi
+
+    systemctl stop test-order-foo.service || :
+    systemd-sysext unmerge || :
+    systemd-confext unmerge || :
+    rm -rf /run/extensions/test-order /run/confexts/test-order
+    rm -f /run/test-order-marker
+}
+
+test_sysupdate_notify_confext_before_sysext() {
+    local notify_socket_was_active=no
+
+    if systemctl is-active --quiet systemd-sysupdate-notify-sysext.socket; then
+        notify_socket_was_active=yes
+    fi
+
+    trap 'cleanup_sysupdate_notify_confext_before_sysext "$notify_socket_was_active"' RETURN ERR
+
+    # Check that the sysupdate notification refresh merges confexts before sysexts, same order as for unit
+    # startup at boot. The confext ships a drop-in for a whole prefix of units, meaning it can't know what
+    # units to restart through EXTENSION_RESTART_UNITS= if it would be merged after the sysext that defines
+    # the unit affected by the drop-in. Only if the confext is merged first the unit picks up the drop-in.
+    # This is just one example the general scenario when a confext has to create state before a sysext's
+    # service is started and the confext does not know what sysext's services would be affected.
+    mkdir -p /run/confexts/test-order/etc/extension-release.d /run/confexts/test-order/etc/systemd/system/test-order-.service.d
+    cat >/run/confexts/test-order/etc/extension-release.d/extension-release.test-order <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RELOAD_MANAGER=1
+EOF
+    cat >/run/confexts/test-order/etc/systemd/system/test-order-.service.d/10-marker.conf <<EOF
+[Service]
+Environment=MARKER=from-confext
+EOF
+
+    mkdir -p /run/extensions/test-order/usr/lib/extension-release.d /run/extensions/test-order/usr/lib/systemd/system
+    cat >/run/extensions/test-order/usr/lib/extension-release.d/extension-release.test-order <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RELOAD_MANAGER=1
+EXTENSION_RESTART_UNITS=test-order-foo.service
+EOF
+    cat >/run/extensions/test-order/usr/lib/systemd/system/test-order-foo.service <<'EOF'
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=sh -c 'echo "${MARKER:-unset}" >/run/test-order-marker'
+EOF
+
+    systemctl start systemd-sysupdate-notify-sysext.socket
+    varlinkctl call /run/systemd/sysupdate/notify/io.systemd.sysext io.systemd.SysUpdate.Notify.OnCompletedUpdate '{}'
+
+    test -f /etc/systemd/system/test-order-.service.d/10-marker.conf
+    test -f /usr/lib/systemd/system/test-order-foo.service
+    systemctl --quiet is-active test-order-foo.service
+    grep -F "from-confext" /run/test-order-marker >/dev/null
+
+    trap - RETURN ERR
+    cleanup_sysupdate_notify_confext_before_sysext "$notify_socket_was_active"
+}
+
+test_sysupdate_notify_confext_before_sysext
+
 unsquashfs -force -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
 systemd-run --unit=test-root-ephemeral \
     -p RootDirectory=/tmp/img \
