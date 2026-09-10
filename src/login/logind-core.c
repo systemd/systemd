@@ -458,7 +458,7 @@ bool manager_get_idle_hint(Manager *m, dual_timestamp *ret_timestamp) {
          * unreasonable large idle periods starting with the Unix epoch. */
         ts = m->init_ts;
 
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* since= */ NULL, /* flags= */ 0, UID_INVALID, NULL);
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* since= */ NULL, /* flags= */ 0, UID_INVALID, /* ret_offending= */ NULL);
 
         HASHMAP_FOREACH(s, m->sessions) {
                 dual_timestamp k;
@@ -595,7 +595,7 @@ int manager_spawn_autovt(Manager *m, unsigned vtnr) {
         }
 
         xsprintf(name, "autovt@tty%u.service", vtnr);
-        r = bus_call_method(m->bus, bus_systemd_mgr, "StartUnit", &error, NULL, "ss", name, "fail");
+        r = bus_call_method(m->bus, bus_systemd_mgr, "StartUnit", &error, /* ret_reply= */ NULL, "ss", name, "fail");
         if (r < 0)
                 return log_error_errno(r, "Failed to start %s: %s", name, bus_error_message(&error, r));
 
@@ -634,7 +634,7 @@ static int manager_count_external_displays(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "drm", true);
+        r = sd_device_enumerator_add_match_subsystem(e, "drm", /* match= */ true);
         if (r < 0)
                 return r;
 
