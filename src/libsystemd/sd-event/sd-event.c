@@ -1892,7 +1892,9 @@ _public_ int sd_event_trim_memory(void) {
 
         log_debug("Memory pressure event, trimming malloc() memory.");
 
+#if !defined(__GLIBC__) || __GLIBC_PREREQ(2, 33)
         struct mallinfo2 before_mallinfo = mallinfo2();
+#endif
 
         usec_t before_timestamp = now(CLOCK_MONOTONIC);
         hashmap_trim_pools();
@@ -1906,6 +1908,7 @@ _public_ int sd_event_trim_memory(void) {
 
         usec_t period = after_timestamp - before_timestamp;
 
+#if !defined(__GLIBC__) || __GLIBC_PREREQ(2, 33)
         struct mallinfo2 after_mallinfo = mallinfo2();
         size_t l = LESS_BY(before_mallinfo.hblkhd, after_mallinfo.hblkhd) +
                 LESS_BY(before_mallinfo.arena, after_mallinfo.arena);
@@ -1916,6 +1919,13 @@ _public_ int sd_event_trim_memory(void) {
                    LOG_MESSAGE_ID(SD_MESSAGE_MEMORY_TRIM_STR),
                    LOG_ITEM("TRIMMED_BYTES=%zu", l),
                    LOG_ITEM("TRIMMED_USEC=" USEC_FMT, period));
+#else
+        log_struct(LOG_DEBUG,
+                   LOG_MESSAGE("Memory trimming took %s.",
+                               FORMAT_TIMESPAN(period, 0)),
+                   LOG_MESSAGE_ID(SD_MESSAGE_MEMORY_TRIM_STR),
+                   LOG_ITEM("TRIMMED_USEC=" USEC_FMT, period));
+#endif
 
         return 0;
 }
