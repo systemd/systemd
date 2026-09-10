@@ -58,7 +58,7 @@ TEST_RET(make_console_stdio) {
                 return log_tests_skipped("Cannot create a private mount namespace.");
         ASSERT_OK(r);
         if (r == 0) {
-                r = mount(path, "/dev/console", /* fstype= */ NULL, MS_BIND, /* data= */ NULL);
+                r = mount(path, "/dev/console", /* filesystemtype= */ NULL, MS_BIND, /* data= */ NULL);
                 if (r < 0 && ERRNO_IS_PRIVILEGE(errno))
                         _exit(EXIT_TEST_SKIP);
                 ASSERT_OK_ERRNO(r);
