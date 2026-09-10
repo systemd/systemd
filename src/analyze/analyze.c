@@ -20,6 +20,7 @@
 #include "analyze-chid.h"
 #include "analyze-compare-versions.h"
 #include "analyze-condition.h"
+#include "analyze-cpu-features.h"
 #include "analyze-critical-chain.h"
 #include "analyze-dlopen-metadata.h"
 #include "analyze-dot.h"
@@ -243,6 +244,8 @@ VERB_SCOPE(, verb_filesystems, "filesystems", "[NAME...]\0", VERB_ANY, VERB_ANY,
            "List known filesystems");
 VERB_SCOPE(, verb_architectures, "architectures", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
            "List known architectures");
+VERB_SCOPE(, verb_cpu_features, "cpu-features", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
+           "List known CPU features");
 VERB_SCOPE(, verb_smbios11, "smbios11", NULL, VERB_ANY, 1, 0,
            "List strings passed via SMBIOS Type #11");
 VERB_SCOPE(, verb_chid, "chid", NULL, VERB_ANY, VERB_ANY, 0,
@@ -578,9 +581,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                        "Option --offline= requires one or more units to perform a security review.");
 
         if (arg_json_format_flags != SD_JSON_FORMAT_OFF &&
-            !STRPTR_IN_SET(verb, "security", "inspect-elf", "dlopen-metadata", "plot", "fdstore", "pcrs", "nvpcrs", "architectures", "capability", "exit-status", "chid", "blame", "identify-tpm2"))
+            !STRPTR_IN_SET(verb,
+                           "security", "inspect-elf", "dlopen-metadata", "plot", "fdstore", "pcrs", "nvpcrs",
+                           "architectures", "cpu-features", "capability", "exit-status", "chid", "blame",
+                           "identify-tpm2"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --json= is only supported for security, inspect-elf, dlopen-metadata, plot, fdstore, pcrs, nvpcrs, architectures, capability, exit-status, chid, blame, identify-tpm2 right now.");
+                                       "Option --json= is only supported for security, inspect-elf, dlopen-metadata, plot, fdstore, pcrs, nvpcrs, architectures, cpu-features, capability, exit-status, chid, blame, identify-tpm2 right now.");
 
         if (arg_threshold != 100 && !streq_ptr(verb, "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

@@ -9,6 +9,7 @@ systemd_analyze_sources = files(
         'analyze-chid.c',
         'analyze-compare-versions.c',
         'analyze-condition.c',
+        'analyze-cpu-features.c',
         'analyze-critical-chain.c',
         'analyze-dlopen-metadata.c',
         'analyze-dot.c',
