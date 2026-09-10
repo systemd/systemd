@@ -270,5 +270,5 @@ int verb_lock_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 _exit(EXIT_FAILURE);
         }
 
-        return pidref_wait_for_terminate_and_check(arg_cmdline[0], &pidref, 0);
+        return pidref_wait_for_terminate_and_check(arg_cmdline[0], &pidref, /* flags= */ 0);
 }

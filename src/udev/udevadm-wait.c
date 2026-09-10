@@ -106,7 +106,7 @@ static int check_and_exit(sd_event *event) {
         assert(event);
 
         if (check()) {
-                r = sd_event_exit(event, 0);
+                r = sd_event_exit(event, /* code= */ 0);
                 if (r < 0)
                         return r;
 
@@ -146,7 +146,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
                 if (!path_startswith(*p, "/sys"))
                         continue;
 
-                r = path_find_last_component(*p, false, NULL, &s);
+                r = path_find_last_component(*p, /* accept_dot_dot= */ false, /* next= */ NULL, &s);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to extract filename from \"%s\", ignoring: %m", *p);
                         continue;
@@ -194,7 +194,7 @@ static int setup_monitor(sd_event *event, MonitorNetlinkGroup group, const char 
         if (r < 0)
                 return r;
 
-        r = sd_device_monitor_start(monitor, device_monitor_handler, NULL);
+        r = sd_device_monitor_start(monitor, device_monitor_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
@@ -215,7 +215,7 @@ static int setup_inotify(sd_event *event) {
         if (!arg_settle)
                 return 0;
 
-        r = sd_event_add_inotify(event, &s, "/run/udev" , IN_CREATE | IN_DELETE, on_inotify, NULL);
+        r = sd_event_add_inotify(event, &s, "/run/udev" , IN_CREATE | IN_DELETE, on_inotify, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
@@ -235,8 +235,8 @@ static int setup_timer(sd_event *event) {
         if (arg_timeout_usec == USEC_INFINITY)
                 return 0;
 
-        r = sd_event_add_time_relative(event, &s, CLOCK_BOOTTIME, arg_timeout_usec, 0,
-                                       NULL, INT_TO_PTR(-ETIMEDOUT));
+        r = sd_event_add_time_relative(event, &s, CLOCK_BOOTTIME, arg_timeout_usec, /* accuracy= */ 0,
+                                       /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT));
         if (r < 0)
                 return r;
 
@@ -266,7 +266,7 @@ static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) 
 
         if (counter >= 2) {
                 log_debug("All requested devices popped up without receiving kernel uevents.");
-                return sd_event_exit(e, 0);
+                return sd_event_exit(e, /* code= */ 0);
         }
 
         r = reset_timer(e, &s);
@@ -277,8 +277,8 @@ static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) 
 }
 
 static int reset_timer(sd_event *e, sd_event_source **s) {
-        return event_reset_time_relative(e, s, CLOCK_BOOTTIME, 250 * USEC_PER_MSEC, 0,
-                                         on_periodic_timer, NULL, 0, "periodic-timer-event-source", false);
+        return event_reset_time_relative(e, s, CLOCK_BOOTTIME, 250 * USEC_PER_MSEC, /* accuracy= */ 0,
+                                         on_periodic_timer, /* userdata= */ NULL, /* priority= */ 0, "periodic-timer-event-source", /* force_reset= */ false);
 }
 
 static int setup_periodic_timer(sd_event *event) {

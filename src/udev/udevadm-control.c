@@ -118,7 +118,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("trace", "BOOL", "Enable/disable trace logging"):
-                        r = parse_boolean_argument("--trace=", opts.arg, NULL);
+                        r = parse_boolean_argument("--trace=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 

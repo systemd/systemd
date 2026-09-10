@@ -84,7 +84,7 @@ int verb_builtin_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open device '%s': %m", arg_syspath);
 
-        event = udev_event_new(dev, NULL, EVENT_UDEVADM_TEST_BUILTIN);
+        event = udev_event_new(dev, /* worker= */ NULL, EVENT_UDEVADM_TEST_BUILTIN);
         if (!event)
                 return log_oom();
 

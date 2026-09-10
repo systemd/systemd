@@ -22,22 +22,22 @@ static void test_udev_resolve_subsys_kernel_one(const char *str, bool read_value
 }
 
 TEST(udev_resolve_subsys_kernel) {
-        test_udev_resolve_subsys_kernel_one("hoge", false, -EINVAL, NULL);
-        test_udev_resolve_subsys_kernel_one("[hoge", false, -EINVAL, NULL);
-        test_udev_resolve_subsys_kernel_one("[hoge/foo", false, -EINVAL, NULL);
-        test_udev_resolve_subsys_kernel_one("[hoge/]", false, -EINVAL, NULL);
+        test_udev_resolve_subsys_kernel_one("hoge", /* read_value= */ false, -EINVAL, /* expected= */ NULL);
+        test_udev_resolve_subsys_kernel_one("[hoge", /* read_value= */ false, -EINVAL, /* expected= */ NULL);
+        test_udev_resolve_subsys_kernel_one("[hoge/foo", /* read_value= */ false, -EINVAL, /* expected= */ NULL);
+        test_udev_resolve_subsys_kernel_one("[hoge/]", /* read_value= */ false, -EINVAL, /* expected= */ NULL);
 
-        test_udev_resolve_subsys_kernel_one("[net/lo]", false, 0, "/sys/devices/virtual/net/lo");
-        test_udev_resolve_subsys_kernel_one("[net/lo]/", false, 0, "/sys/devices/virtual/net/lo");
-        test_udev_resolve_subsys_kernel_one("[net/lo]hoge", false, 0, "/sys/devices/virtual/net/lo/hoge");
-        test_udev_resolve_subsys_kernel_one("[net/lo]/hoge", false, 0, "/sys/devices/virtual/net/lo/hoge");
+        test_udev_resolve_subsys_kernel_one("[net/lo]", /* read_value= */ false, /* retval= */ 0, "/sys/devices/virtual/net/lo");
+        test_udev_resolve_subsys_kernel_one("[net/lo]/", /* read_value= */ false, /* retval= */ 0, "/sys/devices/virtual/net/lo");
+        test_udev_resolve_subsys_kernel_one("[net/lo]hoge", /* read_value= */ false, /* retval= */ 0, "/sys/devices/virtual/net/lo/hoge");
+        test_udev_resolve_subsys_kernel_one("[net/lo]/hoge", /* read_value= */ false, /* retval= */ 0, "/sys/devices/virtual/net/lo/hoge");
 
-        test_udev_resolve_subsys_kernel_one("[net/lo]", true, -EINVAL, NULL);
-        test_udev_resolve_subsys_kernel_one("[net/lo]/", true, -EINVAL, NULL);
-        test_udev_resolve_subsys_kernel_one("[net/lo]hoge", true, 0, "");
-        test_udev_resolve_subsys_kernel_one("[net/lo]/hoge", true, 0, "");
-        test_udev_resolve_subsys_kernel_one("[net/lo]address", true, 0, "00:00:00:00:00:00");
-        test_udev_resolve_subsys_kernel_one("[net/lo]/address", true, 0, "00:00:00:00:00:00");
+        test_udev_resolve_subsys_kernel_one("[net/lo]", /* read_value= */ true, -EINVAL, /* expected= */ NULL);
+        test_udev_resolve_subsys_kernel_one("[net/lo]/", /* read_value= */ true, -EINVAL, /* expected= */ NULL);
+        test_udev_resolve_subsys_kernel_one("[net/lo]hoge", /* read_value= */ true, /* retval= */ 0, "");
+        test_udev_resolve_subsys_kernel_one("[net/lo]/hoge", /* read_value= */ true, /* retval= */ 0, "");
+        test_udev_resolve_subsys_kernel_one("[net/lo]address", /* read_value= */ true, /* retval= */ 0, "00:00:00:00:00:00");
+        test_udev_resolve_subsys_kernel_one("[net/lo]/address", /* read_value= */ true, /* retval= */ 0, "00:00:00:00:00:00");
 }
 
 TEST(udev_event_apply_format_links) {
@@ -54,9 +54,9 @@ TEST(udev_event_apply_format_links) {
                 ASSERT_OK(device_add_devlink(dev, l));
         }
 
-        ASSERT_NOT_NULL((event = udev_event_new(dev, NULL, EVENT_TEST_SPAWN)));
+        ASSERT_NOT_NULL((event = udev_event_new(dev, /* worker= */ NULL, EVENT_TEST_SPAWN)));
 
-        udev_event_apply_format(event, "$links", dest, sizeof dest, false, &truncated);
+        udev_event_apply_format(event, "$links", dest, sizeof dest, /* replace_whitespace= */ false, &truncated);
         ASSERT_TRUE(truncated);
 }
 

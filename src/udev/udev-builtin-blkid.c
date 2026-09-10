@@ -333,14 +333,14 @@ static int probe_superblocks(blkid_probe pr) {
                  * check if the small disk is partitioned, if yes then
                  * don't probe for filesystems.
                  */
-                sym_blkid_probe_enable_superblocks(pr, 0);
+                sym_blkid_probe_enable_superblocks(pr, /* enable= */ 0);
 
                 errno = 0;
                 rc = sym_blkid_do_fullprobe(pr);
                 if (rc < 0)
                         return errno_or_else(EIO);
 
-                if (sym_blkid_probe_lookup_value(pr, "PTTYPE", NULL, NULL) == 0)
+                if (sym_blkid_probe_lookup_value(pr, "PTTYPE", /* data= */ NULL, /* ret_size= */ NULL) == 0)
                         return 0;        /* partition table detected */
         }
 
@@ -542,7 +542,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
 
                 OPTION('H', "hint", "HINT", NULL):
                         errno = 0;
-                        r = sym_blkid_probe_set_hint(pr, opts.arg, 0);
+                        r = sym_blkid_probe_set_hint(pr, opts.arg, /* value= */ 0);
                         if (r < 0)
                                 return log_device_error_errno(dev, errno_or_else(ENOMEM), "Failed to use '%s' probing hint: %m", opts.arg);
                         break;
@@ -602,7 +602,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
                 sym_blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
 
         errno = 0;
-        r = sym_blkid_probe_set_device(pr, fd, offset, 0);
+        r = sym_blkid_probe_set_device(pr, fd, offset, /* size= */ 0);
         if (r < 0)
                 return log_device_debug_errno(dev, errno_or_else(ENOMEM), "Failed to set device to blkid prober: %m");
 
@@ -621,7 +621,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
                 return log_device_debug_errno(dev, errno_or_else(ENOMEM), "Failed to get number of probed values: %m");
 
         for (int i = 0; i < nvals; i++) {
-                if (sym_blkid_probe_get_value(pr, i, &name, &data, NULL) < 0)
+                if (sym_blkid_probe_get_value(pr, i, &name, &data, /* len= */ NULL) < 0)
                         continue;
 
                 print_property(event, name, data);

@@ -142,7 +142,7 @@ static int sg_err_category3(struct sg_io_hdr *hp) {
 }
 
 static int sg_err_category4(struct sg_io_v4 *hp) {
-        return sg_err_category_new(hp->device_status, 0,
+        return sg_err_category_new(hp->device_status, /* msg_status= */ 0,
                                    hp->transport_status, hp->driver_status,
                                    (unsigned char *)(uintptr_t)hp->response,
                                    hp->response_len);
@@ -565,7 +565,7 @@ static int do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
         uint8_t page_83[SCSI_INQ_BUFF_LEN];
 
         /* also pick up the page 80 serial number */
-        do_scsi_page80_inquiry(dev_scsi, fd, NULL, unit_serial_number, MAX_SERIAL_LEN);
+        do_scsi_page80_inquiry(dev_scsi, fd, /* serial= */ NULL, unit_serial_number, MAX_SERIAL_LEN);
 
         memzero(page_83, SCSI_INQ_BUFF_LEN);
         retval = scsi_inquiry(dev_scsi, fd, 1, PAGE_83, page_83,
@@ -776,7 +776,7 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
 
         format_devnum(statbuf.st_rdev, dev_scsi->kernel);
 
-        r = scsi_inquiry(dev_scsi, fd, 0, 0, buf, SCSI_INQ_BUFF_LEN);
+        r = scsi_inquiry(dev_scsi, fd, /* evpd= */ 0, /* page= */ 0, buf, SCSI_INQ_BUFF_LEN);
         if (r < 0)
                 return r;
 

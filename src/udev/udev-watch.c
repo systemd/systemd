@@ -71,7 +71,7 @@ void udev_watch_dump(void) {
 
         _cleanup_set_free_ Set *pending_wds = NULL, *verified_wds = NULL;
         FOREACH_DIRENT(de, dir, break) {
-                if (safe_atoi(de->d_name, NULL) >= 0) {
+                if (safe_atoi(de->d_name, /* ret_i= */ NULL) >= 0) {
                         /* This should be wd -> ID symlink */
 
                         if (set_contains(verified_wds, de->d_name))
@@ -565,7 +565,7 @@ int manager_add_watch(Manager *manager, sd_device *dev) {
                 return log_device_debug_errno(dev, r, "Failed to create and open '/run/udev/watch/': %m");
 
         /* 1. Clear old symlinks */
-        (void) udev_watch_clear(dev, dirfd, NULL);
+        (void) udev_watch_clear(dev, dirfd, /* ret_wd= */ NULL);
 
         /* 2. Add inotify watch */
         log_device_debug(dev, "Adding watch on '%s'", devnode);
@@ -637,7 +637,7 @@ static int on_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si, voi
                 return 0;
         }
 
-        return sd_event_exit(sd_event_source_get_event(s), 0);
+        return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 }
 
 static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char *msg) {
@@ -647,7 +647,7 @@ static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char
         assert(dev);
         assert(msg);
 
-        if (sd_device_get_devname(dev, NULL) < 0)
+        if (sd_device_get_devname(dev, /* ret= */ NULL) < 0)
                 return 0;
 
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
