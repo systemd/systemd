@@ -45,6 +45,7 @@ CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
         *ret = (CustomMount) {
                 .type = t,
                 .destination_uid = UID_INVALID,
+                .destination_gid = GID_INVALID,
         };
 
         return ret;
@@ -804,6 +805,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         unsigned long open_tree_flags = OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC | AT_RECURSIVE;
         struct stat source_st, dest_st;
         uid_t dest_uid = UID_INVALID;
+        gid_t dest_gid = GID_INVALID;
         int r;
         RemountIdmapping idmapping = REMOUNT_IDMAPPING_NONE;
 
@@ -864,6 +866,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                         return log_error_errno(errno, "Failed to stat %s: %m", where);
 
                 dest_uid = uid_is_valid(m->destination_uid) ? chown_uid + m->destination_uid : dest_st.st_uid;
+                dest_gid = gid_is_valid(m->destination_gid) ? chown_uid + m->destination_gid : dest_st.st_gid;
 
                 if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -895,6 +898,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                         return log_error_errno(errno, "Failed to chown %s: %m", where);
 
                 dest_uid = chown_uid + (uid_is_valid(m->destination_uid) ? m->destination_uid : 0);
+                dest_gid = chown_uid + (gid_is_valid(m->destination_gid) ? m->destination_gid : 0);
         }
 
         if (move_mount(fd_clone, "", AT_FDCWD, where, MOVE_MOUNT_F_EMPTY_PATH) < 0)
@@ -909,7 +913,15 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         }
 
         if (idmapping != REMOUNT_IDMAPPING_NONE) {
-                r = remount_idmap(STRV_MAKE(where), uid_shift, uid_range, source_st.st_uid, dest_uid, idmapping);
+                r = remount_idmap(
+                                STRV_MAKE(where),
+                                uid_shift,
+                                uid_range,
+                                source_st.st_uid,
+                                source_st.st_gid,
+                                dest_uid,
+                                dest_gid,
+                                idmapping);
                 if (r < 0)
                         return log_error_errno(r, "Failed to map ids for bind mount %s: %m", where);
         }

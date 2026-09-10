@@ -58,6 +58,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
+#include "group-record.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -2618,6 +2619,7 @@ static int setup_journal(const char *directory, uid_t uid_shift, uid_t uid_range
                                 .source = p,
                                 .destination = p,
                                 .destination_uid = UID_INVALID,
+                                .destination_gid = GID_INVALID,
                         },
                         /* n= */ 1,
                         uid_shift,
@@ -4125,6 +4127,7 @@ static int outer_child(
                                 .destination = TAKE_PTR(sd),
                                 .options = TAKE_PTR(options),
                                 .destination_uid = bind_user->payload_user->uid,
+                                .destination_gid = bind_user->payload_group->gid,
                         };
                 }
 
@@ -4195,8 +4198,10 @@ static int outer_child(
                                 dirs,
                                 chown_uid,
                                 chown_range,
-                                /* source_owner= */ UID_INVALID,
-                                /* dest_owner= */ UID_INVALID,
+                                /* source_uid= */ UID_INVALID,
+                                /* source_gid= */ GID_INVALID,
+                                /* dest_uid= */ UID_INVALID,
+                                /* dest_gid= */ GID_INVALID,
                                 mapping);
                 if (r == -EINVAL || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
                         /* This might fail because the kernel or file system doesn't support idmapping. We
