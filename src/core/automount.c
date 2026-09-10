@@ -49,6 +49,7 @@ static int automount_start_expire(Automount *a);
 static void automount_stop_expire(Automount *a);
 static int automount_send_ready(Automount *a, Set *tokens, int status);
 static void automount_enter_dead(Automount *a, AutomountResult f);
+static int open_ioctl_fd(int dev_autofs_fd, const char *where, dev_t devid);
 
 static void automount_init(Unit *u) {
         Automount *a = ASSERT_PTR(AUTOMOUNT(u));
@@ -58,6 +59,43 @@ static void automount_init(Unit *u) {
         a->pipe_fd = -EBADF;
         a->directory_mode = 0755;
         UNIT(a)->ignore_on_isolate = true;
+}
+
+static int autofs_set_catatonic(int dev_autofs_fd, int ioctl_fd) {
+        struct autofs_dev_ioctl param;
+
+        assert(dev_autofs_fd >= 0);
+        assert(ioctl_fd >= 0);
+
+        init_autofs_dev_ioctl(&param);
+        param.ioctlfd = ioctl_fd;
+
+        return RET_NERRNO(ioctl(dev_autofs_fd, AUTOFS_DEV_IOCTL_CATATONIC, &param));
+}
+
+/* Requests the kernel queued since we last read the pipe are in no token set of ours. Turning the autofs
+ * catatonic fails them with ENOENT; merely closing the pipe would get the kernel there only once yet another
+ * request fails to reach us, which under a file system mounted on top never happens. Call this after answering
+ * the known tokens, so that the kernel does not discard them first. */
+static void automount_set_catatonic(Automount *a) {
+        _cleanup_close_ int ioctl_fd = -EBADF;
+        int r;
+
+        assert(a);
+
+        /* No way to talk to the autofs, e.g. when open_dev_autofs() failed at coldplug */
+        if (UNIT(a)->manager->dev_autofs_fd < 0 || !a->where)
+                return;
+
+        ioctl_fd = open_ioctl_fd(UNIT(a)->manager->dev_autofs_fd, a->where, a->dev_id);
+        if (ioctl_fd < 0) {
+                log_unit_warning_errno(UNIT(a), ioctl_fd, "Failed to open automount ioctl fd for '%s', ignoring: %m", a->where);
+                return;
+        }
+
+        r = autofs_set_catatonic(UNIT(a)->manager->dev_autofs_fd, ioctl_fd);
+        if (r < 0)
+                log_unit_warning_errno(UNIT(a), r, "Failed to make automount point '%s' catatonic, ignoring: %m", a->where);
 }
 
 /* Nothing else can answer the requests the kernel already queued for us, and it keeps their processes
@@ -75,6 +113,8 @@ static void automount_release_requests(Automount *a, int status) {
         r = automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);
         if (r < 0)
                 log_unit_warning_errno(UNIT(a), r, "Failed to release pending automount expire requests, ignoring: %m");
+
+        automount_set_catatonic(a);
 }
 
 static void unmount_autofs(Automount *a, bool keep_mount_point) {
@@ -85,17 +125,16 @@ static void unmount_autofs(Automount *a, bool keep_mount_point) {
         if (a->pipe_fd < 0)
                 return;
 
+        if (!keep_mount_point)
+                automount_release_requests(a, -EHOSTDOWN);
+
         a->pipe_event_source = sd_event_source_disable_unref(a->pipe_event_source);
         a->pipe_fd = safe_close(a->pipe_fd);
 
-        if (!keep_mount_point) {
-                automount_release_requests(a, -EHOSTDOWN);
-
-                if (a->where) {
-                        r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
-                        if (r < 0)
-                                log_unit_error_errno(UNIT(a), r, "Failed to unmount: %m");
-                }
+        if (!keep_mount_point && a->where) {
+                r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
+                if (r < 0)
+                        log_unit_error_errno(UNIT(a), r, "Failed to unmount: %m");
         }
 }
 
@@ -289,9 +328,8 @@ static void automount_set_state(Automount *a, AutomountState state) {
 
 /* This automount unit's file vanished while we were reloading. Nobody can serve the autofs mount point
  * anymore, but the kernel keeps blocking every process that is trying to access it while the mount exists.
- * If the mount is already active, nothing waits for it: then only let go of the pipe. Otherwise detach the
- * automount and fail the unit, which is what automount_enter_running() does with a request that arrives
- * while the unit is not loaded. */
+ * Answer whatever is queued and detach the automount, which is what automount_enter_running() does with a
+ * request that arrives while the unit is not loaded. */
 static int automount_coldplug_vanished(Automount *a) {
         Unit *u = UNIT(ASSERT_PTR(a));
         struct stat st;
@@ -310,7 +348,9 @@ static int automount_coldplug_vanished(Automount *a) {
 
         if (!exposed)
                 /* Mop up pending requests, nothing else will answer any more. The file system on top is
-                 * what they were waiting for, so tell them it is there. */
+                 * what they were waiting for, so tell them it is there. The autofs below it cannot be
+                 * unmounted and stays behind catatonic: recovering that path takes a manual umount, and
+                 * until then automount_start() refuses to use it again. */
                 automount_release_requests(a, 0);
 
         unmount_autofs(a, /* keep_mount_point= */ !exposed);
