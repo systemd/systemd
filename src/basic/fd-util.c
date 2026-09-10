@@ -172,7 +172,7 @@ void nonblock_resetp(int *fd) {
         PROTECT_ERRNO;
 
         if (*fd >= 0)
-                (void) fd_nonblock(*fd, false);
+                (void) fd_nonblock(*fd, /* nonblock= */ false);
 }
 
 int stdio_disable_nonblock(void) {
@@ -181,9 +181,9 @@ int stdio_disable_nonblock(void) {
         /* stdin/stdout/stderr really should have O_NONBLOCK, which would confuse apps if left on, as
          * write()s might unexpectedly fail with EAGAIN. */
 
-        RET_GATHER(ret, fd_nonblock(STDIN_FILENO, false));
-        RET_GATHER(ret, fd_nonblock(STDOUT_FILENO, false));
-        RET_GATHER(ret, fd_nonblock(STDERR_FILENO, false));
+        RET_GATHER(ret, fd_nonblock(STDIN_FILENO, /* nonblock= */ false));
+        RET_GATHER(ret, fd_nonblock(STDOUT_FILENO, /* nonblock= */ false));
+        RET_GATHER(ret, fd_nonblock(STDERR_FILENO, /* nonblock= */ false));
 
         return ret;
 }
@@ -748,7 +748,7 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
         for (int i = 0; i < 3; i++)
                 if (fd[i] == i) {
                         /* fd is already in place, but let's make sure O_CLOEXEC is off */
-                        r = fd_cloexec(i, false);
+                        r = fd_cloexec(i, /* cloexec= */ false);
                         if (r < 0)
                                 goto finish;
                 } else {

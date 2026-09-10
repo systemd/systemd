@@ -43,7 +43,7 @@ int parse_sha256(const char *s, uint8_t ret[static SHA256_DIGEST_SIZE]) {
         if (!sha256_is_valid(s))
                 return -EINVAL;
 
-        r = unhexmem_full(s, SHA256_DIGEST_SIZE * 2, false, (void**) &data, &size);
+        r = unhexmem_full(s, SHA256_DIGEST_SIZE * 2, /* secure= */ false, (void**) &data, &size);
         if (r < 0)
                 return r;
         assert(size == SHA256_DIGEST_SIZE);

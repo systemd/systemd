@@ -17,11 +17,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(UIDRange*, uid_range_free);
 
 int uid_range_add_internal(UIDRange **range, uid_t start, uid_t nr, bool coalesce);
 static inline int uid_range_add(UIDRange **range, uid_t start, uid_t nr) {
-        return uid_range_add_internal(range, start, nr, true);
+        return uid_range_add_internal(range, start, nr, /* coalesce= */ true);
 }
 int uid_range_add_str_full(UIDRange **range, const char *s, bool coalesce);
 static inline int uid_range_add_str(UIDRange **range, const char *s) {
-        return uid_range_add_str_full(range, s, true);
+        return uid_range_add_str_full(range, s, /* coalesce= */ true);
 }
 
 int uid_range_next_lower(const UIDRange *range, uid_t *uid);
@@ -53,11 +53,11 @@ typedef enum UIDRangeUsernsMode {
 
 int uid_range_load_userns_full(const char *path, UIDRangeUsernsMode mode, bool coalesce, UIDRange **ret);
 static inline int uid_range_load_userns(const char *path, UIDRangeUsernsMode mode, UIDRange **ret) {
-        return uid_range_load_userns_full(path, mode, true, ret);
+        return uid_range_load_userns_full(path, mode, /* coalesce= */ true, ret);
 }
 int uid_range_load_userns_by_fd_full(int userns_fd, UIDRangeUsernsMode mode, bool coalesce, UIDRange **ret);
 static inline int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange **ret) {
-        return uid_range_load_userns_by_fd_full(userns_fd, mode, true, ret);
+        return uid_range_load_userns_by_fd_full(userns_fd, mode, /* coalesce= */ true, ret);
 }
 
 bool uid_range_overlaps(const UIDRange *range, uid_t start, uid_t nr);

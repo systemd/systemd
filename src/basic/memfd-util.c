@@ -150,7 +150,7 @@ int memfd_new_and_seal(const char *name, const void *data, size_t sz) {
                 return fd;
 
         if (sz > 0) {
-                r = pwrite_full(fd, data, sz, 0);
+                r = pwrite_full(fd, data, sz, /* offset= */ 0);
                 if (r < 0)
                         return r;
         }

@@ -148,7 +148,7 @@ int proc_cmdline(char **ret) {
                 return strdup_to(ret, e);
 
         if (detect_container() > 0)
-                return pid_get_cmdline(1, SIZE_MAX, 0, ret);
+                return pid_get_cmdline(1, SIZE_MAX, /* flags= */ 0, ret);
 
         return read_full_file("/proc/cmdline", ret, /* ret_size= */  NULL);
 }
@@ -161,7 +161,7 @@ static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
         /* For testing purposes it is sometimes useful to be able to override what we consider /proc/cmdline to be */
         const char *e = secure_getenv("SYSTEMD_PROC_CMDLINE");
         if (e)
-                return strv_split_full(ret, e, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+                return strv_split_full(ret, e, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
 
         if (detect_container() > 0) {
                 _cleanup_strv_free_ char **args = NULL;
@@ -179,11 +179,11 @@ static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
         } else {
                 _cleanup_free_ char *s = NULL;
 
-                r = read_full_file("/proc/cmdline", &s, NULL);
+                r = read_full_file("/proc/cmdline", &s, /* ret_size= */ NULL);
                 if (r < 0)
                         return r;
 
-                return strv_split_full(ret, s, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+                return strv_split_full(ret, s, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
         }
 }
 

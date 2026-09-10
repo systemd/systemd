@@ -25,7 +25,7 @@ void prioq_reshuffle(Prioq *q, void *data, unsigned *idx);
 
 void* prioq_peek_by_index(Prioq *q, unsigned idx) _pure_;
 static inline void *prioq_peek(Prioq *q) {
-        return prioq_peek_by_index(q, 0);
+        return prioq_peek_by_index(q, /* idx= */ 0);
 }
 void* prioq_pop(Prioq *q);
 
