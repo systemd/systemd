@@ -21,6 +21,7 @@
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-relay.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-dhcp6.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -834,6 +835,14 @@ static int address_update(Address *address) {
                         return r;
         }
 
+        r = dhcp6_register_address(link, address);
+        if (r < 0)
+                log_link_warning_errno(
+                                link,
+                                r,
+                                "Could not start the registration of %s via DHCPv6, ignoring: %m",
+                                IN6_ADDR_TO_STRING(&address->in_addr.in6));
+
         link_update_operstate(link, /* also_update_master= */ true);
         link_check_ready(link);
         return 0;
@@ -932,6 +941,10 @@ static int address_drop(Address *in, bool removed_by_us) {
         ipv4acd_detach(link, address);
 
         (void) link_dhcp_relay_address_dropped(link, address);
+
+        /* The address is already gone from the kernel at this point. Just clean up the local
+         * registration tracking entry; de-registration was sent (if possible) from address_remove(). */
+        dhcp6_drop_address_registration(link, address);
 
         address_detach(address);
 
@@ -1289,6 +1302,16 @@ int address_remove(Address *address, Link *link) {
         (void) address_get(link, address, &address);
 
         log_address_debug(address, "Removing", link);
+
+        /* Send de-registration while the address is still present on the interface, so that
+         * sendmsg() can use it as source address. */
+        r = dhcp6_unregister_address(link, address);
+        if (r < 0)
+                log_link_warning_errno(
+                                link,
+                                r,
+                                "Could not de-register %s via DHCPv6, ignoring: %m",
+                                IN6_ADDR_TO_STRING(&address->in_addr.in6));
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &m, RTM_DELADDR,
                                      link->ifindex, address->family);

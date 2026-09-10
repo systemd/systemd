@@ -16,6 +16,9 @@ int dhcp6_check_ready(Link *link);
 int dhcp6_update_mac(Link *link);
 int dhcp6_start(Link *link);
 int dhcp6_start_on_ra(Link *link, bool information_request);
+int dhcp6_register_address(Link *link, Address *address);
+int dhcp6_unregister_address(Link *link, Address *address);
+void dhcp6_drop_address_registration(Link *link, Address *address);
 
 int link_request_dhcp6_client(Link *link);
 int link_drop_dhcp6_config(Link *link, Network *network);

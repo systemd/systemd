@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth-peer
+
+[Network]
+IPv6AcceptRA=no
+Address=2001:db8:1::1/64
+IPv6Forwarding=yes
