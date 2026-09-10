@@ -141,7 +141,7 @@ int tpm2_pcr_values_hash_count(const Tpm2PCRValue *pcr_values, size_t n_pcr_valu
 int tpm2_tpml_pcr_selection_from_pcr_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPML_PCR_SELECTION *ret_selection, TPM2B_DIGEST **ret_values, size_t *ret_n_values);
 
 int tpm2_make_encryption_session(Tpm2Context *c, const Tpm2Handle *primary, const Tpm2Handle *bind_key, Tpm2Handle **ret_session);
-int tpm2_make_exclusive_audit_session(Tpm2Context *c, Tpm2Handle **ret_session);
+int tpm2_make_exclusive_audit_session(Tpm2Context *c, TPMI_ALG_HASH hash, Tpm2Handle **ret_session);
 
 int tpm2_create_primary(Tpm2Context *c, const Tpm2Handle *session, ESYS_TR hierarchy, const TPM2B_PUBLIC *template, const TPM2B_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, Tpm2Handle **ret_handle);
 int tpm2_create(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private);
@@ -423,6 +423,7 @@ int tpm2_hmac_key_from_pin(Tpm2Context *c, const Tpm2Handle *session, const TPM2
 int tpm2_tpmt_signature_to_pem(const TPMT_SIGNATURE *signature, char **ret);
 int tpm2_tpmt_public_to_pem(const TPMT_PUBLIC *public, char **ret);
 
+const char* tpm2_hash_alg_to_string_tss2(TPMI_ALG_HASH alg);
 int tpm2_tpmt_signature_to_json(const TPMT_SIGNATURE *signature, sd_json_variant **ret);
 int tpm2_attest_info_to_json(const TPMT_SIG_SCHEME *scheme, const TPMS_ATTEST *attest, sd_json_variant **ret);
 int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret);
