@@ -147,9 +147,10 @@ int network_verify(Network *network) {
                                 "No valid settings found in the [Match] section, ignoring file. "
                                 "To match all interfaces, add Name=* in the [Match] section.");
 
-        /* skip out early if configuration does not match the environment */
+        /* Skip out early if configuration does not match the environment. ESTALE, as for netdevs,
+         * so that callers can tell a skipped file from a broken one. */
         if (!condition_test_list_net(network->conditions, environ, NULL, NULL, NULL))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE),
                                        "%s: Conditions in the file do not match the system environment, skipping.",
                                        network->filename);
 
