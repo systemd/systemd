@@ -81,7 +81,7 @@ static int nfnl_message_new_batch(sd_netlink *nfnl, sd_netlink_message **ret, ui
         assert_return(ret, -EINVAL);
         assert_return(NFNL_MSG_TYPE(msg_type) == msg_type, -EINVAL);
 
-        r = sd_nfnl_message_new(nfnl, &m, NFPROTO_UNSPEC, NFNL_SUBSYS_NONE, msg_type, 0);
+        r = sd_nfnl_message_new(nfnl, &m, NFPROTO_UNSPEC, NFNL_SUBSYS_NONE, msg_type, /* flags= */ 0);
         if (r < 0)
                 return r;
 

@@ -39,10 +39,10 @@ static inline int rtnl_get_ifname_full(sd_netlink **rtnl, int ifindex, char **re
                         /* ret_permanent_hw_addr= */ NULL);
 }
 static inline int rtnl_get_ifname(sd_netlink **rtnl, int ifindex, char **ret) {
-        return rtnl_get_ifname_full(rtnl, ifindex, ret, NULL);
+        return rtnl_get_ifname_full(rtnl, ifindex, ret, /* ret_altnames= */ NULL);
 }
 static inline int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret) {
-        return rtnl_get_ifname_full(rtnl, ifindex, NULL, ret);
+        return rtnl_get_ifname_full(rtnl, ifindex, /* ret_name= */ NULL, ret);
 }
 static inline int rtnl_get_link_info(
                 sd_netlink **rtnl,
@@ -89,13 +89,13 @@ int rtnl_resolve_ifname_full(
                   char **ret_name,
                   char ***ret_altnames);
 static inline int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char **ret) {
-        return rtnl_resolve_ifname_full(rtnl, RESOLVE_IFNAME_ALTERNATIVE, name, ret, NULL);
+        return rtnl_resolve_ifname_full(rtnl, RESOLVE_IFNAME_ALTERNATIVE, name, ret, /* ret_altnames= */ NULL);
 }
 static inline int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name) {
-        return rtnl_resolve_ifname_full(rtnl, RESOLVE_IFNAME_MAIN | RESOLVE_IFNAME_ALTERNATIVE, name, NULL, NULL);
+        return rtnl_resolve_ifname_full(rtnl, RESOLVE_IFNAME_MAIN | RESOLVE_IFNAME_ALTERNATIVE, name, /* ret_name= */ NULL, /* ret_altnames= */ NULL);
 }
 static inline int rtnl_resolve_interface(sd_netlink **rtnl, const char *name) {
-        return rtnl_resolve_ifname_full(rtnl, _RESOLVE_IFNAME_ALL, name, NULL, NULL);
+        return rtnl_resolve_ifname_full(rtnl, _RESOLVE_IFNAME_ALL, name, /* ret_name= */ NULL, /* ret_altnames= */ NULL);
 }
 int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name);
 
@@ -105,7 +105,7 @@ int rtnl_delete_link_alternative_names(sd_netlink **rtnl, int ifindex, char* con
 int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_name);
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* const* alternative_names);
 static inline int rtnl_append_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names) {
-        return rtnl_set_link_name(rtnl, ifindex, NULL, alternative_names);
+        return rtnl_set_link_name(rtnl, ifindex, /* name= */ NULL, alternative_names);
 }
 
 int rtnl_set_link_properties(

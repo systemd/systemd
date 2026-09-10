@@ -39,7 +39,7 @@ static ssize_t fiber_io_operation(
         sd_event *e = sd_fiber_get_event();
         assert(e);
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(fd, /* nonblock= */ true);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -224,7 +224,7 @@ int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         sd_event *e = sd_fiber_get_event();
         assert(e);
 
-        r = fd_nonblock(sockfd, true);
+        r = fd_nonblock(sockfd, /* nonblock= */ true);
         if (r < 0)
                 return r;
         if (r > 0)

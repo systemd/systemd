@@ -709,7 +709,7 @@ TEST(channel_slot_replace) {
         ASSERT_OK(sd_channel_set_slot(c, INT_TO_PTR(0xBBBB), slot_destroy_track));
         ASSERT_EQ(slot_destroyed_count, 1u);
 
-        ASSERT_OK(sd_channel_set_slot(c, NULL, NULL));
+        ASSERT_OK(sd_channel_set_slot(c, /* slot= */ NULL, /* destroy= */ NULL));
         ASSERT_EQ(slot_destroyed_count, 2u);
 }
 
@@ -742,7 +742,7 @@ TEST(channel_slot_destroy_drops_last_ref) {
 
         ASSERT_OK(sd_channel_new(e, 2, SD_CHANNEL_OVERFLOW_WAIT, int_destroy, &c));
         ASSERT_OK(sd_channel_set_slot(c, c, slot_destroy_unref_channel));
-        ASSERT_OK(sd_channel_set_slot(c, NULL, NULL));
+        ASSERT_OK(sd_channel_set_slot(c, /* slot= */ NULL, /* destroy= */ NULL));
 }
 
 static int blocked_pop_fiber(void *userdata) {
@@ -902,12 +902,12 @@ TEST(channel_new_invalid) {
         ASSERT_OK(sd_event_new(&e));
 
         sd_channel *c = NULL;
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_channel_new(e, 0, SD_CHANNEL_OVERFLOW_WAIT, NULL, &c)), EINVAL);
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_channel_new(e, 1, (sd_channel_overflow_t) 3, NULL, &c)), EINVAL);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_channel_new(e, /* capacity= */ 0, SD_CHANNEL_OVERFLOW_WAIT, /* destroy= */ NULL, &c)), EINVAL);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_channel_new(e, 1, (sd_channel_overflow_t) 3, /* destroy= */ NULL, &c)), EINVAL);
 
         /* No default event loop exists, so SD_EVENT_DEFAULT does not resolve to one. */
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(
-                        sd_channel_new(SD_EVENT_DEFAULT, 1, SD_CHANNEL_OVERFLOW_WAIT, NULL, &c)), ENOPKG);
+                        sd_channel_new(SD_EVENT_DEFAULT, 1, SD_CHANNEL_OVERFLOW_WAIT, /* destroy= */ NULL, &c)), ENOPKG);
         ASSERT_NULL(c);
 }
 
@@ -918,10 +918,10 @@ TEST(channel_null_item) {
         _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
         ASSERT_OK(sd_channel_new(e, 1, SD_CHANNEL_OVERFLOW_WAIT, int_destroy, &c));
 
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_channel_try_push(c, NULL)), EINVAL);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_channel_try_push(c, /* item= */ NULL)), EINVAL);
 
         sd_future *f = NULL;
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_channel_send(c, NULL, &f)), EINVAL);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_channel_send(c, /* item= */ NULL, &f)), EINVAL);
         ASSERT_NULL(f);
 }
 
@@ -950,7 +950,7 @@ static int pop_fiber(void *userdata) {
 
 static void run_until_awaiting(sd_event *e, sd_future *fiber) {
         while (!sd_fiber_get_awaiting(fiber))
-                ASSERT_OK(sd_event_run(e, 0));
+                ASSERT_OK(sd_event_run(e, /* timeout= */ 0));
 }
 
 TEST(channel_push_closed) {
@@ -1098,7 +1098,7 @@ TEST(channel_pop_retries_after_item_popped) {
         ASSERT_OK_POSITIVE(sd_channel_try_pop(c, &p));
         ASSERT_EQ(PTR_TO_INT(p), 1);
 
-        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+        while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
                 ;
         ASSERT_EQ(sd_future_state(fiber), SD_FUTURE_PENDING);
 
@@ -1164,14 +1164,14 @@ TEST(channel_pop_retries_in_order) {
         ASSERT_OK_POSITIVE(sd_channel_try_pop(c, &p));
         ASSERT_OK_POSITIVE(sd_channel_try_pop(c, &p));
 
-        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+        while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
                 ;
         ASSERT_EQ(sd_future_state(first_fiber), SD_FUTURE_PENDING);
         ASSERT_EQ(sd_future_state(second_fiber), SD_FUTURE_PENDING);
 
         /* The first fiber has retried for longer, so item 3 wakes it. */
         ASSERT_OK_POSITIVE(sd_channel_try_push(c, INT_TO_PTR(3)));
-        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+        while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
                 ;
         ASSERT_OK_ZERO(first.result);
         ASSERT_EQ(PTR_TO_INT(first.item), 3);
