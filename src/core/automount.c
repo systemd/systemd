@@ -73,8 +73,14 @@ static void unmount_autofs(Automount *a) {
         /* If we reload/reexecute things we keep the mount point around */
         if (!IN_SET(UNIT(a)->manager->objective, MANAGER_RELOAD, MANAGER_REEXECUTE)) {
 
-                automount_send_ready(a, a->tokens, -EHOSTDOWN);
-                automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);
+                /* Nothing else can answer requests the kernel already queued for us, and it keeps their
+                 * processes blocked until we do. Make a failure to do so at least visible. */
+                r = automount_send_ready(a, a->tokens, -EHOSTDOWN);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(a), r, "Failed to release pending automount requests, ignoring: %m");
+                r = automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(a), r, "Failed to release pending automount expire requests, ignoring: %m");
 
                 if (a->where) {
                         r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
