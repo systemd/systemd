@@ -20,7 +20,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         f = data_to_file(data, size);
         assert_se(f);
 
-        r = sd_json_parse_file(f, NULL, 0, &v, NULL, NULL);
+        r = sd_json_parse_file(f, /* path= */ NULL, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0) {
                 log_debug_errno(r, "failed to parse input: %m");
                 return 0;
@@ -29,8 +29,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0)
                 assert_se(g = memstream_init(&m));
 
-        sd_json_variant_dump(v, 0, g ?: stdout, NULL);
-        sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_SOURCE, g ?: stdout, NULL);
+        sd_json_variant_dump(v, /* flags= */ 0, g ?: stdout, /* prefix= */ NULL);
+        sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_SOURCE, g ?: stdout, /* prefix= */ NULL);
 
         bool sorted = sd_json_variant_is_sorted(v);
         log_debug("sd_json_variant_is_sorted: %s", yes_no(sorted));
