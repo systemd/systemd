@@ -215,6 +215,7 @@ shared_sources = files(
         'tsm-report.c',
         'udev-util.c',
         'unit-file.c',
+        'unit-result.c',
         'user-record-nss.c',
         'user-record-show.c',
         'user-record.c',
