@@ -1588,18 +1588,15 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                 return log_oom();
 
         if (configuration->ifindex > 0) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Current Scopes",
-                                   TABLE_SET_MINIMUM_WIDTH, 19);
-                if (r < 0)
-                        return table_log_add_error(r);
-
                 _cleanup_free_ char *s = NULL;
                 r = format_scopes_string(configuration, &s);
                 if (r < 0)
                         return r;
 
-                r = table_add_cell(table, NULL, TABLE_STRING, s ?: "none");
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Current Scopes",
+                                   TABLE_SET_MINIMUM_WIDTH, 19,
+                                   TABLE_STRING, s ?: "none");
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -1931,8 +1928,7 @@ static int verb_show_statistics(int argc, char *argv[], uintptr_t _data, void *u
                            TABLE_FIELD, "Bogus",
                            TABLE_UINT64, dnsssec.n_dnssec_bogus,
                            TABLE_FIELD, "Indeterminate",
-                           TABLE_UINT64, dnsssec.n_dnssec_indeterminate
-                          );
+                           TABLE_UINT64, dnsssec.n_dnssec_indeterminate);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -2537,27 +2533,14 @@ static int dump_server_state(sd_json_variant *server) {
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
-        (void) table_set_align_percent(table, cell, 0);
-
-        r = table_add_cell_stringf(table, NULL, "Server: %s", server_state.server_name);
-        if (r < 0)
-                return table_log_add_error(r);
 
         r = table_add_many(table,
-                           TABLE_EMPTY,
                            TABLE_FIELD, "Type",
-                           TABLE_SET_ALIGN_PERCENT, 100,
-                           TABLE_STRING, server_state.type);
+                           TABLE_STRING, server_state.type,
+                           TABLE_FIELD, "Interface",
+                           TABLE_STRING_NON_EMPTY, server_state.ifname);
         if (r < 0)
                 return table_log_add_error(r);
-
-        if (server_state.ifname) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Interface",
-                                   TABLE_STRING, server_state.ifname);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
 
         if (server_state.ifindex >= 0) {
                 r = table_add_many(table,
@@ -2567,23 +2550,11 @@ static int dump_server_state(sd_json_variant *server) {
                         return table_log_add_error(r);
         }
 
-        if (server_state.verified_feature_level) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Verified feature level",
-                                   TABLE_STRING, server_state.verified_feature_level);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        if (server_state.possible_feature_level) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Possible feature level",
-                                   TABLE_STRING, server_state.possible_feature_level);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
         r = table_add_many(table,
+                           TABLE_FIELD, "Verified feature level",
+                           TABLE_STRING_NON_EMPTY, server_state.verified_feature_level,
+                           TABLE_FIELD, "Possible feature level",
+                           TABLE_STRING_NON_EMPTY, server_state.possible_feature_level,
                            TABLE_FIELD, "DNSSEC Mode",
                            TABLE_STRING, server_state.dnssec_mode,
                            TABLE_FIELD, "DNSSEC Supported",
@@ -2606,9 +2577,11 @@ static int dump_server_state(sd_json_variant *server) {
                            TABLE_STRING, yes_no(server_state.packet_do_off),
                            TABLE_SET_ALIGN_PERCENT, 0,
                            TABLE_EMPTY, TABLE_EMPTY);
-
         if (r < 0)
                 return table_log_add_error(r);
+
+        fputs("Server: ", stdout);
+        puts(server_state.server_name);
 
         return table_print_or_warn(table);
 }
