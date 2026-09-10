@@ -50,7 +50,7 @@ static int on_qmp_simple_complete(
         if (error < 0)
                 (void) vmspawn_qmp_reply_error(link, error_desc, error);
         else
-                (void) sd_varlink_reply(link, NULL);
+                (void) sd_varlink_reply(link, /* parameters= */ NULL);
 
         sd_varlink_unref(link);
         return 0;
@@ -73,7 +73,7 @@ static int on_qmp_terminate_complete(
         if (error < 0 && !ERRNO_IS_DISCONNECT(error))
                 (void) vmspawn_qmp_reply_error(link, error_desc, error);
         else
-                (void) sd_varlink_reply(link, NULL);
+                (void) sd_varlink_reply(link, /* parameters= */ NULL);
 
         sd_varlink_unref(link);
         return 0;
@@ -200,7 +200,7 @@ static int vl_method_add_storage(sd_varlink *link, sd_json_variant *parameters, 
                 return sd_varlink_error_invalid_parameter_name(link, "name");
 
         if (disk_type_from_bind_volume_config(p.config) < 0)
-                return sd_varlink_error(link, "io.systemd.MachineInstance.BadConfig", NULL);
+                return sd_varlink_error(link, "io.systemd.MachineInstance.BadConfig", /* parameters= */ NULL);
 
         if (p.fd_index < 0)
                 return sd_varlink_error_invalid_parameter_name(link, "fileDescriptorIndex");
@@ -211,9 +211,9 @@ static int vl_method_add_storage(sd_varlink *link, sd_json_variant *parameters, 
 
         r = vmspawn_bind_volume_attach_fd(ctx->bridge, link, TAKE_FD(fd), p.name, p.config);
         if (r == -EEXIST)
-                return sd_varlink_error(link, "io.systemd.MachineInstance.StorageExists", NULL);
+                return sd_varlink_error(link, "io.systemd.MachineInstance.StorageExists", /* parameters= */ NULL);
         if (r == -EOPNOTSUPP)
-                return sd_varlink_error(link, "io.systemd.MachineInstance.ConfigNotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.MachineInstance.ConfigNotSupported", /* parameters= */ NULL);
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
@@ -316,7 +316,7 @@ static int vl_method_set_memory(sd_varlink *link, sd_json_variant *parameters, s
 
         r = vmspawn_memory_set_target(ctx->bridge->memory, link, bytes);
         if (r == -EOPNOTSUPP)
-                return sd_varlink_error(link, "io.systemd.MachineInstance.NotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.MachineInstance.NotSupported", /* parameters= */ NULL);
         if (r == -ERANGE)
                 return sd_varlink_error_invalid_parameter_name(link, "bytes");
         if (r < 0)
