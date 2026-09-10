@@ -122,7 +122,7 @@ static int reply_pressure(sd_varlink *link, sd_json_variant *parameters, const c
 
 finish:
         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES))
-                ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), 0));
+                ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), /* code= */ 0));
 
         return 0;
 }
@@ -157,7 +157,7 @@ static void run_pressure_test(unsigned n_units, TestFiles files) {
         ASSERT_OK(varlink_server_new(&server, SD_VARLINK_SERVER_INHERIT_USERDATA, &data));
         ASSERT_OK(sd_varlink_server_add_interface(server, &vl_interface_io_systemd_Metrics));
         ASSERT_OK(varlink_server_bind_fiber(server, "io.systemd.Metrics.List", method_pressure));
-        ASSERT_OK(sd_varlink_server_attach_event(server, event, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(server, event, /* priority= */ 0));
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, pair));
         ASSERT_OK(sd_varlink_server_add_connection(server, pair[0], /* ret= */ NULL));
         TAKE_FD(pair[0]);
@@ -165,7 +165,7 @@ static void run_pressure_test(unsigned n_units, TestFiles files) {
         TAKE_FD(pair[1]);
         sd_varlink_set_userdata(client, &data);
         ASSERT_OK(sd_varlink_bind_reply(client, reply_pressure));
-        ASSERT_OK(sd_varlink_attach_event(client, event, 0));
+        ASSERT_OK(sd_varlink_attach_event(client, event, /* priority= */ 0));
         ASSERT_OK(sd_varlink_observe(client, "io.systemd.Metrics.List", /* parameters= */ NULL));
         ASSERT_OK(sd_event_loop(event));
 
