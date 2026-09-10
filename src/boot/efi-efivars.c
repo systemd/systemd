@@ -69,9 +69,9 @@ EFI_STATUS efivar_unset(const EFI_GUID *vendor, const char16_t *name, uint32_t f
 
         /* We could be wiping a non-volatile variable here and the spec makes no guarantees that won't incur
          * in an extra write (and thus wear out). So check and clear only if needed. */
-        err = efivar_get_raw(vendor, name, NULL, NULL);
+        err = efivar_get_raw(vendor, name, /* ret_data= */ NULL, /* ret_size= */ NULL);
         if (err == EFI_SUCCESS)
-                return efivar_set_raw(vendor, name, NULL, 0, flags);
+                return efivar_set_raw(vendor, name, /* buf= */ NULL, /* size= */ 0, flags);
 
         return err;
 }
@@ -124,7 +124,7 @@ EFI_STATUS efivar_get_uint64_str16(const EFI_GUID *vendor, const char16_t *name,
                 return err;
 
         uint64_t u;
-        if (!parse_number16(val, &u, NULL))
+        if (!parse_number16(val, &u, /* ret_tail= */ NULL))
                 return EFI_INVALID_PARAMETER;
 
         if (ret)
@@ -251,7 +251,7 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
                 return;
 
         _cleanup_free_ char16_t *str = xasprintf("%" PRIu64, usec);
-        efivar_set_str16(vendor, name, str, 0);
+        efivar_set_str16(vendor, name, str, /* flags= */ 0);
 }
 
 uint64_t get_os_indications_supported(void) {

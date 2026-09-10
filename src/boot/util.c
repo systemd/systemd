@@ -136,7 +136,7 @@ EFI_STATUS file_handle_read(
         if (size == 0) {
                 _cleanup_free_ EFI_FILE_INFO *info = NULL;
 
-                err = get_file_info(handle, &info, NULL);
+                err = get_file_info(handle, &info, /* ret_size= */ NULL);
                 if (err != EFI_SUCCESS)
                         return err;
 
@@ -218,7 +218,7 @@ EFI_STATUS load_file_from_simple_filesystem(const EFI_DEVICE_PATH *device_path, 
         if (err != EFI_SUCCESS)
                 return err;
 
-        return file_read(root, dp_str, 0, 0, file_buffer, file_size);
+        return file_read(root, dp_str, /* offset= */ 0, /* size= */ 0, file_buffer, file_size);
 }
 
 void set_attribute_safe(size_t attr) {
@@ -400,7 +400,7 @@ EFI_STATUS open_directory(
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = get_file_info(dir, &file_info, NULL);
+        err = get_file_info(dir, &file_info, /* ret_size= */ NULL);
         if (err != EFI_SUCCESS)
                 return err;
         if (!FLAGS_SET(file_info->Attribute, EFI_FILE_DIRECTORY))
