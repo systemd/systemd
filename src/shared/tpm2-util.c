@@ -10445,7 +10445,7 @@ int tpm2_pcrlock_policy_load(
                         /* flags= */ 0,
                         &v,
                         /* reterr_line= */ NULL,
-                        /* ret_column= */ NULL);
+                        /* reterr_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse existing pcrlock policy file '%s': %m", discovered_path);
 
@@ -10489,7 +10489,7 @@ static int pcrlock_policy_load_credential(
                        /* flags= */ 0,
                        &v,
                        /* reterr_line= */ NULL,
-                       /* ret_column= */ NULL);
+                       /* reterr_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse pcrlock policy: %m");
 
@@ -10796,7 +10796,7 @@ int tpm2_tpmt_signature_to_pem(const TPMT_SIGNATURE *signature, char **ret) {
         if (!f)
                 return -ENOMEM;
 
-        if (sym_PEM_write(f, label, /* header= */ NULL, sig, sig_len) <= 0)
+        if (sym_PEM_write(f, label, /* hdr= */ NULL, sig, sig_len) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to write signature in PEM format");
 
         return memstream_finalize(&m, ret, /* ret_size= */ NULL);
