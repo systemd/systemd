@@ -1127,54 +1127,88 @@ static int compare_locations(sd_journal *j, JournalFile *af, JournalFile *bf) {
 }
 
 static int real_journal_next(sd_journal *j, direction_t direction) {
-        JournalFile *new_file = NULL;
         unsigned n_files;
         const void **files;
-        Object *o;
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
 
-        r = iterated_cache_get(j->files_cache, NULL, &files, &n_files);
-        if (r < 0)
-                return r;
+        for (;;) {
+                JournalFile *new_file = NULL, *exact_match = NULL;
+                Object *o;
 
-        FOREACH_ARRAY(_f, files, n_files) {
-                JournalFile *f = (JournalFile*) *_f;
-                bool found;
+                r = iterated_cache_get(j->files_cache, NULL, &files, &n_files);
+                if (r < 0)
+                        return r;
 
-                r = next_beyond_location(j, f, direction);
-                if (r < 0) {
-                        log_debug_errno(r, "Can't iterate through %s, ignoring: %m", f->path);
-                        remove_file_real(j, f);
-                        continue;
-                } else if (r == 0) {
-                        f->location_type = direction == DIRECTION_DOWN ? LOCATION_TAIL : LOCATION_HEAD;
-                        continue;
+                FOREACH_ARRAY(_f, files, n_files) {
+                        JournalFile *f = (JournalFile*) *_f;
+                        bool found;
+
+                        r = next_beyond_location(j, f, direction);
+                        if (r < 0) {
+                                log_debug_errno(r, "Can't iterate through %s, ignoring: %m", f->path);
+                                remove_file_real(j, f);
+                                continue;
+                        } else if (r == 0) {
+                                f->location_type = direction == DIRECTION_DOWN ?
+                                        LOCATION_TAIL : LOCATION_HEAD;
+                                continue;
+                        }
+
+                        if (!new_file)
+                                found = true;
+                        else {
+                                r = compare_locations(j, f, new_file);
+                                found = direction == DIRECTION_DOWN ? r < 0 : r > 0;
+                        }
+
+                        if (found)
+                                new_file = f;
+
+                        /* Track the file that holds the cursor's exact entry (matching seqnum_id and
+                         * seqnum). On systems without a reliable (or missing) RTC, compare_boot_ids() can
+                         * produce incorrect cross-boot ordering. After the loop, we detect when
+                         * compare_locations() preferred the wrong file and override the choice if needed.
+                         *
+                         * See https://github.com/systemd/systemd/issues/31516 */
+                        if (j->current_location.type == LOCATION_SEEK &&
+                            j->current_location.seqnum_set &&
+                            sd_id128_equal(f->header->seqnum_id, j->current_location.seqnum_id) &&
+                            f->current_seqnum == j->current_location.seqnum)
+                                exact_match = f;
                 }
+
+                if (exact_match)
+                        new_file = exact_match;
 
                 if (!new_file)
-                        found = true;
-                else {
-                        r = compare_locations(j, f, new_file);
-                        found = direction == DIRECTION_DOWN ? r < 0 : r > 0;
+                        return 0;
+
+                r = journal_file_move_to_object(new_file, OBJECT_ENTRY, new_file->current_offset, &o);
+                if (r < 0) {
+                        /* Vacuuming can unlink and deallocate the file we just picked, which surfaces as
+                         * one of these errors. Confirm the file is really gone before dropping it: -EIDRM
+                         * already comes from the journal_file_fstat() inside the lookup, the others need a
+                         * stat of our own. */
+                        if (!IN_SET(r, -EADDRNOTAVAIL, -EBADMSG, -EIDRM, -EIO))
+                                return r;
+                        if (r != -EIDRM && journal_file_fstat(new_file) != -EIDRM)
+                                return r;
+
+                        log_debug_errno(r, "Can't read selected entry from removed journal file '%s', ignoring: %m",
+                                        new_file->path);
+                        remove_file_real(j, new_file);
+
+                        /* Removing the selected file guarantees that the next iteration makes progress. */
+                        continue;
                 }
 
-                if (found)
-                        new_file = f;
+                set_location(j, new_file, o);
+
+                return 1;
         }
-
-        if (!new_file)
-                return 0;
-
-        r = journal_file_move_to_object(new_file, OBJECT_ENTRY, new_file->current_offset, &o);
-        if (r < 0)
-                return r;
-
-        set_location(j, new_file, o);
-
-        return 1;
 }
 
 _public_ int sd_journal_next(sd_journal *j) {
@@ -2586,6 +2620,44 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j);
 }
 
+static int journal_file_entry_get_machine_id(JournalFile *f, Object *o, sd_id128_t *ret) {
+        assert(f);
+        assert(o);
+        assert(o->object.type == OBJECT_ENTRY);
+        assert(ret);
+
+        uint64_t n = journal_file_entry_n_items(f, o);
+        for (uint64_t i = 0; i < n; i++) {
+                uint64_t p;
+                void *d;
+                size_t l;
+                int r;
+
+                p = journal_file_entry_item_object_offset(f, o, i);
+                r = journal_file_data_payload(f, /* o= */ NULL, p, "_MACHINE_ID", STRLEN("_MACHINE_ID"),
+                                              SIZE_MAX, &d, &l);
+                if (r == 0)
+                        continue;
+                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+                        log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
+                        continue;
+                }
+                if (r < 0)
+                        return r;
+
+                if (l != STRLEN("_MACHINE_ID=") + SD_ID128_STRING_MAX - 1)
+                        return -EBADMSG;
+
+                /* The data payload is not null-terminated, copy the hex ID to a local buffer. */
+                char id_string[SD_ID128_STRING_MAX] = {};
+                memcpy(id_string, (const char*) d + STRLEN("_MACHINE_ID="), SD_ID128_STRING_MAX - 1);
+
+                return id128_from_string_nonzero(id_string, ret);
+        }
+
+        return -ENOENT;
+}
+
 static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         uint64_t offset, mo, rt;
         sd_id128_t id;
@@ -2664,9 +2736,27 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         if (mo > rt) /* monotonic clock is further ahead than realtime? that's weird, refuse to use the data */
                 return -ENODATA;
 
+        /* Try to get the machine ID from the tail entry's _MACHINE_ID= field rather than from the file
+         * header, as the header always reflects the machine that *wrote* the file, not necessarily the
+         * machine that *originated* the entries. This distinction matters for journal files created by
+         * systemd-journal-remote, which stamps all files with the receiving machine's ID while the entries
+         * inside carry the source machine's _MACHINE_ID=. Without this, compare_boot_ids() would
+         * incorrectly consider boot IDs from different source machines as comparable (since they'd all
+         * share the receiver's machine ID), leading to boot-grouped rather than realtime-interleaved
+         * iteration order when merging cross-machine journals.
+         *
+         * If we don't have an entry object (header-only fallback for archived files) or the entry lacks
+         * the _MACHINE_ID= field (older journals), fall back to the header's machine_id. */
+        sd_id128_t mid = f->header->machine_id;
+        if (o && o->object.type == OBJECT_ENTRY) {
+                r = journal_file_entry_get_machine_id(f, o, &mid);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to read _MACHINE_ID from tail entry, using header value: %m");
+        }
+
         if (offset == f->newest_entry_offset) {
                 /* Cached data and the current one should be equivalent. */
-                if (!sd_id128_equal(f->newest_machine_id, f->header->machine_id) ||
+                if (!sd_id128_equal(f->newest_machine_id, mid) ||
                     !sd_id128_equal(f->newest_boot_id, id) ||
                     f->newest_monotonic_usec != mo ||
                     f->newest_realtime_usec != rt)
@@ -2681,7 +2771,7 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         f->newest_boot_id = id;
         f->newest_monotonic_usec = mo;
         f->newest_realtime_usec = rt;
-        f->newest_machine_id = f->header->machine_id;
+        f->newest_machine_id = mid;
         f->newest_entry_offset = offset;
         f->newest_state = f->header->state;
 

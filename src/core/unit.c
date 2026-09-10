@@ -1882,7 +1882,7 @@ int unit_test_start_limit(Unit *u) {
         emergency_action(
                         u->manager,
                         u->start_limit_action,
-                        EMERGENCY_ACTION_IS_WATCHDOG|EMERGENCY_ACTION_WARN|EMERGENCY_ACTION_SLEEP_5S,
+                        EMERGENCY_ACTION_IS_WATCHDOG|EMERGENCY_ACTION_WARN|EMERGENCY_ACTION_SLEEP_5S|EMERGENCY_ACTION_IS_FAILURE,
                         u->reboot_arg,
                         /* exit_status= */ -1,
                         reason);
@@ -2833,7 +2833,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 if (os != UNIT_FAILED && ns == UNIT_FAILED) {
                         reason = strjoina("unit ", u->id, " failed");
-                        emergency_action(m, u->failure_action, EMERGENCY_ACTION_WARN|EMERGENCY_ACTION_SLEEP_5S, u->reboot_arg, unit_failure_action_exit_status(u), reason);
+                        emergency_action(m, u->failure_action, EMERGENCY_ACTION_WARN|EMERGENCY_ACTION_SLEEP_5S|EMERGENCY_ACTION_IS_FAILURE, u->reboot_arg, unit_failure_action_exit_status(u), reason);
                 } else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && ns == UNIT_INACTIVE) {
                         reason = strjoina("unit ", u->id, " succeeded");
                         emergency_action(m, u->success_action, /* flags= */ 0, u->reboot_arg, unit_success_action_exit_status(u), reason);
@@ -3575,7 +3575,7 @@ static int signal_name_owner_changed_install_handler(sd_bus_message *message, vo
         u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
 
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, NULL);
+                UNIT_VTABLE(u)->bus_name_owner_change(u, NULL, /* from_signal= */ true);
 
         return 0;
 }
@@ -3594,7 +3594,7 @@ static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd
         }
 
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, empty_to_null(new_owner));
+                UNIT_VTABLE(u)->bus_name_owner_change(u, empty_to_null(new_owner), /* from_signal= */ true);
 
         return 0;
 }
@@ -3627,8 +3627,11 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
                 assert(!isempty(new_owner));
         }
 
+        /* Given we're in a GetNameOwner() refresh, which we issue right after (re)connecting to the broker,
+         * a NULL owner here may simply mean the owning client is still getting its bearings, so treat it as
+         * non-definitive and worth waiting a bit for. */
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, new_owner);
+                UNIT_VTABLE(u)->bus_name_owner_change(u, new_owner, /* from_signal= */ false);
 
         return 0;
 }

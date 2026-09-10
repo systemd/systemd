@@ -148,4 +148,10 @@ for i in {100..120}; do
     run_and_grep "10\.2\.0\.$i" resolvectl query nss-mymachines-manyips
 done
 
+hook_question='{"question":[{"key":{"class":1,"type":1,"name":"nss-mymachines-singleip"}},{"key":{"class":1,"type":1,"name":"nss-mymachines-manyips"}}]}'
+hook_answer="$(varlinkctl --json=short call /run/systemd/resolve.hook/io.systemd.Machine io.systemd.Resolve.Hook.ResolveRecord "$hook_question")"
+jq -e '.answer[] | select(.rr.key.name == "nss-mymachines-singleip" and .rr.address == [10, 1, 0, 2])' <<<"$hook_answer"
+jq -e '.answer[] | select(.rr.key.name == "nss-mymachines-manyips" and .rr.address == [10, 2, 0, 2])' <<<"$hook_answer"
+(! jq -e '.answer[] | select(.rr.key.name == "nss-mymachines-manyips" and .rr.address == [10, 1, 0, 2])' <<<"$hook_answer")
+
 machinectl stop nss-mymachines-{noip,singleip,manyips}
