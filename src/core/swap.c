@@ -159,7 +159,7 @@ static void swap_done(Unit *u) {
         Swap *s = ASSERT_PTR(SWAP(u));
 
         swap_unset_proc_swaps(s);
-        swap_set_devnode(s, NULL);
+        swap_set_devnode(s, /* devnode= */ NULL);
 
         s->what = mfree(s->what);
         s->parameters_fragment.what = mfree(s->parameters_fragment.what);
@@ -219,7 +219,7 @@ static int swap_add_device_dependencies(Swap *s) {
 
         /* File based swap devices need to be ordered after systemd-remount-fs.service, since they might need
          * a writable file system. */
-        return unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, true, mask);
+        return unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, /* add_reference= */ true, mask);
 }
 
 static int swap_add_default_dependencies(Swap *s) {
@@ -527,7 +527,7 @@ static void swap_set_state(Swap *s, SwapState state) {
         assert(s);
 
         if (s->state != state)
-                bus_unit_send_pending_change_signal(UNIT(s), false);
+                bus_unit_send_pending_change_signal(UNIT(s), /* including_new= */ false);
 
         old_state = s->state;
         s->state = state;
@@ -731,7 +731,7 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
 
         unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir= */ true);
 
-        unit_unref_uid_gid(UNIT(s), true);
+        unit_unref_uid_gid(UNIT(s), /* destroy_now= */ true);
 }
 
 static void swap_enter_active(Swap *s, SwapResult f) {
@@ -1054,7 +1054,7 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         pidref_done(&s->control_pid);
 
-        if (is_clean_exit(code, status, EXIT_CLEAN_COMMAND, NULL))
+        if (is_clean_exit(code, status, EXIT_CLEAN_COMMAND, /* success_status= */ NULL))
                 f = SWAP_SUCCESS;
         else if (code == CLD_EXITED)
                 f = SWAP_FAILURE_EXIT_CODE;
@@ -1207,7 +1207,7 @@ static int swap_process_proc_swaps(Manager *m) {
 
         assert(m);
 
-        r = swap_load_proc_swaps(m, true);
+        r = swap_load_proc_swaps(m, /* set_flags= */ true);
         if (r < 0) {
                 /* Reset flags, just in case, for late calls */
                 LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_SWAP]) {
@@ -1333,7 +1333,7 @@ static int swap_following_set(Unit *u, Set **ret) {
                 return 0;
         }
 
-        set = set_new(NULL);
+        set = set_new(/* hash_ops= */ NULL);
         if (!set)
                 return -ENOMEM;
 
@@ -1389,7 +1389,7 @@ static void swap_enumerate(Manager *m) {
                 (void) sd_event_source_set_description(m->swap_event_source, "swap-proc");
         }
 
-        r = swap_load_proc_swaps(m, false);
+        r = swap_load_proc_swaps(m, /* set_flags= */ false);
         if (r < 0)
                 goto fail;
 
@@ -1453,7 +1453,7 @@ int swap_process_device_remove(Manager *m, sd_device *dev) {
 
         r = 0;
         while ((s = hashmap_get(m->swaps_by_devnode, dn)))
-                RET_GATHER(r, swap_set_devnode(s, NULL));
+                RET_GATHER(r, swap_set_devnode(s, /* devnode= */ NULL));
 
         return r;
 }

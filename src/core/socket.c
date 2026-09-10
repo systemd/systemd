@@ -290,17 +290,17 @@ static int socket_add_default_dependencies(Socket *s) {
         if (!UNIT(s)->default_dependencies)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SOCKETS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SOCKETS_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 static bool socket_has_exec(Socket *s) {
@@ -351,7 +351,7 @@ static int socket_add_extras(Socket *s) {
                         unit_ref_set(&s->service, u, x);
                 }
 
-                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(s->service), true, UNIT_DEPENDENCY_IMPLICIT);
+                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(s->service), /* add_reference= */ true, UNIT_DEPENDENCY_IMPLICIT);
                 if (r < 0)
                         return r;
         }
@@ -486,7 +486,7 @@ static int socket_load(Unit *u) {
 
         assert(u->load_state == UNIT_STUB);
 
-        r = unit_load_fragment_and_dropin(u, true);
+        r = unit_load_fragment_and_dropin(u, /* fragment_required= */ true);
         if (r < 0)
                 return r;
 
@@ -1040,7 +1040,7 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         assert(fd >= 0);
 
         if (s->keep_alive) {
-                r = setsockopt_int(fd, SOL_SOCKET, SO_KEEPALIVE, true);
+                r = setsockopt_int(fd, SOL_SOCKET, SO_KEEPALIVE, /* value= */ true);
                 if (r < 0)
                         log_socket_option_errno(s, r, "SO_KEEPALIVE");
         }
@@ -1071,36 +1071,36 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
 
         if (s->no_delay) {
                 if (s->socket_protocol == IPPROTO_SCTP) {
-                        r = setsockopt_int(fd, SOL_SCTP, SCTP_NODELAY, true);
+                        r = setsockopt_int(fd, SOL_SCTP, SCTP_NODELAY, /* value= */ true);
                         if (r < 0)
                                 log_socket_option_errno(s, r, "SCTP_NODELAY");
                 } else {
-                        r = setsockopt_int(fd, SOL_TCP, TCP_NODELAY, true);
+                        r = setsockopt_int(fd, SOL_TCP, TCP_NODELAY, /* value= */ true);
                         if (r < 0)
                                 log_socket_option_errno(s, r, "TCP_NODELAY");
                 }
         }
 
         if (s->broadcast) {
-                r = setsockopt_int(fd, SOL_SOCKET, SO_BROADCAST, true);
+                r = setsockopt_int(fd, SOL_SOCKET, SO_BROADCAST, /* value= */ true);
                 if (r < 0)
                         log_socket_option_errno(s, r, "SO_BROADCAST");
         }
 
         if (s->pass_cred) {
-                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, /* value= */ true);
                 if (r < 0)
                         log_socket_option_errno(s, r, "SO_PASSCRED");
         }
 
         if (s->pass_pidfd) {
-                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, /* value= */ true);
                 if (r < 0)
                         log_socket_option_errno(s, r, "SO_PASSPIDFD");
         }
 
         if (s->pass_sec) {
-                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSSEC, true);
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSSEC, /* value= */ true);
                 if (r < 0)
                         log_socket_option_errno(s, r, "SO_PASSSEC");
         }
@@ -1112,7 +1112,7 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         }
 
         if (!s->pass_rights) {
-                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, /* value= */ false);
                 if (r < 0)
                         log_socket_option_errno(s, r, "SO_PASSRIGHTS");
         }
@@ -1120,7 +1120,7 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         if (s->timestamping != SOCKET_TIMESTAMPING_OFF) {
                 r = setsockopt_int(fd, SOL_SOCKET,
                                    s->timestamping == SOCKET_TIMESTAMPING_NS ? SO_TIMESTAMPNS : SO_TIMESTAMP,
-                                   true);
+                                   /* value= */ true);
                 if (r < 0)
                         log_socket_option_errno(s, r, "timestamping");
         }
@@ -1132,13 +1132,13 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         }
 
         if (s->receive_buffer > 0) {
-                r = fd_set_rcvbuf(fd, s->receive_buffer, false);
+                r = fd_set_rcvbuf(fd, s->receive_buffer, /* increase= */ false);
                 if (r < 0)
                         log_socket_option_errno(s, r, "SO_RCVBUF/SO_RCVBUFFORCE");
         }
 
         if (s->send_buffer > 0) {
-                r = fd_set_sndbuf(fd, s->send_buffer, false);
+                r = fd_set_sndbuf(fd, s->send_buffer, /* increase= */ false);
                 if (r < 0)
                         log_socket_option_errno(s, r, "SO_SNDBUF/SO_SNDBUFFORCE");
         }
@@ -1352,14 +1352,14 @@ static int socket_symlink(Socket *s) {
         STRV_FOREACH(linkpath, s->symlinks) {
                 (void) mkdir_parents_label(*linkpath, s->directory_mode);
 
-                r = symlink_idempotent(target, *linkpath, false);
+                r = symlink_idempotent(target, *linkpath, /* make_relative= */ false);
                 if (r == -EEXIST && s->remove_on_stop) {
                         /* If there's already something where we want to create the symlink, and the
                          * destructive RemoveOnStop= mode is set, then we might as well try to remove what
                          * already exists and try again. */
 
                         if (unlink(*linkpath) >= 0)
-                                r = symlink_idempotent(target, *linkpath, false);
+                                r = symlink_idempotent(target, *linkpath, /* make_relative= */ false);
                 }
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s %s %s, ignoring: %m",
@@ -1378,11 +1378,11 @@ static int usbffs_write_descs(int fd, Service *s) {
         if (!s->usb_function_descriptors || !s->usb_function_strings)
                 return -EINVAL;
 
-        r = copy_file_fd(s->usb_function_descriptors, fd, 0);
+        r = copy_file_fd(s->usb_function_descriptors, fd, /* copy_flags= */ 0);
         if (r < 0)
                 return r;
 
-        return copy_file_fd(s->usb_function_strings, fd, 0);
+        return copy_file_fd(s->usb_function_strings, fd, /* copy_flags= */ 0);
 }
 
 static int usbffs_dispatch_eps(SocketPort *p, int dfd) {
@@ -1468,7 +1468,7 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
         if (r < 0)
                 return r;
 
-        return manager_load_unit(UNIT(s)->manager, name, NULL, NULL, ret);
+        return manager_load_unit(UNIT(s)->manager, name, /* path= */ NULL, NULL, ret);
 }
 
 static int socket_determine_selinux_label(Socket *s, char **ret) {
@@ -1648,7 +1648,7 @@ static int socket_address_listen_in_cgroup(
         }
 
         pair[1] = safe_close(pair[1]);
-        fd = receive_one_fd(pair[0], 0);
+        fd = receive_one_fd(pair[0], /* flags= */ 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
         r = pidref_wait_for_terminate_and_check("(sd-listen)", &pid, WAIT_LOG_ABNORMAL);
@@ -1861,7 +1861,7 @@ static void socket_set_state(Socket *s, SocketState state) {
         assert(s);
 
         if (s->state != state)
-                bus_unit_send_pending_change_signal(UNIT(s), false);
+                bus_unit_send_pending_change_signal(UNIT(s), /* including_new= */ false);
 
         old_state = s->state;
         s->state = state;
@@ -2051,7 +2051,7 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
                 /* Child */
 
                 if (!isempty(s->user)) {
-                        r = get_user_creds(s->user, /* flags= */ 0, NULL, &uid, &gid, NULL, NULL);
+                        r = get_user_creds(s->user, /* flags= */ 0, /* ret_username= */ NULL, &uid, &gid, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                         if (r < 0) {
                                 log_unit_error_errno(UNIT(s), r,
                                                      "Failed to resolve user '%s': %s",
@@ -2125,7 +2125,7 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
 
         unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir= */ true);
 
-        unit_unref_uid_gid(UNIT(s), true);
+        unit_unref_uid_gid(UNIT(s), /* destroy_now= */ true);
 }
 
 static void socket_enter_signal(Socket *s, SocketState state, SocketResult f);
@@ -2780,7 +2780,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 bool found = false;
                 int fd;
 
-                r = extract_first_word(&value, &fdv, NULL, 0);
+                r = extract_first_word(&value, &fdv, /* separators= */ NULL, /* flags= */ 0);
                 if (r <= 0) {
                         log_unit_debug(u, "Failed to parse fifo value: %s", value);
                         return 0;
@@ -2795,7 +2795,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 LIST_FOREACH(port, p, s->ports)
                         if (p->fd < 0 &&
                             p->type == SOCKET_FIFO &&
-                            path_equal_or_inode_same(p->path, value, 0)) {
+                            path_equal_or_inode_same(p->path, value, /* flags= */ 0)) {
                                 p->fd = fdset_remove(fds, fd);
                                 found = true;
                                 break;
@@ -2808,7 +2808,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 bool found = false;
                 int fd;
 
-                r = extract_first_word(&value, &fdv, NULL, 0);
+                r = extract_first_word(&value, &fdv, /* separators= */ NULL, /* flags= */ 0);
                 if (r <= 0) {
                         log_unit_debug(u, "Failed to parse special value: %s", value);
                         return 0;
@@ -2823,7 +2823,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 LIST_FOREACH(port, p, s->ports)
                         if (p->fd < 0 &&
                             p->type == SOCKET_SPECIAL &&
-                            path_equal_or_inode_same(p->path, value, 0)) {
+                            path_equal_or_inode_same(p->path, value, /* flags= */ 0)) {
                                 p->fd = fdset_remove(fds, fd);
                                 found = true;
                                 break;
@@ -2836,7 +2836,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 bool found = false;
                 int fd;
 
-                r = extract_first_word(&value, &fdv, NULL, 0);
+                r = extract_first_word(&value, &fdv, /* separators= */ NULL, /* flags= */ 0);
                 if (r <= 0) {
                         log_unit_debug(u, "Failed to parse mqueue value: %s", value);
                         return 0;
@@ -2864,7 +2864,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 bool found = false;
                 int fd, type;
 
-                r = extract_first_word(&value, &fdv, NULL, 0);
+                r = extract_first_word(&value, &fdv, /* separators= */ NULL, /* flags= */ 0);
                 if (r <= 0) {
                         log_unit_debug(u, "Failed to parse socket fd from value: %s", value);
                         return 0;
@@ -2876,7 +2876,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         return 0;
                 }
 
-                r = extract_first_word(&value, &typev, NULL, 0);
+                r = extract_first_word(&value, &typev, /* separators= */ NULL, /* flags= */ 0);
                 if (r <= 0) {
                         log_unit_debug(u, "Failed to parse socket type from value: %s", value);
                         return 0;
@@ -2903,7 +2903,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 bool found = false;
                 int fd;
 
-                r = extract_first_word(&value, &fdv, NULL, 0);
+                r = extract_first_word(&value, &fdv, /* separators= */ NULL, /* flags= */ 0);
                 if (r <= 0) {
                         log_unit_debug(u, "Failed to parse socket value: %s", value);
                         return 0;
@@ -2930,7 +2930,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 bool found = false;
                 int fd;
 
-                r = extract_first_word(&value, &fdv, NULL, 0);
+                r = extract_first_word(&value, &fdv, /* separators= */ NULL, /* flags= */ 0);
                 if (r <= 0) {
                         log_unit_debug(u, "Failed to parse ffs value: %s", value);
                         return 0;
@@ -2945,7 +2945,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 LIST_FOREACH(port, p, s->ports)
                         if (p->fd < 0 &&
                             p->type == SOCKET_USB_FUNCTION &&
-                            path_equal_or_inode_same(p->path, value, 0)) {
+                            path_equal_or_inode_same(p->path, value, /* flags= */ 0)) {
                                 p->fd = fdset_remove(fds, fd);
                                 found = true;
                                 break;
@@ -3157,7 +3157,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         }
 
         pair[1] = safe_close(pair[1]);
-        cfd = receive_one_fd(pair[0], 0);
+        cfd = receive_one_fd(pair[0], /* flags= */ 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
         r = pidref_wait_for_terminate_and_check("(sd-accept)", &pid, WAIT_LOG_ABNORMAL);
@@ -3237,7 +3237,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         pidref_done(&s->control_pid);
 
-        if (is_clean_exit(code, status, EXIT_CLEAN_COMMAND, NULL))
+        if (is_clean_exit(code, status, EXIT_CLEAN_COMMAND, /* success_status= */ NULL))
                 f = SOCKET_SUCCESS;
         else if (code == CLD_EXITED)
                 f = SOCKET_FAILURE_EXIT_CODE;

@@ -108,7 +108,7 @@ static int automount_add_trigger_dependencies(Automount *a) {
         if (r < 0)
                 return r;
 
-        return unit_add_two_dependencies(UNIT(a), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
+        return unit_add_two_dependencies(UNIT(a), UNIT_BEFORE, UNIT_TRIGGERS, x, /* add_reference= */ true, UNIT_DEPENDENCY_IMPLICIT);
 }
 
 static int automount_add_mount_dependencies(Automount *a) {
@@ -135,15 +135,15 @@ static int automount_add_default_dependencies(Automount *a) {
         if (!MANAGER_IS_SYSTEM(UNIT(a)->manager))
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(a), UNIT_BEFORE, SPECIAL_LOCAL_FS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_dependency_by_name(UNIT(a), UNIT_BEFORE, SPECIAL_LOCAL_FS_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
-        r = unit_add_dependency_by_name(UNIT(a), UNIT_AFTER, SPECIAL_LOCAL_FS_PRE_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_dependency_by_name(UNIT(a), UNIT_AFTER, SPECIAL_LOCAL_FS_PRE_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
@@ -228,7 +228,7 @@ static int automount_load(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         /* Load a .automount file */
-        r = unit_load_fragment_and_dropin(u, true);
+        r = unit_load_fragment_and_dropin(u, /* fragment_required= */ true);
         if (r < 0)
                 return r;
 
@@ -248,7 +248,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
         assert(a);
 
         if (a->state != state)
-                bus_unit_send_pending_change_signal(UNIT(a), false);
+                bus_unit_send_pending_change_signal(UNIT(a), /* including_new= */ false);
 
         old_state = a->state;
         a->state = state;
@@ -340,7 +340,7 @@ static int open_dev_autofs(Manager *m) {
         if (m->dev_autofs_fd >= 0)
                 return m->dev_autofs_fd;
 
-        (void) label_fix("/dev/autofs", 0);
+        (void) label_fix("/dev/autofs", /* flags= */ 0);
 
         m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
         if (m->dev_autofs_fd < 0)
@@ -380,7 +380,7 @@ static int open_ioctl_fd(int dev_autofs_fd, const char *where, dev_t devid) {
         if (param->ioctlfd < 0)
                 return -EIO;
 
-        (void) fd_cloexec(param->ioctlfd, true);
+        (void) fd_cloexec(param->ioctlfd, /* cloexec= */ true);
         return param->ioctlfd;
 }
 
@@ -508,7 +508,7 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
 
         /* The mount is successfully established */
         if (IN_SET(MOUNT(other)->state, MOUNT_MOUNTED, MOUNT_REMOUNTING)) {
-                (void) automount_send_ready(a, a->tokens, 0);
+                (void) automount_send_ready(a, a->tokens, /* status= */ 0);
 
                 r = automount_start_expire(a);
                 if (r < 0)
@@ -526,7 +526,7 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
                 (void) automount_send_ready(a, a->expire_tokens, -ENODEV);
 
         if (MOUNT(other)->state == MOUNT_DEAD)
-                (void) automount_send_ready(a, a->expire_tokens, 0);
+                (void) automount_send_ready(a, a->expire_tokens, /* status= */ 0);
 
         /* The mount is in some unhappy state now, let's unfreeze any waiting clients */
         if (IN_SET(MOUNT(other)->state,
@@ -572,7 +572,7 @@ static void automount_enter_waiting(Automount *a) {
                 log_unit_warning_errno(UNIT(a), errno, "Failed to allocate autofs pipe: %m");
                 goto fail;
         }
-        r = fd_nonblock(pipe_fd[0], true);
+        r = fd_nonblock(pipe_fd[0], /* nonblock= */ true);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(a), r, "Failed to make read side of pipe non-blocking: %m");
                 goto fail;
@@ -590,7 +590,7 @@ static void automount_enter_waiting(Automount *a) {
         }
 
         xsprintf(name, "systemd-"PID_FMT, getpid_cached());
-        r = mount_nofollow_verbose(LOG_WARNING, name, a->where, "autofs", 0, options);
+        r = mount_nofollow_verbose(LOG_WARNING, name, a->where, "autofs", /* flags= */ 0, options);
         if (r < 0)
                 goto fail;
 
@@ -721,7 +721,7 @@ static int automount_start_expire(Automount *a) {
         r = sd_event_add_time_relative(
                         UNIT(a)->manager->event,
                         &a->expire_event_source,
-                        CLOCK_MONOTONIC, timeout, 0,
+                        CLOCK_MONOTONIC, timeout, /* accuracy= */ 0,
                         automount_dispatch_expire, a);
         if (r < 0)
                 return r;
@@ -772,7 +772,7 @@ static void automount_enter_running(Automount *a) {
          * autofs request. Ack it to unblock anything waiting on the mount point. */
         if (!S_ISDIR(st.st_mode) || st.st_dev != a->dev_id) {
                 log_unit_info(UNIT(a), "Automount point already active?");
-                automount_send_ready(a, a->tokens, 0);
+                automount_send_ready(a, a->tokens, /* status= */ 0);
                 return;
         }
 
@@ -883,7 +883,7 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
                 if (safe_atou(value, &token) < 0)
                         log_unit_debug(u, "Failed to parse token value: %s", value);
                 else {
-                        r = set_ensure_put(&a->tokens, NULL, UINT_TO_PTR(token));
+                        r = set_ensure_put(&a->tokens, /* hash_ops= */ NULL, UINT_TO_PTR(token));
                         if (r < 0)
                                 log_unit_error_errno(u, r, "Failed to add token to set: %m");
                 }
@@ -893,7 +893,7 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
                 if (safe_atou(value, &token) < 0)
                         log_unit_debug(u, "Failed to parse token value: %s", value);
                 else {
-                        r = set_ensure_put(&a->expire_tokens, NULL, UINT_TO_PTR(token));
+                        r = set_ensure_put(&a->expire_tokens, /* hash_ops= */ NULL, UINT_TO_PTR(token));
                         if (r < 0)
                                 log_unit_error_errno(u, r, "Failed to add expire token to set: %m");
                 }
@@ -950,7 +950,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                 goto fail;
         }
 
-        r = loop_read_exact(a->pipe_fd, &packet, sizeof(packet), true);
+        r = loop_read_exact(a->pipe_fd, &packet, sizeof(packet), /* do_poll= */ true);
         if (r < 0) {
                 log_unit_error_errno(UNIT(a), r, "Invalid read from pipe: %m");
                 goto fail;
@@ -968,7 +968,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                 } else
                         log_unit_debug(UNIT(a), "Got direct mount request on %s", a->where);
 
-                r = set_ensure_put(&a->tokens, NULL, UINT_TO_PTR(packet.v5_packet.wait_queue_token));
+                r = set_ensure_put(&a->tokens, /* hash_ops= */ NULL, UINT_TO_PTR(packet.v5_packet.wait_queue_token));
                 if (r < 0) {
                         log_unit_error_errno(UNIT(a), r, "Failed to remember token: %m");
                         goto fail;
@@ -982,7 +982,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
 
                 automount_stop_expire(a);
 
-                r = set_ensure_put(&a->expire_tokens, NULL, UINT_TO_PTR(packet.v5_packet.wait_queue_token));
+                r = set_ensure_put(&a->expire_tokens, /* hash_ops= */ NULL, UINT_TO_PTR(packet.v5_packet.wait_queue_token));
                 if (r < 0) {
                         log_unit_error_errno(UNIT(a), r, "Failed to remember token: %m");
                         goto fail;

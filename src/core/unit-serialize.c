@@ -46,7 +46,7 @@ static int deserialize_markers(Unit *u, const char *value) {
         for (const char *p = value;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r <= 0)
                         return r;
 

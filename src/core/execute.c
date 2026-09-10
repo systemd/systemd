@@ -545,7 +545,7 @@ int exec_spawn(
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to finish serialization stream: %m");
 
-        r = fd_cloexec(fileno(f), false);
+        r = fd_cloexec(fileno(f), /* cloexec= */ false);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to set O_CLOEXEC on serialization fd: %m");
 
@@ -588,7 +588,7 @@ int exec_spawn(
                         &pidref);
 
         /* Drop the ambient set again, so no processes other than sd-executore spawned from the manager inherit it. */
-        (void) capability_ambient_set_apply(0, /* also_inherit= */ false);
+        (void) capability_ambient_set_apply(/* set= */ 0, /* also_inherit= */ false);
 
         if (r == -EUCLEAN && cgtarget)
                 return log_unit_error_errno(unit, r,
@@ -1801,7 +1801,7 @@ void exec_context_revert_tty(ExecContext *c, sd_id128_t invocation_id) {
         if (!S_ISCHR(st.st_mode))
                 return log_warning("Configured TTY '%s' is not actually a character device, ignoring.", path);
 
-        r = fchmod_and_chown(fd, TTY_MODE, 0, TTY_GID);
+        r = fchmod_and_chown(fd, TTY_MODE, /* uid= */ 0, TTY_GID);
         if (r < 0)
                 log_warning_errno(r, "Failed to reset TTY ownership/access mode of %s to " UID_FMT ":" GID_FMT ", ignoring: %m", path, (uid_t) 0, (gid_t) TTY_GID);
 }
@@ -2875,7 +2875,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
         }
 
 finalize:
-        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, userns_fdpair, netns_fdpair, ipcns_fdpair, NULL);
+        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, userns_fdpair, netns_fdpair, ipcns_fdpair, /* ret= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add exec-runtime: %m");
         return 0;

@@ -368,7 +368,7 @@ static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit)
         if (r < 0)
                 /* If mac_selinux_unit_access_check_varlink() returned a error,
                  * it means that SELinux enforce is on. It also does all the logging(). */
-                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
         return list_unit_one(link, unit);
 }
@@ -415,9 +415,9 @@ static int load_unit_and_check(sd_varlink *link, Manager *manager, const char *n
         /* manager_load_unit() will create an object regardless of whether the unit actually exists, so
          * check the state and refuse if it's not in a good state. */
         if (IN_SET(unit->load_state, UNIT_NOT_FOUND, UNIT_STUB, UNIT_MERGED))
-                return sd_varlink_error(link, "io.systemd.Unit.NoSuchUnit", NULL);
+                return sd_varlink_error(link, "io.systemd.Unit.NoSuchUnit", /* parameters= */ NULL);
         if (unit->load_state == UNIT_BAD_SETTING)
-                return sd_varlink_error(link, "io.systemd.Unit.UnitError", NULL);
+                return sd_varlink_error(link, "io.systemd.Unit.UnitError", /* parameters= */ NULL);
         if (unit->load_state == UNIT_ERROR)
                 return sd_varlink_errorbo(
                         link,
@@ -426,7 +426,7 @@ static int load_unit_and_check(sd_varlink *link, Manager *manager, const char *n
                         SD_JSON_BUILD_PAIR_INTEGER("errno", unit->load_error),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("errnoName", "io.systemd.Unit.UnitError"));
         if (unit->load_state == UNIT_MASKED)
-                return sd_varlink_error(link, "io.systemd.Unit.UnitMasked", NULL);
+                return sd_varlink_error(link, "io.systemd.Unit.UnitMasked", /* parameters= */ NULL);
         assert(UNIT_IS_LOAD_COMPLETE(unit->load_state));
 
         *ret_unit = unit;
@@ -549,7 +549,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 return list_unit_one_with_selinux_access_check(link, unit);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
 
         r = sd_varlink_set_sentinel(link, VARLINK_ERROR_UNIT_NO_SUCH_UNIT);
         if (r < 0)
@@ -1674,7 +1674,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (t < 0)
                 return sd_varlink_error_invalid_parameter_name(link, "context");
         if (!unit_vtable[t]->can_transient)
-                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, /* parameters= */ NULL);
 
         r = varlink_verify_polkit_async(
                         link,
@@ -1715,7 +1715,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (p.context.exec.present) {
                 ExecContext *c = unit_get_exec_context(u);
                 if (!c)
-                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, /* parameters= */ NULL);
 
                 bad_field = NULL;
                 r = transient_exec_context_apply_properties(u, c, &p.context.exec, &bad_field);
@@ -1735,7 +1735,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         } else if (p.context.service.present)
-                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, /* parameters= */ NULL);
 
         unit_add_to_load_queue(u);
         manager_dispatch_load_queue(manager);
@@ -1743,7 +1743,7 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         if (u->load_state == UNIT_BAD_SETTING)
                 return sd_varlink_error_invalid_parameter_name(link, "context");
         if (!UNIT_IS_LOAD_COMPLETE(u->load_state))
-                return sd_varlink_error(link, VARLINK_ERROR_UNIT_NO_SUCH_UNIT, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_UNIT_NO_SUCH_UNIT, /* parameters= */ NULL);
 
         Job *j;
         r = varlink_unit_queue_job_one(
@@ -1891,7 +1891,7 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
 
         r = mac_selinux_unit_access_check_varlink(unit, link, "start");
         if (r < 0)
-                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
         r = varlink_verify_polkit_async(
                         link,
@@ -1905,5 +1905,5 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
         if (p.markers_found)
                 unit->markers = unit_normalize_markers((unit->markers & ~p.markers_mask), p.markers);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }

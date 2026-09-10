@@ -1241,7 +1241,7 @@ static int clone_device_node(const char *node, const char *temporary_mount, bool
         /* Fallback to bind-mounting: The assumption here is that all used device nodes carry standard
          * properties. Specifically, the devices nodes we bind-mount should either be owned by root:root or
          * root:tty (e.g. /dev/tty, /dev/ptmx) and should not carry ACLs. */
-        r = mount_nofollow_verbose(LOG_DEBUG, node, dn, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, node, dn, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1276,7 +1276,7 @@ static int bind_mount_device_dir(const char *temporary_mount, const char *dir) {
         t = strjoina(temporary_mount, dir);
 
         (void) mkdir(t, 0755);
-        return mount_nofollow_verbose(LOG_DEBUG, dir, t, NULL, MS_BIND, NULL);
+        return mount_nofollow_verbose(LOG_DEBUG, dir, t, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
 }
 
 static char* settle_runtime_dir(RuntimeScope scope) {
@@ -1399,11 +1399,11 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
         /* Unmount everything in old /dev */
-        r = umount_recursive(mount_entry_path(m), 0);
+        r = umount_recursive(mount_entry_path(m), /* flags= */ 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to unmount directories below '%s', ignoring: %m", mount_entry_path(m));
 
-        r = mount_nofollow_verbose(LOG_DEBUG, dev, mount_entry_path(m), NULL, MS_MOVE, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, dev, mount_entry_path(m), /* fstype= */ NULL, MS_MOVE, /* options= */ NULL);
         if (r < 0)
                 return r;
         dev = rmdir_and_free(dev); /* Mount is successfully moved, do not umount() */
@@ -1427,7 +1427,7 @@ static int mount_bind_dev(const MountEntry *m) {
         if (r > 0) /* make this a NOP if /dev is already a mount point */
                 return 0;
 
-        r = mount_nofollow_verbose(LOG_DEBUG, "/dev", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, "/dev", mount_entry_path(m), /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1448,7 +1448,7 @@ static int mount_bind_sysfs(const MountEntry *m) {
                 return 0;
 
         /* Bind mount the host's version so that we get all child mounts of it, too. */
-        r = mount_nofollow_verbose(LOG_DEBUG, "/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, "/sys", mount_entry_path(m), /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1604,7 +1604,7 @@ static int mount_tmpfs(const MountEntry *m) {
          * tmpfs */
 
         (void) mkdir_p_label(entry_path, 0755);
-        (void) umount_recursive(entry_path, 0);
+        (void) umount_recursive(entry_path, /* flags= */ 0);
 
         r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", entry_path, "tmpfs", m->flags, mount_entry_options(m));
         if (r < 0)
@@ -1640,7 +1640,7 @@ static int mount_mqueuefs(const MountEntry *m) {
         entry_path = mount_entry_path(m);
 
         (void) mkdir_p_label(entry_path, 0755);
-        (void) umount_recursive(entry_path, 0);
+        (void) umount_recursive(entry_path, /* flags= */ 0);
 
         r = mount_nofollow_verbose(LOG_DEBUG, "mqueue", entry_path, "mqueue", m->flags, mount_entry_options(m));
         if (r == -ENODEV) /* POSIX message queues may be disabled in the kernel. */
@@ -1826,7 +1826,7 @@ static int follow_symlink(
          * a time by specifying CHASE_STEP. This function returns 0 if we resolved one step, and > 0 if we reached the
          * end and already have a fully normalized name. */
 
-        r = chase(mount_entry_path(m), root_directory, CHASE_STEP|CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, &target, NULL);
+        r = chase(mount_entry_path(m), root_directory, CHASE_STEP|CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, &target, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to chase symlinks '%s': %m", mount_entry_path(m));
         if (r > 0) /* Reached the end, nothing more to resolve */
@@ -1862,9 +1862,9 @@ static int mount_bind(
                         LOG_DEBUG,
                         what,
                         mount_entry_path(m),
-                        NULL,
+                        /* fstype= */ NULL,
                         MS_BIND|(recursive ? MS_REC : 0),
-                        NULL);
+                        /* options= */ NULL);
         if (r >= 0)
                 return 0;
         if (r != -ENOENT || !make)
@@ -1886,9 +1886,9 @@ static int mount_bind(
                         LOG_DEBUG,
                         what,
                         mount_entry_path(m),
-                        NULL,
+                        /* fstype= */ NULL,
                         MS_BIND|(recursive ? MS_REC : 0),
-                        NULL);
+                        /* options= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
 
@@ -1940,7 +1940,7 @@ static int apply_one_mount(
                 /* First, get rid of everything that is below if there
                  * is anything... Then, overmount it with an
                  * inaccessible path. */
-                (void) umount_recursive(mount_entry_path(m), 0);
+                (void) umount_recursive(mount_entry_path(m), /* flags= */ 0);
 
                 if (lstat(mount_entry_path(m), &target) < 0) {
                         if (errno == ENOENT && m->ignore)
@@ -2072,7 +2072,7 @@ static int apply_one_mount(
                                 return log_error_errno(r, "Failed to set label of the source directory %s: %m", mount_entry_source(m));
                 }
 
-                r = chase(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH|CHASE_TRIGGER_AUTOFS, &chased, NULL);
+                r = chase(mount_entry_source(m), /* root= */ NULL, CHASE_TRAIL_SLASH|CHASE_TRIGGER_AUTOFS, &chased, /* ret_fd= */ NULL);
                 if (r < 0) {
                         if (m->ignore) {
                                 if (r == -ENOENT) {
@@ -2133,7 +2133,7 @@ static int apply_one_mount(
                 return mount_mqueuefs(m);
 
         case MOUNT_IMAGE:
-                return mount_image(m, NULL, p->mount_image_policy, p->runtime_scope);
+                return mount_image(m, /* root_directory= */ NULL, p->mount_image_policy, p->runtime_scope);
 
         case MOUNT_EXTENSION_IMAGE:
                 return mount_image(m, root_directory, p->extension_image_policy, p->runtime_scope);
@@ -2291,7 +2291,7 @@ static int make_nosuid(const MountEntry *m, FILE *proc_self_mountinfo) {
 
         submounts = should_propagate_to_submounts(m);
         if (submounts)
-                r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), MS_NOSUID, MS_NOSUID, NULL, proc_self_mountinfo);
+                r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), MS_NOSUID, MS_NOSUID, /* deny_list= */ NULL, proc_self_mountinfo);
         else
                 r = bind_remount_one_with_mountinfo(mount_entry_path(m), MS_NOSUID, MS_NOSUID, proc_self_mountinfo);
         if (r == -ENOENT && m->ignore)
@@ -2359,7 +2359,7 @@ static int create_symlinks_from_tuples(const char *root, char **strv_symlinks) {
                                         "Failed to create parent directory for symlink '%s': %m",
                                         dst_abs);
 
-                r = symlink_idempotent(src_abs, dst_abs, true);
+                r = symlink_idempotent(src_abs, dst_abs, /* make_relative= */ true);
                 if (r < 0)
                         return log_debug_errno(
                                         r,
@@ -2908,7 +2908,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
         }
 
-        r = append_protect_control_groups(&ml, p->protect_control_groups, false);
+        r = append_protect_control_groups(&ml, p->protect_control_groups, /* ignore_protect= */ false);
         if (r < 0)
                 return r;
 
@@ -2916,7 +2916,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (r < 0)
                 return r;
 
-        r = append_protect_system(&ml, p->protect_system, false);
+        r = append_protect_system(&ml, p->protect_system, /* ignore_protect= */ false);
         if (r < 0)
                 return r;
 
@@ -3187,7 +3187,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         } else {
                 /* Let's mount the main root directory to the root directory to use */
-                r = mount_nofollow_verbose(LOG_DEBUG, "/", root, NULL, MS_BIND|MS_REC, NULL);
+                r = mount_nofollow_verbose(LOG_DEBUG, "/", root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -3209,7 +3209,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                  * MS_MOVE will fail as we don't have permission to change it (with EINVAL rather than
                  * EPERM). Attempt to bind-mount it over itself (like we do above if it's not already a
                  * mount point) and try again. */
-                r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
+                r = mount_nofollow_verbose(LOG_DEBUG, root, root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -3220,12 +3220,12 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         /* Remount / as the desired mode. Note that this will not reestablish propagation from our side to
          * the host, since what's disconnected is disconnected. */
-        if (mount(NULL, "/", NULL, mount_propagation_flag | MS_REC, NULL) < 0)
+        if (mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, mount_propagation_flag | MS_REC, /* data= */ NULL) < 0)
                 return log_debug_errno(errno, "Failed to remount '/' with desired mount flags: %m");
 
         /* bind_mount_in_namespace() will MS_MOVE into that directory, and that's only supported for
          * non-shared mounts. This needs to happen after remounting / or it will fail. */
-        if (setup_propagate && mount(NULL, p->incoming_dir, NULL, MS_SLAVE, NULL) < 0)
+        if (setup_propagate && mount(/* source= */ NULL, p->incoming_dir, /* filesystemtype= */ NULL, MS_SLAVE, /* data= */ NULL) < 0)
                 return log_debug_errno(errno, "Failed to remount %s with MS_SLAVE: %m", p->incoming_dir);
 
         return 0;
@@ -3402,7 +3402,7 @@ static int make_tmp_prefix(const char *prefix) {
         if (r < 0)
                 return r;
 
-        r = tempfn_random(prefix, NULL, &t);
+        r = tempfn_random(prefix, /* extra= */ NULL, &t);
         if (r < 0)
                 return r;
 
@@ -3701,7 +3701,7 @@ static int unpeel_get_fd(const char *mount_path, int *ret_fd) {
 
         pipe_fds[1] = safe_close(pipe_fds[1]);
 
-        r = receive_one_fd(pipe_fds[0], 0);
+        r = receive_one_fd(pipe_fds[0], /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to receive mount fd: %m");
         fs_fd = r;
@@ -3753,7 +3753,7 @@ static int unpeel_mount_and_setup_overlay(int pair_fd, const char *mount_path) {
 
         /* Wait for parent to signal overlay configuration completion */
         log_debug("Waiting for configured overlay fs for %s", mount_path);
-        r = receive_one_fd(pair_fd, 0);
+        r = receive_one_fd(pair_fd, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to receive configured overlay: %m");
 
@@ -3865,11 +3865,11 @@ static int handle_mount_from_grandchild(
         }
 
         /* Receive the fds from grandchild */
-        overlay_fs_fd = receive_one_fd(pipe_fd, 0);
+        overlay_fs_fd = receive_one_fd(pipe_fd, /* flags= */ 0);
         if (overlay_fs_fd < 0)
                 return log_debug_errno(overlay_fs_fd, "Failed to receive overlay fs fd from grandchild: %m");
 
-        hierarchy_path_fd = receive_one_fd(pipe_fd, 0);
+        hierarchy_path_fd = receive_one_fd(pipe_fd, /* flags= */ 0);
         if (hierarchy_path_fd < 0)
                 return log_debug_errno(hierarchy_path_fd, "Failed to receive fd from grandchild for %s: %m", mount_path);
 
@@ -4101,7 +4101,7 @@ int refresh_extensions_in_namespace(
                                 _exit(EXIT_FAILURE);
                 }
 
-                r = pidref_wait_for_terminate_and_check("(sd-ns-refresh-exts-grandchild)", &grandchild, 0);
+                r = pidref_wait_for_terminate_and_check("(sd-ns-refresh-exts-grandchild)", &grandchild, /* flags= */ 0);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to wait for target namespace process to finish: %m");
                         _exit(EXIT_FAILURE);

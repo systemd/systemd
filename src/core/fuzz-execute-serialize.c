@@ -81,7 +81,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
 
-        if (outside_size_range(size, 0, 128 * 1024))
+        if (outside_size_range(size, /* lower= */ 0, 128 * 1024))
                 return 0;
 
         fuzz_setup_logging();
