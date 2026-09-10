@@ -3,10 +3,14 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include "sd-event.h"
+
 #include "dns-answer.h"
 #include "dns-rr.h"
 #include "resolved-dns-browse-services.h"
+#include "resolved-manager.h"
 #include "tests.h"
+#include "time-util.h"
 
 static DnsResourceRecord *new_test_service_rr(uint32_t ttl) {
         DnsResourceRecord *rr;
@@ -145,6 +149,38 @@ TEST(mdns_answer_contains_service_ifindex) {
 
         sb_scoped.ifindex = 3;
         ASSERT_OK_ZERO(mdns_answer_contains_service(&sb_scoped, answer2, &service));
+}
+
+TEST(dns_remove_service_disables_maintenance_timer) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_(dnssd_discovered_service_unrefp) DnssdDiscoveredService *service = NULL;
+
+        ASSERT_OK(sd_event_new(&event));
+
+        Manager manager = {
+                .event = event,
+        };
+
+        DnsServiceBrowser sb = {
+                .manager = &manager,
+        };
+
+        ASSERT_NOT_NULL(rr = new_test_service_rr(120));
+        ASSERT_OK(dns_add_new_service(&sb, rr, AF_INET, 2,
+                                      usec_add(now(CLOCK_BOOTTIME), 120 * USEC_PER_SEC)));
+
+        ASSERT_NOT_NULL(sb.dns_services);
+        ASSERT_NOT_NULL(sb.dns_services->schedule_event);
+
+        /* Pin the service the way an in-flight maintenance query does, so that removing it from the
+         * browser does not free it. */
+        service = dnssd_discovered_service_ref(sb.dns_services);
+
+        dns_remove_service(&sb, service);
+
+        ASSERT_NULL(sb.dns_services);
+        ASSERT_NULL(service->schedule_event);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
