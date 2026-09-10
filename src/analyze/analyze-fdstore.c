@@ -26,7 +26,7 @@ static int dump_fdstore(sd_bus *bus, const char *arg) {
         assert(bus);
         assert(arg);
 
-        r = unit_name_mangle_with_suffix(arg, NULL, UNIT_NAME_MANGLE_GLOB, ".service", &unit);
+        r = unit_name_mangle_with_suffix(arg, /* operation= */ NULL, UNIT_NAME_MANGLE_GLOB, ".service", &unit);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle name '%s': %m", arg);
 
@@ -105,7 +105,7 @@ int verb_fdstore(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        r = acquire_bus(&bus, NULL);
+        r = acquire_bus(&bus, /* use_full_bus= */ NULL);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
