@@ -167,7 +167,7 @@ static void tar_import_report_progress(TarImport *i) {
         if (!ratelimit_below(&i->progress_ratelimit))
                 return;
 
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
+        sd_notifyf(/* unset_environment= */ false, "X_IMPORT_PROGRESS=%u%%", percent);
 
         if (isatty_safe(STDERR_FILENO))
                 (void) draw_progress_barf(
@@ -246,7 +246,7 @@ static int tar_import_fork_tar(TarImport *i) {
                 if (!i->final_path)
                         return log_oom();
 
-                r = tempfn_random(i->final_path, NULL, &i->temp_path);
+                r = tempfn_random(i->final_path, /* extra= */ NULL, &i->temp_path);
                 if (r < 0)
                         return log_oom();
 
@@ -445,7 +445,7 @@ int tar_import_start(TarImport *i, int fd, const char *local, Compression compre
         if (i->input_fd >= 0)
                 return -EBUSY;
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(fd, /* nonblock= */ true);
         if (r < 0)
                 return r;
 

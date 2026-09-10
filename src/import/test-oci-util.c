@@ -50,10 +50,10 @@ TEST(oci_registry_is_valid) {
 
 TEST(oci_ref_parse) {
         /* Validate tags */
-        ASSERT_OK(oci_ref_parse("quay.io/fedora/fedora", NULL, NULL, NULL));
-        ASSERT_OK(oci_ref_parse("quay.io/fedora/fedora:latest", NULL, NULL, NULL));
-        ASSERT_OK(oci_ref_parse("quay.io:443/fedora/fedora", NULL, NULL, NULL));
-        ASSERT_OK(oci_ref_parse("quay.io:443/fedora/fedora:latest", NULL, NULL, NULL));
+        ASSERT_OK(oci_ref_parse("quay.io/fedora/fedora", /* ret_registry= */ NULL, /* ret_image= */ NULL, /* ret_tag= */ NULL));
+        ASSERT_OK(oci_ref_parse("quay.io/fedora/fedora:latest", /* ret_registry= */ NULL, /* ret_image= */ NULL, /* ret_tag= */ NULL));
+        ASSERT_OK(oci_ref_parse("quay.io:443/fedora/fedora", /* ret_registry= */ NULL, /* ret_image= */ NULL, /* ret_tag= */ NULL));
+        ASSERT_OK(oci_ref_parse("quay.io:443/fedora/fedora:latest", /* ret_registry= */ NULL, /* ret_image= */ NULL, /* ret_tag= */ NULL));
 }
 
 TEST(oci_media_type) {

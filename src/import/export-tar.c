@@ -145,7 +145,7 @@ static void tar_export_report_progress(TarExport *e) {
         if (!ratelimit_below(&e->progress_ratelimit))
                 return;
 
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
+        sd_notifyf(/* unset_environment= */ false, "X_IMPORT_PROGRESS=%u%%", percent);
 
         if (isatty_safe(STDERR_FILENO))
                 (void) draw_progress_barf(
@@ -283,7 +283,7 @@ int tar_export_start(
         if (fstat(sfd, &e->st) < 0)
                 return -errno;
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(fd, /* nonblock= */ true);
         if (r < 0)
                 return r;
 
@@ -297,18 +297,18 @@ int tar_export_start(
         if (btrfs_might_be_subvol(&e->st)) {
                 BtrfsQuotaInfo q;
 
-                r = btrfs_subvol_get_subtree_quota_fd(sfd, 0, &q);
+                r = btrfs_subvol_get_subtree_quota_fd(sfd, /* subvol_id= */ 0, &q);
                 if (r >= 0)
                         e->quota_referenced = q.referenced;
 
                 e->temp_path = mfree(e->temp_path);
 
-                r = tempfn_random(path, NULL, &e->temp_path);
+                r = tempfn_random(path, /* extra= */ NULL, &e->temp_path);
                 if (r < 0)
                         return r;
 
                 /* Let's try to make a snapshot, if we can, so that the export is atomic */
-                r = btrfs_subvol_snapshot_at(sfd, NULL, AT_FDCWD, e->temp_path, BTRFS_SNAPSHOT_READ_ONLY|BTRFS_SNAPSHOT_RECURSIVE);
+                r = btrfs_subvol_snapshot_at(sfd, /* from= */ NULL, AT_FDCWD, e->temp_path, BTRFS_SNAPSHOT_READ_ONLY|BTRFS_SNAPSHOT_RECURSIVE);
                 if (r < 0) {
                         log_debug_errno(r, "Couldn't create snapshot %s of %s, not exporting atomically: %m", e->temp_path, path);
                         e->temp_path = mfree(e->temp_path);
