@@ -672,7 +672,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(opts.arg))
                                 arg_machine = mfree(arg_machine);
                         else {
-                                if (!hostname_is_valid(opts.arg, 0))
+                                if (!hostname_is_valid(opts.arg, /* flags= */ 0))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Invalid machine name: %s", opts.arg);
 
@@ -1127,7 +1127,7 @@ static int vmspawn_dispatch_vsock_connections(sd_event_source *source, int fd, u
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate notify connection event source: %m");
 
-        r = sd_event_source_set_io_fd_own(s, true);
+        r = sd_event_source_set_io_fd_own(s, /* own= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to pass ownership of notify to event source: %m");
         TAKE_FD(conn_fd); /* conn_fd is now owned by the event loop so don't clean it up */
@@ -1275,7 +1275,7 @@ fallback:
                 }
         }
 
-        return sd_event_exit(sd_event_source_get_event(s), 0);
+        return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 }
 
 static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
@@ -1784,7 +1784,7 @@ static int start_virtiofsd(
                         _exit(EXIT_FAILURE);
                 }
 
-                r = fd_cloexec(sock, false);
+                r = fd_cloexec(sock, /* cloexec= */ false);
                 if (r < 0) {
                         log_error_errno(r, "Failed to disable cloexec on socket: %m");
                         _exit(EXIT_FAILURE);
@@ -2088,7 +2088,7 @@ static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *erro
         assert(m);
 
         log_info("VM termination requested. Exiting.");
-        sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), 0);
+        sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), /* code= */ 0);
 
         return 0;
 }
@@ -2222,7 +2222,7 @@ static int cmdline_add_ovmf(FILE *config_file, const OvmfConfig *ovmf_config, ch
                         return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", vars_source, state);
 
                 /* This isn't always available so don't raise an error if it fails */
-                (void) copy_times(source_fd, target_fd, 0);
+                (void) copy_times(source_fd, target_fd, /* flags= */ 0);
         }
 
         destroy_path = mfree(destroy_path); /* disarm auto-destroy */
@@ -2887,7 +2887,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         (void) net_shorten_ifname(tap_name, /* check_naming_scheme= */ false);
 
                         if (ether_addr_is_null(&arg_network_provided_mac)) {
-                                r = net_generate_mac(arg_machine, &mac_vm, VM_TAP_HASH_KEY, 0);
+                                r = net_generate_mac(arg_machine, &mac_vm, VM_TAP_HASH_KEY, /* idx= */ 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to generate predictable MAC address for VM side: %m");
                         } else
@@ -3908,9 +3908,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 scope_allocated = true;
         } else {
                 if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
-                        r = cg_pid_get_unit(0, &unit);
+                        r = cg_pid_get_unit(/* pid= */ 0, &unit);
                 else
-                        r = cg_pid_get_user_unit(0, &unit);
+                        r = cg_pid_get_user_unit(/* pid= */ 0, &unit);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get our own unit: %m");
         }
@@ -3964,13 +3964,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
 
         if (system_bus) {
-                r = sd_bus_attach_event(system_bus, event, 0);
+                r = sd_bus_attach_event(system_bus, event, /* priority= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach system bus to event loop: %m");
         }
 
         if (user_bus) {
-                r = sd_bus_attach_event(user_bus, event, 0);
+                r = sd_bus_attach_event(user_bus, event, /* priority= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach user bus to event loop: %m");
         }
@@ -3993,13 +3993,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 .pidref = &child_pidref,
         };
 
-        (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
-        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
-        (void) sd_event_add_signal(event, NULL, (SIGRTMIN+4) | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, (SIGRTMIN+4) | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
 
-        (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
 
-        r = sd_event_add_memory_pressure(event, NULL, NULL, NULL);
+        r = sd_event_add_memory_pressure(event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
@@ -4133,7 +4133,7 @@ static int determine_names(void) {
                                 return log_oom();
 
                 hostname_cleanup(arg_machine);
-                if (!hostname_is_valid(arg_machine, 0))
+                if (!hostname_is_valid(arg_machine, /* flags= */ 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine machine name automatically, please use -M.");
         }
 
@@ -4328,7 +4328,7 @@ static int run(int argc, char *argv[]) {
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
         }
 
-        int n = sd_listen_fds_with_names(true, &names);
+        int n = sd_listen_fds_with_names(/* unset_environment= */ true, &names);
         if (n < 0)
                 return log_error_errno(n, "Failed to get passed file descriptors: %m");
 
