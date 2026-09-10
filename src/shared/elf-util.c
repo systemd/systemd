@@ -269,7 +269,7 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
                 if (!symbol)
                         symbol = sym_dwfl_module_addrname(module, pc_adjusted);
 
-                fname = sym_dwfl_module_info(module, NULL, &start, NULL, NULL, NULL, NULL, NULL);
+                fname = sym_dwfl_module_info(module, /* userdata= */ NULL, &start, /* end= */ NULL, /* dwbias= */ NULL, /* symbias= */ NULL, /* mainfile= */ NULL, /* debugfile= */ NULL);
                 module_offset = pc - start;
         }
 
@@ -434,7 +434,7 @@ static int parse_metadata(const char *name, sd_json_variant *id_json, Elf *elf, 
                                 payload = payload_0suffixed;
                         }
 
-                        r = sd_json_parse(payload, 0, &v, NULL, NULL);
+                        r = sd_json_parse(payload, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                         if (r < 0) {
                                 _cleanup_free_ char *esc = cescape(payload);
                                 return log_error_errno(r, "json_parse on \"%s\" failed: %m", strnull(esc));
@@ -550,7 +550,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
          * We proceed in a best-effort fashion - not all ELF objects might contain both or either.
          * The build-id is easy, as libdwfl parses it during the sym_dwfl_core_file_report() call and
          * stores it separately in an internal library struct. */
-        r = parse_buildid(mod, NULL, name, c, &id_json);
+        r = parse_buildid(mod, /* elf= */ NULL, name, c, &id_json);
         if (r < 0)
                 return DWARF_CB_ABORT;
 
@@ -558,7 +558,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
          * to the ELF object first. We might be lucky and just get it from elfutils. */
         elf = sym_dwfl_module_getelf(mod, &bias);
         if (elf) {
-                r = parse_metadata(name, id_json, elf, NULL, c);
+                r = parse_metadata(name, id_json, elf, /* ret_interpreter_found= */ NULL, c);
                 if (r < 0)
                         return DWARF_CB_ABORT;
                 if (r > 0)
@@ -614,7 +614,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                 if (!memelf)
                         continue;
 
-                r = parse_metadata(name, id_json, memelf, NULL, c);
+                r = parse_metadata(name, id_json, memelf, /* ret_interpreter_found= */ NULL, c);
                 if (r < 0)
                         return DWARF_CB_ABORT;
                 if (r > 0)
@@ -678,10 +678,10 @@ static int parse_core(
         if (sym_dwfl_core_file_report(c.dwfl, c.elf, executable) < 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_core_file_report() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
-        if (sym_dwfl_report_end(c.dwfl, NULL, NULL) != 0)
+        if (sym_dwfl_report_end(c.dwfl, /* removed= */ NULL, NULL) != 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_report_end() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
-        if (sym_dwfl_getmodules(c.dwfl, &module_callback, &c, 0) < 0)
+        if (sym_dwfl_getmodules(c.dwfl, &module_callback, &c, /* offset= */ 0) < 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_getmodules() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
         if (sym_dwfl_core_file_attach(c.dwfl, c.elf) < 0)
@@ -691,7 +691,7 @@ static int parse_core(
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_getthreads() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
         if (ret) {
-                r = memstream_finalize(&c.m, ret, NULL);
+                r = memstream_finalize(&c.m, ret, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_warning_errno(r, "Could not parse core file, flushing file buffer failed: %m");
         }
@@ -755,7 +755,7 @@ static int parse_elf(
                 const char *e = executable ?: "(unnamed)";
                 bool interpreter_found = false;
 
-                r = parse_buildid(NULL, c.elf, e, &c, &id_json);
+                r = parse_buildid(/* mod= */ NULL, c.elf, e, &c, &id_json);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse build-id of ELF file: %m");
 
@@ -800,7 +800,7 @@ static int parse_elf(
                 return log_warning_errno(r, "Failed to merge JSON objects: %m");
 
         if (ret) {
-                r = memstream_finalize(&c.m, ret, NULL);
+                r = memstream_finalize(&c.m, ret, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_warning_errno(r, "Could not parse ELF file, flushing file buffer failed: %m");
         }
@@ -946,7 +946,7 @@ int parse_elf_object(
                         if (!json_out)
                                 report_errno_and_exit(error_pipe[1], -errno);
 
-                        r = sd_json_variant_dump(package_metadata, SD_JSON_FORMAT_FLUSH, json_out, NULL);
+                        r = sd_json_variant_dump(package_metadata, SD_JSON_FORMAT_FLUSH, json_out, /* prefix= */ NULL);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to write JSON package metadata, ignoring: %m");
                 }
@@ -962,7 +962,7 @@ int parse_elf_object(
                         if (!json_out)
                                 report_errno_and_exit(error_pipe[1], -errno);
 
-                        r = sd_json_variant_dump(dlopen_metadata, SD_JSON_FORMAT_FLUSH, json_out, NULL);
+                        r = sd_json_variant_dump(dlopen_metadata, SD_JSON_FORMAT_FLUSH, json_out, /* prefix= */ NULL);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to write JSON package metadata, ignoring: %m");
                 }
@@ -982,7 +982,7 @@ int parse_elf_object(
                 if (!in)
                         return -errno;
 
-                r = read_full_stream(in, &buf, NULL);
+                r = read_full_stream(in, &buf, /* ret_size= */ NULL);
                 if (r < 0)
                         return r;
         }

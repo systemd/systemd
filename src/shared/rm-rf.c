@@ -217,7 +217,7 @@ static int rm_rf_inner_child(
                         return 0;
 
                 /* Stop at mount points */
-                r = is_mount_point_at(fd, fname, 0);
+                r = is_mount_point_at(fd, fname, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -488,7 +488,7 @@ int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags) {
         fd = openat_harder(dir_fd, path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, flags, &old_mode);
         if (fd >= 0) {
                 /* We have a dir */
-                r = rm_rf_children_impl(fd, flags, NULL, old_mode);
+                r = rm_rf_children_impl(fd, flags, /* root_dev= */ NULL, old_mode);
 
                 if (FLAGS_SET(flags, REMOVE_ROOT))
                         q = RET_NERRNO(unlinkat(dir_fd, path, AT_REMOVEDIR));

@@ -313,7 +313,7 @@ int unit_file_resolve_symlink(
         }
 
         /* Get rid of "." and ".." components in target path */
-        r = chase(target, root_dir, CHASE_NOFOLLOW | CHASE_NONEXISTENT, &simplified, NULL);
+        r = chase(target, root_dir, CHASE_NOFOLLOW | CHASE_NONEXISTENT, &simplified, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to resolve symlink %s/%s pointing to %s: %m",
                                          dir, filename, target);
@@ -428,7 +428,7 @@ int unit_file_build_name_map(
                 if (r < 0)
                         return log_oom();
 
-                r = chase(*dir, NULL, 0, &resolved_dir, NULL);
+                r = chase(*dir, /* root= */ NULL, /* flags= */ 0, &resolved_dir, /* ret_fd= */ NULL);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_warning_errno(r, "Failed to resolve symlink %s, ignoring: %m", *dir);
@@ -782,7 +782,7 @@ int unit_file_find_fragment(
                 return name_type;
 
         if (ret_names) {
-                r = add_names(unit_ids_map, unit_name_map, unit_name, NULL, name_type, instance, &names, unit_name);
+                r = add_names(unit_ids_map, unit_name_map, unit_name, /* fragment_basename= */ NULL, name_type, instance, &names, unit_name);
                 if (r < 0)
                         return r;
         }

@@ -21,7 +21,7 @@
 #define MAKE_FDSET(s) ((FDSet*) s)
 
 FDSet* fdset_new(void) {
-        return MAKE_FDSET(set_new(NULL));
+        return MAKE_FDSET(set_new(/* hash_ops= */ NULL));
 }
 
 static void fdset_shallow_freep(FDSet **s) {
@@ -230,7 +230,7 @@ int fdset_new_fill(
 
                 /* We need to set CLOEXEC manually only if we're collecting non-CLOEXEC fds. */
                 if (filter_cloexec <= 0) {
-                        r = fd_cloexec(fd, true);
+                        r = fd_cloexec(fd, /* cloexec= */ true);
                         if (r < 0) {
                                 if (DEBUG_LOGGING) {
                                         _cleanup_free_ char *path = NULL;

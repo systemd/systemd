@@ -25,5 +25,5 @@ static inline int mkdir_parents_safe_label(const char *prefix, const char *path,
 }
 
 static inline int mkdir_p_label(const char *path, mode_t mode) {
-        return mkdir_p_internal(/* prefix= */ NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_label, /* label_context= */ NULL);
+        return mkdir_p_internal(/* prefix= */ NULL, path, mode, UID_INVALID, UID_INVALID, /* flags= */ 0, mkdirat_label, /* label_context= */ NULL);
 }

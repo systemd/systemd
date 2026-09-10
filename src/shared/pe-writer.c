@@ -509,7 +509,7 @@ int pe_writer_write(const PeWriter *w, int output_fd) {
         if (ftruncate(output_fd, 0) < 0)
                 return log_debug_errno(errno, "Failed to truncate output file: %m");
 
-        r = pwrite_full(output_fd, headers, w->headers_size, 0);
+        r = pwrite_full(output_fd, headers, w->headers_size, /* offset= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write PE headers: %m");
 

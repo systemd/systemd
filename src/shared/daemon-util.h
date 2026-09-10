@@ -10,7 +10,7 @@
 
 static inline const char* notify_start(const char *start, const char *stop) {
         if (start)
-                (void) sd_notify(false, start);
+                (void) sd_notify(/* unset_environment= */ false, start);
 
         return stop;
 }
@@ -18,7 +18,7 @@ static inline const char* notify_start(const char *start, const char *stop) {
 /* This is intended to be used with _cleanup_ attribute. */
 static inline void notify_on_cleanup(const char **p) {
         if (*p)
-                (void) sd_notify(false, *p);
+                (void) sd_notify(/* unset_environment= */ false, *p);
 }
 
 int notify_remove_fd_warn(const char *name);

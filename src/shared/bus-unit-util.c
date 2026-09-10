@@ -508,7 +508,7 @@ static int bus_try_append_parse_cgroup_io_limit(sd_bus_message *m, const char *f
         else {
                 const char *e = strchr(eq, ' ');
                 if (!e)
-                        return parse_log_error(0, field, eq);
+                        return parse_log_error(/* error= */ 0, field, eq);
 
                 const char *bandwidth = e + 1;
                 _cleanup_free_ char *path = strndup(eq, e - eq);
@@ -540,7 +540,7 @@ static int bus_append_parse_io_device_weight(sd_bus_message *m, const char *fiel
         else {
                 const char *e = strchr(eq, ' ');
                 if (!e)
-                        return parse_log_error(0, field, eq);
+                        return parse_log_error(/* error= */ 0, field, eq);
 
                 const char *weight = e + 1;
                 _cleanup_free_ char *path = strndup(eq, e - eq);
@@ -569,7 +569,7 @@ static int bus_append_parse_io_device_latency(sd_bus_message *m, const char *fie
         else {
                 const char *e = strchr(eq, ' ');
                 if (!e)
-                        return parse_log_error(0, field, eq);
+                        return parse_log_error(/* error= */ 0, field, eq);
 
                 const char *target = e + 1;
                 _cleanup_free_ char *path = strndup(eq, e - eq);
@@ -597,7 +597,7 @@ static int bus_append_bpf_program(sd_bus_message *m, const char *field, const ch
         else {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&eq, &word, ":", 0);
+                r = extract_first_word(&eq, &word, ":", /* flags= */ 0);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
 
@@ -732,7 +732,7 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL))
                 path = _PATH_BSHELL;
         else if (explicit_path) {
-                r = extract_first_word(&eq, &_path, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
+                r = extract_first_word(&eq, &_path, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
                 if (r == 0)
@@ -742,7 +742,7 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                 path = _path;
         }
 
-        r = strv_split_full(&cmdline, eq, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
+        r = strv_split_full(&cmdline, eq, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
         if (r < 0)
                 return parse_log_error(r, field, eq);
 
@@ -880,11 +880,11 @@ static int bus_append_parse_ip_address_filter(sd_bus_message *m, const char *fie
         if (streq(eq, "any")) {
                 /* "any" is a shortcut for 0.0.0.0/0 and ::/0 */
 
-                r = bus_append_ip_address_access(m, AF_INET, &prefix, 0);
+                r = bus_append_ip_address_access(m, AF_INET, &prefix, /* prefixlen= */ 0);
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = bus_append_ip_address_access(m, AF_INET6, &prefix, 0);
+                r = bus_append_ip_address_access(m, AF_INET6, &prefix, /* prefixlen= */ 0);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -935,7 +935,7 @@ static int bus_append_parse_ip_address_filter(sd_bus_message *m, const char *fie
                 for (;;) {
                         _cleanup_free_ char *word = NULL;
 
-                        r = extract_first_word(&eq, &word, NULL, 0);
+                        r = extract_first_word(&eq, &word, /* separators= */ NULL, /* flags= */ 0);
                         if (r < 0)
                                 return parse_log_error(r, field, eq);
                         if (r == 0)
@@ -1017,18 +1017,18 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
                 const char *q = NULL;
                 int source, nfproto;
 
-                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                r = extract_first_word(&p, &tuple, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
                 if (r == 0)
                         break;
                 if (isempty(tuple))
-                        return parse_log_error(0, field, eq);
+                        return parse_log_error(/* error= */ 0, field, eq);
 
                 q = tuple;
                 r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE, &source_str, &nfproto_str, &table, &set);
                 if (r != 4 || !isempty(q))
-                        return parse_log_error(0, field, tuple);
+                        return parse_log_error(/* error= */ 0, field, tuple);
 
                 assert(source_str);
                 assert(nfproto_str);
@@ -1272,7 +1272,7 @@ static int bus_append_refresh_on_reload(sd_bus_message *m, const char *field, co
         for (const char *p = eq + invert;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
                 if (r == 0)
@@ -1383,7 +1383,7 @@ static int bus_append_standard_input_text(sd_bus_message *m, const char *field, 
         _cleanup_free_ char *unescaped = NULL;
         ssize_t l;
 
-        l = cunescape(eq, 0, &unescaped);
+        l = cunescape(eq, /* flags= */ 0, &unescaped);
         if (l < 0)
                 return log_error_errno(l, "Failed to unescape value for %s=: %s", field, eq);
 
@@ -1701,7 +1701,7 @@ static int bus_append_bind_paths(sd_bus_message *m, const char *field, const cha
                         if (p && p[-1] == ':') {
                                 _cleanup_free_ char *options = NULL;
 
-                                r = extract_first_word(&p, &options, NULL, EXTRACT_UNQUOTE);
+                                r = extract_first_word(&p, &options, /* separators= */ NULL, EXTRACT_UNQUOTE);
                                 if (r < 0)
                                         return parse_log_error(r, field, p);
 
@@ -1760,7 +1760,7 @@ static int bus_append_temporary_file_system(sd_bus_message *m, const char *field
                 _cleanup_free_ char *word = NULL, *path = NULL;
                 const char *w;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
                 if (r == 0)
@@ -1906,7 +1906,7 @@ static int bus_append_mount_images(sd_bus_message *m, const char *field, const c
                 const char *q = NULL, *source = NULL;
                 bool permissive = false;
 
-                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                r = extract_first_word(&p, &tuple, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
                 if (r == 0)
@@ -2012,7 +2012,7 @@ static int bus_append_extension_images(sd_bus_message *m, const char *field, con
                 const char *q = NULL, *s = NULL;
                 bool permissive = false;
 
-                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                r = extract_first_word(&p, &tuple, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
                 if (r == 0)
@@ -2104,7 +2104,7 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
         for (;;) {
                 _cleanup_free_ char *tuple = NULL, *source = NULL, *dest = NULL, *flags = NULL;
 
-                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &tuple, /* separators= */ NULL, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
                 if (r == 0)
@@ -2271,7 +2271,7 @@ static int bus_append_protect_hostname(sd_bus_message *m, const char *field, con
                 const char *colon = strchr(eq, ':');
                 if (colon) {
                         if (isempty(colon + 1))
-                                return parse_log_error(0, field, eq);
+                                return parse_log_error(/* error= */ 0, field, eq);
 
                         _cleanup_free_ char *p = strndup(eq, colon - eq);
                         if (!p)
@@ -2322,7 +2322,7 @@ static int bus_append_exit_status(sd_bus_message *m, const char *field, const ch
         for (const char *p = eq;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
                 if (r == 0)
@@ -3193,7 +3193,7 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
         if (r < 0)
                 return r;
 
-        install_changes_dump(0, NULL, changes, n_changes, quiet);
+        install_changes_dump(/* error= */ 0, /* verb= */ NULL, changes, n_changes, quiet);
 
         return 0;
 }
@@ -3253,7 +3253,7 @@ int bus_service_manager_reload(sd_bus *bus) {
                 return bus_log_create_error(r);
 
         /* Reloading the daemon may take long, hence set a longer timeout here */
-        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
+        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reload service manager: %s", bus_error_message(&error, r));
 
@@ -3338,11 +3338,11 @@ static int unit_freezer_action(UnitFreezer *f, bool freeze) {
 }
 
 int unit_freezer_freeze(UnitFreezer *f) {
-        return unit_freezer_action(f, true);
+        return unit_freezer_action(f, /* freeze= */ true);
 }
 
 int unit_freezer_thaw(UnitFreezer *f) {
-        return unit_freezer_action(f, false);
+        return unit_freezer_action(f, /* freeze= */ false);
 }
 
 ExecDirectoryFlags exec_directory_flags_from_string(const char *s) {
