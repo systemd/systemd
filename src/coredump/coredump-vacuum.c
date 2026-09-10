@@ -214,7 +214,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                 if (r <= 0)
                         return r;
 
-                r = unlinkat_deallocate(dirfd(d), worst->oldest_file, 0);
+                r = unlinkat_deallocate(dirfd(d), worst->oldest_file, /* flags= */ 0);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)

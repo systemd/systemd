@@ -148,7 +148,7 @@ static int compose_open_fds(pid_t pid, char **ret) {
                 }
         }
 
-        return memstream_finalize(&m, ret, NULL);
+        return memstream_finalize(&m, ret, /* ret_size= */ NULL);
 }
 
 /* Returns 1 if the parent was found.
@@ -303,7 +303,7 @@ int coredump_context_build_iovw(CoredumpContext *context) {
         if (pidref_get_cmdline(&context->pidref, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &t) >= 0)
                 (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_CMDLINE=", t);
 
-        if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0)
+        if (cg_pid_get_path_shifted(pid, /* cached_root= */ NULL, &t) >= 0)
                 (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_CGROUP=", t);
 
         if (compose_open_fds(pid, &t) >= 0)
