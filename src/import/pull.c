@@ -459,6 +459,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         SET_FLAG(arg_import_flags, IMPORT_SYNC, r);
                         break;
 
+                OPTION_LONG("zero-fill", "BOOL", "Controls whether to fill up the destination range with zeroes"):
+                        r = parse_boolean_argument("--zero-fill=", opts.arg, NULL);
+                        if (r < 0)
+                                return r;
+                        SET_FLAG(arg_import_flags, IMPORT_ZERO_FILL, r);
+                        break;
+
                 OPTION_LONG("offset", "BYTES", "Offset to seek to in destination"): {
                         uint64_t u;
 
@@ -522,6 +529,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         if (arg_offset != UINT64_MAX && !FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset only supported in --direct mode.");
+
+        if (FLAGS_SET(arg_import_flags, IMPORT_ZERO_FILL) && (arg_offset == UINT64_MAX || arg_size_max == UINT64_MAX))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Zero filling only supported if both --offset= and --size-max= are specified.");
 
         if (iovec_is_set(&arg_checksum) && (arg_import_flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Literal checksum verification only supported if no associated files are downloaded.");

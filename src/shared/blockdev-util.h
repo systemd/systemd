@@ -53,6 +53,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd);
 
 int blockdev_get_sector_size(int fd, uint32_t *ret);
 int blockdev_get_device_size(int fd, uint64_t *ret);
+int blockdev_zero_out(int fd, uint64_t offset, uint64_t size);
 
 int blockdev_get_root(int level, dev_t *ret);
 
