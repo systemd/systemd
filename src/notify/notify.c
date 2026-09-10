@@ -183,7 +183,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("uid", "USER", "Set user to send from"):
-                        r = get_user_creds(opts.arg, /* flags= */ 0, NULL, &arg_uid, &arg_gid, NULL, NULL);
+                        r = get_user_creds(opts.arg, /* flags= */ 0, /* ret_username= */ NULL, &arg_uid, &arg_gid, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                         if (r == -ESRCH) /* If the user doesn't exist, then accept it anyway as numeric */
                                 r = parse_uid(opts.arg, &arg_uid);
                         if (r < 0)
