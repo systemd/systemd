@@ -14,34 +14,34 @@
 static void compress_parse_check(const char *str, int expected_enabled, uint64_t expected_threshold) {
         JournalCompressOptions conf = { .enabled = -222, .threshold_bytes = 111 };
 
-        ASSERT_OK(config_parse_compress("", "", 0, "", 0, "", 0, str, &conf, NULL));
+        ASSERT_OK(config_parse_compress("", "", /* line= */ 0, "", /* section_line= */ 0, "", /* ltype= */ 0, str, &conf, /* userdata= */ NULL));
         ASSERT_EQ(expected_enabled, conf.enabled);
         if (conf.enabled)
                 ASSERT_EQ(expected_threshold, conf.threshold_bytes);
 }
 
 TEST(config_compress) {
-        compress_parse_check("yes", true, UINT64_MAX);
-        compress_parse_check("no", false, UINT64_MAX);
-        compress_parse_check("y", true, UINT64_MAX);
-        compress_parse_check("n", false, UINT64_MAX);
-        compress_parse_check("true", true, UINT64_MAX);
-        compress_parse_check("false", false, UINT64_MAX);
-        compress_parse_check("t", true, UINT64_MAX);
-        compress_parse_check("f", false, UINT64_MAX);
-        compress_parse_check("on", true, UINT64_MAX);
-        compress_parse_check("off", false, UINT64_MAX);
+        compress_parse_check("yes", /* expected_enabled= */ true, UINT64_MAX);
+        compress_parse_check("no", /* expected_enabled= */ false, UINT64_MAX);
+        compress_parse_check("y", /* expected_enabled= */ true, UINT64_MAX);
+        compress_parse_check("n", /* expected_enabled= */ false, UINT64_MAX);
+        compress_parse_check("true", /* expected_enabled= */ true, UINT64_MAX);
+        compress_parse_check("false", /* expected_enabled= */ false, UINT64_MAX);
+        compress_parse_check("t", /* expected_enabled= */ true, UINT64_MAX);
+        compress_parse_check("f", /* expected_enabled= */ false, UINT64_MAX);
+        compress_parse_check("on", /* expected_enabled= */ true, UINT64_MAX);
+        compress_parse_check("off", /* expected_enabled= */ false, UINT64_MAX);
 
         /* Weird size/bool overlapping case. We preserve backward compatibility instead of assuming these are byte
          * counts. */
-        compress_parse_check("1", true, UINT64_MAX);
-        compress_parse_check("0", false, UINT64_MAX);
+        compress_parse_check("1", /* expected_enabled= */ true, UINT64_MAX);
+        compress_parse_check("0", /* expected_enabled= */ false, UINT64_MAX);
 
         /* IEC sizing */
-        compress_parse_check("1B", true, 1);
-        compress_parse_check("1K", true, 1024);
-        compress_parse_check("1M", true, 1024 * 1024);
-        compress_parse_check("1G", true, 1024 * 1024 * 1024);
+        compress_parse_check("1B", /* expected_enabled= */ true, 1);
+        compress_parse_check("1K", /* expected_enabled= */ true, 1024);
+        compress_parse_check("1M", /* expected_enabled= */ true, 1024 * 1024);
+        compress_parse_check("1G", /* expected_enabled= */ true, 1024 * 1024 * 1024);
 
         /* Invalid Case */
         compress_parse_check("-1", -222, 111);
@@ -52,20 +52,20 @@ TEST(config_compress) {
 static void forward_to_socket_parse_check_fails(const char *str) {
         SocketAddress conf = {};
 
-        ASSERT_OK(config_parse_forward_to_socket("", "", 0, "", 0, "", 0, str, &conf, NULL));
-        ASSERT_FAIL(socket_address_verify(&conf, true));
+        ASSERT_OK(config_parse_forward_to_socket("", "", /* line= */ 0, "", /* section_line= */ 0, "", /* ltype= */ 0, str, &conf, /* userdata= */ NULL));
+        ASSERT_FAIL(socket_address_verify(&conf, /* strict= */ true));
 }
 
 static void forward_to_socket_parse_check(const char *str, const SocketAddress *expected_addr) {
         _cleanup_free_ char *buf = NULL, *buf2 = NULL;
         SocketAddress conf = {};
 
-        ASSERT_OK(config_parse_forward_to_socket("", "", 0, "", 0, "", 0, str, &conf, NULL));
+        ASSERT_OK(config_parse_forward_to_socket("", "", /* line= */ 0, "", /* section_line= */ 0, "", /* ltype= */ 0, str, &conf, /* userdata= */ NULL));
         ASSERT_OK(socket_address_print(&conf, &buf));
         ASSERT_OK(socket_address_print(expected_addr, &buf2));
         log_info("\"%s\" parsed as \"%s\", should be \"%s\"", str, buf, buf2);
-        log_info("socket_address_verify(&expected_addr, false) = %d", socket_address_verify(expected_addr, false));
-        log_info("socket_address_verify(&conf, false) = %d", socket_address_verify(&conf, false));
+        log_info("socket_address_verify(&expected_addr, false) = %d", socket_address_verify(expected_addr, /* strict= */ false));
+        log_info("socket_address_verify(&conf, false) = %d", socket_address_verify(&conf, /* strict= */ false));
         log_info("socket_address_family(&expected_addr) = %d", socket_address_family(expected_addr));
         log_info("socket_address_family(&conf) = %d", socket_address_family(&conf));
         log_info("expected_addr.size = %u", expected_addr->size);

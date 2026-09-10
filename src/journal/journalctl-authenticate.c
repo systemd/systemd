@@ -55,7 +55,7 @@ static int format_key(
 
         fprintf(f, "/%"PRIx64"-%"PRIx64, start, interval);
 
-        return memstream_finalize(&m, ret, NULL);
+        return memstream_finalize(&m, ret, /* ret_size= */ NULL);
 }
 #endif
 
