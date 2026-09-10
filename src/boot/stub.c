@@ -124,26 +124,26 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
 
         /* add StubInfo (this is one is owned by the stub, hence we unconditionally override this with our
          * own data) */
-        (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubInfo", u"systemd-stub " GIT_VERSION, 0);
+        (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubInfo", u"systemd-stub " GIT_VERSION, /* flags= */ 0);
 
-        (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"StubFeatures", stub_features, 0);
+        (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"StubFeatures", stub_features, /* flags= */ 0);
 
-        (void) efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"StubProfile", profile, 0);
+        (void) efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"StubProfile", profile, /* flags= */ 0);
 
         if (loaded_image->DeviceHandle) {
                 _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
                 if (uuid)
-                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubDevicePartUUID", uuid, 0);
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubDevicePartUUID", uuid, /* flags= */ 0);
 
                 _cleanup_free_ char16_t *url = disk_get_url(loaded_image->DeviceHandle);
                 if (url)
-                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubDeviceURL", url, 0);
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubDeviceURL", url, /* flags= */ 0);
         }
 
         if (loaded_image->FilePath) {
                 _cleanup_free_ char16_t *s = NULL;
                 if (device_path_to_str(loaded_image->FilePath, &s) == EFI_SUCCESS)
-                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubImageIdentifier", s, 0);
+                        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"StubImageIdentifier", s, /* flags= */ 0);
         }
 }
 
@@ -711,7 +711,7 @@ static void refresh_random_seed(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 return;
 
         _cleanup_file_close_ EFI_FILE *esp_dir = NULL;
-        err = partition_open(MAKE_GUID_PTR(ESP), loaded_image->DeviceHandle, NULL, &esp_dir);
+        err = partition_open(MAKE_GUID_PTR(ESP), loaded_image->DeviceHandle, /* ret_device= */ NULL, &esp_dir);
         if (err != EFI_SUCCESS) /* Non-fatal on failure, so that we still boot without it. */
                 return;
 
@@ -978,13 +978,13 @@ static void export_pcr_variables(
          * successfully, and encode in it which PCR was used. */
 
         if (sections_measured > 0)
-                (void) efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"StubPcrKernelImage", TPM2_PCR_KERNEL_BOOT, 0);
+                (void) efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"StubPcrKernelImage", TPM2_PCR_KERNEL_BOOT, /* flags= */ 0);
         if (parameters_measured > 0)
-                (void) efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"StubPcrKernelParameters", TPM2_PCR_KERNEL_CONFIG, 0);
+                (void) efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"StubPcrKernelParameters", TPM2_PCR_KERNEL_CONFIG, /* flags= */ 0);
         if (sysext_measured > 0)
-                (void) efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDSysExts", TPM2_PCR_SYSEXTS, 0);
+                (void) efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDSysExts", TPM2_PCR_SYSEXTS, /* flags= */ 0);
         if (confext_measured > 0)
-                (void) efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDConfExts", TPM2_PCR_KERNEL_CONFIG, 0);
+                (void) efivar_set_uint64_str16(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDConfExts", TPM2_PCR_KERNEL_CONFIG, /* flags= */ 0);
 }
 
 static void install_embedded_devicetree(
@@ -1308,7 +1308,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         sections[UNIFIED_SECTION_LINUX].memory_size);
 
         err = linux_exec(image, cmdline, &kernel, &final_initrd);
-        graphics_mode(false);
+        graphics_mode(/* on= */ false);
         return err;
 }
 
