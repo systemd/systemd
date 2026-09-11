@@ -981,6 +981,41 @@ static int generic_method_get_info(
                         SD_JSON_BUILD_PAIR_STRV("interfaces", interfaces));
 }
 
+static int generic_method_get_server_credentials(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        _cleanup_close_ int pidfd = -EBADF;
+        int pidfd_idx = -EBADF;
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        /* Try to get the PIDFD for the current process and pass it over Varlink. This will work only on
+         * kernels with PIDFD support and when the Varlink server has FD passing enabled (see
+         * SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT). If either of these condition fails, don't send the
+         * pidfdIndex field at all. */
+        pidfd = pidfd_open(getpid_cached(), 0);
+        if (pidfd >= 0) {
+                pidfd_idx = sd_varlink_push_fd(link, pidfd);
+                if (pidfd_idx >= 0)
+                        TAKE_FD(pidfd);
+        }
+
+        return sd_varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_INTEGER("uid", getuid()),
+                        SD_JSON_BUILD_PAIR_INTEGER("gid", getgid()),
+                        SD_JSON_BUILD_PAIR_CONDITION(pidfd_idx >= 0, "pidfdIndex", SD_JSON_BUILD_INTEGER(pidfd_idx)),
+                        SD_JSON_BUILD_PAIR_INTEGER("pid", getpid_cached()));
+}
+
 static int generic_method_get_interface_description(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -1301,6 +1336,8 @@ static int varlink_dispatch_method(sd_varlink *v) {
                         callback = generic_method_get_info;
                 else if (streq(method, "org.varlink.service.GetInterfaceDescription"))
                         callback = generic_method_get_interface_description;
+                else if (streq(method, "io.systemd.GetServerCredentials"))
+                        callback = generic_method_get_server_credentials;
         }
 
         if (callback) {
