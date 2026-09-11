@@ -1,12 +1,49 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "alloc-util.h"
+#include "compress.h"
 #include "log.h"
 #include "sysupdate-instance.h"
+#include "sysupdate-resource.h"
 
 void instance_metadata_destroy(InstanceMetadata *m) {
         assert(m);
         free(m->version);
+}
+
+void instance_get_expected_size(const Instance *i, uint64_t *ret_size) {
+        struct stat st;
+        uint64_t size;
+
+        assert(i);
+        assert(i->resource);
+        assert(i->path);
+        assert(ret_size);
+
+        size = i->metadata.size;
+        *ret_size = size;
+
+        if (size != UINT64_MAX)
+                return;
+
+        if (RESOURCE_IS_URL(i->resource->type) ||
+            i->resource->type == RESOURCE_TAR)
+                return;
+
+        if (compression_from_filename(i->path) != COMPRESSION_NONE)
+                return;
+
+        if (stat(i->path, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat local source '%s', size unknown: %m", i->path);
+                return;
+        }
+
+        if (!S_ISREG(st.st_mode))
+                return;
+
+        *ret_size = (uint64_t) st.st_size;
 }
 
 int instance_new(

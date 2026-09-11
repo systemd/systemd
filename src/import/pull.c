@@ -592,6 +592,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         (void) ignore_signals(SIGPIPE);
+        (void) ignore_signals(SIGXFSZ);
 
         return dispatch_verb(args, NULL);
 }
