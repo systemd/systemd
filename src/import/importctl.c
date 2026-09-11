@@ -281,7 +281,7 @@ static int verb_pull_tar(int argc, char *argv[], uintptr_t _data, void *userdata
                 return r;
 
         remote = argv[1];
-        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
+        if (!http_url_is_valid(remote) && !file_url_is_valid(remote) && !provider_url_is_valid(remote))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "URL '%s' is not valid.", remote);
 
@@ -355,7 +355,7 @@ static int verb_pull_raw(int argc, char *argv[], uintptr_t _data, void *userdata
                 return r;
 
         remote = argv[1];
-        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
+        if (!http_url_is_valid(remote) && !file_url_is_valid(remote) && !provider_url_is_valid(remote))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "URL '%s' is not valid.", remote);
 

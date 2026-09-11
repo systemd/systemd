@@ -332,6 +332,12 @@ static CurlGlue* curl_glue_free(CurlGlue *g) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(CurlGlue, curl_glue, curl_glue_free);
 
+sd_event* curl_glue_get_event(CurlGlue *g) {
+        assert(g);
+
+        return g->event;
+}
+
 int curl_glue_new(CurlGlue **glue, sd_event *event) {
         _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
         _cleanup_(curl_multi_cleanupp) CURLM *c = NULL;

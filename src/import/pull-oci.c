@@ -348,7 +348,7 @@ static int oci_pull_redirect_manifest(OciPull *i, const OciIndexEntry *entry) {
                 return r;
 
         _cleanup_(pull_job_unrefp) PullJob *j = NULL;
-        r = pull_job_new(&j, url, i->glue, i);
+        r = pull_job_new(&j, url, i->event, i->glue, i);
         if (r < 0)
                 return r;
 
@@ -591,7 +591,7 @@ static int oci_pull_queue_layer(OciPull *i, OciManifestLayer *layer) {
 
         /* Set up  */
         _cleanup_(pull_job_unrefp) PullJob *j = NULL;
-        r = pull_job_new(&j, url, i->glue, st);
+        r = pull_job_new(&j, url, i->event, i->glue, st);
         if (r < 0)
                 return r;
 
@@ -684,7 +684,7 @@ static int oci_pull_fetch_config(OciPull *i, OciManifestConfig *config) {
         if (!h)
                 return log_oom();
 
-        r = pull_job_new(&i->config_job, url, i->glue, i);
+        r = pull_job_new(&i->config_job, url, i->event, i->glue, i);
         if (r < 0)
                 return r;
 
@@ -1477,7 +1477,7 @@ static int oci_pull_process_authentication_challenge(OciPull *i, const char *cha
         if (r < 0)
                 return log_error_errno(r, "Failed to make bearer token URL: %m");
 
-        r = pull_job_new(&i->bearer_token_job, url, i->glue, i);
+        r = pull_job_new(&i->bearer_token_job, url, i->event, i->glue, i);
         if (r < 0)
                 return r;
 
@@ -1588,7 +1588,7 @@ int oci_pull_start(
                 return r;
 
         /* Set up  */
-        r = pull_job_new(&i->manifest_job, url, i->glue, i);
+        r = pull_job_new(&i->manifest_job, url, i->event, i->glue, i);
         if (r < 0)
                 return r;
 

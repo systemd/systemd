@@ -119,6 +119,7 @@ basic_sources = files(
         'user-util.c',
         'utf8.c',
         'virt.c',
+        'web-util.c',
         'xattr-util.c',
 )
 
