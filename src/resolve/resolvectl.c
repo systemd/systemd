@@ -3040,39 +3040,38 @@ static int verb_dnssec(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
-static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+static int call_set_nta(char **ntas) {
         int r;
 
-        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+        assert(ntas);
 
-        r = bus_message_new_method_call(bus, &req, locator, "SetLinkDNSSECNegativeTrustAnchors");
+        /* If only argument is the empty string, then call io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors
+         * with an empty list, which will clear the list of NTAs for an interface. */
+        bool clear = strv_equal(ntas, STRV_MAKE(""));
+
+        if (!clear)
+                STRV_FOREACH(p, ntas) {
+                        r = dns_name_is_valid(*p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate specified domain %s: %m", *p);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Domain not valid: %s", *p);
+                }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_STRV("negativeTrustAnchors", clear ? NULL : ntas));
         if (r < 0)
-                return bus_log_create_error(r);
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-        r = sd_bus_message_append(req, "i", arg_ifindex);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append_strv(req, nta);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return sd_bus_call(bus, req, /* usec= */ 0, error, /* ret_reply= */ NULL);
+        return varlink_call_link_method("io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors", parameters);
 }
 
 VERB(verb_nta, "nta", "[LINK [DOMAIN…]]\0", VERB_ANY, VERB_ANY, 0,
      "Get/set per-interface DNSSEC NTA");
 static int verb_nta(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char **args;
-        bool clear;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -3088,37 +3087,7 @@ static int verb_nta(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        /* If only argument is the empty string, then call SetLinkDNSSECNegativeTrustAnchors()
-         * with an empty list, which will clear the list of domains for an interface. */
-        args = strv_skip(argv, 2);
-        clear = strv_equal(args, STRV_MAKE(""));
-
-        if (!clear)
-                STRV_FOREACH(p, args) {
-                        r = dns_name_is_valid(*p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to validate specified domain %s: %m", *p);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Domain not valid: %s",
-                                                       *p);
-                }
-
-        r = call_nta(bus, clear ? NULL : args, bus_resolve_mgr, &error);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
-
-                r = call_nta(bus, clear ? NULL : args, bus_network_mgr, &error);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set DNSSEC NTA configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return call_set_nta(strv_skip(argv, 2));
 }
 
 VERB(verb_revert_link, "revert", "LINK\0", VERB_ANY, 2, 0,
