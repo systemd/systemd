@@ -15,7 +15,6 @@
 #include "ansi-color.h"
 #include "argv-util.h"
 #include "build.h"
-#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
@@ -3032,13 +3031,7 @@ static int verb_nta(int argc, char *argv[], uintptr_t _data, void *userdata) {
 VERB(verb_revert_link, "revert", "LINK\0", VERB_ANY, 2, 0,
      "Revert per-interface configuration");
 static int verb_revert_link(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -3051,21 +3044,7 @@ static int verb_revert_link(int argc, char *argv[], uintptr_t _data, void *userd
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "RevertLink", &error, NULL, "i", arg_ifindex);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
-
-                r = bus_call_method(bus, bus_network_mgr, "RevertLinkDNS", &error, NULL, "i", arg_ifindex);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to revert interface configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return varlink_call_link_method("io.systemd.Network.Link.RevertDNS", /* parameters= */ NULL);
 }
 
 VERB(verb_log_level, "log-level", "[LEVEL]\0", VERB_ANY, 2, 0,
