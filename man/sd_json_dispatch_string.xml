@@ -274,7 +274,10 @@
     indicate the word width and signedness of the integers being parsed. If the JSON null value is passed the
     functions for the unsigned integer types will assign the maximum value the type takes
     (i.e. <constant>UINT64_MAX</constant>, <constant>UINT32_MAX</constant> …), and the signed versions assign
-    -1. Instead of a JSON integer value these functions also accept JSON strings that contain formatted
+    -1. If the <constant>SD_JSON_NULL_TO_ZERO</constant> flag is passed, then all of the functions will instead
+    assign 0 when JSON null is passed.</para>
+
+    <para>Instead of a JSON integer value these functions also accept JSON strings that contain formatted
     decimal numbers, in order to improve compatibility for encoding integer values that cannot be represented
     in 64bit double precision floating point numbers in other programming languages that encode JSON numerals
     this way.</para>
