@@ -161,8 +161,10 @@ static int tpm2_generate_report_try(
          * Audit session exclusivity provides evidence that the sequence of attestations reflects a single
          * and consistent snapshot of the machine's state. */
 
+        const TPMI_ALG_HASH audit_session_alg = TPM2_ALG_SHA256;
+
         _cleanup_(tpm2_handle_freep) Tpm2Handle *audit_session = NULL;
-        r = tpm2_make_exclusive_audit_session(c, &audit_session);
+        r = tpm2_make_exclusive_audit_session(c, audit_session_alg, &audit_session);
         if (r < 0)
                 return r;
 
@@ -309,6 +311,7 @@ static int tpm2_generate_report_try(
                 return log_oom_debug();
         components[n_components++] = (Tpm2ReportComponent) {
                 .type = TPM2_REPORT_TYPE_SESSION_AUDIT,
+                .session_audit_hash_alg = audit_session_alg,
                 .attestation = TAKE_PTR(audit_info),
                 .signature = TAKE_PTR(audit_signature),
         };
