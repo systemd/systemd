@@ -83,6 +83,10 @@ static int dhcp6_remove(Link *link, bool only_marked) {
                 RET_GATHER(ret, address_remove_and_cancel(address, link));
         }
 
+        if (!only_marked)
+                /* Also drop pending requests when the lease is lost or the client is stopped. */
+                RET_GATHER(ret, link_drop_requests(link, NETWORK_CONFIG_SOURCE_DHCP6));
+
         return ret;
 }
 
