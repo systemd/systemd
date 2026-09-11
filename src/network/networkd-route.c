@@ -307,7 +307,7 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
         return 0;
 }
 
-static int route_attach(Manager *manager, Route *route) {
+int route_attach(Manager *manager, Route *route) {
         int r;
 
         assert(manager);

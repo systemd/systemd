@@ -280,7 +280,8 @@ static int route_append_json(Route *route, bool serializing, sd_json_variant **a
                         SD_JSON_BUILD_PAIR_UNSIGNED("Flags", route->flags),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("NextHopID", route->nexthop_id),
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(route->source)),
-                        JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL("ConfigProvider", route->family, &route->provider));
+                        JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL("ConfigProvider", route->family, &route->provider),
+                        JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", route->lifetime_usec));
         if (r < 0)
                 return r;
 
@@ -324,7 +325,6 @@ static int route_append_json(Route *route, bool serializing, sd_json_variant **a
                                 JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("MTU", route_metric_get(&route->metric, RTAX_MTU)),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("Preference", route->pref),
                                 SD_JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
-                                JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", route->lifetime_usec),
                                 SD_JSON_BUILD_PAIR_STRING("ConfigState", state));
                 if (r < 0)
                         return r;
