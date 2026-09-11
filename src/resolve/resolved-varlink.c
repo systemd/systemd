@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h> /* IFF_LOOPBACK */
+
 #include "sd-event.h"
 
 #include "alloc-util.h"
@@ -14,6 +16,9 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "netlink-util.h"
+#include "resolve-varlink-util.h"
+#include "resolved-bus.h"
 #include "resolved-dns-browse-services.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-query.h"
@@ -24,10 +29,12 @@
 #include "resolved-dns-transaction.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
+#include "resolved-resolv-conf.h"
 #include "resolved-varlink.h"
 #include "set.h"
 #include "socket-netlink.h"
 #include "string-util.h"
+#include "varlink-io.systemd.Network.Link.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.service.h"
@@ -1190,22 +1197,36 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         return 1;
 }
 
-static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const char *action) {
+static int verify_polkit_full(sd_varlink *link, sd_json_variant *parameters, const char *action, sd_json_dispatch_flags_t flags, const char **details) {
+        Manager *m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
         int r;
-        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
 
         assert(action);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
-        if (r != 0)
+        const char *bad_field = NULL;
+        r = sd_json_dispatch_full(
+                        parameters,
+                        dispatch_table_polkit_only,
+                        /* bad= */ NULL,
+                        flags,
+                        /* userdata= */ NULL,
+                        &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field);
                 return r;
+        }
 
         return varlink_verify_polkit_async(
                                 link,
                                 m->bus,
                                 action,
-                                /* details= */ NULL,
+                                details,
                                 &m->polkit_registry);
+}
+
+static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const char *action) {
+        return verify_polkit_full(link, parameters, action, /* flags= */ 0, /* details= */ NULL);
 }
 
 static int vl_method_browse_services(sd_varlink* link, sd_json_variant* parameters, sd_varlink_method_flags_t flags, void* userdata) {
@@ -1467,6 +1488,79 @@ static int vl_method_dump_dns_configuration(sd_varlink *link, sd_json_variant *p
         return sd_varlink_reply(link, configuration);
 }
 
+static int vl_get_link(sd_varlink *vlink, const char *ifname, int ifindex, Link **ret_link) {
+        Manager *m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(vlink)));
+
+        assert(ret_link);
+
+        Link *link = NULL;
+        if (ifindex < 0)
+                return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+        if (ifindex > 0) {
+                link = hashmap_get(m->links, INT_TO_PTR(ifindex));
+                if (!link)
+                        return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+        }
+        if (ifname) {
+                Link *link_by_name = NULL;
+                HASHMAP_FOREACH(link_by_name, m->links)
+                        if (streq_ptr(link_by_name->ifname, ifname))
+                                break;
+
+                if (!link_by_name)
+                        return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceName"));
+
+                if (link && link_by_name->ifindex != link->ifindex)
+                        /* If both arguments are specified, then these must be consistent. */
+                        return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceName"));
+
+                link = link_by_name;
+        }
+
+        if (!link || !link->ifname)
+                return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+
+        if (FLAGS_SET(link->flags, IFF_LOOPBACK))
+                return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceIsLoopback", NULL);
+
+        if (link->is_managed)
+                return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceUnmanaged", NULL);
+
+        *ret_link = link;
+        return 0;
+}
+
+static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        assert(link);
+
+        _cleanup_(link_set_dns_parameters_done) LinkSetDNSParameters p = {};
+        r = dispatch_link_set_dns_parameters(/* name= */ NULL, parameters, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifname, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-dns-servers",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        r = link_set_dns_servers(l, p.servers, p.n_servers, RESOLVE_CONFIG_SOURCE_VARLINK);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1535,6 +1629,7 @@ static int varlink_main_server_init(Manager *m) {
         r = sd_varlink_server_add_interface_many(
                         s,
                         &vl_interface_io_systemd_Resolve,
+                        &vl_interface_io_systemd_Network_Link,
                         &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Resolve interface to varlink server: %m");
@@ -1545,6 +1640,7 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.ResolveAddress",       vl_method_resolve_address,
                         "io.systemd.Resolve.ResolveService",       vl_method_resolve_service,
                         "io.systemd.Resolve.ResolveRecord",        vl_method_resolve_record,
+                        "io.systemd.Network.Link.SetDNS",          vl_method_link_set_dns,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
                         "io.systemd.service.GetLogLevel",          varlink_method_get_log_level,
