@@ -16,6 +16,7 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "log-link.h"
 #include "resolve-varlink-util.h"
 #include "resolved-bus.h"
 #include "resolved-dns-browse-services.h"
@@ -1591,6 +1592,53 @@ static int vl_method_link_set_domains(sd_varlink *link, sd_json_variant *paramet
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_link_set_dns_default_route(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        assert(link);
+
+        struct {
+                bool default_route;
+                int ifindex;
+                const char *ifname;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "DefaultRoute",   SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      voffsetof(p, default_route), SD_JSON_MANDATORY },
+                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         voffsetof(p, ifindex),       SD_JSON_RELAX     },
+                { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, ifname),        SD_JSON_NULLABLE  },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifname, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-default-route",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->default_route != p.default_route) {
+                link_set_default_route(l, p.default_route);
+                (void) link_save_user(l);
+                (void) manager_write_resolv_conf(l->manager);
+
+                log_link_info(l, "Varlink client set default route setting: %s", yes_no(p.default_route));
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1666,18 +1714,19 @@ static int varlink_main_server_init(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Resolve.ResolveHostname",      vl_method_resolve_hostname,
-                        "io.systemd.Resolve.ResolveAddress",       vl_method_resolve_address,
-                        "io.systemd.Resolve.ResolveService",       vl_method_resolve_service,
-                        "io.systemd.Resolve.ResolveRecord",        vl_method_resolve_record,
-                        "io.systemd.Network.Link.SetDomains",      vl_method_link_set_domains,
-                        "io.systemd.Network.Link.SetDNS",          vl_method_link_set_dns,
-                        "io.systemd.service.Ping",                 varlink_method_ping,
-                        "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
-                        "io.systemd.service.GetLogLevel",          varlink_method_get_log_level,
-                        "io.systemd.service.GetEnvironment",       varlink_method_get_environment,
-                        "io.systemd.Resolve.BrowseServices",       vl_method_browse_services,
-                        "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration);
+                        "io.systemd.Resolve.ResolveHostname",         vl_method_resolve_hostname,
+                        "io.systemd.Resolve.ResolveAddress",          vl_method_resolve_address,
+                        "io.systemd.Resolve.ResolveService",          vl_method_resolve_service,
+                        "io.systemd.Resolve.ResolveRecord",           vl_method_resolve_record,
+                        "io.systemd.Network.Link.SetDomains",         vl_method_link_set_domains,
+                        "io.systemd.Network.Link.SetDNS",             vl_method_link_set_dns,
+                        "io.systemd.Network.Link.SetDNSDefaultRoute", vl_method_link_set_dns_default_route,
+                        "io.systemd.service.Ping",                    varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",             varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",             varlink_method_get_log_level,
+                        "io.systemd.service.GetEnvironment",          varlink_method_get_environment,
+                        "io.systemd.Resolve.BrowseServices",          vl_method_browse_services,
+                        "io.systemd.Resolve.DumpDNSConfiguration",    vl_method_dump_dns_configuration);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
