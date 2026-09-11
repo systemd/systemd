@@ -30,7 +30,7 @@ _systemd_vmspawn() {
 
     local -A OPTS=(
         [STANDALONE]='-h --help --version -q --quiet --no-pager -n --network-tap --network-user-mode --user --system -x --ephemeral'
-        [PATH]='-D --directory -i --image --linux --initrd --extra-drive --forward-journal --efi-nvram-template'
+        [PATH]='-D --directory -i --image --mstack --linux --initrd --extra-drive --forward-journal --efi-nvram-template'
         [BOOL]='--kvm --vsock --tpm --discard-disk --pass-ssh-key'
         [TRISTATE]='--register --secure-boot'
         [FIRMWARE]='--firmware'
@@ -38,7 +38,7 @@ _systemd_vmspawn() {
         [BIND]='--bind --bind-ro'
         [SSH_KEY]='--ssh-key'
         [CONSOLE]='--console'
-        [ARG]='--cpus --ram --vsock-cid -M --machine --uuid --private-users --background --set-credential --load-credential --forward-journal-max-use --forward-journal-keep-free --forward-journal-max-file-size --forward-journal-max-files --bind-volume'
+        [ARG]='--cpus --ram --vsock-cid -M --machine --uuid --private-users --background --set-credential --load-credential --forward-journal-max-use --forward-journal-keep-free --forward-journal-max-file-size --forward-journal-max-files --bind-volume --image-policy'
         [IMAGE_FORMAT]='--image-format'
         [IMAGE_DISK_TYPE]='--image-disk-type'
         [COCO]='--coco'

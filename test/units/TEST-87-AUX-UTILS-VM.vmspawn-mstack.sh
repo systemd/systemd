@@ -1,0 +1,226 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Test systemd-vmspawn support for .mstack machine images.
+set -eux
+set -o pipefail
+
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
+if ! command -v systemd-vmspawn >/dev/null 2>&1; then
+    echo "systemd-vmspawn not found, skipping"
+    exit 77
+fi
+
+WORKDIR="$(mktemp -d)"
+MACHINE="test-vmspawn-mstack-$$"
+MACHINE_AUTO="test-vmspawn-mstack-auto-$$"
+MACHINES_DIR=""
+MACHINES_MOUNTED=false
+VMSPAWN_PID=""
+VMSPAWN_AUTO_PID=""
+AUTO_MSTACK=""
+
+wait_for_guest_mstack() {
+    local mstack="$1"
+    local log="$2"
+    local rw_marker="$mstack/rw/data/mstack-write-marker"
+    local bind_marker="$mstack/bind@opt/mstack-bind-write-marker"
+
+    if ! timeout 30 bash -c "until test -f '$rw_marker' && test -f '$bind_marker'; do sleep .5; done"; then
+        echo "Guest did not report successful .mstack validation" >&2
+        cat "$log" >&2
+        return 1
+    fi
+
+    grep --fixed-strings --line-regexp "mstack guest initialized" "$rw_marker" >/dev/null
+    grep --fixed-strings --line-regexp "mstack bind writable" "$bind_marker" >/dev/null
+    test ! -e "$mstack/robind@rodata/mstack-robind-write-marker"
+}
+
+at_exit() {
+    set +e
+
+    for m in "$MACHINE" "$MACHINE_AUTO"; do
+        if machinectl status "$m" &>/dev/null; then
+            machinectl terminate "$m" 2>/dev/null
+            timeout 10 bash -c "while machinectl status '$m' &>/dev/null; do sleep .5; done" 2>/dev/null
+        fi
+    done
+
+    [[ -n "${VMSPAWN_PID:-}" ]] && kill "$VMSPAWN_PID" 2>/dev/null && wait "$VMSPAWN_PID" 2>/dev/null
+    [[ -n "${VMSPAWN_AUTO_PID:-}" ]] && kill "$VMSPAWN_AUTO_PID" 2>/dev/null && wait "$VMSPAWN_AUTO_PID" 2>/dev/null
+    [[ -z "$AUTO_MSTACK" ]] || rm -rf "$AUTO_MSTACK"
+    if [[ "$MACHINES_MOUNTED" == true ]]; then
+        umount /var/lib/machines
+        MACHINES_MOUNTED=false
+    fi
+    [[ -z "$MACHINES_DIR" ]] || rm -rf "$MACHINES_DIR"
+    [[ -z "$WORKDIR" ]] || rm -rf "$WORKDIR"
+}
+trap at_exit EXIT
+
+# Argument validation must happen before any image or kernel inspection. Keep these
+# checks independent of the host's available kernel and image files.
+if systemd-vmspawn --mstack=/tmp --image=/tmp --linux=/dev/null >"$WORKDIR/conflict-image.log" 2>&1; then
+    echo "--mstack= unexpectedly combined with --image=" >&2
+    exit 1
+fi
+grep -- '--directory=, --image= and --mstack= may not be combined.' "$WORKDIR/conflict-image.log" >/dev/null
+
+if systemd-vmspawn --mstack=/tmp --directory=/tmp --linux=/dev/null >"$WORKDIR/conflict-directory.log" 2>&1; then
+    echo "--mstack= unexpectedly combined with --directory=" >&2
+    exit 1
+fi
+grep -- '--directory=, --image= and --mstack= may not be combined.' "$WORKDIR/conflict-directory.log" >/dev/null
+
+if systemd-vmspawn --mstack=/tmp --ephemeral --linux=/dev/null >"$WORKDIR/conflict-ephemeral.log" 2>&1; then
+    echo "--mstack= unexpectedly combined with --ephemeral" >&2
+    exit 1
+fi
+grep -- '--ephemeral and --mstack= may not be combined.' "$WORKDIR/conflict-ephemeral.log" >/dev/null
+
+if systemd-vmspawn --mstack=/tmp >"$WORKDIR/missing-linux.log" 2>&1; then
+    echo "--mstack= unexpectedly accepted without --linux=" >&2
+    exit 1
+fi
+grep -- '--mstack= requires --linux= to be specified.' "$WORKDIR/missing-linux.log" >/dev/null
+
+if [[ -v ASAN_OPTIONS ]]; then
+    echo "vmspawn launches QEMU which doesn't work under ASan, skipping"
+    exit 77
+fi
+
+if [[ "$EUID" -ne 0 ]]; then
+    echo "Automatic image discovery isolation requires root, skipping"
+    exit 77
+fi
+
+if ! find_qemu_binary; then
+    echo "QEMU not found, skipping"
+    exit 77
+fi
+
+# --mstack= is exported through virtiofs, just like --directory=.
+if ! command -v virtiofsd >/dev/null 2>&1 &&
+   ! test -x /usr/libexec/virtiofsd &&
+   ! test -x /usr/lib/virtiofsd; then
+    echo "virtiofsd not found, skipping"
+    exit 77
+fi
+
+KERNEL=""
+for k in /usr/lib/modules/"$(uname -r)"/vmlinuz /boot/vmlinuz-"$(uname -r)" /boot/vmlinuz; do
+    if [[ -f "$k" ]]; then
+        KERNEL="$k"
+        break
+    fi
+done
+
+if [[ -z "$KERNEL" ]]; then
+    echo "No kernel found for direct VM boot, skipping"
+    exit 77
+fi
+
+MACHINES_DIR="$(mktemp --tmpdir=/var/tmp -d)"
+mkdir -p /var/lib/machines
+mount --bind "$MACHINES_DIR" /var/lib/machines
+MACHINES_MOUNTED=true
+
+MSTACK_V="$WORKDIR/image.mstack.v"
+MSTACK="$MSTACK_V/image.mstack_1.mstack"
+AUTO_MSTACK="/var/lib/machines/$MACHINE_AUTO.mstack"
+
+# As in TEST-13-NSPAWN.pull-oci.sh, have the guest init read content supplied by another layer. Use a
+# read-only layer and bind mounts from the test host as the base OS, then write observable results through
+# the overlay upper directory and a writable bind mount, and verify that robind stays read-only.
+mkdir -p "$MSTACK/layer@1/usr"
+mkdir -p "$MSTACK/rw"
+mkdir -p "$MSTACK/root"/{bin,lib,opt,rodata,usr}
+mkdir -p "$MSTACK/bind@opt"
+mkdir -p "$MSTACK/robind@rodata"
+ln -s / "$MSTACK/layer@0"
+ln -s /bin "$MSTACK/robind@bin"
+ln -s /lib "$MSTACK/robind@lib"
+if [[ -d /lib64 ]]; then
+    mkdir -p "$MSTACK/root/lib64"
+    ln -s /lib64 "$MSTACK/robind@lib64"
+fi
+echo "mstack layer visible" >"$MSTACK/layer@1/usr/mstack-layer-marker"
+echo "bind mount visible" >"$MSTACK/bind@opt/marker"
+echo "read-only bind mount visible" >"$MSTACK/robind@rodata/marker"
+cat >"$MSTACK/layer@1/usr/mstack-test-init" <<'EOF'
+#!/bin/sh
+set -eu
+
+read -r marker </usr/mstack-layer-marker
+test "$marker" = "mstack layer visible"
+read -r marker </opt/marker
+test "$marker" = "bind mount visible"
+read -r marker </rodata/marker
+test "$marker" = "read-only bind mount visible"
+if echo "unexpected write" 2>/dev/null >/rodata/mstack-robind-write-marker; then
+    echo "robind entry is unexpectedly writable" >&2
+    exit 1
+fi
+
+echo "mstack bind writable" >/opt/mstack-bind-write-marker
+echo "mstack guest initialized" >/usr/mstack-write-marker
+exec /bin/sleep infinity
+EOF
+chmod +x "$MSTACK/layer@1/usr/mstack-test-init"
+
+systemd-dissect --shift "$MSTACK/layer@1" foreign
+systemd-dissect --shift "$MSTACK/rw" foreign
+systemd-dissect --shift "$MSTACK/root" foreign
+systemd-dissect --shift "$MSTACK/bind@opt" foreign
+systemd-dissect --shift "$MSTACK/robind@rodata" foreign
+
+systemd-vmspawn \
+    --machine="$MACHINE" \
+    --ram=256M \
+    --mstack="$MSTACK_V" \
+    --linux="$KERNEL" \
+    --tpm=no \
+    --console=read-only \
+    init=/usr/mstack-test-init \
+    &>"$WORKDIR/vmspawn.log" &
+VMSPAWN_PID=$!
+
+wait_for_machine "$MACHINE" "$VMSPAWN_PID" "$WORKDIR/vmspawn.log"
+echo ".mstack VM '$MACHINE' registered with machined"
+
+[[ "$(machinectl show --property=Class --value "$MACHINE")" == vm ]]
+wait_for_guest_mstack "$MSTACK" "$WORKDIR/vmspawn.log"
+
+machinectl terminate "$MACHINE"
+timeout 10 bash -c "while machinectl status '$MACHINE' &>/dev/null; do sleep .5; done"
+timeout 10 bash -c "while kill -0 '$VMSPAWN_PID' 2>/dev/null; do sleep .5; done"
+test ! -e "/run/systemd/vmspawn/$MACHINE"
+
+# -M automatically discovers IMAGE_MSTACK entries in /var/lib/machines. Use a
+# separate instance to verify that this path takes the same mstack preparation
+# and virtiofs export path as an explicit --mstack= argument.
+mkdir -p "$AUTO_MSTACK"
+cp -a "$MSTACK/." "$AUTO_MSTACK/"
+
+systemd-vmspawn \
+    --machine="$MACHINE_AUTO" \
+    --ram=256M \
+    --linux="$KERNEL" \
+    --tpm=no \
+    --console=read-only \
+    init=/usr/mstack-test-init \
+    &>"$WORKDIR/vmspawn-auto.log" &
+VMSPAWN_AUTO_PID=$!
+
+wait_for_machine "$MACHINE_AUTO" "$VMSPAWN_AUTO_PID" "$WORKDIR/vmspawn-auto.log"
+echo "Automatically discovered .mstack VM '$MACHINE_AUTO' registered with machined"
+[[ "$(machinectl show --property=Class --value "$MACHINE_AUTO")" == vm ]]
+wait_for_guest_mstack "$AUTO_MSTACK" "$WORKDIR/vmspawn-auto.log"
+
+machinectl terminate "$MACHINE_AUTO"
+timeout 10 bash -c "while machinectl status '$MACHINE_AUTO' &>/dev/null; do sleep .5; done"
+timeout 10 bash -c "while kill -0 '$VMSPAWN_AUTO_PID' 2>/dev/null; do sleep .5; done"
+test ! -e "/run/systemd/vmspawn/$MACHINE_AUTO"
+echo "All vmspawn .mstack tests passed"
