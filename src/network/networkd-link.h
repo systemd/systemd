@@ -237,6 +237,7 @@ int link_ipv6ll_gained(Link *link);
 int link_ipv6ll_lost(Link *link, const struct in6_addr *dropped_ipv6ll, bool has_replacement);
 bool link_has_ipv6_connectivity(Link *link);
 
+int link_drop_requests(Link *link, NetworkConfigSource source);
 int link_stop_engines(Link *link, bool may_keep_dynamic);
 
 const char* link_state_to_string(LinkState s) _const_;
