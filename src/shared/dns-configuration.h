@@ -1,19 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/uio.h>
-
 #include "forward.h"
 #include "in-addr-util.h"
 
 typedef struct DNSServer {
-        struct iovec addr;
+        struct in_addr_data in_addr;
         int family;
         uint16_t port;
         int ifindex;
         char *server_name;
         bool accessible;
-        union in_addr_union in_addr;
 } DNSServer;
 
 DNSServer* dns_server_free(DNSServer *s);
