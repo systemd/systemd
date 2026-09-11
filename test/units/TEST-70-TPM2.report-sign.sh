@@ -9,15 +9,18 @@ set -o pipefail
 # TEST-74-AUX-UTILS.report.sh; it lives here because it needs a real TPM, which
 # only the TPM2 integration test provides.
 #
-# The TPM2 backend returns a set of signed TPM attestations (a PCR quote, one
-# NV certification per NvPCR, and a session audit digest), together with the
-# signing key's public area and the pcrlock event log. The public area, the
-# attestations and the signatures are all serialized as TCG TSS2 JSON. For each
-# attestation we rebuild the public key, re-marshal the TPMS_ATTEST that was
-# signed, and verify the signature using the embedded Python helper below. The
-# helper also cross-checks the parallel PEM encodings (publicKeyPEM and signaturePEM)
-# against the JSON encodings. We also confirm the report digest is carried in the
-# extraData field of the session audit attestation.
+# The TPM2 backend signs each report with every signing key it has been
+# provisioned with (generating a default one if it has none), returning one
+# signature record per key. Each record carries a set of signed TPM attestations
+# (a PCR quote, one NV certification per NvPCR, and a session audit digest),
+# together with the signing key's public area, the optional voucher for it and
+# the pcrlock event log. The public area, the attestations and the signatures are
+# all serialized as TCG TSS2 JSON. For each attestation we rebuild the public key,
+# re-marshal the TPMS_ATTEST that was signed, and verify the signature using the
+# embedded Python helper below. The helper also cross-checks the parallel PEM
+# encodings (publicKeyPEM and signaturePEM) against the JSON encodings. We also
+# confirm the report digest is carried in the extraData field of the session audit
+# attestation.
 #
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
@@ -48,8 +51,35 @@ fi
 
 WORK="$(mktemp -d)"
 
+# Where the backend keeps its keys and its cached key contexts.
+KEY_DIR="/var/lib/systemd/report.sign.tpm2"
+CONTEXT_DIR="/run/systemd/report.sign.tpm2"
+
+# Remove all keys, cached key contexts and vouchers, so each test starts fresh.
+reset_state() {
+    rm -f "$KEY_DIR"/* "$CONTEXT_DIR"/* 2>/dev/null || true
+    mkdir -p -m 0700 "$KEY_DIR"
+}
+
+# Print an identity for each named cached key context that changes whenever the
+# file is rewritten. The backend writes a context only when it had to load or
+# recreate the key, and does so atomically via rename, so a context whose inode
+# is unchanged across a signing request was taken from the cache.
+#
+# $@: key names.
+context_ids() {
+    local name
+
+    for name in "$@"; do
+        stat -c '%n %i %Y' "$CONTEXT_DIR/$name.context"
+    done
+}
+
 at_exit() {
     set +e
+    # Don't leave the keys we provisioned behind. A default key is generated
+    # again on the next signing request.
+    reset_state
     systemctl stop systemd-report.socket systemd-report-sign-tpm2.socket
     rm -rf "$WORK"
 }
@@ -70,38 +100,11 @@ systemctl start systemd-pcrlock.socket
 systemctl start systemd-report.socket
 systemctl start systemd-report-sign-tpm2.socket
 
-# Ask systemd-report to generate a *signed* report over Varlink. The reply
-# carries the signed report as base64-encoded JSON-SEQ data.
-varlinkctl call /run/systemd/io.systemd.Report io.systemd.Report.GenerateSigned \
-    '{"matches":["io.systemd.Manager.UnitsTotal"]}' | jq -r .reportData | base64 -d >"$WORK/report.seq"
-
-# The first JSON-SEQ record is the report itself. This is exactly the byte
-# sequence that got signed, including the leading record separator (0x1e) and
-# the trailing newline, so 'head -n1' reproduces it verbatim.
-head -n1 "$WORK/report.seq" >"$WORK/message.bin"
-tr -d '\036' <"$WORK/message.bin" | jq -e '.mediaType == "application/vnd.io.systemd.report"' >/dev/null
-
-# The remaining record(s) are signature objects, one per enabled backend. Pick
-# out the one produced by the TPM2 backend (the plain backend may be enabled too).
-sig_json=""
-while IFS= read -r line; do
-    rec="$(echo "$line" | tr -d '\036')"
-    [[ -n "$rec" ]] || continue
-    if [[ "$(echo "$rec" | jq -r '.mechanism // empty')" == "tpm2" ]]; then
-        sig_json="$rec"
-    fi
-done < <(tail -n +2 "$WORK/report.seq")
-test -n "$sig_json"
-
-[ "$(echo "$sig_json" | jq -r .mediaType)" = "application/vnd.io.systemd.report.signature" ]
-
-# The sha256 recorded in the signature must match the digest of the report bytes.
-report_digest="$(sha256sum "$WORK/message.bin" | cut -d' ' -f1)"
-[ "$(echo "$sig_json" | jq -r .sha256)" = "$report_digest" ]
-
 # Use a python script for verifying the report component signatures because we
 # need to reconstruct the TPM2B_ATTEST bytes from the provided TPMS_ATTEST JSON
 # encoding, and construct a public key from the provided TPMT_PUBLIC JSON encoding.
+# It has two modes: "verify" checks a full report, and "make-template" marshals a
+# JSON encoded TPMT_PUBLIC into a base64 encoded TPM2B_PUBLIC.
 VERIFY="$WORK/verify-report-sig.py"
 cat >"$VERIFY" <<'EOF'
 #!/usr/bin/env python3
@@ -405,10 +408,21 @@ def check_session_audit(doc, key_name):
 
 
 def main():
-    report_digest = sys.argv[1]
+    mode = sys.argv[1]
 
-    full = json.load(sys.stdin)
-    data = full["data"]
+    if mode == "make-template":
+        # Marshal the JSON encoded TPMT_PUBLIC read from stdin as a base64
+        # encoded TPM2B_PUBLIC.
+        pub = json.load(sys.stdin)
+        print(base64.b64encode(marshal_bytes_tpm2b(marshal_tpmt_public(pub))).decode())
+        return
+
+    if mode != "verify":
+        sys.exit(f"unknown mode {mode!r}")
+
+    report_digest = sys.argv[2]
+
+    data = json.load(sys.stdin)
 
     # Rebuild the key from the JSON public area.
     key_json = build_pubkey(data["publicKey"])
@@ -469,9 +483,6 @@ if __name__ == "__main__":
     main()
 EOF
 
-n_components="$(echo "$sig_json" | jq '.data.components | length')"
-[ "$n_components" -gt 0 ]
-
 # The backend attests every defined NvPCR. Fetch them via systemd-analyze so we
 # know how many components to expect and can cross-check each one's name, index
 # and priority below. Columns: name, nvindex (an unsigned integer), priority.
@@ -479,54 +490,253 @@ nvpcrs_json="$(systemd-analyze nvpcrs --json=short)"
 expected_nvpcrs="$(echo "$nvpcrs_json" | jq 'length')"
 [ "$expected_nvpcrs" -gt 0 ]
 
-# Verify every component signature and collect the component types.
-echo "$sig_json" | python3 "$VERIFY" "$report_digest" >"$WORK/component-types"
-mapfile -t comp_types <"$WORK/component-types"
-[ "${#comp_types[@]}" -eq "$n_components" ]
+# Install a signing key that is recreated from a template on each use (ie, a
+# primary key, here in the owner hierarchy). There's no interface for creating
+# signing keys with specific parameters yet, so marshal the TPM2B_PUBLIC template
+# ourselves and write out the key data file that the backend consumes.
+#
+# $1: key name (the key is installed as $KEY_DIR/$1.key).
+# $2: ECC curve (eg, NIST_P256).
+# $3: digest algorithm (eg, SHA256).
+install_primary_key() {
+    local name="${1:?}" curve="${2:?}" hash="${3:?}" template
 
-saw_pcr=0
-saw_audit=0
-n_nvpcr=0
+    # objectAttributes is FIXEDTPM|FIXEDPARENT|SENSITIVEDATAORIGIN|USERWITHAUTH|
+    # ADMINWITHPOLICY|RESTRICTED|SIGN_ENCRYPT, ie, a restricted signing key, which
+    # is what attestation requires.
+    template="$(jq -nc --arg h "$hash" --arg c "$curve" \
+                   '{type: "ECC",
+                     nameAlg: $h,
+                     objectAttributes: 327922,
+                     parameters: {scheme: {scheme: "ECDSA", details: {hashAlg: $h}}, curveID: $c},
+                     unique: {x: "", y: ""}}' | python3 "$VERIFY" make-template)"
 
-for i in "${!comp_types[@]}"; do
-    type="${comp_types[$i]}"
-    comp="$(echo "$sig_json" | jq -c ".data.components[$i]")"
+    # 1073741825 is TPM2_RH_OWNER.
+    jq -nc --arg t "$template" '{type: "primary", hierarchy: 1073741825, template: $t}' >"$KEY_DIR/$name.key"
+}
 
-    case "$type" in
-        pcr)
-            saw_pcr=1
-            ;;
-        nvpcr)
-            n_nvpcr=$((n_nvpcr + 1))
+# Ask systemd-report to generate a *signed* report over Varlink. Each TPM2
+# signature record is written to $WORK/report.sig.N, one per configured signing
+# key. Prints the sha256 of the exact report bytes that were signed.
+generate_signed() {
+    rm -f "$WORK"/report.sig.*
 
-            # NvPCR components carry the readable name, the serialized NV public
-            # area, and the authenticated data digested into the attestation's
-            # qualifying data. Ensure they're populated.
-            name="$(echo "$comp" | jq -r '.["nvpcrName"] // empty')"
-            [ -n "$name" ]
-            [ -n "$(echo "$comp" | jq -r '.["nvPublic"] // empty')" ]
-            [ -n "$(echo "$comp" | jq -r '.["authenticatedData"] // empty')" ]
+    # The reply carries the signed report as base64-encoded JSON-SEQ data.
+    varlinkctl call /run/systemd/io.systemd.Report io.systemd.Report.GenerateSigned \
+        '{"matches":["io.systemd.Manager.UnitsTotal"]}' | jq -r .reportData | base64 -d >"$WORK/report.seq"
 
-            # The name must be one systemd-analyze knows about.
-            expected_nvpcr="$(echo "$nvpcrs_json" | jq -c --arg n "$name" '.[] | select(.name == $n)')"
-            [ -n "$expected_nvpcr" ]
+    # The first JSON-SEQ record is the report itself. This is exactly the byte
+    # sequence that got signed, including the leading record separator (0x1e) and
+    # the trailing newline, so 'head -n1' reproduces it verbatim.
+    head -n1 "$WORK/report.seq" >"$WORK/message.bin"
+    tr -d '\036' <"$WORK/message.bin" | jq -e '.mediaType == "application/vnd.io.systemd.report"' >/dev/null
 
-            # The certified NV index must match the one systemd-analyze reports.
-            [ "$(echo "$comp" | jq -r '.nvPublic.nvIndex')" = "$(echo "$expected_nvpcr" | jq -r '.nvindex')" ]
+    # The remaining record(s) are signature objects, one per signature returned by
+    # an enabled backend. Write out the ones produced by the TPM2 backend, one
+    # per configured signing key.
+    local line rec n=0
+    while IFS= read -r line; do
+        rec="$(echo "$line" | tr -d '\036')"
+        [[ -n "$rec" ]] || continue
+        if [[ "$(jq -r '.mechanism // empty' <<<"$rec")" == "tpm2" ]]; then
+            echo "$rec" >"$WORK/report.sig.$n"
+            n=$((n + 1))
+        fi
+    done < <(tail -n +2 "$WORK/report.seq")
 
-            # authenticatedData is a JSON string carrying the NvPCR name and
-            # priority; both must match this component and systemd-analyze.
-            auth="$(echo "$comp" | jq -r '.authenticatedData')"
-            [ "$(echo "$auth" | jq -r '.name')" = "$name" ]
-            [ "$(echo "$auth" | jq -r '.priority')" = "$(echo "$expected_nvpcr" | jq -r '.priority')" ]
-            ;;
-        session-audit)
-            saw_audit=1
-            ;;
-    esac
-done
+    sha256sum "$WORK/message.bin" | cut -d' ' -f1
+}
 
-# Make sure we saw the expected components.
-[ "$saw_pcr" -eq 1 ]
-[ "$saw_audit" -eq 1 ]
-[ "$n_nvpcr" -eq "$expected_nvpcrs" ]
+# Verify a single TPM2 signature record read from file $1.
+#
+# $1: signature record file.
+# $2: report digest.
+#
+# Prints the JSON public key that produced it.
+verify_tpm2_sig() {
+    local sig_file="$1" digest="$2" report
+
+    [ "$(jq -r .mediaType "$sig_file")" = "application/vnd.io.systemd.report.signature" ]
+    [ "$(jq -r .sha256 "$sig_file")" = "$digest" ]
+
+    report="$(jq -c .data "$sig_file")"
+
+    local n_components comp_types
+    n_components="$(jq '.components | length' <<<"$report")"
+    [ "$n_components" -gt 0 ]
+
+    # Verify every component signature and collect the component types.
+    python3 "$VERIFY" verify "$digest" <<<"$report" >"$WORK/component-types"
+    mapfile -t comp_types <"$WORK/component-types"
+    [ "${#comp_types[@]}" -eq "$n_components" ]
+
+    local saw_pcr=0 saw_audit=0 n_nvpcr=0 i type comp name auth expected_nvpcr
+    for i in "${!comp_types[@]}"; do
+        type="${comp_types[$i]}"
+        comp="$(jq -c ".components[$i]" <<<"$report")"
+
+        case "$type" in
+            pcr)
+                saw_pcr=1
+                ;;
+            nvpcr)
+                n_nvpcr=$((n_nvpcr + 1))
+
+                # NvPCR components carry the readable name, the serialized NV
+                # public area, and the authenticated data digested into the
+                # attestation's qualifying data. Ensure they're populated.
+                name="$(jq -r '.["nvpcrName"] // empty' <<<"$comp")"
+                [ -n "$name" ]
+                [ -n "$(jq -r '.["nvPublic"] // empty' <<<"$comp")" ]
+                [ -n "$(jq -r '.["authenticatedData"] // empty' <<<"$comp")" ]
+
+                # The name must be one systemd-analyze knows about.
+                expected_nvpcr="$(jq -c --arg n "$name" '.[] | select(.name == $n)' <<<"$nvpcrs_json")"
+                [ -n "$expected_nvpcr" ]
+
+                # The certified NV index must match the one systemd-analyze reports.
+                [ "$(jq -r '.nvPublic.nvIndex' <<<"$comp")" = "$(jq -r '.nvindex' <<<"$expected_nvpcr")" ]
+
+                # authenticatedData is a JSON string carrying the NvPCR name and
+                # priority; both must match this component and systemd-analyze.
+                auth="$(jq -r '.authenticatedData' <<<"$comp")"
+                [ "$(jq -r '.name' <<<"$auth")" = "$name" ]
+                [ "$(jq -r '.priority' <<<"$auth")" = "$(jq -r '.priority' <<<"$expected_nvpcr")" ]
+                ;;
+            session-audit)
+                saw_audit=1
+                ;;
+        esac
+    done
+
+    # Make sure we saw the expected components.
+    [ "$saw_pcr" -eq 1 ]
+    [ "$saw_audit" -eq 1 ]
+    [ "$n_nvpcr" -eq "$expected_nvpcrs" ]
+
+    jq -Sc '.publicKey' <<<"$report"
+}
+
+# 1) With no signing keys provisioned, the backend generates a default one and
+#    signs the report with it.
+test_default_key() {
+    local digest pub ctx_before
+    local -a sig_files
+
+    reset_state
+
+    digest="$(generate_signed)"
+    mapfile -t sig_files < <(find "$WORK" -maxdepth 1 -name 'report.sig.*' | sort)
+
+    # A single signing key means a single signature record.
+    [ "${#sig_files[@]}" -eq 1 ]
+
+    pub="$(verify_tpm2_sig "${sig_files[0]}" "$digest")"
+
+    # The generated key and its cached context must both use the default name.
+    test -e "$KEY_DIR/default.key"
+    test -e "$CONTEXT_DIR/default.context"
+
+    # We installed no voucher for it, so the signature must not carry one.
+    jq -e '.data.voucher == null' "${sig_files[0]}" >/dev/null
+
+    # Signing again must reuse the cached key context rather than load the key
+    # into the TPM again. The default key is an ordinary object protected by the
+    # EK, so this covers the cache path taken for those.
+    ctx_before="$(context_ids default)"
+
+    digest="$(generate_signed)"
+    mapfile -t sig_files < <(find "$WORK" -maxdepth 1 -name 'report.sig.*' | sort)
+    [ "${#sig_files[@]}" -eq 1 ]
+
+    # Same key, and the context was taken from the cache: a miss would have
+    # loaded the key again and rewritten the context.
+    [ "$(verify_tpm2_sig "${sig_files[0]}" "$digest")" = "$pub" ]
+    [ "$(context_ids default)" = "$ctx_before" ]
+
+    echo "OK: default key test"
+}
+test_default_key
+
+# 2) With several signing keys provisioned, the report is signed with each of
+#    them, and each key has its own cached key context and its own voucher.
+test_multiple_keys() {
+    local digest sig pub voucher ctx_before pub_p256="" pub_p384=""
+    local -a sig_files report_pubs
+
+    reset_state
+
+    install_primary_key key-a NIST_P256 SHA256
+    install_primary_key key-b NIST_P384 SHA384
+
+    # Only key-b gets a voucher, so we can tell that each signature carries the
+    # voucher belonging to the key that produced it, and only that one.
+    voucher="voucher for key-b"
+    printf '%s' "$voucher" >"$KEY_DIR/key-b.voucher"
+
+    digest="$(generate_signed)"
+    mapfile -t sig_files < <(find "$WORK" -maxdepth 1 -name 'report.sig.*' | sort)
+
+    # One signature record per configured signing key.
+    [ "${#sig_files[@]}" -eq 2 ]
+
+    # We provisioned our own keys, so no default key may have been generated.
+    test ! -e "$KEY_DIR/default.key"
+
+    # Each key gets its own cached key context, named after the key.
+    test -e "$CONTEXT_DIR/key-a.context"
+    test -e "$CONTEXT_DIR/key-b.context"
+
+    for sig in "${sig_files[@]}"; do
+        pub="$(verify_tpm2_sig "$sig" "$digest")"
+
+        # Each signature must have been produced by one of the keys we installed,
+        # which we can tell apart by their parameters.
+        case "$(jq -r '.parameters.curveID' <<<"$pub")" in
+            NIST_P256)
+                jq -e '.nameAlg == "SHA256" and .parameters.scheme.details.hashAlg == "SHA256"' <<<"$pub" >/dev/null
+                pub_p256="$pub"
+
+                # key-a has no voucher.
+                jq -e '.data.voucher == null' "$sig" >/dev/null
+                ;;
+            NIST_P384)
+                jq -e '.nameAlg == "SHA384" and .parameters.scheme.details.hashAlg == "SHA384"' <<<"$pub" >/dev/null
+                pub_p384="$pub"
+
+                # key-b's voucher is attached verbatim, base64 encoded.
+                [ "$(jq -r '.data.voucher' "$sig")" = "$(printf '%s' "$voucher" | base64 -w0)" ]
+                ;;
+            *)
+                echo "report signed by an unexpected key" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    # Both of the keys must have been used.
+    test -n "$pub_p256"
+    test -n "$pub_p384"
+
+    # Signing again must reuse the cached key contexts, and still produce one
+    # signature per key, signed by the same two keys. Both keys are primary
+    # objects recreated from a template, so this covers the cache path taken for
+    # those.
+    ctx_before="$(context_ids key-a key-b)"
+
+    digest="$(generate_signed)"
+    mapfile -t sig_files < <(find "$WORK" -maxdepth 1 -name 'report.sig.*' | sort)
+    [ "${#sig_files[@]}" -eq 2 ]
+
+    report_pubs=()
+    for sig in "${sig_files[@]}"; do
+        report_pubs+=("$(verify_tpm2_sig "$sig" "$digest")")
+    done
+    [ "$(printf '%s\n' "${report_pubs[@]}" | sort)" = "$(printf '%s\n' "$pub_p256" "$pub_p384" | sort)" ]
+
+    # A cache miss would have recreated both keys and rewritten their contexts.
+    [ "$(context_ids key-a key-b)" = "$ctx_before" ]
+
+    echo "OK: multiple keys test"
+}
+test_multiple_keys
