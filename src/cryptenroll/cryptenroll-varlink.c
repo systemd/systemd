@@ -281,6 +281,10 @@ static int vl_method_enroll(
         if (c.unlock_type < 0)
                 return sd_varlink_error_invalid_parameter_name(link, "unlockPassword");
 
+        /* Ensure that the recoveryKey parameter is only set when mechanism is "recovery" */
+        if (p.recovery_key && c.enroll_type != ENROLL_RECOVERY)
+                return sd_varlink_error_invalid_parameter_name(link, "recoveryKey");
+
         /* Mechanism-specific parameters */
         switch (c.enroll_type) {
 
@@ -299,7 +303,8 @@ static int vl_method_enroll(
                         if (r == -EINVAL) /* Not properly formatted, rejecting */
                                 return sd_varlink_error_invalid_parameter_name(link, "recoveryKey");
                         if (r < 0)
-                                return log_error_errno(r, "Failed to normalize recovery key: %m");
+                                /* Error already logged by normalize_recovery_key() */
+                                return r;
                         if (!streq(p.recovery_key, mangled))
                                 return sd_varlink_error_invalid_parameter_name(link, "recoveryKey");
 
