@@ -258,9 +258,7 @@ int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, 
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *j = NULL;
         Link *l = ASSERT_PTR(userdata);
-        bool changed = false;
         int r;
 
         assert(message);
@@ -273,8 +271,8 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        for (unsigned n_names = 0;; n_names++) {
-                _cleanup_free_ char *prefixed = NULL;
+        _cleanup_(link_set_domains_parameters_done) LinkSetDomainsParameters p = {};
+        for (;;) {
                 const char *name;
                 int route_only;
 
@@ -291,22 +289,23 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
                 if (!route_only && dns_name_is_root(name))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
-                if (n_names >= LINK_SEARCH_DOMAINS_MAX)
+                if (p.n_domains >= LINK_SEARCH_DOMAINS_MAX)
                         return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many search domains per link");
 
-                if (route_only) {
-                        prefixed = strjoin("~", name);
-                        if (!prefixed)
-                                return -ENOMEM;
+                _cleanup_free_ char *name_dup = strdup(name);
+                if (!name_dup)
+                        return log_oom();
 
-                        name = prefixed;
-                }
+                if (!GREEDY_REALLOC0(p.domains, p.n_domains + 1))
+                        return log_oom();
 
-                if (!strextend_with_separator(&j, ", ", name))
-                        return -ENOMEM;
+                p.domains[p.n_domains++] = (DomainParameters) {
+                        .name = TAKE_PTR(name_dup),
+                        .route_only = route_only,
+                };
         }
 
-        r = sd_bus_message_rewind(message, false);
+        r = sd_bus_message_exit_container(message);
         if (r < 0)
                 return r;
 
@@ -323,64 +322,11 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
 
         bus_client_log(message, "dns domains change");
 
-        dns_search_domain_mark_all(l->search_domains);
-
-        for (;;) {
-                DnsSearchDomain *d;
-                const char *name;
-                int route_only;
-
-                r = sd_bus_message_read(message, "(sb)", &name, &route_only);
-                if (r < 0)
-                        goto clear;
-                if (r == 0)
-                        break;
-
-                r = dns_search_domain_find(l->search_domains, name, &d);
-                if (r < 0)
-                        goto clear;
-
-                if (r > 0)
-                        dns_search_domain_move_back_and_unmark(d);
-                else {
-                        r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, /* delegate= */ NULL, name);
-                        if (r == -E2BIG) {
-                                dns_search_domain_unlink_marked(l->search_domains);
-                                r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, /* delegate= */ NULL, name);
-                        }
-                        if (r < 0)
-                                goto clear;
-
-                        changed = true;
-                }
-
-                if (d->route_only != route_only) {
-                        d->route_only = route_only;
-                        changed = true;
-                }
-        }
-
-        r = sd_bus_message_exit_container(message);
+        r = link_set_search_domains(l, p.domains, p.n_domains, RESOLVE_CONFIG_SOURCE_DBUS);
         if (r < 0)
-                goto clear;
-
-        changed = dns_search_domain_unlink_marked(l->search_domains) || changed;
-
-        if (changed) {
-                (void) link_save_user(l);
-                (void) manager_write_resolv_conf(l->manager);
-
-                if (j)
-                        log_link_info(l, "Bus client set search domain list to: %s", j);
-                else
-                        log_link_info(l, "Bus client reset search domain list.");
-        }
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
-
-clear:
-        dns_search_domain_unlink_all(l->search_domains);
-        return r;
 }
 
 int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, sd_bus_error *error) {
