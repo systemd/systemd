@@ -3,7 +3,6 @@
 #include <locale.h>
 #include <net/if.h>
 
-#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-json.h"
@@ -15,8 +14,6 @@
 #include "ansi-color.h"
 #include "argv-util.h"
 #include "build.h"
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "bus-util.h"
 #include "crypto-util.h"
 #include "dlopen-note.h"
@@ -142,22 +139,6 @@ static int strv_extend_extended_bool(char ***strv, const char *name, const char 
         }
 
         return strv_extendf(strv, "%s=%s", name, value ?: "???");
-}
-
-static int acquire_bus(sd_bus **ret) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
-        int r;
-
-        assert(ret);
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "sd_bus_open_system: %m");
-
-        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
-
-        *ret = TAKE_PTR(bus);
-        return 0;
 }
 
 int ifname_mangle_full(const char *s, bool drop_protocol_specifier) {
