@@ -61,6 +61,20 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("DNS servers to configure on the link"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(Servers, DNSParameters, SD_VARLINK_ARRAY));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DomainParameters,
+                SD_VARLINK_FIELD_COMMENT("DNS search or route domain name"),
+                SD_VARLINK_DEFINE_FIELD(Domain, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Indicates if this is a routing-only domain."),
+                SD_VARLINK_DEFINE_FIELD(RouteOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDomains,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("DNS search or route domains to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(Domains, DomainParameters, SD_VARLINK_ARRAY));
+
 static SD_VARLINK_DEFINE_ERROR(InterfaceUnmanaged);
 static SD_VARLINK_DEFINE_ERROR(InterfaceIsLoopback);
 
@@ -81,6 +95,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Describe,
                 SD_VARLINK_SYMBOL_COMMENT("Set the DNS servers on the specified link."),
                 &vl_method_SetDNS,
+                SD_VARLINK_SYMBOL_COMMENT("Set the DNS search or route domains on the specified link."),
+                &vl_method_SetDomains,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is not managed by systemd-networkd."),
                 &vl_error_InterfaceUnmanaged,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is a loopback interface."),
@@ -98,6 +114,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_DNSSECNegativeTrustAnchor,
                 &vl_type_DNSSetting,
                 &vl_type_Domain,
+                &vl_type_DomainParameters,
                 &vl_type_Interface,
                 &vl_type_LinkState,
                 &vl_type_LinkAddressState,
