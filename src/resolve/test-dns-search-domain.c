@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "resolve-util.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
