@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -20,6 +21,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "varlink-util.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -443,6 +445,8 @@ VERB_FULL(verb_set, "indeterminate", NULL, VERB_ANY, 1, 0, STATUS_INDETERMINATE,
           "Undo any marking as good or bad");
 static int verb_set(int argc, char *argv[], uintptr_t data, void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+        sd_json_variant *reply = NULL;
         const char *target = NULL, *source1 = NULL, *source2 = NULL;  /* avoid false maybe-uninitialized warning */
         uint64_t left, done;
         Status status = data;
@@ -453,6 +457,25 @@ static int verb_set(int argc, char *argv[], uintptr_t data, void *userdata) {
         r = check_support();
         if (r < 0)
                 return r;
+
+        /* kexec doesn't go through the EFI loaders, so we shouldn't try to mark an image as good/bad.
+         * E.g.: booting the kernel+initrd might work, but the EFI stub might not, and we wouldn't notice */
+        r = sd_varlink_connect_address(&link, "/run/systemd/io.systemd.Manager");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to service manager: %m");
+
+        r = varlink_call_and_log(link, "io.systemd.Manager.Describe", /* parameters= */ NULL, &reply);
+        if (r < 0)
+                return r;
+
+        sd_json_variant *kexecs_count = sd_json_variant_by_key(
+                        sd_json_variant_by_key(reply, "runtime"), "KExecsCount");
+        if (!sd_json_variant_is_unsigned(kexecs_count))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Invalid KExecsCount in service manager reply.");
+        if (sd_json_variant_unsigned(kexecs_count) > 0) {
+                log_info("System was booted via kexec, skipping boot entry marking.");
+                return 0;
+        }
 
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
         if (r == -EUNATCH) /* acquire_boot_count_path() won't log on its own for this specific error */
