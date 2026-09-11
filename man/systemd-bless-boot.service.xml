@@ -45,6 +45,9 @@
     left" numeric boot counters from the filename, which indicates to future invocations of the boot loader
     that the entry has completed booting successfully at least once. (This service will hence rename the boot
     loader entry file or unified kernel image file on the first successful boot.)</para>
+
+    <para>Note that if the system was booted via kexec and LUO is available and enabled, this service will
+    skip marking the boot entry as good or bad, since kexec bypasses the EFI boot loader entirely.</para>
   </refsect1>
 
   <refsect1>
