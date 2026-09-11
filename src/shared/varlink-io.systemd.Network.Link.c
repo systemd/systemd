@@ -41,6 +41,26 @@ static SD_VARLINK_DEFINE_METHOD(
                 VARLINK_NETWORK_INTERFACE_INPUTS,
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DNSParameters,
+                SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
+                SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("DNS server IP address"),
+                SD_VARLINK_DEFINE_FIELD(Address, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("DNS server port number"),
+                SD_VARLINK_DEFINE_FIELD(Port, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface index for link-local DNS servers"),
+                SD_VARLINK_DEFINE_FIELD(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DNS server hostname for DoT/DoH"),
+                SD_VARLINK_DEFINE_FIELD(ServerName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNS,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("DNS servers to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(Servers, DNSParameters, SD_VARLINK_ARRAY));
+
 static SD_VARLINK_DEFINE_ERROR(InterfaceUnmanaged);
 static SD_VARLINK_DEFINE_ERROR(InterfaceIsLoopback);
 
@@ -59,6 +79,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Reconfigure,
                 SD_VARLINK_SYMBOL_COMMENT("Describe the specified link by index or name."),
                 &vl_method_Describe,
+                SD_VARLINK_SYMBOL_COMMENT("Set the DNS servers on the specified link."),
+                &vl_method_SetDNS,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is not managed by systemd-networkd."),
                 &vl_error_InterfaceUnmanaged,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is a loopback interface."),
@@ -72,6 +94,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_DHCPv6ClientPD,
                 &vl_type_DHCPv6ClientVendorOption,
                 &vl_type_DNS,
+                &vl_type_DNSParameters,
                 &vl_type_DNSSECNegativeTrustAnchor,
                 &vl_type_DNSSetting,
                 &vl_type_Domain,
