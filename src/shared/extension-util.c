@@ -12,7 +12,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "macro.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -193,7 +192,6 @@ int extension_overlay_block(const char *p, ImageClass image_class, dev_t *ret) {
 
         assert(p);
         assert(ret);
-        assert(IN_SET(image_class, IMAGE_SYSEXT, IMAGE_CONFEXT));
 
         /* Tries to read the backing device information systemd-sysext puts in
          * the virtual file .systemd-sysext/.systemd-confext */
