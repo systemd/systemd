@@ -93,8 +93,9 @@
 
           <listitem><para>Directory to use as file system root for the virtual machine.</para>
 
-          <para>One of either <option>--directory=</option> or <option>--image=</option> must be specified.
-          If neither are specified <option>--directory=.</option> is assumed.</para>
+          <para>At most one of <option>--directory=</option>, <option>--image=</option>, or
+          <option>--mstack=</option> may be specified. If none are specified,
+          <option>--directory=.</option> is assumed.</para>
 
           <para>Note: If mounting a non-root owned directory you may require <option>--private-users=</option>
           to map into the user's subuid namespace. An example of how to use <constant>/etc/subuid</constant>
@@ -102,6 +103,19 @@
 
           <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--mstack=</option></term>
+
+          <listitem><para>Mount stack to use as the root file system for the virtual machine. Takes a path
+          to a directory implementing
+          <citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          The assembled file system is provided to the virtual machine through virtiofs. This option currently
+          requires root privileges and <option>--linux=</option>, and cannot be combined with
+          <option>--ephemeral</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
         </varlistentry>
 
         <varlistentry>
