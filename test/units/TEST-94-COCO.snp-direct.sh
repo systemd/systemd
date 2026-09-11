@@ -23,9 +23,16 @@ at_exit() {
 }
 trap at_exit EXIT INT TERM
 
-vmspawn_boot_coco "$MACHINE" "$COCO_TYPE" "$WORKDIR" "" \
+# General test case for SNP direct boot, covers:
+#
+# - detect_virt: systemd-detect-virt --cvm detects SNP as the CVM type
+# - creds_vmspawn: credential transport by vmspawn is working (via initrd for SNP)
+# - creds_cmdline: credential transport via cmdline is working (cmdline is measured on SNP)
+vmspawn_boot_coco "$MACHINE" "$COCO_TYPE" "$WORKDIR" 'detect_virt|creds_vmspawn|creds_cmdline' \
     --image="$IMAGE_DIR/image.raw" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
     --initrd="$IMAGE_DIR/image.initrd" \
-    selinux=0 systemd.firstboot=no rw
-echo "SEV-SNP direct-boot guest correctly reported confidential virtualization"
+    --set-credential="$COCO_CRED_TRUSTED_ID:$COCO_CRED_TRUSTED_VALUE" \
+    selinux=0 systemd.firstboot=no rw \
+    "systemd.set_credential=$COCO_CRED_CMDLINE_ID:$COCO_CRED_CMDLINE_VALUE"
+echo "SEV-SNP direct-boot guest correctly reported confidential virtualization and trusted credentials"

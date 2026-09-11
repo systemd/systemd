@@ -23,7 +23,7 @@ at_exit() {
 }
 trap at_exit EXIT INT TERM
 
-vmspawn_boot_coco "$MACHINE" "$COCO_TYPE" "$WORKDIR" "" \
+vmspawn_boot_coco "$MACHINE" "$COCO_TYPE" "$WORKDIR" 'detect_virt' \
     --image="$IMAGE_DIR/image.raw" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
     --initrd="$IMAGE_DIR/image.initrd" \
