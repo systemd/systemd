@@ -103,6 +103,13 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode to configure on the link"),
                 SD_VARLINK_DEFINE_INPUT(Mode, SD_VARLINK_STRING, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSSEC,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("DNSSEC mode to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT(Mode, SD_VARLINK_STRING, 0));
+
 static SD_VARLINK_DEFINE_ERROR(InterfaceUnmanaged);
 static SD_VARLINK_DEFINE_ERROR(InterfaceIsLoopback);
 
@@ -133,6 +140,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetMulticastDNS,
                 SD_VARLINK_SYMBOL_COMMENT("Set the DNSOverTLS mode on the specified link."),
                 &vl_method_SetDNSOverTLS,
+                SD_VARLINK_SYMBOL_COMMENT("Set the DNSSEC mode on the specified link."),
+                &vl_method_SetDNSSEC,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is not managed by systemd-networkd."),
                 &vl_error_InterfaceUnmanaged,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is a loopback interface."),
