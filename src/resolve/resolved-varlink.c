@@ -1819,6 +1819,64 @@ static int vl_method_link_set_dns_over_tls(sd_varlink *link, sd_json_variant *pa
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_link_set_dnssec(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        assert(link);
+
+        struct {
+                const char *mode;
+                int ifindex;
+                const char *ifname;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Mode",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, mode),    SD_JSON_MANDATORY },
+                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         voffsetof(p, ifindex), SD_JSON_RELAX     },
+                { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, ifname),  SD_JSON_NULLABLE  },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        DnssecMode mode;
+        if (isempty(p.mode))
+                mode = _DNSSEC_MODE_INVALID;
+        else {
+                mode = dnssec_mode_from_string(p.mode);
+                if (mode < 0)
+                        return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("Mode"));
+        }
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifname, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-dnssec",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->dnssec_mode != mode) {
+                link_set_dnssec_mode(l, mode);
+                link_allocate_scopes(l);
+
+                (void) link_save_user(l);
+
+                log_link_info(l, "Varlink client set DNSSEC setting: %s",
+                              mode < 0 ? "default" : dnssec_mode_to_string(mode));
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1904,6 +1962,7 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Network.Link.SetLLMNR",           vl_method_link_set_llmnr,
                         "io.systemd.Network.Link.SetMulticastDNS",    vl_method_link_set_mdns,
                         "io.systemd.Network.Link.SetDNSOverTLS",      vl_method_link_set_dns_over_tls,
+                        "io.systemd.Network.Link.SetDNSSEC",          vl_method_link_set_dnssec,
                         "io.systemd.service.Ping",                    varlink_method_ping,
                         "io.systemd.service.SetLogLevel",             varlink_method_set_log_level,
                         "io.systemd.service.GetLogLevel",             varlink_method_get_log_level,
