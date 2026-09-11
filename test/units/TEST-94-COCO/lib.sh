@@ -58,8 +58,7 @@ EOF
 # --image/--linux/--initrd and the guest kernel command line — plus any extra flags via "$@", so each
 # per-boot-path scenario stays configurable. Per-check records shipped by the guest are collected over
 # a vsock socket into WORKDIR/results and echoed; returns 0 iff the guest reported the success
-# aggregate, otherwise dumps the console. (The adversarial subtests will add a qemu_boot_coco sibling
-# that drives QEMU directly.)
+# aggregate, otherwise dumps the console.
 vmspawn_boot_coco() {
     local machine="${1:?}" coco_type="${2:?}" workdir="${3:?}" match="${4-}"
     shift 4
