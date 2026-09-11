@@ -953,8 +953,8 @@
         currently.</para>
 
         <para>The <option>--private-users-ownership=auto</option> option is implied if
-        <option>--private-users=pick</option> is used. This option has no effect if user namespacing is not
-        used.</para>
+        <option>--private-users=pick</option> or <option>--private-users=managed</option> is used. This
+        option has no effect if user namespacing is not used.</para>
 
         <para><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>--shift</option> switch may be used to shift UID/GID ownership from or to the 0, foreign or
