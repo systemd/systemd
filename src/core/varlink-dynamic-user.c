@@ -32,7 +32,7 @@ static int build_user_json(const char *user_name, uid_t uid, sd_json_variant **r
                                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", uid),
                                        SD_JSON_BUILD_PAIR("realName", JSON_BUILD_CONST_STRING("Dynamic User")),
                                        SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
-                                       SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
+                                       SD_JSON_BUILD_PAIR_STRING("shell", nologin_shell()),
                                        SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                                        SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.DynamicUser")),
                                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("dynamic")))));
