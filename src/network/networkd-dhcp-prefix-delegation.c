@@ -271,6 +271,10 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                 }
         }
 
+        if (!only_marked)
+                /* Also drop pending requests when the lease is lost or the client is stopped. */
+                RET_GATHER(ret, link_drop_requests(link, NETWORK_CONFIG_SOURCE_DHCP_PD));
+
         return ret;
 }
 
