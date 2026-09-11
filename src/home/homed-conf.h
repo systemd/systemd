@@ -9,3 +9,4 @@ const struct ConfigPerfItem* homed_gperf_lookup(const char *str, GPERF_LEN_TYPE 
 
 CONFIG_PARSER_PROTOTYPE(config_parse_default_storage);
 CONFIG_PARSER_PROTOTYPE(config_parse_default_file_system_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_thin_pool);

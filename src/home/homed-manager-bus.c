@@ -23,6 +23,7 @@
 #include "homed-manager.h"
 #include "homed-manager-bus.h"
 #include "homed-operation.h"
+#include "homework-thin.h"
 #include "log.h"
 #include "path-util.h"
 #include "set.h"
@@ -394,6 +395,23 @@ static int validate_and_allocate_home(Manager *m, UserRecord *hr, Hashmap *blobs
         if (r < 0)
                 return r;
 
+        r = home_record_has_pending(hr->user_name);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                /* Recovery may have retained an intent while its thin pool was unavailable during early
+                 * boot. A create retry is also an opportunity to recover it after the pool appeared. */
+                (void) manager_recover_records(m);
+
+                r = home_record_has_pending(hr->user_name);
+                if (r < 0)
+                        return r;
+        }
+        if (r > 0)
+                return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS,
+                                         "Recovery of an earlier home creation for %s is still pending, refusing.",
+                                         hr->user_name);
+
         r = check_for_conflicts(m, hr->user_name, error);
         if (r < 0)
                 return r;
@@ -491,6 +509,39 @@ static int validate_and_allocate_home(Manager *m, UserRecord *hr, Hashmap *blobs
         return r;
 }
 
+static int prepare_thin_home_record(Manager *m, UserRecord *hr, sd_bus_error *error) {
+        uint64_t backing_size, size;
+        int r;
+
+        assert(m);
+        assert(hr);
+
+        if (!m->thin_pool ||
+            hr->image_path ||
+            hr->disk_size != UINT64_MAX ||
+            !(hr->storage < 0 || hr->storage == USER_LUKS))
+                return 0;
+
+        if (FLAGS_SET(hr->mask, USER_RECORD_SIGNATURE))
+                return sd_bus_error_setf(
+                                error,
+                                BUS_ERROR_HOME_RECORD_SIGNED,
+                                "Signed thin-backed record for %s lacks an explicit disk size.",
+                                hr->user_name);
+
+        r = home_thin_pool_default_size(m->thin_pool, &size, &backing_size);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to determine default thin-volume size: %m");
+
+        r = user_record_set_disk_size(hr, size);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to record derived thin-volume size: %m");
+
+        log_info("Selected default thin-volume size %s from %s of currently backed capacity in %s.",
+                 FORMAT_BYTES(size), FORMAT_BYTES(backing_size), m->thin_pool);
+        return 1;
+}
+
 static int method_register_home(
                 sd_bus_message *message,
                 void *userdata,
@@ -579,6 +630,7 @@ static int method_unregister_home(sd_bus_message *message, void *userdata, sd_bu
 static int method_create_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        sd_id128_t uuid;
         uint64_t flags = 0;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;
@@ -612,6 +664,22 @@ static int method_create_home(sd_bus_message *message, void *userdata, sd_bus_er
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
+
+        if (sd_id128_is_null(hr->uuid) && !FLAGS_SET(hr->mask, USER_RECORD_SIGNATURE)) {
+                r = sd_id128_randomize(&uuid);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_set_field_uuid(&hr->json, "uuid", uuid);
+                if (r < 0)
+                        return r;
+
+                hr->uuid = uuid;
+        }
+
+        r = prepare_thin_home_record(m, hr, error);
+        if (r < 0)
+                return r;
 
         r = validate_and_allocate_home(m, hr, blobs, &h, error);
         if (r < 0)

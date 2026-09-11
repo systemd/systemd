@@ -40,6 +40,7 @@
 #include "homed-manager-bus.h"
 #include "homed-operation.h"
 #include "homed-varlink.h"
+#include "homework-thin.h"
 #include "logarithm.h"
 #include "mkdir.h"
 #include "notify-recv.h"
@@ -321,6 +322,7 @@ Manager* manager_free(Manager *m) {
         free(m->userdb_service);
 
         free(m->default_file_system_type);
+        free(m->thin_pool);
 
         return mfree(m);
 }
@@ -378,21 +380,24 @@ int manager_verify_user_record(Manager *m, UserRecord *hr) {
         return -ENOKEY;
 }
 
-static int manager_add_home_by_record(
+static int manager_load_home_record(
                 Manager *m,
                 const char *name,
                 int dir_fd,
-                const char *fname) {
+                const char *fname,
+                bool remove_empty,
+                UserRecord **ret_record,
+                int *ret_signed) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         int r, is_signed;
         struct stat st;
-        Home *h;
 
         assert(m);
         assert(name);
         assert(fname);
+        assert(ret_record);
 
         if (fstatat(dir_fd, fname, &st, 0) < 0)
                 return log_error_errno(errno, "Failed to stat identity record %s: %m", fname);
@@ -402,16 +407,26 @@ static int manager_add_home_by_record(
                 return 0;
         }
 
-        if (st.st_size == 0)
+        if (st.st_size == 0) {
+                if (!remove_empty)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Recovery record '%s' is empty, preserving it.", fname);
+
                 goto unlink_this_file;
+        }
 
         unsigned line = 0, column = 0;
         r = sd_json_parse_file_at(/* f= */ NULL, dir_fd, fname, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse identity record at %s:%u:%u: %m", fname, line, column);
 
-        if (sd_json_variant_is_blank_object(v))
+        if (sd_json_variant_is_blank_object(v)) {
+                if (!remove_empty)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Recovery record '%s' is blank, preserving it.", fname);
+
                 goto unlink_this_file;
+        }
 
         hr = user_record_new();
         if (!hr)
@@ -447,6 +462,43 @@ static int manager_add_home_by_record(
                 return log_error_errno(is_signed, "Failed to verify signature of user record in %s: %m", fname);
         }
 
+        *ret_record = TAKE_PTR(hr);
+        if (ret_signed)
+                *ret_signed = is_signed;
+        return 1;
+
+unlink_this_file:
+        /* If this is an empty file, then let's just remove it. An empty file is not useful in any case, and
+         * apparently xfs likes to leave empty files around when not unmounted cleanly (see
+         * https://github.com/systemd/systemd/issues/15178 for example). Note that we don't delete non-empty
+         * files even if they are invalid, because that's just too risky, we might delete data the user still
+         * needs. But empty files are never useful, hence let's just remove them. */
+
+        if (unlinkat(dir_fd, fname, 0) < 0)
+                return log_error_errno(errno, "Failed to remove empty user record file %s: %m", fname);
+
+        log_notice("Discovered empty user record file %s/%s, removed automatically.", home_record_dir(), fname);
+        return 0;
+}
+
+static int manager_add_home_by_record(
+                Manager *m,
+                const char *name,
+                int dir_fd,
+                const char *fname) {
+
+        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        Home *h;
+        int is_signed, r;
+
+        assert(m);
+        assert(name);
+        assert(fname);
+
+        r = manager_load_home_record(m, name, dir_fd, fname, /* remove_empty= */ true, &hr, &is_signed);
+        if (r <= 0)
+                return r;
+
         h = hashmap_get(m->homes_by_name, name);
         if (h) {
                 r = home_set_record(h, hr);
@@ -470,19 +522,6 @@ static int manager_add_home_by_record(
         h->signed_locally = is_signed == USER_RECORD_SIGNED_EXCLUSIVE;
 
         return 1;
-
-unlink_this_file:
-        /* If this is an empty file, then let's just remove it. An empty file is not useful in any case, and
-         * apparently xfs likes to leave empty files around when not unmounted cleanly (see
-         * https://github.com/systemd/systemd/issues/15178 for example). Note that we don't delete non-empty
-         * files even if they are invalid, because that's just too risky, we might delete data the user still
-         * needs. But empty files are never useful, hence let's just remove them. */
-
-        if (unlinkat(dir_fd, fname, 0) < 0)
-                return log_error_errno(errno, "Failed to remove empty user record file %s: %m", fname);
-
-        log_notice("Discovered empty user record file %s/%s, removed automatically.", home_record_dir(), fname);
-        return 0;
 }
 
 static int manager_enumerate_records(Manager *m) {
@@ -517,6 +556,275 @@ static int manager_enumerate_records(Manager *m) {
         }
 
         return 0;
+}
+
+static int manager_unlink_recovery_record(int dir_fd, const char *fname) {
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(fname);
+
+        if (unlinkat(dir_fd, fname, 0) < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return -errno;
+        }
+
+        r = fsync_path_at(dir_fd, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int manager_recover_pending_records(Manager *m) {
+        _cleanup_closedir_ DIR *d = NULL;
+
+        assert(m);
+
+        d = opendir(home_record_dir());
+        if (!d)
+                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to open %s: %m", home_record_dir());
+
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read record directory: %m")) {
+                _cleanup_free_ char *final = NULL, *n = NULL;
+                const char *e;
+                int r;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                e = endswith(de->d_name, HOME_RECORD_PENDING_SUFFIX);
+                if (!e)
+                        continue;
+
+                n = strndup(de->d_name, e - de->d_name);
+                if (!n)
+                        return log_oom();
+                if (!suitable_user_name(n))
+                        continue;
+
+                final = strjoin(n, HOME_RECORD_SUFFIX);
+                if (!final)
+                        return log_oom();
+
+                if (faccessat(dirfd(d), final, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
+                        r = manager_add_home_by_record(m, n, dirfd(d), final);
+                        if (r > 0) {
+                                r = manager_unlink_recovery_record(dirfd(d), de->d_name);
+                                if (r < 0)
+                                        log_warning_errno(r,
+                                                          "Failed to remove stale pending home record '%s', "
+                                                          "ignoring: %m",
+                                                          de->d_name);
+                                continue;
+                        }
+                        if (r < 0)
+                                continue;
+
+                        /* Empty records are removed by manager_add_home_by_record(). If it left some other
+                         * non-regular entry in place, do not replace it automatically. */
+                        if (faccessat(dirfd(d), final, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                                continue;
+                        if (errno != ENOENT) {
+                                log_warning_errno(errno,
+                                                  "Failed to retest committed home record '%s', skipping: %m",
+                                                  final);
+                                continue;
+                        }
+                } else if (errno != ENOENT) {
+                        log_warning_errno(errno, "Failed to test for committed home record '%s', skipping: %m", final);
+                        continue;
+                }
+
+                r = manager_add_home_by_record(m, n, dirfd(d), de->d_name);
+                if (r <= 0)
+                        continue;
+
+                r = home_record_commit_pending(n);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to commit pending home record '%s': %m", de->d_name);
+                        continue;
+                }
+
+                log_notice("Recovered pending home record for '%s'.", n);
+        }
+
+        return 0;
+}
+
+static int manager_record_protects_thin_intent(
+                Manager *m,
+                const char *name,
+                int dir_fd,
+                const char *fname,
+                UserRecord *intent) {
+
+        _cleanup_(user_record_unrefp) UserRecord *record = NULL;
+        int r;
+
+        assert(m);
+        assert(name);
+        assert(dir_fd >= 0);
+        assert(fname);
+        assert(intent);
+
+        if (faccessat(dir_fd, fname, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
+                return errno == ENOENT ? 0 : -errno;
+
+        r = manager_load_home_record(
+                        m,
+                        name,
+                        dir_fd,
+                        fname,
+                        /* remove_empty= */ true,
+                        &record,
+                        /* ret_signed= */ NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* manager_load_home_record() removes empty regular files, but leaves other file types alone. */
+                if (faccessat(dir_fd, fname, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                        return -EBUSY;
+                return errno == ENOENT ? 0 : -errno;
+        }
+
+        if (!sd_id128_equal(record->uuid, intent->uuid) ||
+            !record->thin_pool_uuid || record->thin_device_id == UINT32_MAX)
+                return false;
+
+        if (intent->thin_pool_uuid &&
+            (!streq(record->thin_pool_uuid, intent->thin_pool_uuid) ||
+             record->thin_device_id != intent->thin_device_id))
+                return false;
+
+        if (!m->thin_pool)
+                return -ENXIO;
+
+        r = home_thin_volume_commit_path(record, m->thin_pool);
+        if (r < 0)
+                return r;
+
+        return true;
+}
+
+static int manager_recover_thin_volume_intents(Manager *m) {
+        _cleanup_closedir_ DIR *d = NULL;
+
+        assert(m);
+
+        d = opendir(home_record_dir());
+        if (!d)
+                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to open %s: %m", home_record_dir());
+
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read record directory: %m")) {
+                _cleanup_(user_record_unrefp) UserRecord *intent = NULL;
+                _cleanup_free_ char *final = NULL, *n = NULL, *pending = NULL;
+                const char *e;
+                int r;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                e = endswith(de->d_name, HOME_RECORD_THIN_INTENT_SUFFIX);
+                if (!e)
+                        continue;
+
+                n = strndup(de->d_name, e - de->d_name);
+                if (!n)
+                        return log_oom();
+                if (!suitable_user_name(n))
+                        continue;
+
+                r = manager_load_home_record(
+                                m,
+                                n,
+                                dirfd(d),
+                                de->d_name,
+                                /* remove_empty= */ false,
+                                &intent,
+                                /* ret_signed= */ NULL);
+                if (r <= 0)
+                        continue;
+
+                final = strjoin(n, HOME_RECORD_SUFFIX);
+                pending = strjoin(n, HOME_RECORD_PENDING_SUFFIX);
+                if (!final || !pending)
+                        return log_oom();
+
+                r = manager_record_protects_thin_intent(m, n, dirfd(d), final, intent);
+                if (r < 0) {
+                        log_warning_errno(r,
+                                          "Unable to determine whether '%s' supersedes thin-volume intent '%s', "
+                                          "preserving intent: %m",
+                                          final,
+                                          de->d_name);
+                        continue;
+                }
+                if (r == 0) {
+                        r = manager_record_protects_thin_intent(m, n, dirfd(d), pending, intent);
+                        if (r < 0) {
+                                log_warning_errno(r,
+                                                  "Unable to determine whether '%s' supersedes thin-volume intent '%s', "
+                                                  "preserving intent: %m",
+                                                  pending,
+                                                  de->d_name);
+                                continue;
+                        }
+                }
+
+                if (r == 0) {
+                        if (!m->thin_pool) {
+                                log_error("Cannot recover thin-volume intent '%s' without ThinPool= configured, preserving intent.",
+                                          de->d_name);
+                                continue;
+                        }
+
+                        r = home_thin_volume_remove_incomplete(intent, m->thin_pool);
+                        if (r < 0) {
+                                log_error_errno(r,
+                                                "Failed to recover thin-volume intent '%s', preserving intent: %m",
+                                                de->d_name);
+                                continue;
+                        }
+                }
+
+                r = manager_unlink_recovery_record(dirfd(d), de->d_name);
+                if (r < 0) {
+                        log_warning_errno(r,
+                                          "Failed to remove recovered thin-volume intent '%s', ignoring: %m",
+                                          de->d_name);
+                        continue;
+                }
+
+                log_notice("Recovered thin-volume creation intent for '%s'.", n);
+        }
+
+        return 0;
+}
+
+int manager_recover_records(Manager *m) {
+        int ret, r;
+
+        assert(m);
+
+        ret = 0;
+        if (m->thin_pool) {
+                r = home_thin_pool_recover(m->thin_pool);
+                if (r < 0)
+                        log_error_errno(r, "Failed to recover dm-thin allocator state: %m");
+                RET_GATHER(ret, r);
+        }
+
+        r = manager_recover_pending_records(m);
+        RET_GATHER(ret, r);
+        r = manager_recover_thin_volume_intents(m);
+        RET_GATHER(ret, r);
+
+        return ret;
 }
 
 static int search_quota(uid_t uid, const char *exclude_quota_path) {
@@ -842,6 +1150,7 @@ int manager_augment_record_with_uid(
                         SD_ID128_NULL,
                         SD_ID128_NULL,
                         SD_ID128_NULL,
+                        NULL,
                         NULL,
                         NULL,
                         UINT64_MAX,
@@ -1573,6 +1882,7 @@ int manager_startup(Manager *m) {
         manager_watch_home(m);
         (void) manager_watch_devices(m);
 
+        (void) manager_recover_records(m);
         (void) manager_enumerate_records(m);
         (void) manager_enumerate_images(m);
         (void) manager_enumerate_devices(m);

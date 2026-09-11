@@ -3,6 +3,7 @@
 #include "conf-parser.h"
 #include "home-util.h"
 #include "homed-conf.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "user-record.h"
 
@@ -19,6 +20,36 @@ int manager_parse_config_file(Manager *m) {
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_default_storage, user_storage, UserStorage);
+
+int config_parse_thin_pool(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **pool = ASSERT_PTR(data);
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *pool = mfree(*pool);
+                return 0;
+        }
+
+        if (!path_is_absolute(rvalue) || !path_is_normalized(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Thin pool must be specified as an absolute normalized device path, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return free_and_strdup_warn(pool, rvalue);
+}
 
 int config_parse_default_file_system_type(
                 const char *unit,

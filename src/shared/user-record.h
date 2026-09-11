@@ -342,10 +342,16 @@ typedef struct UserRecord {
         sd_id128_t luks_uuid;
         sd_id128_t file_system_uuid;
 
+        /* Raw dm-thin backing, recorded in the machine-specific binding. */
+        char *thin_pool_uuid;
+        uint32_t thin_device_id;
+
         int luks_discard;
         int luks_offline_discard;
         char *luks_cipher;
         char *luks_cipher_mode;
+        char *luks_key_type;
+        char *luks_integrity;
         uint64_t luks_volume_key_size;
         char *luks_pbkdf_hash_algorithm;
         char *luks_pbkdf_type;

@@ -12,6 +12,7 @@
 #include "chase.h"
 #include "chown-recursive.h"
 #include "copy.h"
+#include "coredump-util.h"
 #include "cryptsetup-util.h"
 #include "dlopen-note.h"
 #include "env-util.h"
@@ -33,6 +34,7 @@
 #include "homework-fscrypt.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
+#include "homework-thin.h"
 #include "json-util.h"
 #include "libcrypt-util.h"
 #include "loop-util.h"
@@ -407,7 +409,45 @@ static int keyring_flush(UserRecord *h) {
         return keyring_unlink(serial);
 }
 
+static int home_prepare_thin_volume(UserRecord *h, bool already_active, HomeSetup *setup) {
+        int r;
+
+        assert(h);
+        assert(setup);
+
+        if (setup->thin_volume_path)
+                return 0;
+
+        r = home_thin_volume_activate(h, already_active, &setup->thin_volume_path);
+        if (r < 0)
+                return r;
+        if (r > 0 && !already_active)
+                setup->deactivate_thin_volume = true;
+
+        return r;
+}
+
+static int unlink_record_file(const char *path) {
+        int r;
+
+        assert(path);
+
+        if (unlink(path) < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return -errno;
+        }
+
+        r = fsync_path_at(AT_FDCWD, home_record_dir());
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 int home_setup_done(HomeSetup *setup) {
+        bool remove_thin_volume_intent;
         int r = 0, q;
 
         assert(setup);
@@ -479,6 +519,45 @@ int home_setup_done(HomeSetup *setup) {
 
         setup->loop = loop_device_unref(setup->loop);
 
+        remove_thin_volume_intent = setup->thin_volume_record_saved;
+
+        if (setup->deactivate_thin_volume && !setup->undo_thin_volume) {
+                assert(setup->thin_volume_path);
+
+                q = home_thin_volume_deactivate_path(setup->thin_volume_path);
+                if (q < 0 && r >= 0)
+                        r = q;
+
+                setup->deactivate_thin_volume = false;
+        }
+
+        if (setup->undo_thin_volume) {
+                assert(setup->thin_volume_path);
+
+                q = home_thin_volume_remove_created(setup->thin_volume_path);
+                if (q < 0) {
+                        log_debug_errno(q, "Failed to roll back thin volume %s: %m", setup->thin_volume_path);
+                        if (r >= 0)
+                                r = q;
+                } else
+                        remove_thin_volume_intent = true;
+
+                setup->undo_thin_volume = false;
+        }
+        setup->thin_volume_path = mfree(setup->thin_volume_path);
+
+        if (remove_thin_volume_intent && setup->thin_volume_intent_path) {
+                q = unlink_record_file(setup->thin_volume_intent_path);
+                if (q < 0) {
+                        log_debug_errno(q,
+                                        "Failed to remove thin-volume intent '%s': %m",
+                                        setup->thin_volume_intent_path);
+                        if (r >= 0)
+                                r = q;
+                }
+        }
+        setup->thin_volume_intent_path = mfree(setup->thin_volume_intent_path);
+
         setup->volume_key = erase_and_free(setup->volume_key);
         setup->volume_key_size = 0;
 
@@ -511,6 +590,10 @@ int home_setup(
 
         if (!FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED)) /* If we set up the directory, we should also drop caches once we are done */
                 setup->do_drop_caches = setup->do_drop_caches || user_record_drop_caches(h);
+
+        r = home_prepare_thin_volume(h, FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED), setup);
+        if (r < 0)
+                return r;
 
         switch (user_record_storage(h)) {
 
@@ -798,6 +881,7 @@ int home_extend_embedded_identity(UserRecord *h, UserRecord *used, HomeSetup *se
                         setup->found_fs_uuid,
                         setup->crypt_device ? sym_crypt_get_cipher(setup->crypt_device) : NULL,
                         setup->crypt_device ? sym_crypt_get_cipher_mode(setup->crypt_device) : NULL,
+                        setup->crypt_device ? luks_key_type_convert(setup->crypt_device) : NULL,
                         setup->crypt_device ? luks_volume_key_size_convert(setup->crypt_device) : UINT64_MAX,
                         file_system_type_fd(setup->root_fd),
                         user_record_home_directory(used),
@@ -941,11 +1025,17 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         if (r == USER_TEST_MOUNTED)
                 return log_error_errno(SYNTHETIC_ERRNO(EALREADY), "Home directory %s is already mounted, refusing.", user_record_home_directory(h));
 
-        r = user_record_test_image_path_and_warn(h);
+        r = home_prepare_thin_volume(h, /* already_active= */ false, &setup);
         if (r < 0)
                 return r;
-        if (r == USER_TEST_ABSENT)
-                return log_error_errno(SYNTHETIC_ERRNO(ENETUNREACH), "Image path %s is missing, refusing.", user_record_image_path(h));
+
+        if (!h->thin_pool_uuid) {
+                r = user_record_test_image_path_and_warn(h);
+                if (r < 0)
+                        return r;
+                if (r == USER_TEST_ABSENT)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENETUNREACH), "Image path %s is missing, refusing.", user_record_image_path(h));
+        }
 
         switch (user_record_storage(h)) {
 
@@ -1054,6 +1144,12 @@ static int home_deactivate(UserRecord *h, bool force) {
 
         if (user_record_storage(h) == USER_LUKS) {
                 r = home_deactivate_luks(h, &setup);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        done = true;
+
+                r = home_thin_volume_deactivate(h);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -1364,13 +1460,66 @@ static int determine_default_storage(UserStorage *ret) {
         return 0;
 }
 
+static int home_save_pending_record(UserRecord *h) {
+        const char *path;
+
+        assert(h);
+        assert(h->user_name);
+
+        (void) mkdir("/var/lib/systemd/", 0755);
+        (void) mkdir(home_record_dir(), 0700);
+
+        path = strjoina(home_record_dir(), "/", h->user_name, HOME_RECORD_PENDING_SUFFIX);
+        return user_record_save(h, path);
+}
+
+static int home_save_thin_volume_intent(UserRecord *h, char **ret_path, sd_id128_t *ret_creation_id) {
+        _cleanup_(user_record_unrefp) UserRecord *masked = NULL;
+        _cleanup_free_ char *path = NULL;
+        sd_id128_t creation_id;
+        int r;
+
+        assert(h);
+        assert(h->user_name);
+        assert(ret_path);
+        assert(ret_creation_id);
+
+        r = user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, &masked);
+        if (r < 0)
+                return r;
+
+        r = sd_id128_randomize(&creation_id);
+        if (r < 0)
+                return r;
+
+        r = user_record_set_thin_volume_creation_id(masked, creation_id);
+        if (r < 0)
+                return r;
+
+        (void) mkdir("/var/lib/systemd/", 0755);
+        (void) mkdir(home_record_dir(), 0700);
+
+        path = strjoin(home_record_dir(), "/", h->user_name, HOME_RECORD_THIN_INTENT_SUFFIX);
+        if (!path)
+                return -ENOMEM;
+
+        r = user_record_save(masked, path);
+        if (r < 0)
+                return r;
+
+        *ret_path = TAKE_PTR(path);
+        *ret_creation_id = creation_id;
+        return 0;
+}
+
 static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
         _cleanup_strv_free_erase_ char **effective_passwords = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         UserStorage new_storage = _USER_STORAGE_INVALID;
-        const char *new_fs = NULL;
+        const char *new_fs = NULL, *thin_pool;
+        bool hardware_wrapped_keys;
         int r;
 
         assert(h);
@@ -1397,10 +1546,17 @@ static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
                         return r;
         }
 
+        thin_pool = secure_getenv("SYSTEMD_HOME_THIN_POOL");
+
+        r = getenv_bool("SYSTEMD_HOME_HARDWARE_WRAPPED_KEYS");
+        if (r < 0 && r != -ENXIO)
+                return log_error_errno(r, "Failed to parse hardware-wrapped key creation policy: %m");
+        hardware_wrapped_keys = r > 0;
+
         if ((h->storage == USER_LUKS ||
              (h->storage < 0 && new_storage == USER_LUKS)) &&
             !h->file_system_type)
-                new_fs = getenv("SYSTEMD_HOME_DEFAULT_FILE_SYSTEM_TYPE");
+                new_fs = thin_pool && !h->image_path ? "ext4" : getenv("SYSTEMD_HOME_DEFAULT_FILE_SYSTEM_TYPE");
 
         if (new_storage >= 0 || new_fs) {
                 r = user_record_add_binding(
@@ -1412,6 +1568,7 @@ static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
                                 SD_ID128_NULL,
                                 NULL,
                                 NULL,
+                                NULL,
                                 UINT64_MAX,
                                 new_fs,
                                 NULL,
@@ -1421,11 +1578,99 @@ static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
                         return log_error_errno(r, "Failed to change storage type to LUKS: %m");
         }
 
+        if (hardware_wrapped_keys &&
+            (!thin_pool || user_record_storage(h) != USER_LUKS || h->image_path ||
+             !streq(user_record_file_system_type(h), "ext4")))
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "Hardware-wrapped keys require a thin-backed LUKS/ext4 home without an explicit image path.");
+
         r = user_record_test_image_path_and_warn(h);
         if (r < 0)
                 return r;
         if (!IN_SET(r, USER_TEST_ABSENT, USER_TEST_UNDEFINED, USER_TEST_MAYBE))
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Image path %s already exists, refusing.", user_record_image_path(h));
+
+        if (thin_pool &&
+            user_record_storage(h) == USER_LUKS &&
+            !h->image_path) {
+                _cleanup_free_ char *created_name = NULL, *created_path = NULL, *pool_uuid = NULL, *thin_name = NULL;
+                sd_id128_t creation_id;
+                uint32_t device_id;
+                uint64_t size;
+
+                if (!streq(user_record_file_system_type(h), "ext4"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                                               "Thin-provisioned homes require the ext4 file system.");
+
+                if (h->disk_size == UINT64_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Thin-provisioned home lacks a manager-selected disk size.");
+
+                size = h->disk_size;
+
+                if (size < USER_DISK_SIZE_MIN || size > USER_DISK_SIZE_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                               "Thin-volume size is outside the supported range.");
+
+                /* Reject a foreign or unhealthy pool before persisting the identity-side recovery
+                 * intent. Once that file exists, every subsequent failure must be treated as potentially
+                 * following an allocator-state mutation and hence recovered durably. */
+                r = home_thin_pool_validate(thin_pool);
+                if (r < 0)
+                        return r;
+
+                r = home_thin_volume_make_path(h, thin_pool, &setup.thin_volume_path, &thin_name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine thin-volume name: %m");
+
+                r = user_record_add_binding(
+                                h,
+                                USER_LUKS,
+                                setup.thin_volume_path,
+                                SD_ID128_NULL,
+                                SD_ID128_NULL,
+                                SD_ID128_NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                UINT64_MAX,
+                                NULL,
+                                NULL,
+                                UID_INVALID,
+                                GID_INVALID);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind home to thin volume: %m");
+
+                r = home_save_thin_volume_intent(h, &setup.thin_volume_intent_path, &creation_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to save thin-volume intent: %m");
+
+                r = home_thin_volume_allocate(h, thin_pool, &pool_uuid, &device_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate a dm-thin device ID: %m");
+
+                r = user_record_add_thin_pool_binding(h, pool_uuid, device_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to record thin-volume intent binding: %m");
+
+                r = home_thin_volume_create(
+                                h,
+                                thin_pool,
+                                size,
+                                creation_id,
+                                &created_path,
+                                &created_name);
+                if (r < 0)
+                        return r;
+                setup.undo_thin_volume = true;
+                setup.deactivate_thin_volume = true;
+
+                if (!path_equal(created_path, setup.thin_volume_path) || !streq(created_name, thin_name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMCHG),
+                                               "Created thin volume does not match its intent.");
+
+        }
 
         r = home_apply_new_blob_dir(h, blobs);
         if (r < 0)
@@ -1457,6 +1702,32 @@ static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
+        if (setup.undo_thin_volume) {
+                /* The manager cannot acknowledge the record until after this worker exits. Persist the complete
+                 * machine binding first, so that either the manager can commit it or the next manager instance
+                 * can recover it. Only then is the dm-thin device no longer owned by the rollback cleanup. */
+                assert(new_home);
+
+                r = home_save_pending_record(new_home);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to save pending thin-volume record: %m");
+
+                r = home_thin_volume_commit(new_home);
+                if (r < 0) {
+                        int q;
+
+                        q = unlink_record_file(
+                                        strjoina(home_record_dir(), "/", new_home->user_name, HOME_RECORD_PENDING_SUFFIX));
+                        if (q < 0)
+                                log_warning_errno(q, "Failed to remove uncommitted pending home record, ignoring: %m");
+
+                        return log_error_errno(r, "Failed to commit dm-thin allocator state: %m");
+                }
+
+                setup.thin_volume_record_saved = true;
+                setup.undo_thin_volume = false;
+        }
+
         if (user_record_equal(h, new_home)) {
                 *ret_home = NULL;
                 return 0;
@@ -1467,6 +1738,7 @@ static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
 }
 
 static int home_remove(UserRecord *h) {
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         bool deleted = false;
         const char *ip, *hd;
         int r;
@@ -1477,6 +1749,15 @@ static int home_remove(UserRecord *h) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");
         if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Removing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
+
+        r = home_thin_volume_exists(h);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether the thin volume exists: %m");
+        if (r > 0) {
+                r = home_prepare_thin_volume(h, /* already_active= */ false, &setup);
+                if (r < 0)
+                        return r;
+        }
 
         hd = user_record_home_directory(h);
 
@@ -1562,6 +1843,14 @@ static int home_remove(UserRecord *h) {
                 assert_not_reached();
         }
 
+        r = home_thin_volume_remove(h);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                deleted = true;
+                setup.deactivate_thin_volume = false;
+        }
+
         if (hd) {
                 if (rmdir(hd) < 0) {
                         if (errno != ENOENT)
@@ -1614,11 +1903,17 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags 
 
         has_mount = r == USER_TEST_MOUNTED;
 
-        r = user_record_test_image_path_and_warn(h);
+        r = home_prepare_thin_volume(h, has_mount, setup);
         if (r < 0)
                 return r;
-        if (r == USER_TEST_ABSENT)
-                return log_error_errno(SYNTHETIC_ERRNO(ENETUNREACH), "Image path %s does not exist", user_record_image_path(h));
+
+        if (!h->thin_pool_uuid) {
+                r = user_record_test_image_path_and_warn(h);
+                if (r < 0)
+                        return r;
+                if (r == USER_TEST_ABSENT)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENETUNREACH), "Image path %s does not exist", user_record_image_path(h));
+        }
 
         switch (user_record_storage(h)) {
 
@@ -1743,6 +2038,9 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
 
         if (h->disk_size == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No target size specified, refusing.");
+        if (h->thin_pool_uuid)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Thin-provisioned homes have a fixed virtual disk size.");
 
         password_cache_load_keyring(h, &cache);
 
@@ -2022,6 +2320,10 @@ static int run(int argc, char *argv[]) {
         start = now(CLOCK_MONOTONIC);
 
         log_setup();
+
+        /* The worker handles passwords, volume keys, and decrypted identity records. Never write
+         * them to a core dump. */
+        disable_coredumps();
 
         umask(0022);
 

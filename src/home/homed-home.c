@@ -41,6 +41,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "time-util.h"
 #include "uid-classification.h"
 #include "user-record.h"
@@ -336,44 +337,43 @@ int home_set_record(Home *h, UserRecord *hr) {
 }
 
 int home_save_record(Home *h) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_free_ char *text = NULL;
         const char *fn;
-        int r;
 
         assert(h);
-
-        v = sd_json_variant_ref(h->record->json);
-        r = sd_json_variant_normalize(&v);
-        if (r < 0)
-                log_warning_errno(r, "User record could not be normalized.");
-
-        r = sd_json_variant_format(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_NEWLINE, &text);
-        if (r < 0)
-                return r;
 
         (void) mkdir("/var/lib/systemd/", 0755);
         (void) mkdir(home_record_dir(), 0700);
 
-        fn = strjoina(home_record_dir(), "/", h->user_name, ".identity");
-
-        r = write_string_file(fn, text, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_SYNC);
-        if (r < 0)
-                return r;
-
-        return 0;
+        fn = strjoina(home_record_dir(), "/", h->user_name, HOME_RECORD_SUFFIX);
+        return user_record_save(h->record, fn);
 }
 
 int home_unlink_record(Home *h) {
         _cleanup_free_ char *blob = NULL;
         const char *fn;
+        bool removed = false;
         int r;
 
         assert(h);
 
-        fn = strjoina(home_record_dir(), "/", h->user_name, ".identity");
-        if (unlink(fn) < 0 && errno != ENOENT)
-                return -errno;
+        /* Recovery records must be removed and the directory synchronized before the committed identity is
+         * unlinked. Otherwise a crash in between could resurrect a deliberately removed home. */
+        r = home_record_cancel_pending(h->user_name);
+        if (r < 0)
+                return r;
+
+        fn = strjoina(home_record_dir(), "/", h->user_name, HOME_RECORD_SUFFIX);
+        if (unlink(fn) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+        } else
+                removed = true;
+
+        if (removed) {
+                r = fsync_path_at(AT_FDCWD, home_record_dir());
+                if (r < 0)
+                        return r;
+        }
 
         fn = strjoina("/run/systemd/home/", h->user_name, ".ref");
         if (unlink(fn) < 0 && errno != ENOENT)
@@ -942,21 +942,35 @@ fail:
 }
 
 static void home_create_finish(Home *h, int ret, UserRecord *hr) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(h);
         assert(h->state == HOME_CREATING);
 
         if (ret < 0) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-
                 (void) convert_worker_errno(h, ret, &error);
                 log_error_errno(ret, "Operation on %s failed: %m", h->user_name);
                 h->current_operation = operation_result_unref(h->current_operation, ret, &error);
 
                 if (h->unregister_on_failure) {
-                        (void) home_unlink_record(h);
+                        Manager *m = h->manager;
+
+                        r = home_record_has_pending(h->user_name);
+                        if (r == 0)
+                                (void) home_unlink_record(h);
+                        else if (r < 0)
+                                log_warning_errno(r,
+                                                  "Failed to check for a thin-volume recovery record, "
+                                                  "preserving files: %m");
+                        else
+                                log_notice("Preserving thin-volume recovery record after failed creation of '%s'.",
+                                           h->user_name);
+
                         h = home_free(h);
+
+                        if (r != 0)
+                                (void) manager_recover_records(m);
                         return;
                 }
 
@@ -966,13 +980,32 @@ static void home_create_finish(Home *h, int ret, UserRecord *hr) {
 
         if (hr) {
                 r = home_set_record(h, hr);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to update home record, ignoring: %m");
+                if (r < 0) {
+                        log_error_errno(r, "Failed to update home record: %m");
+                        sd_bus_error_set(&error, SD_BUS_ERROR_FAILED, "Failed to cache the created home record");
+                        goto fail;
+                }
         }
 
-        r = home_save_record(h);
-        if (r < 0)
-                log_warning_errno(r, "Failed to save record to disk, ignoring: %m");
+        if (h->record->thin_pool_uuid) {
+                r = home_record_commit_pending(h->user_name);
+                if (r >= 0) {
+                        int q;
+
+                        q = home_record_cancel_pending(h->user_name);
+                        if (q < 0)
+                                log_warning_errno(q,
+                                                  "Failed to remove stale thin-volume recovery record, ignoring: %m");
+                }
+        } else
+                r = home_save_record(h);
+        if (r < 0) {
+                log_error_errno(r, "Failed to commit created home record: %m");
+                sd_bus_error_set(&error, SD_BUS_ERROR_FAILED, "Failed to commit the created home record");
+                goto fail;
+        }
+
+        h->unregister_on_failure = false;
 
         log_debug("Creation of %s completed.", h->user_name);
 
@@ -980,6 +1013,14 @@ static void home_create_finish(Home *h, int ret, UserRecord *hr) {
         home_set_state(h, _HOME_STATE_INVALID);
 
         (void) manager_schedule_rebalance(h->manager, /* immediately= */ true);
+        return;
+
+fail:
+        /* The storage has already been fully created at this point. A thin home's pending record is deliberately
+         * retained for recovery, and the in-memory object remains registered to prevent a colliding retry. */
+        h->unregister_on_failure = false;
+        h->current_operation = operation_result_unref(h->current_operation, r, &error);
+        home_set_state(h, _HOME_STATE_INVALID);
 }
 
 static void home_change_finish(Home *h, int ret, UserRecord *hr) {
@@ -1414,6 +1455,18 @@ static int home_start_work(
                                 log_error_errno(errno, "Failed to set $SYSTEMD_HOME_DEFAULT_FILE_SYSTEM_TYPE: %m");
                                 _exit(EXIT_FAILURE);
                         }
+
+                if (h->manager->thin_pool)
+                        if (setenv("SYSTEMD_HOME_THIN_POOL", h->manager->thin_pool, 1) < 0) {
+                                log_error_errno(errno, "Failed to set $SYSTEMD_HOME_THIN_POOL: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                if (setenv("SYSTEMD_HOME_HARDWARE_WRAPPED_KEYS",
+                           one_zero(h->manager->hardware_wrapped_keys), 1) < 0) {
+                        log_error_errno(errno, "Failed to set $SYSTEMD_HOME_HARDWARE_WRAPPED_KEYS: %m");
+                        _exit(EXIT_FAILURE);
+                }
 
                 if (setenv("SYSTEMD_HOMEWORK_UPDATE_OFFLINE", one_zero(FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE)), 1) < 0) {
                         log_error_errno(errno, "Failed to set $SYSTEMD_HOMEWORK_UPDATE_OFFLINE: %m");
@@ -2215,6 +2268,18 @@ int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error) {
         return home_unlock_internal(h, secret, HOME_UNLOCKING, error);
 }
 
+static int home_test_image_path(Home *h) {
+        int r;
+
+        assert(h);
+
+        r = user_record_test_image_path(h->record);
+        if (r == USER_TEST_ABSENT && h->record->thin_pool_uuid)
+                return USER_TEST_MAYBE; /* Inactive activation-skipped LVs intentionally have no devlinks. */
+
+        return r;
+}
+
 HomeState home_get_state(Home *h) {
         int r;
         assert(h);
@@ -2229,7 +2294,7 @@ HomeState home_get_state(Home *h) {
                 return h->retry_deactivate_event_source ? HOME_LINGERING : HOME_ACTIVE;
 
         /* And if we see the image being gone, we report this as absent */
-        r = user_record_test_image_path(h->record);
+        r = home_test_image_path(h);
         if (r == USER_TEST_ABSENT)
                 return HOME_ABSENT;
         if (r == USER_TEST_DIRTY)
@@ -2356,7 +2421,10 @@ static int home_get_disk_status_luks(
 
         assert(h);
 
-        if (state != HOME_ABSENT) {
+        if (h->record->thin_pool_uuid && h->record->disk_size != UINT64_MAX)
+                disk_ceiling = disk_size = h->record->disk_size;
+
+        if (state != HOME_ABSENT && (!h->record->thin_pool_uuid || HOME_STATE_IS_ACTIVE(state))) {
                 const char *ip;
 
                 ip = user_record_image_path(h->record);
@@ -3311,7 +3379,7 @@ int home_auto_login(Home *h, char ***ret_seats) {
                  * We filter out users marked for auto-login in we know for sure their home directory is
                  * absent. */
 
-                if (user_record_test_image_path(h->record) != USER_TEST_ABSENT) {
+                if (home_test_image_path(h) != USER_TEST_ABSENT) {
                         seat2 = strdup("seat0");
                         if (!seat2)
                                 return -ENOMEM;
