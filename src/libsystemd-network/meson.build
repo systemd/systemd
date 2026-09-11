@@ -123,6 +123,10 @@ executables += [
                 'import' : ['test-ndisc-ra'],
         },
         network_test_template + {
+                'sources' : files('test-ndisc-dnr-roundtrip.c'),
+                'import' : ['test-ndisc-ra'],
+        },
+        network_test_template + {
                 'sources' : files('test-ndisc-send.c'),
                 'type' : 'manual',
         },
