@@ -328,6 +328,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Network.Link.Renew",           vl_method_link_renew,
                         "io.systemd.Network.Link.ForceRenew",      vl_method_link_force_renew,
                         "io.systemd.Network.Link.Reconfigure",     vl_method_link_reconfigure,
+                        "io.systemd.Network.Link.SetDNS",          vl_method_link_set_dns,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.Reload",               vl_method_reload,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
