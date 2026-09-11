@@ -93,8 +93,11 @@
 
           <listitem><para>Directory to use as file system root for the virtual machine.</para>
 
-          <para>One of either <option>--directory=</option> or <option>--image=</option> must be specified.
-          If neither are specified <option>--directory=.</option> is assumed.</para>
+          <para>At most one of <option>--directory=</option>, <option>--image=</option>, or
+          <option>--mstack=</option> may be specified. If none are specified and
+          <option>--machine=</option> is set, the machine image of that name is looked up in the
+          standard search paths (which may be a directory, a disk image, or a mount stack). Otherwise,
+          <option>--directory=.</option> is assumed.</para>
 
           <para>Note: If mounting a non-root owned directory you may require <option>--private-users=</option>
           to map into the user's subuid namespace. An example of how to use <constant>/etc/subuid</constant>
@@ -102,6 +105,34 @@
 
           <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--mstack=</option></term>
+
+          <listitem><para>Mount stack to use as the root file system for the virtual machine. Takes a path
+          to a directory implementing
+          <citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          The assembled file system is provided to the virtual machine through virtiofs. This option currently
+          requires <option>--linux=</option>, root privileges, systemd-mountfsd,
+          systemd-nsresourced, BPF LSM support, and a Linux kernel with the overlayfs features required for
+          mount stack assembly. It cannot be combined with <option>--ephemeral</option>.</para>
+
+          <xi:include href="vpick.xml" xpointer="directory"/>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--image-policy=<replaceable>policy</replaceable></option></term>
+
+          <listitem><para>Takes an image policy string as described in
+          <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          The policy is applied when opening disk image layers referenced by
+          <option>--mstack=</option>. This option requires
+          <option>--mstack=</option>. If not specified, the default container image policy is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/></listitem>
         </varlistentry>
 
         <varlistentry>
