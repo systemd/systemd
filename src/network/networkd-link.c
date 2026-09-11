@@ -1095,8 +1095,12 @@ int link_drop_requests(Link *link, NetworkConfigSource source) {
                         if (source >= 0 && address->source != source)
                                 continue;
 
-                        if (remove && address_get(link, address, /* ret= */ NULL) < 0)
-                                RET_GATHER(ret, address_remove(address, link));
+                        if (address_get(link, address, /* ret= */ NULL) < 0) {
+                                if (remove)
+                                        RET_GATHER(ret, address_remove(address, link));
+                                else
+                                        ipv4acd_detach(link, address);
+                        }
                         break;
                 }
                 case REQUEST_TYPE_NEIGHBOR: {
