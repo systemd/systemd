@@ -9,6 +9,9 @@ if [[ "${BASH_SOURCE[0]}" -ef "$0" ]]; then
     exit 1
 fi
 
+# shellcheck source=test/units/TEST-94-COCO/fixtures.sh
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/fixtures.sh"
+
 # Exit status the guest test runner reports on success (its unit's SuccessActionExitStatus=). vmspawn
 # forwards the guest PID1's EXIT_STATUS over the vsock notify socket and exits with it.
 _COCO_GUEST_PASS=123
@@ -44,8 +47,8 @@ EOF
 _coco_guest_dropin() {
     cat <<EOF
 [Unit]
-Wants=coco-guest.service
-After=coco-guest.service
+Wants=$COCO_GUEST_UNIT
+After=$COCO_GUEST_UNIT
 EOF
 }
 
@@ -83,7 +86,7 @@ vmspawn_boot_coco() {
         --ephemeral \
         --tpm=no \
         --console=read-only \
-        --set-credential="systemd.extra-unit.coco-guest.service:$guest_unit" \
+        --set-credential="systemd.extra-unit.$COCO_GUEST_UNIT:$guest_unit" \
         --set-credential="systemd.unit-dropin.multi-user.target:$guest_dropin" \
         "$@" \
         2>&1 | tee "$console" || rc="${PIPESTATUS[0]}"
