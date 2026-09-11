@@ -605,7 +605,7 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                                 assert(flags == UPDATE_INSTALLED);
 
                                 match = resource_find_instance(&t->target, cursor);
-                                if (!match && !(extra_flags & (UPDATE_PARTIAL|UPDATE_PENDING)))
+                                if (!match && !FLAGS_SET(extra_flags, UPDATE_PARTIAL))
                                         /* When we're looking for installed versions, let's be robust and treat
                                          * an incomplete installation as an installation. Otherwise, there are
                                          * situations that can lead to sysupdate wiping the currently booted OS.
@@ -621,16 +621,17 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                         if (strv_contains(t->protected_versions, cursor))
                                 extra_flags |= UPDATE_PROTECTED;
 
-                        /* Partial or pending updates by definition are not incomplete, they’re
-                         * partial/pending instead. While an individual Instance cannot be both partial and
-                         * pending, an UpdateSet as a whole can contain both partial and pending instances. */
+                        /* A partial or pending instance is not incomplete by itself. Partial status takes
+                         * precedence over missing instances, while a pending instance does not. While an
+                         * individual Instance cannot be both partial and pending, an UpdateSet as a whole
+                         * can contain both partial and pending instances. */
                         assert(!match || !(match->is_partial && match->is_pending));
 
                         if (match && match->is_partial)
                                 extra_flags = (extra_flags | UPDATE_PARTIAL) & ~UPDATE_INCOMPLETE;
 
                         if (match && match->is_pending)
-                                extra_flags = (extra_flags | UPDATE_PENDING) & ~UPDATE_INCOMPLETE;
+                                extra_flags |= UPDATE_PENDING;
                 }
 
                 r = free_and_strdup_warn(&boundary, cursor);
@@ -1015,7 +1016,7 @@ static int context_show_version(Context *c, const char *version) {
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
                        yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? ansi_highlight_yellow() : "", FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? " (incomplete)" : "", ansi_normal(),
-                       FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PENDING) ? " (pending)" : "", FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PARTIAL) ? " (partial)" : "",
+                       FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PENDING) && !FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? " (pending)" : "", FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PARTIAL) ? " (partial)" : "",
                        yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
                        us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
@@ -1042,7 +1043,7 @@ static int context_show_version(Context *c, const char *version) {
                                           SD_JSON_BUILD_PAIR_BOOLEAN("available", FLAGS_SET(us->flags, UPDATE_AVAILABLE)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("installed", FLAGS_SET(us->flags, UPDATE_INSTALLED)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("partial", FLAGS_SET(us->flags, UPDATE_PARTIAL)),
-                                          SD_JSON_BUILD_PAIR_BOOLEAN("pending", FLAGS_SET(us->flags, UPDATE_PENDING)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("pending", FLAGS_SET(us->flags, UPDATE_PENDING) && !FLAGS_SET(us->flags, UPDATE_INCOMPLETE)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", FLAGS_SET(us->flags, UPDATE_INCOMPLETE)),
@@ -1653,6 +1654,15 @@ static int context_acquire(
 
                 if (inst->resource == &t->target) { /* a present transfer in an incomplete installation */
                         assert(FLAGS_SET(us->flags, UPDATE_INCOMPLETE));
+
+                        if (inst->is_pending && t->target.type == RESOURCE_PARTITION) {
+                                /* The partition was selected during the original acquire, which we skip here.
+                                 * Preserve that information for the install phase. */
+                                r = partition_info_copy(&t->partition_info, &inst->partition_info);
+                                if (r < 0)
+                                        return r;
+                        }
+
                         continue;
                 }
 
@@ -1692,8 +1702,8 @@ static int context_process_partial_and_pending(
         }
 
         if (FLAGS_SET(us->flags, UPDATE_INCOMPLETE))
-                log_info("Selected update '%s' is already installed, but incomplete. Repairing.", us->version);
-        else if ((us->flags & (UPDATE_PARTIAL|UPDATE_PENDING|UPDATE_INSTALLED)) == UPDATE_INSTALLED) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is incomplete, refusing. Run a non-offline update to repair it.", us->version);
+        if ((us->flags & (UPDATE_PARTIAL|UPDATE_PENDING|UPDATE_INSTALLED)) == UPDATE_INSTALLED) {
                 log_info("Selected update '%s' is already installed. Skipping update.", us->version);
 
                 return 0;
@@ -1986,7 +1996,8 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
                             FLAGS_SET(us->flags, UPDATE_NEWEST)) {
                                 current = us->version;
-                                current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
+                                current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING) &&
+                                                     !FLAGS_SET(us->flags, UPDATE_INCOMPLETE);
                         }
 
                         r = strv_extend(&versions, us->version);
