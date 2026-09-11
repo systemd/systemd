@@ -119,3 +119,13 @@ typedef struct LinkSetDomainsParameters {
 void link_set_domains_parameters_done(LinkSetDomainsParameters *p);
 
 int dispatch_link_set_domains_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+
+typedef struct LinkSetNTAParameters {
+        char **ntas;
+        const char *ifname;
+        int ifindex;
+} LinkSetNTAParameters;
+
+void link_set_nta_parameters_done(LinkSetNTAParameters *p);
+
+int dispatch_link_set_nta_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
