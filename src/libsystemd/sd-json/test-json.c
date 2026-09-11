@@ -1058,6 +1058,83 @@ TEST(json_dispatch) {
         assert_se(foobar.p == INT8_MIN);
 }
 
+TEST(json_dispatch_relax) {
+        struct foobar {
+                uint64_t a, b;
+                int64_t c, d;
+                uint32_t e, f;
+                int32_t g, h;
+                uint16_t i, j;
+                int16_t k, l;
+                uint8_t m, n;
+                int8_t o, p;
+        } foobar = {};
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        assert_se(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR_NULL("a"),
+                                             SD_JSON_BUILD_PAIR_NULL("b"),
+                                             SD_JSON_BUILD_PAIR_NULL("c"),
+                                             SD_JSON_BUILD_PAIR_NULL("d"),
+                                             SD_JSON_BUILD_PAIR_NULL("e"),
+                                             SD_JSON_BUILD_PAIR_NULL("f"),
+                                             SD_JSON_BUILD_PAIR_NULL("g"),
+                                             SD_JSON_BUILD_PAIR_NULL("h"),
+                                             SD_JSON_BUILD_PAIR_NULL("i"),
+                                             SD_JSON_BUILD_PAIR_NULL("j"),
+                                             SD_JSON_BUILD_PAIR_NULL("k"),
+                                             SD_JSON_BUILD_PAIR_NULL("l"),
+                                             SD_JSON_BUILD_PAIR_NULL("m"),
+                                             SD_JSON_BUILD_PAIR_NULL("n"),
+                                             SD_JSON_BUILD_PAIR_NULL("o"),
+                                             SD_JSON_BUILD_PAIR_NULL("p"))) >= 0);
+
+        assert_se(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, stdout, /* prefix= */ NULL) >= 0);
+
+        sd_json_dispatch_field table[] = {
+                { "a", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct foobar, a), SD_JSON_RELAX },
+                { "b", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(struct foobar, b), 0             },
+                { "c", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int64,  offsetof(struct foobar, c), SD_JSON_RELAX },
+                { "d", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int64,  offsetof(struct foobar, d), 0             },
+                { "e", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32, offsetof(struct foobar, e), SD_JSON_RELAX },
+                { "f", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32, offsetof(struct foobar, f), 0             },
+                { "g", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int32,  offsetof(struct foobar, g), SD_JSON_RELAX },
+                { "h", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int32,  offsetof(struct foobar, h), 0             },
+                { "i", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(struct foobar, i), SD_JSON_RELAX },
+                { "j", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(struct foobar, j), 0             },
+                { "k", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int16,  offsetof(struct foobar, k), SD_JSON_RELAX },
+                { "l", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int16,  offsetof(struct foobar, l), 0             },
+                { "m", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8,  offsetof(struct foobar, m), SD_JSON_RELAX },
+                { "n", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8,  offsetof(struct foobar, n), 0             },
+                { "o", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int8,   offsetof(struct foobar, o), SD_JSON_RELAX },
+                { "p", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int8,   offsetof(struct foobar, p), 0             },
+                {}
+        };
+
+        assert_se(sd_json_dispatch(v, table, SD_JSON_LOG, &foobar) >= 0);
+
+        assert_se(foobar.a == 0);
+        assert_se(foobar.b == UINT64_MAX);
+        assert_se(foobar.c == 0);
+        assert_se(foobar.d == -1);
+
+        assert_se(foobar.e == 0);
+        assert_se(foobar.f == UINT32_MAX);
+        assert_se(foobar.g == 0);
+        assert_se(foobar.h == -1);
+
+        assert_se(foobar.i == 0);
+        assert_se(foobar.j == UINT16_MAX);
+        assert_se(foobar.k == 0);
+        assert_se(foobar.l == -1);
+
+        assert_se(foobar.m == 0);
+        assert_se(foobar.n == UINT8_MAX);
+        assert_se(foobar.o == 0);
+        assert_se(foobar.p == -1);
+}
+
 typedef enum mytestenum {
         myfoo, mybar, mybaz, with_some_dashes, _mymax, _myinvalid = -EINVAL,
 } mytestenum;

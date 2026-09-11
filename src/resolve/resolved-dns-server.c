@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "hash-funcs.h"
 #include "json-util.h"
+#include "resolve-util.h"
 #include "resolved-bus.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-delegate.h"

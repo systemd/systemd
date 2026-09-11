@@ -92,3 +92,40 @@ typedef struct ResolveServiceReply {
 void resolve_service_reply_done(ResolveServiceReply *reply);
 
 int dispatch_resolve_service_reply(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+
+typedef struct LinkSetDNSParameters {
+        struct in_addr_full **servers;
+        size_t n_servers;
+        const char *ifname;
+        int ifindex;
+} LinkSetDNSParameters;
+
+void link_set_dns_parameters_done(LinkSetDNSParameters *p);
+
+int dispatch_link_set_dns_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+
+typedef struct DomainParameters {
+        char *name;
+        bool route_only;
+} DomainParameters;
+
+typedef struct LinkSetDomainsParameters {
+        DomainParameters *domains;
+        size_t n_domains;
+        const char *ifname;
+        int ifindex;
+} LinkSetDomainsParameters;
+
+void link_set_domains_parameters_done(LinkSetDomainsParameters *p);
+
+int dispatch_link_set_domains_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+
+typedef struct LinkSetNTAParameters {
+        char **ntas;
+        const char *ifname;
+        int ifindex;
+} LinkSetNTAParameters;
+
+void link_set_nta_parameters_done(LinkSetNTAParameters *p);
+
+int dispatch_link_set_nta_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);

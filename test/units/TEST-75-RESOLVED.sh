@@ -1791,6 +1791,267 @@ EOF
     systemctl reload systemd-resolved
 }
 
+do_test_varlink_network_link_methods() {
+    local ifname socket orig_config
+
+    ifname="${1:?}"
+    socket="${2:?}"
+
+    orig_config="$(resolvectl --json=pretty status "$ifname")"
+
+    # io.systemd.Network.Link.SetDNS
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDNS \
+        '{"InterfaceName":"'"$ifname"'","Servers":[{"Family":2,"Address":[10,0,0,1],"Port":53},{"Family":10,"Address":[253,0,222,173,190,239,202,254,0,0,0,0,0,0,0,1]}]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in '10.0.0.1' "$(resolvectl dns "$ifname")"
+    assert_in 'fd00:dead:beef:cafe::1' "$(resolvectl dns "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDNS \
+        '{"InterfaceName":"'"$ifname"'","Servers":[]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq "$(resolvectl --json=short dns "$ifname" | jq -rc '.[0].servers')" 'null'
+
+    # io.systemd.Network.Link.SetDomains
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDomains \
+        '{"InterfaceName":"'"$ifname"'","Domains":[{"Domain":"example.test","RouteOnly":false},{"Domain":"internal.test","RouteOnly":true}]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'example.test' "$(resolvectl domain "$ifname")"
+    assert_in '~internal.test' "$(resolvectl domain "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDomains \
+        '{"InterfaceName":"'"$ifname"'","Domains":[]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq "$(resolvectl --json=short domain "$ifname" | jq -rc '.[0].searchDomains')" 'null'
+
+    # io.systemd.Network.Link.SetDNSDefaultRoute
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDNSDefaultRoute \
+        '{"InterfaceName":"'"$ifname"'","DefaultRoute":true}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl default-route "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDNSDefaultRoute \
+        '{"InterfaceName":"'"$ifname"'","DefaultRoute":false}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'no' "$(resolvectl default-route "$ifname")"
+
+    # io.systemd.Network.Link.SetLLMNR
+    varlinkctl call "$socket" io.systemd.Network.Link.SetLLMNR \
+        '{"InterfaceName":"'"$ifname"'","Mode":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl llmnr "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Network.Link.SetLLMNR \
+        '{"InterfaceName":"'"$ifname"'","Mode":"resolve"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'resolve' "$(resolvectl llmnr "$ifname")"
+
+    # io.systemd.Network.Link.SetMulticastDNS
+    varlinkctl call "$socket" io.systemd.Network.Link.SetMulticastDNS \
+        '{"InterfaceName":"'"$ifname"'","Mode":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl mdns "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Network.Link.SetMulticastDNS \
+        '{"InterfaceName":"'"$ifname"'","Mode":"resolve"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'resolve' "$(resolvectl mdns "$ifname")"
+
+    # io.systemd.Network.Link.SetDNSOverTLS
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDNSOverTLS \
+        '{"InterfaceName":"'"$ifname"'","Mode":"opportunistic"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'opportunistic' "$(resolvectl dnsovertls "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDNSOverTLS \
+        '{"InterfaceName":"'"$ifname"'","Mode":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl dnsovertls "$ifname")"
+
+    # io.systemd.Network.Link.SetDNSSEC
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDNSSEC \
+        '{"InterfaceName":"'"$ifname"'","Mode":"allow-downgrade"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'allow-downgrade' "$(resolvectl dnssec "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDNSSEC \
+        '{"InterfaceName":"'"$ifname"'","Mode":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl dnssec "$ifname")"
+
+    # io.systemd.Network.Link.SetDNSSECNegativeTrustAnchors
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDNSSECNegativeTrustAnchors \
+        '{"InterfaceName":"'"$ifname"'","NegativeTrustAnchors":["local","test"]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq \
+        "$(resolvectl --json=short nta "$ifname" | jq -rc '.[0].negativeTrustAnchors')" \
+        '["local","test"]'
+
+    varlinkctl call "$socket" io.systemd.Network.Link.SetDNSSECNegativeTrustAnchors \
+        '{"InterfaceName":"'"$ifname"'","NegativeTrustAnchors":[]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq "$(resolvectl --json=short nta "$ifname" | jq -rc '.[0].negativeTrustAnchors')" 'null'
+
+    # io.systemd.Network.Link.RevertDNS
+    varlinkctl call "$socket" io.systemd.Network.Link.RevertDNS \
+        '{"InterfaceName":"'"$ifname"'"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq "$(resolvectl --json=pretty status "$ifname")" "$orig_config"
+}
+
+do_test_varlink_network_link_unmanaged() {
+    local ifname socket
+
+    ifname="${1:?}"
+    socket="${2:?}"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceUnmanaged' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceUnmanaged "$socket" io.systemd.Network.Link.SetDNS \
+            '{"InterfaceName":"'"$ifname"'","Servers":[{"Family":2,"Address":[10,0,0,1],"Port":53},{"Family":10,"Address":[253,0,222,173,190,239,202,254,0,0,0,0,0,0,0,1]}]}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceUnmanaged' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceUnmanaged "$socket" io.systemd.Network.Link.SetDomains \
+            '{"InterfaceName":"'"$ifname"'","Domains":[{"Domain":"example.test","RouteOnly":false},{"Domain":"internal.test","RouteOnly":true}]}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceUnmanaged' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceUnmanaged "$socket" io.systemd.Network.Link.SetDNSDefaultRoute \
+            '{"InterfaceName":"'"$ifname"'","DefaultRoute":true}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceUnmanaged' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceUnmanaged "$socket" io.systemd.Network.Link.SetLLMNR \
+            '{"InterfaceName":"'"$ifname"'","Mode":"yes"}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceUnmanaged' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceUnmanaged "$socket" io.systemd.Network.Link.SetMulticastDNS \
+            '{"InterfaceName":"'"$ifname"'","Mode":"yes"}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceUnmanaged' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceUnmanaged "$socket" io.systemd.Network.Link.SetDNSOverTLS \
+            '{"InterfaceName":"'"$ifname"'","Mode":"opportunistic"}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceUnmanaged' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceUnmanaged "$socket" io.systemd.Network.Link.SetDNSSEC \
+            '{"InterfaceName":"'"$ifname"'","Mode":"allow-downgrade"}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceUnmanaged' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceUnmanaged "$socket" io.systemd.Network.Link.SetDNSSECNegativeTrustAnchors \
+            '{"InterfaceName":"'"$ifname"'","NegativeTrustAnchors":["local","test"]}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceUnmanaged' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceUnmanaged "$socket" io.systemd.Network.Link.RevertDNS \
+            '{"InterfaceName":"'"$ifname"'"}' 2>&1)"
+}
+
+do_test_varlink_network_link_loopback() {
+    local socket
+
+    socket="${1:?}"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceIsLoopback' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceIsLoopback "$socket" io.systemd.Network.Link.SetDNS \
+            '{"InterfaceName":"lo","Servers":[{"Family":2,"Address":[10,0,0,1],"Port":53},{"Family":10,"Address":[253,0,222,173,190,239,202,254,0,0,0,0,0,0,0,1]}]}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceIsLoopback' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceIsLoopback "$socket" io.systemd.Network.Link.SetDomains \
+            '{"InterfaceName":"lo","Domains":[{"Domain":"example.test","RouteOnly":false},{"Domain":"internal.test","RouteOnly":true}]}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceIsLoopback' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceIsLoopback "$socket" io.systemd.Network.Link.SetDNSDefaultRoute \
+            '{"InterfaceName":"lo","DefaultRoute":true}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceIsLoopback' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceIsLoopback "$socket" io.systemd.Network.Link.SetLLMNR \
+            '{"InterfaceName":"lo","Mode":"yes"}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceIsLoopback' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceIsLoopback "$socket" io.systemd.Network.Link.SetMulticastDNS \
+            '{"InterfaceName":"lo","Mode":"yes"}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceIsLoopback' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceIsLoopback "$socket" io.systemd.Network.Link.SetDNSOverTLS \
+            '{"InterfaceName":"lo","Mode":"opportunistic"}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceIsLoopback' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceIsLoopback "$socket" io.systemd.Network.Link.SetDNSSEC \
+            '{"InterfaceName":"lo","Mode":"allow-downgrade"}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceIsLoopback' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceIsLoopback "$socket" io.systemd.Network.Link.SetDNSSECNegativeTrustAnchors \
+            '{"InterfaceName":"lo","NegativeTrustAnchors":["local","test"]}' 2>&1)"
+
+    assert_in \
+        'io.systemd.Network.Link.InterfaceIsLoopback' \
+        "$(varlinkctl call --graceful=io.systemd.Network.Link.InterfaceIsLoopback "$socket" io.systemd.Network.Link.RevertDNS \
+            '{"InterfaceName":"lo"}' 2>&1)"
+}
+
+testcase_16_varlink_network_link_methods() {
+    # Cleanup
+    # shellcheck disable=SC2317,SC2329
+    cleanup() (
+        set +e
+        resolvectl revert dns0
+        ip link del hoge0
+        rm -f /run/systemd/resolved.conf.d/90-mdns-llmnr.conf
+        systemctl reload systemd-resolved.service
+    )
+    trap cleanup RETURN ERR
+
+    {
+        echo "[Resolve]"
+        echo "MulticastDNS=yes"
+        echo "LLMNR=yes"
+    } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
+    systemctl reload systemd-resolved.service
+
+    ip link add hoge0 type dummy
+    ip link set hoge0 up
+
+    /usr/lib/systemd/systemd-networkd-wait-online --timeout=60 --interface=hoge0:degraded
+
+    do_test_varlink_network_link_methods "hoge0" "/run/systemd/resolve/io.systemd.Resolve"
+    do_test_varlink_network_link_methods "dns0" "/run/systemd/netif/io.systemd.Network"
+
+    do_test_varlink_network_link_unmanaged "dns0" "/run/systemd/resolve/io.systemd.Resolve"
+    do_test_varlink_network_link_unmanaged "hoge0" "/run/systemd/netif/io.systemd.Network"
+
+    do_test_varlink_network_link_loopback "/run/systemd/resolve/io.systemd.Resolve"
+    do_test_varlink_network_link_loopback "/run/systemd/netif/io.systemd.Network"
+}
+
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
