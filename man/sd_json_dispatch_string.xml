@@ -271,10 +271,14 @@
     <function>sd_json_dispatch_uint64()</function>, <function>sd_json_dispatch_uint32()</function>,
     <function>sd_json_dispatch_uint16()</function> and <function>sd_json_dispatch_uint8()</function>
     functions decode a JSON integer value, and write the value to the indicated memory. The function names
-    indicate the word width and signedness of the integers being parsed. If the JSON null value is passed the
-    functions for the unsigned integer types will assign the maximum value the type takes
-    (i.e. <constant>UINT64_MAX</constant>, <constant>UINT32_MAX</constant> …), and the signed versions assign
-    -1. Instead of a JSON integer value these functions also accept JSON strings that contain formatted
+    indicate the word width and signedness of the integers being parsed. If the JSON null value is passed,
+    then the behavior of these fuctions depends on whether or not the <constant>SD_JSON_RELAX</constant>
+    flag is set. If it is <emphasis>not</emphasis> set, the functions for the unsigned integer types will
+    assign the maximum value the type takes (i.e. <constant>UINT64_MAX</constant>, <constant>UINT32_MAX</constant> …),
+    and the signed versions assign -1. If it <emphasis>is</emphasis> set to indicate more relaxed validation, then all
+    of the functions will assign 0.</para>
+
+    <para>Instead of a JSON integer value these functions also accept JSON strings that contain formatted
     decimal numbers, in order to improve compatibility for encoding integer values that cannot be represented
     in 64bit double precision floating point numbers in other programming languages that encode JSON numerals
     this way.</para>
