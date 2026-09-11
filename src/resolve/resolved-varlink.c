@@ -1560,6 +1560,37 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_link_set_domains(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        assert(link);
+
+        _cleanup_(link_set_domains_parameters_done) LinkSetDomainsParameters p = {};
+        r = dispatch_link_set_domains_parameters(/* name= */ NULL, parameters, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifname, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-domains",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        r = link_set_search_domains(l, p.domains, p.n_domains, RESOLVE_CONFIG_SOURCE_VARLINK);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1639,6 +1670,7 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.ResolveAddress",       vl_method_resolve_address,
                         "io.systemd.Resolve.ResolveService",       vl_method_resolve_service,
                         "io.systemd.Resolve.ResolveRecord",        vl_method_resolve_record,
+                        "io.systemd.Network.Link.SetDomains",      vl_method_link_set_domains,
                         "io.systemd.Network.Link.SetDNS",          vl_method_link_set_dns,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
