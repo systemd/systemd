@@ -582,9 +582,11 @@
         <term><varname>PrivateUsersOwnership=</varname></term>
 
         <listitem><para>Configures whether the ownership of the files and directories in the container tree
-        shall be adjusted to the UID/GID range used, if necessary and user namespacing is enabled. This is
+        shall be adjusted to the UID/GID range used, if necessary. This is
         equivalent to the <option>--private-users-ownership=</option> command line switch. This option is
-        privileged (see above).</para>
+        privileged (see above). Defaults to <literal>auto</literal> if <varname>PrivateUsers=pick</varname>
+        or <varname>PrivateUsers=managed</varname> is used. This option has no effect if user namespacing
+        is not used.</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
