@@ -1394,6 +1394,160 @@ testcase_mdadm_lvm() {
     helper_check_device_units
 }
 
+cleanup_fsck_locking() {
+    local fsck_pid="${1:-}"
+    local holder_fd="${2:-}"
+    local watch_rule="$3"
+    local partition="${4:-}"
+    local disk="$5"
+    local work="$6"
+    local rc=0
+
+    trap - RETURN ERR
+    if [[ -n "$fsck_pid" ]]; then
+        kill "$fsck_pid" 2>/dev/null || :
+        wait "$fsck_pid" 2>/dev/null || :
+    fi
+    if [[ -n "$holder_fd" ]]; then
+        flock --unlock "$holder_fd" 2>/dev/null || :
+        exec {holder_fd}>&- || :
+    fi
+    rm -f "$watch_rule" || rc=$?
+    udevadm control --reload || rc=$?
+    if [[ -b "$partition" ]]; then
+        udevadm trigger --settle --action=change "$partition" || rc=$?
+    fi
+    udevadm lock --timeout=30 --device="$disk" wipefs --all "$disk" || rc=$?
+    udevadm settle --timeout=30 || rc=$?
+    rm -rf "$work" || rc=$?
+    return "$rc"
+}
+
+# This covers systemd-fsck on a partitioned physical disk. Stacked devices and
+# the separate dissect-image fsck path are outside this test's scope.
+testcase_fsck_locking() {
+    local disk=/dev/disk/by-id/scsi-0systemd_foobar_deadbeeffscklock
+    local partition="${disk}-part1"
+    local work ready control
+    local result_name result_link
+    local watch_rule=/run/udev/rules.d/99-test-fsck-locking.rules
+    local real_disk real_partition part_major part_minor holder_fd fsck_pid
+
+    work="$(mktemp --directory /run/test-fsck-locking.XXXXXX)"
+    ready="$work/checker-ready"
+    control="$work/checker-control"
+    result_name="fsck-locking-${work##*.}"
+    result_link="/dev/$result_name"
+    mkdir -p "$work/bin" "$work/credentials" /run/udev/rules.d
+    real_disk="$(readlink -f "$disk")"
+
+    trap 'cleanup_fsck_locking "${fsck_pid:-}" "${holder_fd:-}" "$watch_rule" "${real_partition:-}" "$disk" "$work"' RETURN ERR
+
+    udevadm lock --timeout=30 --device="$disk" sfdisk --wipe=always "$disk" <<EOF
+label: gpt
+size=32M, type=linux
+EOF
+    udevadm wait --settle --timeout=30 "$partition"
+    real_partition="$(readlink -f "$partition")"
+    udevadm lock --timeout=30 --device="$partition" mkfs.ext4 -q "$partition"
+    # Ensure the partition watch required by this test is always enabled.
+    printf 'SUBSYSTEM=="block", KERNEL=="%s", OPTIONS:="watch"\n' "${real_partition##*/}" >"$watch_rule"
+    udevadm control --reload
+    udevadm trigger --settle --action=change "$real_partition"
+    part_major="$(udevadm info --query=property --value --property=MAJOR "$real_partition")"
+    part_minor="$(udevadm info --query=property --value --property=MINOR "$real_partition")"
+    test -L "/run/udev/watch/b${part_major}:${part_minor}"
+
+    cat >"$work/bin/fsck" <<'EOF'
+#!/usr/bin/env bash
+set -eux
+printf '%s\n' "$@" >"$FSCK_TEST_ARGUMENTS"
+
+if [[ ${FSCK_TEST_HOLD:-0} == 1 ]]; then
+    exec {partition_fd}<>"$FSCK_TEST_PARTITION"
+    exec {control_fd}<>"$FSCK_TEST_CONTROL"
+    printf 'READY\n' >"$FSCK_TEST_READY"
+    IFS= read -r -t 90 -u "$control_fd" command
+    [[ "$command" == CLOSE ]]
+    exec {partition_fd}>&-
+    printf 'CLOSED\n' >"$FSCK_TEST_READY"
+    IFS= read -r -t 90 -u "$control_fd" command
+    [[ "$command" == EXIT ]]
+fi
+EOF
+    chmod +x "$work/bin/fsck"
+
+    mkfifo "$ready" "$control"
+    exec {holder_fd}<"$real_disk"
+    flock --exclusive --timeout=30 "$holder_fd"
+    PATH="$work/bin:$PATH" \
+    FSCK_TEST_ARGUMENTS="$work/arguments" \
+    FSCK_TEST_HOLD=1 \
+    FSCK_TEST_READY="$ready" \
+    FSCK_TEST_CONTROL="$control" \
+    FSCK_TEST_PARTITION="$real_partition" \
+        timeout 180 /usr/lib/systemd/systemd-fsck "$partition" &
+    fsck_pid=$!
+
+    # shellcheck disable=SC2016
+    if timeout 10 bash -c \
+        'IFS= read -r value <"$1" && [[ "$value" == READY ]]' \
+        bash "$ready"; then
+        echo >&2 "Checker started while the external whole-disk lock was held"
+        return 1
+    fi
+
+    flock --unlock "$holder_fd"
+    # shellcheck disable=SC2016
+    timeout 30 bash -c \
+        'IFS= read -r value <"$1" && [[ "$value" == READY ]]' \
+        bash "$ready"
+
+    # Keep the watch final when adding the result link because the deferred event
+    # re-evaluates the rule.
+    printf 'ACTION=="change", SUBSYSTEM=="block", KERNEL=="%s", OPTIONS:="watch", SYMLINK+="%s"\n' \
+        "${real_partition##*/}" "$result_name" >"$watch_rule"
+    udevadm control --reload
+    udevadm settle --timeout=30
+
+    # shellcheck disable=SC2016
+    timeout 5 bash -c 'printf "CLOSE\n" >"$1"' bash "$control"
+    # shellcheck disable=SC2016
+    timeout 30 bash -c \
+        'IFS= read -r value <"$1" && [[ "$value" == CLOSED ]]' \
+        bash "$ready"
+    if flock --shared --nonblock "$real_disk" true; then
+        echo >&2 "Parent whole-disk lock is not exclusive"
+        return 1
+    fi
+    # The close-generated event must remain queued behind the parent lock.
+    if udevadm settle --timeout=5; then
+        echo >&2 "udev queue drained while the whole-disk lock was held"
+        return 1
+    fi
+    test ! -L "$result_link"
+
+    # shellcheck disable=SC2016
+    timeout 5 bash -c 'printf "EXIT\n" >"$1"' bash "$control"
+    wait "$fsck_pid"
+    fsck_pid=
+    udevadm wait --settle --timeout=30 "$result_link"
+    test "$(readlink -f "$result_link")" = "$real_partition"
+    flock --exclusive --timeout=30 "$real_disk" true
+
+    printf 'no' >"$work/credentials/fsck.repair"
+    flock --exclusive --timeout=30 "$holder_fd"
+    rm -f "$work/arguments"
+    PATH="$work/bin:$PATH" \
+    FSCK_TEST_ARGUMENTS="$work/arguments" \
+    CREDENTIALS_DIRECTORY="$work/credentials" \
+        timeout 30 /usr/lib/systemd/systemd-fsck "$partition"
+    grep -Fx -- "-n" "$work/arguments" >/dev/null
+    flock --unlock "$holder_fd"
+
+    cleanup_fsck_locking "" "$holder_fd" "$watch_rule" "$real_partition" "$disk" "$work"
+}
+
 udevadm settle
 lsblk -a
 
