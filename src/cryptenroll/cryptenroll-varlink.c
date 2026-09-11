@@ -484,6 +484,11 @@ static int vl_method_make_recovery_key(
         int r;
 
         assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
 
         r = make_recovery_key(&recovery_key);
         if (r < 0)

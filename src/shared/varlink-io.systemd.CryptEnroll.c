@@ -42,7 +42,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
 
                 SD_VARLINK_FIELD_COMMENT("The passphrase to enroll, when mechanism is 'password'. Contains key material."),
                 SD_VARLINK_DEFINE_INPUT(password, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("A recovery key to enroll, when mechanism is 'recovery'. The key must be in the normalized form and have high entropy. Contains key material."),
+                SD_VARLINK_FIELD_COMMENT("A recovery key to enroll, when mechanism is 'recovery'. The key must be in the normalized form and have high entropy. Use MakeRecoveryKey() to generate the recovery key. Contains key material."),
                 SD_VARLINK_DEFINE_INPUT(recoveryKey, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
                 SD_VARLINK_FIELD_COMMENT("Path to the FIDO2 device to enroll, when mechanism is 'fido2'. Leave empty to automatically discover a suitable device."),
