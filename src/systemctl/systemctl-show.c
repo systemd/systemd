@@ -4,6 +4,7 @@
 
 #include "sd-bus.h"
 #include "sd-journal.h"
+#include "sd-varlink.h"
 
 #include "af-list.h"
 #include "bus-error.h"
@@ -32,6 +33,7 @@
 #include "output-mode.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "percent-util.h"
 #include "pretty-print.h"
@@ -50,6 +52,7 @@
 #include "systemctl-util.h"
 #include "terminal-util.h"
 #include "utf8.h"
+#include "varlink-util.h"
 
 static OutputFlags get_output_flags(void) {
         return
@@ -2521,6 +2524,61 @@ static int show_system_status(sd_bus *bus) {
         return 0;
 }
 
+static int manager_acquire_varlink_address(char **ret) {
+        _cleanup_free_ char *socket_path = NULL;
+        int r;
+
+        assert(ret);
+
+        r = runtime_directory_generic(arg_runtime_scope, "systemd/io.systemd.Manager", &socket_path);
+        if (r < 0)
+                return r;
+
+        switch (arg_transport) {
+        case BUS_TRANSPORT_LOCAL:
+                *ret = TAKE_PTR(socket_path);
+                return 0;
+
+        case BUS_TRANSPORT_REMOTE:
+                if (!arg_host)
+                        return -EINVAL;
+
+                *ret = strjoin("ssh:", arg_host, ":", socket_path);
+                return *ret ? 0 : -ENOMEM;
+
+        case BUS_TRANSPORT_MACHINE:
+        case BUS_TRANSPORT_CAPSULE:
+                return -EOPNOTSUPP;
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
+static int show_manager_varlink_json(void) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        r = manager_acquire_varlink_address(&address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire manager Varlink address: %m");
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL)
+                r = sd_varlink_connect_address(&vl, address);
+        else
+                r = sd_varlink_connect_url(&vl, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to manager Varlink at '%s': %m", address);
+
+        r = varlink_call_and_log(vl, "io.systemd.Manager.Describe", NULL, &reply);
+        if (r < 0)
+                return r;
+
+        return sd_json_variant_dump(reply, output_mode_to_json_format_flags(arg_output), stdout, NULL);
+}
+
 int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         bool new_line = false, ellipsized = false;
         SystemctlShowMode show_mode;
@@ -2537,6 +2595,17 @@ int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "'help' command expects one or more unit names.\n"
                                        "(Alternatively, help for systemctl itself may be shown with --help)");
+
+        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES && argc <= 1 && !arg_states && !arg_types &&
+            OUTPUT_MODE_IS_JSON(arg_output)) {
+                pager_open(arg_pager_flags);
+
+                if (!strv_isempty(arg_properties) || FLAGS_SET(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "JSON output with --property= or --value is not supported.");
+
+                return show_manager_varlink_json();
+        }
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
