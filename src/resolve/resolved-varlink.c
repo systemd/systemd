@@ -16,7 +16,6 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
-#include "netlink-util.h"
 #include "resolve-varlink-util.h"
 #include "resolved-bus.h"
 #include "resolved-dns-browse-services.h"

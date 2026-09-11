@@ -2238,27 +2238,84 @@ static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata)
         return c;
 }
 
-static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_error *error, bool extended) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+static int varlink_call_link_method(const char *method, sd_json_variant *parameters) {
         int r;
+
+        assert(method);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *link_parameters = NULL;
+        r = sd_json_buildo(
+                        &link_parameters,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("InterfaceIndex", arg_ifindex));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
+
+        r = sd_json_variant_merge_object(&link_parameters, parameters);
+        if (r < 0)
+                return log_error_errno(r, "Failed to merge JSON parameters: %m");
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to service /run/systemd/resolve/io.systemd.Resolve: %m");
+
+        const char *error_id = NULL;
+        sd_json_variant *reply = NULL;
+        r = sd_varlink_call(vl, method, link_parameters, &reply, &error_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue %s call: %m", method);
+
+        if (streq_ptr(error_id, "io.systemd.Network.Link.InterfaceUnmanaged")) {
+                /* Link is managed by systemd-networkd (i.e. unmanaged by resolved).
+                 * Make the call to systemd-networkd instead. */
+                log_debug("Link is managed by systemd-networkd.");
+
+                error_id = NULL;
+                reply = NULL;
+                vl = sd_varlink_unref(vl);
+
+                r = sd_varlink_connect_address(&vl, "/run/systemd/netif/io.systemd.Network");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to network service /run/systemd/netif/io.systemd.Network: %m");
+
+                r = sd_varlink_call(vl, method, link_parameters, &reply, &error_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to issue %s call: %m", method);
+        }
+
+        if (streq_ptr(error_id, "io.systemd.Network.Link.InterfaceIsLoopback"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Link %s is loopback device", FORMAT_IFNAME(arg_ifindex));
+
+        FOREACH_STRING(s, "InterfaceIndex", "InterfaceName")
+                if (sd_varlink_error_is_invalid_parameter(error_id, reply, s)) {
+                        if (arg_ifindex_permissive)
+                                return 0;
+
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "No such link %s", arg_ifname);
+                }
+
+        if (!isempty(error_id))
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "%s call failed: %s", method, error_id);
+
+        return 0;
+}
+
+static int call_set_dns(char **dns) {
+        int r;
+
+        assert(arg_ifindex > 0);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_message_new_method_call(bus, &req, locator, extended ? "SetLinkDNSEx" : "SetLinkDNS");
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *servers = NULL;
+        r = sd_json_variant_new_array(&servers, /* array= */ NULL, /* n= */ 0);
         if (r < 0)
-                return bus_log_create_error(r);
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-        r = sd_bus_message_append(req, "i", arg_ifindex);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_open_container(req, 'a', extended ? "(iayqs)" : "(iay)");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* If only argument is the empty string, then call SetLinkDNS() with an
-         * empty list, which will clear the list of domains for an interface. */
-        if (!strv_equal(dns, STRV_MAKE("")))
+        /* If only argument is the empty string, then call io.systemd.Network.Link.SetDNS
+         * with an empty list, which will clear the list of DNS for an interface. */
+        if (!strv_equal(dns, STRV_MAKE(""))) {
                 STRV_FOREACH(p, dns) {
                         _cleanup_free_ char *name = NULL;
                         struct in_addr_data data;
@@ -2269,46 +2326,30 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse DNS server address: %s", *p);
 
+                        if (!dns_server_address_valid(data.family, &data.address))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid DNS server address %s", *p);
+
                         if (ifindex != 0 && ifindex != arg_ifindex)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ifindex: %i", ifindex);
 
-                        r = sd_bus_message_open_container(req, 'r', extended ? "iayqs" : "iay");
+                        r = sd_json_variant_append_arraybo(
+                                        &servers,
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("Family", data.family),
+                                        JSON_BUILD_PAIR_IN_ADDR("Address", data.family, &data.address),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("Port", port),
+                                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(ifindex > 0, "InterfaceIndex", ifindex),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ServerName", name));
                         if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_append(req, "i", data.family);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_append_array(req, 'y', &data.address, FAMILY_ADDRESS_SIZE(data.family));
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        if (extended) {
-                                r = sd_bus_message_append(req, "q", port);
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-
-                                r = sd_bus_message_append(req, "s", name);
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-                        }
-
-                        r = sd_bus_message_close_container(req);
-                        if (r < 0)
-                                return bus_log_create_error(r);
+                                return log_error_errno(r, "Failed to add DNS to JSON parameters: %m");
                 }
-
-        r = sd_bus_message_close_container(req);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, req, 0, error, NULL);
-        if (r < 0 && extended && sd_bus_error_has_name(error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
-                sd_bus_error_free(error);
-                return call_dns(bus, dns, locator, error, false);
         }
-        return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(&parameters, SD_JSON_BUILD_PAIR_VARIANT("Servers", servers));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
+
+        return varlink_call_link_method("io.systemd.Network.Link.SetDNS", parameters);
 }
 
 static int dump_cache_item(sd_json_variant *item) {
@@ -2661,13 +2702,7 @@ static int verb_show_server_state(int argc, char *argv[], uintptr_t _data, void 
 VERB(verb_dns, "dns", "[LINK [SERVER…]]\0", VERB_ANY, VERB_ANY, 0,
      "Get/set per-interface DNS server address");
 static int verb_dns(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2681,22 +2716,7 @@ static int verb_dns(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DNS);
 
-        char **args = strv_skip(argv, 2);
-        r = call_dns(bus, args, bus_resolve_mgr, &error, true);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
-
-                r = call_dns(bus, args, bus_network_mgr, &error, true);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set DNS configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return call_set_dns(strv_skip(argv, 2));
 }
 
 static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd_bus_error *error) {
