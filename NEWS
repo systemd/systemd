@@ -149,6 +149,11 @@ CHANGES WITH 262 in spe:
           and the "documentation" key is now an array of strings. Consumers
           of this interface must update their JSON parsing accordingly.
 
+        * The PrivateUsersOwnership= setting in .nspawn files now defaults to
+          "auto" when PrivateUsers= is "pick" or "managed", matching the
+          --private-users-ownership= command line switch. Previously "pick"
+          defaulted to "chown", and "managed" to "off".
+
         Changes in the system and service manager:
 
         * The manager now embeds a basic set of unit files (basic.target,
