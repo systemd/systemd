@@ -337,3 +337,50 @@ int vl_method_link_set_domains(sd_varlink *vlink, sd_json_variant *parameters, s
 
         return sd_varlink_reply(vlink, NULL);
 }
+
+int vl_method_link_set_dns_default_route(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(vlink);
+
+        Link *link;
+        r = dispatch_link(vlink, parameters, manager, DISPATCH_LINK_POLKIT | DISPATCH_LINK_MANAGED | DISPATCH_LINK_ALLOW_EXTENSIONS, &link);
+        if (r != 0)
+                return r;
+
+        struct {
+                bool default_route;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "DefaultRoute",   SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, voffsetof(p, default_route), SD_JSON_MANDATORY },
+                /* Already handled by dispatch_link() */
+                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, NULL,                     0,                           0,                },
+                { "InterfaceName",  _SD_JSON_VARIANT_TYPE_INVALID, NULL,                     0,                           0,                },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.set-default-route",
+                        (const char**) STRV_MAKE("interface", link->ifname),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (p.default_route != link->dns_default_route) {
+                link->dns_default_route = p.default_route;
+
+                r = link_save_and_clean_full(link, /* also_save_manager= */ true);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_varlink_reply(vlink, NULL);
+}
