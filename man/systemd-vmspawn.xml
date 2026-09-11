@@ -1006,6 +1006,7 @@ $ ssh root@vsock/$my_vsock_cid -i /run/user/$UID/systemd/vmspawn/machine-*-syste
     <title>Exit status</title>
 
     <para>If an error occurred the value errno is propagated to the return code.
+    If QEMU or a helper process failed, a non-zero exit status is returned.
     If EXIT_STATUS is supplied by the running image that is returned.
     Otherwise, EXIT_SUCCESS is returned.</para>
   </refsect1>

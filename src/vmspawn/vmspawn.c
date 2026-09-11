@@ -12,6 +12,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-id128.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
@@ -31,6 +32,7 @@
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "dlopen-note.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
@@ -139,6 +141,7 @@ typedef struct SSHInfo {
 typedef struct ShutdownInfo {
         SSHInfo *ssh_info;
         PidRef *pidref;
+        sd_future *vm_exit;
 } ShutdownInfo;
 
 static bool arg_quiet = false;
@@ -1275,14 +1278,32 @@ fallback:
                 }
         }
 
-        return sd_event_exit(sd_event_source_get_event(s), 0);
+        return sd_future_resolve(shutdown_info->vm_exit, 0);
 }
 
-static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        assert(s);
-        assert(si);
+static void* vm_exit_future_alloc(void) {
+        return new0(char, 1);
+}
 
-        /* Let's first do some logging about the exit status of the child. */
+static void vm_exit_future_free(sd_future *f) {
+        free(sd_future_get_private(f));
+}
+
+static int vm_exit_future_cancel(sd_future *f) {
+        return sd_future_resolve(f, -ECANCELED);
+}
+
+static const sd_future_ops vm_exit_future_ops = {
+        .size   = sizeof(sd_future_ops),
+        .alloc  = vm_exit_future_alloc,
+        .free   = vm_exit_future_free,
+        .cancel = vm_exit_future_cancel,
+};
+
+/* Logs about the exit status of a child and turns it into what we want to report: the exit status
+ * itself if it exited, a synthetic error if it died some other way. */
+static int child_exit_status(const siginfo_t *si) {
+        assert(si);
 
         int ret;
         if (si->si_code == CLD_EXITED) {
@@ -1305,11 +1326,30 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
                                       "Got unexpected exit code %i from child.",
                                       si->si_code);
 
-        /* Regardless of whether the main qemu process or an auxiliary process died, let's exit either way
-         * as it's very likely that the main qemu process won't be able to operate properly anymore if one
-         * of the auxiliary processes died. */
+        return ret;
+}
 
-        sd_event_exit(sd_event_source_get_event(s), ret);
+static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        assert(s);
+
+        (void) sd_future_resolve(ASSERT_PTR(userdata), child_exit_status(si));
+        return 0;
+}
+
+static int on_helper_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        assert(s);
+        assert(si);
+
+        /* Helpers are released by the guest as it shuts down, regularly before qemu itself is done
+         * exiting, so a clean exit here says nothing about how the VM fared: leave that verdict to
+         * qemu. A helper that fails or gets killed is a different matter, the main qemu process is
+         * very likely not able to operate properly anymore, so let that end the VM. */
+
+        int ret = child_exit_status(si);
+        if (ret == 0)
+                return 0;
+
+        (void) sd_future_resolve(ASSERT_PTR(userdata), ret);
         return 0;
 }
 
@@ -2088,7 +2128,7 @@ static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *erro
         assert(m);
 
         log_info("VM termination requested. Exiting.");
-        sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), 0);
+        (void) sd_future_resolve(ASSERT_PTR(userdata), 0);
 
         return 0;
 }
@@ -2556,6 +2596,155 @@ static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware
         return 0;
 }
 
+/* Bound the total volume of qemu stderr we forward to the journal, so a hostile guest that
+ * makes qemu emit diagnostics can't flood the host log. */
+#define QEMU_STDERR_LOG_MAX (64U*1024U)
+
+typedef struct QemuStderrContext {
+        int fd;                 /* Borrowed read end of stderr pipe. */
+        LineBuffer buffer;
+        sd_future *fiber;       /* Reader fiber, owned. */
+        size_t n_logged;        /* Bytes forwarded, capped at QEMU_STDERR_LOG_MAX. */
+        bool suppressed;
+} QemuStderrContext;
+
+static void log_qemu_stderr_line(const char *line, size_t len, void *userdata) {
+        QemuStderrContext *c = ASSERT_PTR(userdata);
+
+        assert(line);
+
+        if (len == 0 || c->suppressed)
+                return;
+
+        bool hit_limit = c->n_logged + len >= QEMU_STDERR_LOG_MAX;
+        if (hit_limit) {
+                len = QEMU_STDERR_LOG_MAX - c->n_logged;
+                c->suppressed = true;
+        }
+
+        c->n_logged += len;
+
+        /* Lines can carry arbitrary bytes, and we don't want control sequences from a
+         * VM reaching the terminal we log to. */
+        _cleanup_free_ char *bounded = strndup(line, len);
+        _cleanup_free_ char *escaped = bounded ? utf8_escape_non_printable(bounded) : NULL;
+        if (!escaped)
+                return (void) log_oom_debug();
+
+        /* qemu prefixes its messages with its binary name, so no extra attribution is needed. */
+        log_warning("%s", escaped);
+
+        if (hit_limit)
+                log_warning("Too much qemu stderr output, suppressing the rest.");
+}
+
+static int qemu_stderr_pump(QemuStderrContext *c, bool on_fiber) {
+        assert(c);
+        assert(c->fd >= 0);
+
+        for (;;) {
+                char buf[4096];
+                ssize_t n;
+
+                if (on_fiber) {
+                        n = sd_fiber_read(c->fd, buf, sizeof(buf));
+                        /* spurious wake-up: sd_fiber_read() retries only once */
+                        if (n == -EINTR || n == -EAGAIN)
+                                continue;
+                        if (n == -ECANCELED)
+                                return (int) n;
+                } else {
+                        n = read(c->fd, buf, sizeof(buf));
+                        if (n < 0) {
+                                if (errno == EINTR)
+                                        continue;
+                                if (errno == EAGAIN) /* Nothing queued anymore, we are done. */
+                                        break;
+
+                                n = -errno;
+                        }
+                }
+                if (n < 0) {
+                        log_warning_errno((int) n, "Failed to read qemu stderr, ignoring: %m");
+                        break;
+                }
+                if (n == 0) /* EOF, qemu closed its stderr */
+                        break;
+
+                if (line_buffer_feed(&c->buffer, buf, (size_t) n, log_qemu_stderr_line, c) < 0)
+                        return log_oom();
+        }
+
+        line_buffer_flush(&c->buffer, log_qemu_stderr_line, c);
+        return 0;
+}
+
+static int qemu_stderr_fiber(void *userdata) {
+        return qemu_stderr_pump(ASSERT_PTR(userdata), /* on_fiber= */ true);
+}
+
+static void qemu_stderr_context_done(QemuStderrContext *c) {
+        assert(c);
+
+        /* The reader fiber is nested in the main fiber, so unwinding it is our responsibility. Cancel
+         * and wait for it, then drain anything still queued and flush the final partial line. */
+        c->fiber = sd_future_cancel_wait_unref(c->fiber);
+        if (c->fd >= 0)
+                (void) qemu_stderr_pump(c, /* on_fiber= */ false);
+        line_buffer_done(&c->buffer);
+}
+
+static int vm_setup_qmp(
+                sd_event *event,
+                MachineConfig *config,
+                int bridge_fd,
+                VmspawnQmpBridge **ret) {
+
+        int r;
+
+        assert(event);
+        assert(config);
+        assert(bridge_fd >= 0);
+        assert(ret);
+
+        _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
+        r = vmspawn_qmp_init(&bridge, bridge_fd, event);
+        if (r < 0)
+                return r;
+
+        /* Probe QEMU feature availability synchronously before device setup consumes the flags. */
+        r = vmspawn_qmp_probe_features(bridge);
+        if (r < 0)
+                return r;
+
+        /* Device setup — all before resuming vCPUs */
+        r = vmspawn_qmp_setup_drives(bridge, &config->drives);
+        if (r < 0)
+                return r;
+
+        if (config->network.type) {
+                r = vmspawn_qmp_setup_network(bridge, &config->network);
+                if (r < 0)
+                        return r;
+        }
+
+        r = vmspawn_qmp_setup_virtiofs(bridge, &config->virtiofs);
+        if (r < 0)
+                return r;
+
+        r = vmspawn_qmp_setup_vsock(bridge, &config->vsock);
+        if (r < 0)
+                return r;
+
+        /* Resume vCPUs and switch to async event processing */
+        r = vmspawn_qmp_start(bridge);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(bridge);
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL;
@@ -2575,6 +2764,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * state, and the QEMU config file all live below it, and pulling it out from under them gives
          * spurious errors and can leave the directory behind. */
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *vm_exit_future = NULL;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
         int r;
@@ -3231,10 +3421,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        r = sd_event_new(&event);
+        sd_event *event = ASSERT_PTR(sd_fiber_get_event());
+
+        r = sd_future_new(&vm_exit_future_ops, &vm_exit_future);
         if (r < 0)
-                return log_error_errno(r, "Failed to get default event loop: %m");
+                return log_error_errno(r, "Failed to allocate VM exit future: %m");
+
+        /* sd_future_new() on a fiber installs a resume-this-fiber-on-resolve trampoline. We suspend in
+         * plenty of other waits before awaiting this future, and a resolve mid-startup must not resume us
+         * out of one of those. Drop the callback; sd_fiber_await() wakes us via its own wait future. */
+        (void) sd_future_set_callback(vm_exit_future, NULL, NULL);
 
         (void) sd_event_set_watchdog(event, true);
 
@@ -3282,7 +3478,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
 
                 _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
-                r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
+                r = event_add_child_pidref(event, &source, &child, WEXITED, on_helper_exit, vm_exit_future);
                 if (r < 0)
                         return r;
 
@@ -3357,7 +3553,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
 
                 _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
-                r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
+                r = event_add_child_pidref(event, &source, &child, WEXITED, on_helper_exit, vm_exit_future);
                 if (r < 0)
                         return r;
 
@@ -3476,7 +3672,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         log_debug_errno(r, "Failed to start tpm, ignoring: %m");
                 } else {
                         _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
-                        r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
+                        r = event_add_child_pidref(event, &source, &child, WEXITED, on_helper_exit, vm_exit_future);
                         if (r < 0)
                                 return r;
 
@@ -3536,7 +3732,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
 
                 _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
-                r = event_add_child_pidref(event, &source, &child, WEXITED, on_child_exit, /* userdata= */ NULL);
+                r = event_add_child_pidref(event, &source, &child, WEXITED, on_helper_exit, vm_exit_future);
                 if (r < 0)
                         return r;
 
@@ -3789,6 +3985,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
+        /* Capture qemu's stderr via a pipe, so it doesn't interleave with the guest console on the PTY,
+         * and so that early startup failures are visible in all console modes. */
+        _cleanup_close_pair_ int qemu_stderr_pipe[2] = EBADF_PAIR;
+        if (pipe2(qemu_stderr_pipe, O_CLOEXEC) < 0)
+                return log_error_errno(errno, "Failed to allocate qemu stderr pipe: %m");
+
+        r = fd_nonblock(qemu_stderr_pipe[0], true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make qemu stderr pipe non-blocking: %m");
+
+        _cleanup_(qemu_stderr_context_done) QemuStderrContext qemu_stderr = {
+                .fd = qemu_stderr_pipe[0],
+        };
+
         _cleanup_close_ int child_pty = -EBADF;
         if (master >= 0) {
                 child_pty = pty_open_peer(master, O_RDWR|O_CLOEXEC|O_NOCTTY);
@@ -3800,10 +4010,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(pidref_done_sigterm_wait) PidRef child_pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         qemu_binary,
-                        child_pty >= 0 ? (const int[]) { child_pty, child_pty, child_pty } : NULL,
+                        (const int[]) {
+                                child_pty >= 0 ? child_pty : STDIN_FILENO,
+                                child_pty >= 0 ? child_pty : STDOUT_FILENO,
+                                qemu_stderr_pipe[1],
+                        },
                         pass_fds, n_pass_fds,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE|
-                        (child_pty >= 0 ? FORK_REARRANGE_STDIO : 0),
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
                         &child_pidref);
         if (r < 0)
                 return r;
@@ -3819,9 +4032,28 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _exit(EXIT_FAILURE);
         }
 
-        /* Close QEMU's end of the QMP socketpair in the parent. We don't need it anymore. */
+        /* Close QEMU's end of the PTY, the QMP socketpair and the stderr pipe in the parent.
+         * We don't need them anymore. */
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
+        qemu_stderr_pipe[1] = safe_close(qemu_stderr_pipe[1]);
+
+        /* Resolve the exit future when the child exits */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *child_source = NULL;
+        r = event_add_child_pidref(event, &child_source, &child_pidref, WEXITED, on_child_exit, vm_exit_future);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch qemu process: %m");
+
+        (void) sd_event_source_set_priority(child_source, SD_EVENT_PRIORITY_NORMAL - 10);
+        (void) sd_event_source_set_description(child_source, "vmspawn-qemu-exit");
+
+        r = sd_fiber_new(event, "qemu-stderr", qemu_stderr_fiber, &qemu_stderr, /* destroy= */ NULL, &qemu_stderr.fiber);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate qemu stderr fiber: %m");
+
+        r = sd_future_set_priority(qemu_stderr.fiber, SD_EVENT_PRIORITY_NORMAL - 20);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set qemu stderr fiber priority: %m");
 
         r = prepare_device_info(runtime_dir, &config);
         if (r < 0)
@@ -3829,38 +4061,25 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Connect to VMM backend */
         _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
-        r = vmspawn_qmp_init(&bridge, TAKE_FD(bridge_fds[0]), event);
-        if (r < 0)
-                return r;
-
-        /* Probe QEMU feature availability synchronously before device setup consumes the flags. */
-        r = vmspawn_qmp_probe_features(bridge);
-        if (r < 0)
-                return r;
-
-        /* Device setup — all before resuming vCPUs */
-        r = vmspawn_qmp_setup_drives(bridge, &config.drives);
-        if (r < 0)
-                return r;
-
-        if (config.network.type) {
-                r = vmspawn_qmp_setup_network(bridge, &config.network);
-                if (r < 0)
+        r = vm_setup_qmp(event, &config, TAKE_FD(bridge_fds[0]), &bridge);
+        if (r < 0) {
+                /* A dropped QMP connection during startup usually means qemu itself died, the
+                 * disconnect is just the symptom. Wait a moment for the child watch to observe the
+                 * death, so that qemu's exit status becomes the verdict. If qemu is actually still
+                 * alive, the disconnect remains the error. */
+                if (!ERRNO_IS_NEG_DISCONNECT(r))
                         return r;
+
+                SD_FIBER_TIMEOUT(5 * USEC_PER_SEC);
+                int status = sd_fiber_await(vm_exit_future);
+                if (sd_future_state(vm_exit_future) != SD_FUTURE_RESOLVED)
+                        /* -ETIME: qemu is alive, disconnect is the real error.
+                         * -ECANCELED: loop is exiting and its exit code is the real error. */
+                        return status == -ECANCELED ? status : r;
+
+                /* Only a failure verdict supersedes the disconnect error. */
+                return status != 0 ? status : r;
         }
-
-        r = vmspawn_qmp_setup_virtiofs(bridge, &config.virtiofs);
-        if (r < 0)
-                return r;
-
-        r = vmspawn_qmp_setup_vsock(bridge, &config.vsock);
-        if (r < 0)
-                return r;
-
-        /* Resume vCPUs and switch to async event processing */
-        r = vmspawn_qmp_start(bridge);
-        if (r < 0)
-                return r;
 
         /* Varlink server for VM control */
         _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
@@ -3885,7 +4104,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 "RequestStop",
                                 on_request_stop,
                                 /* install_callback= */ NULL,
-                                /* userdata= */ NULL);
+                                vm_exit_future);
                 if (r < 0)
                         return log_error_errno(r, "Failed to request RequestStop match: %m");
         }
@@ -3991,22 +4210,24 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         ShutdownInfo shutdown_info = {
                 .ssh_info = &ssh_info,
                 .pidref = &child_pidref,
+                .vm_exit = vm_exit_future,
         };
 
-        (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
-        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
-        (void) sd_event_add_signal(event, NULL, (SIGRTMIN+4) | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
+        _cleanup_(sd_event_source_unrefp) sd_event_source
+                *sigint_source = NULL, *sigterm_source = NULL, *sigrtmin4_source = NULL;
+
+        (void) sd_event_add_signal(event, &sigint_source, SIGINT | SD_EVENT_SIGNAL_PROCMASK,
+                                   shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, &sigterm_source, SIGTERM | SD_EVENT_SIGNAL_PROCMASK,
+                                   shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, &sigrtmin4_source, (SIGRTMIN+4) | SD_EVENT_SIGNAL_PROCMASK,
+                                   shutdown_vm_graceful, &shutdown_info);
 
         (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 
         r = sd_event_add_memory_pressure(event, NULL, NULL, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
-
-        /* Exit when the child exits */
-        r = event_add_child_pidref(event, /* ret= */ NULL, &child_pidref, WEXITED, on_child_exit, /* userdata= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to watch qemu process: %m");
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
@@ -4038,15 +4259,23 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        r = sd_event_loop(event);
+        r = sd_fiber_await(vm_exit_future);
+        if (sd_future_state(vm_exit_future) != SD_FUTURE_RESOLVED)
+                /* Interrupted: sd_event_exit() was called somewhere (fatal QMP error, …) and
+                 * cancelled us. The loop's exit code is the verdict. */
+                return r;
         if (r < 0)
-                return log_error_errno(r, "Failed to run event loop: %m");
+                return log_error_errno(r, "VM died abnormally: %m");
 
         /* Kill if it is not dead yet anyway */
         if (scope_allocated)
                 terminate_scope(runtime_bus, arg_machine);
 
         unregister_machine_with_fallback_and_log(&machine_ctx, arg_machine);
+
+        /* qemu or one of the helpers died with a failure exit status, propagate it */
+        if (r > 0)
+                return r;
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
@@ -4344,7 +4573,15 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        return run_virtual_machine(kvm_device_fd, vhost_device_fd);
+        r = run_virtual_machine(kvm_device_fd, vhost_device_fd);
+        if (r <= 0)
+                return r;
+
+        r = sd_event_exit(ASSERT_PTR(sd_fiber_get_event()), r);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set exit code: %m");
+
+        return 0;
 }
 
-DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
+DEFINE_MAIN_FUNCTION_FIBER(run);
