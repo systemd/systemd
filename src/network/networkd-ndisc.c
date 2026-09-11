@@ -3198,6 +3198,9 @@ void ndisc_flush(Link *link) {
         (void) ndisc_drop_outdated(link, /* router= */ NULL, /* timestamp_usec= */ USEC_INFINITY);
         (void) ndisc_drop_redirect(link, /* router= */ NULL);
 
+        /* Also drop pending requests. */
+        (void) link_drop_requests(link, NETWORK_CONFIG_SOURCE_NDISC);
+
         link->ndisc_routers_by_sender = hashmap_free(link->ndisc_routers_by_sender);
         link->ndisc_rdnss = set_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);
