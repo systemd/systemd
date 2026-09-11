@@ -336,6 +336,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Network.Link.SetDNSOverTLS",                 vl_method_link_set_dns_over_tls,
                         "io.systemd.Network.Link.SetDNSSEC",                     vl_method_link_set_dnssec,
                         "io.systemd.Network.Link.SetDNSSECNegativeTrustAnchors", vl_method_link_set_dnssec_negative_trust_anchors,
+                        "io.systemd.Network.Link.RevertDNS",                     vl_method_link_revert_dns,
                         "io.systemd.service.Ping",                               varlink_method_ping,
                         "io.systemd.service.Reload",                             vl_method_reload,
                         "io.systemd.service.SetLogLevel",                        varlink_method_set_log_level,
