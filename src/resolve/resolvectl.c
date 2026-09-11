@@ -2924,13 +2924,7 @@ static int verb_mdns(int argc, char *argv[], uintptr_t _data, void *userdata) {
 VERB(verb_dns_over_tls, "dnsovertls", "[LINK [MODE]]\0", VERB_ANY, 3, 0,
      "Get/set per-interface DNS-over-TLS mode");
 static int verb_dns_over_tls(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2946,27 +2940,14 @@ static int verb_dns_over_tls(int argc, char *argv[], uintptr_t _data, void *user
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSOverTLS", &error, NULL, "is", arg_ifindex, argv[2]);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_STRING("Mode", argv[2]));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-                r = bus_call_method(
-                                bus,
-                                bus_network_mgr,
-                                "SetLinkDNSOverTLS",
-                                &error,
-                                NULL,
-                                "is", arg_ifindex, argv[2]);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set DNSOverTLS configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return varlink_call_link_method("io.systemd.Network.Link.SetDNSOverTLS", parameters);
 }
 
 VERB(verb_dnssec, "dnssec", "[LINK [MODE]]\0", VERB_ANY, 3, 0,
