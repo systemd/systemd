@@ -1,5 +1,11 @@
 systemd System and Service Manager
 
+CHANGES WITH 263 in spe:
+
+        * systemd-inhibit gained a new --signal= option. Used together with
+          --mode=delay it forwards the specified signal to the invoked command
+          when the system is about to go to sleep or shut down.
+
 CHANGES WITH 262 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
