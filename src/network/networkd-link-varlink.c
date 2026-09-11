@@ -17,6 +17,8 @@
 #include "networkd-state-file.h"
 #include "ordered-set.h"
 #include "resolve-varlink-util.h"
+#include "set.h"
+#include "strv.h"
 
 int dispatch_link(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, DispatchLinkFlag flags, Link **ret) {
         struct {
@@ -605,6 +607,52 @@ int vl_method_link_set_dnssec(sd_varlink *vlink, sd_json_variant *parameters, sd
                 if (r < 0)
                         return r;
         }
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
+int vl_method_link_set_dnssec_negative_trust_anchors(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(vlink);
+
+        Link *link;
+        r = dispatch_link(vlink, parameters, manager, DISPATCH_LINK_POLKIT | DISPATCH_LINK_MANAGED | DISPATCH_LINK_ALLOW_EXTENSIONS, &link);
+        if (r != 0)
+                return r;
+
+        _cleanup_(link_set_nta_parameters_done) LinkSetNTAParameters p = {};
+        r = dispatch_link_set_nta_parameters(NULL, parameters, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        /* The method accepts an empty strv, to override the negative trust anchors set in .network.
+         * Hence, we need to explicitly allocate an empty set here. */
+        _cleanup_set_free_ Set *ns = set_new(&dns_name_hash_ops_free);
+        if (!ns)
+                return log_oom();
+
+        STRV_FOREACH(i, p.ntas) {
+                r = set_put_strdup_full(&ns, &dns_name_hash_ops_free, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.set-dnssec-negative-trust-anchors",
+                        (const char**) STRV_MAKE("interface", link->ifname),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        set_free_and_replace(link->dnssec_negative_trust_anchors, ns);
+
+        r = link_save_and_clean_full(link, /* also_save_manager= */ true);
+        if (r < 0)
+                return r;
 
         return sd_varlink_reply(vlink, NULL);
 }
