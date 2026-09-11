@@ -35,13 +35,19 @@ int dispatch_link(sd_varlink *vlink, sd_json_variant *parameters, Manager *manag
         assert(manager);
         assert(ret);
 
-        r = sd_varlink_dispatch(
-                        vlink,
+        const char *bad_field = NULL;
+        r = sd_json_dispatch_full(
                         parameters,
                         FLAGS_SET(flags, DISPATCH_LINK_POLKIT) ? dispatch_polkit_table : dispatch_table,
-                        &info);
-        if (r != 0)
+                        /* bad= */ NULL,
+                        FLAGS_SET(flags, DISPATCH_LINK_ALLOW_EXTENSIONS) ? SD_JSON_ALLOW_EXTENSIONS : 0,
+                        &info,
+                        &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        return sd_varlink_error_invalid_parameter_name(vlink, bad_field);
                 return r;
+        }
 
         if (info.ifindex < 0)
                 return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
