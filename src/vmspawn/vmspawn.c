@@ -26,6 +26,7 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "chase.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "discover-image.h"
@@ -47,6 +48,7 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "initrd-cpio.h"
+#include "image-policy.h"
 #include "kernel-image.h"
 #include "log.h"
 #include "machine-bind-user.h"
@@ -55,6 +57,8 @@
 #include "main-func.h"
 #include "memfd-util.h"
 #include "mkdir.h"
+#include "mstack.h"
+#include "mount-util.h"
 #include "namespace-util.h"
 #include "netif-util.h"
 #include "nsresource.h"
@@ -99,6 +103,7 @@
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
 #include "vmspawn-varlink.h"
+#include "vpick.h"
 
 #define VM_TAP_HASH_KEY SD_ID128_MAKE(01,d0,c6,4c,2b,df,24,fb,c0,f8,b2,09,7d,59,b2,93)
 
@@ -145,6 +150,7 @@ static bool arg_quiet = false;
 static PagerFlags arg_pager_flags = 0;
 static char *arg_directory = NULL;
 static char *arg_image = NULL;
+static char *arg_mstack = NULL;
 static ImageFormat arg_image_format = IMAGE_FORMAT_RAW;
 static char *arg_machine = NULL;
 static char *arg_slice = NULL;
@@ -207,6 +213,7 @@ static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_mstack, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_slice, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cpus, freep);
@@ -350,6 +357,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION('i', "image", "FILE|DEVICE", "Root file system disk image or device for the VM"):
                         r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("mstack", "PATH", "Mount stack to use as root file system for the VM"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_mstack);
                         if (r < 0)
                                 return r;
                         break;
@@ -946,6 +959,12 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_uid_shift != UID_INVALID && !arg_directory)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--private-users= is only supported in combination with --directory=.");
+
+        if (!!arg_directory + !!arg_image + !!arg_mstack > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--directory=, --image= and --mstack= may not be combined.");
+
+        if (arg_ephemeral && arg_mstack)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ephemeral and --mstack= may not be combined.");
 
         if (arg_directory && arg_uid_shift == UID_INVALID) {
                 struct stat st;
@@ -1659,6 +1678,20 @@ static int find_virtiofsd(char **ret) {
         return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to find virtiofsd binary.");
 }
 
+static int vm_chase_and_update(char **path, ChaseFlags flags) {
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        assert(path);
+        assert(*path);
+
+        r = chase(*path, NULL, flags, &resolved, NULL);
+        if (r < 0)
+                return r;
+
+        return free_and_replace(*path, resolved);
+}
+
 static int start_virtiofsd(
                 const char *directory,
                 uid_t source_uid,
@@ -1798,6 +1831,80 @@ static int start_virtiofsd(
         if (ret_listen_address)
                 *ret_listen_address = TAKE_PTR(listen_address);
 
+        return 0;
+}
+
+static void mstack_root_cleanup(char **root) {
+        if (*root)
+                (void) umount_recursive(*root, MNT_DETACH);
+
+        free(*root);
+        *root = NULL;
+}
+
+static int setup_mstack_root(const char *runtime_dir, char **ret_root, MStack **ret_mstack) {
+        int r;
+
+        assert(runtime_dir);
+        assert(ret_root);
+        assert(ret_mstack);
+
+        if (!arg_mstack)
+                return 0;
+
+        if (geteuid() != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "--mstack= currently requires root privileges.");
+
+        r = vm_chase_and_update(&arg_mstack, CHASE_MUST_BE_DIRECTORY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve .mstack directory '%s': %m", arg_mstack);
+
+        /* Keep the mount stack private to vmspawn and its helpers. The resulting directory is
+         * subsequently exported to the guest through virtiofsd. */
+        if (unshare(CLONE_NEWNS) < 0)
+                return log_error_errno(errno, "Failed to create mount namespace for .mstack: %m");
+
+        r = mount_follow_verbose(LOG_ERR, NULL, "/", NULL, MS_SLAVE|MS_REC, NULL);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *root = path_join(runtime_dir, "mstack-root");
+        if (!root)
+                return log_oom();
+
+        r = mkdir_p(root, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create .mstack root directory '%s': %m", root);
+
+        _cleanup_(mstack_freep) MStack *mstack = NULL;
+        r = mstack_load(arg_mstack, /* dir_fd= */ -EBADF, &mstack);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load .mstack/ directory '%s': %m", arg_mstack);
+
+        r = mstack_open_images(mstack,
+                               /* mountfsd_link= */ NULL,
+                               /* userns_fd= */ -EBADF,
+                               /* image_policy= */ &image_policy_container,
+                               /* image_filter= */ NULL,
+                               /* flags= */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open .mstack image '%s': %m", arg_mstack);
+
+        r = mstack_make_mounts(mstack, root, /* flags= */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to prepare .mstack image '%s': %m", arg_mstack);
+
+        r = mstack_bind_mounts(mstack, root, /* where_fd= */ -EBADF, /* flags= */ 0, /* ret_root_fd= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount .mstack image '%s': %m", arg_mstack);
+
+        r = free_and_strdup(&arg_directory, root);
+        if (r < 0)
+                return log_oom();
+
+        *ret_root = TAKE_PTR(root);
+        *ret_mstack = TAKE_PTR(mstack);
         return 0;
 }
 
@@ -2099,7 +2206,7 @@ static int make_sidecar_path(const char *suffix, char **ret) {
         assert(suffix);
         assert(ret);
 
-        const char *p = ASSERT_PTR(arg_image ?: arg_directory);
+        const char *p = ASSERT_PTR(arg_image ?: arg_mstack ?: arg_directory);
 
         _cleanup_free_ char *parent = NULL, *filename = NULL;
         r = path_split_prefix_filename(p, &parent, &filename);
@@ -2575,6 +2682,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * state, and the QEMU config file all live below it, and pulling it out from under them gives
          * spurious errors and can leave the directory behind. */
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_(mstack_freep) MStack *mstack = NULL;
+        _cleanup_(mstack_root_cleanup) char *mstack_root = NULL;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
         int r;
@@ -2714,6 +2823,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * nspawn's approach of not proactively cleaning stale runtime directories. */
 
         log_debug("Using runtime directory: %s", runtime_dir);
+
+        r = setup_mstack_root(runtime_dir, &mstack_root, &mstack);
+        if (r < 0)
+                return r;
 
         /* Build a QEMU config file for -readconfig. Items that can be expressed as QemuOpts sections go
          * here; things that require cmdline-only switches (e.g. -kernel, -smbios, -nographic, --add-fd)
@@ -4064,7 +4177,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 static int determine_names(void) {
         int r;
 
-        if (!arg_directory && !arg_image) {
+        if (arg_mstack) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                PickFilter filter = *pick_filter_image_mstack;
+
+                r = path_pick_update_warn(&arg_mstack, &filter, /* n_filters= */ 1,
+                                          PICK_ARCHITECTURE|PICK_TRIES, &result);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!arg_directory && !arg_image && !arg_mstack) {
                 if (arg_machine) {
                         _cleanup_(image_unrefp) Image *i = NULL;
 
@@ -4088,6 +4211,10 @@ static int determine_names(void) {
                         case IMAGE_DIRECTORY:
                         case IMAGE_SUBVOLUME:
                                 r = free_and_strdup(&arg_directory, i->path);
+                                break;
+
+                        case IMAGE_MSTACK:
+                                r = free_and_strdup(&arg_mstack, i->path);
                                 break;
 
                         default:
@@ -4119,6 +4246,14 @@ static int determine_names(void) {
 
                         /* Truncate suffix if there is one */
                         e = endswith(arg_machine, ".raw");
+                        if (e)
+                                *e = 0;
+                } else if (arg_mstack) {
+                        r = path_extract_filename(arg_mstack, &arg_machine);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_mstack);
+
+                        char *e = endswith(arg_machine, ".mstack");
                         if (e)
                                 *e = 0;
                 } else {
@@ -4186,6 +4321,9 @@ static int determine_kernel(void) {
 }
 
 static int verify_arguments(void) {
+        if (arg_mstack && !arg_linux)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--mstack= requires --linux= to be specified.");
+
         if (!strv_isempty(arg_initrds) && !arg_linux)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --initrd= cannot be used without --linux=.");
 
@@ -4271,6 +4409,9 @@ static int run(int argc, char *argv[]) {
         _cleanup_strv_free_ char **names = NULL;
 
         LIBBLKID_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBCRYPTO_NOTE(suggested);
+        LIBMOUNT_NOTE(suggested);
         LIBSELINUX_NOTE(recommended);
 
         log_setup();
@@ -4314,7 +4455,7 @@ static int run(int argc, char *argv[]) {
 
         if (!arg_quiet && arg_console_mode != CONSOLE_GUI) {
                 _cleanup_free_ char *u = NULL;
-                const char *vm_path = arg_image ?: arg_directory;
+                const char *vm_path = arg_image ?: arg_mstack ?: arg_directory;
                 (void) terminal_urlify_path(vm_path, vm_path, &u);
 
                 log_info("%s %sSpawning VM %s on %s.%s",
