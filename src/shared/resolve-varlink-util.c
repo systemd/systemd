@@ -505,3 +505,99 @@ int dispatch_link_set_dns_parameters(const char *name, sd_json_variant *variant,
         *ret = TAKE_STRUCT(p);
         return 0;
 }
+
+static void domain_parameters_done(DomainParameters *p) {
+        if (!p)
+                return;
+
+        p->name = mfree(p->name);
+}
+
+static int dispatch_domain(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Domain",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(DomainParameters, name),       SD_JSON_MANDATORY },
+                { "RouteOnly", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DomainParameters, route_only), SD_JSON_NULLABLE  },
+                {},
+        };
+        DomainParameters *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(domain_parameters_done) DomainParameters p = {};
+        r = sd_json_dispatch(variant, dispatch_table, flags, &p);
+        if (r < 0)
+                return r;
+
+        r = dns_name_is_valid(p.name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid search domain %s", p.name);
+
+        if (!p.route_only && dns_name_is_root(p.name))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Root domain is not suitable as search domain %s", p.name);
+
+        _cleanup_free_ char *normalized = NULL;
+        r = dns_name_normalize(p.name, /* flags= */ 0, &normalized);
+        if (r < 0)
+                return r;
+        free_and_replace(p.name, normalized);
+
+        *ret = TAKE_STRUCT(p);
+        return 0;
+}
+
+static int dispatch_domain_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        LinkSetDomainsParameters *p = ASSERT_PTR(userdata);
+        int r;
+
+        if (sd_json_variant_elements(variant) > LINK_SEARCH_DOMAINS_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(E2BIG), "Too many search domains for one link.");
+
+        sd_json_variant *v;
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                if (!GREEDY_REALLOC0(p->domains, p->n_domains + 1))
+                        return json_log_oom(variant, flags);
+
+                r = dispatch_domain(name, v, flags, &p->domains[p->n_domains++]);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+void link_set_domains_parameters_done(LinkSetDomainsParameters *p) {
+        if (!p)
+                return;
+
+        FOREACH_ARRAY(d, p->domains, p->n_domains)
+                domain_parameters_done(d);
+        p->domains = mfree(p->domains);
+        p->n_domains = 0;
+}
+
+int dispatch_link_set_domains_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Domains",        SD_JSON_VARIANT_ARRAY,         dispatch_domain_array,         0,                                           SD_JSON_MANDATORY },
+                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LinkSetDomainsParameters, ifindex), SD_JSON_RELAX     },
+                { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LinkSetDomainsParameters, ifname),  SD_JSON_NULLABLE  },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+        LinkSetDomainsParameters *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(link_set_domains_parameters_done) LinkSetDomainsParameters p = {};
+        r = sd_json_dispatch(variant, dispatch_table, flags, &p);
+        if (r < 0)
+                return r;
+
+        int ifindex;
+        r = ensure_ifindex(p.ifindex, p.ifname, &ifindex);
+        if (r < 0)
+                return json_log(variant, flags, r, "Failed to verify interface index: %m");
+        p.ifindex = ifindex;
+
+        *ret = TAKE_STRUCT(p);
+        return 0;
+}
