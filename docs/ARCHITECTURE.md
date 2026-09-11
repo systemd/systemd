@@ -33,6 +33,12 @@ The code that is shared between components is split into a few directories, each
 
 - `src/shared/` provides various utilities and code shared between other components that is exposed as the `libsystemd-shared-<nnn>.so` shared library.
 
+- `src/rust/` is the Rust side of `libsystemd-shared-<nnn>.so`: the `systemd-shared` meson subproject generates the `systemd_shared_sys` crate
+  (raw bindings for everything in `src/basic/`, `src/shared/`, the public `sd-*.h` headers and the libc and kernel constants they use) and provides
+  the `systemd_shared` crate on top of it, the safe layer programs are written against. Programs written in Rust live next to the C ones, are
+  declared through `rust_executables` in `meson.build`, and link `libsystemd-shared-<nnn>.so` dynamically like every other program. See
+  [Writing programs in Rust](HACKING.md#writing-programs-in-rust).
+
 The other subdirectories implement individual components.
 They may depend only on `src/fundamental/` + `src/basic/`, or also on `src/libsystemd/`, or also on `src/shared/`.
 
