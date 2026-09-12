@@ -184,6 +184,8 @@ empty1               $IMAGE_EMPTY    -                               headless=1,
 # This one expects the key to be under /{etc,run}/cryptsetup-keys.d/empty_nokey.key
 empty_nokey          $IMAGE_EMPTY    -                               headless=1
 empty_pkcs11_auto    $IMAGE_EMPTY    -                               headless=1,pkcs11-uri=auto
+# No PKCS#11 token enrolled at all: should fall back to the empty passphrase instead of failing or stalling
+empty_pkcs11_none    $IMAGE_EMPTY    -                               headless=1,pkcs11-uri=auto,try-empty-password=1
 
 detached             $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE         headless=1,header=$IMAGE_DETACHED_HEADER,keyfile-offset=32,keyfile-size=16
 detached_store0      $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE         headless=1,header=/header:LABEL=header_store,keyfile-offset=32,keyfile-size=16
@@ -227,6 +229,21 @@ cryptsetup_start_and_check -f empty_nokey
 mkdir -p /run/cryptsetup-keys.d
 cp "$IMAGE_EMPTY_KEYFILE" /run/cryptsetup-keys.d/empty_nokey.key
 cryptsetup_start_and_check empty_nokey
+
+# pkcs11-uri=auto with no PKCS#11 token enrolled must fall back to traditional
+# unlocking (not fail outright, and not wait on a udev token monitor).
+# Exercise both the libcryptsetup token module path and the plugin-less
+# fallback path explicitly, since the error handling differs between them.
+for mod in 1 0; do
+    systemctl set-environment SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE="$mod"
+    SECONDS=0
+    cryptsetup_start_and_check empty_pkcs11_none
+    # The fallback should be immediate. If we ended up waiting on the udev
+    # token monitor instead of falling back right away, this would block
+    # until the device timeout elapses instead.
+    [[ "$SECONDS" -lt 30 ]]
+done
+systemctl unset-environment SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE
 
 if [[ -d /usr/lib/softhsm/tokens ]]; then
     # Test unlocking with a PKCS#11 token
