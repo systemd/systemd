@@ -2643,6 +2643,7 @@ static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] =
         [DNSSEC_ALGORITHM_ECDSAP384SHA384]    = "ECDSAP384SHA384",
         [DNSSEC_ALGORITHM_ED25519]            = "ED25519",
         [DNSSEC_ALGORITHM_ED448]              = "ED448",
+        [DNSSEC_ALGORITHM_MLDSA44]            = "MLDSA44",
         [DNSSEC_ALGORITHM_INDIRECT]           = "INDIRECT",
         [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
         [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",

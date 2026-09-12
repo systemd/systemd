@@ -20,6 +20,8 @@
 
 #define VERIFY_RRS_MAX 256
 #define MAX_KEY_SIZE (32*1024)
+#define MLDSA44_PUBLIC_KEY_SIZE 1312
+#define MLDSA44_SIGNATURE_SIZE  2420
 
 /* Permit a maximum clock skew of 1h 10min. This should be enough to deal with DST confusion */
 #define SKEW_MAX (1*USEC_PER_HOUR + 10*USEC_PER_MINUTE)
@@ -399,6 +401,81 @@ static int dnssec_eddsa_verify(
                         dnskey->dnskey.key, key_size);
 }
 
+static int dnssec_mldsa_verify(
+                const void *data,
+                size_t data_size,
+                DnsResourceRecord *rrsig,
+                DnsResourceRecord *dnskey) {
+
+        int r;
+
+        assert(data);
+        assert(data_size > 0);
+        assert(rrsig);
+        assert(dnskey);
+
+        if (dnskey->dnskey.key_size != MLDSA44_PUBLIC_KEY_SIZE)
+                return -EINVAL;
+
+        if (rrsig->rrsig.signature_size != MLDSA44_SIGNATURE_SIZE)
+                return -EINVAL;
+
+        /* Capability detection must only consider errors from this operation. */
+        sym_ERR_clear_error();
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *kctx = sym_EVP_PKEY_CTX_new_from_name(
+                        /* libctx= */ NULL,
+                        "ML-DSA-44",
+                        /* propquery= */ NULL);
+        if (!kctx)
+                return log_openssl_errors(LOG_DEBUG, "Failed to create ML-DSA-44 key context");
+
+        if (sym_EVP_PKEY_fromdata_init(kctx) <= 0)
+                return dnssec_verify_errno(
+                                log_openssl_errors(LOG_DEBUG, "Failed to initialize ML-DSA-44 key creation"));
+
+        OSSL_PARAM params[] = {
+                sym_OSSL_PARAM_construct_octet_string(
+                                OSSL_PKEY_PARAM_PUB_KEY, dnskey->dnskey.key, dnskey->dnskey.key_size),
+                sym_OSSL_PARAM_construct_end(),
+        };
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *evkey = NULL;
+        if (sym_EVP_PKEY_fromdata(kctx, &evkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+                return dnssec_verify_errno(
+                                log_openssl_errors(LOG_DEBUG, "Failed to load ML-DSA-44 public key from raw data"));
+
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = sym_EVP_MD_CTX_new();
+        if (!ctx)
+                return -ENOMEM;
+
+        /* ML-DSA DNSSEC uses pure ML-DSA with the default empty context, not HashML-DSA */
+        if (sym_EVP_DigestVerifyInit(
+                            ctx,
+                            /* pctx= */ NULL,
+                            /* type= */ NULL,
+                            /* engine= */ NULL,
+                            evkey) <= 0)
+                return dnssec_verify_errno(
+                                log_openssl_errors(LOG_DEBUG, "Failed to initialize ML-DSA-44 verification"));
+
+        r = sym_EVP_DigestVerify(
+                        ctx,
+                        rrsig->rrsig.signature,
+                        rrsig->rrsig.signature_size,
+                        data,
+                        data_size);
+        if (r < 0)
+                return dnssec_verify_errno(
+                                log_openssl_errors(LOG_DEBUG, "ML-DSA-44 signature verification failed"));
+        if (r == 0)
+                /* An invalid signature is an expected outcome but leaves entries in the thread-local
+                 * OpenSSL error queue. Clear them so a later failure translates its own error */
+                sym_ERR_clear_error();
+
+        return r;
+}
+
 static int md_add_uint8(EVP_MD_CTX *ctx, uint8_t v) {
         return sym_EVP_DigestUpdate(ctx, &v, sizeof(v));
 }
@@ -664,6 +741,8 @@ static int dnssec_rrset_verify_sig(
                                 dnskey));
         case DNSSEC_ALGORITHM_ED448:
                 return -EOPNOTSUPP;
+        case DNSSEC_ALGORITHM_MLDSA44:
+                return dnssec_mldsa_verify(sig_data, sig_size, rrsig, dnskey);
         default:
                 /* OK, the RRs are now in canonical order. Let's calculate the digest */
                 md_algorithm = algorithm_to_implementation_id(rrsig->rrsig.algorithm);
