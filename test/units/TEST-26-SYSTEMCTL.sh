@@ -576,6 +576,8 @@ systemctl show-environment | grep '^PATH=.*testaddition$' >/dev/null
 systemctl show-environment | grep '^FOO=BAR$' >/dev/null
 # Check that JSON output is supported
 systemctl show-environment --output=json | grep '^{.*"FOO":"BAR".*}$' >/dev/null
+# Check that manager properties are emitted as Varlink JSON.
+systemctl show --output=json | jq -e '.context | type == "object"' >/dev/null
 # Drop both
 systemctl unset-environment FOO PATH
 # Check that one is gone and the other reverted to the built-in
