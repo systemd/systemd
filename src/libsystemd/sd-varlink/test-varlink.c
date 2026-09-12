@@ -21,6 +21,7 @@
 #include "rm-rf.h"
 #include "socket-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "varlink-util.h"
 
@@ -644,8 +645,8 @@ TEST(sentinel_with_explicit_reply) {
 }
 
 static int method_with_oneway_sentinel(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        /* The method was called oneway, so sd_varlink_set_sentinel() should be a no-op and the server should
-         * transition back to idle without sending any reply. */
+        /* The method was called oneway: the sentinel is recorded but no reply is ever sent to the client,
+         * so the server discards it and transitions back to idle. */
         ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
         ASSERT_OK(sd_varlink_set_sentinel(link, "io.test.SentinelError"));
         return 0;
@@ -693,6 +694,507 @@ TEST(sentinel_oneway) {
         ASSERT_OK(sd_varlink_invoke(c, "io.test.Pong", /* parameters= */ NULL));
 
         ASSERT_OK(sd_event_loop(e));
+}
+
+static int oneway_test_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        /* Reached only if a test wedges (e.g. a connection stays parked): fail with a clear assertion
+         * instead of hanging until the meson test timeout. */
+        assert_not_reached();
+}
+
+static void oneway_test_setup(
+                sd_varlink_server_flags_t flags,
+                sd_event **ret_event,
+                sd_varlink_server **ret_server,
+                sd_varlink **ret_client) {
+
+        assert(ret_event);
+        assert(ret_server);
+        assert(ret_client);
+
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
+        /* A few seconds, well under test-varlink's 30s binary-level meson timeout, so this fires first. */
+        ASSERT_OK(sd_event_add_time_relative(e, &timer, CLOCK_MONOTONIC, 5 * USEC_PER_SEC, 0, oneway_test_timeout, NULL));
+        ASSERT_OK(sd_event_source_set_floating(timer, true));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, flags));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+
+        *ret_event = TAKE_PTR(e);
+        *ret_server = TAKE_PTR(s);
+        *ret_client = TAKE_PTR(c);
+}
+
+static bool oneway_defer_dispatched;
+static bool oneway_ping_dispatched;
+static bool oneway_defer_completed;
+
+static int oneway_deferred_complete(sd_event_source *s, void *userdata) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = ASSERT_PTR(userdata);
+
+        sd_event_source_disable_unref(s);
+
+        /* While the oneway method was deferred, the connection must have parked: the pipelined Ping must
+         * not have been dispatched yet. */
+        ASSERT_FALSE(oneway_ping_dispatched);
+
+        /* Complete the deferred oneway call. The reply is discarded (the client isn't listening for a
+         * oneway reply), but it unparks the connection so the next queued method can be dispatched. */
+        ASSERT_OK_EQ(sd_varlink_reply(link, /* parameters= */ NULL), 1);
+        oneway_defer_completed = true;
+        return 0;
+}
+
+static int method_oneway_defer(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* A oneway method that stashes the connection to finish asynchronously. Returning without a reply
+         * must park the connection in VARLINK_PENDING_METHOD_ONEWAY rather than immediately dispatching the
+         * next pipelined method. */
+        sd_event_source *source;
+
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+        oneway_defer_dispatched = true;
+
+        ASSERT_OK(sd_event_add_defer(sd_varlink_get_event(link), &source, oneway_deferred_complete, sd_varlink_ref(link)));
+        /* Run the completion at idle priority, so the connection has every chance to (wrongly) dispatch the
+         * pipelined Ping first if the parking were broken. */
+        ASSERT_OK(sd_event_source_set_priority(source, SD_EVENT_PRIORITY_IDLE));
+        ASSERT_OK(sd_event_source_set_enabled(source, SD_EVENT_ONESHOT));
+        return 0;
+}
+
+static int method_oneway_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Must only ever run after the deferred oneway method completed. If parking regresses this runs
+         * before oneway_deferred_complete(), so assert the completion already happened. */
+        ASSERT_TRUE(oneway_defer_dispatched);
+        ASSERT_TRUE(oneway_defer_completed);
+        oneway_ping_dispatched = true;
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong"));
+}
+
+static int reply_oneway_ping(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        ASSERT_NULL(error_id);
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(parameters, "result")), "pong");
+        ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS));
+        return 0;
+}
+
+TEST(oneway_deferred_parks_connection) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        oneway_test_setup(SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY, &e, &s, &c);
+
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayDefer", method_oneway_defer));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayPing", method_oneway_ping));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_oneway_ping));
+
+        oneway_defer_dispatched = false;
+        oneway_ping_dispatched = false;
+        oneway_defer_completed = false;
+
+        /* Fire a deferred oneway call, immediately followed (pipelined) by a normal call on the same
+         * connection. The normal call must not be dispatched until the oneway call completes. */
+        ASSERT_OK(sd_varlink_send(c, "io.test.OnewayDefer", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.OnewayPing", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(oneway_ping_dispatched);
+        ASSERT_TRUE(oneway_defer_completed);
+}
+
+static bool oneway_error_ping_dispatched;
+static bool oneway_error_completed;
+
+static int oneway_deferred_error_complete(sd_event_source *s, void *userdata) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = ASSERT_PTR(userdata);
+
+        sd_event_source_disable_unref(s);
+
+        /* Complete the parked oneway call via the error route rather than a reply. The error is discarded
+         * (no client listens for a oneway reply) but must still unpark the connection. sd_varlink_error()
+         * keeps returning its negative errno so the "return sd_varlink_error(...)" rejection idiom works. */
+        ASSERT_ERROR(sd_varlink_error(link, "io.test.SomeError", /* parameters= */ NULL), EBADR);
+        oneway_error_completed = true;
+        return 0;
+}
+
+static int method_oneway_error_defer(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        sd_event_source *source;
+
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+
+        ASSERT_OK(sd_event_add_defer(sd_varlink_get_event(link), &source, oneway_deferred_error_complete, sd_varlink_ref(link)));
+        ASSERT_OK(sd_event_source_set_priority(source, SD_EVENT_PRIORITY_IDLE));
+        ASSERT_OK(sd_event_source_set_enabled(source, SD_EVENT_ONESHOT));
+        return 0;
+}
+
+static int method_oneway_error_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Must only run once the parked oneway call was completed via the error route. */
+        ASSERT_TRUE(oneway_error_completed);
+        oneway_error_ping_dispatched = true;
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong"));
+}
+
+TEST(oneway_deferred_error_completes) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        oneway_test_setup(SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY, &e, &s, &c);
+
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayErrorDefer", method_oneway_error_defer));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayErrorPing", method_oneway_error_ping));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_oneway_ping));
+
+        oneway_error_ping_dispatched = false;
+        oneway_error_completed = false;
+
+        /* Deferred oneway call completed later through sd_varlink_error(), immediately followed by a
+         * pipelined regular call that must wait for the completion. */
+        ASSERT_OK(sd_varlink_send(c, "io.test.OnewayErrorDefer", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.OnewayErrorPing", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(oneway_error_ping_dispatched);
+        ASSERT_TRUE(oneway_error_completed);
+}
+
+static bool oneway_errret_ping_dispatched;
+
+static int method_oneway_error_return(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Return a negative errno without replying. With the flag set the r >= 0 guard means no reply is
+         * coming, so the call must complete right away instead of parking forever. */
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+        return -ENOANO;
+}
+
+static int method_oneway_errret_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        oneway_errret_ping_dispatched = true;
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong"));
+}
+
+TEST(oneway_error_return_completes) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        oneway_test_setup(SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY, &e, &s, &c);
+
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayErrorReturn", method_oneway_error_return));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayErrRetPing", method_oneway_errret_ping));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_oneway_ping));
+
+        oneway_errret_ping_dispatched = false;
+
+        /* The oneway handler returns an error; the pipelined regular call must still be dispatched. */
+        ASSERT_OK(sd_varlink_send(c, "io.test.OnewayErrorReturn", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.OnewayErrRetPing", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(oneway_errret_ping_dispatched);
+}
+
+static int oneway_fd_deferred_complete(sd_event_source *s, void *userdata) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = ASSERT_PTR(userdata);
+
+        sd_event_source_disable_unref(s);
+        ASSERT_OK(sd_varlink_reply(link, /* parameters= */ NULL));
+        return 0;
+}
+
+static int method_oneway_push_fd(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_close_ int fd = -EBADF;
+        sd_event_source *source;
+
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+
+        /* Push an fd for the (discarded) oneway reply. Completion must reset it, so it is not carried into
+         * the next enqueued message, i.e. the pipelined regular reply below. */
+        ASSERT_OK(fd = memfd_new_and_seal_string("data", "oneway"));
+        ASSERT_OK_EQ(sd_varlink_push_fd(link, fd), 0);
+        TAKE_FD(fd);
+
+        ASSERT_OK(sd_event_add_defer(sd_varlink_get_event(link), &source, oneway_fd_deferred_complete, sd_varlink_ref(link)));
+        ASSERT_OK(sd_event_source_set_enabled(source, SD_EVENT_ONESHOT));
+        return 0;
+}
+
+static bool oneway_fd_ping_dispatched;
+
+static int method_oneway_fd_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        oneway_fd_ping_dispatched = true;
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong"));
+}
+
+static int reply_oneway_fd_ping(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        ASSERT_NULL(error_id);
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(parameters, "result")), "pong");
+
+        /* The fd the oneway handler pushed was discarded on completion, so this reply carries none. */
+        ASSERT_ERROR(sd_varlink_peek_fd(link, 0), ENXIO);
+        ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS));
+        return 0;
+}
+
+TEST(oneway_deferred_resets_fds) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        oneway_test_setup(SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY|
+                          SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|
+                          SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT, &e, &s, &c);
+
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayPushFd", method_oneway_push_fd));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayFdPing", method_oneway_fd_ping));
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_input(c, true));
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_output(c, true));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_oneway_fd_ping));
+
+        oneway_fd_ping_dispatched = false;
+
+        /* The oneway handler pushes an fd and defers; after completion the pipelined regular reply must
+         * carry no leftover fd. */
+        ASSERT_OK(sd_varlink_send(c, "io.test.OnewayPushFd", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.OnewayFdPing", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(oneway_fd_ping_dispatched);
+}
+
+static bool oneway_fiber_ran;
+static bool oneway_fiber_ping_dispatched;
+
+static int method_oneway_fiber_defer(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* A fiber handling a oneway call. The fiber holds a ref, so with the flag set the call parks in
+         * VARLINK_PENDING_METHOD_ONEWAY; returning without a reply then completes it from the fiber.
+         * The sentinel set here is discarded for a oneway call and must not disturb this. */
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+        ASSERT_OK(sd_varlink_set_sentinel(link, "io.test.SentinelError"));
+        oneway_fiber_ran = true;
+        return 0;
+}
+
+static int method_oneway_fiber_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Must only run once the fiber ran and its parked oneway call completed. */
+        ASSERT_TRUE(oneway_fiber_ran);
+        oneway_fiber_ping_dispatched = true;
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong"));
+}
+
+TEST(oneway_fiber_deferred_parks) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        oneway_test_setup(SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY, &e, &s, &c);
+
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.OnewayFiberDefer", method_oneway_fiber_defer));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayFiberPing", method_oneway_fiber_ping));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_oneway_ping));
+
+        oneway_fiber_ran = false;
+        oneway_fiber_ping_dispatched = false;
+
+        /* Fire a oneway call handled by a fiber, immediately followed by a pipelined regular call that
+         * must wait for the fiber to complete the parked oneway call. */
+        ASSERT_OK(sd_varlink_send(c, "io.test.OnewayFiberDefer", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.OnewayFiberPing", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(oneway_fiber_ping_dispatched);
+        ASSERT_TRUE(oneway_fiber_ran);
+}
+
+static bool oneway_sentinel_ping_dispatched;
+
+static int method_oneway_sentinel_complete(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* On a SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY server, setting a sentinel counts as completing the
+         * oneway call (the discarded error signals completion), so it must complete rather than park. */
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+        ASSERT_OK(sd_varlink_set_sentinel(link, "io.test.SentinelError"));
+        return 0;
+}
+
+static int method_oneway_sentinel_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        oneway_sentinel_ping_dispatched = true;
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong"));
+}
+
+TEST(oneway_sentinel_completes) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        oneway_test_setup(SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY, &e, &s, &c);
+
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewaySentinelComplete", method_oneway_sentinel_complete));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewaySentinelPing", method_oneway_sentinel_ping));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_oneway_ping));
+
+        oneway_sentinel_ping_dispatched = false;
+
+        /* A oneway handler that sets a sentinel completes immediately; the pipelined regular call must be
+         * dispatched rather than blocked behind a parked connection. */
+        ASSERT_OK(sd_varlink_send(c, "io.test.OnewaySentinelComplete", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.OnewaySentinelPing", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(oneway_sentinel_ping_dispatched);
+}
+
+static bool oneway_noflag_ping_dispatched;
+
+static int method_oneway_noflag(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Without SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY a oneway handler that returns without replying is
+         * fire-and-forget (e.g. systemd-oomd): it must complete immediately, not park. */
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+        return 0;
+}
+
+static int method_oneway_noflag_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        oneway_noflag_ping_dispatched = true;
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong"));
+}
+
+TEST(oneway_no_flag_completes) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        oneway_test_setup(/* flags= */ 0, &e, &s, &c);
+
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayNoFlag", method_oneway_noflag));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayNoFlagPing", method_oneway_noflag_ping));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_oneway_ping));
+
+        oneway_noflag_ping_dispatched = false;
+
+        /* The oneway handler returns without replying; on a default server it completes at once, so the
+         * pipelined regular call must be dispatched. */
+        ASSERT_OK(sd_varlink_send(c, "io.test.OnewayNoFlag", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.OnewayNoFlagPing", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(oneway_noflag_ping_dispatched);
+}
+
+static bool oneway_sync_ping_dispatched;
+
+static int method_oneway_sync_reply(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Complete the oneway call synchronously from inside the callback (state PROCESSING_METHOD_ONEWAY).
+         * The discarded reply must be accepted (returning 1), not refused with -EBUSY, so the call is not
+         * left parked. */
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+        ASSERT_OK_EQ(sd_varlink_reply(link, /* parameters= */ NULL), 1);
+        return 0;
+}
+
+static int method_oneway_sync_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        oneway_sync_ping_dispatched = true;
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong"));
+}
+
+TEST(oneway_sync_reply_completes) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        oneway_test_setup(SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY, &e, &s, &c);
+
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewaySyncReply", method_oneway_sync_reply));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewaySyncPing", method_oneway_sync_ping));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_oneway_ping));
+
+        oneway_sync_ping_dispatched = false;
+
+        /* A oneway handler that replies synchronously (like journald's Synchronize on an idle journal) must
+         * complete, so the pipelined regular call is dispatched. */
+        ASSERT_OK(sd_varlink_send(c, "io.test.OnewaySyncReply", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.OnewaySyncPing", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(oneway_sync_ping_dispatched);
+}
+
+static bool oneway_syncerr_ping_dispatched;
+
+static int method_oneway_sync_error(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Reject synchronously from inside the callback via the "return sd_varlink_error(...)" idiom (as a
+         * privilege check does). It must return a negative errno so a caller's "if (r < 0) return r;" guard
+         * fires; returning success here would silently bypass such checks. The call still completes. */
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+        int r = sd_varlink_error(link, "io.test.SomeError", /* parameters= */ NULL);
+        ASSERT_TRUE(r < 0);
+        return r;
+}
+
+static int method_oneway_syncerr_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        oneway_syncerr_ping_dispatched = true;
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong"));
+}
+
+TEST(oneway_sync_error_rejects) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        oneway_test_setup(SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY, &e, &s, &c);
+
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewaySyncError", method_oneway_sync_error));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewaySyncErrPing", method_oneway_syncerr_ping));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_oneway_ping));
+
+        oneway_syncerr_ping_dispatched = false;
+
+        /* The oneway handler rejects synchronously with an error; the pipelined regular call must still be
+         * dispatched (the call completes). */
+        ASSERT_OK(sd_varlink_send(c, "io.test.OnewaySyncError", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.OnewaySyncErrPing", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(oneway_syncerr_ping_dispatched);
+}
+
+static bool oneway_fibererr_ping_dispatched;
+
+static int method_oneway_fiber_error(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* A fiber oneway handler that fails: the error can't be sent (no client), so it is logged and the
+         * call completes, letting the pipelined follow-up run — fail-open, unlike the non-oneway fiber
+         * path which propagates the error to the client and fails the connection. */
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+        return -ENOANO;
+}
+
+static int method_oneway_fibererr_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        oneway_fibererr_ping_dispatched = true;
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong"));
+}
+
+TEST(oneway_fiber_error_completes) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        oneway_test_setup(SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY, &e, &s, &c);
+
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.OnewayFiberError", method_oneway_fiber_error));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.OnewayFiberErrPing", method_oneway_fibererr_ping));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_oneway_ping));
+
+        oneway_fibererr_ping_dispatched = false;
+
+        /* A fiber oneway handler returns an error; it is logged and discarded, so the pipelined regular call
+         * must still be dispatched. */
+        ASSERT_OK(sd_varlink_send(c, "io.test.OnewayFiberError", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.OnewayFiberErrPing", /* parameters= */ NULL));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_TRUE(oneway_fibererr_ping_dispatched);
 }
 
 static int method_fiber_sentinel_error(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
