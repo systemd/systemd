@@ -140,6 +140,7 @@ networkctl_sources = files(
         'networkctl-status-link.c',
         'networkctl-status-system.c',
         'networkctl-util.c',
+        'networkctl-verify.c',
 )
 
 networkd_network_gperf_gperf = files('networkd-network-gperf.gperf')
@@ -217,7 +218,9 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_NETWORKD'],
                 'sources' : networkctl_sources,
-                'include_directories' : libsystemd_network_includes,
+                # The verify verb loads .network/.netdev files with the daemon's parsers.
+                'import' : ['systemd-networkd'],
+                'include_directories' : network_includes,
                 'link_with' : [
                         libshared,
                         libsystemd_network,
