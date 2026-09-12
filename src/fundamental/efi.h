@@ -38,6 +38,9 @@ typedef struct {
         uint16_t wCertificateType;
 } WIN_CERTIFICATE_HEADER;
 
+#define WIN_CERT_REVISION_2_0  UINT16_C(0x0200)
+#define WIN_CERT_TYPE_EFI_GUID UINT16_C(0x0ef1)
+
 typedef struct {
         WIN_CERTIFICATE_HEADER Hdr;
         EFI_GUID CertType;
@@ -78,6 +81,8 @@ typedef struct {
 
 #define EFI_CERT_X509_GUID \
         GUID_DEF(0xa5c059a1, 0x94e4, 0x4aa7, 0x87, 0xb5, 0xab, 0x15, 0x5c, 0x2b, 0xf0, 0x72)
+#define EFI_CERT_SHA256_GUID \
+        GUID_DEF(0xc1c41626, 0x504c, 0x4092, 0xac, 0xa9, 0x41, 0xf9, 0x36, 0x93, 0x43, 0x28)
 #define EFI_CERT_TYPE_PKCS7_GUID \
         GUID_DEF(0x4aafd29d, 0x68df, 0x49ee, 0x8a, 0xa9, 0x34, 0x7d, 0x37, 0x56, 0x65, 0xa7)
 
