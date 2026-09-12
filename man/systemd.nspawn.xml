@@ -586,6 +586,10 @@
         equivalent to the <option>--private-users-ownership=</option> command line switch. This option is
         privileged (see above).</para>
 
+        <para>If unset, defaults to <literal>auto</literal> when <varname>PrivateUsers=</varname>
+        is <literal>pick</literal> or <literal>managed</literal>, and to <literal>off</literal>
+        otherwise.</para>
+
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
