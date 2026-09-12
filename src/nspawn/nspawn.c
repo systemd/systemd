@@ -1698,7 +1698,7 @@ int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int dir_fd = open_mkdir_at(parent_fd, dname, O_EXCL|O_CLOEXEC, mode);
+        _cleanup_close_ int dir_fd = open_mkdir_at(parent_fd, dname, O_EXCL, mode);
         if (dir_fd == -EEXIST)
                 return 0;
         if (dir_fd < 0)
@@ -2064,9 +2064,9 @@ static int copy_devnode_one(const char *dest, const char *node, bool check) {
                 /* If 'check' is true, create /dev/fuse only when it is accessible. The check is necessary,
                  * as some custom service units that invoke systemd-nspawn may enable DevicePolicy= without
                  * DeviceAllow= for the device node. */
-                _cleanup_close_ int fd = open(from, O_CLOEXEC|O_RDWR);
+                _cleanup_close_ int fd = xopenat(AT_FDCWD, from, O_RDWR);
                 if (fd < 0) {
-                        log_debug_errno(errno,
+                        log_debug_errno(fd,
                                         "Failed to open %s, skipping creation of the device node in the container, ignoring: %m",
                                         from);
                         return 0;
@@ -2376,9 +2376,9 @@ static int setup_credentials(const char *root) {
                 if (!j)
                         return log_oom();
 
-                fd = open(j, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC|O_NOFOLLOW, world_readable ? 0666 : 0600);
+                fd = xopenat_full(AT_FDCWD, j, O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW, /* xopen_flags= */ 0, world_readable ? 0666 : 0600);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to create credential file %s: %m", j);
+                        return log_error_errno(fd, "Failed to create credential file %s: %m", j);
 
                 r = loop_write(fd, cred->data, cred->size);
                 if (r < 0)
@@ -2439,9 +2439,9 @@ static int setup_kmsg(int fd_inner_socket) {
         if (r < 0)
                 return r;
 
-        fd = open("/run/host/proc-kmsg", O_RDWR|O_NONBLOCK|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, "/run/host/proc-kmsg", O_RDWR|O_NONBLOCK);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open fifo: %m");
+                return log_error_errno(fd, "Failed to open fifo: %m");
 
         /* NB: We intentionally do not unlink the backing FIFO. See setup_boot_id_file() for details. */
 

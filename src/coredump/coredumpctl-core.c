@@ -140,7 +140,7 @@ int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
         }
 
 #if HAVE_COMPRESSION
-        _cleanup_close_ int fdf = fd_reopen(fdf_opath, O_RDONLY | O_CLOEXEC);
+        _cleanup_close_ int fdf = fd_reopen(fdf_opath, O_RDONLY);
         if (fdf < 0)
                 return log_error_errno(fdf, "Failed to open '%s': %m", path);
 

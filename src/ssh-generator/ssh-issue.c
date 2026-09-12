@@ -76,7 +76,7 @@ static int verb_make_vsock(int argc, char *argv[], uintptr_t _data, void *_userd
                 if (r < 0)
                         return log_error_errno(r, "Failed to create parent directories of '%s': %m", arg_issue_path);
 
-                r = fopen_tmpfile_linkable(arg_issue_path, O_WRONLY|O_CLOEXEC, &t, &f);
+                r = fopen_tmpfile_linkable(arg_issue_path, O_WRONLY, &t, &f);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create '%s': %m", arg_issue_path);
 

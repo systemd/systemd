@@ -13,6 +13,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
@@ -88,7 +89,7 @@ void random_bytes(void *p, size_t n) {
                 /* Interrupted by a signal; keep going. */
         }
 
-        _cleanup_close_ int fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, "/dev/urandom", O_RDONLY|O_NOCTTY);
         if (fd >= 0 && loop_read_exact(fd, p, n, false) >= 0)
                 return;
 
@@ -184,9 +185,9 @@ int random_write_entropy(int fd, const void *seed, size_t size, bool credit) {
                 return 0;
 
         if (fd < 0) {
-                opened_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY);
+                opened_fd = xopenat(AT_FDCWD, "/dev/urandom", O_WRONLY|O_NOCTTY);
                 if (opened_fd < 0)
-                        return -errno;
+                        return opened_fd;
 
                 fd = opened_fd;
         }

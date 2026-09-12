@@ -5,6 +5,7 @@
 #include "btrfs-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "homework-blob.h"
 #include "homework-directory.h"
 #include "homework-fscrypt.h"
@@ -56,9 +57,9 @@ int home_setup_directory(UserRecord *h, HomeSetup *setup) {
         if (r < 0)
                 return r;
 
-        setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        setup->root_fd = xopenat(AT_FDCWD, HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
-                return log_error_errno(errno, "Failed to open home directory: %m");
+                return log_error_errno(setup->root_fd, "Failed to open home directory: %m");
 
         return 0;
 }
@@ -195,9 +196,9 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
         if (r < 0)
                 return r;
 
-        setup->root_fd = open(temporary, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        setup->root_fd = xopenat(AT_FDCWD, temporary, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
-                return log_error_errno(errno, "Failed to open temporary home directory: %m");
+                return log_error_errno(setup->root_fd, "Failed to open temporary home directory: %m");
 
         /* Try to apply a UID shift, so that the directory is actually owned by "nobody", and is only mapped
          * to the proper UID while active. — Well, that's at least the theory. Unfortunately, only btrfs does
@@ -215,7 +216,7 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
                 /* If we have established a new mount, then we can use that as new root fd to our home directory. */
                 safe_close(setup->root_fd);
 
-                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_DIRECTORY);
                 if (setup->root_fd < 0)
                         return log_error_errno(setup->root_fd, "Unable to convert mount fd into proper directory fd: %m");
 

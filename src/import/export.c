@@ -3,6 +3,7 @@
 #include <locale.h>
 #include <unistd.h>
 
+#include "fs-util.h"
 #include "sd-event.h"
 #include "sd-json.h"
 
@@ -78,9 +79,9 @@ static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userda
         determine_compression_from_filename(path);
 
         if (path) {
-                open_fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
+                open_fd = xopenat_full(AT_FDCWD, path, O_WRONLY|O_CREAT|O_TRUNC|O_NOCTTY, /* xopen_flags= */ 0, 0666);
                 if (open_fd < 0)
-                        return log_error_errno(errno, "Failed to open tar image for export: %m");
+                        return log_error_errno(open_fd, "Failed to open tar image for export: %m");
 
                 fd = open_fd;
 
@@ -161,9 +162,9 @@ static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userda
         determine_compression_from_filename(path);
 
         if (path) {
-                open_fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
+                open_fd = xopenat_full(AT_FDCWD, path, O_WRONLY|O_CREAT|O_TRUNC|O_NOCTTY, /* xopen_flags= */ 0, 0666);
                 if (open_fd < 0)
-                        return log_error_errno(errno, "Failed to open raw image for export: %m");
+                        return log_error_errno(open_fd, "Failed to open raw image for export: %m");
 
                 fd = open_fd;
 

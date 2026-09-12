@@ -879,6 +879,13 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - `F_DUPFD_CLOEXEC` should be used instead of `F_DUPFD`, and so on,
   - invocations of `fopen()` should take `e`.
 
+- Our dedicated open helpers (`xopenat()`, `chase_and_open()`, `fd_reopen()`,
+  `open_mkdir_at()`, `open_tmpfile_linkable()`, `open_terminal()`,
+  `fopen_unlocked()`, …) set `O_CLOEXEC` by default and will thus only return
+  close-on-exec file descriptors. If a file descriptor must be available after
+  `execve()` the `O_CLOEXEC` bit must be cleared explicitly via
+  `fd_cloexec(fd, false)` right before the `execve()`.
+
 - It's a good idea to use `O_NONBLOCK` when opening 'foreign' regular files,
   i.e.  file system objects that are supposed to be regular files whose paths
   were specified by the user and hence might actually refer to other types of

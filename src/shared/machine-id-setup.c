@@ -73,7 +73,7 @@ static int acquire_machine_id(const char *root, bool machine_id_from_firmware, s
         }
 
         /* Then, try reading the D-Bus machine ID, unless it is a symlink */
-        fd = chase_and_open("/var/lib/dbus/machine-id", root, CHASE_PREFIX_ROOT|CHASE_NOFOLLOW|CHASE_MUST_BE_REGULAR, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+        fd = chase_and_open("/var/lib/dbus/machine-id", root, CHASE_PREFIX_ROOT|CHASE_NOFOLLOW|CHASE_MUST_BE_REGULAR, O_RDONLY|O_NOCTTY, /* ret_path= */ NULL);
         if (fd >= 0 && id128_read_fd(fd, ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, ret) >= 0) {
                 log_info("Initializing machine ID from D-Bus machine ID.");
                 return 0;
@@ -156,10 +156,10 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                          * modify. Of course, since the file will be owned by root it doesn't matter much, but maybe
                          * people look. */
 
-                        fd = openat(etc_fd, "machine-id", O_CREAT|O_EXCL|O_RDWR|O_NOFOLLOW|O_CLOEXEC, 0444);
+                        fd = xopenat_full(etc_fd, "machine-id", O_CREAT|O_EXCL|O_RDWR|O_NOFOLLOW, /* xopen_flags= */ 0, 0444);
                         if (fd < 0) {
-                                if (errno == EROFS)
-                                        return log_error_errno(errno,
+                                if (fd == -EROFS)
+                                        return log_error_errno(fd,
                                                                "System cannot boot: Missing %s and %s/ is read-only.\n"
                                                                "Booting up is supported only when:\n"
                                                                "1) /etc/machine-id exists and is populated.\n"
@@ -168,7 +168,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                                                                etc_machine_id,
                                                                etc);
 
-                                return log_error_errno(errno, "Cannot create '%s': %m", etc_machine_id);
+                                return log_error_errno(fd, "Cannot create '%s': %m", etc_machine_id);
                         }
 
                         log_debug("Successfully opened new '%s' file.", etc_machine_id);
@@ -178,12 +178,12 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                 else {
                         /* We pinned the inode, now try to convert it into a writable file */
 
-                        fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDWR|O_CLOEXEC, XO_REGULAR, 0444);
+                        fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDWR, XO_REGULAR|XO_EMPTY_PATH, MODE_INVALID);
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to open '%s' in writable mode, retrying in read-only mode: %m", etc_machine_id);
 
                                 /* If that didn't work, convert it into a readable file */
-                                fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                                fd = xopenat_full(inode_fd, /* path= */ NULL, O_RDONLY, XO_REGULAR|XO_EMPTY_PATH, MODE_INVALID);
                                 if (fd < 0)
                                         return log_error_errno(fd, "Cannot open '%s' in neither writable nor read-only mode: %m", etc_machine_id);
 
@@ -359,7 +359,7 @@ int machine_id_commit(const char *root) {
         /* Read existing machine-id */
 
         _cleanup_close_ int fd = xopenat_full(etc_machine_id_fd, /* path= */ NULL,
-                                              O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, MODE_INVALID);
+                                              O_RDONLY|O_NOCTTY, XO_REGULAR|XO_EMPTY_PATH, MODE_INVALID);
         if (fd < 0)
                 return log_error_errno(fd, "Cannot open %s: %m", etc_machine_id);
 

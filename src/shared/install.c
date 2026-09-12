@@ -698,7 +698,7 @@ static int remove_marked_symlinks_fd(
                         _cleanup_close_ int nfd = -EBADF;
                         _cleanup_free_ char *p = NULL;
 
-                        nfd = RET_NERRNO(openat(fd, de->d_name, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW));
+                        nfd = xopenat(fd, de->d_name, O_DIRECTORY|O_NOFOLLOW);
                         if (nfd < 0) {
                                 if (nfd != -ENOENT)
                                         RET_GATHER(ret, nfd);
@@ -813,9 +813,9 @@ static int remove_marked_symlinks(
         if (set_isempty(remove_symlinks_to))
                 return 0;
 
-        fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY);
         if (fd < 0)
-                return errno == ENOENT ? 0 : -errno;
+                return fd == -ENOENT ? 0 : fd;
 
         do {
                 int cfd;
@@ -1435,16 +1435,16 @@ static int unit_file_load(
                         return 0;
                 }
 
-                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY|O_NOFOLLOW);
                 if (fd < 0)
-                        return -errno;
+                        return fd;
         } else {
                 /* Operating on a drop-in file. If we aren't supposed to load the unit file drop-ins don't matter, let's hence shortcut this. */
 
                 if (!(flags & SEARCH_LOAD))
                         return 0;
 
-                fd = chase_and_open(path, root_dir, 0, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                fd = chase_and_open(path, root_dir, /* chase_flags= */ 0, O_RDONLY|O_NOCTTY, /* ret_path= */ NULL);
                 if (fd < 0)
                         return fd;
         }

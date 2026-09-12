@@ -13,6 +13,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "label-util.h"
 #include "log.h"
 #include "path-util.h"
@@ -173,12 +174,12 @@ int mac_smack_fix_full(
                 return 0;
 
         if (inode_path) {
-                opened_fd = openat(atfd, inode_path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                opened_fd = xopenat(atfd, inode_path, O_NOFOLLOW|O_PATH);
                 if (opened_fd < 0) {
-                        if (errno == ENOENT && FLAGS_SET(flags, LABEL_IGNORE_ENOENT))
+                        if (opened_fd == -ENOENT && FLAGS_SET(flags, LABEL_IGNORE_ENOENT))
                                 return 0;
 
-                        return -errno;
+                        return opened_fd;
                 }
                 inode_fd = opened_fd;
         } else

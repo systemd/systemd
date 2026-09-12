@@ -20,6 +20,7 @@
 #include "fileio.h"
 #include "filesystems.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "home-util.h"
 #include "homed-home.h"
@@ -413,9 +414,9 @@ static void home_pin(Home *h) {
                 return;
         }
 
-        h->pin_fd = open(path, O_PATH|O_DIRECTORY|O_CLOEXEC);
+        h->pin_fd = xopenat(AT_FDCWD, path, O_PATH|O_DIRECTORY);
         if (h->pin_fd < 0) {
-                log_warning_errno(errno, "Couldn't open home directory '%s' for pinning, ignoring: %m", path);
+                log_warning_errno(h->pin_fd, "Couldn't open home directory '%s' for pinning, ignoring: %m", path);
                 return;
         }
 
@@ -2511,9 +2512,9 @@ static int home_get_disk_status_directory(
         if (!path)
                 goto finish;
 
-        fd = open(path, O_CLOEXEC|O_RDONLY);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY);
         if (fd < 0) {
-                log_debug_errno(errno, "Failed to open '%s', ignoring: %m", path);
+                log_debug_errno(fd, "Failed to open '%s', ignoring: %m", path);
                 goto finish;
         }
 
@@ -2857,9 +2858,9 @@ int home_create_fifo(Home *h, bool please_suspend) {
                 if (mkfifo(fn, 0600) < 0 && errno != EEXIST)
                         return log_error_errno(errno, "Failed to create FIFO %s: %m", fn);
 
-                ref_fd = open(fn, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                ref_fd = xopenat(AT_FDCWD, fn, O_RDONLY|O_NONBLOCK);
                 if (ref_fd < 0)
-                        return log_error_errno(errno, "Failed to open FIFO %s for reading: %m", fn);
+                        return log_error_errno(ref_fd, "Failed to open FIFO %s for reading: %m", fn);
 
                 r = sd_event_add_io(h->manager->event, ss, ref_fd, 0, on_home_ref_eof, h);
                 if (r < 0)
@@ -2880,9 +2881,9 @@ int home_create_fifo(Home *h, bool please_suspend) {
                 TAKE_FD(ref_fd);
         }
 
-        ret_fd = open(fn, O_WRONLY|O_CLOEXEC|O_NONBLOCK);
+        ret_fd = xopenat(AT_FDCWD, fn, O_WRONLY|O_NONBLOCK);
         if (ret_fd < 0)
-                return log_error_errno(errno, "Failed to open FIFO %s for writing: %m", fn);
+                return log_error_errno(ret_fd, "Failed to open FIFO %s for writing: %m", fn);
 
         return TAKE_FD(ret_fd);
 }

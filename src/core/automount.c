@@ -16,6 +16,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "io-util.h"
 #include "label-util.h"
@@ -442,9 +443,9 @@ static int open_dev_autofs(Manager *m) {
 
         (void) label_fix("/dev/autofs", 0);
 
-        m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
+        m->dev_autofs_fd = xopenat(AT_FDCWD, "/dev/autofs", O_RDONLY);
         if (m->dev_autofs_fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", "/dev/autofs");
+                return log_error_errno(m->dev_autofs_fd, "Failed to open %s: %m", "/dev/autofs");
 
         init_autofs_dev_ioctl(&param);
         r = RET_NERRNO(ioctl(m->dev_autofs_fd, AUTOFS_DEV_IOCTL_VERSION, &param));

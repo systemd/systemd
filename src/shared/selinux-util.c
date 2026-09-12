@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <syslog.h>
 
+#include "fs-util.h"
 #include "log.h"
 
 #if HAVE_SELINUX
@@ -519,12 +520,12 @@ int mac_selinux_fix_full(
         }
 
         if (inode_path) {
-                opened_fd = openat(atfd, inode_path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                opened_fd = xopenat(atfd, inode_path, O_NOFOLLOW|O_PATH);
                 if (opened_fd < 0) {
-                        if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
+                        if ((flags & LABEL_IGNORE_ENOENT) && opened_fd == -ENOENT)
                                 return 0;
 
-                        return -errno;
+                        return opened_fd;
                 }
 
                 inode_fd = opened_fd;

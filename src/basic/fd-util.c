@@ -706,10 +706,10 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
         if (null_readable || null_writable) {
 
                 /* Let's open this with O_CLOEXEC first, and convert it to non-O_CLOEXEC when we move the fd to the final position. */
-                null_fd = open("/dev/null", (null_readable && null_writable ? O_RDWR :
-                                             null_readable ? O_RDONLY : O_WRONLY) | O_CLOEXEC);
+                null_fd = xopenat(AT_FDCWD, "/dev/null", (null_readable && null_writable ? O_RDWR :
+                                                          null_readable ? O_RDONLY : O_WRONLY));
                 if (null_fd < 0) {
-                        r = -errno;
+                        r = null_fd;
                         goto finish;
                 }
 
@@ -791,6 +791,9 @@ int fd_reopen(int fd, int flags) {
          *
          * This implicitly resets the file read index to 0.
          *
+         * Kernels with O_EMPTYPATH (7.2+) reopen the fd directly, older ones need /proc/self/fd/ for anything
+         * but directories.
+         *
          * If AT_FDCWD is specified as file descriptor gets an fd to the current cwd.
          *
          * If XAT_FDROOT is specified as fd get an fd to the root directory.
@@ -798,7 +801,11 @@ int fd_reopen(int fd, int flags) {
          * If the specified file descriptor refers to a symlink via O_PATH, then this function cannot be used
          * to follow that symlink. Because we cannot have non-O_PATH fds to symlinks reopening it without
          * O_PATH will always result in -ELOOP. Or in other words: if you have an O_PATH fd to a symlink you
-         * can reopen it only if you pass O_PATH again. */
+         * can reopen it only if you pass O_PATH again.
+         *
+         * The returned fd always has O_CLOEXEC set, use fd_cloexec() to turn it off. */
+
+        flags |= O_CLOEXEC;
 
         if (FLAGS_SET(flags, O_NOFOLLOW))
                 /* O_NOFOLLOW is not allowed in fd_reopen(), because after all this is primarily implemented
@@ -811,7 +818,24 @@ int fd_reopen(int fd, int flags) {
         if (fd == XAT_FDROOT)
                 return RET_NERRNO(open("/", flags | O_DIRECTORY));
 
-        if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD)
+        if (fd == AT_FDCWD)
+                return RET_NERRNO(openat(AT_FDCWD, ".", flags | O_DIRECTORY));
+
+        /* Kernels since 7.2 reopen the fd itself when passed an empty path with O_EMPTYPATH. */
+        static int have_emptypath = -1;
+        if (have_emptypath != 0) {
+                int new_fd = openat(fd, "", flags | O_EMPTYPATH);
+                if (new_fd >= 0) {
+                        have_emptypath = 1;
+                        return new_fd;
+                }
+                if (errno != ENOENT)
+                        return -errno;
+
+                have_emptypath = 0;
+        }
+
+        if (FLAGS_SET(flags, O_DIRECTORY))
                 /* If we shall reopen the fd as directory we can just go via "." and thus bypass the whole
                  * magic /proc/ directory, and make ourselves independent of that being mounted. */
                 return RET_NERRNO(openat(fd, ".", flags | O_DIRECTORY));
@@ -979,6 +1003,8 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
          * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
          *                  See comment in src/basic/include/fcntl.h for more details about this.
          *
+         * O_EMPTYPATH: Sticks to the file like O_NOFOLLOW does, and is just as meaningless once it is open.
+         *
          * If 'extra_flags' is specified as non-zero the included flags are also allowed.
          */
 
@@ -988,7 +1014,7 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
         if (flags < 0)
                 return -errno;
 
-        unexpected_flags = flags & ~(O_ACCMODE_STRICT|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
+        unexpected_flags = flags & ~(O_ACCMODE_STRICT|O_NOFOLLOW|O_EMPTYPATH|RAW_O_LARGEFILE|extra_flags);
         if (unexpected_flags != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTEIO),
                                        "Unexpected flags set for extrinsic fd: 0%o",
@@ -1062,7 +1088,7 @@ int path_is_root_at(int dir_fd, const char *path) {
 
         _cleanup_close_ int fd = -EBADF;
         if (!isempty(path)) {
-                fd = xopenat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                fd = xopenat(dir_fd, path, O_PATH|O_DIRECTORY);
                 if (fd == -ENOTDIR)
                         return false; /* the root dir must be a dir */
                 if (fd < 0)
