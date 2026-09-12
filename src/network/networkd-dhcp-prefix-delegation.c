@@ -215,6 +215,43 @@ static void dhcp_pd_route_modify_nft_set(Route *route, Link *link, bool add) {
         }
 }
 
+static void dhcp_pd_remove_prefix(Link *link, const struct in6_addr *prefix) {
+        assert(link);
+        assert(prefix);
+
+        struct in6_addr masked = *prefix;
+        in6_addr_mask(&masked, 64);
+
+        if (link->radv)
+                sd_radv_remove_prefix(link->radv, &masked, 64);
+
+        link_remove_dhcp_pd_subnet_prefix(link, &masked);
+}
+
+void dhcp_pd_remove_prefix_by_route(Link *link, Route *route) {
+        assert(link);
+        assert(route);
+
+        if (route->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
+                return;
+
+        assert(route->family == AF_INET6);
+        dhcp_pd_remove_prefix(link, &route->dst.in6);
+}
+
+void dhcp_pd_remove_prefix_by_address(Link *link, Address *address) {
+        assert(link);
+        assert(address);
+
+        if (address->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
+                return;
+
+        assert(address->family == AF_INET6);
+        struct in6_addr prefix = address->in_addr.in6;
+        in6_addr_mask(&prefix, 64);
+        dhcp_pd_remove_prefix(link, &prefix);
+}
+
 int dhcp_pd_remove(Link *link, bool only_marked) {
         int ret = 0;
 
@@ -238,10 +275,7 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                         if (only_marked && !route_is_marked(route))
                                 continue;
 
-                        if (link->radv)
-                                sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
-
-                        link_remove_dhcp_pd_subnet_prefix(link, &route->dst.in6);
+                        dhcp_pd_remove_prefix_by_route(link, route);
 
                         /* Remove NFTSet entries before removing the route */
                         dhcp_pd_route_modify_nft_set(route, link, /* add= */ false);
@@ -252,24 +286,20 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                 Address *address;
 
                 SET_FOREACH(address, link->addresses) {
-                        struct in6_addr prefix;
-
                         if (address->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
                                 continue;
                         if (only_marked && !address_is_marked(address))
                                 continue;
 
-                        prefix = address->in_addr.in6;
-                        in6_addr_mask(&prefix, 64);
-
-                        if (link->radv)
-                                sd_radv_remove_prefix(link->radv, &prefix, 64);
-
-                        link_remove_dhcp_pd_subnet_prefix(link, &prefix);
+                        dhcp_pd_remove_prefix_by_address(link, address);
 
                         RET_GATHER(ret, address_remove_and_cancel(address, link));
                 }
         }
+
+        if (!only_marked)
+                /* Also drop pending requests when the lease is lost or the client is stopped. */
+                RET_GATHER(ret, link_drop_requests(link, NETWORK_CONFIG_SOURCE_DHCP_PD));
 
         return ret;
 }

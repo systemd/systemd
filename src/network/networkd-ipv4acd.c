@@ -152,7 +152,7 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         void *val, *key;
         HASHMAP_FOREACH_KEY(val, key, link->ipv4acd_by_address)
                 if (val == acd) {
-                        (void) address_get(link, key, &address);
+                        (void) address_get_harder(link, key, &address);
                         break;
                 }
 
