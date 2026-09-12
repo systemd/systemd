@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/magic.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -10,10 +9,10 @@
 #include "build-path.h"
 #include "chase.h"
 #include "device-util.h"
-#include "devnum-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "extension-util.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
 #include "fileio.h"
@@ -23,6 +22,7 @@
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "iovec-util.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -766,47 +766,6 @@ Instance* resource_find_instance(Resource *rr, const char *version) {
         return *found;
 }
 
-static int get_sysext_overlay_block(const char *p, dev_t *ret) {
-        int r;
-
-        assert(p);
-        assert(ret);
-
-        /* Tries to read the backing device information systemd-sysext puts in the virtual file
-         * /usr/.systemd-sysext/backing */
-
-        _cleanup_free_ char *j = path_join(p, ".systemd-sysext");
-        if (!j)
-                return log_oom_debug();
-
-        _cleanup_close_ int fd = open(j, O_RDONLY|O_DIRECTORY);
-        if (fd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", j);
-
-        r = fd_is_fs_type(fd, OVERLAYFS_SUPER_MAGIC);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to determine backing file system of '%s': %m", j);
-        if (r == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTTY), "Backing file system of '%s' is not an overlayfs.", j);
-
-        _cleanup_free_ char *buf = NULL;
-        r = read_one_line_file_at(fd, "backing", &buf);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to read contents of '%s/backing': %m", j);
-
-        r = parse_devnum(buf, ret);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse contents of '%s/backing': %m", j);
-
-        if (major(*ret) == 0) { /* not a block device? */
-                *ret = 0;
-                return 0;
-        }
-
-        (void) block_get_originating(*ret, ret, /* recursive= */ false);
-        return 1;
-}
-
 int resource_resolve_path(
                 Resource *rr,
                 const char *root,
@@ -858,7 +817,7 @@ int resource_resolve_path(
                         /* volatile-root not found */
                         r = get_block_device_harder("/usr/", &d);
                         if (r == 0) /* Not backed by a block device? Let's see if this is a sysext overlayfs instance */
-                                r = get_sysext_overlay_block("/usr/", &d);
+                                r = extension_overlay_block("/usr/", IMAGE_SYSEXT, &d);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine block device of file system: %m");
                 } else if (!S_ISBLK(orig_root_stats.st_mode)) /* symlink was present but not block device */
