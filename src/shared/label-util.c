@@ -58,7 +58,7 @@ int symlink_label(const char *old_path, const char *new_path, LabelContext *labe
         if (r < 0)
                 return r;
 
-        return mac_smack_fix(new_path, 0);
+        return mac_smack_fix(new_path, /* flags= */ 0);
 }
 
 int mknodat_label(int dirfd, const char *pathname, mode_t mode, dev_t dev, LabelContext *label_context) {
@@ -77,7 +77,7 @@ int mknodat_label(int dirfd, const char *pathname, mode_t mode, dev_t dev, Label
         if (r < 0)
                 return r;
 
-        return mac_smack_fix_full(dirfd, pathname, NULL, 0);
+        return mac_smack_fix_full(dirfd, pathname, /* label_path= */ NULL, /* flags= */ 0);
 }
 
 int btrfs_subvol_make_label(const char *path, LabelContext *label_context) {
@@ -95,7 +95,7 @@ int btrfs_subvol_make_label(const char *path, LabelContext *label_context) {
         if (r < 0)
                 return r;
 
-        return mac_smack_fix(path, 0);
+        return mac_smack_fix(path, /* flags= */ 0);
 }
 
 int mac_label_context_new(const char *root, LabelContext **ret) {

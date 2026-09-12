@@ -313,7 +313,7 @@ static int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor
         assert(link);
         assert(neighbor);
 
-        if (!link_is_ready_to_configure(link, false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return 0;
 
         r = neighbor_configure(neighbor, link, req);
@@ -368,7 +368,7 @@ static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
                 return 0;
         }
 
-        if (neighbor_get_request(link, neighbor, NULL) >= 0)
+        if (neighbor_get_request(link, neighbor, /* ret= */ NULL) >= 0)
                 return 0; /* already requested, skipping. */
 
         r = neighbor_dup(neighbor, &tmp);

@@ -76,7 +76,7 @@ static bool device_match_sysattr_value(sd_device *device, const char *sysattr, c
         if (sd_device_get_sysattr_value(device, sysattr, &value) < 0)
                 return false;
 
-        return strv_fnmatch_or_empty(patterns, value, 0);
+        return strv_fnmatch_or_empty(patterns, value, /* flags= */ 0);
 }
 
 bool device_match_sysattr(sd_device *device, Hashmap *match_sysattr, Hashmap *nomatch_sysattr) {

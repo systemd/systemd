@@ -42,7 +42,7 @@ static int logind_set_wall_message(sd_bus *bus) {
         if (arg_dry_run)
                 return 0;
 
-        r = bus_call_method(bus, bus_login_mgr, "SetWallMessage", &error, NULL, "sb", m, !arg_no_wall);
+        r = bus_call_method(bus, bus_login_mgr, "SetWallMessage", &error, /* ret_reply= */ NULL, "sb", m, !arg_no_wall);
         if (r < 0)
                 return log_warning_errno(r, "Failed to set wall message, ignoring: %s", bus_error_message(&error, r));
 #endif
@@ -104,18 +104,18 @@ int logind_reboot(enum action a) {
                  a == ACTION_REBOOT && getenv_bool("SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT") <= 0 && path_is_mount_point("/run/nextroot") > 0);
         SET_FLAG(flags, SD_LOGIND_SOFT_REBOOT, a == ACTION_SOFT_REBOOT);
 
-        r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, NULL, "t", flags);
+        r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, /* ret_reply= */ NULL, "t", flags);
         if (r < 0 && FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS) &&
                         sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
                 sd_bus_error_free(&error);
                 flags &= ~SD_LOGIND_SKIP_INHIBITORS;
-                r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, NULL, "t", flags);
+                r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, /* ret_reply= */ NULL, "t", flags);
         }
         if (r < 0 && FLAGS_SET(flags, SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP) &&
                         sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
                 sd_bus_error_free(&error);
                 flags &= ~SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP;
-                r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, NULL, "t", flags);
+                r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, /* ret_reply= */ NULL, "t", flags);
         }
         if (r >= 0)
                 return 0;
@@ -132,7 +132,7 @@ int logind_reboot(enum action a) {
         log_debug("Method %s not available: %s. Falling back to %s", method_with_flags, bus_error_message(&error, r), actions[a]);
         sd_bus_error_free(&error);
 
-        r = bus_call_method(bus, bus_login_mgr, actions[a], &error, NULL, "b", arg_ask_password);
+        r = bus_call_method(bus, bus_login_mgr, actions[a], &error, /* ret_reply= */ NULL, "b", arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Call to %s failed: %s", actions[a], bus_error_message(&error, r));
 
@@ -174,7 +174,7 @@ int logind_check_inhibitors(enum action a) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", NULL, &reply, NULL);
+        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", /* reterr_error= */ NULL, &reply, /* types= */ NULL);
         if (r < 0)
                 /* If logind is not around, then there are no inhibitors... */
                 return 0;
@@ -277,7 +277,7 @@ int prepare_firmware_setup(void) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_login_mgr, "SetRebootToFirmwareSetup", &error, NULL, "b", true);
+        r = bus_call_method(bus, bus_login_mgr, "SetRebootToFirmwareSetup", &error, /* ret_reply= */ NULL, "b", true);
         if (r < 0)
                 return log_error_errno(r, "Cannot indicate to EFI to boot into setup mode: %s", bus_error_message(&error, r));
 
@@ -302,7 +302,7 @@ int prepare_boot_loader_menu(void) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_login_mgr, "SetRebootToBootLoaderMenu", &error, NULL, "t", arg_boot_loader_menu);
+        r = bus_call_method(bus, bus_login_mgr, "SetRebootToBootLoaderMenu", &error, /* ret_reply= */ NULL, "t", arg_boot_loader_menu);
         if (r < 0)
                 return log_error_errno(r, "Cannot indicate to boot loader to enter boot loader entry menu: %s", bus_error_message(&error, r));
 
@@ -327,7 +327,7 @@ int prepare_boot_loader_entry(void) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_login_mgr, "SetRebootToBootLoaderEntry", &error, NULL, "s", arg_boot_loader_entry);
+        r = bus_call_method(bus, bus_login_mgr, "SetRebootToBootLoaderEntry", &error, /* ret_reply= */ NULL, "s", arg_boot_loader_entry);
         if (r < 0)
                 return log_error_errno(r, "Cannot set boot into loader entry '%s': %s", arg_boot_loader_entry, bus_error_message(&error, r));
 
@@ -361,7 +361,7 @@ int logind_schedule_shutdown(enum action a) {
 
         (void) logind_set_wall_message(bus);
 
-        r = bus_call_method(bus, bus_login_mgr, "ScheduleShutdown", &error, NULL, "st", action, arg_when);
+        r = bus_call_method(bus, bus_login_mgr, "ScheduleShutdown", &error, /* ret_reply= */ NULL, "st", action, arg_when);
         if (r < 0)
                 return log_warning_errno(r, "Failed to schedule shutdown: %s", bus_error_message(&error, r));
 
@@ -387,7 +387,7 @@ int logind_cancel_shutdown(void) {
 
         (void) logind_set_wall_message(bus);
 
-        r = bus_call_method(bus, bus_login_mgr, "CancelScheduledShutdown", &error, NULL, NULL);
+        r = bus_call_method(bus, bus_login_mgr, "CancelScheduledShutdown", &error, /* ret_reply= */ NULL, /* types= */ NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to talk to logind, shutdown hasn't been cancelled: %s", bus_error_message(&error, r));
 

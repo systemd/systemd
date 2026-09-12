@@ -68,7 +68,7 @@ static inline int libmount_parse_with_utab(
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter) {
 
-        return libmount_parse_full(NULL, NULL, MNT_ITER_FORWARD, ret_table, ret_iter);
+        return libmount_parse_full(/* path= */ NULL, /* source= */ NULL, MNT_ITER_FORWARD, ret_table, ret_iter);
 }
 
 int libmount_parse_fstab(struct libmnt_table **ret_table, struct libmnt_iter **ret_iter);

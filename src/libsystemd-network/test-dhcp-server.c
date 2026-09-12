@@ -35,20 +35,20 @@ TEST(basic) {
         ASSERT_PTR_EQ(sd_dhcp_server_get_event(server), event);
         ASSERT_OK(sd_dhcp_server_detach_event(server));
         ASSERT_NULL(sd_dhcp_server_get_event(server));
-        ASSERT_OK(sd_dhcp_server_attach_event(server, NULL, SD_EVENT_PRIORITY_NORMAL));
-        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_attach_event(server, NULL, SD_EVENT_PRIORITY_NORMAL), EBUSY));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, /* event= */ NULL, SD_EVENT_PRIORITY_NORMAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_attach_event(server, /* event= */ NULL, SD_EVENT_PRIORITY_NORMAL), EBUSY));
 
         ASSERT_TRUE(sd_dhcp_server_ref(server) == server);
         ASSERT_NULL(sd_dhcp_server_unref(server));
 
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_start(server), EUNATCH));
 
-        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_any, 28, 0, 0), EINVAL));
-        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_lo, 38, 0, 0), ERANGE));
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
-        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_any, 8, 0, 1), EINVAL));
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 1));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_any, 28, /* offset= */ 0, /* size= */ 0), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_lo, 38, /* offset= */ 0, /* size= */ 0), ERANGE));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, /* offset= */ 0, /* size= */ 0));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, /* offset= */ 0, /* size= */ 0));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_any, 8, /* offset= */ 0, 1), EINVAL));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, /* offset= */ 0, 1));
 
         _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
@@ -70,16 +70,16 @@ TEST(sd_dhcp_server_configure_pool) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         ASSERT_OK(sd_dhcp_server_new(&server, 4242));
 
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 0, 0));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, /* offset= */ 0, /* size= */ 0));
         ASSERT_EQ(server->pool_offset, 1u);
         ASSERT_EQ(server->pool_size, 254u);
 
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 0, 254));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, /* offset= */ 0, 254));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
-                        sd_dhcp_server_configure_pool(server, &address, 24, 0, 255),
+                        sd_dhcp_server_configure_pool(server, &address, 24, /* offset= */ 0, 255),
                         ERANGE));
 
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 254, 0));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 254, /* size= */ 0));
         ASSERT_EQ(server->pool_offset, 254u);
         ASSERT_EQ(server->pool_size, 1u);
 
@@ -91,19 +91,19 @@ TEST(sd_dhcp_server_configure_pool) {
         ASSERT_EQ(server->pool_size, 1u);
 
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
-                        sd_dhcp_server_configure_pool(server, &address, 24, 255, 0),
+                        sd_dhcp_server_configure_pool(server, &address, 24, 255, /* size= */ 0),
                         ERANGE));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
                         sd_dhcp_server_configure_pool(server, &address, 24, 255, 1),
                         ERANGE));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
-                        sd_dhcp_server_configure_pool(server, &address, 24, 256, 0),
+                        sd_dhcp_server_configure_pool(server, &address, 24, 256, /* size= */ 0),
                         ERANGE));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
                         sd_dhcp_server_configure_pool(server, &address, 24, 256, 1),
                         ERANGE));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
-                        sd_dhcp_server_configure_pool(server, &address, 24, UINT32_MAX, 0),
+                        sd_dhcp_server_configure_pool(server, &address, 24, UINT32_MAX, /* size= */ 0),
                         ERANGE));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
                         sd_dhcp_server_configure_pool(server, &address, 24, UINT32_MAX, 1),
@@ -114,7 +114,7 @@ TEST(sd_dhcp_server_configure_pool) {
         ASSERT_EQ(server->pool_size, 1u);
 
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
-                        sd_dhcp_server_configure_pool(server, &address, 30, 3, 0),
+                        sd_dhcp_server_configure_pool(server, &address, 30, 3, /* size= */ 0),
                         ERANGE));
         ASSERT_EQ(server->pool_offset, 2u);
         ASSERT_EQ(server->pool_size, 1u);
@@ -162,7 +162,7 @@ TEST(dhcp_server_process_message) {
 
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         ASSERT_OK(sd_dhcp_server_new(&server, 4242));
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, /* offset= */ 0, /* size= */ 0));
         ASSERT_OK(sd_dhcp_server_set_static_lease(
                         server,
                         &static_lease_address,
@@ -417,10 +417,10 @@ TEST(sd_dhcp_server_set_domain_name) {
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "test.local"));
 
         /* Test clearing domain name */
-        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, NULL));
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, /* domain_name= */ NULL));
 
         /* Test clearing again (should return 0 - already cleared) */
-        ASSERT_OK_ZERO(sd_dhcp_server_set_domain_name(server, NULL));
+        ASSERT_OK_ZERO(sd_dhcp_server_set_domain_name(server, /* domain_name= */ NULL));
 
         /* Test invalid domain name */
         ASSERT_ERROR(sd_dhcp_server_set_domain_name(server, "invalid..domain"), EINVAL);
@@ -429,7 +429,7 @@ TEST(sd_dhcp_server_set_domain_name) {
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, ""));
 
         /* Test clearing domain name with NULL */
-        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, NULL));
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, /* domain_name= */ NULL));
 
         /* Test valid domain with subdomain */
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "sub.example.com"));

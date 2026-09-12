@@ -17,5 +17,5 @@ void watchdog_close(bool disarm);
 usec_t watchdog_runtime_wait(unsigned divisor);
 
 static inline void watchdog_free_device(void) {
-        (void) watchdog_set_device(NULL);
+        (void) watchdog_set_device(/* path= */ NULL);
 }

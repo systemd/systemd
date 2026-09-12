@@ -206,7 +206,7 @@ static void journal_file_set_offline_internal(JournalFile *f) {
                          * copy all data to a new file without the NOCOW flag set. */
 
                         if (f->archive) {
-                                r = chattr_fd(f->fd, 0, FS_NOCOW_FL);
+                                r = chattr_fd(f->fd, /* value= */ 0, FS_NOCOW_FL);
                                 if (r >= 0)
                                         continue;
 
@@ -217,11 +217,11 @@ static void journal_file_set_offline_internal(JournalFile *f) {
                                  * unlinkat_deallocate() is called in the main thread while this thread is
                                  * copying the file. See issue #24150 and #31222. */
                                 r = copy_file_atomic_at_full(
-                                                f->fd, NULL, AT_FDCWD, f->path, f->mode,
-                                                0,
+                                                f->fd, /* from= */ NULL, AT_FDCWD, f->path, f->mode,
+                                                /* chattr_flags= */ 0,
                                                 FS_NOCOW_FL,
                                                 COPY_REPLACE | COPY_FSYNC | COPY_HOLES | COPY_ALL_XATTRS | COPY_VERIFY_LINKED,
-                                                NULL, NULL);
+                                                /* progress= */ NULL, /* userdata= */ NULL);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to rewrite %s: %m", f->path);
                                         continue;
@@ -415,11 +415,11 @@ JournalFile* journal_file_offline_close(JournalFile *f) {
         if (r < 0)
                 log_debug_errno(r, "Failed to append tag when closing journal, ignoring: %m");
 
-        if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0)
+        if (sd_event_source_get_enabled(f->post_change_timer, /* ret= */ NULL) > 0)
                 journal_file_post_change(f);
         f->post_change_timer = sd_event_source_disable_unref(f->post_change_timer);
 
-        journal_file_set_offline(f, true);
+        journal_file_set_offline(f, /* wait= */ true);
 
         return journal_file_close(f);
 }
@@ -434,7 +434,7 @@ JournalFile* journal_file_initiate_close(JournalFile *f, Set *deferred_closes) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to add file to deferred close set, closing immediately.");
                 else {
-                        (void) journal_file_set_offline(f, false);
+                        (void) journal_file_set_offline(f, /* wait= */ false);
                         return NULL;
                 }
         }
@@ -536,7 +536,7 @@ int journal_file_open_reliably(
          * sequence number and ID. */
         r = journal_file_open(-EBADF, fname,
                               (open_flags & ~(O_ACCMODE_STRICT|O_CREAT|O_EXCL)) | O_RDONLY,
-                              file_flags, 0, compress_threshold_bytes, NULL,
+                              file_flags, /* mode= */ 0, compress_threshold_bytes, /* metrics= */ NULL,
                               mmap_cache, /* template= */ NULL, &old_file);
         if (r < 0)
                 log_debug_errno(r, "Failed to continue sequence from file %s, ignoring: %m", fname);

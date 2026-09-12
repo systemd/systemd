@@ -384,6 +384,6 @@ bool barrier_sync(Barrier *b) {
         if (barrier_is_aborted(b))
                 return false;
 
-        barrier_read(b, 0);
+        barrier_read(b, /* comp= */ 0);
         return !barrier_is_aborted(b);
 }

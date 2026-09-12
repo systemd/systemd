@@ -40,12 +40,12 @@ TEST(deserialize_exec_command) {
 
         ASSERT_OK(r);
 
-        test_deserialize_exec_command_one(m, "main-command", EXEC_START_ABSOLUTE, 0);
-        test_deserialize_exec_command_one(m, "main-command", EXEC_START_RELATIVE, 0);
-        test_deserialize_exec_command_one(m, "control-command", EXEC_START_ABSOLUTE, 0);
-        test_deserialize_exec_command_one(m, "control-command", EXEC_START_RELATIVE, 0);
+        test_deserialize_exec_command_one(m, "main-command", EXEC_START_ABSOLUTE, /* expected= */ 0);
+        test_deserialize_exec_command_one(m, "main-command", EXEC_START_RELATIVE, /* expected= */ 0);
+        test_deserialize_exec_command_one(m, "control-command", EXEC_START_ABSOLUTE, /* expected= */ 0);
+        test_deserialize_exec_command_one(m, "control-command", EXEC_START_RELATIVE, /* expected= */ 0);
 
-        test_deserialize_exec_command_one(m, "control-command", "ExecStart 0 /bin/sh \"sh\"", 0);
+        test_deserialize_exec_command_one(m, "control-command", "ExecStart 0 /bin/sh \"sh\"", /* expected= */ 0);
         test_deserialize_exec_command_one(m, "control-command", "ExecStart 0 /no/command ", -EINVAL);
         test_deserialize_exec_command_one(m, "control-command", "ExecStart 0 /bad/quote \"", -EINVAL);
         test_deserialize_exec_command_one(m, "control-command", "ExecStart s /bad/id x y z", -EINVAL);
@@ -54,7 +54,7 @@ TEST(deserialize_exec_command) {
 }
 
 static int intro(void) {
-        if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
+        if (enter_cgroup_subroot(/* ret_cgroup= */ NULL) == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
         ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());

@@ -211,7 +211,7 @@ int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc
         /* Always set the TC bit to 0 initially.
          * If there are multiple packets later, we'll update the bit shortly before sending.
          */
-        dns_packet_set_flags(p, dnssec_checking_disabled, false);
+        dns_packet_set_flags(p, dnssec_checking_disabled, /* truncated= */ false);
 
         *ret = p;
         return 0;
@@ -642,14 +642,14 @@ int dns_packet_append_name(
                  * saved_size, not p->size: RFC 1035 § 4.1.4 allows a pointer only to a prior
                  * occurrence, which is what dns_packet_read_name() enforces on the way in. */
                 if (n > 0 && n <= DNS_COMPRESSION_OFFSET_MAX && n < saved_size) {
-                        r = dns_packet_append_uint16(p, DNS_COMPRESSION_POINTER_FLAG | n, NULL);
+                        r = dns_packet_append_uint16(p, DNS_COMPRESSION_POINTER_FLAG | n, /* start= */ NULL);
                         if (r < 0)
                                 goto fail;
 
                         goto done;
                 }
 
-                r = dns_label_unescape(&name, label, sizeof label, 0);
+                r = dns_label_unescape(&name, label, sizeof label, /* flags= */ 0);
                 if (r < 0)
                         goto fail;
 
@@ -684,7 +684,7 @@ int dns_packet_append_name(
                 }
         }
 
-        r = dns_packet_append_uint8(p, 0, NULL);
+        r = dns_packet_append_uint8(p, 0, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
@@ -715,16 +715,16 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, const DnsAnswer
 
         saved_size = p->size;
 
-        r = dns_packet_append_name(p, dns_resource_key_name(k), true, true, NULL);
+        r = dns_packet_append_name(p, dns_resource_key_name(k), /* allow_compression= */ true, /* canonical_candidate= */ true, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
-        r = dns_packet_append_uint16(p, k->type, NULL);
+        r = dns_packet_append_uint16(p, k->type, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
         class = flags & DNS_ANSWER_CACHE_FLUSH ? k->class | MDNS_RR_CACHE_FLUSH_OR_QU : k->class;
-        r = dns_packet_append_uint16(p, class, NULL);
+        r = dns_packet_append_uint16(p, class, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
@@ -748,15 +748,15 @@ static int dns_packet_append_type_window(DnsPacket *p, uint8_t window, uint8_t l
 
         saved_size = p->size;
 
-        r = dns_packet_append_uint8(p, window, NULL);
+        r = dns_packet_append_uint8(p, window, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
-        r = dns_packet_append_uint8(p, length, NULL);
+        r = dns_packet_append_uint8(p, length, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
-        r = dns_packet_append_blob(p, types, length, NULL);
+        r = dns_packet_append_blob(p, types, length, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
@@ -785,7 +785,7 @@ static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
                 assert(n <= 0xffff);
 
                 if ((n >> 8) != window && bitmaps[entry / 8] != 0) {
-                        r = dns_packet_append_type_window(p, window, entry / 8 + 1, bitmaps, NULL);
+                        r = dns_packet_append_type_window(p, window, entry / 8 + 1, bitmaps, /* start= */ NULL);
                         if (r < 0)
                                 goto fail;
 
@@ -799,7 +799,7 @@ static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
         }
 
         if (bitmaps[entry / 8] != 0) {
-                r = dns_packet_append_type_window(p, window, entry / 8 + 1, bitmaps, NULL);
+                r = dns_packet_append_type_window(p, window, entry / 8 + 1, bitmaps, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
         }
@@ -840,27 +840,27 @@ int dns_packet_append_opt(
         saved_size = p->size;
 
         /* empty name */
-        r = dns_packet_append_uint8(p, 0, NULL);
+        r = dns_packet_append_uint8(p, 0, /* start= */ NULL);
         if (r < 0)
                 return r;
 
         /* type */
-        r = dns_packet_append_uint16(p, DNS_TYPE_OPT, NULL);
+        r = dns_packet_append_uint16(p, DNS_TYPE_OPT, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
         /* class: maximum udp packet that can be received */
-        r = dns_packet_append_uint16(p, max_udp_size, NULL);
+        r = dns_packet_append_uint16(p, max_udp_size, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
         /* extended RCODE and VERSION */
-        r = dns_packet_append_uint16(p, ((uint16_t) rcode & 0x0FF0) << 4, NULL);
+        r = dns_packet_append_uint16(p, ((uint16_t) rcode & 0x0FF0) << 4, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
         /* flags: DNSSEC OK (DO), see RFC3225 */
-        r = dns_packet_append_uint16(p, edns0_do ? EDNS0_OPT_DO : 0, NULL);
+        r = dns_packet_append_uint16(p, edns0_do ? EDNS0_OPT_DO : 0, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
@@ -898,11 +898,11 @@ int dns_packet_append_opt(
                         NSEC3_ALGORITHM_SHA1,
                 };
 
-                r = dns_packet_append_uint16(p, sizeof(rfc6975), NULL); /* RDLENGTH */
+                r = dns_packet_append_uint16(p, sizeof(rfc6975), /* start= */ NULL); /* RDLENGTH */
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rfc6975, sizeof(rfc6975), NULL); /* the payload, as defined above */
+                r = dns_packet_append_blob(p, rfc6975, sizeof(rfc6975), /* start= */ NULL); /* the payload, as defined above */
 
         } else if (nsid) {
 
@@ -911,21 +911,21 @@ int dns_packet_append_opt(
                         goto fail;
                 }
 
-                r = dns_packet_append_uint16(p, 4 + strlen(nsid), NULL); /* RDLENGTH */
+                r = dns_packet_append_uint16(p, 4 + strlen(nsid), /* start= */ NULL); /* RDLENGTH */
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint16(p, 3, NULL); /* OPTION-CODE: NSID */
+                r = dns_packet_append_uint16(p, 3, /* start= */ NULL); /* OPTION-CODE: NSID */
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint16(p, strlen(nsid), NULL); /* OPTION-LENGTH */
+                r = dns_packet_append_uint16(p, strlen(nsid), /* start= */ NULL); /* OPTION-LENGTH */
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, nsid, strlen(nsid), NULL);
+                r = dns_packet_append_blob(p, nsid, strlen(nsid), /* start= */ NULL);
         } else
-                r = dns_packet_append_uint16(p, 0, NULL);
+                r = dns_packet_append_uint16(p, 0, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
@@ -976,12 +976,12 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
 
         saved_size = p->size;
 
-        r = dns_packet_append_key(p, rr->key, flags, NULL);
+        r = dns_packet_append_key(p, rr->key, flags, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
         ttl = flags & DNS_ANSWER_GOODBYE ? 0 : rr->ttl;
-        r = dns_packet_append_uint32(p, ttl, NULL);
+        r = dns_packet_append_uint32(p, ttl, /* start= */ NULL);
         if (r < 0)
                 goto fail;
 
@@ -995,36 +995,36 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
         switch (rr->unparsable ? _DNS_TYPE_INVALID : rr->key->type) {
 
         case DNS_TYPE_SRV:
-                r = dns_packet_append_uint16(p, rr->srv.priority, NULL);
+                r = dns_packet_append_uint16(p, rr->srv.priority, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint16(p, rr->srv.weight, NULL);
+                r = dns_packet_append_uint16(p, rr->srv.weight, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint16(p, rr->srv.port, NULL);
+                r = dns_packet_append_uint16(p, rr->srv.port, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
                 /* RFC 2782 states "Unless and until permitted by future standards action, name compression
                  * is not to be used for this field." Hence we turn off compression here. */
-                r = dns_packet_append_name(p, rr->srv.name, /* allow_compression= */ false, /* canonical_candidate= */ true, NULL);
+                r = dns_packet_append_name(p, rr->srv.name, /* allow_compression= */ false, /* canonical_candidate= */ true, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
         case DNS_TYPE_CNAME:
         case DNS_TYPE_DNAME:
-                r = dns_packet_append_name(p, rr->ptr.name, true, true, NULL);
+                r = dns_packet_append_name(p, rr->ptr.name, /* allow_compression= */ true, /* canonical_candidate= */ true, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_HINFO:
-                r = dns_packet_append_string(p, rr->hinfo.cpu, NULL);
+                r = dns_packet_append_string(p, rr->hinfo.cpu, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_string(p, rr->hinfo.os, NULL);
+                r = dns_packet_append_string(p, rr->hinfo.os, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
@@ -1034,12 +1034,12 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
                         /* RFC 6763, section 6.1 suggests to generate
                          * single empty string for an empty array. */
 
-                        r = dns_packet_append_raw_string(p, NULL, 0, NULL);
+                        r = dns_packet_append_raw_string(p, NULL, /* size= */ 0, /* start= */ NULL);
                         if (r < 0)
                                 goto fail;
                 } else
                         LIST_FOREACH(items, i, rr->txt.items) {
-                                r = dns_packet_append_raw_string(p, i->data, i->length, NULL);
+                                r = dns_packet_append_raw_string(p, i->data, i->length, /* start= */ NULL);
                                 if (r < 0)
                                         goto fail;
                         }
@@ -1048,285 +1048,285 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
                 break;
 
         case DNS_TYPE_A:
-                r = dns_packet_append_blob(p, &rr->a.in_addr, sizeof(struct in_addr), NULL);
+                r = dns_packet_append_blob(p, &rr->a.in_addr, sizeof(struct in_addr), /* start= */ NULL);
                 break;
 
         case DNS_TYPE_AAAA:
-                r = dns_packet_append_blob(p, &rr->aaaa.in6_addr, sizeof(struct in6_addr), NULL);
+                r = dns_packet_append_blob(p, &rr->aaaa.in6_addr, sizeof(struct in6_addr), /* start= */ NULL);
                 break;
 
         case DNS_TYPE_SOA:
-                r = dns_packet_append_name(p, rr->soa.mname, true, true, NULL);
+                r = dns_packet_append_name(p, rr->soa.mname, /* allow_compression= */ true, /* canonical_candidate= */ true, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->soa.rname, true, true, NULL);
+                r = dns_packet_append_name(p, rr->soa.rname, /* allow_compression= */ true, /* canonical_candidate= */ true, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint32(p, rr->soa.serial, NULL);
+                r = dns_packet_append_uint32(p, rr->soa.serial, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint32(p, rr->soa.refresh, NULL);
+                r = dns_packet_append_uint32(p, rr->soa.refresh, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint32(p, rr->soa.retry, NULL);
+                r = dns_packet_append_uint32(p, rr->soa.retry, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint32(p, rr->soa.expire, NULL);
+                r = dns_packet_append_uint32(p, rr->soa.expire, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint32(p, rr->soa.minimum, NULL);
+                r = dns_packet_append_uint32(p, rr->soa.minimum, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_MX:
-                r = dns_packet_append_uint16(p, rr->mx.priority, NULL);
+                r = dns_packet_append_uint16(p, rr->mx.priority, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->mx.exchange, true, true, NULL);
+                r = dns_packet_append_name(p, rr->mx.exchange, /* allow_compression= */ true, /* canonical_candidate= */ true, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_LOC:
-                r = dns_packet_append_uint8(p, rr->loc.version, NULL);
+                r = dns_packet_append_uint8(p, rr->loc.version, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->loc.size, NULL);
+                r = dns_packet_append_uint8(p, rr->loc.size, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->loc.horiz_pre, NULL);
+                r = dns_packet_append_uint8(p, rr->loc.horiz_pre, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->loc.vert_pre, NULL);
+                r = dns_packet_append_uint8(p, rr->loc.vert_pre, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint32(p, rr->loc.latitude, NULL);
+                r = dns_packet_append_uint32(p, rr->loc.latitude, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint32(p, rr->loc.longitude, NULL);
+                r = dns_packet_append_uint32(p, rr->loc.longitude, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint32(p, rr->loc.altitude, NULL);
+                r = dns_packet_append_uint32(p, rr->loc.altitude, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_DS:
-                r = dns_packet_append_uint16(p, rr->ds.key_tag, NULL);
+                r = dns_packet_append_uint16(p, rr->ds.key_tag, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->ds.algorithm, NULL);
+                r = dns_packet_append_uint8(p, rr->ds.algorithm, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->ds.digest_type, NULL);
+                r = dns_packet_append_uint8(p, rr->ds.digest_type, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rr->ds.digest, rr->ds.digest_size, NULL);
+                r = dns_packet_append_blob(p, rr->ds.digest, rr->ds.digest_size, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_SSHFP:
-                r = dns_packet_append_uint8(p, rr->sshfp.algorithm, NULL);
+                r = dns_packet_append_uint8(p, rr->sshfp.algorithm, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->sshfp.fptype, NULL);
+                r = dns_packet_append_uint8(p, rr->sshfp.fptype, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rr->sshfp.fingerprint, rr->sshfp.fingerprint_size, NULL);
+                r = dns_packet_append_blob(p, rr->sshfp.fingerprint, rr->sshfp.fingerprint_size, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_DNSKEY:
-                r = dns_packet_append_uint16(p, rr->dnskey.flags, NULL);
+                r = dns_packet_append_uint16(p, rr->dnskey.flags, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->dnskey.protocol, NULL);
+                r = dns_packet_append_uint8(p, rr->dnskey.protocol, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->dnskey.algorithm, NULL);
+                r = dns_packet_append_uint8(p, rr->dnskey.algorithm, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rr->dnskey.key, rr->dnskey.key_size, NULL);
+                r = dns_packet_append_blob(p, rr->dnskey.key, rr->dnskey.key_size, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_RRSIG:
-                r = dns_packet_append_uint16(p, rr->rrsig.type_covered, NULL);
+                r = dns_packet_append_uint16(p, rr->rrsig.type_covered, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->rrsig.algorithm, NULL);
+                r = dns_packet_append_uint8(p, rr->rrsig.algorithm, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->rrsig.labels, NULL);
+                r = dns_packet_append_uint8(p, rr->rrsig.labels, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint32(p, rr->rrsig.original_ttl, NULL);
+                r = dns_packet_append_uint32(p, rr->rrsig.original_ttl, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint32(p, rr->rrsig.expiration, NULL);
+                r = dns_packet_append_uint32(p, rr->rrsig.expiration, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint32(p, rr->rrsig.inception, NULL);
+                r = dns_packet_append_uint32(p, rr->rrsig.inception, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint16(p, rr->rrsig.key_tag, NULL);
+                r = dns_packet_append_uint16(p, rr->rrsig.key_tag, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->rrsig.signer, false, true, NULL);
+                r = dns_packet_append_name(p, rr->rrsig.signer, /* allow_compression= */ false, /* canonical_candidate= */ true, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rr->rrsig.signature, rr->rrsig.signature_size, NULL);
+                r = dns_packet_append_blob(p, rr->rrsig.signature, rr->rrsig.signature_size, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_NSEC:
-                r = dns_packet_append_name(p, rr->nsec.next_domain_name, false, false, NULL);
+                r = dns_packet_append_name(p, rr->nsec.next_domain_name, /* allow_compression= */ false, /* canonical_candidate= */ false, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_types(p, rr->nsec.types, NULL);
+                r = dns_packet_append_types(p, rr->nsec.types, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
                 break;
 
         case DNS_TYPE_NSEC3:
-                r = dns_packet_append_uint8(p, rr->nsec3.algorithm, NULL);
+                r = dns_packet_append_uint8(p, rr->nsec3.algorithm, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->nsec3.flags, NULL);
+                r = dns_packet_append_uint8(p, rr->nsec3.flags, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint16(p, rr->nsec3.iterations, NULL);
+                r = dns_packet_append_uint16(p, rr->nsec3.iterations, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->nsec3.salt_size, NULL);
+                r = dns_packet_append_uint8(p, rr->nsec3.salt_size, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rr->nsec3.salt, rr->nsec3.salt_size, NULL);
+                r = dns_packet_append_blob(p, rr->nsec3.salt, rr->nsec3.salt_size, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->nsec3.next_hashed_name_size, NULL);
+                r = dns_packet_append_uint8(p, rr->nsec3.next_hashed_name_size, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, NULL);
+                r = dns_packet_append_blob(p, rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_types(p, rr->nsec3.types, NULL);
+                r = dns_packet_append_types(p, rr->nsec3.types, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
                 break;
 
         case DNS_TYPE_TLSA:
-                r = dns_packet_append_uint8(p, rr->tlsa.cert_usage, NULL);
+                r = dns_packet_append_uint8(p, rr->tlsa.cert_usage, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->tlsa.selector, NULL);
+                r = dns_packet_append_uint8(p, rr->tlsa.selector, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint8(p, rr->tlsa.matching_type, NULL);
+                r = dns_packet_append_uint8(p, rr->tlsa.matching_type, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rr->tlsa.data, rr->tlsa.data_size, NULL);
+                r = dns_packet_append_blob(p, rr->tlsa.data, rr->tlsa.data_size, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_SVCB:
         case DNS_TYPE_HTTPS:
-                r = dns_packet_append_uint16(p, rr->svcb.priority, NULL);
+                r = dns_packet_append_uint16(p, rr->svcb.priority, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->svcb.target_name, false, false, NULL);
+                r = dns_packet_append_name(p, rr->svcb.target_name, /* allow_compression= */ false, /* canonical_candidate= */ false, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
                 LIST_FOREACH(params, i, rr->svcb.params) {
-                        r = dns_packet_append_uint16(p, i->key, NULL);
+                        r = dns_packet_append_uint16(p, i->key, /* start= */ NULL);
                         if (r < 0)
                                 goto fail;
 
-                        r = dns_packet_append_uint16(p, i->length, NULL);
+                        r = dns_packet_append_uint16(p, i->length, /* start= */ NULL);
                         if (r < 0)
                                 goto fail;
 
-                        r = dns_packet_append_blob(p, i->value, i->length, NULL);
+                        r = dns_packet_append_blob(p, i->value, i->length, /* start= */ NULL);
                         if (r < 0)
                                 goto fail;
                 }
                 break;
 
         case DNS_TYPE_CAA:
-                r = dns_packet_append_uint8(p, rr->caa.flags, NULL);
+                r = dns_packet_append_uint8(p, rr->caa.flags, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_string(p, rr->caa.tag, NULL);
+                r = dns_packet_append_string(p, rr->caa.tag, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rr->caa.value, rr->caa.value_size, NULL);
+                r = dns_packet_append_blob(p, rr->caa.value, rr->caa.value_size, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_NAPTR:
-                r = dns_packet_append_uint16(p, rr->naptr.order, NULL);
+                r = dns_packet_append_uint16(p, rr->naptr.order, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_uint16(p, rr->naptr.preference, NULL);
+                r = dns_packet_append_uint16(p, rr->naptr.preference, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_string(p, rr->naptr.flags, NULL);
+                r = dns_packet_append_string(p, rr->naptr.flags, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_string(p, rr->naptr.services, NULL);
+                r = dns_packet_append_string(p, rr->naptr.services, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_string(p, rr->naptr.regexp, NULL);
+                r = dns_packet_append_string(p, rr->naptr.regexp, /* start= */ NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->naptr.replacement, /* allow_compression= */ false, /* canonical_candidate= */ true, NULL);
+                r = dns_packet_append_name(p, rr->naptr.replacement, /* allow_compression= */ false, /* canonical_candidate= */ true, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_OPT:
         case DNS_TYPE_OPENPGPKEY:
         case _DNS_TYPE_INVALID: /* unparsable */
         default:
-                r = dns_packet_append_blob(p, rr->generic.data, rr->generic.data_size, NULL);
+                r = dns_packet_append_blob(p, rr->generic.data, rr->generic.data_size, /* start= */ NULL);
         }
         if (r < 0)
                 goto fail;
@@ -1340,7 +1340,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
 
         end = p->size;
         p->size = rdlength_offset;
-        r = dns_packet_append_uint16(p, rdlength, NULL);
+        r = dns_packet_append_uint16(p, rdlength, /* start= */ NULL);
         if (r < 0)
                 goto fail;
         p->size = end;
@@ -1365,7 +1365,7 @@ int dns_packet_append_question(DnsPacket *p, DnsQuestion *q) {
         assert(p);
 
         DNS_QUESTION_FOREACH(key, q) {
-                r = dns_packet_append_key(p, key, 0, NULL);
+                r = dns_packet_append_key(p, key, /* flags= */ 0, /* start= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -1381,7 +1381,7 @@ int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a, unsigned *completed) {
         assert(p);
 
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, a) {
-                r = dns_packet_append_rr(p, rr, flags, NULL, NULL);
+                r = dns_packet_append_rr(p, rr, flags, /* start= */ NULL, /* rdata_start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1526,11 +1526,11 @@ int dns_packet_read_string(DnsPacket *p, char **ret, size_t *start) {
         assert(p);
         assert(ret);
 
-        r = dns_packet_read_uint8(p, &c, NULL);
+        r = dns_packet_read_uint8(p, &c, /* start= */ NULL);
         if (r < 0)
                 return r;
 
-        r = dns_packet_read(p, c, &d, NULL);
+        r = dns_packet_read(p, c, &d, /* start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1557,11 +1557,11 @@ int dns_packet_read_raw_string(DnsPacket *p, const void **ret, size_t *size, siz
         uint8_t c;
         int r;
 
-        r = dns_packet_read_uint8(p, &c, NULL);
+        r = dns_packet_read_uint8(p, &c, /* start= */ NULL);
         if (r < 0)
                 return r;
 
-        r = dns_packet_read(p, c, ret, NULL);
+        r = dns_packet_read(p, c, ret, /* start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1595,7 +1595,7 @@ int dns_packet_read_name(
         for (;;) {
                 uint8_t c, d;
 
-                r = dns_packet_read_uint8(p, &c, NULL);
+                r = dns_packet_read_uint8(p, &c, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1606,7 +1606,7 @@ int dns_packet_read_name(
                         const char *label;
 
                         /* Literal label */
-                        r = dns_packet_read(p, c, (const void**) &label, NULL);
+                        r = dns_packet_read(p, c, (const void**) &label, /* start= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -1635,7 +1635,7 @@ int dns_packet_read_name(
                         uint16_t ptr;
 
                         /* Pointer */
-                        r = dns_packet_read_uint8(p, &d, NULL);
+                        r = dns_packet_read_uint8(p, &d, /* start= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -1686,18 +1686,18 @@ static int dns_packet_read_type_window(DnsPacket *p, Bitmap **types, size_t *sta
         if (r < 0)
                 return r;
 
-        r = dns_packet_read_uint8(p, &window, NULL);
+        r = dns_packet_read_uint8(p, &window, /* start= */ NULL);
         if (r < 0)
                 return r;
 
-        r = dns_packet_read_uint8(p, &length, NULL);
+        r = dns_packet_read_uint8(p, &length, /* start= */ NULL);
         if (r < 0)
                 return r;
 
         if (length == 0 || length > 32)
                 return -EBADMSG;
 
-        r = dns_packet_read(p, length, (const void **)&bitmap, NULL);
+        r = dns_packet_read(p, length, (const void **)&bitmap, /* start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1743,7 +1743,7 @@ static int dns_packet_read_type_windows(DnsPacket *p, Bitmap **types, size_t siz
         int r;
 
         while (p->rindex - rewinder.saved_rindex < size) {
-                r = dns_packet_read_type_window(p, types, NULL);
+                r = dns_packet_read_type_window(p, types, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1778,15 +1778,15 @@ int dns_packet_read_key(
         uint16_t class, type;
         int r;
 
-        r = dns_packet_read_name(p, &name, true, NULL);
+        r = dns_packet_read_name(p, &name, /* allow_compression= */ true, /* start= */ NULL);
         if (r < 0)
                 return r;
 
-        r = dns_packet_read_uint16(p, &type, NULL);
+        r = dns_packet_read_uint16(p, &type, /* start= */ NULL);
         if (r < 0)
                 return r;
 
-        r = dns_packet_read_uint16(p, &class, NULL);
+        r = dns_packet_read_uint16(p, &class, /* start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1876,7 +1876,7 @@ int dns_packet_read_rr(
         bool cache_flush;
         int r;
 
-        r = dns_packet_read_key(p, &key, &cache_flush, NULL);
+        r = dns_packet_read_key(p, &key, &cache_flush, /* start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1887,7 +1887,7 @@ int dns_packet_read_rr(
         if (!rr)
                 return -ENOMEM;
 
-        r = dns_packet_read_uint32(p, &rr->ttl, NULL);
+        r = dns_packet_read_uint32(p, &rr->ttl, /* start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1896,7 +1896,7 @@ int dns_packet_read_rr(
         if (key->type != DNS_TYPE_OPT && rr->ttl & UINT32_C(0x80000000))
                 rr->ttl = 0;
 
-        r = dns_packet_read_uint16(p, &rdlength, NULL);
+        r = dns_packet_read_uint16(p, &rdlength, /* start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1908,13 +1908,13 @@ int dns_packet_read_rr(
         switch (rr->key->type) {
 
         case DNS_TYPE_SRV:
-                r = dns_packet_read_uint16(p, &rr->srv.priority, NULL);
+                r = dns_packet_read_uint16(p, &rr->srv.priority, /* start= */ NULL);
                 if (r < 0)
                         return r;
-                r = dns_packet_read_uint16(p, &rr->srv.weight, NULL);
+                r = dns_packet_read_uint16(p, &rr->srv.weight, /* start= */ NULL);
                 if (r < 0)
                         return r;
-                r = dns_packet_read_uint16(p, &rr->srv.port, NULL);
+                r = dns_packet_read_uint16(p, &rr->srv.port, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1923,22 +1923,22 @@ int dns_packet_read_rr(
                  * increasing compatibility with implementations that do not implement this correctly. After
                  * all we didn't do this right once upon a time ourselves (see
                  * https://github.com/systemd/systemd/issues/9793). */
-                r = dns_packet_read_name(p, &rr->srv.name, /* allow_compression= */ true, NULL);
+                r = dns_packet_read_name(p, &rr->srv.name, /* allow_compression= */ true, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
         case DNS_TYPE_CNAME:
         case DNS_TYPE_DNAME:
-                r = dns_packet_read_name(p, &rr->ptr.name, true, NULL);
+                r = dns_packet_read_name(p, &rr->ptr.name, /* allow_compression= */ true, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_HINFO:
-                r = dns_packet_read_string(p, &rr->hinfo.cpu, NULL);
+                r = dns_packet_read_string(p, &rr->hinfo.cpu, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_string(p, &rr->hinfo.os, NULL);
+                r = dns_packet_read_string(p, &rr->hinfo.os, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
@@ -1955,7 +1955,7 @@ int dns_packet_read_rr(
                                 const void *data;
                                 size_t sz;
 
-                                r = dns_packet_read_raw_string(p, &data, &sz, NULL);
+                                r = dns_packet_read_raw_string(p, &data, &sz, /* start= */ NULL);
                                 if (r < 0)
                                         return r;
 
@@ -1975,47 +1975,47 @@ int dns_packet_read_rr(
                 break;
 
         case DNS_TYPE_A:
-                r = dns_packet_read_blob(p, &rr->a.in_addr, sizeof(struct in_addr), NULL);
+                r = dns_packet_read_blob(p, &rr->a.in_addr, sizeof(struct in_addr), /* start= */ NULL);
                 break;
 
         case DNS_TYPE_AAAA:
-                r = dns_packet_read_blob(p, &rr->aaaa.in6_addr, sizeof(struct in6_addr), NULL);
+                r = dns_packet_read_blob(p, &rr->aaaa.in6_addr, sizeof(struct in6_addr), /* start= */ NULL);
                 break;
 
         case DNS_TYPE_SOA:
-                r = dns_packet_read_name(p, &rr->soa.mname, true, NULL);
+                r = dns_packet_read_name(p, &rr->soa.mname, /* allow_compression= */ true, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_name(p, &rr->soa.rname, true, NULL);
+                r = dns_packet_read_name(p, &rr->soa.rname, /* allow_compression= */ true, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint32(p, &rr->soa.serial, NULL);
+                r = dns_packet_read_uint32(p, &rr->soa.serial, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint32(p, &rr->soa.refresh, NULL);
+                r = dns_packet_read_uint32(p, &rr->soa.refresh, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint32(p, &rr->soa.retry, NULL);
+                r = dns_packet_read_uint32(p, &rr->soa.retry, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint32(p, &rr->soa.expire, NULL);
+                r = dns_packet_read_uint32(p, &rr->soa.expire, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint32(p, &rr->soa.minimum, NULL);
+                r = dns_packet_read_uint32(p, &rr->soa.minimum, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_MX:
-                r = dns_packet_read_uint16(p, &rr->mx.priority, NULL);
+                r = dns_packet_read_uint16(p, &rr->mx.priority, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_name(p, &rr->mx.exchange, true, NULL);
+                r = dns_packet_read_name(p, &rr->mx.exchange, /* allow_compression= */ true, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_LOC: {
@@ -2029,36 +2029,36 @@ int dns_packet_read_rr(
                 if (t == 0) {
                         rr->loc.version = t;
 
-                        r = dns_packet_read_uint8(p, &rr->loc.size, NULL);
+                        r = dns_packet_read_uint8(p, &rr->loc.size, /* start= */ NULL);
                         if (r < 0)
                                 return r;
 
                         if (!loc_size_ok(rr->loc.size))
                                 return -EBADMSG;
 
-                        r = dns_packet_read_uint8(p, &rr->loc.horiz_pre, NULL);
+                        r = dns_packet_read_uint8(p, &rr->loc.horiz_pre, /* start= */ NULL);
                         if (r < 0)
                                 return r;
 
                         if (!loc_size_ok(rr->loc.horiz_pre))
                                 return -EBADMSG;
 
-                        r = dns_packet_read_uint8(p, &rr->loc.vert_pre, NULL);
+                        r = dns_packet_read_uint8(p, &rr->loc.vert_pre, /* start= */ NULL);
                         if (r < 0)
                                 return r;
 
                         if (!loc_size_ok(rr->loc.vert_pre))
                                 return -EBADMSG;
 
-                        r = dns_packet_read_uint32(p, &rr->loc.latitude, NULL);
+                        r = dns_packet_read_uint32(p, &rr->loc.latitude, /* start= */ NULL);
                         if (r < 0)
                                 return r;
 
-                        r = dns_packet_read_uint32(p, &rr->loc.longitude, NULL);
+                        r = dns_packet_read_uint32(p, &rr->loc.longitude, /* start= */ NULL);
                         if (r < 0)
                                 return r;
 
-                        r = dns_packet_read_uint32(p, &rr->loc.altitude, NULL);
+                        r = dns_packet_read_uint32(p, &rr->loc.altitude, /* start= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -2071,15 +2071,15 @@ int dns_packet_read_rr(
         }
 
         case DNS_TYPE_DS:
-                r = dns_packet_read_uint16(p, &rr->ds.key_tag, NULL);
+                r = dns_packet_read_uint16(p, &rr->ds.key_tag, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint8(p, &rr->ds.algorithm, NULL);
+                r = dns_packet_read_uint8(p, &rr->ds.algorithm, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint8(p, &rr->ds.digest_type, NULL);
+                r = dns_packet_read_uint8(p, &rr->ds.digest_type, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2088,7 +2088,7 @@ int dns_packet_read_rr(
 
                 r = dns_packet_read_memdup(p, rdlength - 4,
                                            &rr->ds.digest, &rr->ds.digest_size,
-                                           NULL);
+                                           /* ret_start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2100,11 +2100,11 @@ int dns_packet_read_rr(
                 break;
 
         case DNS_TYPE_SSHFP:
-                r = dns_packet_read_uint8(p, &rr->sshfp.algorithm, NULL);
+                r = dns_packet_read_uint8(p, &rr->sshfp.algorithm, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint8(p, &rr->sshfp.fptype, NULL);
+                r = dns_packet_read_uint8(p, &rr->sshfp.fptype, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2113,7 +2113,7 @@ int dns_packet_read_rr(
 
                 r = dns_packet_read_memdup(p, rdlength - 2,
                                            &rr->sshfp.fingerprint, &rr->sshfp.fingerprint_size,
-                                           NULL);
+                                           /* ret_start= */ NULL);
 
                 if (rr->sshfp.fingerprint_size <= 0)
                         /* the accepted size depends on the algorithm, but for now
@@ -2123,15 +2123,15 @@ int dns_packet_read_rr(
                 break;
 
         case DNS_TYPE_DNSKEY:
-                r = dns_packet_read_uint16(p, &rr->dnskey.flags, NULL);
+                r = dns_packet_read_uint16(p, &rr->dnskey.flags, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint8(p, &rr->dnskey.protocol, NULL);
+                r = dns_packet_read_uint8(p, &rr->dnskey.protocol, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint8(p, &rr->dnskey.algorithm, NULL);
+                r = dns_packet_read_uint8(p, &rr->dnskey.algorithm, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2140,7 +2140,7 @@ int dns_packet_read_rr(
 
                 r = dns_packet_read_memdup(p, rdlength - 4,
                                            &rr->dnskey.key, &rr->dnskey.key_size,
-                                           NULL);
+                                           /* ret_start= */ NULL);
 
                 if (rr->dnskey.key_size <= 0)
                         /* the accepted size depends on the algorithm, but for now
@@ -2150,35 +2150,35 @@ int dns_packet_read_rr(
                 break;
 
         case DNS_TYPE_RRSIG:
-                r = dns_packet_read_uint16(p, &rr->rrsig.type_covered, NULL);
+                r = dns_packet_read_uint16(p, &rr->rrsig.type_covered, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint8(p, &rr->rrsig.algorithm, NULL);
+                r = dns_packet_read_uint8(p, &rr->rrsig.algorithm, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint8(p, &rr->rrsig.labels, NULL);
+                r = dns_packet_read_uint8(p, &rr->rrsig.labels, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint32(p, &rr->rrsig.original_ttl, NULL);
+                r = dns_packet_read_uint32(p, &rr->rrsig.original_ttl, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint32(p, &rr->rrsig.expiration, NULL);
+                r = dns_packet_read_uint32(p, &rr->rrsig.expiration, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint32(p, &rr->rrsig.inception, NULL);
+                r = dns_packet_read_uint32(p, &rr->rrsig.inception, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint16(p, &rr->rrsig.key_tag, NULL);
+                r = dns_packet_read_uint16(p, &rr->rrsig.key_tag, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_name(p, &rr->rrsig.signer, false, NULL);
+                r = dns_packet_read_name(p, &rr->rrsig.signer, /* allow_compression= */ false, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2187,7 +2187,7 @@ int dns_packet_read_rr(
 
                 r = dns_packet_read_memdup(p, offset + rdlength - p->rindex,
                                            &rr->rrsig.signature, &rr->rrsig.signature_size,
-                                           NULL);
+                                           /* ret_start= */ NULL);
 
                 if (rr->rrsig.signature_size <= 0)
                         /* the accepted size depends on the algorithm, but for now
@@ -2205,14 +2205,14 @@ int dns_packet_read_rr(
 
                 bool allow_compressed = p->protocol == DNS_PROTOCOL_MDNS;
 
-                r = dns_packet_read_name(p, &rr->nsec.next_domain_name, allow_compressed, NULL);
+                r = dns_packet_read_name(p, &rr->nsec.next_domain_name, allow_compressed, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
                 if (rdlength < p->rindex - offset)
                         return -EBADMSG;
 
-                r = dns_packet_read_type_windows(p, &rr->nsec.types, offset + rdlength - p->rindex, NULL);
+                r = dns_packet_read_type_windows(p, &rr->nsec.types, offset + rdlength - p->rindex, /* start= */ NULL);
 
                 /* We accept empty NSEC bitmaps. The bit indicating the presence of the NSEC record itself
                  * is redundant and in e.g., RFC4956 this fact is used to define a use for NSEC records
@@ -2223,28 +2223,28 @@ int dns_packet_read_rr(
         case DNS_TYPE_NSEC3: {
                 uint8_t size;
 
-                r = dns_packet_read_uint8(p, &rr->nsec3.algorithm, NULL);
+                r = dns_packet_read_uint8(p, &rr->nsec3.algorithm, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint8(p, &rr->nsec3.flags, NULL);
+                r = dns_packet_read_uint8(p, &rr->nsec3.flags, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint16(p, &rr->nsec3.iterations, NULL);
+                r = dns_packet_read_uint16(p, &rr->nsec3.iterations, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
                 /* this may be zero */
-                r = dns_packet_read_uint8(p, &size, NULL);
+                r = dns_packet_read_uint8(p, &size, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_memdup(p, size, &rr->nsec3.salt, &rr->nsec3.salt_size, NULL);
+                r = dns_packet_read_memdup(p, size, &rr->nsec3.salt, &rr->nsec3.salt_size, /* ret_start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint8(p, &size, NULL);
+                r = dns_packet_read_uint8(p, &size, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2253,14 +2253,14 @@ int dns_packet_read_rr(
 
                 r = dns_packet_read_memdup(p, size,
                                            &rr->nsec3.next_hashed_name, &rr->nsec3.next_hashed_name_size,
-                                           NULL);
+                                           /* ret_start= */ NULL);
                 if (r < 0)
                         return r;
 
                 if (rdlength < p->rindex - offset)
                         return -EBADMSG;
 
-                r = dns_packet_read_type_windows(p, &rr->nsec3.types, offset + rdlength - p->rindex, NULL);
+                r = dns_packet_read_type_windows(p, &rr->nsec3.types, offset + rdlength - p->rindex, /* start= */ NULL);
 
                 /* empty non-terminals can have NSEC3 records, so empty bitmaps are allowed */
 
@@ -2268,15 +2268,15 @@ int dns_packet_read_rr(
         }
 
         case DNS_TYPE_TLSA:
-                r = dns_packet_read_uint8(p, &rr->tlsa.cert_usage, NULL);
+                r = dns_packet_read_uint8(p, &rr->tlsa.cert_usage, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint8(p, &rr->tlsa.selector, NULL);
+                r = dns_packet_read_uint8(p, &rr->tlsa.selector, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint8(p, &rr->tlsa.matching_type, NULL);
+                r = dns_packet_read_uint8(p, &rr->tlsa.matching_type, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2285,7 +2285,7 @@ int dns_packet_read_rr(
 
                 r = dns_packet_read_memdup(p, rdlength - 3,
                                            &rr->tlsa.data, &rr->tlsa.data_size,
-                                           NULL);
+                                           /* ret_start= */ NULL);
 
                 if (rr->tlsa.data_size <= 0)
                         /* the accepted size depends on the algorithm, but for now
@@ -2296,11 +2296,11 @@ int dns_packet_read_rr(
 
         case DNS_TYPE_SVCB:
         case DNS_TYPE_HTTPS:
-                r = dns_packet_read_uint16(p, &rr->svcb.priority, NULL);
+                r = dns_packet_read_uint16(p, &rr->svcb.priority, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_name(p, &rr->svcb.target_name, false /* uncompressed */, NULL);
+                r = dns_packet_read_name(p, &rr->svcb.target_name, false /* uncompressed */, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2310,7 +2310,7 @@ int dns_packet_read_rr(
                         uint16_t svc_param_key;
                         uint16_t sz;
 
-                        r = dns_packet_read_uint16(p, &svc_param_key, NULL);
+                        r = dns_packet_read_uint16(p, &svc_param_key, /* start= */ NULL);
                         if (r < 0)
                                 return r;
                         /* RFC 9460, section 2.2 says we must consider an RR malformed if SvcParamKeys are
@@ -2318,7 +2318,7 @@ int dns_packet_read_rr(
                         if (last && last->key >= svc_param_key)
                                 return -EBADMSG;
 
-                        r = dns_packet_read_uint16(p, &sz, NULL);
+                        r = dns_packet_read_uint16(p, &sz, /* start= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -2328,7 +2328,7 @@ int dns_packet_read_rr(
 
                         i->key = svc_param_key;
                         i->length = sz;
-                        r = dns_packet_read_blob(p, &i->value, sz, NULL);
+                        r = dns_packet_read_blob(p, &i->value, sz, /* start= */ NULL);
                         if (r < 0)
                                 return r;
                         if (!dns_svc_param_is_valid(i))
@@ -2341,11 +2341,11 @@ int dns_packet_read_rr(
                 break;
 
         case DNS_TYPE_CAA:
-                r = dns_packet_read_uint8(p, &rr->caa.flags, NULL);
+                r = dns_packet_read_uint8(p, &rr->caa.flags, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_string(p, &rr->caa.tag, NULL);
+                r = dns_packet_read_string(p, &rr->caa.tag, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2354,39 +2354,39 @@ int dns_packet_read_rr(
 
                 r = dns_packet_read_memdup(p,
                                            rdlength + offset - p->rindex,
-                                           &rr->caa.value, &rr->caa.value_size, NULL);
+                                           &rr->caa.value, &rr->caa.value_size, /* ret_start= */ NULL);
 
                 break;
 
         case DNS_TYPE_NAPTR:
-                r = dns_packet_read_uint16(p, &rr->naptr.order, NULL);
+                r = dns_packet_read_uint16(p, &rr->naptr.order, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_uint16(p, &rr->naptr.preference, NULL);
+                r = dns_packet_read_uint16(p, &rr->naptr.preference, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_string(p, &rr->naptr.flags, NULL);
+                r = dns_packet_read_string(p, &rr->naptr.flags, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_string(p, &rr->naptr.services, NULL);
+                r = dns_packet_read_string(p, &rr->naptr.services, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_string(p, &rr->naptr.regexp, NULL);
+                r = dns_packet_read_string(p, &rr->naptr.regexp, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_name(p, &rr->naptr.replacement, /* allow_compression= */ false, NULL);
+                r = dns_packet_read_name(p, &rr->naptr.replacement, /* allow_compression= */ false, /* start= */ NULL);
                 break;
 
         case DNS_TYPE_OPT: /* we only care about the header of OPT for now. */
         case DNS_TYPE_OPENPGPKEY:
         default:
         unparsable:
-                r = dns_packet_read_memdup(p, rdlength, &rr->generic.data, &rr->generic.data_size, NULL);
+                r = dns_packet_read_memdup(p, rdlength, &rr->generic.data, &rr->generic.data_size, /* ret_start= */ NULL);
         }
         if (r < 0)
                 return r;
@@ -2495,7 +2495,7 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                 bool qu;
 
-                r = dns_packet_read_key(p, &key, &qu, NULL);
+                r = dns_packet_read_key(p, &key, &qu, /* start= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2660,7 +2660,7 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                                         flags |= DNS_ANSWER_CACHEABLE;
                         }
 
-                        r = dns_answer_add(answer, rr, p->ifindex, flags, NULL);
+                        r = dns_answer_add(answer, rr, p->ifindex, flags, /* rrsig= */ NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -2766,15 +2766,15 @@ static int patch_rr(DnsPacket *p, usec_t age) {
 
         /* Patches the RR at the current rindex, subtracts the specified time from the TTL */
 
-        r = dns_packet_read_name(p, NULL, true, NULL);
+        r = dns_packet_read_name(p, /* ret= */ NULL, /* allow_compression= */ true, /* start= */ NULL);
         if (r < 0)
                 return r;
 
-        r = dns_packet_read_uint16(p, &type, NULL);
+        r = dns_packet_read_uint16(p, &type, /* start= */ NULL);
         if (r < 0)
                 return r;
 
-        r = dns_packet_read_uint16(p, NULL, NULL);
+        r = dns_packet_read_uint16(p, /* ret= */ NULL, /* start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2787,11 +2787,11 @@ static int patch_rr(DnsPacket *p, usec_t age) {
                 unaligned_write_be32(DNS_PACKET_DATA(p) + ttl_index, ttl);
         }
 
-        r = dns_packet_read_uint16(p, &rdlength, NULL);
+        r = dns_packet_read_uint16(p, &rdlength, /* start= */ NULL);
         if (r < 0)
                 return r;
 
-        r = dns_packet_read(p, rdlength, NULL, NULL);
+        r = dns_packet_read(p, rdlength, /* ret= */ NULL, /* start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2818,7 +2818,7 @@ int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
 
         n = DNS_PACKET_QDCOUNT(p);
         for (unsigned i = 0; i < n; i++) {
-                r = dns_packet_read_key(p, NULL, NULL, NULL);
+                r = dns_packet_read_key(p, /* ret= */ NULL, /* ret_cache_flush_or_qu= */ NULL, /* start= */ NULL);
                 if (r < 0)
                         return r;
         }

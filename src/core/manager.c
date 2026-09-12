@@ -179,7 +179,7 @@ static void manager_watch_jobs_in_progress(Manager *m) {
                         m->event,
                         &m->jobs_in_progress_event_source,
                         CLOCK_MONOTONIC,
-                        next, 0,
+                        next, /* accuracy= */ 0,
                         manager_dispatch_jobs_in_progress, m);
         if (r < 0)
                 return;
@@ -209,7 +209,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         assert(m);
         assert(m->n_running_jobs > 0);
 
-        manager_flip_auto_status(m, true, "delay");
+        manager_flip_auto_status(m, /* enable= */ true, "delay");
 
         print_nr = (m->jobs_in_progress_iteration / JOBS_IN_PROGRESS_PERIOD_DIVISOR) % m->n_running_jobs;
 
@@ -240,7 +240,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
          * foo.service - Description' were used, 'foo.service' is enough here. On the other hand, if we used
          * 'Starting Description' before, then we shall also use 'Description' here. So we pass NULL as the
          * second argument to unit_status_string(). */
-        const char *ident = unit_status_string(j->unit, NULL);
+        const char *ident = unit_status_string(j->unit, /* ret_combined_buffer= */ NULL);
 
         const char *time = FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - j->begin_usec, 1*USEC_PER_SEC);
         const char *limit = timeout > 0 ? FORMAT_TIMESPAN(timeout - j->begin_usec, 1*USEC_PER_SEC) : "no limit";
@@ -349,7 +349,7 @@ static int manager_check_ask_password(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add event source for /run/systemd/ask-password/: %m");
 
-                r = sd_event_source_set_io_fd_own(event_source, true);
+                r = sd_event_source_set_io_fd_own(event_source, /* own= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to pass ownership of /run/systemd/ask-password/ inotify fd to event source: %m");
                 TAKE_FD(inotify_fd);
@@ -1125,12 +1125,12 @@ static int manager_setup_notify(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind notify fd to '%s': %m", m->notify_socket);
 
-                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable SO_PASSCRED for notify socket: %m");
 
                 // TODO: enforce SO_PASSPIDFD when our baseline of the kernel version is bumped to >= 6.5.
-                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, /* value= */ true);
                 if (r < 0 && r != -ENOPROTOOPT)
                         log_warning_errno(r, "Failed to enable SO_PASSPIDFD for notify socket, ignoring: %m");
 
@@ -1189,7 +1189,7 @@ static int manager_setup_user_lookup_fd(Manager *m) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->user_lookup_fds) < 0)
                         return log_error_errno(errno, "Failed to allocate user lookup socket: %m");
 
-                r = setsockopt_int(m->user_lookup_fds[0], SOL_SOCKET, SO_PASSRIGHTS, false);
+                r = setsockopt_int(m->user_lookup_fds[0], SOL_SOCKET, SO_PASSRIGHTS, /* value= */ false);
                 if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         log_warning_errno(r, "Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: %m");
 
@@ -1231,16 +1231,16 @@ static int manager_setup_handoff_timestamp_fd(Manager *m) {
                 /* Make sure children never have to block */
                 (void) fd_increase_rxbuf(m->handoff_timestamp_fds[0], MANAGER_SOCKET_RCVBUF_SIZE);
 
-                r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSCRED, true);
+                r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSCRED, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable SO_PASSCRED on handoff timestamp socket: %m");
 
-                r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSRIGHTS, false);
+                r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSRIGHTS, /* value= */ false);
                 if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         log_warning_errno(r, "Failed to turn off SO_PASSRIGHTS on handoff timestamp socket, ignoring: %m");
 
                 /* Mark the receiving socket as O_NONBLOCK (but leave sending side as-is) */
-                r = fd_nonblock(m->handoff_timestamp_fds[0], true);
+                r = fd_nonblock(m->handoff_timestamp_fds[0], /* nonblock= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make handoff timestamp socket O_NONBLOCK: %m");
         }
@@ -1278,18 +1278,18 @@ static int manager_setup_pidref_transport_fd(Manager *m) {
                 /* Make sure children never have to block */
                 (void) fd_increase_rxbuf(m->pidref_transport_fds[0], MANAGER_SOCKET_RCVBUF_SIZE);
 
-                r = setsockopt_int(m->pidref_transport_fds[0], SOL_SOCKET, SO_PASSCRED, true);
+                r = setsockopt_int(m->pidref_transport_fds[0], SOL_SOCKET, SO_PASSCRED, /* value= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable SO_PASSCRED for pidref socket: %m");
 
-                r = setsockopt_int(m->pidref_transport_fds[0], SOL_SOCKET, SO_PASSPIDFD, true);
+                r = setsockopt_int(m->pidref_transport_fds[0], SOL_SOCKET, SO_PASSPIDFD, /* value= */ true);
                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         log_debug_errno(r, "SO_PASSPIDFD is not supported for pidref socket, ignoring.");
                 else if (r < 0)
                         log_warning_errno(r, "Failed to enable SO_PASSPIDFD for pidref socket, ignoring: %m");
 
                 /* Mark the receiving socket as O_NONBLOCK (but leave sending side as-is) */
-                r = fd_nonblock(m->pidref_transport_fds[0], true);
+                r = fd_nonblock(m->pidref_transport_fds[0], /* nonblock= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make pidref socket O_NONBLOCK: %m");
         }
@@ -1474,7 +1474,7 @@ static unsigned manager_dispatch_gc_job_queue(Manager *m) {
                         continue;
 
                 log_unit_debug(j->unit, "Collecting job.");
-                (void) job_finish_and_invalidate(j, JOB_COLLECTED, false, false);
+                (void) job_finish_and_invalidate(j, JOB_COLLECTED, /* recursive= */ false, /* already= */ false);
         }
 
         return n;
@@ -1513,7 +1513,7 @@ static int manager_ratelimit_check_and_queue(Unit *u) {
                         &u->auto_start_stop_event_source,
                         CLOCK_BOOTTIME,
                         ratelimit_end(&u->auto_start_stop_ratelimit),
-                        0,
+                        /* accuracy= */ 0,
                         manager_ratelimit_requeue,
                         u);
         if (r < 0)
@@ -1755,7 +1755,7 @@ Manager* manager_free(Manager *m) {
         exec_shared_runtime_vacuum(m);
         hashmap_free(m->exec_shared_runtime_by_id);
 
-        dynamic_user_vacuum(m, false);
+        dynamic_user_vacuum(m, /* close_user= */ false);
         hashmap_free(m->dynamic_users);
 
         hashmap_free(m->units);
@@ -2129,7 +2129,7 @@ static void manager_ready(Manager *m) {
 
         /* Create a file which will indicate when the manager started loading units the last time. */
         if (MANAGER_IS_SYSTEM(m))
-                (void) touch_file("/run/systemd/systemd-units-load", false,
+                (void) touch_file("/run/systemd/systemd-units-load", /* parents= */ false,
                         m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD].realtime ?: now(CLOCK_REALTIME),
                         UID_INVALID, GID_INVALID, 0444);
 }
@@ -2200,7 +2200,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, Hashmap *named_
 
                 /* Make sure we don't have a left-over from a previous run */
                 if (!serialization)
-                        (void) rm_rf(m->lookup_paths.transient, 0);
+                        (void) rm_rf(m->lookup_paths.transient, /* flags= */ 0);
 
                 /* If we will deserialize make sure that during enumeration this is already known, so we increase the
                  * counter here already */
@@ -2303,7 +2303,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, Hashmap *named_
 
         manager_ready(m);
 
-        manager_set_switching_root(m, false);
+        manager_set_switching_root(m, /* switching_root= */ false);
 
         return 0;
 }
@@ -2355,7 +2355,7 @@ int manager_add_jobs(
                 JobType t = type;
                 JobType merged_type;
 
-                r = manager_load_unit(m, *name, NULL, reterr_error, &u);
+                r = manager_load_unit(m, *name, /* path= */ NULL, reterr_error, &u);
                 if (r < 0)
                         return r;
 
@@ -2527,7 +2527,7 @@ int manager_add_job(
         sd_bus_error *reterr_error,
         Job **ret) {
 
-        return manager_add_job_full(m, type, unit, mode, 0, NULL, reterr_error, ret);
+        return manager_add_job_full(m, type, unit, mode, /* extra_flags= */ 0, /* affected_jobs= */ NULL, reterr_error, ret);
 }
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret) {
@@ -2539,7 +2539,7 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
         assert(name);
         assert(mode < _JOB_MODE_MAX);
 
-        r = manager_load_unit(m, name, NULL, NULL, &unit);
+        r = manager_load_unit(m, name, /* path= */ NULL, NULL, &unit);
         if (r < 0)
                 return r;
         assert(unit);
@@ -2593,7 +2593,7 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
         LOG_CONTEXT_PUSHF("TRANSACTION_ID=%" PRIu64, tr->id);
 
         /* We need an anchor job */
-        r = transaction_add_job_and_dependencies(tr, JOB_NOP, unit, NULL, TRANSACTION_IGNORE_REQUIREMENTS|TRANSACTION_IGNORE_ORDER, e);
+        r = transaction_add_job_and_dependencies(tr, JOB_NOP, unit, /* by= */ NULL, TRANSACTION_IGNORE_REQUIREMENTS|TRANSACTION_IGNORE_ORDER, e);
         if (r < 0)
                 return r;
 
@@ -2609,7 +2609,7 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
         if (hashmap_size(tr->jobs) <= 1)
                 return 0;
 
-        r = transaction_activate(tr, m, mode, NULL, e);
+        r = transaction_activate(tr, m, mode, /* affected= */ NULL, e);
         if (r < 0)
                 return r;
 
@@ -2710,7 +2710,7 @@ bool manager_unit_cache_should_retry_load(Unit *u) {
                 return true;
 
         /* The cache needs to be updated because there are modifications on disk. */
-        return !lookup_paths_timestamp_hash_same(&u->manager->lookup_paths, u->manager->unit_cache_timestamp_hash, NULL);
+        return !lookup_paths_timestamp_hash_same(&u->manager->lookup_paths, u->manager->unit_cache_timestamp_hash, /* ret_new= */ NULL);
 }
 
 int manager_load_unit_prepare(
@@ -2854,7 +2854,7 @@ void manager_clear_jobs(Manager *m) {
 
         while ((j = hashmap_first(m->jobs)))
                 /* No need to recurse. We're cancelling all jobs. */
-                job_finish_and_invalidate(j, JOB_CANCELED, false, false);
+                job_finish_and_invalidate(j, JOB_CANCELED, /* recursive= */ false, /* already= */ false);
 }
 
 void manager_unwatch_pidref(Manager *m, const PidRef *pid) {
@@ -2973,7 +2973,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         if (m->send_reloading_done) {
                 m->send_reloading_done = false;
-                bus_manager_send_reloading(m, false);
+                bus_manager_send_reloading(m, /* active= */ false);
                 n++;
         }
 
@@ -3254,7 +3254,7 @@ static void manager_start_special_with_fallback(Manager *m, const char *name, co
         if (manager_add_job_by_name_or_warn_with_fallback(m, JOB_START, name, fallback, mode, /* affected_jobs= */ NULL, &job) < 0)
                 return;
 
-        const char *s = unit_status_string(job->unit, NULL);
+        const char *s = unit_status_string(job->unit, /* ret_combined_buffer= */ NULL);
 
         log_info("Activating special unit %s...", s);
 
@@ -3360,7 +3360,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 break;
 
         case SIGUSR1:
-                if (manager_dbus_is_running(m, false)) {
+                if (manager_dbus_is_running(m, /* deserialized= */ false)) {
                         log_info("Trying to reconnect to bus...");
 
                         (void) bus_init_api(m);
@@ -3481,7 +3481,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         }
 
                         if (generic)
-                                return sigrtmin18_handler(source, &sfsi, NULL);
+                                return sigrtmin18_handler(source, &sfsi, /* userdata= */ NULL);
 
                         break;
                 }
@@ -3721,7 +3721,7 @@ int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e,
                                          "Unit name %s is neither a valid invocation ID nor unit name.", strnull(nn));
         }
 
-        r = manager_load_unit(m, n, NULL, e, &u);
+        r = manager_load_unit(m, n, /* path= */ NULL, e, &u);
         if (r < 0)
                 return r;
 
@@ -3784,7 +3784,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         }
 
         msg = strjoina("unit=", p);
-        if (sym_audit_log_user_comm_message(audit_fd, type, msg, "systemd", NULL, NULL, NULL, success) < 0) {
+        if (sym_audit_log_user_comm_message(audit_fd, type, msg, "systemd", /* hostname= */ NULL, /* addr= */ NULL, /* tty= */ NULL, success) < 0) {
                 if (ERRNO_IS_PRIVILEGE(errno)) {
                         /* We aren't allowed to send audit messages?  Then let's not retry again. */
                         log_debug_errno(errno, "Failed to send audit message, closing audit socket: %m");
@@ -3964,7 +3964,7 @@ int manager_reload(Manager *m) {
         /* We are officially in reload mode from here on. */
         reloading = manager_reloading_start(m);
 
-        r = manager_serialize(m, f, fds, false);
+        r = manager_serialize(m, f, fds, /* switching_root= */ false);
         if (r < 0)
                 return r;
 
@@ -3979,7 +3979,7 @@ int manager_reload(Manager *m) {
          * ReloadCount in response to that signal observes the new value. */
         m->reload_count = saturate_add(m->reload_count, 1, UINT64_MAX);
 
-        bus_manager_send_reloading(m, true);
+        bus_manager_send_reloading(m, /* active= */ true);
 
         /* Start by flushing out all jobs and units, all generated units, all runtime environments, all dynamic users
          * and everything else that is worth flushing out. We'll get it all back from the serialization — if we need
@@ -3988,7 +3988,7 @@ int manager_reload(Manager *m) {
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
         exec_shared_runtime_vacuum(m);
-        dynamic_user_vacuum(m, false);
+        dynamic_user_vacuum(m, /* close_user= */ false);
         m->uid_refs = hashmap_free(m->uid_refs);
         m->gid_refs = hashmap_free(m->gid_refs);
 
@@ -4272,7 +4272,7 @@ void manager_check_finished(Manager *m) {
         if (MANAGER_IS_FINISHED(m))
                 return;
 
-        manager_flip_auto_status(m, false, "boot finished");
+        manager_flip_auto_status(m, /* enable= */ false, "boot finished");
 
         /* Turn off confirm spawn now */
         m->confirm_spawn = NULL;
@@ -4685,7 +4685,7 @@ void manager_recheck_dbus(Manager *m) {
         if (MANAGER_IS_RELOADING(m))
                 return; /* don't check while we are reloading… */
 
-        if (manager_dbus_is_running(m, false)) {
+        if (manager_dbus_is_running(m, /* deserialized= */ false)) {
                 (void) bus_init_api(m);
 
                 if (MANAGER_IS_SYSTEM(m))
@@ -4969,7 +4969,7 @@ int manager_update_failed_units(Manager *m, Unit *u, bool failed) {
         size = set_size(m->failed_units);
 
         if (failed) {
-                r = set_ensure_put(&m->failed_units, NULL, u);
+                r = set_ensure_put(&m->failed_units, /* hash_ops= */ NULL, u);
                 if (r < 0)
                         return log_oom();
         } else
@@ -5162,7 +5162,7 @@ static void manager_vacuum(Manager *m) {
         assert(m);
 
         /* Release any dynamic users no longer referenced */
-        dynamic_user_vacuum(m, true);
+        dynamic_user_vacuum(m, /* close_user= */ true);
 
         /* Release any references to UIDs/GIDs no longer referenced, and destroy any IPC owned by them */
         manager_vacuum_uid_refs(m);

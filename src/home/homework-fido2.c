@@ -56,7 +56,7 @@ int fido2_use_token(
                 flags |= FIDO2ENROLL_PIN_IF_NEEDED; /* compat with pre-248 */
 
         r = fido2_use_hmac_hash(
-                        NULL,
+                        /* device= */ NULL,
                         "io.systemd.home",
                         salt->salt, salt->salt_size,
                         salt->credential.id, salt->credential.size,

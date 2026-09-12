@@ -150,7 +150,7 @@ static int mount_is_bound_to_device(Mount *m) {
         if (!p)
                 return false;
 
-        r = fstab_filter_options(p->options, "x-systemd.device-bound\0", NULL, &value, NULL, NULL);
+        r = fstab_filter_options(p->options, "x-systemd.device-bound\0", /* ret_namefound= */ NULL, &value, /* ret_values= */ NULL, /* ret_filtered= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -689,7 +689,7 @@ static void mount_set_state(Mount *m, MountState state) {
         assert(m);
 
         if (m->state != state)
-                bus_unit_send_pending_change_signal(UNIT(m), false);
+                bus_unit_send_pending_change_signal(UNIT(m), /* including_new= */ false);
 
         old_state = m->state;
         m->state = state;
@@ -905,7 +905,7 @@ static void mount_enter_dead(Mount *m, MountResult f, bool flush_result) {
 
         unit_destroy_runtime_data(UNIT(m), &m->exec_context, /* destroy_runtime_dir= */ true);
 
-        unit_unref_uid_gid(UNIT(m), true);
+        unit_unref_uid_gid(UNIT(m), /* destroy_now= */ true);
 
         /* Any dependencies based on /proc/self/mountinfo are now stale. Let's re-generate dependencies from
          * .mount unit. */
@@ -1070,7 +1070,7 @@ static int mount_apply_graceful_options(Mount *m, const MountParameters *p, char
         assert(p);
         assert(opts);
 
-        r = fstab_filter_options(*opts, "x-systemd.graceful-option\0", NULL, NULL, &graceful, &filtered);
+        r = fstab_filter_options(*opts, "x-systemd.graceful-option\0", /* ret_namefound= */ NULL, /* ret_value= */ NULL, &graceful, &filtered);
         if (r <= 0)
                 return r;
 
@@ -1139,7 +1139,7 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
         }
 
         _cleanup_free_ char *opts = NULL;
-        r = fstab_filter_options(p->options, "nofail\0" "fail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &opts);
+        r = fstab_filter_options(p->options, "nofail\0" "fail\0" "noauto\0" "auto\0", /* ret_namefound= */ NULL, /* ret_value= */ NULL, /* ret_values= */ NULL, &opts);
         if (r < 0)
                 return r;
 
@@ -1537,7 +1537,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         pidref_done(&m->control_pid);
 
-        if (is_clean_exit(code, status, EXIT_CLEAN_COMMAND, NULL))
+        if (is_clean_exit(code, status, EXIT_CLEAN_COMMAND, /* success_status= */ NULL))
                 f = MOUNT_SUCCESS;
         else if (code == CLD_EXITED)
                 f = MOUNT_FAILURE_EXIT_CODE;
@@ -2076,7 +2076,7 @@ static void mount_enumerate(Manager *m) {
 #if HAVE_LIBMOUNT
         int r;
 
-        sym_mnt_init_debug(0);
+        sym_mnt_init_debug(/* mask= */ 0);
 
         if (!m->mount_monitor) {
                 usec_t mount_rate_limit_interval = 1 * USEC_PER_SEC;
@@ -2095,7 +2095,7 @@ static void mount_enumerate(Manager *m) {
                         goto fail;
                 }
 
-                r = sym_mnt_monitor_enable_userspace(m->mount_monitor, 1, NULL);
+                r = sym_mnt_monitor_enable_userspace(m->mount_monitor, 1, /* filename= */ NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to enable watching of userspace mount events: %m");
                         goto fail;
@@ -2150,7 +2150,7 @@ static void mount_enumerate(Manager *m) {
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
         }
 
-        r = mount_load_proc_self_mountinfo(m, false);
+        r = mount_load_proc_self_mountinfo(m, /* set_flags= */ false);
         if (r < 0)
                 goto fail;
 
@@ -2178,7 +2178,7 @@ static int drain_libmount(Manager *m) {
          *
          * error: r < 0; valid: r == 0, false positive: r == 1 */
         do {
-                r = sym_mnt_monitor_next_change(m->mount_monitor, NULL, NULL);
+                r = sym_mnt_monitor_next_change(m->mount_monitor, /* filename= */ NULL, /* type= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to drain libmount events: %m");
                 if (r == 0)
@@ -2202,7 +2202,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                 return r;
 
 #if HAVE_LIBMOUNT
-        r = mount_load_proc_self_mountinfo(m, true);
+        r = mount_load_proc_self_mountinfo(m, /* set_flags= */ true);
         if (r < 0) {
                 /* Reset flags, just in case, for later calls */
                 LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT])
@@ -2230,7 +2230,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                                         log_oom(); /* we don't care too much about OOM here... */
 
                         mount->from_proc_self_mountinfo = false;
-                        assert_se(update_parameters_proc_self_mountinfo(mount, NULL, NULL, NULL) >= 0);
+                        assert_se(update_parameters_proc_self_mountinfo(mount, /* what= */ NULL, /* options= */ NULL, /* fstype= */ NULL) >= 0);
 
                         switch (mount->state) {
 

@@ -48,7 +48,7 @@ static int sethostname_idempotent_full(const char *s, bool really) {
 }
 
 int sethostname_idempotent(const char *s) {
-        return sethostname_idempotent_full(s, true);
+        return sethostname_idempotent_full(s, /* really= */ true);
 }
 
 int shorten_overlong(const char *s, char **ret) {
@@ -64,7 +64,7 @@ int shorten_overlong(const char *s, char **ret) {
         if (!h)
                 return -ENOMEM;
 
-        if (hostname_is_valid(h, 0)) {
+        if (hostname_is_valid(h, /* flags= */ 0)) {
                 *ret = TAKE_PTR(h);
                 return 0;
         }
@@ -132,7 +132,7 @@ static int acquire_hostname_from_cmdline(char **ret) {
 
         assert(ret);
 
-        r = proc_cmdline_get_key("systemd.hostname", 0, &hn);
+        r = proc_cmdline_get_key("systemd.hostname", /* flags= */ 0, &hn);
         if (r < 0)
                 return log_warning_errno(r, "Failed to retrieve system hostname from kernel command line, ignoring: %m");
         if (r == 0) /* not specified */
@@ -595,7 +595,7 @@ int pidref_gethostname_full(PidRef *pidref, GetHostnameFlags flags, char **ret) 
         assert(pidref);
         assert(ret);
 
-        r = pidref_in_same_namespace(pidref, NULL, NAMESPACE_UTS);
+        r = pidref_in_same_namespace(pidref, /* pid2= */ NULL, NAMESPACE_UTS);
         if (r < 0)
                 return r;
         if (r > 0)

@@ -28,7 +28,7 @@ static inline int import_url_change_last_component(const char *url, const char *
 }
 
 static inline int import_url_append_component(const char *url, const char *suffix, char **ret) {
-        return import_url_change_suffix(url, 0, suffix, ret);
+        return import_url_change_suffix(url, /* n_drop_components= */ 0, suffix, ret);
 }
 
 DECLARE_STRING_TABLE_LOOKUP(import_type, ImportType);

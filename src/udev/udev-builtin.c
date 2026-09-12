@@ -125,7 +125,7 @@ int udev_builtin_run(UdevEvent *event, UdevBuiltinCommand cmd, const char *comma
         if (!builtins[cmd])
                 return -EOPNOTSUPP;
 
-        r = strv_split_full(&argv, command, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_RETAIN_ESCAPE);
+        r = strv_split_full(&argv, command, /* separators= */ NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
                 return r;
 

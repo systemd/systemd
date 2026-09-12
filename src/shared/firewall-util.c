@@ -350,7 +350,7 @@ static int sd_nfnl_message_new_masq_rule(
                 return r;
 
         /* 1st statement: use reg1 content to make lookup in @masq_saddr set. */
-        r = nfnl_add_expr_lookup(m, NFT_SYSTEMD_MASQ_SET_NAME, NFT_REG32_01, 0);
+        r = nfnl_add_expr_lookup(m, NFT_SYSTEMD_MASQ_SET_NAME, NFT_REG32_01, /* dreg= */ 0);
         if (r < 0)
                 return r;
 
@@ -645,7 +645,7 @@ static int nft_add_element(
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_append_setelem(m, 0, key, klen, data, dlen, 0);
+        r = sd_nfnl_nft_message_append_setelem(m, /* index= */ 0, key, klen, data, dlen, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -689,7 +689,7 @@ static int nft_del_element(
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_append_setelem(m, 0, key, klen, data, dlen, 0);
+        r = sd_nfnl_nft_message_append_setelem(m, /* index= */ 0, key, klen, data, dlen, /* flags= */ 0);
         if (r < 0)
                return r;
 
@@ -776,7 +776,7 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
          * Example: ip protocol . tcp daddr is sizeof(uint32_t) + sizeof(uint32_t), not
          * sizeof(uint8_t) + sizeof(uint16_t).
          */
-        r = nft_new_map(nfnl, &messages[msgcnt++], family, dnat_map_name(), ++set_id, 0,
+        r = nft_new_map(nfnl, &messages[msgcnt++], family, dnat_map_name(), ++set_id, /* flags= */ 0,
                         concat_types2(TYPE_INET_PROTOCOL, TYPE_INET_SERVICE), sizeof(uint32_t) * 2,
                         concat_types2(ip_type, TYPE_INET_SERVICE), ip_type_size + sizeof(uint32_t));
         if (r < 0)
@@ -825,7 +825,7 @@ static int nft_message_append_setelem_iprange(
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_append_setelem(m, 0, &start, sizeof(start), NULL, 0, 0);
+        r = sd_nfnl_nft_message_append_setelem(m, /* index= */ 0, &start, sizeof(start), /* data= */ NULL, /* data_len= */ 0, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -834,7 +834,7 @@ static int nft_message_append_setelem_iprange(
                 end = 0U;
         end = htobe32(end);
 
-        r = sd_nfnl_nft_message_append_setelem(m, 1, &end, sizeof(end), NULL, 0, NFT_SET_ELEM_INTERVAL_END);
+        r = sd_nfnl_nft_message_append_setelem(m, 1, &end, sizeof(end), /* data= */ NULL, /* data_len= */ 0, NFT_SET_ELEM_INTERVAL_END);
         if (r < 0)
                 return r;
 
@@ -860,11 +860,11 @@ static int nft_message_append_setelem_ip6range(
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_append_setelem(m, 0, &start.in6, sizeof(start.in6), NULL, 0, 0);
+        r = sd_nfnl_nft_message_append_setelem(m, /* index= */ 0, &start.in6, sizeof(start.in6), /* data= */ NULL, /* data_len= */ 0, /* flags= */ 0);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_append_setelem(m, 1, &end.in6, sizeof(end.in6), NULL, 0, NFT_SET_ELEM_INTERVAL_END);
+        r = sd_nfnl_nft_message_append_setelem(m, 1, &end.in6, sizeof(end.in6), /* data= */ NULL, /* data_len= */ 0, NFT_SET_ELEM_INTERVAL_END);
         if (r < 0)
                 return r;
 
@@ -939,7 +939,7 @@ int nft_set_element_modify_ip(
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_append_setelem(m, 0, source, FAMILY_ADDRESS_SIZE(af), NULL, 0, 0);
+        r = sd_nfnl_nft_message_append_setelem(m, /* index= */ 0, source, FAMILY_ADDRESS_SIZE(af), /* data= */ NULL, /* data_len= */ 0, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -969,9 +969,9 @@ int nft_set_element_modify_any(
         assert(element);
 
         if (add)
-                r = nft_add_element(nfnl, &m, nfproto, table, set, element, element_size, NULL, 0);
+                r = nft_add_element(nfnl, &m, nfproto, table, set, element, element_size, /* data= */ NULL, /* dlen= */ 0);
         else
-                r = nft_del_element(nfnl, &m, nfproto, table, set, element, element_size, NULL, 0);
+                r = nft_del_element(nfnl, &m, nfproto, table, set, element, element_size, /* data= */ NULL, /* dlen= */ 0);
         if (r < 0)
                 return r;
 
@@ -1143,7 +1143,7 @@ int fw_nftables_add_local_dnat(
                 return r;
 
         /* table created anew; previous address already gone */
-        return fw_nftables_add_local_dnat_internal(nfnl, add, af, protocol, local_port, remote, remote_port, NULL);
+        return fw_nftables_add_local_dnat_internal(nfnl, add, af, protocol, local_port, remote, remote_port, /* previous_remote= */ NULL);
 }
 
 static const char *const nfproto_table[] = {
@@ -1256,7 +1256,7 @@ int config_parse_nft_set(
                 int nfproto;
                 NFTSetSource source;
 
-                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                r = extract_first_word(&p, &tuple, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
                         return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)

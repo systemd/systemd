@@ -75,7 +75,7 @@ static int add_root_ksk(
         if (!rr->ds.digest)
                 return  -ENOMEM;
 
-        r = dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+        r = dns_answer_add(answer, rr, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL);
         if (r < 0)
                 return r;
 
@@ -231,7 +231,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
         assert(d);
         assert(line);
 
-        r = extract_first_word(&p, &domain, NULL, EXTRACT_UNQUOTE);
+        r = extract_first_word(&p, &domain, /* separators= */ NULL, EXTRACT_UNQUOTE);
         if (r < 0)
                 return log_warning_errno(r, "Unable to parse domain in line %s:%u: %m", path, line);
 
@@ -379,7 +379,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
         old_answer = hashmap_get(d->positive_by_key, rr->key);
         answer = dns_answer_ref(old_answer);
 
-        r = dns_answer_add_extend(&answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+        r = dns_answer_add_extend(&answer, rr, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add trust anchor RR: %m");
 
@@ -401,7 +401,7 @@ static int dns_trust_anchor_load_negative(DnsTrustAnchor *d, const char *path, u
         assert(d);
         assert(line);
 
-        r = extract_first_word(&p, &domain, NULL, EXTRACT_UNQUOTE);
+        r = extract_first_word(&p, &domain, /* separators= */ NULL, EXTRACT_UNQUOTE);
         if (r < 0)
                 return log_warning_errno(r, "Unable to parse line %s:%u: %m", path, line);
 
@@ -707,7 +707,7 @@ static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceReco
                          * DS fingerprint will be the one of the
                          * unrevoked DNSKEY, but the one we got passed
                          * here has the bit set. */
-                        r = dnssec_verify_dnskey_by_ds(revoked_dnskey, anchor, true);
+                        r = dnssec_verify_dnskey_by_ds(revoked_dnskey, anchor, /* mask_revoke= */ true);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -752,7 +752,7 @@ int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsResourceRecord *dnskey,
                 if (rrsig->key->type != DNS_TYPE_RRSIG)
                         continue;
 
-                r = dnssec_rrsig_match_dnskey(rrsig, dnskey, true);
+                r = dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ true);
                 if (r < 0)
                         return r;
                 if (r == 0)

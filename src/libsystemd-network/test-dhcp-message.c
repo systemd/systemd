@@ -39,7 +39,7 @@ static void verify_header(sd_dhcp_message *m, uint32_t xid, const struct hw_addr
 static void verify_flag(sd_dhcp_message *m) {
         ASSERT_TRUE(dhcp_message_has_option(m, SD_DHCP_OPTION_RAPID_COMMIT));
         ASSERT_OK(dhcp_message_get_option_flag(m, SD_DHCP_OPTION_RAPID_COMMIT));
-        ASSERT_ERROR(dhcp_message_get_option_u8(m, SD_DHCP_OPTION_RAPID_COMMIT, NULL), ENODATA); /* size mismatch */
+        ASSERT_ERROR(dhcp_message_get_option_u8(m, SD_DHCP_OPTION_RAPID_COMMIT, /* ret= */ NULL), ENODATA); /* size mismatch */
 }
 
 static void verify_u8(sd_dhcp_message *m, uint8_t expected) {
@@ -91,8 +91,8 @@ static void verify_addresses(
         ASSERT_EQ(n, n_ntp);
         ASSERT_EQ(memcmp(addrs, ntp, sizeof(struct in_addr) * n), 0);
 
-        ASSERT_ERROR(dhcp_message_get_option_be32(m, SD_DHCP_OPTION_SIP_SERVER, NULL), ENODATA);
-        ASSERT_ERROR(dhcp_message_get_option_address(m, SD_DHCP_OPTION_SIP_SERVER, NULL), ENODATA);
+        ASSERT_ERROR(dhcp_message_get_option_be32(m, SD_DHCP_OPTION_SIP_SERVER, /* ret= */ NULL), ENODATA);
+        ASSERT_ERROR(dhcp_message_get_option_address(m, SD_DHCP_OPTION_SIP_SERVER, /* ret= */ NULL), ENODATA);
 
         addrs = mfree(addrs);
         ASSERT_OK(dhcp_message_get_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, &n, &addrs));
@@ -145,7 +145,7 @@ static void verify_6rd(
         size_t n_br_addresses;
         _cleanup_free_ struct in_addr *br_addresses = NULL;
 
-        ASSERT_OK(dhcp_message_get_option_6rd(m, NULL, NULL, NULL, NULL, NULL));
+        ASSERT_OK(dhcp_message_get_option_6rd(m, /* ret_ipv4masklen= */ NULL, /* ret_prefixlen= */ NULL, /* ret_prefix= */ NULL, /* ret_n_br_addresses= */ NULL, /* ret_br_addresses= */ NULL));
         ASSERT_OK(dhcp_message_get_option_6rd(m, &ipv4masklen, &prefixlen, &prefix, &n_br_addresses, &br_addresses));
         ASSERT_EQ(ipv4masklen, expected_ipv4masklen);
         ASSERT_EQ(prefixlen, expected_prefixlen);
@@ -383,8 +383,8 @@ TEST(dhcp_message) {
         /* header */
         verify_header(m, xid, &hw_addr);
 
-        ASSERT_ERROR(dhcp_message_append_option(m, SD_DHCP_OPTION_PAD, 0, NULL), EINVAL);
-        ASSERT_ERROR(dhcp_message_append_option(m, SD_DHCP_OPTION_END, 0, NULL), EINVAL);
+        ASSERT_ERROR(dhcp_message_append_option(m, SD_DHCP_OPTION_PAD, /* length= */ 0, /* data= */ NULL), EINVAL);
+        ASSERT_ERROR(dhcp_message_append_option(m, SD_DHCP_OPTION_END, /* length= */ 0, /* data= */ NULL), EINVAL);
 
         /* multiple strings */
         STRV_FOREACH(s, root_path)
@@ -398,7 +398,7 @@ TEST(dhcp_message) {
         verify_flag(m);
 
         /* u8 */
-        ASSERT_ERROR(dhcp_message_get_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, NULL), ENODATA);
+        ASSERT_ERROR(dhcp_message_get_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, /* ret= */ NULL), ENODATA);
         ASSERT_OK(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, DHCP_DISCOVER));
         ASSERT_ERROR(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, DHCP_REQUEST), EEXIST);
         verify_u8(m, DHCP_DISCOVER);
@@ -427,17 +427,17 @@ TEST(dhcp_message) {
         ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_NTP_SERVER, ELEMENTSOF(ntp) - 1, ntp + 1));
         ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, ELEMENTSOF(sip), sip));
         ASSERT_ERROR(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, ELEMENTSOF(sip), sip), EEXIST);
-        ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, 0, NULL));
+        ASSERT_OK(dhcp_message_append_option_addresses(m, SD_DHCP_OPTION_SIP_SERVER, /* n_addr= */ 0, /* addr= */ NULL));
         verify_addresses(m, ELEMENTSOF(ntp), ntp, ELEMENTSOF(sip), sip);
 
         /* string */
-        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, NULL), ENODATA);
-        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, 0, NULL));
-        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, NULL), ENODATA);
+        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, /* ret= */ NULL), ENODATA);
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, /* length= */ 0, /* data= */ NULL));
+        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, /* ret= */ NULL), ENODATA);
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, 1, "\0"));
-        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, NULL), ENODATA);
+        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, /* ret= */ NULL), ENODATA);
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, 9, "hoge\0hoge"));
-        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, NULL), EBADMSG);
+        ASSERT_ERROR(dhcp_message_get_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, /* ret= */ NULL), EBADMSG);
         ASSERT_ERROR(dhcp_message_append_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, vendor_class), EEXIST);
         dhcp_message_remove_option(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER);
         ASSERT_OK(dhcp_message_append_option_string(m, SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER, vendor_class));
@@ -452,7 +452,7 @@ TEST(dhcp_message) {
         /* 6rd */
         ASSERT_ERROR(dhcp_message_append_option_6rd(m, 33, sixrd_prefixlen, &sixrd_prefix, 1, sixrd_br_addresses), EINVAL);
         ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, 127, &sixrd_prefix, 1, sixrd_br_addresses), EINVAL);
-        ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, 0, sixrd_br_addresses), EINVAL);
+        ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, /* n_br_addresses= */ 0, sixrd_br_addresses), EINVAL);
         ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, SIZE_MAX, sixrd_br_addresses), ENOBUFS);
         ASSERT_OK(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, 1, sixrd_br_addresses));
         ASSERT_ERROR(dhcp_message_append_option_6rd(m, sixrd_ipv4masklen, sixrd_prefixlen, &sixrd_prefix, 1, sixrd_br_addresses), EEXIST);
@@ -836,7 +836,7 @@ TEST(dnr) {
                 2, 'h', '2',
         };
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(invalid), invalid));
-        ASSERT_ERROR(dhcp_message_get_option_dnr(m, NULL, NULL), EBADMSG);
+        ASSERT_ERROR(dhcp_message_get_option_dnr(m, /* ret_n_resolvers= */ NULL, /* ret_resolvers= */ NULL), EBADMSG);
 
         dhcp_message_remove_option(m, SD_DHCP_OPTION_V4_DNR);
 
@@ -857,7 +857,7 @@ TEST(dnr) {
                 192, 0, 2, 6,
         };
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(invalid2), invalid2));
-        ASSERT_ERROR(dhcp_message_get_option_dnr(m, NULL, NULL), EBADMSG);
+        ASSERT_ERROR(dhcp_message_get_option_dnr(m, /* ret_n_resolvers= */ NULL, /* ret_resolvers= */ NULL), EBADMSG);
 
         dhcp_message_remove_option(m, SD_DHCP_OPTION_V4_DNR);
 
@@ -882,7 +882,7 @@ TEST(dnr) {
                 3, 'd', 'o', 't',
         };
         ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_V4_DNR, ELEMENTSOF(invalid3), invalid3));
-        ASSERT_ERROR(dhcp_message_get_option_dnr(m, NULL, NULL), EMSGSIZE);
+        ASSERT_ERROR(dhcp_message_get_option_dnr(m, /* ret_n_resolvers= */ NULL, /* ret_resolvers= */ NULL), EMSGSIZE);
 }
 
 TEST(dump_vendor) {

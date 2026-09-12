@@ -88,7 +88,7 @@ int config_parse_header(
                 return 1;
         }
 
-        r = cunescape(rvalue, 0, &unescaped);
+        r = cunescape(rvalue, /* flags= */ 0, &unescaped);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to unescape headers, ignoring: %s", rvalue);

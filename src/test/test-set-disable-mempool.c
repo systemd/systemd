@@ -39,7 +39,7 @@ static void test_one(const char *val) {
         assert_se(mempool_enabled);    /* It is a weak symbol, but we expect it to be available */
         assert_se(!mempool_enabled());
 
-        assert_se(s = set_new(NULL));
+        assert_se(s = set_new(/* hash_ops= */ NULL));
         for (i = 0; i < NUM; i++)
                 assert_se(set_put(s, &x[i]));
 

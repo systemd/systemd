@@ -57,7 +57,7 @@ static int raw_verify(const char *fn, const char *verification_key) {
         if (r < 0)
                 return r;
 
-        r = journal_file_verify(f, verification_key, NULL, NULL, NULL, false);
+        r = journal_file_verify(f, verification_key, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false);
         (void) journal_file_close(f);
 
         return r;
@@ -76,7 +76,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         ASSERT_NOT_NULL(m = mmap_cache_new());
 
         /* journal_file_open() requires a valid machine id */
-        if (sd_id128_get_machine(NULL) < 0)
+        if (sd_id128_get_machine(/* ret= */ NULL) < 0)
                 return log_tests_skipped("No valid machine ID found");
 
         test_setup_logging(LOG_DEBUG);
@@ -137,7 +137,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         journal_file_print_header(f);
         journal_file_dump(f);
 
-        ASSERT_OK(journal_file_verify(f, verification_key, &from, &to, &total, true));
+        ASSERT_OK(journal_file_verify(f, verification_key, &from, &to, &total, /* show_progress= */ true));
 
         if (verification_key && JOURNAL_HEADER_SEALED(f->header))
                 log_info("=> Validated from %s to %s, %s missing",

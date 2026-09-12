@@ -156,7 +156,7 @@ int write_string_stream_full(
                 /* Read an additional byte to detect cases where the prefix matches but the rest
                  * doesn't. Also, 0 returned by read_virtual_file_fd() means the read was truncated and
                  * it won't be equal to the new value. */
-                if (read_virtual_file_fd(fd, strlen(line)+1, &t, NULL) > 0 &&
+                if (read_virtual_file_fd(fd, strlen(line)+1, &t, /* ret_size= */ NULL) > 0 &&
                     streq_skip_trailing_chars(line, t, NEWLINE)) {
                         log_debug("No change in value '%s', suppressing write", line);
                         return 0;
@@ -484,7 +484,7 @@ int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_ext
         if (!buf)
                 return -ENOMEM;
 
-        r = fopen_unlocked_at(dir_fd, strempty(fn), "re", 0, &f);
+        r = fopen_unlocked_at(dir_fd, strempty(fn), "re", /* open_flags= */ 0, &f);
         if (r < 0)
                 return r;
 
@@ -728,7 +728,7 @@ int read_full_stream_full(
                         }
 
                         if (flags & READ_FULL_FILE_WARN_WORLD_READABLE)
-                                (void) warn_file_is_world_accessible(filename, &st, NULL, 0);
+                                (void) warn_file_is_world_accessible(filename, &st, /* unit= */ NULL, /* line= */ 0);
                 }
         } else if (FLAGS_SET(flags, READ_FULL_FILE_VERIFY_REGULAR))
                 return -EBADFD;
@@ -881,7 +881,7 @@ int read_full_file_full(
             offset == UINT64_MAX)                              /* Seeking is not supported on AF_UNIX sockets */
                 xflags |= XFOPEN_SOCKET;
 
-        r = xfopenat_full(dir_fd, filename, "re", 0, xflags, bind_name, &f);
+        r = xfopenat_full(dir_fd, filename, "re", /* open_flags= */ 0, xflags, bind_name, &f);
         if (r < 0)
                 return r;
 

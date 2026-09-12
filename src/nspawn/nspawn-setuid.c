@@ -30,7 +30,7 @@ static int spawn_getent(const char *database, const char *key, PidRef *ret) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         "(getent)",
-                        (int[]) { -EBADF, pipe_fds[1], -EBADF }, NULL, 0,
+                        (int[]) { -EBADF, pipe_fds[1], -EBADF }, /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
                         &pidref);
         if (r < 0) {
@@ -200,7 +200,7 @@ int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
         for (const char *p = x;;) {
                _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse group data from getent: %m");
                 if (r == 0)
@@ -218,7 +218,7 @@ int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
         if (r < 0)
                 return log_error_errno(r, "Failed to make home root directory: %m");
 
-        r = mkdir_safe(home, 0755, uid, gid, 0);
+        r = mkdir_safe(home, 0755, uid, gid, /* flags= */ 0);
         if (r < 0 && !IN_SET(r, -EEXIST, -ENOTDIR))
                 return log_error_errno(r, "Failed to make home directory: %m");
 

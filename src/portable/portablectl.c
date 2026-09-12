@@ -91,7 +91,7 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Operations on images by path not supported when connecting to remote systems.");
 
-        r = chase(image, NULL, CHASE_TRAIL_SLASH | (permit_non_existing ? CHASE_NONEXISTENT : 0), ret, NULL);
+        r = chase(image, /* root= */ NULL, CHASE_TRAIL_SLASH | (permit_non_existing ? CHASE_NONEXISTENT : 0), ret, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Cannot normalize specified image path '%s': %m", image);
 
@@ -286,7 +286,7 @@ static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userd
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_portable_mgr, "ListImages", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_portable_mgr, "ListImages", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list images: %s", bus_error_message(&error, r));
 
@@ -463,7 +463,7 @@ static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd
         if (r < 0)
                 return r;
 
-        r = sd_bus_call(bus, m, 0, &error, reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, reply);
         if (r < 0)
                 return log_image_metadata_error(r, &error);
 
@@ -489,7 +489,7 @@ static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *use
         size_t sz;
         int r;
 
-        r = determine_image(argv[1], false, &image);
+        r = determine_image(argv[1], /* permit_non_existing= */ false, &image);
         if (r < 0)
                 return r;
 
@@ -497,7 +497,7 @@ static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *use
         if (r < 0)
                 return r;
 
-        r = determine_matches(argv[1], argv + 2, true, &matches);
+        r = determine_matches(argv[1], argv + 2, /* allow_any= */ true, &matches);
         if (r < 0)
                 return r;
 
@@ -505,7 +505,7 @@ static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *use
         if (r < 0)
                 return r;
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0) {
                 int first_error = r;
 
@@ -794,7 +794,7 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to %s the portable service %s: %s",
                         enable ? "enable" : "disable", path, bus_error_message(&error, r));
@@ -888,7 +888,7 @@ static int maybe_start_stop_restart_units(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r >= 0) {
                 r = sd_bus_message_enter_container(reply, 'a', "(uosos)");
                 if (r < 0)
@@ -949,7 +949,7 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
                         return log_error_errno(r, "Could not watch jobs: %m");
         }
 
-        r = sd_bus_message_rewind(reply, true);
+        r = sd_bus_message_rewind(reply, /* complete= */ true);
         if (r < 0)
                 return r;
         r = sd_bus_message_enter_container(reply, 'a', "(sss)");
@@ -966,7 +966,7 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
                         break;
 
                 if (STR_IN_SET(type, "symlink", "copy") && is_portable_managed(path)) {
-                        (void) maybe_enable_disable(bus, path, true);
+                        (void) maybe_enable_disable(bus, path, /* enable= */ true);
 
                         _cleanup_free_ char *name = NULL;
                         r = path_extract_filename(path, &name);
@@ -986,7 +986,7 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
         (void) maybe_start_stop_restart_units(bus, start_names, "start", wait);
 
         if (!arg_no_block) {
-                r = bus_wait_for_jobs(wait, arg_quiet, NULL);
+                r = bus_wait_for_jobs(wait, arg_quiet, /* extra_args= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -1008,7 +1008,7 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
                         return log_error_errno(r, "Could not watch jobs: %m");
         }
 
-        r = sd_bus_message_rewind(reply, true);
+        r = sd_bus_message_rewind(reply, /* complete= */ true);
         if (r < 0)
                 return r;
 
@@ -1062,7 +1062,7 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
                         break;
 
                 if (STR_IN_SET(type, "symlink", "copy") && is_portable_managed(path)) {
-                        (void) maybe_enable_disable(bus, path, true);
+                        (void) maybe_enable_disable(bus, path, /* enable= */ true);
 
                         _cleanup_free_ char *name = NULL;
                         r = path_extract_filename(path, &name);
@@ -1082,7 +1082,7 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
         (void) maybe_start_stop_restart_units(bus, restart_names, "restart", wait);
 
         if (!arg_no_block) {
-                r = bus_wait_for_jobs(wait, arg_quiet, NULL);
+                r = bus_wait_for_jobs(wait, arg_quiet, /* extra_args= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -1114,7 +1114,7 @@ static int maybe_clean_units(sd_bus *bus, char **units) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, 0, &error, NULL);
+                r = sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL);
                 if (r < 0)
                         return log_error_errno(
                                         r,
@@ -1135,7 +1135,7 @@ static int maybe_stop_disable_clean(sd_bus *bus, char *image, char *argv[]) {
         if (!arg_enable && !arg_now && !arg_clean)
                 return 0;
 
-        r = determine_matches(argv[1], argv + 2, true, &matches);
+        r = determine_matches(argv[1], argv + 2, /* allow_any= */ true, &matches);
         if (r < 0)
                 return r;
 
@@ -1197,10 +1197,10 @@ static int maybe_stop_disable_clean(sd_bus *bus, char *image, char *argv[]) {
 
         /* Disable after stopping to match the idiomatic stop-then-disable lifecycle order. */
         STRV_FOREACH(name, units)
-                (void) maybe_enable_disable(bus, *name, false);
+                (void) maybe_enable_disable(bus, *name, /* enable= */ false);
 
         /* Stopping must always block or the detach will fail if the unit is still running */
-        r = bus_wait_for_jobs(wait, arg_quiet, NULL);
+        r = bus_wait_for_jobs(wait, arg_quiet, /* extra_args= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1221,11 +1221,11 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         assert(method);
         assert(STR_IN_SET(method, "AttachImage", "ReattachImage", "AttachImageWithExtensions", "ReattachImageWithExtensions"));
 
-        r = determine_image(argv[1], false, &image);
+        r = determine_image(argv[1], /* permit_non_existing= */ false, &image);
         if (r < 0)
                 return r;
 
-        r = determine_matches(argv[1], argv + 2, false, &matches);
+        r = determine_matches(argv[1], argv + 2, /* allow_any= */ false, &matches);
         if (r < 0)
                 return r;
 
@@ -1264,7 +1264,7 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "%s failed: %s", method, bus_error_message(&error, r));
 
@@ -1299,7 +1299,7 @@ static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *user
         const char *method;
         int r;
 
-        r = determine_image(argv[1], true, &image);
+        r = determine_image(argv[1], /* permit_non_existing= */ true, &image);
         if (r < 0)
                 return r;
 
@@ -1335,7 +1335,7 @@ static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *user
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "%s failed: %s", method, bus_error_message(&error, r));
 
@@ -1361,7 +1361,7 @@ static int verb_is_image_attached(int argc, char *argv[], uintptr_t _data, void 
         const char *state, *method;
         int r;
 
-        r = determine_image(argv[1], true, &image);
+        r = determine_image(argv[1], /* permit_non_existing= */ true, &image);
         if (r < 0)
                 return r;
 
@@ -1389,7 +1389,7 @@ static int verb_is_image_attached(int argc, char *argv[], uintptr_t _data, void 
                         return bus_log_create_error(r);
         }
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "%s failed: %s", method, bus_error_message(&error, r));
 
@@ -1417,7 +1417,7 @@ static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *u
                         return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
         }
 
-        r = determine_image(argv[1], false, &image);
+        r = determine_image(argv[1], /* permit_non_existing= */ false, &image);
         if (r < 0)
                 return r;
 
@@ -1427,7 +1427,7 @@ static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *u
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = bus_call_method(bus, bus_portable_mgr, "MarkImageReadOnly", &error, NULL, "sb", image, b);
+        r = bus_call_method(bus, bus_portable_mgr, "MarkImageReadOnly", &error, /* ret_reply= */ NULL, "sb", image, b);
         if (r < 0)
                 return log_error_errno(r, "Could not mark image read-only: %s", bus_error_message(&error, r));
 
@@ -1451,7 +1451,7 @@ static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *user
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 _cleanup_free_ char *image = NULL;
 
-                r = determine_image(argv[i], false, &image);
+                r = determine_image(argv[i], /* permit_non_existing= */ false, &image);
                 if (r < 0)
                         return r;
 
@@ -1464,7 +1464,7 @@ static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *user
                         return bus_log_create_error(r);
 
                 /* This is a slow operation, hence turn off any method call timeouts */
-                r = sd_bus_call(bus, m, USEC_INFINITY, &error, NULL);
+                r = sd_bus_call(bus, m, USEC_INFINITY, &error, /* ret_reply= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Could not remove image: %s", bus_error_message(&error, r));
         }
@@ -1497,14 +1497,14 @@ static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdat
 
         if (argc > 2) {
                 /* With two arguments changes the quota limit of the specified image */
-                r = determine_image(argv[1], false, &image);
+                r = determine_image(argv[1], /* permit_non_existing= */ false, &image);
                 if (r < 0)
                         return r;
 
-                r = bus_call_method(bus, bus_portable_mgr, "SetImageLimit", &error, NULL, "st", image, limit);
+                r = bus_call_method(bus, bus_portable_mgr, "SetImageLimit", &error, /* ret_reply= */ NULL, "st", image, limit);
         } else
                 /* With one argument changes the pool quota limit */
-                r = bus_call_method(bus, bus_portable_mgr, "SetPoolLimit", &error, NULL, "t", limit);
+                r = bus_call_method(bus, bus_portable_mgr, "SetPoolLimit", &error, /* ret_reply= */ NULL, "t", limit);
 
         if (r < 0)
                 return log_error_errno(r, "Could not set limit: %s", bus_error_message(&error, r));

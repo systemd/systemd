@@ -353,7 +353,7 @@ static int umount_mstack(void) {
 
         fd = safe_close(fd);
 
-        r = umount_recursive(canonical, 0);
+        r = umount_recursive(canonical, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unmount '%s': %m", canonical);
 

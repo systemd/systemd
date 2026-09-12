@@ -115,7 +115,7 @@ TEST(load_os_release_pairs) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_OS_RELEASE", tmpfile, 1));
 
         _cleanup_strv_free_ char **pairs = NULL;
-        ASSERT_EQ(load_os_release_pairs(NULL, &pairs), 0);
+        ASSERT_EQ(load_os_release_pairs(/* root= */ NULL, &pairs), 0);
         assert_se(strv_equal(pairs, STRV_MAKE("ID", "the-id",
                                               "NAME", "the-name")));
 
@@ -125,16 +125,16 @@ TEST(load_os_release_pairs) {
 TEST(os_release_support_ended) {
         int r;
 
-        ASSERT_TRUE(os_release_support_ended("1999-01-01", false, NULL));
+        ASSERT_TRUE(os_release_support_ended("1999-01-01", /* quiet= */ false, /* ret_eol= */ NULL));
 #if SIZEOF_TIME_T == 4
         /* Dates past 2038 overflow time_t on 32-bit systems, so keep a safe date here. */
         ASSERT_FALSE(os_release_support_ended("2037-12-31", false, NULL));
 #else
-        ASSERT_FALSE(os_release_support_ended("9999-12-30", false, NULL));
+        ASSERT_FALSE(os_release_support_ended("9999-12-30", /* quiet= */ false, /* ret_eol= */ NULL));
 #endif
-        ASSERT_ERROR(os_release_support_ended("1-1-1", true, NULL), ERANGE);
+        ASSERT_ERROR(os_release_support_ended("1-1-1", /* quiet= */ true, /* ret_eol= */ NULL), ERANGE);
 
-        r = os_release_support_ended(NULL, false, NULL);
+        r = os_release_support_ended(/* support_end= */ NULL, /* quiet= */ false, /* ret_eol= */ NULL);
         if (r < 0)
                 log_info_errno(r, "Failed to check host: %m");
         else

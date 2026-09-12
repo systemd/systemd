@@ -45,8 +45,8 @@ TEST(ifname_valid) {
         ASSERT_TRUE(ifname_valid("foo.bar"));
         ASSERT_FALSE(ifname_valid("x:y"));
 
-        ASSERT_TRUE(ifname_valid_full("xxxxxxxxxxxxxxx", 0));
-        ASSERT_FALSE(ifname_valid_full("xxxxxxxxxxxxxxxx", 0));
+        ASSERT_TRUE(ifname_valid_full("xxxxxxxxxxxxxxx", /* flags= */ 0));
+        ASSERT_FALSE(ifname_valid_full("xxxxxxxxxxxxxxxx", /* flags= */ 0));
         ASSERT_TRUE(ifname_valid_full("xxxxxxxxxxxxxxxx", IFNAME_VALID_ALTERNATIVE));
         ASSERT_TRUE(ifname_valid_full("xxxxxxxxxxxxxxxx", IFNAME_VALID_ALTERNATIVE));
         ASSERT_FALSE(ifname_valid_full("999", IFNAME_VALID_ALTERNATIVE));
@@ -156,7 +156,7 @@ TEST(in_addr_is_multicast) {
 TEST(getpeercred_getpeergroups) {
         int r;
 
-        r = ASSERT_OK(pidref_safe_fork("(getpeercred)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(getpeercred)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, /* ret= */ NULL));
 
         if (r == 0) {
                 static const gid_t gids[] = { 3, 4, 5, 6, 7 };
@@ -217,7 +217,7 @@ TEST(passfd_read) {
 
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair));
 
-        r = ASSERT_OK(pidref_safe_fork("(passfd_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(passfd_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, /* ret= */ NULL));
 
         if (r == 0) {
                 /* Child */
@@ -256,7 +256,7 @@ TEST(passfd_contents_read) {
 
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair));
 
-        r = ASSERT_OK(pidref_safe_fork("(passfd_contents_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(passfd_contents_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, /* ret= */ NULL));
 
         if (r == 0) {
                 /* Child */
@@ -299,7 +299,7 @@ TEST(receive_nopassfd) {
 
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair));
 
-        r = ASSERT_OK(pidref_safe_fork("(receive_nopassfd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(receive_nopassfd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, /* ret= */ NULL));
 
         if (r == 0) {
                 /* Child */
@@ -333,7 +333,7 @@ TEST(send_nodata_nofd) {
 
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair));
 
-        r = ASSERT_OK(pidref_safe_fork("(send_nodata_nofd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(send_nodata_nofd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, /* ret= */ NULL));
 
         if (r == 0) {
                 /* Child */
@@ -363,7 +363,7 @@ TEST(send_emptydata) {
 
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair));
 
-        r = ASSERT_OK(pidref_safe_fork("(send_emptydata)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(send_emptydata)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, /* ret= */ NULL));
 
         if (r == 0) {
                 /* Child */

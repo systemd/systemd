@@ -13,12 +13,12 @@
 static FILE *null = NULL;
 
 static int method_something(sd_varlink *v, sd_json_variant *p, sd_varlink_method_flags_t flags, void *userdata) {
-        sd_json_variant_dump(p, SD_JSON_FORMAT_NEWLINE|SD_JSON_FORMAT_PRETTY, null, NULL);
+        sd_json_variant_dump(p, SD_JSON_FORMAT_NEWLINE|SD_JSON_FORMAT_PRETTY, null, /* prefix= */ NULL);
         return 0;
 }
 
 static int reply_callback(sd_varlink *v, sd_json_variant *p, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
-        sd_json_variant_dump(p, SD_JSON_FORMAT_NEWLINE|SD_JSON_FORMAT_PRETTY, null, NULL);
+        sd_json_variant_dump(p, SD_JSON_FORMAT_NEWLINE|SD_JSON_FORMAT_PRETTY, null, /* prefix= */ NULL);
         return 0;
 }
 
@@ -77,7 +77,7 @@ static int idle_callback(sd_event_source *s, void *userdata) {
         assert(s);
 
         /* Called as idle callback when there's nothing else to do anymore */
-        sd_event_exit(sd_event_source_get_event(s), 0);
+        sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
         return 0;
 }
 
@@ -100,11 +100,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         /* Test one: write the data as method call to a server */
         assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, server_pair) >= 0);
-        assert_se(sd_varlink_server_new(&s, 0) >= 0);
+        assert_se(sd_varlink_server_new(&s, /* flags= */ 0) >= 0);
         assert_se(sd_varlink_server_set_info(s, "Vendor", "Product", "Version", "URL") >= 0);
         assert_se(sd_varlink_server_set_description(s, "myserver") >= 0);
-        assert_se(sd_varlink_server_attach_event(s, e, 0) >= 0);
-        assert_se(sd_varlink_server_add_connection(s, server_pair[0], NULL) >= 0);
+        assert_se(sd_varlink_server_attach_event(s, e, /* priority= */ 0) >= 0);
+        assert_se(sd_varlink_server_add_connection(s, server_pair[0], /* ret= */ NULL) >= 0);
         TAKE_FD(server_pair[0]);
         assert_se(sd_varlink_server_bind_method(s, "io.test.DoSomething", method_something) >= 0);
         assert_se(sd_event_add_io(e, &server_event_source, server_pair[1], EPOLLIN|EPOLLOUT, io_callback, &server_iov) >= 0);
@@ -114,12 +114,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(sd_varlink_connect_fd(&c, client_pair[0]) >= 0);
         TAKE_FD(client_pair[0]);
         assert_se(sd_varlink_set_description(c, "myclient") >= 0);
-        assert_se(sd_varlink_attach_event(c, e, 0) >= 0);
+        assert_se(sd_varlink_attach_event(c, e, /* priority= */ 0) >= 0);
         assert_se(sd_varlink_bind_reply(c, reply_callback) >= 0);
-        assert_se(sd_varlink_invoke(c, "io.test.DoSomething", NULL) >= 0);
+        assert_se(sd_varlink_invoke(c, "io.test.DoSomething", /* parameters= */ NULL) >= 0);
         assert_se(sd_event_add_io(e, &client_event_source, client_pair[1], EPOLLIN|EPOLLOUT, io_callback, &client_iov) >= 0);
 
-        assert_se(sd_event_add_defer(e, &idle_event_source, idle_callback, NULL) >= 0);
+        assert_se(sd_event_add_defer(e, &idle_event_source, idle_callback, /* userdata= */ NULL) >= 0);
         assert_se(sd_event_source_set_priority(idle_event_source, SD_EVENT_PRIORITY_IDLE) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);

@@ -139,7 +139,7 @@ TEST(generate_rsa_test_vectors) {
 
         /* Generate a 2048-bit RSA key pair. */
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *kctx =
-                ASSERT_NOT_NULL(sym_EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL));
+                ASSERT_NOT_NULL(sym_EVP_PKEY_CTX_new_from_name(/* libctx= */ NULL, "RSA", /* propquery= */ NULL));
         ASSERT_OK_POSITIVE(sym_EVP_PKEY_keygen_init(kctx));
         ASSERT_OK_POSITIVE(sym_EVP_PKEY_CTX_set_rsa_keygen_bits(kctx, 2048));
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
@@ -155,7 +155,7 @@ TEST(generate_rsa_test_vectors) {
 
         /* Calculate SHA-256 digest. */
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *mctx = ASSERT_NOT_NULL(sym_EVP_MD_CTX_new());
-        ASSERT_OK_POSITIVE(sym_EVP_DigestInit_ex(mctx, sym_EVP_sha256(), NULL));
+        ASSERT_OK_POSITIVE(sym_EVP_DigestInit_ex(mctx, sym_EVP_sha256(), /* impl= */ NULL));
         ASSERT_OK_POSITIVE(sym_EVP_DigestUpdate(mctx, test_message.iov_base, test_message.iov_len));
         struct iovec digest = IOVEC_ALLOCA(EVP_MAX_MD_SIZE);
         unsigned len;
@@ -168,7 +168,7 @@ TEST(generate_rsa_test_vectors) {
         ASSERT_OK_POSITIVE(sym_EVP_PKEY_CTX_set_rsa_padding(sctx, RSA_PKCS1_PADDING));
         ASSERT_OK_POSITIVE(sym_EVP_PKEY_CTX_set_signature_md(sctx, sym_EVP_sha256()));
         size_t sz;
-        ASSERT_OK_POSITIVE(sym_EVP_PKEY_sign(sctx, NULL, &sz, digest.iov_base, digest.iov_len));
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_sign(sctx, /* sig= */ NULL, &sz, digest.iov_base, digest.iov_len));
         struct iovec signature = IOVEC_ALLOCA(sz);
         ASSERT_OK_POSITIVE(sym_EVP_PKEY_sign(sctx, signature.iov_base, &signature.iov_len, digest.iov_base, digest.iov_len));
 
@@ -297,7 +297,7 @@ TEST(generate_ecdsa_test_vectors) {
 
         /* Export uncompressed public key point (0x04 || X || Y) */
         size_t key_sz = 0;
-        ASSERT_OK_POSITIVE(sym_EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, NULL, 0, &key_sz));
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, /* buf= */ NULL, /* max_buf_sz= */ 0, &key_sz));
         struct iovec pubkey = IOVEC_ALLOCA(key_sz);
         ASSERT_OK_POSITIVE(sym_EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, pubkey.iov_base, key_sz, &key_sz));
         pubkey.iov_len = key_sz;
@@ -307,7 +307,7 @@ TEST(generate_ecdsa_test_vectors) {
         ASSERT_OK_POSITIVE(sym_EVP_PKEY_sign_init(sctx));
         ASSERT_OK_POSITIVE(sym_EVP_PKEY_CTX_set_signature_md(sctx, sym_EVP_sha256()));
         size_t sig_sz;
-        ASSERT_OK_POSITIVE(sym_EVP_PKEY_sign(sctx, NULL, &sig_sz, test_digest.iov_base, test_digest.iov_len));
+        ASSERT_OK_POSITIVE(sym_EVP_PKEY_sign(sctx, /* sig= */ NULL, &sig_sz, test_digest.iov_base, test_digest.iov_len));
         struct iovec signature_der = IOVEC_ALLOCA(sig_sz);
         ASSERT_OK_POSITIVE(sym_EVP_PKEY_sign(sctx, signature_der.iov_base, &signature_der.iov_len, test_digest.iov_base, test_digest.iov_len));
 

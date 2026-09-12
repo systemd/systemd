@@ -21,10 +21,10 @@ int in_addr_port_ifindex_name_from_string_auto(
                 int *ret_ifindex,
                 char **ret_server_name);
 static inline int in_addr_ifindex_name_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex, char **server_name) {
-        return in_addr_port_ifindex_name_from_string_auto(s, family, ret, NULL, ifindex, server_name);
+        return in_addr_port_ifindex_name_from_string_auto(s, family, ret, /* ret_port= */ NULL, ifindex, server_name);
 }
 static inline int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex) {
-        return in_addr_ifindex_name_from_string_auto(s, family, ret, ifindex, NULL);
+        return in_addr_ifindex_name_from_string_auto(s, family, ret, ifindex, /* server_name= */ NULL);
 }
 
 struct in_addr_full {

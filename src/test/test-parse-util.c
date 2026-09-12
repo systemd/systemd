@@ -877,7 +877,7 @@ TEST(nft_identifier_valid) {
         ASSERT_TRUE(nft_identifier_valid("abc"));
         ASSERT_TRUE(nft_identifier_valid("a012/_\\."));
 
-        ASSERT_FALSE(nft_identifier_valid(NULL));
+        ASSERT_FALSE(nft_identifier_valid(/* id= */ NULL));
         ASSERT_FALSE(nft_identifier_valid(""));
         ASSERT_FALSE(nft_identifier_valid("1234"));
         ASSERT_FALSE(nft_identifier_valid("1xyz"));
@@ -956,7 +956,7 @@ TEST(parse_capability_set) {
         /* Numeric capability */
         current = CAP_MASK_UNSET;
         ASSERT_OK(parse_capability_set("0", CAP_MASK_UNSET, &current));
-        ASSERT_EQ(current, make_cap(0));
+        ASSERT_EQ(current, make_cap(/* cap= */ 0));
 
         current = CAP_MASK_UNSET;
         ASSERT_OK(parse_capability_set("5", CAP_MASK_UNSET, &current));
@@ -965,7 +965,7 @@ TEST(parse_capability_set) {
         /* Mixed numeric and named capabilities */
         current = CAP_MASK_UNSET;
         ASSERT_OK(parse_capability_set("0 cap_chown 5", CAP_MASK_UNSET, &current));
-        ASSERT_EQ(current, make_cap(0) | make_cap(CAP_CHOWN) | make_cap(5));
+        ASSERT_EQ(current, make_cap(/* cap= */ 0) | make_cap(CAP_CHOWN) | make_cap(5));
 
         /* Invalid capabilities are ignored but function returns 0 */
         current = CAP_MASK_UNSET;

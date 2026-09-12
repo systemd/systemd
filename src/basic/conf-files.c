@@ -640,7 +640,7 @@ static int conf_files_list_impl(
                 _cleanup_closedir_ DIR *dir = NULL;
                 _cleanup_free_ char *path = NULL;
 
-                r = chase_and_opendirat(rfd, rfd, *p, 0, &path, &dir);
+                r = chase_and_opendirat(rfd, rfd, *p, /* chase_flags= */ 0, &path, &dir);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_full_errno(conf_files_log_level(flags), r,

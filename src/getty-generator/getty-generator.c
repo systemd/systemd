@@ -111,7 +111,7 @@ static int run_container(void) {
         for (const char *p = container_ttys;;) {
                _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse $container_ttys: %m");
                 if (r == 0)
@@ -288,7 +288,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return EXIT_SUCCESS;
         }
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, /* flags= */ 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

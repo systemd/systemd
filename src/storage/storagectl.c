@@ -694,7 +694,7 @@ static int run_as_mount_helper(int argc, char *argv[]) {
         if (strv_extend_strv(&cmdline, STRV_MAKE(FORMAT_PROC_FD_PATH(reply.fd), path), /* filter_duplicates= */ false) < 0)
                 return log_oom();
 
-        r = fd_cloexec(reply.fd, false);
+        r = fd_cloexec(reply.fd, /* cloexec= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to disable O_CLOEXEC for mount fd: %m");
 

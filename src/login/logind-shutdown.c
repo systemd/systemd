@@ -100,7 +100,7 @@ int manager_verify_shutdown_creds(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, NULL, /* flags= */ 0, uid, &offending);
+        blocked = manager_is_inhibited(m, a->inhibit_what, /* since= */ NULL, /* flags= */ 0, uid, &offending);
         interactive = flags & SD_LOGIND_INTERACTIVE;
 
         if (multiple_sessions) {

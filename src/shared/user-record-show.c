@@ -238,7 +238,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (show_full_group_info) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
-                r = membershipdb_by_user(hr->user_name, 0, &iterator);
+                r = membershipdb_by_user(hr->user_name, /* flags= */ 0, &iterator);
                 if (r < 0) {
                         errno = -r;
                         printf(" Aux. Groups: (can't acquire: %m)\n");
@@ -248,7 +248,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         for (;;) {
                                 _cleanup_free_ char *group = NULL;
 
-                                r = membershipdb_iterator_get(iterator, NULL, &group);
+                                r = membershipdb_iterator_get(iterator, /* user= */ NULL, &group);
                                 if (r == -ESRCH)
                                         break;
                                 if (r < 0) {
@@ -685,7 +685,7 @@ void group_record_show(GroupRecord *gr, bool show_full_user_info) {
         if (show_full_user_info) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
-                r = membershipdb_by_group(gr->group_name, 0, &iterator);
+                r = membershipdb_by_group(gr->group_name, /* flags= */ 0, &iterator);
                 if (r < 0) {
                         errno = -r;
                         printf("     Members: (can't acquire: %m)");
@@ -695,7 +695,7 @@ void group_record_show(GroupRecord *gr, bool show_full_user_info) {
                         for (;;) {
                                 _cleanup_free_ char *user = NULL;
 
-                                r = membershipdb_iterator_get(iterator, &user, NULL);
+                                r = membershipdb_iterator_get(iterator, &user, /* group= */ NULL);
                                 if (r == -ESRCH)
                                         break;
                                 if (r < 0) {

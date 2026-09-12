@@ -276,7 +276,7 @@ int locale_setup(char ***environment) {
         if (r < 0)
                 return r;
 
-        r = locale_context_build_env(&c, &add, NULL);
+        r = locale_context_build_env(&c, &add, /* ret_unset= */ NULL);
         if (r < 0)
                 return r;
 

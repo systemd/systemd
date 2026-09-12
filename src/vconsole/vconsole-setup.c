@@ -144,7 +144,7 @@ static int context_read_creds(Context *c) {
                         v.font_scale = r;
         }
 
-        context_merge_config(c, &v, NULL);
+        context_merge_config(c, &v, /* src_compat= */ NULL);
         return 0;
 }
 
@@ -177,7 +177,7 @@ static int context_read_env(Context *c) {
                         v.font_scale = r;
         }
 
-        context_merge_config(c, &v, NULL);
+        context_merge_config(c, &v, /* src_compat= */ NULL);
         return 0;
 }
 

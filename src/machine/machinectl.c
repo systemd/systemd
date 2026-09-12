@@ -209,7 +209,7 @@ static int call_get_addresses(
         assert(prefix2);
         assert(ret);
 
-        r = bus_call_method(bus, bus_machine_mgr, "GetMachineAddresses", NULL, &reply, "s", name);
+        r = bus_call_method(bus, bus_machine_mgr, "GetMachineAddresses", /* reterr_error= */ NULL, &reply, "s", name);
         if (r < 0)
                 return log_debug_errno(r, "Could not get addresses: %s", bus_error_message(&error, r));
 
@@ -304,7 +304,7 @@ static int verb_list_machines(int argc, char *argv[], uintptr_t _data, void *use
 
         pager_open(arg_pager_flags);
 
-        r = bus_call_method(bus, bus_machine_mgr, "ListMachines", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_machine_mgr, "ListMachines", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not get machines: %s", bus_error_message(&error, r));
 
@@ -318,7 +318,7 @@ static int verb_list_machines(int argc, char *argv[], uintptr_t _data, void *use
                 table_set_cell_height_max(table, arg_max_addresses);
 
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         r = sd_bus_message_enter_container(reply, 'a', "(ssso)");
         if (r < 0)
@@ -356,7 +356,7 @@ static int verb_list_machines(int argc, char *argv[], uintptr_t _data, void *use
                         return table_log_add_error(r);
 
                 if (arg_max_addresses > 0) {
-                        (void) call_get_addresses(bus, name, 0, "", "\n", &addresses);
+                        (void) call_get_addresses(bus, name, /* ifi= */ 0, "", "\n", &addresses);
 
                         r = table_add_many(table,
                                            TABLE_STRING, empty_to_null(addresses));
@@ -667,7 +667,7 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                                    "org.freedesktop.machine1",
                                    path,
                                    map,
-                                   0,
+                                   /* flags= */ 0,
                                    &error,
                                    &m,
                                    &info);
@@ -695,7 +695,7 @@ static int show_machine_properties(sd_bus *bus, const char *path, bool *new_line
 
         *new_line = true;
 
-        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_print_flags, NULL);
+        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, /* func= */ NULL, arg_property, arg_print_flags, /* reterr_error= */ NULL);
         if (r < 0)
                 log_error_errno(r, "Could not get properties: %m");
 
@@ -753,7 +753,7 @@ static int make_service_name(const char *name, char **ret) {
         assert(ret);
         assert(arg_runner >= 0 && arg_runner < _RUNNER_MAX);
 
-        if (!hostname_is_valid(name, 0))
+        if (!hostname_is_valid(name, /* flags= */ 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid machine name %s.", name);
 
@@ -771,7 +771,7 @@ static int image_exists(sd_bus *bus, const char *name) {
         assert(bus);
         assert(name);
 
-        r = bus_call_method(bus, bus_machine_mgr, "GetImage", &error, NULL, "s", name);
+        r = bus_call_method(bus, bus_machine_mgr, "GetImage", &error, /* ret_reply= */ NULL, "s", name);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_IMAGE))
                         return 0;
@@ -833,7 +833,7 @@ static int verb_start_machine(int argc, char *argv[], uintptr_t _data, void *use
                         return log_oom();
         }
 
-        r = bus_wait_for_jobs(w, arg_quiet, NULL);
+        r = bus_wait_for_jobs(w, arg_quiet, /* extra_args= */ NULL);
         if (r < 0)
                 return r;
 
@@ -976,7 +976,7 @@ static int verb_login_machine(int argc, char *argv[], uintptr_t _data, void *use
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
 
-        r = sd_bus_attach_event(bus, event, 0);
+        r = sd_bus_attach_event(bus, event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
@@ -989,7 +989,7 @@ static int verb_login_machine(int argc, char *argv[], uintptr_t _data, void *use
                          "member='MachineRemoved',"
                          "arg0='", machine, "'");
 
-        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, NULL, NULL);
+        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, /* install_callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request machine removal match: %m");
 
@@ -1046,7 +1046,7 @@ static int verb_shell_machine(int argc, char *argv[], uintptr_t _data, void *use
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
 
-        r = sd_bus_attach_event(bus, event, 0);
+        r = sd_bus_attach_event(bus, event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
@@ -1061,7 +1061,7 @@ static int verb_shell_machine(int argc, char *argv[], uintptr_t _data, void *use
                          "member='MachineRemoved',"
                          "arg0='", machine, "'");
 
-        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, NULL, NULL);
+        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, /* install_callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request machine removal match: %m");
 
@@ -1083,7 +1083,7 @@ static int verb_shell_machine(int argc, char *argv[], uintptr_t _data, void *use
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to get shell PTY: %s", bus_error_message(&error, r));
 
@@ -1158,7 +1158,7 @@ static int verb_enable_machine(int argc, char *argv[], uintptr_t data, void *use
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable or disable unit: %s", bus_error_message(&error, r));
 
@@ -1287,7 +1287,7 @@ static int verb_poweroff_machine(int argc, char *argv[], uintptr_t data, void *u
 
                 /* Not a VM: signal-based poweroff */
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = bus_call_method(bus, bus_machine_mgr, "KillMachine", &error, NULL,
+                r = bus_call_method(bus, bus_machine_mgr, "KillMachine", &error, /* ret_reply= */ NULL,
                                    "ssi", argv[i], "leader", (int32_t) (SIGRTMIN+4));
                 if (r < 0)
                         return log_error_errno(r, "Could not kill machine: %s", bus_error_message(&error, r));
@@ -1315,7 +1315,7 @@ static int verb_reboot_machine(int argc, char *argv[], uintptr_t data, void *use
 
                 /* Container fallback: SIGINT to init (sysvinit + systemd compatible) */
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = bus_call_method(bus, bus_machine_mgr, "KillMachine", &error, NULL,
+                r = bus_call_method(bus, bus_machine_mgr, "KillMachine", &error, /* ret_reply= */ NULL,
                                    "ssi", argv[i], "leader", (int32_t) SIGINT);
                 if (r < 0)
                         return log_error_errno(r, "Could not reboot machine '%s': %s", argv[i], bus_error_message(&error, r));
@@ -1368,7 +1368,7 @@ static int verb_terminate_machine(int argc, char *argv[], uintptr_t _data, void 
 
                 /* Not a VM or no varlink socket: fall back to machined */
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = bus_call_method(bus, bus_machine_mgr, "TerminateMachine", &error, NULL, "s", argv[i]);
+                r = bus_call_method(bus, bus_machine_mgr, "TerminateMachine", &error, /* ret_reply= */ NULL, "s", argv[i]);
                 if (r < 0)
                         return log_error_errno(r, "Could not terminate machine: %s", bus_error_message(&error, r));
         }
@@ -1394,7 +1394,7 @@ static int verb_kill_machine(int argc, char *argv[], uintptr_t _data, void *user
                                 bus_machine_mgr,
                                 "KillMachine",
                                 &error,
-                                NULL,
+                                /* ret_reply= */ NULL,
                                 "ssi", argv[i], arg_kill_whom, arg_signal);
                 if (r < 0)
                         return log_error_errno(r, "Could not kill machine: %s", bus_error_message(&error, r));
@@ -1462,7 +1462,7 @@ static int verb_copy_files(int argc, char *argv[], uintptr_t _data, void *userda
         }
 
         /* This is a slow operation, hence turn off any method call timeouts */
-        r = sd_bus_call(bus, m, USEC_INFINITY, &error, NULL);
+        r = sd_bus_call(bus, m, USEC_INFINITY, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy: %s", bus_error_message(&error, r));
 
@@ -1483,7 +1483,7 @@ static int verb_bind_mount(int argc, char *argv[], uintptr_t _data, void *userda
                         bus_machine_mgr,
                         "BindMountMachine",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "sssbb",
                         argv[1],
                         argv[2],
@@ -1509,7 +1509,7 @@ static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userd
 
         pager_open(arg_pager_flags);
 
-        r = bus_call_method(bus, bus_machine_mgr, "ListImages", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_machine_mgr, "ListImages", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not get images: %s", bus_error_message(&error, r));
 
@@ -1518,7 +1518,7 @@ static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userd
                 return log_oom();
 
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(3), 100);
 
@@ -1564,7 +1564,7 @@ static int print_image_hostname(sd_bus *bus, const char *name) {
         const char *hn;
         int r;
 
-        r = bus_call_method(bus, bus_machine_mgr, "GetImageHostname", NULL, &reply, "s", name);
+        r = bus_call_method(bus, bus_machine_mgr, "GetImageHostname", /* reterr_error= */ NULL, &reply, "s", name);
         if (r < 0)
                 return r;
 
@@ -1583,7 +1583,7 @@ static int print_image_machine_id(sd_bus *bus, const char *name) {
         sd_id128_t id;
         int r;
 
-        r = bus_call_method(bus, bus_machine_mgr, "GetImageMachineID", NULL, &reply, "s", name);
+        r = bus_call_method(bus, bus_machine_mgr, "GetImageMachineID", /* reterr_error= */ NULL, &reply, "s", name);
         if (r < 0)
                 return r;
 
@@ -1601,7 +1601,7 @@ static int print_image_machine_info(sd_bus *bus, const char *name) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
-        r = bus_call_method(bus, bus_machine_mgr, "GetImageMachineInfo", NULL, &reply, "s", name);
+        r = bus_call_method(bus, bus_machine_mgr, "GetImageMachineInfo", /* reterr_error= */ NULL, &reply, "s", name);
         if (r < 0)
                 return r;
 
@@ -1777,7 +1777,7 @@ static int show_pool_info(sd_bus *bus) {
                                    "org.freedesktop.machine1",
                                    "/org/freedesktop/machine1",
                                    map,
-                                   0,
+                                   /* flags= */ 0,
                                    &error,
                                    &m,
                                    &info);
@@ -1801,7 +1801,7 @@ static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) 
 
         *new_line = true;
 
-        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_print_flags, NULL);
+        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, /* func= */ NULL, arg_property, arg_print_flags, /* reterr_error= */ NULL);
         if (r < 0)
                 log_error_errno(r, "Could not get properties: %m");
 
@@ -1925,7 +1925,7 @@ static int verb_edit_settings(int argc, char *argv[], uintptr_t _data, void *use
                                                        "Invalid settings file path '%s'.",
                                                        *name);
 
-                        r = edit_files_add(&context, *name, NULL, NULL);
+                        r = edit_files_add(&context, *name, /* original_path= */ NULL, /* comment_paths= */ NULL);
                         if (r < 0)
                                 return r;
                         continue;
@@ -1943,7 +1943,7 @@ static int verb_edit_settings(int argc, char *argv[], uintptr_t _data, void *use
                         if (!path)
                                 return log_oom();
 
-                        r = edit_files_add(&context, path, NULL, NULL);
+                        r = edit_files_add(&context, path, /* original_path= */ NULL, /* comment_paths= */ NULL);
                         if (r < 0)
                                 return r;
                         continue;
@@ -1958,9 +1958,9 @@ static int verb_edit_settings(int argc, char *argv[], uintptr_t _data, void *use
                         if (!new_path)
                                 return log_oom();
 
-                        r = edit_files_add(&context, new_path, path, NULL);
+                        r = edit_files_add(&context, new_path, path, /* comment_paths= */ NULL);
                 } else
-                        r = edit_files_add(&context, path, NULL, NULL);
+                        r = edit_files_add(&context, path, /* original_path= */ NULL, /* comment_paths= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -2040,7 +2040,7 @@ static int verb_clone_image(int argc, char *argv[], uintptr_t _data, void *userd
                 return bus_log_create_error(r);
 
         /* This is a slow operation, hence turn off any method call timeouts */
-        r = sd_bus_call(bus, m, USEC_INFINITY, &error, NULL);
+        r = sd_bus_call(bus, m, USEC_INFINITY, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not clone image: %s", bus_error_message(&error, r));
 
@@ -2061,7 +2061,7 @@ static int verb_rename_image(int argc, char *argv[], uintptr_t _data, void *user
                         bus_machine_mgr,
                         "RenameImage",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "ss", argv[1], argv[2]);
         if (r < 0)
                 return log_error_errno(r, "Could not rename image: %s", bus_error_message(&error, r));
@@ -2086,7 +2086,7 @@ static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *u
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = bus_call_method(bus, bus_machine_mgr, "MarkImageReadOnly", &error, NULL, "sb", argv[1], b);
+        r = bus_call_method(bus, bus_machine_mgr, "MarkImageReadOnly", &error, /* ret_reply= */ NULL, "sb", argv[1], b);
         if (r < 0)
                 return log_error_errno(r, "Could not mark image read-only: %s", bus_error_message(&error, r));
 
@@ -2114,7 +2114,7 @@ static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *user
                         return bus_log_create_error(r);
 
                 /* This is a slow operation, hence turn off any method call timeouts */
-                r = sd_bus_call(bus, m, USEC_INFINITY, &error, NULL);
+                r = sd_bus_call(bus, m, USEC_INFINITY, &error, /* ret_reply= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Could not remove image: %s", bus_error_message(&error, r));
         }
@@ -2143,10 +2143,10 @@ static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdat
         if (argc > 2)
                 /* With two arguments changes the quota limit of the
                  * specified image */
-                r = bus_call_method(bus, bus_machine_mgr, "SetImageLimit", &error, NULL, "st", argv[1], limit);
+                r = bus_call_method(bus, bus_machine_mgr, "SetImageLimit", &error, /* ret_reply= */ NULL, "st", argv[1], limit);
         else
                 /* With one argument changes the pool quota limit */
-                r = bus_call_method(bus, bus_machine_mgr, "SetPoolLimit", &error, NULL, "t", limit);
+                r = bus_call_method(bus, bus_machine_mgr, "SetPoolLimit", &error, /* ret_reply= */ NULL, "t", limit);
 
         if (r < 0)
                 return log_error_errno(r, "Could not set limit: %s", bus_error_message(&error, r));

@@ -125,7 +125,7 @@ static int idle_time_cb(sd_event_source *s, uint64_t usec, void *userdata) {
                 return 0;
         }
 
-        r = sd_event_exit(c->event, 0);
+        r = sd_event_exit(c->event, /* code= */ 0);
         if (r < 0) {
                 log_warning_errno(r, "Error while stopping event loop, ignoring: %m");
                 return 0;
@@ -141,7 +141,7 @@ static void context_reset_timer(Context *context) {
         if (arg_exit_idle_time < USEC_INFINITY && set_isempty(context->connections)) {
                 r = event_reset_time_relative(
                                 context->event, &context->idle_time, CLOCK_MONOTONIC,
-                                arg_exit_idle_time, 0, idle_time_cb, context,
+                                arg_exit_idle_time, /* accuracy= */ 0, idle_time_cb, context,
                                 SD_EVENT_PRIORITY_NORMAL, "idle-timer", /* force_reset= */ true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to reset idle timer, ignoring: %m");
@@ -404,7 +404,7 @@ static int context_add_connection(Context *context, int fd) {
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *peer = NULL;
-                (void) getpeername_pretty(nfd, true, &peer);
+                (void) getpeername_pretty(nfd, /* include_port= */ true, &peer);
                 log_debug("New connection from %s", strna(peer));
         }
 
@@ -462,14 +462,14 @@ static int add_listen_socket(Context *context, int fd) {
         assert(context);
         assert(fd >= 0);
 
-        r = sd_is_socket(fd, 0, SOCK_STREAM, 1);
+        r = sd_is_socket(fd, /* family= */ 0, SOCK_STREAM, 1);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine socket type: %m");
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Passed in socket is not a stream socket.");
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(fd, /* nonblock= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to mark file descriptor non-blocking: %m");
 
@@ -571,7 +571,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate resolver: %m");
 
-        r = sd_resolve_attach_event(context.resolve, context.event, 0);
+        r = sd_resolve_attach_event(context.resolve, context.event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach resolver: %m");
 

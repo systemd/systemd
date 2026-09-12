@@ -58,7 +58,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                 else if (r < 0)
                         log_device_error_errno(dev, r, "Failed to determine active user on seat %s, ignoring: %m", seat);
                 else {
-                        if (set_ensure_put(&uids, NULL, UID_TO_PTR(uid)) < 0)
+                        if (set_ensure_put(&uids, /* hash_ops= */ NULL, UID_TO_PTR(uid)) < 0)
                                 return log_oom();
                 }
         }
@@ -115,7 +115,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                         if (!match)
                                 continue;
 
-                        if (set_ensure_put(&uids, NULL, UID_TO_PTR(uid)) < 0)
+                        if (set_ensure_put(&uids, /* hash_ops= */ NULL, UID_TO_PTR(uid)) < 0)
                                 return log_oom();
                 }
         }

@@ -23,8 +23,8 @@ TEST(failed_enumerate) {
         assert_se(sd_hwdb_seek(hwdb, "no-such-modalias-should-exist") == 0);
 
         assert_se(sd_hwdb_enumerate(hwdb, &key, &value) == 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_hwdb_enumerate(hwdb, &key, NULL) == -EINVAL);
-        ASSERT_RETURN_EXPECTED_SE(sd_hwdb_enumerate(hwdb, NULL, &value) == -EINVAL);
+        ASSERT_RETURN_EXPECTED_SE(sd_hwdb_enumerate(hwdb, &key, /* ret_value= */ NULL) == -EINVAL);
+        ASSERT_RETURN_EXPECTED_SE(sd_hwdb_enumerate(hwdb, /* ret_key= */ NULL, &value) == -EINVAL);
 }
 
 #define DELL_MODALIAS \
@@ -63,7 +63,7 @@ TEST(sd_hwdb_new_from_path) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         int r;
 
-        ASSERT_RETURN_EXPECTED_SE(sd_hwdb_new_from_path(NULL, &hwdb) == -EINVAL);
+        ASSERT_RETURN_EXPECTED_SE(sd_hwdb_new_from_path(/* path= */ NULL, &hwdb) == -EINVAL);
         ASSERT_RETURN_EXPECTED_SE(sd_hwdb_new_from_path("", &hwdb) == -EINVAL);
         assert_se(sd_hwdb_new_from_path("/path/that/should/not/exist", &hwdb) < 0);
 

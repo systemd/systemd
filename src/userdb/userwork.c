@@ -134,7 +134,7 @@ static int userdb_flags_from_service(sd_varlink *link, const char *service, User
         else if (streq_ptr(service, "io.systemd.Multiplexer"))
                 *ret = USERDB_AVOID_MULTIPLEXER;
         else
-                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", /* parameters= */ NULL);
 
         return 0;
 }
@@ -221,15 +221,15 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
         if (r == -ESRCH)
                 return 0;
         if (r == -ENOEXEC)
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NonMatchingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NonMatchingRecordFound", /* parameters= */ NULL);
         if (r < 0) {
                 log_debug_errno(r, "User lookup failed abnormally: %m");
-                return sd_varlink_error(link, "io.systemd.UserDatabase.ServiceNotAvailable", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ServiceNotAvailable", /* parameters= */ NULL);
         }
 
         if ((uid_is_valid(p.uid) && hr->uid != p.uid) ||
             (p.name && !user_record_matches_user_name(hr, p.name)))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", /* parameters= */ NULL);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_user_json(link, hr, &v);
@@ -358,15 +358,15 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         if (r == -ESRCH)
                 return 0;
         if (r == -ENOEXEC)
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NonMatchingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NonMatchingRecordFound", /* parameters= */ NULL);
         if (r < 0) {
                 log_debug_errno(r, "Group lookup failed abnormally: %m");
-                return sd_varlink_error(link, "io.systemd.UserDatabase.ServiceNotAvailable", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ServiceNotAvailable", /* parameters= */ NULL);
         }
 
         if ((gid_is_valid(p.gid) && g->gid != p.gid) ||
             (p.name && !group_record_matches_group_name(g, p.name)))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", /* parameters= */ NULL);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_group_json(link, g, &v);
@@ -489,7 +489,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        m = sd_listen_fds(false);
+        m = sd_listen_fds(/* unset_environment= */ false);
         if (m < 0)
                 return log_error_errno(m, "Failed to determine number of listening fds: %m");
         if (m == 0)
@@ -499,11 +499,11 @@ static int run(int argc, char *argv[]) {
 
         listen_fd = SD_LISTEN_FDS_START;
 
-        r = fd_nonblock(listen_fd, false);
+        r = fd_nonblock(listen_fd, /* nonblock= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to turn off non-blocking mode for listening socket: %m");
 
-        r = varlink_server_new(&server, 0, NULL);
+        r = varlink_server_new(&server, /* flags= */ 0, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server: %m");
 
@@ -578,7 +578,7 @@ static int run(int argc, char *argv[]) {
                         /* We only slept a very short time? If so, let's see if there are more sockets
                          * pending, and if so, let's ask our parent for more workers */
 
-                        r = fd_wait_for_event(listen_fd, POLLIN, 0);
+                        r = fd_wait_for_event(listen_fd, POLLIN, /* timeout= */ 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to test for POLLIN on listening socket: %m");
 

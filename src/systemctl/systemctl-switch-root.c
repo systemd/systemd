@@ -27,11 +27,11 @@ static int same_file_in_root(
         struct stat sta, stb;
         int r;
 
-        r = chase_and_stat(a, root, CHASE_PREFIX_ROOT, NULL, &sta);
+        r = chase_and_stat(a, root, CHASE_PREFIX_ROOT, /* ret_path= */ NULL, &sta);
         if (r < 0)
                 return r;
 
-        r = chase_and_stat(b, root, CHASE_PREFIX_ROOT, NULL, &stb);
+        r = chase_and_stat(b, root, CHASE_PREFIX_ROOT, /* ret_path= */ NULL, &stb);
         if (r < 0)
                 return r;
 
@@ -74,7 +74,7 @@ int verb_switch_root(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (argc >= 3)
                 init = argv[2];
         else {
-                r = proc_cmdline_get_key("init", 0, &cmdline_init);
+                r = proc_cmdline_get_key("init", /* flags= */ 0, &cmdline_init);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse /proc/cmdline: %m");
 
@@ -111,7 +111,7 @@ int verb_switch_root(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         log_debug("Switching root - root: %s; init: %s", root, strna(init));
 
-        r = bus_call_method(bus, bus_systemd_mgr, "SwitchRoot", &error, NULL, "ss", root, init);
+        r = bus_call_method(bus, bus_systemd_mgr, "SwitchRoot", &error, /* ret_reply= */ NULL, "ss", root, init);
         if (r < 0) {
                 (void) default_signals(SIGTERM);
 

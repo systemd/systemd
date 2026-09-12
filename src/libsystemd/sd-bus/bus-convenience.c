@@ -15,7 +15,7 @@ _public_ int sd_bus_message_send(sd_bus_message *m) {
         assert_return(m->bus, -EINVAL);
         assert_return(!bus_origin_changed(m->bus), -ECHILD);
 
-        return sd_bus_send(m->bus, m, NULL);
+        return sd_bus_send(m->bus, m, /* ret_cookie= */ NULL);
 }
 
 _public_ int sd_bus_emit_signal_tov(
@@ -46,7 +46,7 @@ _public_ int sd_bus_emit_signal_tov(
                         return r;
         }
 
-        return sd_bus_send(bus, m, NULL);
+        return sd_bus_send(bus, m, /* ret_cookie= */ NULL);
 }
 
 _public_ int sd_bus_emit_signal_to(
@@ -74,7 +74,7 @@ _public_ int sd_bus_emit_signalv(
                 const char *member,
                 const char *types, va_list ap) {
 
-    return sd_bus_emit_signal_tov(bus, NULL, path, interface, member, types, ap);
+    return sd_bus_emit_signal_tov(bus, /* destination= */ NULL, path, interface, member, types, ap);
 }
 
 _public_ int sd_bus_emit_signal(
@@ -125,7 +125,7 @@ _public_ int sd_bus_call_method_asyncv(
                         return r;
         }
 
-        return sd_bus_call_async(bus, ret_slot, m, callback, userdata, 0);
+        return sd_bus_call_async(bus, ret_slot, m, callback, userdata, /* usec= */ 0);
 }
 
 _public_ int sd_bus_call_method_async(
@@ -181,7 +181,7 @@ _public_ int sd_bus_call_methodv(
                         goto fail;
         }
 
-        return sd_bus_call(bus, m, 0, reterr_error, ret_reply);
+        return sd_bus_call(bus, m, /* usec= */ 0, reterr_error, ret_reply);
 
 fail:
         return sd_bus_error_set_errno(reterr_error, r);
@@ -408,7 +408,7 @@ _public_ int sd_bus_get_property(
         bus_assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL, reterr_error);
         bus_assert_return(member_name_is_valid(member), -EINVAL, reterr_error);
         bus_assert_return(ret_reply, -EINVAL, reterr_error);
-        bus_assert_return(signature_is_single(type, false), -EINVAL, reterr_error);
+        bus_assert_return(signature_is_single(type, /* allow_dict_entry= */ false), -EINVAL, reterr_error);
         bus_assert_return(!bus_origin_changed(bus), -ECHILD, reterr_error);
 
         if (!BUS_IS_OPEN(bus->state)) {
@@ -557,7 +557,7 @@ _public_ int sd_bus_get_property_strv(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_enter_container(reply, 'v', NULL);
+        r = sd_bus_message_enter_container(reply, 'v', /* contents= */ NULL);
         if (r < 0)
                 goto fail;
 
@@ -587,7 +587,7 @@ _public_ int sd_bus_set_propertyv(
         bus_assert_return(bus = bus_resolve(bus), -ENOPKG, reterr_error);
         bus_assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL, reterr_error);
         bus_assert_return(member_name_is_valid(member), -EINVAL, reterr_error);
-        bus_assert_return(signature_is_single(type, false), -EINVAL, reterr_error);
+        bus_assert_return(signature_is_single(type, /* allow_dict_entry= */ false), -EINVAL, reterr_error);
         bus_assert_return(!bus_origin_changed(bus), -ECHILD, reterr_error);
 
         if (!BUS_IS_OPEN(bus->state)) {
@@ -615,7 +615,7 @@ _public_ int sd_bus_set_propertyv(
         if (r < 0)
                 goto fail;
 
-        return sd_bus_call(bus, m, 0, reterr_error, NULL);
+        return sd_bus_call(bus, m, /* usec= */ 0, reterr_error, /* ret_reply= */ NULL);
 
 fail:
         return sd_bus_error_set_errno(reterr_error, r);

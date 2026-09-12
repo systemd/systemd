@@ -149,7 +149,7 @@ static int client_open_raw_socket(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_TIMESTAMP, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_TIMESTAMP, /* value= */ true);
         if (r < 0)
                 return r;
 
@@ -157,7 +157,7 @@ static int client_open_raw_socket(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, SOL_PACKET, PACKET_AUXDATA, true);
+        r = setsockopt_int(fd, SOL_PACKET, PACKET_AUXDATA, /* value= */ true);
         if (r < 0)
                 return r;
 
@@ -187,11 +187,11 @@ static int client_open_udp_socket(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_TIMESTAMP, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_TIMESTAMP, /* value= */ true);
         if (r < 0)
                 return r;
 
@@ -203,7 +203,7 @@ static int client_open_udp_socket(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
+        r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, /* value= */ true);
         if (r < 0)
                 return r;
 
@@ -282,7 +282,7 @@ static int client_setup_io_event(
          * is freed when not necessary, hence the lifetime of the socket fd should not be tied to the one of
          * the event source in that case. */
         if (fd != client->socket_fd) {
-                r = sd_event_source_set_io_fd_own(s, true);
+                r = sd_event_source_set_io_fd_own(s, /* own= */ true);
                 if (r < 0)
                         return r;
         }

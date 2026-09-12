@@ -272,7 +272,7 @@ int dm_clone_remove_device(const char *name) {
         int r;
 
         assert(name);
-        r = dm_clone_remove_device_full(name, 0);
+        r = dm_clone_remove_device_full(name, /* flags= */ 0);
         if (r < 0)
                 return r;
 

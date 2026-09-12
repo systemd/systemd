@@ -79,7 +79,7 @@ int userns_restrict_install(
                                 log_warning_errno(r, "Failed to create '%s', ignoring: %m", d);
                 }
 
-                map = sym_bpf_object__next_map(obj->obj, NULL);
+                map = sym_bpf_object__next_map(obj->obj, /* map= */ NULL);
                 while (map) {
                         _cleanup_free_ char *fn = NULL;
 
@@ -114,7 +114,7 @@ int userns_restrict_install(
         /* Pin the maps already here: the programs are not attached yet, so nothing enforces anything, but
          * the caller may now seed the maps before userns_restrict_attach() puts the policy in effect. */
         if (pin) {
-                r = sym_bpf_object__pin_maps(obj->obj, NULL);
+                r = sym_bpf_object__pin_maps(obj->obj, /* path= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to pin BPF maps: %m");
         }

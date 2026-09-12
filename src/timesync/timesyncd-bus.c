@@ -78,7 +78,7 @@ static int method_set_runtime_servers(sd_bus_message *message, void *userdata, s
         manager_flush_runtime_servers(m);
 
         STRV_FOREACH(name, msg_names) {
-                r = server_name_new(m, NULL, SERVER_RUNTIME, *name);
+                r = server_name_new(m, /* ret= */ NULL, SERVER_RUNTIME, *name);
                 if (r < 0) {
                         manager_flush_runtime_servers(m);
 
@@ -90,7 +90,7 @@ static int method_set_runtime_servers(sd_bus_message *message, void *userdata, s
         manager_set_server_name(m, NULL);
         (void) manager_connect(m);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int property_get_current_server_name(
@@ -250,11 +250,11 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.timesync1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(m->bus, /* ret_slot= */ NULL, "org.freedesktop.timesync1", /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(m->bus, m->event, 0);
+        r = sd_bus_attach_event(m->bus, m->event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 

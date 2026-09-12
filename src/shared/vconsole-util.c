@@ -448,7 +448,7 @@ int find_legacy_keymap(const X11Context *xc, char **ret) {
                         /* see if we get an exact match with the order reversed */
                         _cleanup_strv_free_ char **b = NULL;
                         _cleanup_free_ char *c = NULL;
-                        r = strv_split_full(&b, a[1], ",", 0);
+                        r = strv_split_full(&b, a[1], ",", /* flags= */ 0);
                         if (r < 0)
                                 return r;
                         strv_reverse(b);

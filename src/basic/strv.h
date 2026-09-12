@@ -40,7 +40,7 @@ int strv_extend_strv_consume(char ***a, char **b, bool filter_duplicates);
 
 int strv_extend_strv_biconcat(char ***a, const char *prefix, const char* const *b, const char *suffix);
 static inline int strv_extend_strv_concat(char ***a, const char* const *b, const char *suffix) {
-        return strv_extend_strv_biconcat(a, NULL, b, suffix);
+        return strv_extend_strv_biconcat(a, /* prefix= */ NULL, b, suffix);
 }
 
 int strv_prepend(char ***l, const char *value);
@@ -73,7 +73,7 @@ int strv_push_pair(char ***l, char *a, char *b);
 int strv_insert(char ***l, size_t position, char *value);
 
 static inline int strv_push_prepend(char ***l, char *value) {
-        return strv_insert(l, 0, value);
+        return strv_insert(l, /* position= */ 0, value);
 }
 
 int strv_consume_with_size(char ***l, size_t *n, char *value);
@@ -122,7 +122,7 @@ int strv_split_colon_pairs(char ***t, const char *s);
 
 char* strv_join_full(char * const *l, const char *separator, const char *prefix);
 static inline char *strv_join(char * const *l, const char *separator) {
-        return strv_join_full(l, separator, NULL);
+        return strv_join_full(l, separator, /* prefix= */ NULL);
 }
 
 bool strv_overlap(char * const *a, char * const *b) _pure_;
@@ -150,7 +150,7 @@ char** strv_sort(char **l);
 char** strv_sort_uniq(char **l);
 void strv_print_full(char * const *l, const char *prefix);
 static inline void strv_print(char * const *l) {
-        strv_print_full(l, NULL);
+        strv_print_full(l, /* prefix= */ NULL);
 }
 
 char* startswith_strv_internal(const char *s, char * const *l);
@@ -192,12 +192,12 @@ char** strv_shell_escape(char **l, const char *bad);
 
 bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *ret_matched_pos);
 static inline bool strv_fnmatch(char* const* patterns, const char *s) {
-        return strv_fnmatch_full(patterns, s, 0, NULL);
+        return strv_fnmatch_full(patterns, s, /* flags= */ 0, /* ret_matched_pos= */ NULL);
 }
 static inline bool strv_fnmatch_or_empty(char* const* patterns, const char *s, int flags) {
         assert(s);
         return strv_isempty(patterns) ||
-               strv_fnmatch_full(patterns, s, flags, NULL);
+               strv_fnmatch_full(patterns, s, flags, /* ret_matched_pos= */ NULL);
 }
 
 char** strv_skip(char **l, size_t n);

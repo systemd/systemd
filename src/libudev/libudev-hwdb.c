@@ -42,7 +42,7 @@ _public_ struct udev_hwdb* udev_hwdb_new(struct udev *udev) {
         if (r < 0)
                 return_with_errno(NULL, r);
 
-        list = udev_list_new(true);
+        list = udev_list_new(/* unique= */ true);
         if (!list)
                 return_with_errno(NULL, ENOMEM);
 

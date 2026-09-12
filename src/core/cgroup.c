@@ -797,7 +797,7 @@ static void unit_set_xattr_graceful(Unit *u, const char *name, const void *data,
         if (!crt || !crt->cgroup_path)
                 return;
 
-        r = cg_set_xattr(crt->cgroup_path, name, data, size, 0);
+        r = cg_set_xattr(crt->cgroup_path, name, data, size, /* flags= */ 0);
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to set '%s' xattr on control group %s, ignoring: %m", name, empty_to_root(crt->cgroup_path));
 }
@@ -2216,7 +2216,7 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, const char *cgroup_path, p
         r = bus_call_method(u->manager->system_bus,
                             bus_systemd_mgr,
                             "AttachProcessesToUnit",
-                            &error, NULL,
+                            &error, /* ret_reply= */ NULL,
                             "ssau",
                             NULL /* empty unit name means client's unit, i.e. us */, pp, 1, (uint32_t) pid);
         if (r < 0)
@@ -2814,7 +2814,7 @@ static int unit_prune_cgroup_via_bus(Unit *u) {
         r = bus_call_method(u->manager->system_bus,
                             bus_systemd_mgr,
                             "RemoveSubgroupFromUnit",
-                            &error, NULL,
+                            &error, /* ret_reply= */ NULL,
                             "sst",
                             NULL /* empty unit name means client's unit, i.e. us */,
                             pp,
@@ -3297,7 +3297,7 @@ int manager_setup_cgroup(Manager *m) {
 
         /* 1. Determine hierarchy */
         m->cgroup_root = mfree(m->cgroup_root);
-        r = cg_pid_get_path(0, &m->cgroup_root);
+        r = cg_pid_get_path(/* pid= */ 0, &m->cgroup_root);
         if (r < 0)
                 return log_error_errno(r, "Cannot determine cgroup we are running in: %m");
 
@@ -3361,7 +3361,7 @@ int manager_setup_cgroup(Manager *m) {
         r = cg_create_and_attach(scope_path, /* pid= */ 0);
         if (r >= 0) {
                 /* Also, move all other userspace processes remaining in the root cgroup into that scope. */
-                r = cg_migrate(m->cgroup_root, scope_path, 0);
+                r = cg_migrate(m->cgroup_root, scope_path, /* flags= */ 0);
                 if (r < 0)
                         log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
 
@@ -3394,7 +3394,7 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
         /* We can't really delete the group, since we are in it. But
          * let's trim it. */
         if (delete && m->cgroup_root && !FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
-                (void) cg_trim(m->cgroup_root, false);
+                (void) cg_trim(m->cgroup_root, /* delete_root= */ false);
 
         m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
 
@@ -3711,9 +3711,9 @@ int unit_get_ip_accounting(
                 return -ENODATA;
 
         if (IN_SET(metric, CGROUP_IP_INGRESS_BYTES, CGROUP_IP_EGRESS_BYTES))
-                r = bpf_firewall_read_accounting(fd, &value, NULL);
+                r = bpf_firewall_read_accounting(fd, &value, /* ret_packets= */ NULL);
         else
-                r = bpf_firewall_read_accounting(fd, NULL, &value);
+                r = bpf_firewall_read_accounting(fd, /* ret_bytes= */ NULL, &value);
         if (r < 0)
                 return r;
 
@@ -3829,7 +3829,7 @@ static int unit_get_io_accounting_raw(
                 for (;;) {
                         _cleanup_free_ char *word = NULL;
 
-                        r = extract_first_word(&p, &word, NULL, EXTRACT_RETAIN_ESCAPE);
+                        r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_RETAIN_ESCAPE);
                         if (r < 0)
                                 return r;
                         if (r == 0)

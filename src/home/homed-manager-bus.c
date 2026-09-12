@@ -483,7 +483,7 @@ static int validate_and_allocate_home(Manager *m, UserRecord *hr, Hashmap *blobs
                         return sd_bus_error_set_errnof(error, r, "Failed to acquire UID for '%s': %m", hr->user_name);
         }
 
-        r = home_new(m, hr, NULL, ret);
+        r = home_new(m, hr, /* sysfs= */ NULL, ret);
         if (r < 0)
                 return r;
 
@@ -518,7 +518,7 @@ static int method_register_home(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = validate_and_allocate_home(m, hr, NULL, &h, error);
+        r = validate_and_allocate_home(m, hr, /* blobs= */ NULL, &h, error);
         if (r < 0)
                 return r;
 
@@ -528,7 +528,7 @@ static int method_register_home(
 
         TAKE_PTR(h);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_adopt_home(
@@ -569,7 +569,7 @@ static int method_adopt_home(
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_unregister_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -751,7 +751,7 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
                       * be sent as soon as the last of the lock operations completed. */
                 return 1;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_deactivate_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -787,7 +787,7 @@ static int method_deactivate_all_homes(sd_bus_message *message, void *userdata, 
                       * sent as soon as the last of the deactivation operations completed. */
                 return 1;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_rebalance(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1036,7 +1036,7 @@ static int method_add_signing_key(sd_bus_message *message, void *userdata, sd_bu
         TAKE_PTR(fn_copy);
         TAKE_PTR(pkey);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_remove_signing_key(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1085,7 +1085,7 @@ static int method_remove_signing_key(sd_bus_message *message, void *userdata, sd
         _cleanup_free_ char *fn_free = NULL;
         pkey = ASSERT_PTR(hashmap_remove2(m->public_keys, fn, (void**) &fn_free));
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static const sd_bus_vtable manager_vtable[] = {

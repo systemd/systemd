@@ -125,7 +125,7 @@ int expose_port_execute(sd_netlink *rtnl, sd_netlink *nfnl, ExposePort *l, int a
         if (!l)
                 return 0;
 
-        r = local_addresses(rtnl, 0, af, &addresses);
+        r = local_addresses(rtnl, /* ifindex= */ 0, af, &addresses);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate local addresses: %m");
 
@@ -192,7 +192,7 @@ int expose_port_watch_rtnl(
         assert(recv_fd >= 0);
         assert(ret);
 
-        fd = receive_one_fd(recv_fd, 0);
+        fd = receive_one_fd(recv_fd, /* flags= */ 0);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to recv netlink fd: %m");
 
@@ -202,15 +202,15 @@ int expose_port_watch_rtnl(
                 return log_error_errno(r, "Failed to create rtnl object: %m");
         }
 
-        r = sd_netlink_add_match(rtnl, NULL, RTM_NEWADDR, handler, NULL, userdata, "nspawn-NEWADDR");
+        r = sd_netlink_add_match(rtnl, /* ret_slot= */ NULL, RTM_NEWADDR, handler, /* destroy_callback= */ NULL, userdata, "nspawn-NEWADDR");
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_NEWADDR messages: %m");
 
-        r = sd_netlink_add_match(rtnl, NULL, RTM_DELADDR, handler, NULL, userdata, "nspawn-DELADDR");
+        r = sd_netlink_add_match(rtnl, /* ret_slot= */ NULL, RTM_DELADDR, handler, /* destroy_callback= */ NULL, userdata, "nspawn-DELADDR");
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_DELADDR messages: %m");
 
-        r = sd_netlink_attach_event(rtnl, event, 0);
+        r = sd_netlink_attach_event(rtnl, event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to add to event loop: %m");
 

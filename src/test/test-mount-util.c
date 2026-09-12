@@ -46,7 +46,7 @@ TEST(mount_option_mangle) {
         char *opts = NULL;
         unsigned long f;
 
-        assert_se(mount_option_mangle(NULL, MS_RDONLY|MS_NOSUID, &f, &opts) == 0);
+        assert_se(mount_option_mangle(/* options= */ NULL, MS_RDONLY|MS_NOSUID, &f, &opts) == 0);
         assert_se(f == (MS_RDONLY|MS_NOSUID));
         ASSERT_NULL(opts);
 
@@ -54,16 +54,16 @@ TEST(mount_option_mangle) {
         assert_se(f == (MS_RDONLY|MS_NOSUID));
         ASSERT_NULL(opts);
 
-        assert_se(mount_option_mangle("ro,nosuid,nodev,noexec", 0, &f, &opts) == 0);
+        assert_se(mount_option_mangle("ro,nosuid,nodev,noexec", /* mount_flags= */ 0, &f, &opts) == 0);
         assert_se(f == (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC));
         ASSERT_NULL(opts);
 
-        assert_se(mount_option_mangle("ro,nosuid,nodev,noexec,mode=0755", 0, &f, &opts) == 0);
+        assert_se(mount_option_mangle("ro,nosuid,nodev,noexec,mode=0755", /* mount_flags= */ 0, &f, &opts) == 0);
         assert_se(f == (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC));
         ASSERT_STREQ(opts, "mode=0755");
         opts = mfree(opts);
 
-        assert_se(mount_option_mangle("rw,nosuid,foo,hogehoge,nodev,mode=0755", 0, &f, &opts) == 0);
+        assert_se(mount_option_mangle("rw,nosuid,foo,hogehoge,nodev,mode=0755", /* mount_flags= */ 0, &f, &opts) == 0);
         assert_se(f == (MS_NOSUID|MS_NODEV));
         ASSERT_STREQ(opts, "foo,hogehoge,mode=0755");
         opts = mfree(opts);
@@ -95,7 +95,11 @@ TEST(mount_option_mangle) {
 
         assert_se(mount_option_mangle("rw,relatime,fmask=0022,dmask=0022,\"hogehoge", MS_RDONLY, &f, &opts) < 0);
 
-        assert_se(mount_option_mangle("mode=01777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\"", 0, &f, &opts) == 0);
+        assert_se(mount_option_mangle(
+                                  "mode=01777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\"",
+                                  /* mount_flags= */ 0,
+                                  &f,
+                                  &opts) == 0);
         assert_se(f == 0);
         ASSERT_STREQ(opts, "mode=01777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\"");
         opts = mfree(opts);
@@ -112,7 +116,7 @@ static void test_mount_flags_to_string_one(unsigned long flags, const char *expe
 }
 
 TEST(mount_flags_to_string) {
-        test_mount_flags_to_string_one(0, "0");
+        test_mount_flags_to_string_one(/* flags= */ 0, "0");
         test_mount_flags_to_string_one(MS_RDONLY, "MS_RDONLY");
         test_mount_flags_to_string_one(MS_NOSUID, "MS_NOSUID");
         test_mount_flags_to_string_one(MS_NODEV, "MS_NODEV");
@@ -160,7 +164,7 @@ TEST(bind_remount_recursive) {
         assert_se(mkdir(subdir, 0755) >= 0);
 
         FOREACH_STRING(p, "/usr", "/sys", "/", tmp) {
-                r = ASSERT_OK(pidref_safe_fork("(bind-remount-recursive)", FORK_COMMON_FLAGS, NULL));
+                r = ASSERT_OK(pidref_safe_fork("(bind-remount-recursive)", FORK_COMMON_FLAGS, /* ret= */ NULL));
                 if (r == 0) { /* child */
                         struct statvfs svfs;
 
@@ -169,7 +173,7 @@ TEST(bind_remount_recursive) {
                         assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
 
                         /* Make the subdir a bind mount */
-                        assert_se(mount_nofollow(subdir, subdir, NULL, MS_BIND|MS_REC, NULL) >= 0);
+                        assert_se(mount_nofollow(subdir, subdir, /* filesystemtype= */ NULL, MS_BIND|MS_REC, /* data= */ NULL) >= 0);
 
                         /* Ensure it's still writable */
                         assert_se(statvfs(subdir, &svfs) >= 0);
@@ -196,7 +200,7 @@ TEST(bind_remount_one) {
 
         CHECK_PRIV;
 
-        r = ASSERT_OK(pidref_safe_fork("(remount-one-with-mountinfo)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(remount-one-with-mountinfo)", FORK_COMMON_FLAGS, /* ret= */ NULL));
         if (r == 0) { /* child */
                 _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
 
@@ -211,7 +215,7 @@ TEST(bind_remount_one) {
                 _exit(EXIT_SUCCESS);
         }
 
-        r = ASSERT_OK(pidref_safe_fork("(remount-one)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(remount-one)", FORK_COMMON_FLAGS, /* ret= */ NULL));
         if (r == 0) { /* child */
                 assert_se(bind_remount_one("/run", MS_RDONLY, MS_RDONLY) >= 0);
                 assert_se(bind_remount_one("/run", MS_NOEXEC, MS_RDONLY|MS_NOEXEC) >= 0);
@@ -228,7 +232,7 @@ TEST(make_mount_point_inode) {
         const char *src_file, *src_dir, *dst_file, *dst_dir;
         struct stat st;
 
-        assert_se(mkdtemp_malloc(NULL, &d) >= 0);
+        assert_se(mkdtemp_malloc(/* template= */ NULL, &d) >= 0);
 
         src_file = strjoina(d, "/src/file");
         src_dir = strjoina(d, "/src/dir");
@@ -274,7 +278,7 @@ TEST(make_mount_switch_root) {
 
         CHECK_PRIV;
 
-        assert_se(mkdtemp_malloc(NULL, &t) >= 0);
+        assert_se(mkdtemp_malloc(/* template= */ NULL, &t) >= 0);
 
         assert_se(asprintf(&s, "%s/somerandomname%" PRIu64, t, random_u64()) >= 0);
         assert_se(s);
@@ -291,7 +295,7 @@ TEST(make_mount_switch_root) {
         };
 
         FOREACH_ELEMENT(i, table) {
-                r = ASSERT_OK(pidref_safe_fork("(switch-root)", FORK_COMMON_FLAGS, NULL));
+                r = ASSERT_OK(pidref_safe_fork("(switch-root)", FORK_COMMON_FLAGS, /* ret= */ NULL));
                 if (r == 0) {
                         assert_se(make_mount_point(i->path) >= 0);
                         assert_se(mount_switch_root_full(i->path, /* mount_propagation_flag= */ 0, i->force_ms_move) >= 0);
@@ -335,7 +339,7 @@ TEST(umount_recursive) {
         CHECK_PRIV;
 
         FOREACH_ELEMENT(t, test_table) {
-                r = ASSERT_OK(pidref_safe_fork("(umount-rec)", FORK_COMMON_FLAGS, NULL));
+                r = ASSERT_OK(pidref_safe_fork("(umount-rec)", FORK_COMMON_FLAGS, /* ret= */ NULL));
                 if (r == 0) { /* child */
                         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
                         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
@@ -386,27 +390,27 @@ TEST(fd_make_mount_point) {
 
         CHECK_PRIV;
 
-        assert_se(mkdtemp_malloc(NULL, &t) >= 0);
+        assert_se(mkdtemp_malloc(/* template= */ NULL, &t) >= 0);
 
         assert_se(asprintf(&s, "%s/somerandomname%" PRIu64, t, random_u64()) >= 0);
         assert_se(s);
         assert_se(mkdir(s, 0700) >= 0);
 
-        r = ASSERT_OK(pidref_safe_fork("(make-mount-point)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(make-mount-point)", FORK_COMMON_FLAGS, /* ret= */ NULL));
         if (r == 0) {
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
 
                 fd = open(s, O_PATH|O_CLOEXEC);
                 assert_se(fd >= 0);
 
-                assert_se(is_mount_point_at(fd, NULL, AT_SYMLINK_FOLLOW) == 0);
+                assert_se(is_mount_point_at(fd, /* path= */ NULL, AT_SYMLINK_FOLLOW) == 0);
 
                 assert_se(fd_make_mount_point(fd) > 0);
 
                 /* Reopen the inode so that we end up on the new mount */
                 fd2 = open(s, O_PATH|O_CLOEXEC);
 
-                assert_se(is_mount_point_at(fd2, NULL, AT_SYMLINK_FOLLOW) > 0);
+                assert_se(is_mount_point_at(fd2, /* path= */ NULL, AT_SYMLINK_FOLLOW) > 0);
 
                 assert_se(fd_make_mount_point(fd2) == 0);
 
@@ -420,14 +424,14 @@ TEST(bind_mount_submounts) {
 
         CHECK_PRIV;
 
-        assert_se(mkdtemp_malloc(NULL, &a) >= 0);
-        assert_se(mkdtemp_malloc(NULL, &b) >= 0);
+        assert_se(mkdtemp_malloc(/* template= */ NULL, &a) >= 0);
+        assert_se(mkdtemp_malloc(/* template= */ NULL, &b) >= 0);
 
-        r = ASSERT_OK(pidref_safe_fork("(bind-mount-submounts)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(bind-mount-submounts)", FORK_COMMON_FLAGS, /* ret= */ NULL));
         if (r == 0) {
                 char *x;
 
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", a, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", a, "tmpfs", /* flags= */ 0, /* options= */ NULL));
 
                 assert_se(x = path_join(a, "foo"));
                 assert_se(touch(x) >= 0);
@@ -435,7 +439,7 @@ TEST(bind_mount_submounts) {
 
                 assert_se(x = path_join(a, "x"));
                 assert_se(mkdir(x, 0755) >= 0);
-                assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", x, "tmpfs", 0, NULL) >= 0);
+                assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", x, "tmpfs", /* flags= */ 0, /* options= */ NULL) >= 0);
                 free(x);
 
                 assert_se(x = path_join(a, "x/xx"));
@@ -444,14 +448,14 @@ TEST(bind_mount_submounts) {
 
                 assert_se(x = path_join(a, "y"));
                 assert_se(mkdir(x, 0755) >= 0);
-                assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", x, "tmpfs", 0, NULL) >= 0);
+                assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", x, "tmpfs", /* flags= */ 0, /* options= */ NULL) >= 0);
                 free(x);
 
                 assert_se(x = path_join(a, "y/yy"));
                 assert_se(touch(x) >= 0);
                 free(x);
 
-                assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", b, "tmpfs", 0, NULL) >= 0);
+                assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", b, "tmpfs", /* flags= */ 0, /* options= */ NULL) >= 0);
 
                 assert_se(x = path_join(b, "x"));
                 assert_se(mkdir(x, 0755) >= 0);
@@ -483,8 +487,8 @@ TEST(bind_mount_submounts) {
                 assert_se(path_is_mount_point(x) > 0);
                 free(x);
 
-                assert_se(umount_recursive(a, 0) >= 0);
-                assert_se(umount_recursive(b, 0) >= 0);
+                assert_se(umount_recursive(a, /* flags= */ 0) >= 0);
+                assert_se(umount_recursive(b, /* flags= */ 0) >= 0);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -496,9 +500,9 @@ TEST(get_sub_mounts) {
 
         CHECK_PRIV;
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &a));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &a));
 
-        r = ASSERT_OK(pidref_safe_fork("(get-sub-mounts)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(get-sub-mounts)", FORK_COMMON_FLAGS, /* ret= */ NULL));
         if (r == 0) {
                 SubMount *mounts = NULL;
                 size_t n = 0;
@@ -513,11 +517,11 @@ TEST(get_sub_mounts) {
 
                 _cleanup_free_ char *outer = ASSERT_NOT_NULL(path_join(a, "outer"));
                 ASSERT_OK_ERRNO(mkdir(outer, 0755));
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", outer, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", outer, "tmpfs", /* flags= */ 0, /* options= */ NULL));
 
                 _cleanup_free_ char *inner = ASSERT_NOT_NULL(path_join(outer, "inner"));
                 ASSERT_OK_ERRNO(mkdir(inner, 0755));
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", inner, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", inner, "tmpfs", /* flags= */ 0, /* options= */ NULL));
 
                 r = get_sub_mounts(a, &mounts, &n);
                 if (r == -EOPNOTSUPP) {
@@ -533,7 +537,7 @@ TEST(get_sub_mounts) {
                 ASSERT_STREQ(mounts[0].path, outer);
                 ASSERT_OK(mounts[0].mount_fd);
 
-                ASSERT_OK(umount_recursive(a, 0));
+                ASSERT_OK(umount_recursive(a, /* flags= */ 0));
 
                 _exit(EXIT_SUCCESS);
         }
@@ -561,13 +565,13 @@ TEST(path_is_network_fs_harder) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         assert_se(mkdtemp_malloc("/tmp/test-mount-util.path_is_network_fs_harder.XXXXXXX", &t) >= 0);
 
-        r = ASSERT_OK(pidref_safe_fork("(path-is-network-fs-harder)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(path-is-network-fs-harder)", FORK_COMMON_FLAGS, /* ret= */ NULL));
         if (r == 0) {
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", /* flags= */ 0, /* options= */ NULL));
                 ASSERT_OK_ZERO(path_is_network_fs_harder(t));
                 ASSERT_OK_ERRNO(umount(t));
 
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", 0, "x-systemd-growfs,x-systemd-automount"));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", /* flags= */ 0, "x-systemd-growfs,x-systemd-automount"));
                 ASSERT_OK_ZERO(path_is_network_fs_harder(t));
                 ASSERT_OK_ERRNO(umount(t));
 
@@ -579,14 +583,14 @@ TEST(umountat) {
         CHECK_PRIV;
 
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
-        _cleanup_close_ int dfd = mkdtemp_open(NULL, O_CLOEXEC, &p);
+        _cleanup_close_ int dfd = mkdtemp_open(/* template= */ NULL, O_CLOEXEC, &p);
         ASSERT_OK(dfd);
 
         ASSERT_OK(mkdirat(dfd, "foo", 0777));
 
         _cleanup_free_ char *q = ASSERT_PTR(path_join(p, "foo"));
 
-        ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", q, "tmpfs", 0, NULL));
+        ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", q, "tmpfs", /* flags= */ 0, /* options= */ NULL));
         ASSERT_OK(umountat_detach_verbose(LOG_ERR, dfd, "foo"));
         ASSERT_ERROR(umountat_detach_verbose(LOG_ERR, dfd, "foo"), EINVAL);
 }
@@ -598,7 +602,7 @@ TEST(mount_fd_clone) {
 
         CHECK_PRIV;
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
 
         /* Set up a socket pair to transfer the mount fd from the child (in a different mountns) to us. */
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, fds));
@@ -608,10 +612,10 @@ TEST(mount_fd_clone) {
                         /* stdio_fds= */ NULL,
                         &fds[1], 1,
                         FORK_COMMON_FLAGS,
-                        NULL));
+                        /* ret= */ NULL));
         if (r == 0) {
                 /* Create a tmpfs mount in this child's mountns. */
-                ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", t, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", t, "tmpfs", /* flags= */ 0, /* options= */ NULL));
 
                 /* Create a file in it to verify the mount later. */
                 _cleanup_free_ char *marker = ASSERT_NOT_NULL(path_join(t, "marker"));
@@ -629,7 +633,7 @@ TEST(mount_fd_clone) {
         fds[1] = safe_close(fds[1]);
 
         /* Parent: Receive the mount fd, clone it with mount_fd_clone(), and verify we can attach it. */
-        _cleanup_close_ int foreign_mount_fd = ASSERT_OK(receive_one_fd(fds[0], 0));
+        _cleanup_close_ int foreign_mount_fd = ASSERT_OK(receive_one_fd(fds[0], /* flags= */ 0));
         _cleanup_close_ int first_clone = ASSERT_OK(
                         mount_fd_clone(foreign_mount_fd, /* recursive= */ true, &foreign_mount_fd));
         _cleanup_close_ _unused_ int second_clone = ASSERT_OK(
@@ -642,7 +646,7 @@ TEST(mount_fd_clone) {
                         /* stdio_fds= */ NULL,
                         &first_clone, 1,
                         FORK_COMMON_FLAGS,
-                        NULL));
+                        /* ret= */ NULL));
         if (r == 0) {
                 ASSERT_OK_ERRNO(move_mount(first_clone, "", AT_FDCWD, target, MOVE_MOUNT_F_EMPTY_PATH));
 

@@ -381,7 +381,7 @@ static int manager_system_journal_open(
                                 &m->system_storage.metrics,
                                 &m->system_journal);
                 if (r >= 0) {
-                        manager_add_acls(m->system_journal, 0);
+                        manager_add_acls(m->system_journal, /* uid= */ 0);
                         (void) cache_space_refresh(m, &m->system_storage);
                         patch_min_use(&m->system_storage);
                 } else {
@@ -399,7 +399,7 @@ static int manager_system_journal_open(
                  * journal is back.
                  */
                 if (!flush_requested)
-                        (void) manager_flush_to_var(m, true);
+                        (void) manager_flush_to_var(m, /* require_flag_file= */ true);
         }
 
         if (!m->runtime_journal &&
@@ -448,7 +448,7 @@ static int manager_system_journal_open(
                 }
 
                 if (m->runtime_journal) {
-                        manager_add_acls(m->runtime_journal, 0);
+                        manager_add_acls(m->runtime_journal, /* uid= */ 0);
                         (void) cache_space_refresh(m, &m->runtime_storage);
                         patch_min_use(&m->runtime_storage);
                         manager_drop_flushed_flag(m);
@@ -701,7 +701,7 @@ static int manager_archive_offline_user_journals(Manager *m) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to append tag when closing journal, ignoring: %m");
 
-                r = journal_file_archive(f, NULL);
+                r = journal_file_archive(f, /* ret_previous_path= */ NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
 
@@ -1224,7 +1224,7 @@ void manager_driver_message_internal(Manager *m, pid_t object_pid, const char *f
 
         va_start(ap, format);
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        r = log_format_iovec(iovec, mm, &n, false, 0, format, ap);
+        r = log_format_iovec(iovec, mm, &n, /* newline_separator= */ false, /* error= */ 0, format, ap);
         REENABLE_WARNING;
         /* Error handling below */
         va_end(ap);
@@ -1342,7 +1342,7 @@ int manager_flush_to_var(Manager *m, bool require_flag_file) {
                 goto finish;
         }
 
-        sd_journal_set_data_threshold(j, 0);
+        sd_journal_set_data_threshold(j, /* sz= */ 0);
 
         SD_JOURNAL_FOREACH(j) {
                 Object *o = NULL;
@@ -1624,11 +1624,11 @@ int manager_process_datagram(
 void manager_full_flush(Manager *m) {
         assert(m);
 
-        (void) manager_flush_to_var(m, false);
+        (void) manager_flush_to_var(m, /* require_flag_file= */ false);
         manager_sync(m, /* wait= */ false);
-        manager_vacuum(m, false);
+        manager_vacuum(m, /* verbose= */ false);
 
-        manager_space_usage_message(m, NULL);
+        manager_space_usage_message(m, /* storage= */ NULL);
 
         manager_refresh_idle_timer(m);
 }
@@ -1660,7 +1660,7 @@ void manager_full_rotate(Manager *m) {
         assert(m);
 
         manager_rotate(m);
-        manager_vacuum(m, true);
+        manager_vacuum(m, /* verbose= */ true);
 
         if (m->system_journal)
                 patch_min_use(&m->system_storage);
@@ -1715,7 +1715,7 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
          * start up next – unless we are going down for the final system shutdown, in which case everything
          * is lost. */
 
-        r = sd_event_add_defer(m->event, &news, NULL, NULL); /* NULL handler means → exit when triggered */
+        r = sd_event_add_defer(m->event, &news, /* callback= */ NULL, /* userdata= */ NULL); /* NULL handler means → exit when triggered */
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate exit idle event handler: %m");
                 goto fail;
@@ -1739,7 +1739,7 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
 
         news = sd_event_source_unref(news);
 
-        r = sd_event_add_time_relative(m->event, &news, CLOCK_MONOTONIC, 10 * USEC_PER_SEC, 0, NULL, NULL);
+        r = sd_event_add_time_relative(m->event, &news, CLOCK_MONOTONIC, 10 * USEC_PER_SEC, /* accuracy= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate exit timeout event handler: %m");
                 goto fail;
@@ -1765,7 +1765,7 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
         return 0;
 
 fail:
-        sd_event_exit(m->event, 0);
+        sd_event_exit(m->event, /* code= */ 0);
         return 0;
 }
 
@@ -1847,7 +1847,7 @@ static int manager_setup_signals(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, SIGHUP|SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGHUP|SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
         if (r < 0)
                 return r;
 
@@ -1888,7 +1888,7 @@ static int manager_schedule_sync(Manager *m, int priority) {
                                         m->event,
                                         &m->sync_event_source,
                                         CLOCK_MONOTONIC,
-                                        m->config.sync_interval_usec, 0,
+                                        m->config.sync_interval_usec, /* accuracy= */ 0,
                                         manager_dispatch_sync, m);
                         if (r < 0)
                                 return r;
@@ -1927,7 +1927,7 @@ static int manager_open_hostname(Manager *m) {
         if (m->hostname_fd < 0)
                 return log_error_errno(errno, "Failed to open %s: %m", "/proc/sys/kernel/hostname");
 
-        r = sd_event_add_io(m->event, &m->hostname_event_source, m->hostname_fd, 0, dispatch_hostname_change, m);
+        r = sd_event_add_io(m->event, &m->hostname_event_source, m->hostname_fd, /* events= */ 0, dispatch_hostname_change, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register hostname fd in event loop: %m");
 
@@ -2058,7 +2058,7 @@ static int manager_connect_notify(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to watch notification socket: %m");
 
-        if (sd_watchdog_enabled(false, &m->watchdog_usec) > 0) {
+        if (sd_watchdog_enabled(/* unset_environment= */ false, &m->watchdog_usec) > 0) {
                 m->send_watchdog = true;
 
                 r = sd_event_add_time_relative(m->event, &m->watchdog_event_source, CLOCK_MONOTONIC, m->watchdog_usec/2, m->watchdog_usec/4, dispatch_watchdog, m);
@@ -2095,7 +2095,7 @@ int manager_map_seqnum_file(
         if (fd < 0)
                 return -errno;
 
-        r = posix_fallocate_loop(fd, 0, size);
+        r = posix_fallocate_loop(fd, /* offset= */ 0, size);
         if (r < 0)
                 return r;
 
@@ -2159,7 +2159,7 @@ static int manager_idle_handler(sd_event_source *source, uint64_t usec, void *us
         assert(source);
 
         log_debug("Manager is idle, exiting.");
-        sd_event_exit(m->event, 0);
+        sd_event_exit(m->event, /* code= */ 0);
         return 0;
 }
 
@@ -2178,7 +2178,7 @@ int manager_start_or_stop_idle_timer(Manager *m) {
         if (m->idle_event_source)
                 return 1;
 
-        r = sd_event_add_time_relative(m->event, &source, CLOCK_MONOTONIC, IDLE_TIMEOUT_USEC, 0, manager_idle_handler, m);
+        r = sd_event_add_time_relative(m->event, &source, CLOCK_MONOTONIC, IDLE_TIMEOUT_USEC, /* accuracy= */ 0, manager_idle_handler, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate idle timer: %m");
 
@@ -2255,7 +2255,7 @@ static int manager_setup_memory_pressure(Manager *m) {
 
         assert(m);
 
-        r = sd_event_add_memory_pressure(m->event, NULL, manager_memory_pressure, m);
+        r = sd_event_add_memory_pressure(m->event, /* ret= */ NULL, manager_memory_pressure, m);
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_NOTICE, r,
                                "Failed to install memory pressure event source, ignoring: %m");
@@ -2374,7 +2374,7 @@ int manager_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create event loop: %m");
 
-        n = sd_listen_fds(true);
+        n = sd_listen_fds(/* unset_environment= */ true);
         if (n < 0)
                 return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
 
@@ -2385,7 +2385,7 @@ int manager_init(Manager *m) {
 
         for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++)
 
-                if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, native_socket, 0) > 0) {
+                if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, native_socket, /* length= */ 0) > 0) {
 
                         if (m->native_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -2393,7 +2393,7 @@ int manager_init(Manager *m) {
 
                         m->native_fd = fd;
 
-                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, stdout_socket, 0) > 0) {
+                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, stdout_socket, /* length= */ 0) > 0) {
 
                         if (m->stdout_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -2401,7 +2401,7 @@ int manager_init(Manager *m) {
 
                         m->stdout_fd = fd;
 
-                } else if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, syslog_socket, 0) > 0) {
+                } else if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, syslog_socket, /* length= */ 0) > 0) {
 
                         if (m->syslog_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -2409,7 +2409,7 @@ int manager_init(Manager *m) {
 
                         m->syslog_fd = fd;
 
-                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, varlink_socket, 0) > 0) {
+                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, varlink_socket, /* length= */ 0) > 0) {
 
                         if (varlink_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

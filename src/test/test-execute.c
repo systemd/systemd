@@ -89,7 +89,7 @@ static void wait_for_service_finish(Manager *m, Unit *unit) {
         /* Use a per-Exec timeout rather than a service timeout, as especially under sanitizers some test
          * units running many commands can hit the service timeout. */
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        ASSERT_OK(sd_event_add_time_relative(m->event, &s, CLOCK_MONOTONIC, timeout, 0, time_handler, unit));
+        ASSERT_OK(sd_event_add_time_relative(m->event, &s, CLOCK_MONOTONIC, timeout, /* accuracy= */ 0, time_handler, unit));
 
         /* Here, sd_event_loop() cannot be used, as the sd_event object will be reused in the next test case. */
         ExecCommand *last_command = service->main_command;
@@ -234,7 +234,7 @@ static void start_parent_slices(Unit *unit) {
         slice = UNIT_GET_SLICE(unit);
         if (slice) {
                 start_parent_slices(slice);
-                ASSERT_OK_OR(unit_start(slice, NULL), -EALREADY);
+                ASSERT_OK_OR(unit_start(slice, /* details= */ NULL), -EALREADY);
         }
 }
 
@@ -291,7 +291,7 @@ static bool have_userns_privileges(void) {
          *  EXIT_SUCCESS => we can use user namespaces
          *  EXIT_FAILURE => we can NOT use user namespaces
          *  2            => some other error occurred */
-        r = pidref_wait_for_terminate_and_check("(sd-test-check-userns)", &pidref, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-test-check-userns)", &pidref, /* flags= */ 0);
         if (!IN_SET(r, EXIT_SUCCESS, EXIT_FAILURE))
                 log_debug("Failed to check if user namespaces can be used, assuming not.");
 
@@ -304,11 +304,11 @@ static void _test(const char *file, unsigned line, const char *func,
 
         ASSERT_NOT_NULL(unit_name);
 
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, NULL, LOG_ERR, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, /* path= */ NULL, LOG_ERR, &unit));
         /* We need to start the slices as well otherwise the slice cgroups might be pruned
          * in on_cgroup_empty_event. */
         start_parent_slices(unit);
-        ASSERT_OK(unit_start(unit, NULL));
+        ASSERT_OK(unit_start(unit, /* details= */ NULL));
         check_main_result(file, line, func, m, unit, status_expected, code_expected);
 
         ++n_ran_tests;
@@ -322,8 +322,8 @@ static void _test_service(const char *file, unsigned line, const char *func,
 
         ASSERT_NOT_NULL(unit_name);
 
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, NULL, LOG_ERR, &unit));
-        ASSERT_OK(unit_start(unit, NULL));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, /* path= */ NULL, LOG_ERR, &unit));
+        ASSERT_OK(unit_start(unit, /* details= */ NULL));
         check_service_result(file, line, func, m, unit, result_expected);
 }
 #define test_service(m, unit_name, result_expected) \
@@ -402,7 +402,7 @@ static void test_exec_execsearchpath(Manager *m) {
 
         ASSERT_OK(mkdir_p("/tmp/test-exec_execsearchpath", 0755));
 
-        ASSERT_OK(copy_file("/bin/ls", "/tmp/test-exec_execsearchpath/ls_temp", 0,  0777, COPY_REPLACE));
+        ASSERT_OK(copy_file("/bin/ls", "/tmp/test-exec_execsearchpath/ls_temp", /* open_flags= */ 0,  0777, COPY_REPLACE));
 
         test(m, "exec-execsearchpath.service", 0, CLD_EXITED);
 
@@ -572,7 +572,7 @@ static void test_exec_privatedevices(Manager *m) {
 
         /* We use capsh to test if the capabilities are
          * properly set, so be sure that it exists */
-        r = find_executable("capsh", NULL);
+        r = find_executable("capsh", /* ret_filename= */ NULL);
         if (r < 0) {
                 log_notice_errno(r, "Could not find capsh binary, skipping remaining tests in %s: %m", __func__);
                 return;
@@ -608,7 +608,7 @@ static void test_exec_protectkernelmodules(Manager *m) {
                 return;
         }
 
-        r = find_executable("capsh", NULL);
+        r = find_executable("capsh", /* ret_filename= */ NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
                 return;
@@ -736,7 +736,7 @@ static int find_libraries(const char *exec, char ***ret) {
         r = pidref_safe_fork_full(
                         "(spawn-ldd)",
                         (int[]) { -EBADF, outpipe[1], errpipe[1] },
-                        NULL, 0,
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
                         &pidref);
         ASSERT_OK(r);
@@ -750,26 +750,26 @@ static int find_libraries(const char *exec, char ***ret) {
 
         ASSERT_OK(sd_event_new(&e));
 
-        ASSERT_OK(sd_event_add_time_relative(e, NULL, CLOCK_MONOTONIC,
+        ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_MONOTONIC,
                                              10 * USEC_PER_SEC, USEC_PER_SEC, on_spawn_timeout, &pidref));
         ASSERT_OK(sd_event_add_io(e, &stdout_source, outpipe[0], EPOLLIN, on_spawn_io, &result));
         ASSERT_OK(sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT));
-        ASSERT_OK(sd_event_add_io(e, &stderr_source, errpipe[0], EPOLLIN, on_spawn_io, NULL));
+        ASSERT_OK(sd_event_add_io(e, &stderr_source, errpipe[0], EPOLLIN, on_spawn_io, /* userdata= */ NULL));
         ASSERT_OK(sd_event_source_set_enabled(stderr_source, SD_EVENT_ONESHOT));
-        ASSERT_OK(event_add_child_pidref(e, &sigchld_source, &pidref, WEXITED, on_spawn_exit, NULL));
+        ASSERT_OK(event_add_child_pidref(e, &sigchld_source, &pidref, WEXITED, on_spawn_exit, /* userdata= */ NULL));
         /* Child exit should be processed after IO is complete */
         ASSERT_OK(sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1));
 
         ASSERT_OK(sd_event_loop(e));
 
         _cleanup_strv_free_ char **v = NULL;
-        ASSERT_OK(strv_split_newlines_full(&v, result, 0));
+        ASSERT_OK(strv_split_newlines_full(&v, result, /* flags= */ 0));
 
         STRV_FOREACH(q, v) {
                 _cleanup_free_ char *word = NULL;
                 const char *p = *q;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 ASSERT_OK(r);
                 if (r == 0)
                         continue;
@@ -780,7 +780,7 @@ static int find_libraries(const char *exec, char ***ret) {
                 }
 
                 word = mfree(word);
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 ASSERT_OK(r);
                 if (r == 0)
                         continue;
@@ -789,7 +789,7 @@ static int find_libraries(const char *exec, char ***ret) {
                         continue;
 
                 word = mfree(word);
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 ASSERT_OK(r);
                 if (r == 0)
                         continue;
@@ -813,7 +813,7 @@ static void test_exec_mount_apivfs(Manager *m) {
 
         ASSERT_NOT_NULL(user_runtime_unit_dir);
 
-        r = find_executable("ldd", NULL);
+        r = find_executable("ldd", /* ret_filename= */ NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find 'ldd' command: %m", __func__);
                 return;
@@ -834,7 +834,7 @@ static void test_exec_mount_apivfs(Manager *m) {
 
         ASSERT_OK(find_libraries(fullpath_touch, &libraries));
         ASSERT_OK(find_libraries(fullpath_test, &libraries_test));
-        ASSERT_OK(strv_extend_strv(&libraries, libraries_test, true));
+        ASSERT_OK(strv_extend_strv(&libraries, libraries_test, /* filter_duplicates= */ true));
 
         ASSERT_NOT_NULL(strextend(&data, "[Service]\n"));
         ASSERT_NOT_NULL((strextend(&data, "ExecStart=", fullpath_touch, " /aaa\n")));
@@ -889,7 +889,7 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-failing2.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-failing3.service", SIGSYS, CLD_KILLED);
 
-        r = find_executable("python3", NULL);
+        r = find_executable("python3", /* ret_filename= */ NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping remaining tests in %s, could not find python3 binary: %m", __func__);
                 return;
@@ -905,7 +905,7 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-nonewprivileges.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
         test(m, "exec-systemcallfilter-nonewprivileges-protectclock.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
-        r = find_executable("capsh", NULL);
+        r = find_executable("capsh", /* ret_filename= */ NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
                 return;
@@ -925,7 +925,7 @@ static void test_exec_systemcallerrornumber(Manager *m) {
                 return;
         }
 
-        r = find_executable("python3", NULL);
+        r = find_executable("python3", /* ret_filename= */ NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find python3 binary: %m", __func__);
                 return;
@@ -1179,7 +1179,7 @@ static void test_exec_runtimedirectory(Manager *m) {
 static void test_exec_capabilityboundingset(Manager *m) {
         int r;
 
-        r = find_executable("capsh", NULL);
+        r = find_executable("capsh", /* ret_filename= */ NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
                 return;
@@ -1256,7 +1256,7 @@ static void test_exec_privatenetwork(Manager *m) {
         if (MANAGER_IS_USER(m) && !have_userns_privileges())
                 return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
 
-        r = find_executable("ip", NULL);
+        r = find_executable("ip", /* ret_filename= */ NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
                 return;
@@ -1278,7 +1278,7 @@ static void test_exec_networknamespacepath(Manager *m) {
         if (MANAGER_IS_USER(m) && !have_userns_privileges())
                 return (void)log_notice("Skipping %s, do not have user namespace privileges", __func__);
 
-        r = find_executable("ip", NULL);
+        r = find_executable("ip", /* ret_filename= */ NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
                 return;
@@ -1459,7 +1459,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         ASSERT_OK(r);
 
         m->defaults.std_output = EXEC_OUTPUT_INHERIT; /* don't rely on host journald */
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         /* Uncomment below if you want to make debugging logs stored to journal. */
         //manager_override_log_target(m, LOG_TARGET_AUTO);
@@ -1499,7 +1499,7 @@ static int prepare_ns(const char *process_name) {
                         FORK_LOG|
                         FORK_NEW_MOUNTNS|
                         FORK_MOUNTNS_SLAVE,
-                        NULL);
+                        /* ret= */ NULL);
         ASSERT_OK(r);
         if (r == 0) {
                 _cleanup_free_ char *unit_dir = NULL, *build_dir = NULL, *build_dir_mount = NULL;
@@ -1507,17 +1507,17 @@ static int prepare_ns(const char *process_name) {
                 const char *coverage = getenv("COVERAGE_BUILD_DIR");
                 if (!coverage)
                         /* Make "/" read-only. */
-                        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, NULL, "/", NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL));
+                        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, /* what= */ NULL, "/", /* fstype= */ NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, /* options= */ NULL));
 
                 /* Creating a new user namespace in the above means all MS_SHARED mounts become MS_SLAVE.
                  * Let's put them back to MS_SHARED here, since that's what we want as defaults. (This will
                  * not reconnect propagation, but simply create new peer groups for all our mounts). */
-                ASSERT_OK(mount_follow_verbose(LOG_DEBUG, NULL, "/", NULL, MS_SHARED|MS_REC, NULL));
+                ASSERT_OK(mount_follow_verbose(LOG_DEBUG, /* what= */ NULL, "/", /* fstype= */ NULL, MS_SHARED|MS_REC, /* options= */ NULL));
 
                 ASSERT_OK(mkdir_p(PRIVATE_UNIT_DIR, 0755));
-                ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", PRIVATE_UNIT_DIR, "tmpfs", MS_NOSUID|MS_NODEV, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", PRIVATE_UNIT_DIR, "tmpfs", MS_NOSUID|MS_NODEV, /* options= */ NULL));
                 /* Mark our test "playground" as MS_SLAVE, so we can MS_MOVE mounts underneath it. */
-                ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, NULL, PRIVATE_UNIT_DIR, NULL, MS_SLAVE, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, /* what= */ NULL, PRIVATE_UNIT_DIR, /* fstype= */ NULL, MS_SLAVE, /* options= */ NULL));
 
                 /* Copy unit files to make them accessible even when unprivileged. */
                 ASSERT_OK(get_testdata_dir("test-execute/", &unit_dir));
@@ -1533,11 +1533,11 @@ static int prepare_ns(const char *process_name) {
                         ASSERT_OK_ERRNO(access(build_dir, F_OK));
                         ASSERT_NOT_NULL((build_dir_mount = path_join(PRIVATE_UNIT_DIR, "build_dir")));
                         ASSERT_OK(mkdir_p(build_dir_mount, 0755));
-                        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, build_dir, build_dir_mount, NULL, MS_BIND, NULL));
+                        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, build_dir, build_dir_mount, /* fstype= */ NULL, MS_BIND, /* options= */ NULL));
                 }
 
                 FOREACH_STRING(p, "/dev/shm", "/root", "/tmp", "/var/tmp", "/var/lib")
-                        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", p, "tmpfs", MS_NOSUID|MS_NODEV, NULL));
+                        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", p, "tmpfs", MS_NOSUID|MS_NODEV, /* options= */ NULL));
 
                 if (build_dir_mount) {
                         int k;
@@ -1548,7 +1548,7 @@ static int prepare_ns(const char *process_name) {
                                 /* The build directory got overmounted by tmpfs, so let's use the "backup" bind mount to
                                  * bring it back. */
                                 ASSERT_OK(mkdir_p(build_dir, 0755));
-                                ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, build_dir_mount, build_dir, NULL, MS_MOVE, NULL));
+                                ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, build_dir_mount, build_dir, /* fstype= */ NULL, MS_MOVE, /* options= */ NULL));
                         }
                 }
 
@@ -1604,8 +1604,8 @@ TEST(run_tests_without_unshare) {
 
                 r = sym_seccomp_syscall_resolve_name("unshare");
                 ASSERT_NE(r, __NR_SCMP_ERROR);
-                ASSERT_OK(hashmap_ensure_put(&s, NULL, UINT32_TO_PTR(r + 1), INT_TO_PTR(-1)));
-                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true));
+                ASSERT_OK(hashmap_ensure_put(&s, /* hash_ops= */ NULL, UINT32_TO_PTR(r + 1), INT_TO_PTR(-1)));
+                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), /* log_missing= */ true));
 
                 /* Check unshare() is actually filtered. */
                 ASSERT_ERROR_ERRNO(unshare(CLONE_NEWNS), EOPNOTSUPP);
@@ -1629,7 +1629,7 @@ TEST(run_tests_unprivileged) {
         ASSERT_NOT_NULL((filters = strv_copy(strv_skip(saved_argv, 1))));
 
         if (prepare_ns("(test-execute-unprivileged)") == 0) {
-                ASSERT_OK(capability_bounding_set_drop(0, /* right_now= */ true));
+                ASSERT_OK(capability_bounding_set_drop(/* keep= */ 0, /* right_now= */ true));
 
                 can_unshare = false;
                 run_tests(RUNTIME_SCOPE_USER, filters);
@@ -1647,7 +1647,7 @@ static int intro(void) {
         if (running_in_chroot() != 0)
                 return log_tests_skipped("running in chroot");
 
-        if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
+        if (enter_cgroup_subroot(/* ret_cgroup= */ NULL) == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
         if (path_is_read_only_fs("/sys") > 0)

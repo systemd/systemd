@@ -367,7 +367,7 @@ static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 sd_json_variant *v = streq_ptr(argv[0], "list-interfaces") ?
                         sd_json_variant_by_key(reply, "interfaces") : reply;
 
-                return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                return sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
         }
 }
 
@@ -497,7 +497,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                         }
                 } else {
                         pager_open(arg_pager_flags);
-                        sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                        sd_json_variant_dump(reply, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 }
         }
 
@@ -515,7 +515,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON array: %m");
 
-                        sd_json_variant_dump(j, arg_json_format_flags, stdout, NULL);
+                        sd_json_variant_dump(j, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 }
         }
 
@@ -559,7 +559,7 @@ static int reply_callback(
         }
 
         if (!arg_quiet)
-                sd_json_variant_dump(parameters, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(parameters, arg_json_format_flags, stdout, /* prefix= */ NULL);
 
         return r;
 }
@@ -588,7 +588,7 @@ static int exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
         if (r < 0)
                 return log_error_errno(r, "Failed to rearrange file descriptors: %m");
 
-        r = fd_cloexec_many(fds, n_fds, false);
+        r = fd_cloexec_many(fds, n_fds, /* cloexec= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to disable O_CLOEXEC for file descriptors: %m");
 
@@ -839,7 +839,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return r;
 
                 pager_open(arg_pager_flags);
-                sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(reply, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 return r;
 
         } else if (arg_method_flags & SD_VARLINK_METHOD_ONEWAY) {
@@ -976,7 +976,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                 pager_open(arg_pager_flags);
 
-                sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(reply, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 return r;
         }
 
@@ -994,11 +994,11 @@ static int verb_validate_idl(int argc, char *argv[], uintptr_t _data, void *user
         fname = argc > 1 ? argv[1] : NULL;
 
         if (fname) {
-                r = read_full_file(fname, &text, NULL);
+                r = read_full_file(fname, &text, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read interface description file '%s': %m", fname);
         } else {
-                r = read_full_stream(stdin, &text, NULL);
+                r = read_full_stream(stdin, &text, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read interface description from stdin: %m");
 
@@ -1357,7 +1357,7 @@ static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, s
         int r;
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, /* parameters= */ NULL);
 
         r = sd_varlink_reply_and_upgrade(link, /* parameters= */ NULL, &input_fd, &output_fd);
         if (r < 0)

@@ -445,7 +445,7 @@ int in_addr_prefix_range(
 
         if (ret_start) {
                 start = *in;
-                r = in_addr_prefix_nth(family, &start, prefixlen, 0);
+                r = in_addr_prefix_nth(family, &start, prefixlen, /* nth= */ 0);
                 if (r < 0)
                         return r;
         }

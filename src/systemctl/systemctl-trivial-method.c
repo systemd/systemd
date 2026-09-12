@@ -38,7 +38,7 @@ int verb_trivial_method(int argc, char *argv[], uintptr_t _data, void *userdata)
                 streq(argv[0], "exit")          ? "Exit" :
                              /* poweroff */       "PowerOff";
 
-        r = bus_call_method(bus, bus_systemd_mgr, method, &error, NULL, NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, method, &error, /* ret_reply= */ NULL, /* types= */ NULL);
         if (r < 0 && arg_action == ACTION_SYSTEMCTL)
                 return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
 

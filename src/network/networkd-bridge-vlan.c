@@ -197,7 +197,7 @@ static int bridge_vlan_append_del_info(Link *link, sd_netlink_message *m) {
         assert(link->network);
         assert(m);
 
-        pvid = link_get_pvid(link, NULL);
+        pvid = link_get_pvid(link, /* ret_untagged= */ NULL);
 
         for (uint16_t k = 0; k < BRIDGE_VLAN_BITMAP_MAX; k++) {
 

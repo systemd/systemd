@@ -251,11 +251,11 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
 }
 
 int bus_service_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return bus_service_method_mount(message, userdata, reterr_error, false);
+        return bus_service_method_mount(message, userdata, reterr_error, /* is_image= */ false);
 }
 
 int bus_service_method_mount_image(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return bus_service_method_mount(message, userdata, reterr_error, true);
+        return bus_service_method_mount(message, userdata, reterr_error, /* is_image= */ true);
 }
 
 int bus_service_method_dump_file_descriptor_store(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {

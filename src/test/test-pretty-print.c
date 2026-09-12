@@ -51,11 +51,11 @@ TEST(terminal_urlify) {
 }
 
 TEST(cat_files) {
-        assert_se(cat_files("/no/such/file", NULL, 0) == -ENOENT);
-        assert_se(cat_files(NULL, NULL, 0) == 0);
+        assert_se(cat_files("/no/such/file", /* dropins= */ NULL, /* flags= */ 0) == -ENOENT);
+        assert_se(cat_files(/* file= */ NULL, /* dropins= */ NULL, /* flags= */ 0) == 0);
 
         if (access("/etc/fstab", R_OK) >= 0)
-                assert_se(cat_files("/etc/fstab", STRV_MAKE("/etc/fstab", "/etc/fstab"), 0) == 0);
+                assert_se(cat_files("/etc/fstab", STRV_MAKE("/etc/fstab", "/etc/fstab"), /* flags= */ 0) == 0);
 
         /* Test masked file (symlink to /dev/null) - should succeed with exit code 0 */
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;

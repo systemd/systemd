@@ -182,7 +182,7 @@ static int dhcp4_find_gateway_for_destination(
         if (r < 0)
                 return r;
         if (r > 0) {
-                r = sd_dhcp_lease_get_prefix(link->dhcp_lease, NULL, &max_prefixlen);
+                r = sd_dhcp_lease_get_prefix(link->dhcp_lease, /* ret_prefix= */ NULL, &max_prefixlen);
                 if (r < 0)
                         return r;
 
@@ -617,7 +617,7 @@ static int dhcp4_request_default_gateway(Link *link) {
         /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
          * a Router option, the DHCP client MUST ignore the Router option. */
         if (link->network->dhcp_use_routes &&
-            dhcp4_get_classless_static_or_static_routes(link, NULL, NULL) > 0)
+            dhcp4_get_classless_static_or_static_routes(link, /* ret_routes= */ NULL, /* ret_num= */ NULL) > 0)
                 return 0;
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
@@ -683,7 +683,7 @@ static int dhcp4_request_semi_static_routes(Link *link) {
                         continue;
                 }
 
-                r = route_dup(rt, NULL, &route);
+                r = route_dup(rt, /* nh= */ NULL, &route);
                 if (r < 0)
                         return r;
 
@@ -861,7 +861,7 @@ static int dhcp_reset_hostname(Link *link) {
                 return 0;
 
         /* If a hostname was set due to the lease, then unset it now. */
-        r = manager_set_hostname(link->manager, NULL);
+        r = manager_set_hostname(link->manager, /* hostname= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Failed to reset transient hostname: %m");
 
@@ -894,11 +894,11 @@ int dhcp4_lease_lost(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_static_nexthops(link, true);
+        r = link_request_static_nexthops(link, /* only_ipv4= */ true);
         if (r < 0)
                 return r;
 
-        return link_request_static_routes(link, true);
+        return link_request_static_routes(link, /* only_ipv4= */ true);
 }
 
 static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Address *address) {
@@ -935,7 +935,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: no address: %m");
 
-        r = sd_dhcp_lease_get_prefix(link->dhcp_lease, NULL, &prefixlen);
+        r = sd_dhcp_lease_get_prefix(link->dhcp_lease, /* ret_prefix= */ NULL, &prefixlen);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: no netmask: %m");
 
@@ -1011,7 +1011,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
                 address_unmark(existing);
 
         r = link_request_address(link, addr, &link->dhcp4_messages,
-                                 dhcp4_address_handler, NULL);
+                                 dhcp4_address_handler, /* ret= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv4 address: %m");
 
@@ -1068,7 +1068,7 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
                         dhcp4_pd_prefix_lost(link);
         }
 
-        return dhcp4_request_address_and_routes(link, false);
+        return dhcp4_request_address_and_routes(link, /* announce= */ false);
 }
 
 static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
@@ -1140,7 +1140,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                         return log_link_warning_errno(link, r, "Failed to process 6rd option: %m");
         }
 
-        return dhcp4_request_address_and_routes(link, true);
+        return dhcp4_request_address_and_routes(link, /* announce= */ true);
 }
 
 static int dhcp_lease_ip_change(sd_dhcp_client *client, Link *link) {
@@ -1354,7 +1354,7 @@ static int dhcp4_set_client_identifier(Link *link) {
                                 r = sd_dhcp_client_set_iaid_duid_raw(link->dhcp_client,
                                                                      link->network->dhcp_iaid_set,
                                                                      link->network->dhcp_iaid,
-                                                                     duid->type, NULL, 0);
+                                                                     duid->type, /* duid_data= */ NULL, /* duid_data_len= */ 0);
                         }
                 else
                         r = sd_dhcp_client_set_iaid_duid_raw(link->dhcp_client,
@@ -1505,7 +1505,7 @@ static int dhcp4_configure(Link *link) {
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to %s sending release message on stop: %m",
                                             enable_disable(link->network->dhcp_send_release));
 
-        r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, 0);
+        r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, /* priority= */ 0);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to attach event to DHCPv4 client: %m");
 
@@ -1861,7 +1861,7 @@ int link_request_dhcp4_client(Link *link) {
         if (link->dhcp_client)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_DHCP4_CLIENT, dhcp4_process_request, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_DHCP4_CLIENT, dhcp4_process_request, /* ret= */ NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the DHCPv4 client: %m");
 

@@ -47,7 +47,7 @@ static int has_multiple_graphics_cards(void) {
                 return r;
 
         /* class is an unsigned number, let's validate the value later. */
-        r = sd_device_enumerator_add_match_sysattr(e, "class", NULL, /* match= */ true);
+        r = sd_device_enumerator_add_match_sysattr(e, "class", /* value= */ NULL, /* match= */ true);
         if (r < 0)
                 return r;
 

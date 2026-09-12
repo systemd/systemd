@@ -61,7 +61,7 @@ static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userda
 
         local = argv[1];
         if (image_name_is_valid(local)) {
-                r = image_find(arg_runtime_scope, arg_class, local, NULL, &image);
+                r = image_find(arg_runtime_scope, arg_class, local, /* root= */ NULL, &image);
                 if (r == -ENOENT)
                         return log_error_errno(r, "Image %s not found.", local);
                 if (r < 0)
@@ -144,7 +144,7 @@ static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userda
 
         local = argv[1];
         if (image_name_is_valid(local)) {
-                r = image_find(arg_runtime_scope, arg_class, local, NULL, &image);
+                r = image_find(arg_runtime_scope, arg_class, local, /* root= */ NULL, &image);
                 if (r == -ENOENT)
                         return log_error_errno(r, "Image %s not found.", local);
                 if (r < 0)

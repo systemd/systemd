@@ -239,7 +239,7 @@ static int stdout_stream_log(
         priority = s->priority;
 
         if (s->level_prefix)
-                syslog_parse_priority(&p, &priority, false);
+                syslog_parse_priority(&p, &priority, /* with_facility= */ false);
 
         if (!client_context_test_priority(s->context, priority))
                 return 0;
@@ -252,7 +252,7 @@ static int stdout_stream_log(
                 return r;
 
         if (s->forward_to_syslog || s->manager->config.forward_to_syslog)
-                manager_forward_syslog(s->manager, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
+                manager_forward_syslog(s->manager, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, /* tv= */ NULL);
 
         if (s->forward_to_kmsg || s->manager->config.forward_to_kmsg)
                 manager_forward_kmsg(s->manager, priority, s->identifier, p, &s->ucred);
@@ -302,7 +302,7 @@ static int stdout_stream_log(
         if (message)
                 iovec[n++] = IOVEC_MAKE_STRING(message);
 
-        manager_dispatch_message(s->manager, iovec, n, m, s->context, NULL, priority, 0);
+        manager_dispatch_message(s->manager, iovec, n, m, s->context, /* tv= */ NULL, priority, /* object_pid= */ 0);
         return 0;
 }
 
@@ -574,7 +574,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         cmsg_close_all(&msghdr);
 
         if (l == 0) {
-                (void) stdout_stream_scan(s, s->buffer, s->length, /* force_flush= */ LINE_BREAK_EOF, NULL);
+                (void) stdout_stream_scan(s, s->buffer, s->length, /* force_flush= */ LINE_BREAK_EOF, /* ret_consumed= */ NULL);
                 goto terminate;
         }
 
@@ -585,7 +585,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         if (ucred && ucred->pid != s->ucred.pid) {
                 /* Force out any previously half-written lines from a different process, before we switch to
                  * the new ucred structure for everything we just added */
-                r = stdout_stream_scan(s, s->buffer, s->length, /* force_flush= */ LINE_BREAK_PID_CHANGE, NULL);
+                r = stdout_stream_scan(s, s->buffer, s->length, /* force_flush= */ LINE_BREAK_PID_CHANGE, /* ret_consumed= */ NULL);
                 if (r < 0)
                         goto terminate;
 
@@ -914,13 +914,13 @@ int manager_open_stdout_socket(Manager *m, const char *stdout_socket) {
                 if (listen(m->stdout_fd, SOMAXCONN_DELUXE) < 0)
                         return log_error_errno(errno, "listen(%s) failed: %m", sa.un.sun_path);
         } else
-                (void) fd_nonblock(m->stdout_fd, true);
+                (void) fd_nonblock(m->stdout_fd, /* nonblock= */ true);
 
-        r = setsockopt_int(m->stdout_fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = setsockopt_int(m->stdout_fd, SOL_SOCKET, SO_PASSCRED, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
 
-        r = setsockopt_int(m->stdout_fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+        r = setsockopt_int(m->stdout_fd, SOL_SOCKET, SO_PASSRIGHTS, /* value= */ false);
         if (r < 0)
                 log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS, ignoring: %m");
 

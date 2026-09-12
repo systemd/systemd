@@ -148,7 +148,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 {}
         };
 
-        r = machine_new(_MACHINE_CLASS_INVALID, NULL, &machine);
+        r = machine_new(_MACHINE_CLASS_INVALID, /* name= */ NULL, &machine);
         if (r < 0)
                 return r;
 
@@ -205,12 +205,12 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
         }
 
         r = machine_link(manager, machine);
         if (r == -EEXIST)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_EXISTS, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_EXISTS, /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -227,7 +227,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         /* the manager will free this machine */
         TAKE_PTR(machine);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int lookup_machine_by_name(sd_varlink *link, Manager *manager, const char *machine_name, Machine **ret_machine) {
@@ -337,7 +337,7 @@ int vl_method_unregister_internal(sd_varlink *link, sd_json_variant *parameters,
         if (r < 0)
                 return log_debug_errno(r, "Failed to finalize machine: %m");
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -364,7 +364,7 @@ int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return log_debug_errno(r, "Failed to stop machine: %m");
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_kill_whom, KillWhom, kill_whom_from_string);
@@ -408,7 +408,7 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         Machine *machine;
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -433,7 +433,7 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         if (r < 0)
                 return log_debug_errno(r, "Failed to send signal to machine: %m");
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 typedef enum MachineOpenMode {
@@ -556,7 +556,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
 
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -577,7 +577,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                                                 "Failed to check if machine '%s' is running in the root user namespace: %m",
                                                 machine->name);
                         if (r > 0)
-                                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
                 }
 
                 _cleanup_strv_free_ char **polkit_details = NULL;
@@ -598,7 +598,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
 
         ptmx_fd = machine_openpt(machine, O_RDWR|O_NOCTTY|O_CLOEXEC, &ptmx_name);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(ptmx_fd))
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, /* parameters= */ NULL);
         if (ptmx_fd < 0)
                 return log_debug_errno(ptmx_fd, "Failed to open pseudo terminal: %m");
 
@@ -610,9 +610,9 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 case MACHINE_OPEN_MODE_LOGIN:
                         r = machine_start_getty(machine, ptmx_name, /* error= */ NULL);
                         if (r == -ENOENT)
-                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_IPC, NULL);
+                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_IPC, /* parameters= */ NULL);
                         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
+                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, /* parameters= */ NULL);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to start getty for machine '%s': %m", machine->name);
 
@@ -622,9 +622,9 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                         assert(user && path && args); /* to avoid gcc complaining about possible uninitialized variables */
                         r = machine_start_shell(machine, ptmx_fd, ptmx_name, user, path, args, p.env, /* error= */ NULL);
                         if (r == -ENOENT)
-                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_IPC, NULL);
+                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_IPC, /* parameters= */ NULL);
                         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
+                                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, /* parameters= */ NULL);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to start shell for machine '%s': %m", machine->name);
 
@@ -637,7 +637,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
 
         ptmx_fd_idx = sd_varlink_push_fd(link, ptmx_fd);
         if (ERRNO_IS_PRIVILEGE(ptmx_fd_idx))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
         if (ptmx_fd_idx < 0)
                 return log_debug_errno(ptmx_fd_idx, "Failed to push file descriptor over varlink: %m");
 
@@ -700,17 +700,17 @@ int vl_method_map_from(sd_varlink *link, sd_json_variant *parameters, sd_varlink
 
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
         if (machine->class != MACHINE_CONTAINER)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, /* parameters= */ NULL);
 
         if (p.uid != UID_INVALID) {
                 r = machine_translate_uid(machine, p.uid, &converted_uid);
                 if (r == -ESRCH)
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_USER, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_USER, /* parameters= */ NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to map uid=%u for machine '%s': %m", p.uid, machine->name);
         }
@@ -718,7 +718,7 @@ int vl_method_map_from(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         if (p.gid != UID_INVALID) {
                 r = machine_translate_gid(machine, p.gid, &converted_gid);
                 if (r == -ESRCH)
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_GROUP, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_GROUP, /* parameters= */ NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to map gid=%u for machine '%s': %m", p.gid, machine->name);
         }
@@ -763,14 +763,14 @@ int vl_method_map_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_m
                 if (!uid_is_valid(p.uid))
                         return sd_varlink_error_invalid_parameter_name(link, "uid");
                 if (p.uid < 0x10000)
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_USER_IN_HOST_RANGE, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_USER_IN_HOST_RANGE, /* parameters= */ NULL);
         }
 
         if (p.gid != GID_INVALID) {
                 if (!gid_is_valid(p.gid))
                         return sd_varlink_error_invalid_parameter_name(link, "gid");
                 if (p.gid < 0x10000)
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_GROUP_IN_HOST_RANGE, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_GROUP_IN_HOST_RANGE, /* parameters= */ NULL);
         }
 
         if (p.uid != UID_INVALID) {
@@ -778,7 +778,7 @@ int vl_method_map_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_m
                 if (r < 0)
                         return log_debug_errno(r, "Failed to find machine for uid=%u: %m", p.uid);
                 if (!r)
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_USER, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_USER, /* parameters= */ NULL);
         }
 
         if (p.gid != GID_INVALID) {
@@ -786,12 +786,12 @@ int vl_method_map_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_m
                 if (r < 0)
                         return log_debug_errno(r, "Failed to find machine for gid=%u: %m", p.gid);
                 if (!r)
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_GROUP, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_GROUP, /* parameters= */ NULL);
         }
 
         if (machine_by_uid && machine_by_gid && machine_by_uid != machine_by_gid) {
                 log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Mapping of UID %u and GID %u resulted in two different machines", p.uid, p.gid);
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, /* parameters= */ NULL);
         }
 
         if (machine_by_uid)
@@ -799,7 +799,7 @@ int vl_method_map_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_m
         else if (machine_by_gid)
                 machine_name = machine_by_gid->name;
         else
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, /* parameters= */ NULL);
 
         r = sd_json_buildo(&v,
                            JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("uid", converted_uid, UID_INVALID),
@@ -858,12 +858,12 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
         Machine *machine;
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, /* parameters= */ NULL);
         if (r != 0)
                 return r;
 
         if (machine->class != MACHINE_CONTAINER)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, /* parameters= */ NULL);
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 /* NB: For now not opened up to owner of machine without auth */
@@ -885,7 +885,7 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 return log_debug_errno(r, "Failed to get machine UID shift: %m");
         if (uid_shift != 0) {
                 log_debug("Can't bind mount on container '%s' with user namespacing applied", machine->name);
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, /* parameters= */ NULL);
         }
 
         if (p.read_only)
@@ -905,7 +905,7 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount %s on %s in the namespace of machine '%s': %m", p.src, dest, machine->name);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 typedef struct MachineCopyParameters {
@@ -927,13 +927,13 @@ static int copy_done(Operation *operation, int ret, sd_bus_error *error) {
         assert(operation->link);
 
         if (ERRNO_IS_PRIVILEGE(ret))
-                return sd_varlink_error(operation->link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(operation->link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(ret))
-                return sd_varlink_error(operation->link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
+                return sd_varlink_error(operation->link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, /* parameters= */ NULL);
         if (ret < 0)
                 return sd_varlink_error_errno(operation->link, ret);
 
-        return sd_varlink_reply(operation->link, NULL);
+        return sd_varlink_reply(operation->link, /* parameters= */ NULL);
 }
 
 int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata, bool copy_from) {
@@ -956,7 +956,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
         assert(parameters);
 
         if (manager->n_operations >= OPERATIONS_MAX)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_TOO_MANY_OPERATIONS, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_TOO_MANY_OPERATIONS, /* parameters= */ NULL);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
@@ -972,12 +972,12 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
         Machine *machine;
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, /* parameters= */ NULL);
         if (r != 0)
                 return r;
 
         if (machine->class != MACHINE_CONTAINER)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, /* parameters= */ NULL);
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 /* NB: For now not opened up to owner of machine without auth */
@@ -1026,13 +1026,13 @@ int vl_method_open_root_directory_internal(sd_varlink *link, sd_json_variant *pa
 
         fd = machine_open_root_directory(machine);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(fd))
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_SUPPORTED, /* parameters= */ NULL);
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to open root directory of machine '%s': %m", machine->name);
 
         int fd_idx = sd_varlink_push_fd(link, fd);
         if (ERRNO_IS_PRIVILEGE(fd_idx))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
         if (fd_idx < 0)
                 return log_debug_errno(fd_idx, "Failed to push file descriptor over varlink: %m");
 

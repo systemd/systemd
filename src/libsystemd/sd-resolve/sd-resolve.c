@@ -508,7 +508,7 @@ int sd_resolve_new(sd_resolve **ret) {
         (void) fd_inc_sndbuf(resolve->fds[RESPONSE_SEND_FD], QUERIES_MAX * BUFSIZE);
         (void) fd_increase_rxbuf(resolve->fds[RESPONSE_RECV_FD], QUERIES_MAX * BUFSIZE);
 
-        (void) fd_nonblock(resolve->fds[RESPONSE_RECV_FD], true);
+        (void) fd_nonblock(resolve->fds[RESPONSE_RECV_FD], /* nonblock= */ true);
 
         *ret = TAKE_PTR(resolve);
         return 0;
@@ -774,7 +774,7 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
 
                         r = unserialize_addrinfo(&p, &l, &ai);
                         if (r < 0) {
-                                query_assign_errno(q, EAI_SYSTEM, r, 0);
+                                query_assign_errno(q, EAI_SYSTEM, r, /* h_error= */ 0);
                                 freeaddrinfo(q->addrinfo);
                                 q->addrinfo = NULL;
                                 break;
@@ -800,7 +800,7 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
                 if (ni_resp->hostlen > DNS_HOSTNAME_MAX ||
                     ni_resp->servlen > DNS_HOSTNAME_MAX ||
                     sizeof(NameInfoResponse) + ni_resp->hostlen + ni_resp->servlen > length)
-                        query_assign_errno(q, EAI_SYSTEM, EIO, 0);
+                        query_assign_errno(q, EAI_SYSTEM, EIO, /* h_error= */ 0);
                 else {
                         query_assign_errno(q, ni_resp->ret, ni_resp->_errno, ni_resp->_h_errno);
 
@@ -808,14 +808,14 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
                                 q->host = strndup((const char*) ni_resp + sizeof(NameInfoResponse),
                                                   ni_resp->hostlen-1);
                                 if (!q->host)
-                                        query_assign_errno(q, EAI_MEMORY, ENOMEM, 0);
+                                        query_assign_errno(q, EAI_MEMORY, ENOMEM, /* h_error= */ 0);
                         }
 
                         if (ni_resp->servlen > 0) {
                                 q->serv = strndup((const char*) ni_resp + sizeof(NameInfoResponse) + ni_resp->hostlen,
                                                   ni_resp->servlen-1);
                                 if (!q->serv)
-                                        query_assign_errno(q, EAI_MEMORY, ENOMEM, 0);
+                                        query_assign_errno(q, EAI_MEMORY, ENOMEM, /* h_error= */ 0);
                         }
                 }
 
@@ -995,7 +995,7 @@ int sd_resolve_getaddrinfo(
                 sd_resolve_getaddrinfo_handler_t callback,
                 void *userdata) {
 
-        return resolve_getaddrinfo_with_destroy_callback(resolve, ret_query, node, service, hints, callback, NULL, userdata);
+        return resolve_getaddrinfo_with_destroy_callback(resolve, ret_query, node, service, hints, callback, /* destroy_callback= */ NULL, userdata);
 }
 
 static int getaddrinfo_done(sd_resolve_query* q) {
@@ -1085,7 +1085,7 @@ int sd_resolve_getnameinfo(
                 sd_resolve_getnameinfo_handler_t callback,
                 void *userdata) {
 
-        return resolve_getnameinfo_with_destroy_callback(resolve, ret_query, sa, salen, flags, get, callback, NULL, userdata);
+        return resolve_getnameinfo_with_destroy_callback(resolve, ret_query, sa, salen, flags, get, callback, /* destroy_callback= */ NULL, userdata);
 }
 
 static int getnameinfo_done(sd_resolve_query *q) {

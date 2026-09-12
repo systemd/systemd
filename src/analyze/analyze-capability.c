@@ -28,7 +28,7 @@ int verb_capabilities(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+        (void) table_set_align_percent(table, table_get_cell(table, /* row= */ 0, 1), 100);
 
         /* Determine the maximum of the last cap known by the kernel and by us */
         last_cap = MAX((unsigned) CAP_LAST_CAP, cap_last_cap());

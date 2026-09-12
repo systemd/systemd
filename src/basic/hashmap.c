@@ -281,7 +281,7 @@ void hashmap_trim_pools(void) {
         if (getpid() != gettid())
                 return (void) log_debug("Not cleaning up memory pools, not in main thread.");
 
-        r = get_process_threads(0);
+        r = get_process_threads(/* pid= */ 0);
         if (r < 0)
                 return (void) log_debug_errno(r, "Failed to determine number of threads, not cleaning up memory pools: %m");
         if (r != 1)
@@ -586,7 +586,7 @@ static void base_remove_entry(HashmapBase *h, unsigned idx) {
              prev = left, left = next_idx(h, left)) {
                 dib = bucket_calculate_dib(h, left, dibs[left]);
                 assert(dib != 0);
-                bucket_move_entry(h, NULL, left, prev);
+                bucket_move_entry(h, /* swap= */ NULL, left, prev);
                 bucket_set_dib(h, prev, dib - 1);
         }
 
@@ -662,7 +662,7 @@ static unsigned hashmap_iterate_in_internal_order(HashmapBase *h, Iterator *i) {
                         i->idx = skip_free_buckets(h, h->indirect.idx_lowest_entry);
                         h->indirect.idx_lowest_entry = i->idx;
                 } else
-                        i->idx = skip_free_buckets(h, 0);
+                        i->idx = skip_free_buckets(h, /* idx= */ 0);
 
                 if (i->idx == IDX_NIL)
                         goto at_end;
@@ -956,7 +956,7 @@ void _hashmap_clear(HashmapBase *h) {
                         void *k = NULL;
                         void *v;
 
-                        v = _hashmap_first_key_and_value(h, true, &k);
+                        v = _hashmap_first_key_and_value(h, /* remove= */ true, &k);
 
                         if (h->hash_ops->free_key)
                                 h->hash_ops->free_key(k);

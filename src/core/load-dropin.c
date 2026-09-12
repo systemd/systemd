@@ -16,7 +16,7 @@
 int unit_find_dropin_paths(Unit *u, bool use_unit_path_cache, char ***paths) {
         assert(u);
 
-        return unit_file_find_dropin_paths(NULL,
+        return unit_file_find_dropin_paths(/* original_root= */ NULL,
                                            u->manager->lookup_paths.search_path,
                                            use_unit_path_cache ? u->manager->unit_path_cache : NULL,
                                            ".d", ".conf",
@@ -28,10 +28,10 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
         _cleanup_strv_free_ char **paths = NULL;
         int r;
 
-        r = unit_file_find_dropin_paths(NULL,
+        r = unit_file_find_dropin_paths(/* original_root= */ NULL,
                                         u->manager->lookup_paths.search_path,
                                         u->manager->unit_path_cache,
-                                        dir_suffix, NULL,
+                                        dir_suffix, /* file_suffix= */ NULL,
                                         u->id, u->aliases,
                                         &paths);
         if (r < 0)
@@ -97,7 +97,7 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
                         log_unit_warning(u, "%s dependency dropin %s target %s has different name",
                                          unit_dependency_to_string(dependency), *p, target);
 
-                r = unit_add_dependency_by_name(u, dependency, entry, true, UNIT_DEPENDENCY_FILE);
+                r = unit_add_dependency_by_name(u, dependency, entry, /* add_reference= */ true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Cannot add %s dependency on %s, ignoring: %m",
                                                unit_dependency_to_string(dependency), entry);
@@ -141,7 +141,7 @@ int unit_load_dropin(Unit *u) {
                 r = config_parse(u->id, *f, NULL,
                                  UNIT_VTABLE(u)->sections,
                                  config_item_perf_lookup, load_fragment_gperf_lookup,
-                                 0, u, &st);
+                                 /* flags= */ 0, u, &st);
                 if (r > 0)
                         u->dropin_mtime = MAX(u->dropin_mtime, timespec_load(&st.st_mtim));
         }

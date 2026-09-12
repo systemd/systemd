@@ -26,9 +26,9 @@ TEST(group_cpu_adjust_period) {
         /* Period 10ms, quota .001% -> adjust to 1s. */
         assert_se(1 * USEC_PER_SEC == cgroup_cpu_adjust_period(10 * USEC_PER_MSEC, 10, USEC_PER_MSEC, USEC_PER_SEC));
         /* Period 0ms, quota 200% -> adjust to 1ms. */
-        assert_se(1 * USEC_PER_MSEC == cgroup_cpu_adjust_period(0, 2 * USEC_PER_SEC, USEC_PER_MSEC, USEC_PER_SEC));
+        assert_se(1 * USEC_PER_MSEC == cgroup_cpu_adjust_period(/* period= */ 0, 2 * USEC_PER_SEC, USEC_PER_MSEC, USEC_PER_SEC));
         /* Period 0ms, quota 40% -> adjust to 2.5ms. */
-        assert_se(2500 == cgroup_cpu_adjust_period(0, 400 * USEC_PER_MSEC, USEC_PER_MSEC, USEC_PER_SEC));
+        assert_se(2500 == cgroup_cpu_adjust_period(/* period= */ 0, 400 * USEC_PER_MSEC, USEC_PER_MSEC, USEC_PER_SEC));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

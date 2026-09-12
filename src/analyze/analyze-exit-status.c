@@ -15,7 +15,7 @@ int verb_exit_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!table)
                 return log_oom();
 
-        r = table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+        r = table_set_align_percent(table, table_get_cell(table, /* row= */ 0, 1), 100);
         if (r < 0)
                 return log_error_errno(r, "Failed to right-align status: %m");
 

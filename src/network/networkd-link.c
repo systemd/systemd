@@ -152,7 +152,7 @@ bool link_has_ipv6_connectivity(Link *link) {
 
         assert(link);
 
-        link_get_address_states(link, NULL, &ipv6_address_state, NULL);
+        link_get_address_states(link, /* ret_ipv4= */ NULL, &ipv6_address_state, /* ret_all= */ NULL);
 
         switch (ipv6_address_state) {
         case LINK_ADDRESS_STATE_ROUTABLE:
@@ -657,11 +657,11 @@ static int link_request_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_static_nexthops(link, false);
+        r = link_request_static_nexthops(link, /* only_ipv4= */ false);
         if (r < 0)
                 return r;
 
-        r = link_request_static_routes(link, false);
+        r = link_request_static_routes(link, /* only_ipv4= */ false);
         if (r < 0)
                 return r;
 
@@ -924,7 +924,7 @@ static int link_put_carrier(Link *link, Link *carrier, Hashmap **h) {
         if (hashmap_contains(*h, INT_TO_PTR(carrier->ifindex)))
                 return 0;
 
-        r = hashmap_ensure_put(h, NULL, INT_TO_PTR(carrier->ifindex), carrier);
+        r = hashmap_ensure_put(h, /* hash_ops= */ NULL, INT_TO_PTR(carrier->ifindex), carrier);
         if (r < 0)
                 return r;
 
@@ -1087,28 +1087,28 @@ static int link_drop_requests(Link *link) {
                         case REQUEST_TYPE_ADDRESS: {
                                 Address *address = ASSERT_PTR(req->userdata);
 
-                                if (address_get(link, address, NULL) < 0)
+                                if (address_get(link, address, /* ret= */ NULL) < 0)
                                         RET_GATHER(ret, address_remove(address, link));
                                 break;
                         }
                         case REQUEST_TYPE_NEIGHBOR: {
                                 Neighbor *neighbor = ASSERT_PTR(req->userdata);
 
-                                if (neighbor_get(link, neighbor, NULL) < 0)
+                                if (neighbor_get(link, neighbor, /* ret= */ NULL) < 0)
                                         RET_GATHER(ret, neighbor_remove(neighbor, link));
                                 break;
                         }
                         case REQUEST_TYPE_NEXTHOP: {
                                 NextHop *nexthop = ASSERT_PTR(req->userdata);
 
-                                if (nexthop_get_by_id(link->manager, nexthop->id, NULL) < 0)
+                                if (nexthop_get_by_id(link->manager, nexthop->id, /* ret= */ NULL) < 0)
                                         RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
                                 break;
                         }
                         case REQUEST_TYPE_ROUTE: {
                                 Route *route = ASSERT_PTR(req->userdata);
 
-                                if (route_get(link->manager, route, NULL) < 0)
+                                if (route_get(link->manager, route, /* ret= */ NULL) < 0)
                                         RET_GATHER(ret, route_remove(route, link->manager));
                                 break;
                         }
@@ -1549,7 +1549,7 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
                 link_free_engines(link);
         }
 
-        link_update_operstate(link, true);
+        link_update_operstate(link, /* also_update_master= */ true);
         link_dirty(link);
 
         link_set_state(link, LINK_STATE_INITIALIZED);
@@ -1602,13 +1602,13 @@ static void link_reconfiguration_data_destroy_callback(LinkReconfigurationData *
                 (void) manager_clean_all(data->manager);
 
                 if (data->message) {
-                        r = sd_bus_reply_method_return(data->message, NULL);
+                        r = sd_bus_reply_method_return(data->message, /* types= */ NULL);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to reply for DBus method, ignoring: %m");
                 }
 
                 if (data->varlink) {
-                        r = sd_varlink_reply(data->varlink, NULL);
+                        r = sd_varlink_reply(data->varlink, /* parameters= */ NULL);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to reply to Varlink request, ignoring: %m");
                 }
@@ -1999,12 +1999,12 @@ static int link_carrier_lost(Link *link) {
                                          &link->carrier_lost_timer,
                                          CLOCK_BOOTTIME,
                                          usec,
-                                         0,
+                                         /* accuracy= */ 0,
                                          link_carrier_lost_handler,
                                          link,
-                                         0,
+                                         /* priority= */ 0,
                                          "link-carrier-loss",
-                                         true);
+                                         /* force_reset= */ true);
 }
 
 static int link_admin_state_up(Link *link) {
@@ -2085,7 +2085,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 Link *slave;
 
                 SET_FOREACH(slave, link->slaves) {
-                        link_update_operstate(slave, false);
+                        link_update_operstate(slave, /* also_update_master= */ false);
 
                         if (slave->carrier_state < LINK_CARRIER_STATE_CARRIER)
                                 carrier_state = LINK_CARRIER_STATE_DEGRADED_CARRIER;
@@ -2202,7 +2202,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 Link *master;
 
                 if (link_get_master(link, &master) >= 0)
-                        link_update_operstate(master, true);
+                        link_update_operstate(master, /* also_update_master= */ true);
         }
 }
 
@@ -2320,7 +2320,7 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
         link->flags = flags;
         link->kernel_operstate = operstate;
 
-        link_update_operstate(link, true);
+        link_update_operstate(link, /* also_update_master= */ true);
 
         r = 0;
 

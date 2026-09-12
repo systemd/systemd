@@ -78,21 +78,21 @@ int main(int argc, char *argv[]) {
         assert_se(sd_bus_attach_event(b, event, SD_EVENT_PRIORITY_NORMAL) >= 0);
 
         /* Watch b's name from a */
-        assert_se(sd_bus_track_new(a, &x, track_cb_x, NULL) >= 0);
+        assert_se(sd_bus_track_new(a, &x, track_cb_x, /* userdata= */ NULL) >= 0);
 
         assert_se(sd_bus_get_unique_name(b, &unique) >= 0);
 
         assert_se(sd_bus_track_add_name(x, unique) >= 0);
 
         /* Watch's a's own name from a */
-        assert_se(sd_bus_track_new(a, &y, track_cb_y, NULL) >= 0);
+        assert_se(sd_bus_track_new(a, &y, track_cb_y, /* userdata= */ NULL) >= 0);
 
         assert_se(sd_bus_get_unique_name(a, &unique) >= 0);
 
         assert_se(sd_bus_track_add_name(y, unique) >= 0);
 
         /* Basic tests. */
-        assert_se(sd_bus_track_new(a, &z, track_cb_z, NULL) >= 0);
+        assert_se(sd_bus_track_new(a, &z, track_cb_z, /* userdata= */ NULL) >= 0);
 
         /* non-recursive case */
         assert_se(sd_bus_track_set_recursive(z, false) >= 0);

@@ -127,7 +127,7 @@ int bus_image_method_rename(
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to rename image: %m");
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_image_method_clone(
@@ -238,7 +238,7 @@ int bus_image_method_mark_read_only(
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_image_method_set_limit(
@@ -282,7 +282,7 @@ int bus_image_method_set_limit(
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_image_method_get_hostname(
@@ -420,7 +420,7 @@ static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         assert(nodes);
 
         _cleanup_hashmap_free_ Hashmap *images = NULL;
-        r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, &images);
+        r = image_discover(m->runtime_scope, IMAGE_MACHINE, /* root= */ NULL, &images);
         if (r < 0)
                 return r;
 

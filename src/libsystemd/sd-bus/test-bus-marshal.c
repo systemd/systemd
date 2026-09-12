@@ -161,10 +161,10 @@ static void test_bus_fds_truncated(void) {
         int fd;
 
         /* Create two memfds and record their inodes for later verification */
-        memfd0 = ASSERT_OK(memfd_create_wrapper("test-fd-0", 0));
+        memfd0 = ASSERT_OK(memfd_create_wrapper("test-fd-0", /* mode= */ 0));
         ino0 = get_inode(memfd0);
 
-        memfd1 = ASSERT_OK(memfd_create_wrapper("test-fd-1", 0));
+        memfd1 = ASSERT_OK(memfd_create_wrapper("test-fd-1", /* mode= */ 0));
         ino1 = get_inode(memfd1);
 
         /* Create a bus for message operations (no actual connection needed) */
@@ -175,7 +175,7 @@ static void test_bus_fds_truncated(void) {
         /* Build a message containing two fds */
         ASSERT_OK(sd_bus_message_new_method_call(bus, &m, "foo.bar", "/", "foo.bar", "Ping"));
         ASSERT_OK(sd_bus_message_append(m, "hh", memfd0, memfd1));
-        ASSERT_OK(sd_bus_message_seal(m, 1, 0));
+        ASSERT_OK(sd_bus_message_seal(m, 1, /* timeout_usec= */ 0));
 
         /* Serialize the message to a blob */
         ASSERT_OK(bus_message_get_blob(m, &blob, &blob_size));
@@ -189,7 +189,7 @@ static void test_bus_fds_truncated(void) {
         /* Test 1: Parse with correct fd count, no truncation - should succeed */
         log_info("Test 1: Exact fd count match, got_ctrunc=false");
         void *blob_copy = ASSERT_NOT_NULL(memdup(blob, blob_size));
-        ASSERT_OK(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 2, /* got_ctrunc= */ false, NULL, &m));
+        ASSERT_OK(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 2, /* got_ctrunc= */ false, /* label= */ NULL, &m));
 
         /* Verify we can read both fds and they have the expected inodes */
         ASSERT_OK(sd_bus_message_read_basic(m, 'h', &fd));
@@ -206,7 +206,7 @@ static void test_bus_fds_truncated(void) {
         fds[0] = ASSERT_OK_ERRNO(fcntl(memfd0, F_DUPFD_CLOEXEC, 3));
 
         blob_copy = ASSERT_NOT_NULL(memdup(blob, blob_size));
-        ASSERT_ERROR(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 1, /* got_ctrunc= */ false, NULL, &m), EBADMSG);
+        ASSERT_ERROR(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 1, /* got_ctrunc= */ false, /* label= */ NULL, &m), EBADMSG);
         free(blob_copy);
         close(fds[0]);
         fds = mfree(fds);
@@ -217,7 +217,7 @@ static void test_bus_fds_truncated(void) {
         fds[0] = ASSERT_OK_ERRNO(fcntl(memfd0, F_DUPFD_CLOEXEC, 3));
 
         blob_copy = ASSERT_NOT_NULL(memdup(blob, blob_size));
-        ASSERT_OK(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 1, /* got_ctrunc= */ true, NULL, &m));
+        ASSERT_OK(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 1, /* got_ctrunc= */ true, /* label= */ NULL, &m));
 
         /* First fd should be readable and have correct inode */
         ASSERT_OK(sd_bus_message_read_basic(m, 'h', &fd));
@@ -237,7 +237,7 @@ static void test_bus_fds_truncated(void) {
         fds[2] = ASSERT_OK_ERRNO(fcntl(memfd0, F_DUPFD_CLOEXEC, 3));
 
         blob_copy = ASSERT_NOT_NULL(memdup(blob, blob_size));
-        ASSERT_ERROR(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 3, /* got_ctrunc= */ true, NULL, &m), EBADMSG);
+        ASSERT_ERROR(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 3, /* got_ctrunc= */ true, /* label= */ NULL, &m), EBADMSG);
         free(blob_copy);
         close(fds[0]);
         close(fds[1]);
@@ -247,7 +247,7 @@ static void test_bus_fds_truncated(void) {
         /* Test 5: Parse with zero fds when two were declared, with truncation flag - should succeed */
         log_info("Test 5: Zero fds when some declared, got_ctrunc=true");
         blob_copy = ASSERT_NOT_NULL(memdup(blob, blob_size));
-        ASSERT_OK(bus_message_from_malloc(bus, blob_copy, blob_size, NULL, 0, /* got_ctrunc= */ true, NULL, &m));
+        ASSERT_OK(bus_message_from_malloc(bus, blob_copy, blob_size, /* fds= */ NULL, /* n_fds= */ 0, /* got_ctrunc= */ true, /* label= */ NULL, &m));
 
         /* Both fd reads should fail since all were truncated */
         ASSERT_ERROR(sd_bus_message_read_basic(m, 'h', &fd), EBADMSG);
@@ -306,7 +306,7 @@ static void test_bus_nested_variant_depth_limit(void) {
 
         ASSERT_OK(sd_bus_new(&bus));
 
-        ASSERT_ERROR(bus_message_from_malloc(bus, buf, total, NULL, 0, false, NULL, &m), EBADMSG);
+        ASSERT_ERROR(bus_message_from_malloc(bus, buf, total, /* fds= */ NULL, /* n_fds= */ 0, /* got_ctrunc= */ false, /* label= */ NULL, &m), EBADMSG);
 }
 
 static void test_bus_label_escape(void) {
@@ -392,19 +392,19 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_append_array(m, 'i', integer_array, sizeof(integer_array));
         assert_se(r >= 0);
 
-        r = sd_bus_message_append_array(m, 'u', NULL, 0);
+        r = sd_bus_message_append_array(m, 'u', /* ptr= */ NULL, /* size= */ 0);
         assert_se(r >= 0);
 
         r = sd_bus_message_append(m, "a(stdo)", 1, "foo", 815ULL, 47.0, "/");
         assert_se(r >= 0);
 
-        r = sd_bus_message_seal(m, 4711, 0);
+        r = sd_bus_message_seal(m, 4711, /* timeout_usec= */ 0);
         assert_se(r >= 0);
 
         sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
         assert_se(mf = memstream_init(&ms));
-        sd_bus_message_dump(m, mf, 0);
+        sd_bus_message_dump(m, mf, /* flags= */ 0);
         assert_se(memstream_finalize(&ms, &first, &first_size) >= 0);
 
         r = bus_message_get_blob(m, &buffer, &sz);
@@ -419,8 +419,8 @@ int main(int argc, char *argv[]) {
                 GDBusMessage *g;
                 char *p;
 
-                g = sym_g_dbus_message_new_from_blob(buffer, sz, 0, NULL);
-                p = sym_g_dbus_message_print(g, 0);
+                g = sym_g_dbus_message_new_from_blob(buffer, sz, /* capabilities= */ 0, /* error= */ NULL);
+                p = sym_g_dbus_message_print(g, /* indent= */ 0);
                 log_info("%s", p);
                 sym_g_free(p);
                 sym_g_object_unref(g);
@@ -446,18 +446,18 @@ int main(int argc, char *argv[]) {
 
         m = sd_bus_message_unref(m);
 
-        r = bus_message_from_malloc(bus, buffer, sz, NULL, 0, /* got_ctrunc= */ false, NULL, &m);
+        r = bus_message_from_malloc(bus, buffer, sz, /* fds= */ NULL, /* n_fds= */ 0, /* got_ctrunc= */ false, /* label= */ NULL, &m);
         assert_se(r >= 0);
 
         sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
         assert_se(mf = memstream_init(&ms));
-        sd_bus_message_dump(m, mf, 0);
+        sd_bus_message_dump(m, mf, /* flags= */ 0);
         assert_se(memstream_finalize(&ms, &second, &second_size) >= 0);
         assert_se(first_size == second_size);
         assert_se(memcmp(first, second, first_size) == 0);
 
-        assert_se(sd_bus_message_rewind(m, true) >= 0);
+        assert_se(sd_bus_message_rewind(m, /* complete= */ true) >= 0);
 
         r = sd_bus_message_read(m, "ssasg", &x, &x2, 2, &y, &z, &a_signature);
         assert_se(r > 0);
@@ -540,23 +540,23 @@ int main(int argc, char *argv[]) {
         assert_se(ABS(dbl - 47.0) < 0.1);
         assert_se(streq(y, "/"));
 
-        r = sd_bus_message_peek_type(m, NULL, NULL);
+        r = sd_bus_message_peek_type(m, /* ret_type= */ NULL, /* ret_contents= */ NULL);
         assert_se(r == 0);
 
         r = sd_bus_message_new_method_call(bus, &copy, "foobar.waldo", "/", "foobar.waldo", "Piep");
         assert_se(r >= 0);
 
-        r = sd_bus_message_rewind(m, true);
+        r = sd_bus_message_rewind(m, /* complete= */ true);
         assert_se(r >= 0);
 
-        r = sd_bus_message_copy(copy, m, true);
+        r = sd_bus_message_copy(copy, m, /* all= */ true);
         assert_se(r >= 0);
 
-        r = sd_bus_message_seal(copy, 4712, 0);
+        r = sd_bus_message_seal(copy, 4712, /* timeout_usec= */ 0);
         assert_se(r >= 0);
 
         assert_se(mf = memstream_init(&ms));
-        sd_bus_message_dump(copy, mf, 0);
+        sd_bus_message_dump(copy, mf, /* flags= */ 0);
         assert_se(memstream_finalize(&ms, &third, &third_size) >= 0);
 
         printf("<%.*s>\n", (int) first_size, first);
@@ -565,15 +565,15 @@ int main(int argc, char *argv[]) {
         assert_se(first_size == third_size);
         assert_se(memcmp(first, third, third_size) == 0);
 
-        r = sd_bus_message_rewind(m, true);
+        r = sd_bus_message_rewind(m, /* complete= */ true);
         assert_se(r >= 0);
 
-        assert_se(sd_bus_message_verify_type(m, 's', NULL) > 0);
+        assert_se(sd_bus_message_verify_type(m, 's', /* contents= */ NULL) > 0);
 
         r = sd_bus_message_skip(m, "ssasg");
         assert_se(r > 0);
 
-        assert_se(sd_bus_message_verify_type(m, 's', NULL) > 0);
+        assert_se(sd_bus_message_verify_type(m, 's', /* contents= */ NULL) > 0);
 
         r = sd_bus_message_skip(m, "sass");
         assert_se(r >= 0);
@@ -583,13 +583,13 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_skip(m, "a{yv}y(ty)y(yt)y");
         assert_se(r >= 0);
 
-        assert_se(sd_bus_message_verify_type(m, 'b', NULL) > 0);
+        assert_se(sd_bus_message_verify_type(m, 'b', /* contents= */ NULL) > 0);
 
         r = sd_bus_message_read(m, "b", &boolean);
         assert_se(r > 0);
         assert_se(boolean);
 
-        r = sd_bus_message_enter_container(m, 0, NULL);
+        r = sd_bus_message_enter_container(m, /* type= */ 0, /* contents= */ NULL);
         assert_se(r > 0);
 
         r = sd_bus_message_read(m, "(ss)", &x, &y);

@@ -28,7 +28,7 @@ static int vl_method_reload(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         log_debug("Received io.systemd.service.Reload()");
         manager_reload(userdata, /* force= */ true);
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -47,7 +47,7 @@ static int vl_method_set_log_level(sd_varlink *link, sd_json_variant *parameters
 
         log_debug("Received io.systemd.service.SetLogLevel(%i)", level);
         manager_set_log_level(userdata, level);
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_set_trace(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -67,7 +67,7 @@ static int vl_method_set_trace(sd_varlink *link, sd_json_variant *parameters, sd
 
         log_debug("Received io.systemd.service.SetTrace(%s)", yes_no(enable));
         manager_set_trace(userdata, enable);
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_set_children_max(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -87,7 +87,7 @@ static int vl_method_set_children_max(sd_varlink *link, sd_json_variant *paramet
 
         log_debug("Received io.systemd.Udev.SetChildrenMax(%u)", n);
         manager_set_children_max(userdata, n);
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_set_environment(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -107,7 +107,7 @@ static int vl_method_set_environment(sd_varlink *link, sd_json_variant *paramete
 
         log_debug("Received io.systemd.Udev.SetEnvironment()");
         manager_set_environment(userdata, v);
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_revert(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -122,7 +122,7 @@ static int vl_method_revert(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         log_debug("Received io.systemd.Udev.Revert()");
         manager_revert(manager);
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -150,7 +150,7 @@ static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *pa
         if (manager->stop_exec_queue)
                 (void) manager_reset_kill_workers_timer(manager);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_exit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -167,7 +167,7 @@ static int vl_method_exit(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         log_debug("Received io.systemd.udev.Exit()");
         manager_exit(userdata);
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 int manager_start_varlink_server(Manager *manager, int fd) {

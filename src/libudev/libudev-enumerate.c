@@ -53,7 +53,7 @@ _public_ struct udev_enumerate* udev_enumerate_new(struct udev *udev) {
         if (r < 0)
                 return_with_errno(NULL, r);
 
-        list = udev_list_new(false);
+        list = udev_list_new(/* unique= */ false);
         if (!list)
                 return_with_errno(NULL, ENOMEM);
 
@@ -139,7 +139,7 @@ _public_ struct udev_list_entry* udev_enumerate_get_list_entry(struct udev_enume
                         if (r < 0)
                                 return_with_errno(NULL, r);
 
-                        if (!udev_list_entry_add(udev_enumerate->devices_list, syspath, NULL))
+                        if (!udev_list_entry_add(udev_enumerate->devices_list, syspath, /* value= */ NULL))
                                 return_with_errno(NULL, ENOMEM);
                 }
 
@@ -170,7 +170,7 @@ _public_ int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enum
         if (!subsystem)
                 return 0;
 
-        r = sd_device_enumerator_add_match_subsystem(udev_enumerate->enumerator, subsystem, true);
+        r = sd_device_enumerator_add_match_subsystem(udev_enumerate->enumerator, subsystem, /* match= */ true);
         if (r < 0)
                 return r;
 
@@ -195,7 +195,7 @@ _public_ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_en
         if (!subsystem)
                 return 0;
 
-        r = sd_device_enumerator_add_match_subsystem(udev_enumerate->enumerator, subsystem, false);
+        r = sd_device_enumerator_add_match_subsystem(udev_enumerate->enumerator, subsystem, /* match= */ false);
         if (r < 0)
                 return r;
 
@@ -221,7 +221,7 @@ _public_ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumer
         if (!sysattr)
                 return 0;
 
-        r = sd_device_enumerator_add_match_sysattr(udev_enumerate->enumerator, sysattr, value, true);
+        r = sd_device_enumerator_add_match_sysattr(udev_enumerate->enumerator, sysattr, value, /* match= */ true);
         if (r < 0)
                 return r;
 
@@ -247,7 +247,7 @@ _public_ int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enum
         if (!sysattr)
                 return 0;
 
-        r = sd_device_enumerator_add_match_sysattr(udev_enumerate->enumerator, sysattr, value, false);
+        r = sd_device_enumerator_add_match_sysattr(udev_enumerate->enumerator, sysattr, value, /* match= */ false);
         if (r < 0)
                 return r;
 

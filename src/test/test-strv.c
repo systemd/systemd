@@ -133,7 +133,7 @@ TEST(strv_join) {
         assert_se(q);
         ASSERT_STREQ(q, "one;two;three");
 
-        _cleanup_free_ char *r = strv_join((char **)input_table_multiple, NULL);
+        _cleanup_free_ char *r = strv_join((char **)input_table_multiple, /* separator= */ NULL);
         assert_se(r);
         ASSERT_STREQ(r, "one two three");
 
@@ -167,7 +167,7 @@ TEST(strv_join_full) {
         assert_se(q);
         ASSERT_STREQ(q, "fooone;footwo;foothree");
 
-        _cleanup_free_ char *u = strv_join_full((char **)input_table_multiple, NULL, "foo");
+        _cleanup_free_ char *u = strv_join_full((char **)input_table_multiple, /* separator= */ NULL, "foo");
         assert_se(u);
         ASSERT_STREQ(u, "fooone footwo foothree");
 
@@ -265,60 +265,60 @@ TEST(strv_split) {
         strv_free_erase(l);
 
         /* Setting NULL for separator is equivalent to WHITESPACE */
-        l = strv_split("    one    two\t three", NULL);
+        l = strv_split("    one    two\t three", /* separators= */ NULL);
         assert_se(l);
         assert_se(strv_equal(l, (char**) input_table_multiple));
 
         strv_free_erase(l);
 
-        assert_se(strv_split_full(&l, "    one    two\t three", NULL, 0) == 3);
+        assert_se(strv_split_full(&l, "    one    two\t three", /* separators= */ NULL, /* flags= */ 0) == 3);
         assert_se(strv_equal(l, (char**) input_table_multiple));
 
         strv_free_erase(l);
 
-        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \" ' four  five'", NULL, EXTRACT_UNQUOTE) == 3);
+        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \" ' four  five'", /* separators= */ NULL, EXTRACT_UNQUOTE) == 3);
         assert_se(strv_equal(l, (char**) input_table_quoted));
 
         l = strv_free_erase(l);
 
         /* missing last quote causes extraction to fail. */
-        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \" ' four  five", NULL, EXTRACT_UNQUOTE) == -EINVAL);
+        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \" ' four  five", /* separators= */ NULL, EXTRACT_UNQUOTE) == -EINVAL);
         assert_se(!l);
 
         /* missing last quote, but the last element is _not_ ignored with EXTRACT_RELAX. */
-        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \" ' four  five", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 3);
+        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \" ' four  five", /* separators= */ NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 3);
         assert_se(strv_equal(l, (char**) input_table_quoted));
 
         l = strv_free_erase(l);
 
         /* missing separator between items */
-        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \"' four  five'", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 2);
+        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \"' four  five'", /* separators= */ NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 2);
         assert_se(strv_equal(l, (char**) input_table_quoted_joined));
 
         l = strv_free_erase(l);
 
-        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \"' four  five", NULL,
+        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \"' four  five", /* separators= */ NULL,
                                      EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_UNESCAPE_RELAX) == 2);
         assert_se(strv_equal(l, (char**) input_table_quoted_joined));
 
         l = strv_free_erase(l);
 
-        assert_se(strv_split_full(&l, "\\", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_UNESCAPE_RELAX) == 1);
+        assert_se(strv_split_full(&l, "\\", /* separators= */ NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_UNESCAPE_RELAX) == 1);
         assert_se(strv_equal(l, STRV_MAKE("\\")));
 
         l = strv_free_erase(l);
 
-        assert_se(l = strv_split("\\", NULL));
+        assert_se(l = strv_split("\\", /* separators= */ NULL));
         assert_se(strv_equal(l, STRV_MAKE("\\")));
 
         l = strv_free_erase(l);
 
-        assert_se(l = strv_split("aa\\ bb\\", NULL));
+        assert_se(l = strv_split("aa\\ bb\\", /* separators= */ NULL));
         assert_se(strv_equal(l, STRV_MAKE("aa\\", "bb\\")));
 
         l = strv_free_erase(l);
 
-        assert_se(l = strv_split("aa\" bb'", NULL));
+        assert_se(l = strv_split("aa\" bb'", /* separators= */ NULL));
         assert_se(strv_equal(l, STRV_MAKE("aa\"", "bb'")));
 }
 
@@ -330,16 +330,16 @@ TEST(strv_split_empty) {
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(l = strv_split("", NULL));
+        assert_se(l = strv_split("", /* separators= */ NULL));
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_full(&l, "", NULL, 0) == 0);
+        assert_se(strv_split_full(&l, "", /* separators= */ NULL, /* flags= */ 0) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_full(&l, "", NULL, EXTRACT_UNQUOTE) == 0);
+        assert_se(strv_split_full(&l, "", /* separators= */ NULL, EXTRACT_UNQUOTE) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
         l = strv_free(l);
@@ -359,12 +359,12 @@ TEST(strv_split_empty) {
         assert_se(strv_isempty(l));
         strv_free(l);
 
-        l = strv_split("    ", NULL);
+        l = strv_split("    ", /* separators= */ NULL);
         assert_se(l);
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_full(&l, "    ", NULL, 0) == 0);
+        assert_se(strv_split_full(&l, "    ", /* separators= */ NULL, /* flags= */ 0) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
         l = strv_free(l);
@@ -374,12 +374,12 @@ TEST(strv_split_empty) {
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_full(&l, "    ", NULL, EXTRACT_UNQUOTE) == 0);
+        assert_se(strv_split_full(&l, "    ", /* separators= */ NULL, EXTRACT_UNQUOTE) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_full(&l, "    ", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 0);
+        assert_se(strv_split_full(&l, "    ", /* separators= */ NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
 }
@@ -405,14 +405,14 @@ TEST(strv_split_and_extend_full) {
         const char *str2 = "waldo::::::baz";
         int r;
 
-        r = strv_split_and_extend(&l, "", ":", false);
+        r = strv_split_and_extend(&l, "", ":", /* filter_duplicates= */ false);
         assert_se(r == (int) strv_length(l));
-        r = strv_split_and_extend_full(&l, str1, ":", false, EXTRACT_DONT_COALESCE_SEPARATORS);
+        r = strv_split_and_extend_full(&l, str1, ":", /* filter_duplicates= */ false, EXTRACT_DONT_COALESCE_SEPARATORS);
         assert_se(r == (int) strv_length(l));
         ASSERT_STREQ(l[0], "");
         ASSERT_STREQ(l[1], "foo:bar");
         ASSERT_STREQ(l[2], "");
-        r = strv_split_and_extend_full(&l, str2, ":", false, 0);
+        r = strv_split_and_extend_full(&l, str2, ":", /* filter_duplicates= */ false, /* flags= */ 0);
         assert_se(r == (int) strv_length(l));
         ASSERT_STREQ(l[3], "waldo");
         ASSERT_STREQ(l[4], "baz");
@@ -466,7 +466,7 @@ TEST(strv_split_newlines_full) {
                 "\n\n\n";
         _cleanup_strv_free_ char **l = NULL;
 
-        assert_se(strv_split_newlines_full(&l, str, 0) == 3);
+        assert_se(strv_split_newlines_full(&l, str, /* flags= */ 0) == 3);
         assert_se(strv_equal(l, (char**) input_table_unescape));
 
         l = strv_free(l);
@@ -500,7 +500,7 @@ TEST(strv_overlap) {
 TEST(strv_remove_strv) {
         _cleanup_strv_free_ char **l = NULL;
 
-        ASSERT_OK(strv_extend_strv(&l, STRV_MAKE("one", "two", "three", "four"), false));
+        ASSERT_OK(strv_extend_strv(&l, STRV_MAKE("one", "two", "three", "four"), /* filter_duplicates= */ false));
 
         ASSERT_PTR_EQ(strv_remove_strv(l, STRV_MAKE("two", "four")), l);
         ASSERT_TRUE(strv_equal(l, STRV_MAKE("one", "three")));
@@ -651,7 +651,7 @@ TEST(strv_extend_strv) {
         assert_se(a);
         assert_se(b);
 
-        assert_se(strv_extend_strv(&a, b, true) == 3);
+        assert_se(strv_extend_strv(&a, b, /* filter_duplicates= */ true) == 3);
 
         ASSERT_STREQ(a[0], "abc");
         ASSERT_STREQ(a[1], "def");
@@ -661,7 +661,7 @@ TEST(strv_extend_strv) {
         ASSERT_STREQ(a[5], "pqr");
         assert_se(strv_length(a) == 6);
 
-        assert_se(strv_extend_strv(&n, b, false) >= 0);
+        assert_se(strv_extend_strv(&n, b, /* filter_duplicates= */ false) >= 0);
         ASSERT_STREQ(n[0], "jkl");
         ASSERT_STREQ(n[1], "mno");
         ASSERT_STREQ(n[2], "abc");
@@ -680,7 +680,7 @@ TEST(strv_extend_strv_consume) {
         s2 = b[1];
         s3 = b[3];
 
-        ASSERT_EQ(strv_extend_strv_consume(&a, TAKE_PTR(b), true), 3);
+        ASSERT_EQ(strv_extend_strv_consume(&a, TAKE_PTR(b), /* filter_duplicates= */ true), 3);
 
         assert_se(s1 == a[3]);
         assert_se(s2 == a[4]);
@@ -699,7 +699,7 @@ TEST(strv_extend_strv_consume) {
         s1 = c[0];
         s2 = c[1];
 
-        ASSERT_EQ(strv_extend_strv_consume(&n, TAKE_PTR(c), false), 2);
+        ASSERT_EQ(strv_extend_strv_consume(&n, TAKE_PTR(c), /* filter_duplicates= */ false), 2);
 
         assert_se(s1 == n[0]);
         assert_se(s2 == n[1]);
@@ -840,11 +840,11 @@ TEST(strv_foreach_pair) {
 TEST(strv_insert) {
         _cleanup_strv_free_ char **a = NULL;
 
-        assert_se(strv_insert(&a, 0, strdup("first")) == 0);
+        assert_se(strv_insert(&a, /* position= */ 0, strdup("first")) == 0);
         ASSERT_STREQ(a[0], "first");
         assert_se(!a[1]);
 
-        assert_se(strv_insert(&a, 0, NULL) == 0);
+        assert_se(strv_insert(&a, /* position= */ 0, /* value= */ NULL) == 0);
         ASSERT_STREQ(a[0], "first");
         assert_se(!a[1]);
 
@@ -1096,7 +1096,7 @@ TEST(strv_fnmatch) {
         assert_se(!strv_fnmatch(STRV_EMPTY, "a"));
 
         v = strv_new("xxx", "*\\*", "yyy");
-        assert_se(!strv_fnmatch_full(v, "\\", 0, NULL));
+        assert_se(!strv_fnmatch_full(v, "\\", /* flags= */ 0, /* ret_matched_pos= */ NULL));
         assert_se(strv_fnmatch_full(v, "\\", FNM_NOESCAPE, &pos));
         assert_se(pos == 1);
 }
@@ -1106,7 +1106,7 @@ TEST(strv_extend_join) {
 
         assert_se(strv_extend_assignment(&v, "MESSAGE", "ABC") >= 0);
         assert_se(strv_extend_assignment(&v, "ABC", "QER") >= 0);
-        assert_se(strv_extend_assignment(&v, "MISSING", NULL) >= 0);
+        assert_se(strv_extend_assignment(&v, "MISSING", /* rhs= */ NULL) >= 0);
 
         assert_se(strv_length(v) == 2);
         ASSERT_STREQ(v[0], "MESSAGE=ABC");
@@ -1156,9 +1156,9 @@ TEST(strv_copy_n) {
 TEST(strv_find_first_field) {
         char **haystack = STRV_MAKE("a", "b", "c", "d", "e", "f", "g", "h", "i", "j");
 
-        ASSERT_NULL(strv_find_first_field(NULL, NULL));
-        ASSERT_NULL(strv_find_first_field(NULL, haystack));
-        ASSERT_NULL(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "b"), NULL));
+        ASSERT_NULL(strv_find_first_field(/* needles= */ NULL, /* haystack= */ NULL));
+        ASSERT_NULL(strv_find_first_field(/* needles= */ NULL, haystack));
+        ASSERT_NULL(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "b"), /* haystack= */ NULL));
         ASSERT_NULL(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "b"), haystack));
         ASSERT_STREQ(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "a", "c"), haystack), "b");
         ASSERT_STREQ(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "c", "a"), haystack), "d");

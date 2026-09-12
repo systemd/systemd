@@ -181,7 +181,7 @@ int json_stream_set_allow_fd_passing_output(JsonStream *s, bool enabled);
 int json_stream_enqueue_full(JsonStream *s, sd_json_variant *m, const int fds[], size_t n_fds);
 
 static inline int json_stream_enqueue(JsonStream *s, sd_json_variant *m) {
-        return json_stream_enqueue_full(s, m, NULL, 0);
+        return json_stream_enqueue_full(s, m, /* fds= */ NULL, /* n_fds= */ 0);
 }
 
 int json_stream_peek_input_fd(const JsonStream *s, size_t i);

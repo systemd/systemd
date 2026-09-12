@@ -76,7 +76,7 @@ static int fake_filesystems(void) {
 
         FOREACH_ELEMENT(fakefs, fakefss) {
                 r = mount_nofollow_verbose(fakefs->ignore_mount_error ? LOG_NOTICE : LOG_ERR,
-                                           fakefs->src, fakefs->target, NULL, MS_BIND, NULL);
+                                           fakefs->src, fakefs->target, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
                 if (r < 0 && !fakefs->ignore_mount_error)
                         return r;
         }
@@ -141,7 +141,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to open device '%s'", devpath);
 
-        assert_se(event = udev_event_new(dev, NULL, EVENT_TEST_RULE_RUNNER));
+        assert_se(event = udev_event_new(dev, /* worker= */ NULL, EVENT_TEST_RULE_RUNNER));
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP) >= 0);
 

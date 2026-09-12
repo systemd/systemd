@@ -168,7 +168,7 @@ int extension_has_forbidden_content(const char *root) {
         /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
          * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
          * merged.) */
-        r = chase("/usr/lib/os-release", root, CHASE_PREFIX_ROOT, NULL, NULL);
+        r = chase("/usr/lib/os-release", root, CHASE_PREFIX_ROOT, /* ret_path= */ NULL, /* ret_fd= */ NULL);
         if (r > 0) {
                 log_debug("Extension contains '/usr/lib/os-release', which is not allowed, refusing.");
                 return 1;

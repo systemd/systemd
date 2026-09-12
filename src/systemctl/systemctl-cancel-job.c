@@ -36,7 +36,7 @@ int verb_cancel(int argc, char *argv[], uintptr_t data, void *userdata) {
                 if (q < 0)
                         return log_error_errno(q, "Failed to parse job id \"%s\": %m", *name);
 
-                q = bus_call_method(bus, bus_systemd_mgr, "CancelJob", &error, NULL, "u", id);
+                q = bus_call_method(bus, bus_systemd_mgr, "CancelJob", &error, /* ret_reply= */ NULL, "u", id);
                 if (q < 0) {
                         log_warning_errno(q, "Failed to cancel job %"PRIu32", ignoring: %s",
                                           id, bus_error_message(&error, q));

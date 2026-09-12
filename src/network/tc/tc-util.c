@@ -48,7 +48,7 @@ int tc_time_to_tick(usec_t t, uint32_t *ret) {
 
         assert(ret);
 
-        r = tc_init(&ticks_in_usec, NULL);
+        r = tc_init(&ticks_in_usec, /* ret_hz= */ NULL);
         if (r < 0)
                 return r;
 

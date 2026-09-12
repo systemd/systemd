@@ -91,11 +91,11 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        r = sd_event_add_memory_pressure(m->event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
@@ -103,7 +103,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 log_debug_errno(r, "Failed to enable watchdog handling, ignoring: %m");
 
-        r = sd_event_add_signal(m->event, NULL, SIGUSR2|SD_EVENT_SIGNAL_PROCMASK, on_sigusr2, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR2|SD_EVENT_SIGNAL_PROCMASK, on_sigusr2, m);
         if (r < 0)
                 return r;
 
@@ -147,7 +147,7 @@ static int start_one_worker(Manager *m) {
                 /* Child */
 
                 if (m->listen_fd == 3) {
-                        r = fd_cloexec(3, false);
+                        r = fd_cloexec(3, /* cloexec= */ false);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to turn off O_CLOEXEC for fd 3: %m");
                                 _exit(EXIT_FAILURE);
@@ -251,7 +251,7 @@ int manager_startup(Manager *m) {
         assert(m);
         assert(m->listen_fd < 0);
 
-        n = sd_listen_fds(false);
+        n = sd_listen_fds(/* unset_environment= */ false);
         if (n < 0)
                 return log_error_errno(n, "Failed to determine number of passed file descriptors: %m");
         if (n > 1)

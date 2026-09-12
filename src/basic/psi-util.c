@@ -55,7 +55,7 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
                 return -ENODATA;
 
         /* extracts either avgX=Y.Z or total=X */
-        while ((r = extract_first_word(&cline, &word, NULL, 0)) > 0) {
+        while ((r = extract_first_word(&cline, &word, /* separators= */ NULL, /* flags= */ 0)) > 0) {
                 _cleanup_free_ char *w = word;
                 const char *v;
 
@@ -144,7 +144,7 @@ int is_pressure_supported(void) {
                 return cached;
 
         FOREACH_STRING(p, "/proc/pressure/cpu", "/proc/pressure/io", "/proc/pressure/memory") {
-                r = read_virtual_file(p, 0, NULL, NULL);
+                r = read_virtual_file(p, /* max_size= */ 0, /* ret_contents= */ NULL, /* ret_size= */ NULL);
                 if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         return (cached = false);
                 if (r < 0)

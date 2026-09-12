@@ -49,7 +49,7 @@ static gcry_mpi_t mpi_import(const void *buf, size_t buflen) {
         gcry_mpi_t h;
         _unused_ unsigned len;
 
-        assert_se(sym_gcry_mpi_scan(&h, GCRYMPI_FMT_USG, buf, buflen, NULL) == 0);
+        assert_se(sym_gcry_mpi_scan(&h, GCRYMPI_FMT_USG, buf, buflen, /* nscanned= */ NULL) == 0);
         len = (sym_gcry_mpi_get_nbits(h) + 7) / 8;
         assert(len <= buflen);
         assert(sym_gcry_mpi_cmp_ui(h, 0) >= 0);
@@ -90,7 +90,7 @@ static void det_randomize(void *buf, size_t buflen, const void *seed, size_t see
         uint32_t ctr;
 
         olen = sym_gcry_md_get_algo_dlen(RND_HASH);
-        err = sym_gcry_md_open(&hd, RND_HASH, 0);
+        err = sym_gcry_md_open(&hd, RND_HASH, /* flags= */ 0);
         assert_se(gcry_err_code(err) == GPG_ERR_NO_ERROR); /* This shouldn't happen */
         sym_gcry_md_write(hd, seed, seedlen);
         sym_gcry_md_putc(hd, (idx >> 24) & 0xff);
@@ -105,7 +105,7 @@ static void det_randomize(void *buf, size_t buflen, const void *seed, size_t see
                 sym_gcry_md_putc(hd2, (ctr >> 16) & 0xff);
                 sym_gcry_md_putc(hd2, (ctr >>  8) & 0xff);
                 sym_gcry_md_putc(hd2, (ctr >>  0) & 0xff);
-                sym_gcry_md_ctl(hd2, GCRYCTL_FINALIZE, NULL, 0);
+                sym_gcry_md_ctl(hd2, GCRYCTL_FINALIZE, /* buffer= */ NULL, /* buflen= */ 0);
                 cpylen = (buflen < olen) ? buflen : olen;
                 memcpy(buf, sym_gcry_md_read(hd2, RND_HASH), cpylen);
                 sym_gcry_md_close(hd2);
@@ -129,7 +129,7 @@ static gcry_mpi_t genprime3mod4(int bits, const void *seed, size_t seedlen, uint
         buf[buflen - 1] |= 0x03; /* set lower two bits, to have result 3 (mod 4) */
 
         p = mpi_import(buf, buflen);
-        while (sym_gcry_prime_check(p, 0))
+        while (sym_gcry_prime_check(p, /* flags= */ 0))
                 sym_gcry_mpi_add_ui(p, p, 4);
 
         return p;
@@ -154,14 +154,14 @@ static gcry_mpi_t twopowmodphi(uint64_t m, gcry_mpi_t p) {
         gcry_mpi_t phi, r;
         int n;
 
-        phi = sym_gcry_mpi_new(0);
+        phi = sym_gcry_mpi_new(/* nbits= */ 0);
         sym_gcry_mpi_sub_ui(phi, p, 1);
 
         /* count number of used bits in m */
         for (n = 0; (1ULL << n) <= m; n++)
                 ;
 
-        r = sym_gcry_mpi_new(0);
+        r = sym_gcry_mpi_new(/* nbits= */ 0);
         sym_gcry_mpi_set_ui(r, 1);
         while (n) { /* square and multiply algorithm for fast exponentiation */
                 n--;
@@ -179,8 +179,8 @@ static gcry_mpi_t twopowmodphi(uint64_t m, gcry_mpi_t p) {
 
 /* Decompose $x \in Z_n$ into $(xp,xq) \in Z_p \times Z_q$ using Chinese Remainder Theorem */
 static void CRT_decompose(gcry_mpi_t *xp, gcry_mpi_t *xq, gcry_mpi_t x, gcry_mpi_t p, gcry_mpi_t q) {
-        *xp = sym_gcry_mpi_new(0);
-        *xq = sym_gcry_mpi_new(0);
+        *xp = sym_gcry_mpi_new(/* nbits= */ 0);
+        *xq = sym_gcry_mpi_new(/* nbits= */ 0);
         sym_gcry_mpi_mod(*xp, x, p);
         sym_gcry_mpi_mod(*xq, x, q);
 }
@@ -189,9 +189,9 @@ static void CRT_decompose(gcry_mpi_t *xp, gcry_mpi_t *xq, gcry_mpi_t x, gcry_mpi
 static void CRT_compose(gcry_mpi_t *x, gcry_mpi_t xp, gcry_mpi_t xq, gcry_mpi_t p, gcry_mpi_t q) {
         gcry_mpi_t a, u;
 
-        a = sym_gcry_mpi_new(0);
-        u = sym_gcry_mpi_new(0);
-        *x = sym_gcry_mpi_new(0);
+        a = sym_gcry_mpi_new(/* nbits= */ 0);
+        u = sym_gcry_mpi_new(/* nbits= */ 0);
+        *x = sym_gcry_mpi_new(/* nbits= */ 0);
         sym_gcry_mpi_subm(a, xq, xp, q);
         sym_gcry_mpi_invm(u, p, q);
         sym_gcry_mpi_mulm(a, a, u, q); /* a = (xq - xp) / p  (mod q) */
@@ -246,7 +246,7 @@ int FSPRG_GenMK(void *msk, void *mpk, const void *seed, size_t seedlen, unsigned
         VALIDATE_SECPAR(_secpar);
         secpar = _secpar;
 
-        r = initialize_libgcrypt(false);
+        r = initialize_libgcrypt(/* secmem= */ false);
         if (r < 0)
                 return r;
 
@@ -266,7 +266,7 @@ int FSPRG_GenMK(void *msk, void *mpk, const void *seed, size_t seedlen, unsigned
         }
 
         if (mpk) {
-                n = sym_gcry_mpi_new(0);
+                n = sym_gcry_mpi_new(/* nbits= */ 0);
                 sym_gcry_mpi_mul(n, p, q);
                 assert(sym_gcry_mpi_get_nbits(n) == secpar);
 
@@ -291,7 +291,7 @@ int FSPRG_GenState0(void *state, const void *mpk, const void *seed, size_t seedl
         uint16_t secpar;
         int r;
 
-        r = initialize_libgcrypt(false);
+        r = initialize_libgcrypt(/* secmem= */ false);
         if (r < 0)
                 return r;
 
@@ -319,7 +319,7 @@ int FSPRG_Evolve(void *state) {
         uint64_t epoch;
         int r;
 
-        r = initialize_libgcrypt(false);
+        r = initialize_libgcrypt(/* secmem= */ false);
         if (r < 0)
                 return r;
 
@@ -359,7 +359,7 @@ int FSPRG_Seek(void *state, uint64_t epoch, const void *msk, const void *seed, s
         uint16_t secpar;
         int r;
 
-        r = initialize_libgcrypt(false);
+        r = initialize_libgcrypt(/* secmem= */ false);
         if (r < 0)
                 return r;
 
@@ -367,7 +367,7 @@ int FSPRG_Seek(void *state, uint64_t epoch, const void *msk, const void *seed, s
         p  = mpi_import(msk + 2 + 0 * (secpar / 2) / 8, (secpar / 2) / 8);
         q  = mpi_import(msk + 2 + 1 * (secpar / 2) / 8, (secpar / 2) / 8);
 
-        n = sym_gcry_mpi_new(0);
+        n = sym_gcry_mpi_new(/* nbits= */ 0);
         sym_gcry_mpi_mul(n, p, q);
 
         x = gensquare(n, seed, seedlen, RND_GEN_X, secpar);
@@ -407,7 +407,7 @@ int FSPRG_GetKey(const void *state, void *key, size_t keylen, uint32_t idx) {
         uint16_t secpar;
         int r;
 
-        r = initialize_libgcrypt(false);
+        r = initialize_libgcrypt(/* secmem= */ false);
         if (r < 0)
                 return r;
 

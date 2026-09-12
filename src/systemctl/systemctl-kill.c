@@ -41,7 +41,7 @@ int verb_kill(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (streq(arg_job_mode(), "fail"))
                 kill_whom = strjoina(kill_whom, "-fail");
 
-        r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
+        r = expand_unit_names(bus, strv_skip(argv, 1), /* suffix= */ NULL, &names, /* ret_expanded= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -54,7 +54,7 @@ int verb_kill(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                         bus_systemd_mgr,
                                         "QueueSignalUnit",
                                         &error,
-                                        NULL,
+                                        /* ret_reply= */ NULL,
                                         "ssii", *name, kill_whom, arg_signal, arg_kill_value);
                 else if (arg_kill_subgroup)
                         q = bus_call_method(
@@ -62,7 +62,7 @@ int verb_kill(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                         bus_systemd_mgr,
                                         "KillUnitSubgroup",
                                         &error,
-                                        NULL,
+                                        /* ret_reply= */ NULL,
                                         "sssi", *name, kill_whom, arg_kill_subgroup, arg_signal);
                 else
                         q = bus_call_method(
@@ -70,7 +70,7 @@ int verb_kill(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                         bus_systemd_mgr,
                                         "KillUnit",
                                         &error,
-                                        NULL,
+                                        /* ret_reply= */ NULL,
                                         "ssi", *name, kill_whom, arg_signal);
                 if (q < 0) {
                         RET_GATHER(r, log_error_errno(q, "Failed to kill unit %s: %s", *name, bus_error_message(&error, q)));
@@ -78,7 +78,7 @@ int verb_kill(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 }
 
                 if (w) {
-                        q = bus_wait_for_units_add_unit(w, *name, BUS_WAIT_FOR_INACTIVE|BUS_WAIT_NO_JOB, NULL, NULL);
+                        q = bus_wait_for_units_add_unit(w, *name, BUS_WAIT_FOR_INACTIVE|BUS_WAIT_NO_JOB, /* callback= */ NULL, /* userdata= */ NULL);
                         if (q < 0)
                                 RET_GATHER(r, log_error_errno(q, "Failed to watch unit %s: %m", *name));
                 }

@@ -34,34 +34,34 @@ static void test_invalid_item(const char *str) {
 }
 
 TEST(valid_items) {
-        test_valid_item("any", AF_UNSPEC, 0, 0, 0);
-        test_valid_item("0-65535", AF_UNSPEC, 0, 0, 0);
-        test_valid_item("ipv4", AF_INET, 0, 0, 0);
-        test_valid_item("ipv6", AF_INET6, 0, 0, 0);
-        test_valid_item("ipv4:any", AF_INET, 0, 0, 0);
-        test_valid_item("ipv6:any", AF_INET6, 0, 0, 0);
-        test_valid_item("tcp", AF_UNSPEC, IPPROTO_TCP, 0, 0);
-        test_valid_item("udp", AF_UNSPEC, IPPROTO_UDP, 0, 0);
-        test_valid_item("tcp:any", AF_UNSPEC, IPPROTO_TCP, 0, 0);
-        test_valid_item("udp:any", AF_UNSPEC, IPPROTO_UDP, 0, 0);
-        test_valid_item("0", AF_UNSPEC, 0, 1, 0);
-        test_valid_item("6666", AF_UNSPEC, 0, 1, 6666);
-        test_valid_item("6666-6667", AF_UNSPEC, 0, 2, 6666);
-        test_valid_item("65535", AF_UNSPEC, 0, 1, 65535);
-        test_valid_item("1-65535", AF_UNSPEC, 0, 65535, 1);
-        test_valid_item("ipv4:tcp", AF_INET, IPPROTO_TCP, 0, 0);
-        test_valid_item("ipv4:udp", AF_INET, IPPROTO_UDP, 0, 0);
-        test_valid_item("ipv6:tcp", AF_INET6, IPPROTO_TCP, 0, 0);
-        test_valid_item("ipv6:udp", AF_INET6, IPPROTO_UDP, 0, 0);
-        test_valid_item("ipv4:6666", AF_INET, 0, 1, 6666);
-        test_valid_item("ipv6:6666", AF_INET6, 0, 1, 6666);
+        test_valid_item("any", AF_UNSPEC, /* expected_ip_protocol= */ 0, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("0-65535", AF_UNSPEC, /* expected_ip_protocol= */ 0, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("ipv4", AF_INET, /* expected_ip_protocol= */ 0, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("ipv6", AF_INET6, /* expected_ip_protocol= */ 0, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("ipv4:any", AF_INET, /* expected_ip_protocol= */ 0, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("ipv6:any", AF_INET6, /* expected_ip_protocol= */ 0, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("tcp", AF_UNSPEC, IPPROTO_TCP, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("udp", AF_UNSPEC, IPPROTO_UDP, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("tcp:any", AF_UNSPEC, IPPROTO_TCP, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("udp:any", AF_UNSPEC, IPPROTO_UDP, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("0", AF_UNSPEC, /* expected_ip_protocol= */ 0, 1, /* expected_port_min= */ 0);
+        test_valid_item("6666", AF_UNSPEC, /* expected_ip_protocol= */ 0, 1, 6666);
+        test_valid_item("6666-6667", AF_UNSPEC, /* expected_ip_protocol= */ 0, 2, 6666);
+        test_valid_item("65535", AF_UNSPEC, /* expected_ip_protocol= */ 0, 1, 65535);
+        test_valid_item("1-65535", AF_UNSPEC, /* expected_ip_protocol= */ 0, 65535, 1);
+        test_valid_item("ipv4:tcp", AF_INET, IPPROTO_TCP, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("ipv4:udp", AF_INET, IPPROTO_UDP, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("ipv6:tcp", AF_INET6, IPPROTO_TCP, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("ipv6:udp", AF_INET6, IPPROTO_UDP, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("ipv4:6666", AF_INET, /* expected_ip_protocol= */ 0, 1, 6666);
+        test_valid_item("ipv6:6666", AF_INET6, /* expected_ip_protocol= */ 0, 1, 6666);
         test_valid_item("tcp:6666", AF_UNSPEC, IPPROTO_TCP, 1, 6666);
         test_valid_item("udp:6666", AF_UNSPEC, IPPROTO_UDP, 1, 6666);
         test_valid_item("ipv4:tcp:6666", AF_INET, IPPROTO_TCP, 1, 6666);
         test_valid_item("ipv6:tcp:6666", AF_INET6, IPPROTO_TCP, 1, 6666);
         test_valid_item("ipv6:udp:6666-6667", AF_INET6, IPPROTO_UDP, 2, 6666);
-        test_valid_item("ipv6:tcp:any", AF_INET6, IPPROTO_TCP, 0, 0);
-        test_valid_item("ipv6:tcp:0", AF_INET6, IPPROTO_TCP, 1, 0);
+        test_valid_item("ipv6:tcp:any", AF_INET6, IPPROTO_TCP, /* expected_nr_ports= */ 0, /* expected_port_min= */ 0);
+        test_valid_item("ipv6:tcp:0", AF_INET6, IPPROTO_TCP, 1, /* expected_port_min= */ 0);
 }
 
 TEST(invalid_items) {

@@ -13,7 +13,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL, *null = NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
 
-        if (outside_size_range(size, 0, 65536))
+        if (outside_size_range(size, /* lower= */ 0, 65536))
                 return 0;
 
         fuzz_setup_logging();
@@ -28,8 +28,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(f = data_to_file(data, size));
 
         (void) manager_deserialize(m, f, fdset);
-        (void) manager_serialize(m, null, fdset, true);
-        (void) manager_serialize(m, null, fdset, false);
+        (void) manager_serialize(m, null, fdset, /* switching_root= */ true);
+        (void) manager_serialize(m, null, fdset, /* switching_root= */ false);
 
         return 0;
 }

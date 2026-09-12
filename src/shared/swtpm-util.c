@@ -242,7 +242,7 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
         }
 
         /* Persist swtpm_setup's freshly created TPM state before writing the completion marker. */
-        r = syncfs_path(state_dir_fd, NULL);
+        r = syncfs_path(state_dir_fd, /* path= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to sync TPM state directory: %m");
 

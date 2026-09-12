@@ -40,30 +40,30 @@ static void test_rlimit_parse_format_one(int resource, const char *string, rlim_
 }
 
 TEST(rlimit_parse_format) {
-        test_rlimit_parse_format_one(RLIMIT_NOFILE, "4:5", 4, 5, 0, "4:5");
-        test_rlimit_parse_format_one(RLIMIT_NOFILE, "6", 6, 6, 0, "6");
-        test_rlimit_parse_format_one(RLIMIT_NOFILE, "infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
-        test_rlimit_parse_format_one(RLIMIT_NOFILE, "infinity:infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
-        test_rlimit_parse_format_one(RLIMIT_NOFILE, "8:infinity", 8, RLIM_INFINITY, 0, "8:infinity");
-        test_rlimit_parse_format_one(RLIMIT_CPU, "25min:13h", (25*USEC_PER_MINUTE) / USEC_PER_SEC, (13*USEC_PER_HOUR) / USEC_PER_SEC, 0, "1500:46800");
-        test_rlimit_parse_format_one(RLIMIT_NOFILE, "", 0, 0, -EINVAL, NULL);
-        test_rlimit_parse_format_one(RLIMIT_NOFILE, "5:4", 0, 0, -EILSEQ, NULL);
-        test_rlimit_parse_format_one(RLIMIT_NOFILE, "5:4:3", 0, 0, -EINVAL, NULL);
-        test_rlimit_parse_format_one(RLIMIT_NICE, "20", 20, 20, 0, "20");
-        test_rlimit_parse_format_one(RLIMIT_NICE, "40", 40, 40, 0, "40");
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "4:5", 4, 5, /* ret= */ 0, "4:5");
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "6", 6, 6, /* ret= */ 0, "6");
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "infinity", RLIM_INFINITY, RLIM_INFINITY, /* ret= */ 0, "infinity");
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "infinity:infinity", RLIM_INFINITY, RLIM_INFINITY, /* ret= */ 0, "infinity");
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "8:infinity", 8, RLIM_INFINITY, /* ret= */ 0, "8:infinity");
+        test_rlimit_parse_format_one(RLIMIT_CPU, "25min:13h", (25*USEC_PER_MINUTE) / USEC_PER_SEC, (13*USEC_PER_HOUR) / USEC_PER_SEC, /* ret= */ 0, "1500:46800");
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "", /* soft= */ 0, /* hard= */ 0, -EINVAL, /* formatted= */ NULL);
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "5:4", /* soft= */ 0, /* hard= */ 0, -EILSEQ, /* formatted= */ NULL);
+        test_rlimit_parse_format_one(RLIMIT_NOFILE, "5:4:3", /* soft= */ 0, /* hard= */ 0, -EINVAL, /* formatted= */ NULL);
+        test_rlimit_parse_format_one(RLIMIT_NICE, "20", 20, 20, /* ret= */ 0, "20");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "40", 40, 40, /* ret= */ 0, "40");
         test_rlimit_parse_format_one(RLIMIT_NICE, "41", 41, 41, -ERANGE, "41");
-        test_rlimit_parse_format_one(RLIMIT_NICE, "0", 0, 0, 0, "0");
-        test_rlimit_parse_format_one(RLIMIT_NICE, "-7", 27, 27, 0, "27");
-        test_rlimit_parse_format_one(RLIMIT_NICE, "-20", 40, 40, 0, "40");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "0", /* soft= */ 0, /* hard= */ 0, /* ret= */ 0, "0");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "-7", 27, 27, /* ret= */ 0, "27");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "-20", 40, 40, /* ret= */ 0, "40");
         test_rlimit_parse_format_one(RLIMIT_NICE, "-21", 41, 41, -ERANGE, "41");
-        test_rlimit_parse_format_one(RLIMIT_NICE, "-0", 20, 20, 0, "20");
-        test_rlimit_parse_format_one(RLIMIT_NICE, "+7", 13, 13, 0, "13");
-        test_rlimit_parse_format_one(RLIMIT_NICE, "+19", 1, 1, 0, "1");
-        test_rlimit_parse_format_one(RLIMIT_NICE, "+20", 0, 0, -ERANGE, "0");
-        test_rlimit_parse_format_one(RLIMIT_NICE, "+0", 20, 20, 0, "20");
-        test_rlimit_parse_format_one(RLIMIT_NICE, "+0", 20, 20, 0, "20");
-        test_rlimit_parse_format_one(RLIMIT_RTTIME, "25min:13h", 25*USEC_PER_MINUTE, 13*USEC_PER_HOUR, 0, "1500000000:46800000000");
-        test_rlimit_parse_format_one(RLIMIT_RTTIME, "infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "-0", 20, 20, /* ret= */ 0, "20");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "+7", 13, 13, /* ret= */ 0, "13");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "+19", 1, 1, /* ret= */ 0, "1");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "+20", /* soft= */ 0, /* hard= */ 0, -ERANGE, "0");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "+0", 20, 20, /* ret= */ 0, "20");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "+0", 20, 20, /* ret= */ 0, "20");
+        test_rlimit_parse_format_one(RLIMIT_RTTIME, "25min:13h", 25*USEC_PER_MINUTE, 13*USEC_PER_HOUR, /* ret= */ 0, "1500000000:46800000000");
+        test_rlimit_parse_format_one(RLIMIT_RTTIME, "infinity", RLIM_INFINITY, RLIM_INFINITY, /* ret= */ 0, "infinity");
 }
 
 TEST(rlimit_from_string) {

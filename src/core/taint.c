@@ -29,7 +29,7 @@ static int short_uid_gid_range(UIDRangeUsernsMode mode) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to load uid_map or gid_map: %m");
 
-        return !uid_range_covers(p, 0, 65535);
+        return !uid_range_covers(p, /* start= */ 0, 65535);
 }
 
 char** taint_strv(void) {
@@ -53,10 +53,10 @@ char** taint_strv(void) {
         if (readlink_malloc("/var/run", &var_run) < 0 || !PATH_IN_SET(var_run, "../run", "/run"))
                 stage[n++] = "var-run-bad";
 
-        if (clock_is_localtime(NULL) > 0)
+        if (clock_is_localtime(/* adjtime_path= */ NULL) > 0)
                 stage[n++] = "local-hwclock";
 
-        if (os_release_support_ended(NULL, /* quiet= */ true, NULL) > 0)
+        if (os_release_support_ended(/* support_end= */ NULL, /* quiet= */ true, /* ret_eol= */ NULL) > 0)
                 stage[n++] = "support-ended";
 
         struct utsname uts;

@@ -33,13 +33,13 @@ static int match_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_e
 static int object_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         int r;
 
-        if (sd_bus_message_is_method_error(m, NULL))
+        if (sd_bus_message_is_method_error(m, /* name= */ NULL))
                 return 0;
 
         if (sd_bus_message_is_method_call(m, "org.object.test", "Foobar")) {
                 log_info("Invoked Foobar() on %s", sd_bus_message_get_path(m));
 
-                r = sd_bus_reply_method_return(m, NULL);
+                r = sd_bus_reply_method_return(m, /* types= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send reply: %m");
 
@@ -76,27 +76,27 @@ static int server_init(sd_bus **ret) {
         log_info("Unique ID: %s", unique);
         log_info("Can send file handles: %i", sd_bus_can_send(bus, 'h'));
 
-        r = sd_bus_request_name(bus, "org.freedesktop.systemd.test", 0);
+        r = sd_bus_request_name(bus, "org.freedesktop.systemd.test", /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire name: %m");
 
-        r = sd_bus_add_fallback(bus, NULL, "/foo/bar", object_callback, NULL);
+        r = sd_bus_add_fallback(bus, /* ret_slot= */ NULL, "/foo/bar", object_callback, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add object: %m");
 
-        r = sd_bus_match_signal(bus, NULL, NULL, NULL, "foo.bar", "Notify", match_callback, NULL);
+        r = sd_bus_match_signal(bus, /* ret= */ NULL, /* sender= */ NULL, /* path= */ NULL, "foo.bar", "Notify", match_callback, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match: %m");
 
-        r = sd_bus_match_signal(bus, NULL, NULL, NULL, "foo.bar", "NotifyTo", match_callback, NULL);
+        r = sd_bus_match_signal(bus, /* ret= */ NULL, /* sender= */ NULL, /* path= */ NULL, "foo.bar", "NotifyTo", match_callback, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match: %m");
 
-        r = sd_bus_add_match(bus, NULL, "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged'", match_callback, NULL);
+        r = sd_bus_add_match(bus, /* ret_slot= */ NULL, "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged'", match_callback, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match: %m");
 
-        bus_match_dump(stdout, &bus->match_callbacks, 0);
+        bus_match_dump(stdout, &bus->match_callbacks, /* level= */ 0);
 
         *ret = TAKE_PTR(bus);
         return 0;
@@ -165,14 +165,14 @@ static int server(void *userdata) {
 
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "ExitClient1")) {
 
-                        r = sd_bus_reply_method_return(m, NULL);
+                        r = sd_bus_reply_method_return(m, /* types= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send reply: %m");
 
                         client1_gone = true;
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "ExitClient2")) {
 
-                        r = sd_bus_reply_method_return(m, NULL);
+                        r = sd_bus_reply_method_return(m, /* types= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send reply: %m");
 
@@ -183,7 +183,7 @@ static int server(void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        r = sd_bus_reply_method_return(m, NULL);
+                        r = sd_bus_reply_method_return(m, /* types= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send reply: %m");
 
@@ -203,11 +203,11 @@ static int server(void *userdata) {
                                 return log_error_errno(n, "Failed to write to fd: %m");
                         }
 
-                        r = sd_bus_reply_method_return(m, NULL);
+                        r = sd_bus_reply_method_return(m, /* types= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send reply: %m");
 
-                } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
+                } else if (sd_bus_message_is_method_call(m, /* interface= */ NULL, /* member= */ NULL)) {
 
                         r = sd_bus_reply_method_error(
                                         m,
@@ -272,7 +272,7 @@ static int client1(void *userdata) {
                         "org.freedesktop.systemd.test",
                         "FileDescriptor",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "h",
                         pp[1]);
         if (r < 0) {
@@ -302,7 +302,7 @@ finish:
                 if (r < 0)
                         log_error_errno(r, "Failed to allocate method call: %m");
                 else
-                        sd_bus_send(bus, q, NULL);
+                        sd_bus_send(bus, q, /* ret_cookie= */ NULL);
 
         }
 
@@ -344,7 +344,7 @@ static int client2(void *userdata) {
                 goto finish;
         }
 
-        r = sd_bus_send(bus, m, NULL);
+        r = sd_bus_send(bus, m, /* ret_cookie= */ NULL);
         if (r < 0) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
@@ -363,7 +363,7 @@ static int client2(void *userdata) {
                 goto finish;
         }
 
-        r = sd_bus_send(bus, m, NULL);
+        r = sd_bus_send(bus, m, /* ret_cookie= */ NULL);
         if (r < 0) {
                 log_error("Failed to issue signal: %s", bus_error_message(&error, r));
                 goto finish;
@@ -383,7 +383,7 @@ static int client2(void *userdata) {
                 goto finish;
         }
 
-        r = sd_bus_send(bus, m, NULL);
+        r = sd_bus_send(bus, m, /* ret_cookie= */ NULL);
         if (r < 0) {
                 log_error("Failed to issue signal to: %s", bus_error_message(&error, r));
                 goto finish;
@@ -403,7 +403,7 @@ static int client2(void *userdata) {
                 goto finish;
         }
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
@@ -455,14 +455,14 @@ static int client2(void *userdata) {
                 goto finish;
         }
 
-        r = sd_bus_call_async(bus, NULL, m, quit_callback, &quit, 200 * USEC_PER_MSEC);
+        r = sd_bus_call_async(bus, /* ret_slot= */ NULL, m, quit_callback, &quit, 200 * USEC_PER_MSEC);
         if (r < 0) {
                 log_info("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
         }
 
         while (!quit) {
-                r = sd_bus_process(bus, NULL);
+                r = sd_bus_process(bus, /* ret= */ NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to process requests: %m");
                         goto finish;
@@ -494,7 +494,7 @@ finish:
                         goto finish;
                 }
 
-                (void) sd_bus_send(bus, q, NULL);
+                (void) sd_bus_send(bus, q, /* ret_cookie= */ NULL);
         }
 
         return r;
@@ -552,7 +552,7 @@ TEST(ctrunc) {
 
         /* Create a series of memfds, appending each to the message */
         for (int i = 0; i < n_fds_to_send; i++) {
-                _cleanup_close_ int memfd = memfd_create_wrapper("ctrunc-test", 0);
+                _cleanup_close_ int memfd = memfd_create_wrapper("ctrunc-test", /* mode= */ 0);
                 ASSERT_OK(memfd);
                 memfd_st_ino[i] = get_inode(memfd);
                 ASSERT_OK(sd_bus_message_append(sent, "h", memfd));
@@ -560,7 +560,7 @@ TEST(ctrunc) {
         ASSERT_OK(sd_bus_message_close_container(sent));
 
         /* Send the message - keep 'sent' alive to hold the duplicated fd references */
-        ASSERT_OK(sd_bus_send(bus, sent, NULL));
+        ASSERT_OK(sd_bus_send(bus, sent, /* ret_cookie= */ NULL));
 
         /* Now turn down the fd limit, receive the message, and turn it back up again */
         ASSERT_OK_ERRNO(getrlimit(RLIMIT_NOFILE, &orig_rl));
@@ -612,7 +612,7 @@ TEST(ctrunc) {
         recvd = sd_bus_message_unref(recvd);
 
         /* Send the message again without the fd limits to make sure the connection still works */
-        ASSERT_OK(sd_bus_send(bus, sent, NULL));
+        ASSERT_OK(sd_bus_send(bus, sent, /* ret_cookie= */ NULL));
         ASSERT_OK(get_one_message(bus, &recvd));
         ASSERT_TRUE(sd_bus_message_is_method_call(recvd, "org.freedesktop.systemd.test", "SendFds"));
 
@@ -645,8 +645,8 @@ TEST(chat) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
-        ASSERT_OK(sd_fiber_new(e, "client-1", client1, NULL, /* destroy= */ NULL, &f_client1));
-        ASSERT_OK(sd_fiber_new(e, "client-2", client2, NULL, /* destroy= */ NULL, &f_client2));
+        ASSERT_OK(sd_fiber_new(e, "client-1", client1, /* userdata= */ NULL, /* destroy= */ NULL, &f_client1));
+        ASSERT_OK(sd_fiber_new(e, "client-2", client2, /* userdata= */ NULL, /* destroy= */ NULL, &f_client2));
         ASSERT_OK(sd_fiber_new(e, "server", server, bus, /* destroy= */ NULL, &f_server));
 
         ASSERT_OK(sd_event_loop(e));

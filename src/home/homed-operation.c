@@ -40,7 +40,7 @@ static Operation *operation_free(Operation *o) {
                 if (o->result) {
                         /* Propagate success */
                         if (o->send_fd < 0)
-                                r = sd_bus_reply_method_return(o->message, NULL);
+                                r = sd_bus_reply_method_return(o->message, /* types= */ NULL);
                         else
                                 r = sd_bus_reply_method_return(o->message, "h", o->send_fd);
 

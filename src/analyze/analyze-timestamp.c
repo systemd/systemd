@@ -26,10 +26,10 @@ static int test_timestamp_one(const char *p) {
         if (!table)
                 return log_oom();
 
-        assert_se(cell = table_get_cell(table, 0, 0));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, /* column= */ 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
-        assert_se(cell = table_get_cell(table, 0, 1));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, 1));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         r = table_add_many(table,
@@ -49,7 +49,7 @@ static int test_timestamp_one(const char *p) {
                         return table_log_add_error(r);
         }
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "UNIX seconds");
+        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "UNIX seconds");
         if (r < 0)
                 return table_log_add_error(r);
 

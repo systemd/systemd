@@ -51,7 +51,7 @@ bool image_name_is_valid(const char *s) {
         if (!filename_is_valid(s))
                 return false;
 
-        if (string_has_cc(s, NULL))
+        if (string_has_cc(s, /* ok= */ NULL))
                 return false;
 
         if (!utf8_is_valid(s))
@@ -107,7 +107,7 @@ int path_is_extension_tree(ImageClass image_class, const char *path, const char 
         /* We use /usr/lib/extension-release.d/extension-release[.NAME] as flag for something being a system extension,
          * /etc/extension-release.d/extension-release[.NAME] as flag for something being a system configuration, and finally,
          * and {/etc|/usr/lib}/os-release as a flag for something being an OS (when not an extension). */
-        r = open_extension_release(path, image_class, extension, relax_extension_release_check, NULL, NULL);
+        r = open_extension_release(path, image_class, extension, relax_extension_release_check, /* ret_path= */ NULL, /* ret_fd= */ NULL);
         if (r == -ENOENT) /* We got nothing */
                 return 0;
         if (r < 0)

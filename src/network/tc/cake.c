@@ -78,7 +78,7 @@ static int cake_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
 
         if (c->raw > 0) {
                 /* TCA_CAKE_RAW attribute is mostly a flag, not boolean. */
-                r = sd_netlink_message_append_u32(req, TCA_CAKE_RAW, 0);
+                r = sd_netlink_message_append_u32(req, TCA_CAKE_RAW, /* data= */ 0);
                 if (r < 0)
                         return r;
         }

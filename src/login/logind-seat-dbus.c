@@ -147,7 +147,7 @@ int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_activate_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -179,7 +179,7 @@ static int method_activate_session(sd_bus_message *message, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_switch_to(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -206,7 +206,7 @@ static int method_switch_to(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_switch_to_next(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -225,7 +225,7 @@ static int method_switch_to_next(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_switch_to_previous(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -244,7 +244,7 @@ static int method_switch_to_previous(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int seat_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {

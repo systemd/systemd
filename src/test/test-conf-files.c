@@ -83,37 +83,37 @@ TEST(conf_files_list) {
         search2_mm = strjoina(search2, "mm.conf");
 
         /* search dir1 without suffix */
-        ASSERT_OK(conf_files_list(&result, NULL, NULL, CONF_FILES_FILTER_MASKED, search1));
+        ASSERT_OK(conf_files_list(&result, /* suffix= */ NULL, /* root= */ NULL, CONF_FILES_FILTER_MASKED, search1));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
 
         result = strv_free(result);
 
-        ASSERT_OK(conf_files_list(&result, NULL, "/", CONF_FILES_FILTER_MASKED, search1));
+        ASSERT_OK(conf_files_list(&result, /* suffix= */ NULL, "/", CONF_FILES_FILTER_MASKED, search1));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
 
         result = strv_free(result);
 
-        ASSERT_OK(conf_files_list(&result, NULL, "///../../././//", CONF_FILES_FILTER_MASKED, search1));
+        ASSERT_OK(conf_files_list(&result, /* suffix= */ NULL, "///../../././//", CONF_FILES_FILTER_MASKED, search1));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
 
         result = strv_free(result);
 
-        ASSERT_OK(conf_files_list(&result, NULL, t, CONF_FILES_FILTER_MASKED, "/dir1/"));
+        ASSERT_OK(conf_files_list(&result, /* suffix= */ NULL, t, CONF_FILES_FILTER_MASKED, "/dir1/"));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
 
         result = strv_free(result);
 
-        ASSERT_OK(conf_files_list_at(&result, NULL, AT_FDCWD, CONF_FILES_FILTER_MASKED, search1));
+        ASSERT_OK(conf_files_list_at(&result, /* suffix= */ NULL, AT_FDCWD, CONF_FILES_FILTER_MASKED, search1));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
 
         result = strv_free(result);
 
-        ASSERT_OK(conf_files_list_at(&result, NULL, tfd, CONF_FILES_FILTER_MASKED, "/dir1/"));
+        ASSERT_OK(conf_files_list_at(&result, /* suffix= */ NULL, tfd, CONF_FILES_FILTER_MASKED, "/dir1/"));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE("dir1/a.conf", "dir1/b.conf", "dir1/c.foo")));
 
@@ -122,40 +122,40 @@ TEST(conf_files_list) {
         /* search dir1 with relative path */
         ASSERT_OK_ERRNO(chdir("/tmp/"));
 
-        ASSERT_OK(conf_files_list(&result, NULL, NULL, CONF_FILES_FILTER_MASKED, path_startswith(search1, "/tmp/")));
+        ASSERT_OK(conf_files_list(&result, /* suffix= */ NULL, /* root= */ NULL, CONF_FILES_FILTER_MASKED, path_startswith(search1, "/tmp/")));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
         result = strv_free(result);
 
-        ASSERT_OK(conf_files_list(&result, NULL, "/", CONF_FILES_FILTER_MASKED, path_startswith(search1, "/tmp/")));
+        ASSERT_OK(conf_files_list(&result, /* suffix= */ NULL, "/", CONF_FILES_FILTER_MASKED, path_startswith(search1, "/tmp/")));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
         result = strv_free(result);
 
-        ASSERT_OK(conf_files_list(&result, NULL, "///../../././//", CONF_FILES_FILTER_MASKED, path_startswith(search1, "/tmp/")));
+        ASSERT_OK(conf_files_list(&result, /* suffix= */ NULL, "///../../././//", CONF_FILES_FILTER_MASKED, path_startswith(search1, "/tmp/")));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
         result = strv_free(result);
 
-        ASSERT_OK(conf_files_list(&result, NULL, t, CONF_FILES_FILTER_MASKED, "dir1"));
+        ASSERT_OK(conf_files_list(&result, /* suffix= */ NULL, t, CONF_FILES_FILTER_MASKED, "dir1"));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
         result = strv_free(result);
 
-        ASSERT_OK(conf_files_list_at(&result, NULL, AT_FDCWD, CONF_FILES_FILTER_MASKED, path_startswith(search1, "/tmp/")));
+        ASSERT_OK(conf_files_list_at(&result, /* suffix= */ NULL, AT_FDCWD, CONF_FILES_FILTER_MASKED, path_startswith(search1, "/tmp/")));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(path_startswith(search1_a, "/tmp/"),
                                                  path_startswith(search1_b, "/tmp/"),
                                                  path_startswith(search1_c, "/tmp/"))));
         result = strv_free(result);
 
-        ASSERT_OK(conf_files_list_at(&result, NULL, tfd, CONF_FILES_FILTER_MASKED, "dir1"));
+        ASSERT_OK(conf_files_list_at(&result, /* suffix= */ NULL, tfd, CONF_FILES_FILTER_MASKED, "dir1"));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE("dir1/a.conf", "dir1/b.conf", "dir1/c.foo")));
         result = strv_free(result);
 
         /* search dir1 with suffix */
-        ASSERT_OK(conf_files_list(&result, ".conf", NULL, CONF_FILES_FILTER_MASKED, search1));
+        ASSERT_OK(conf_files_list(&result, ".conf", /* root= */ NULL, CONF_FILES_FILTER_MASKED, search1));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a, search1_b)));
 
@@ -180,7 +180,7 @@ TEST(conf_files_list) {
         result = strv_free(result);
 
         /* search two dirs */
-        ASSERT_OK(conf_files_list_strv(&result, ".conf", NULL, CONF_FILES_FILTER_MASKED, STRV_MAKE_CONST(search1, search2)));
+        ASSERT_OK(conf_files_list_strv(&result, ".conf", /* root= */ NULL, CONF_FILES_FILTER_MASKED, STRV_MAKE_CONST(search1, search2)));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE(search1_a, search2_aa, search1_b, search2_mm)));
 
@@ -318,7 +318,7 @@ TEST(conf_files_list) {
         result = strv_free(result);
 
         /* filename only */
-        ASSERT_OK(conf_files_list_strv(&result, ".conf", NULL, CONF_FILES_FILTER_MASKED | CONF_FILES_BASENAME, STRV_MAKE_CONST(search1, search2)));
+        ASSERT_OK(conf_files_list_strv(&result, ".conf", /* root= */ NULL, CONF_FILES_FILTER_MASKED | CONF_FILES_BASENAME, STRV_MAKE_CONST(search1, search2)));
         strv_print(result);
         ASSERT_TRUE(strv_equal(result, STRV_MAKE("a.conf", "aa.conf", "b.conf", "mm.conf")));
 

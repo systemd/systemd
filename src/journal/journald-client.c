@@ -35,7 +35,7 @@ static int client_parse_log_filter_nulstr(const char *nulstr, size_t len, Set **
         STRV_FOREACH(pattern, patterns_strv) {
                 _cleanup_(pcre2_code_freep) pcre2_code *compiled_pattern = NULL;
 
-                r = pattern_compile_and_log(*pattern, 0, &compiled_pattern);
+                r = pattern_compile_and_log(*pattern, /* case_= */ 0, &compiled_pattern);
                 if (r < 0)
                         return r;
 
@@ -110,11 +110,11 @@ int client_context_check_keep_log(ClientContext *c, const char *message, size_t 
                 return true;
 
         SET_FOREACH(regex, c->log_filter_denied_patterns)
-                if (pattern_matches_and_log(regex, message, len, NULL) > 0)
+                if (pattern_matches_and_log(regex, message, len, /* ret_ovec= */ NULL) > 0)
                         return false;
 
         SET_FOREACH(regex, c->log_filter_allowed_patterns)
-                if (pattern_matches_and_log(regex, message, len, NULL) > 0)
+                if (pattern_matches_and_log(regex, message, len, /* ret_ovec= */ NULL) > 0)
                         return true;
 
         return set_isempty(c->log_filter_allowed_patterns);

@@ -236,10 +236,10 @@ static inline int tpm2_digest_buffer(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, co
 }
 int tpm2_digest_many_digests(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const TPM2B_DIGEST data[], size_t n_data, bool extend);
 static inline int tpm2_digest_rehash(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
-        return tpm2_digest_many(alg, digest, NULL, 0, true);
+        return tpm2_digest_many(alg, digest, /* data= */ NULL, /* n_data= */ 0, /* extend= */ true);
 }
 static inline int tpm2_digest_init(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
-        return tpm2_digest_many(alg, digest, NULL, 0, false);
+        return tpm2_digest_many(alg, digest, /* data= */ NULL, /* n_data= */ 0, /* extend= */ false);
 }
 
 typedef struct Tpm2VendorInfo {

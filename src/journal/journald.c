@@ -91,7 +91,7 @@ static int run(int argc, char *argv[]) {
         /* Make sure to send the usage message *after* flushing the
          * journal so entries from the runtime journals are ordered
          * before this message. See #4190 for some details. */
-        manager_space_usage_message(m, NULL);
+        manager_space_usage_message(m, /* storage= */ NULL);
 
         for (;;) {
                 usec_t t, n;

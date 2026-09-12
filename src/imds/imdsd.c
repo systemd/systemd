@@ -342,7 +342,7 @@ static int context_fail_full(Context *c, int r, const char *varlink_error) {
         /* If we are running in Varlink mode, return the error on the connection */
         if (c->current_link) {
                 if (varlink_error)
-                        (void) sd_varlink_error(c->current_link, varlink_error, NULL);
+                        (void) sd_varlink_error(c->current_link, varlink_error, /* parameters= */ NULL);
                 else
                         (void) sd_varlink_error_errno(c->current_link, r);
         } else
@@ -374,7 +374,7 @@ static void context_success(Context *c) {
                 if (r < 0)
                         context_log_errno(c, LOG_WARNING, r, "Failed to reply to Varlink call, ignoring: %m");
         } else
-                sd_event_exit(c->event, 0);
+                sd_event_exit(c->event, /* code= */ 0);
 
         context_reset_full(c);
 }
@@ -837,7 +837,7 @@ static int context_validate_token(Context *c) {
         if (r < 0)
                 return context_log_errno(c, LOG_ERR, r, "Failed to convert token into C string: %m");
 
-        if (string_has_cc(t, NULL) ||
+        if (string_has_cc(t, /* ok= */ NULL) ||
             !utf8_is_valid(t))
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EINVAL), "Token not valid UTF-8 or contains control characters, refusing.");
 
@@ -1587,12 +1587,12 @@ static int context_spawn_children(Context *c) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
-        r = sd_netlink_call(c->rtnl, req, 0, &reply);
+        r = sd_netlink_call(c->rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
@@ -2054,7 +2054,7 @@ static int vl_method_get(sd_varlink *link, sd_json_variant *parameters, sd_varli
         }
 
         if (imds_configured(LOG_DEBUG) < 0)
-                return sd_varlink_error(link, "io.systemd.InstanceMetadata.NotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.InstanceMetadata.NotSupported", /* parameters= */ NULL);
 
         /* Up to this point we only validated/parsed stuff. Now we actually execute stuff, hence from now on
          * we need to go through context_fail() when failing (context_success() if we succeed early), to
@@ -2139,7 +2139,7 @@ static int vl_method_get_vendor_info(sd_varlink *link, sd_json_variant *paramete
         /* NB! We allow access to this call without Polkit */
 
         if (imds_configured(LOG_DEBUG) < 0)
-                return sd_varlink_error(link, "io.systemd.InstanceMetadata.NotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.InstanceMetadata.NotSupported", /* parameters= */ NULL);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *wkj = NULL;
         for (ImdsWellKnown i = 0; i < _IMDS_WELL_KNOWN_MAX; i++) {

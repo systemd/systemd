@@ -121,14 +121,14 @@ static int show_log_ids(const LogId *ids, size_t n_ids, const char *name) {
                 return log_oom();
 
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
-        r = table_set_json_field_name(table, 0, "index");
+        r = table_set_json_field_name(table, /* idx= */ 0, "index");
         if (r < 0)
                 return log_error_errno(r, "Failed to set JSON field name of column 0: %m");
 
         (void) table_set_sort(table, (size_t) 0);
-        (void) table_set_reverse(table, 0, arg_reverse);
+        (void) table_set_reverse(table, /* column= */ 0, arg_reverse);
 
         for (size_t i = 0; i < n_ids; i++) {
                 int64_t index;
@@ -200,7 +200,7 @@ int action_list_fields(void) {
         if (!journal_boot_has_effect(j))
                 return 0;
 
-        r = sd_journal_set_data_threshold(j, 0);
+        r = sd_journal_set_data_threshold(j, /* sz= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unset data size threshold: %m");
 
@@ -336,7 +336,7 @@ int action_list_namespaces(void) {
                         if (!log_namespace_name_valid(e))
                                 continue;
 
-                        r = table_add_cell(table, NULL, TABLE_STRING, e);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, e);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }

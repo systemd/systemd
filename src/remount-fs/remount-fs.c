@@ -166,7 +166,7 @@ static int run(int argc, char *argv[]) {
 
                 s = hashmap_remove(pids, PID_TO_PTR(si.si_pid));
                 if (s &&
-                    !is_clean_exit(si.si_code, si.si_status, EXIT_CLEAN_COMMAND, NULL)) {
+                    !is_clean_exit(si.si_code, si.si_status, EXIT_CLEAN_COMMAND, /* success_status= */ NULL)) {
                         if (si.si_code == CLD_EXITED)
                                 log_error(MOUNT_PATH " for %s exited with exit status %i.", s, si.si_status);
                         else

@@ -139,7 +139,7 @@ static int config_parse_protect_version(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, /* userdata= */ NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in ProtectVersion=, ignoring: %s", rvalue);
@@ -183,7 +183,7 @@ static int config_parse_min_version(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, /* userdata= */ NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in MinVersion=, ignoring: %s", rvalue);
@@ -243,14 +243,14 @@ static int config_parse_current_symlink(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, /* userdata= */ NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CurrentSymlink=, ignoring: %s", rvalue);
                 return 0;
         }
 
-        r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
+        r = path_simplify_and_warn(resolved, /* flags= */ 0, unit, filename, line, lvalue);
         if (r < 0)
                 return 0;
 
@@ -325,7 +325,7 @@ static int config_parse_resource_pattern(
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
                 const char *body;
 
-                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
+                r = extract_first_word(&rvalue, &word, /* separators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to extract first pattern from MatchPattern=, ignoring: %s", rvalue);
@@ -334,7 +334,7 @@ static int config_parse_resource_pattern(
                 if (r == 0)
                         break;
 
-                r = specifier_printf(word, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
+                r = specifier_printf(word, NAME_MAX, system_and_tmp_specifier_table, t->context->root, /* userdata= */ NULL, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to expand specifiers in MatchPattern=, ignoring: %s", rvalue);
@@ -393,7 +393,7 @@ static int config_parse_resource_path(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, /* userdata= */ NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in Path=, ignoring: %s", rvalue);
@@ -598,7 +598,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                         CONFIG_PARSE_WARN,
                         t,
                         /* ret_stats_by_path= */ NULL,
-                        /* ret_drop_in_files= */ NULL);
+                        /* ret_dropin_files= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1199,10 +1199,10 @@ static int run_callout(
                 return log_error_errno(r, "Failed to create event: %m");
 
         /* Kill the helper & return an error if we get interrupted by a signal */
-        r = sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(-ECANCELED));
+        r = sd_event_add_signal(event, /* ret= */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, INT_TO_PTR(-ECANCELED));
         if (r < 0)
                 return log_error_errno(r, "Failed to register signal to event: %m");
-        r = sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(-ECANCELED));
+        r = sd_event_add_signal(event, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, INT_TO_PTR(-ECANCELED));
         if (r < 0)
                 return log_error_errno(r, "Failed to register signal to event: %m");
 
@@ -1236,7 +1236,7 @@ static int run_callout(
         if (r < 0)
                 return log_error_errno(r, "Failed to add child process to event loop: %m");
 
-        r = sd_event_source_set_child_process_own(exit_source, true);
+        r = sd_event_source_set_child_process_own(exit_source, /* own= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to take ownership of child process: %m");
 
@@ -1800,7 +1800,7 @@ int transfer_install_instance(
                         assert_not_reached();
 
                 if (resolve_link_path && root) {
-                        r = chase(link_path, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, &resolved, NULL);
+                        r = chase(link_path, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, &resolved, /* ret_fd= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to resolve current symlink path '%s': %m", link_path);
 

@@ -488,7 +488,7 @@ static int dhcp4_server_parse_dns_server_string_and_warn(
                 union in_addr_union address;
                 int family, r, ifindex = 0;
 
-                r = extract_first_word(&string, &word, NULL, 0);
+                r = extract_first_word(&string, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -609,7 +609,7 @@ static int dhcp4_server_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_dhcp_server_attach_event(link->dhcp_server, link->manager->event, 0);
+        r = sd_dhcp_server_attach_event(link->dhcp_server, link->manager->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 
@@ -817,7 +817,7 @@ int link_request_dhcp_server(Link *link) {
                 return 0;
 
         log_link_debug(link, "Requesting DHCP server.");
-        r = link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, dhcp_server_process_request, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, dhcp_server_process_request, /* ret= */ NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuration of DHCP server: %m");
 
@@ -851,7 +851,7 @@ int config_parse_dhcp_server_emit(
                 union in_addr_union a;
                 int r;
 
-                r = extract_first_word(&p, &w, NULL, 0);
+                r = extract_first_word(&p, &w, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {

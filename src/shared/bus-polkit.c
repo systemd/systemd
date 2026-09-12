@@ -148,7 +148,7 @@ int bus_test_polkit(
         if (r < 0)
                 return r;
 
-        r = sd_bus_call(call->bus, request, 0, reterr_error, &reply);
+        r = sd_bus_call(call->bus, request, /* usec= */ 0, reterr_error, &reply);
         if (r < 0) {
                 /* Treat no PK available as access denied */
                 if (bus_error_is_unknown_service(reterr_error)) {
@@ -289,7 +289,7 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
 
         a = ASSERT_PTR(TAKE_PTR(q->action));
 
-        if (sd_bus_message_is_method_error(reply, NULL)) {
+        if (sd_bus_message_is_method_error(reply, /* name= */ NULL)) {
                 const sd_bus_error *e = ASSERT_PTR(sd_bus_message_get_error(reply));
 
                 if (bus_error_is_unknown_service(e)) {
@@ -412,7 +412,7 @@ static int async_polkit_process_reply(sd_bus_message *reply, AsyncPolkitQuery *q
                 return r;
 
         if (q->request) {
-                r = sd_bus_message_rewind(q->request, true);
+                r = sd_bus_message_rewind(q->request, /* complete= */ true);
                 if (r < 0)
                         return r;
 
@@ -695,7 +695,7 @@ int bus_verify_polkit_async_full(
                 q->registry = *registry;
         }
 
-        r = sd_bus_call_async(call->bus, &q->slot, pk, async_polkit_callback, q, 0);
+        r = sd_bus_call_async(call->bus, &q->slot, pk, async_polkit_callback, q, /* usec= */ 0);
         if (r < 0)
                 return r;
 
@@ -894,9 +894,9 @@ int varlink_verify_polkit_async_full(
                         if (!FLAGS_SET(flags, POLKIT_DONT_REPLY)) {
                                 /* Reply with a nice error */
                                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED))
-                                        (void) sd_varlink_error(link, SD_VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED, NULL);
+                                        (void) sd_varlink_error(link, SD_VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED, /* parameters= */ NULL);
                                 else if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                        (void) sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                                        (void) sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
                         }
 
                         return r;
@@ -914,7 +914,7 @@ int varlink_verify_polkit_async_full(
                 if (r < 0)
                         return r;
 
-                r = sd_bus_attach_event(mybus, sd_varlink_get_event(link), 0);
+                r = sd_bus_attach_event(mybus, sd_varlink_get_event(link), /* priority= */ 0);
                 if (r < 0)
                         return r;
 
@@ -961,7 +961,7 @@ int varlink_verify_polkit_async_full(
                 q->registry = *registry;
         }
 
-        r = sd_bus_call_async(bus, &q->slot, pk, async_polkit_callback, q, 0);
+        r = sd_bus_call_async(bus, &q->slot, pk, async_polkit_callback, q, /* usec= */ 0);
         if (r < 0)
                 return r;
 

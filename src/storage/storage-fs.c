@@ -449,7 +449,7 @@ static int vl_method_acquire(
                 return sd_varlink_error_invalid_parameter_name(link, "name");
 
         if (!IN_SET(p.create_mode, CREATE_ANY, CREATE_OPEN, CREATE_NEW))
-                return sd_varlink_error(link, "io.systemd.StorageProvider.CreateNotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.StorageProvider.CreateNotSupported", /* parameters= */ NULL);
 
         /* off_t is signed, hence refuse overly long requests */
         if (p.create_size != UINT64_MAX && p.create_size > INT64_MAX)
@@ -462,7 +462,7 @@ static int vl_method_acquire(
 
                 t = template_from_string(p.template);
                 if (t < 0)
-                        return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchTemplate", NULL);
+                        return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchTemplate", /* parameters= */ NULL);
         }
 
         if (p.read_only > 0) {
@@ -507,7 +507,7 @@ static int vl_method_acquire(
                 if (r != -ENOENT)
                         return r;
                 if (p.create_mode == CREATE_OPEN || p.read_only > 0)
-                        return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchVolume", NULL);
+                        return sd_varlink_error(link, "io.systemd.StorageProvider.NoSuchVolume", /* parameters= */ NULL);
 
                 /* Doesn't exist yet: create it now */
 
@@ -528,7 +528,7 @@ static int vl_method_acquire(
 
                 case VOLUME_REG: {
                         if (p.create_size == UINT64_MAX)
-                                return sd_varlink_error(link, "io.systemd.StorageProvider.CreateSizeRequired", NULL);
+                                return sd_varlink_error(link, "io.systemd.StorageProvider.CreateSizeRequired", /* parameters= */ NULL);
 
                         if (t < 0) /* Make a choice: pick default template */
                                 t = TEMPLATE_SPARSE_FILE;
@@ -540,17 +540,17 @@ static int vl_method_acquire(
                 case VOLUME_BLK:
                         /* We don't support creating block devices, we only support if they are symlinked
                          * into the storage directory. */
-                        return sd_varlink_error(link, "io.systemd.StorageProvider.CreateNotSupported", NULL);
+                        return sd_varlink_error(link, "io.systemd.StorageProvider.CreateNotSupported", /* parameters= */ NULL);
 
                 default:
                         assert_not_reached();
                 }
 
                 if (real_fd == -ENOMEDIUM)
-                        return sd_varlink_error(link, "io.systemd.StorageProvider.BadTemplate", NULL);
+                        return sd_varlink_error(link, "io.systemd.StorageProvider.BadTemplate", /* parameters= */ NULL);
                 if (real_fd == -EEXIST) {
                         if (p.create_mode == CREATE_NEW)
-                                return sd_varlink_error(link, "io.systemd.StorageProvider.VolumeExists", NULL);
+                                return sd_varlink_error(link, "io.systemd.StorageProvider.VolumeExists", /* parameters= */ NULL);
 
                         /* If we failed to open the volume and reached this point, then the volume already
                          * exists by now (i.e. we ran into a race). In that case, try to pin it a second time
@@ -562,7 +562,7 @@ static int vl_method_acquire(
                         return real_fd;
 
         } else if (p.create_mode == CREATE_NEW)
-                return sd_varlink_error(link, "io.systemd.StorageProvider.VolumeExists", NULL);
+                return sd_varlink_error(link, "io.systemd.StorageProvider.VolumeExists", /* parameters= */ NULL);
 
         /* At this point, we either already opened the real fd, or we managed to pin it (but not both) */
         assert((real_fd >= 0) != (pin_fd >= 0));
@@ -575,7 +575,7 @@ static int vl_method_acquire(
         if (p.request_as == VOLUME_REG) {
                 /* First, check for the other supported types and generate a nice error */
                 if (IN_SET(st.st_mode & S_IFMT, S_IFDIR, S_IFBLK))
-                        return sd_varlink_error(link, "io.systemd.StorageProvider.WrongType", NULL);
+                        return sd_varlink_error(link, "io.systemd.StorageProvider.WrongType", /* parameters= */ NULL);
 
                 /* Second verify cover all other types */
                 r = stat_verify_regular(&st);
@@ -583,14 +583,14 @@ static int vl_method_acquire(
                         return r;
         } else if (p.request_as == VOLUME_DIR) {
                 if (IN_SET(st.st_mode & S_IFMT, S_IFREG, S_IFBLK))
-                        return sd_varlink_error(link, "io.systemd.StorageProvider.WrongType", NULL);
+                        return sd_varlink_error(link, "io.systemd.StorageProvider.WrongType", /* parameters= */ NULL);
 
                 r = stat_verify_directory(&st);
                 if (r < 0)
                         return r;
         } else if (p.request_as == VOLUME_BLK) {
                 if (IN_SET(st.st_mode & S_IFMT, S_IFREG, S_IFDIR))
-                        return sd_varlink_error(link, "io.systemd.StorageProvider.WrongType", NULL);
+                        return sd_varlink_error(link, "io.systemd.StorageProvider.WrongType", /* parameters= */ NULL);
 
                 r = stat_verify_block(&st);
                 if (r < 0)
@@ -695,7 +695,7 @@ static int vl_method_acquire(
         }
 
         if (p.read_only == 0 && ro)
-                return sd_varlink_error(link, "io.systemd.StorageProvider.ReadOnlyVolume", NULL);
+                return sd_varlink_error(link, "io.systemd.StorageProvider.ReadOnlyVolume", /* parameters= */ NULL);
 
         int idx = sd_varlink_push_fd(link, real_fd);
         if (idx < 0)

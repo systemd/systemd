@@ -1633,7 +1633,7 @@ _public_ int sd_event_add_child(
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&e->child_sources, NULL);
+        r = hashmap_ensure_allocated(&e->child_sources, /* hash_ops= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1667,7 +1667,7 @@ _public_ int sd_event_add_child(
 
         } else {
                 /* We shall wait for some other event than WEXITED */
-                r = event_make_signal_data(e, SIGCHLD, NULL);
+                r = event_make_signal_data(e, SIGCHLD, /* ret= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1715,7 +1715,7 @@ _public_ int sd_event_add_child_pidfd(
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&e->child_sources, NULL);
+        r = hashmap_ensure_allocated(&e->child_sources, /* hash_ops= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1745,7 +1745,7 @@ _public_ int sd_event_add_child_pidfd(
                         return r;
         } else {
                 /* We shall wait for some other event than WEXITED */
-                r = event_make_signal_data(e, SIGCHLD, NULL);
+                r = event_make_signal_data(e, SIGCHLD, /* ret= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1832,7 +1832,7 @@ _public_ int sd_event_add_post(
         s->userdata = userdata;
         s->enabled = SD_EVENT_ON;
 
-        r = set_ensure_put(&e->post_sources, NULL, s);
+        r = set_ensure_put(&e->post_sources, /* hash_ops= */ NULL, s);
         if (r < 0)
                 return r;
         assert(r > 0);
@@ -2001,7 +2001,7 @@ static int event_add_pressure(
                  * not delegated to us, or PSI simply not available in the kernel). */
 
                 _cleanup_free_ char *cg = NULL;
-                r = cg_pid_get_path(0, &cg);
+                r = cg_pid_get_path(/* pid= */ 0, &cg);
                 if (r < 0)
                         return r;
 
@@ -2072,7 +2072,7 @@ static int event_add_pressure(
                 if (fd < 0)
                         return -errno;
 
-                r = connect_unix_path(fd, path_fd, NULL);
+                r = connect_unix_path(fd, path_fd, /* path= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -2456,7 +2456,7 @@ static int inode_data_realize_watch(sd_event *e, InodeData *d) {
         if (d->wd >= 0 && combined_mask == d->combined_mask)
                 return 0;
 
-        r = hashmap_ensure_allocated(&d->inotify_data->wd, NULL);
+        r = hashmap_ensure_allocated(&d->inotify_data->wd, /* hash_ops= */ NULL);
         if (r < 0)
                 return r;
 
@@ -3049,7 +3049,7 @@ static int event_source_online(
                 break;
 
         case SOURCE_SIGNAL:
-                r = event_make_signal_data(s->event, s->signal.sig, NULL);
+                r = event_make_signal_data(s->event, s->signal.sig, /* ret= */ NULL);
                 if (r < 0) {
                         event_gc_signal_data(s->event, &s->priority, s->signal.sig);
                         return r;
@@ -3067,7 +3067,7 @@ static int event_source_online(
                 } else {
                         /* something other to watch for than WEXITED */
 
-                        r = event_make_signal_data(s->event, SIGCHLD, NULL);
+                        r = event_make_signal_data(s->event, SIGCHLD, /* ret= */ NULL);
                         if (r < 0) {
                                 event_gc_signal_data(s->event, &s->priority, SIGCHLD);
                                 return r;
@@ -4479,7 +4479,7 @@ static int process_watchdog(sd_event *e) {
         if (e->watchdog_last + e->watchdog_period / 4 > e->timestamp.monotonic)
                 return 0;
 
-        sd_notify(false, "WATCHDOG=1");
+        sd_notify(/* unset_environment= */ false, "WATCHDOG=1");
         e->watchdog_last = e->timestamp.monotonic;
 
         return arm_watchdog(e);
@@ -4568,7 +4568,7 @@ _public_ int sd_event_prepare(sd_event *e) {
         PROTECT_EVENT(e);
 
         if (!e->exit_requested && e->exit_on_idle && event_loop_idle(e))
-                (void) sd_event_exit(e, 0);
+                (void) sd_event_exit(e, /* code= */ 0);
 
         if (e->exit_requested)
                 goto pending;
@@ -4616,7 +4616,7 @@ _public_ int sd_event_prepare(sd_event *e) {
 
 pending:
         e->state = SD_EVENT_ARMED;
-        r = sd_event_wait(e, 0);
+        r = sd_event_wait(e, /* timeout= */ 0);
         if (r == 0)
                 e->state = SD_EVENT_ARMED;
 
@@ -4716,7 +4716,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
         FOREACH_ARRAY(i, e->event_queue, m) {
 
                 if (i->data.ptr == INT_TO_PTR(SOURCE_WATCHDOG))
-                        r = flush_timer(e, e->watchdog_fd, i->events, NULL);
+                        r = flush_timer(e, e->watchdog_fd, i->events, /* next= */ NULL);
                 else {
                         WakeupType *t = ASSERT_PTR(i->data.ptr);
 
@@ -5115,12 +5115,12 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 return e->watchdog;
 
         if (b) {
-                r = sd_watchdog_enabled(false, &e->watchdog_period);
+                r = sd_watchdog_enabled(/* unset_environment= */ false, &e->watchdog_period);
                 if (r <= 0)
                         return r;
 
                 /* Issue first ping immediately */
-                sd_notify(false, "WATCHDOG=1");
+                sd_notify(/* unset_environment= */ false, "WATCHDOG=1");
                 e->watchdog_last = now(CLOCK_MONOTONIC);
 
                 e->watchdog_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);
@@ -5340,7 +5340,7 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
                  * floating after creation (and undo this before deleting them again). */
 
                 if (!e->sigint_event_source) {
-                        r = sd_event_add_signal(e, &e->sigint_event_source, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+                        r = sd_event_add_signal(e, &e->sigint_event_source, SIGINT | SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -5349,7 +5349,7 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
                 }
 
                 if (!e->sigterm_event_source) {
-                        r = sd_event_add_signal(e, &e->sigterm_event_source, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+                        r = sd_event_add_signal(e, &e->sigterm_event_source, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
                         if (r < 0) {
                                 if (change) {
                                         assert_se(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);

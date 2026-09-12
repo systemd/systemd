@@ -412,7 +412,7 @@ int bus_unit_method_start_generic(
         else
                 verb = job_type_to_string(job_type);
 
-        if (sd_bus_message_is_method_call(message, NULL, "StartUnitWithFlags")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "StartUnitWithFlags")) {
                 uint64_t input_flags = 0;
 
                 r = sd_bus_message_read(message, "t", &input_flags);
@@ -440,31 +440,31 @@ int bus_unit_method_start_generic(
 }
 
 static int bus_unit_method_start(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return bus_unit_method_start_generic(message, userdata, JOB_START, false, reterr_error);
+        return bus_unit_method_start_generic(message, userdata, JOB_START, /* reload_if_possible= */ false, reterr_error);
 }
 
 static int bus_unit_method_stop(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return bus_unit_method_start_generic(message, userdata, JOB_STOP, false, reterr_error);
+        return bus_unit_method_start_generic(message, userdata, JOB_STOP, /* reload_if_possible= */ false, reterr_error);
 }
 
 static int bus_unit_method_reload(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return bus_unit_method_start_generic(message, userdata, JOB_RELOAD, false, reterr_error);
+        return bus_unit_method_start_generic(message, userdata, JOB_RELOAD, /* reload_if_possible= */ false, reterr_error);
 }
 
 static int bus_unit_method_restart(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return bus_unit_method_start_generic(message, userdata, JOB_RESTART, false, reterr_error);
+        return bus_unit_method_start_generic(message, userdata, JOB_RESTART, /* reload_if_possible= */ false, reterr_error);
 }
 
 static int bus_unit_method_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, false, reterr_error);
+        return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, /* reload_if_possible= */ false, reterr_error);
 }
 
 static int bus_unit_method_reload_or_restart(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return bus_unit_method_start_generic(message, userdata, JOB_RESTART, true, reterr_error);
+        return bus_unit_method_start_generic(message, userdata, JOB_RESTART, /* reload_if_possible= */ true, reterr_error);
 }
 
 static int bus_unit_method_reload_or_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, true, reterr_error);
+        return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, /* reload_if_possible= */ true, reterr_error);
 }
 
 int bus_unit_parse_job_type(
@@ -603,7 +603,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_unit_method_kill_subgroup(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -656,7 +656,7 @@ int bus_unit_method_kill_subgroup(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -682,7 +682,7 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
 
         unit_reset_failed(u);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -710,11 +710,11 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = bus_unit_set_properties(u, message, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, true, reterr_error);
+        r = bus_unit_set_properties(u, message, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, /* commit= */ true, reterr_error);
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -742,7 +742,7 @@ int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *r
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -757,7 +757,7 @@ int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -817,7 +817,7 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error, FreezerAction action) {
@@ -861,14 +861,14 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         bool reply_now = r == 0;
 
         if (u->pending_freezer_invocation) {
-                bus_unit_send_pending_freezer_message(u, true);
+                bus_unit_send_pending_freezer_message(u, /* canceled= */ true);
                 assert(!u->pending_freezer_invocation);
         }
 
         u->pending_freezer_invocation = sd_bus_message_ref(message);
 
         if (reply_now) {
-                r = bus_unit_send_pending_freezer_message(u, false);
+                r = bus_unit_send_pending_freezer_message(u, /* canceled= */ false);
                 if (r < 0)
                         return r;
         }
@@ -1477,7 +1477,7 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        pids = set_new(NULL);
+        pids = set_new(/* hash_ops= */ NULL);
         if (!pids)
                 return -ENOMEM;
 
@@ -1701,7 +1701,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return sd_bus_error_set_errnof(reterr_error, r, "Failed to attach processes to control group: %m");
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_unit_method_remove_subgroup(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1754,7 +1754,7 @@ int bus_unit_method_remove_subgroup(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return sd_bus_error_set_errnof(reterr_error, r, "Failed to remove subgroup %s: %m", path);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 const sd_bus_vtable bus_unit_cgroup_vtable[] = {
@@ -1832,7 +1832,7 @@ static int send_new_signal(sd_bus *bus, void *userdata) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, m, NULL);
+        return sd_bus_send(bus, m, /* ret_cookie= */ NULL);
 }
 
 static int send_changed_signal(sd_bus *bus, void *userdata) {
@@ -1853,14 +1853,14 @@ static int send_changed_signal(sd_bus *bus, void *userdata) {
         r = sd_bus_emit_properties_changed_strv(
                         bus, p,
                         unit_dbus_interface_from_type(u->type),
-                        NULL);
+                        /* names= */ NULL);
         if (r < 0)
                 return r;
 
         return sd_bus_emit_properties_changed_strv(
                         bus, p,
                         "org.freedesktop.systemd1.Unit",
-                        NULL);
+                        /* names= */ NULL);
 }
 
 void bus_unit_send_change_signal(Unit *u) {
@@ -1960,7 +1960,7 @@ static int send_removed_signal(sd_bus *bus, void *userdata) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, m, NULL);
+        return sd_bus_send(bus, m, /* ret_cookie= */ NULL);
 }
 
 void bus_unit_send_removed_signal(Unit *u) {
@@ -2003,7 +2003,7 @@ int bus_unit_queue_job_one(
                 return r;
 
         if (FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY)) {
-                affected = set_new(NULL);
+                affected = set_new(/* hash_ops= */ NULL);
                 if (!affected)
                         return -ENOMEM;
         }
@@ -2017,7 +2017,7 @@ int bus_unit_queue_job_one(
                 return r;
 
         /* Before we send the method reply, force out the announcement JobNew for this job */
-        bus_job_send_pending_change_signal(j, true);
+        bus_job_send_pending_change_signal(j, /* including_new= */ true);
 
         job_path = job_dbus_path(j);
         if (!job_path)
@@ -2416,10 +2416,10 @@ static int bus_unit_set_transient_property(
                 return bus_set_transient_collect_mode(u, name, &u->collect_mode, message, flags, reterr_error);
 
         if (streq(name, "Conditions"))
-                return bus_set_transient_conditions(u, name, &u->conditions, true, message, flags, reterr_error);
+                return bus_set_transient_conditions(u, name, &u->conditions, /* is_condition= */ true, message, flags, reterr_error);
 
         if (streq(name, "Asserts"))
-                return bus_set_transient_conditions(u, name, &u->asserts, false, message, flags, reterr_error);
+                return bus_set_transient_conditions(u, name, &u->asserts, /* is_condition= */ false, message, flags, reterr_error);
 
         if (streq(name, "Documentation")) {
                 _cleanup_strv_free_ char **l = NULL;
@@ -2470,7 +2470,7 @@ static int bus_unit_set_transient_property(
                 /* Note that we do not dispatch the load queue here yet, as we don't want our own transient unit to be
                  * loaded while we are still setting it up. Or in other words, we use manager_load_unit_prepare()
                  * instead of manager_load_unit() on purpose, here. */
-                r = manager_load_unit_prepare(u->manager, s, NULL, reterr_error, &slice);
+                r = manager_load_unit_prepare(u->manager, s, /* path= */ NULL, reterr_error, &slice);
                 if (r < 0)
                         return r;
 
@@ -2581,7 +2581,7 @@ static int bus_unit_set_transient_property(
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 _cleanup_free_ char *label = NULL;
 
-                                r = unit_add_dependency_by_name(u, d, other, true, UNIT_DEPENDENCY_FILE);
+                                r = unit_add_dependency_by_name(u, d, other, /* add_reference= */ true, UNIT_DEPENDENCY_FILE);
                                 if (r < 0)
                                         return r;
 
@@ -2640,7 +2640,7 @@ int bus_unit_set_properties(
                                 break;
 
                         /* Reached EOF. Let's try again, and this time for realz... */
-                        r = sd_bus_message_rewind(message, false);
+                        r = sd_bus_message_rewind(message, /* complete= */ false);
                         if (r < 0)
                                 goto error;
 
@@ -2652,7 +2652,7 @@ int bus_unit_set_properties(
                 if (r < 0)
                         goto error;
 
-                r = sd_bus_message_enter_container(message, 'v', NULL);
+                r = sd_bus_message_enter_container(message, 'v', /* contents= */ NULL);
                 if (r < 0)
                         goto error;
 

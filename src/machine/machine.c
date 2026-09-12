@@ -376,7 +376,7 @@ int machine_load(Machine *m) {
                 for (const char *p = netif;;) {
                         _cleanup_free_ char *word = NULL;
 
-                        r = extract_first_word(&p, &word, NULL, 0);
+                        r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                         if (r == 0)
                                 break;
                         if (r == -ENOMEM)
@@ -493,7 +493,7 @@ static int machine_start_scope(
         }
 
         if (more_properties) {
-                r = sd_bus_message_copy(m, more_properties, true);
+                r = sd_bus_message_copy(m, more_properties, /* all= */ true);
                 if (r < 0)
                         return r;
         }
@@ -506,7 +506,7 @@ static int machine_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_call(NULL, m, 0, &e, &reply);
+        r = sd_bus_call(/* bus= */ NULL, m, /* usec= */ 0, &e, &reply);
         if (r < 0) {
                 /* If this failed with a property we couldn't write, this is quite likely because the server
                  * doesn't support PIDFDs yet, let's try without. */
@@ -1097,7 +1097,7 @@ int machine_start_shell(
         if (r < 0)
                 return r;
 
-        r = sd_bus_call(container_bus, tm, 0, error, NULL);
+        r = sd_bus_call(container_bus, tm, /* usec= */ 0, error, /* ret_reply= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1169,7 +1169,7 @@ int machine_copy_from_to_operation(
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract file name of '%s' path: %m", container_path);
 
-        host_fd = open_parent(host_path, O_CLOEXEC, 0);
+        host_fd = open_parent(host_path, O_CLOEXEC, /* mode= */ 0);
         if (host_fd < 0)
                 return log_debug_errno(host_fd, "Failed to open host directory '%s': %m", host_path);
 
@@ -1203,7 +1203,7 @@ int machine_copy_from_to_operation(
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
                 _cleanup_close_ int container_fd = -EBADF;
-                container_fd = open_parent(container_path, O_CLOEXEC, 0);
+                container_fd = open_parent(container_path, O_CLOEXEC, /* mode= */ 0);
                 if (container_fd < 0) {
                         log_debug_errno(container_fd, "Failed to open container directory: %m");
                         report_errno_and_exit(errno_pipe_fd[1], container_fd);
@@ -1340,7 +1340,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
                 return -ENXIO;
 
         /* If there's more than one line, then we don't support this mapping. */
-        r = safe_fgetc(f, NULL);
+        r = safe_fgetc(f, /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r != 0) /* Insist on EOF */
@@ -1363,7 +1363,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
                 return -EBADMSG;
 
         /* If there's more than one line, then we don't support this file. */
-        r = safe_fgetc(f, NULL);
+        r = safe_fgetc(f, /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r != 0) /* Insist on EOF */

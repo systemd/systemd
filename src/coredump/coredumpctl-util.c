@@ -14,7 +14,7 @@ int resolve_filename(const char *root, char **p) {
         if (!*p)
                 return 0;
 
-        r = chase(*p, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
+        r = chase(*p, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve \"%s%s\": %m", strempty(root), *p);
 

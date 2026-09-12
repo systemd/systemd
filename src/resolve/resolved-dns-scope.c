@@ -324,7 +324,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, int family, DnsPacket *p) {
                         return fd;
 
                 assert(s->link);
-                r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, LLMNR_PORT, NULL, p);
+                r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, LLMNR_PORT, /* source= */ NULL, p);
                 if (r < 0)
                         return r;
 
@@ -356,7 +356,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, int family, DnsPacket *p) {
                         return fd;
 
                 assert(s->link);
-                r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, p->destination_port ?: MDNS_PORT, NULL, p);
+                r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, p->destination_port ?: MDNS_PORT, /* source= */ NULL, p);
                 if (r < 0)
                         return r;
 
@@ -382,7 +382,7 @@ int dns_scope_emit_udp(DnsScope *s, int fd, int af, DnsPacket *p) {
                 /* If there are multiple linked packets, set the TC bit in all but the last of them */
                 if (p->more) {
                         assert(p->protocol == DNS_PROTOCOL_MDNS);
-                        dns_packet_set_flags(p, true, true);
+                        dns_packet_set_flags(p, /* dnssec_checking_disabled= */ true, /* truncated= */ true);
                 }
 
                 r = dns_scope_emit_one(s, fd, af, p);
@@ -472,7 +472,7 @@ static int dns_scope_socket(
                 return -errno;
 
         if (type == SOCK_STREAM) {
-                r = setsockopt_int(fd, IPPROTO_TCP, TCP_NODELAY, true);
+                r = setsockopt_int(fd, IPPROTO_TCP, TCP_NODELAY, /* value= */ true);
                 if (r < 0)
                         return r;
         }
@@ -549,7 +549,7 @@ static int dns_scope_socket(
                         return -errno;
 
                 if (bound) {
-                        r = socket_bind_to_ifindex(fd, 0);
+                        r = socket_bind_to_ifindex(fd, /* ifindex= */ 0);
                         if (r < 0)
                                 return r;
                 }
@@ -559,7 +559,7 @@ static int dns_scope_socket(
 }
 
 int dns_scope_socket_udp(DnsScope *s, DnsServer *server) {
-        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, server, dns_server_port(server), NULL);
+        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, /* address= */ NULL, server, dns_server_port(server), /* ret_socket_address= */ NULL);
 }
 
 int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port, union sockaddr_union *ret_socket_address) {
@@ -715,7 +715,7 @@ DnsScopeMatch dns_scope_good_domain(
         if (ifindex != 0 && (!s->link || s->link->ifindex != ifindex))
                 return DNS_SCOPE_NO;
 
-        if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family, false, false) & flags) == 0)
+        if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family, /* authenticated= */ false, /* confidential= */ false) & flags) == 0)
                 return DNS_SCOPE_NO;
 
         /* Never resolve any loopback hostname or IP address via DNS, LLMNR or mDNS. Instead, always rely on
@@ -825,7 +825,7 @@ DnsScopeMatch dns_scope_good_domain(
                 /* If the IP address to look up matches the local subnet, then implicitly synthesizes
                  * DNS_SCOPE_YES_BASE + 0 on this interface, i.e. preferably resolve IP addresses via the DNS
                  * server belonging to this interface. */
-                m = match_subnet_reverse_lookups(s, domain, false);
+                m = match_subnet_reverse_lookups(s, domain, /* exclude_own= */ false);
                 if (m >= 0)
                         return m;
 
@@ -847,7 +847,7 @@ DnsScopeMatch dns_scope_good_domain(
                 if (m >= 0)
                         return m;
 
-                m = match_subnet_reverse_lookups(s, domain, true);
+                m = match_subnet_reverse_lookups(s, domain, /* exclude_own= */ true);
                 if (m >= 0)
                         return m;
 
@@ -870,7 +870,7 @@ DnsScopeMatch dns_scope_good_domain(
                 if (m >= 0)
                         return m;
 
-                m = match_subnet_reverse_lookups(s, domain, true);
+                m = match_subnet_reverse_lookups(s, domain, /* exclude_own= */ true);
                 if (m >= 0)
                         return m;
 
@@ -1039,7 +1039,7 @@ int dns_scope_make_reply_packet(
             dns_answer_isempty(soa))
                 return -EINVAL;
 
-        r = dns_packet_new(&p, s->protocol, 0, DNS_PACKET_SIZE_MAX);
+        r = dns_packet_new(&p, s->protocol, /* min_alloc_dsize= */ 0, DNS_PACKET_SIZE_MAX);
         if (r < 0)
                 return r;
 
@@ -1134,7 +1134,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
 
         key = dns_question_first_key(p->question);
 
-        r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
+        r = dns_zone_lookup(&s->zone, key, /* ifindex= */ 0, &answer, &soa, &tentative);
         if (r < 0) {
                 log_debug_errno(r, "Failed to look up key: %m");
                 return;
@@ -1187,7 +1187,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                  * verified uniqueness for all records. Also see RFC
                  * 4795, Section 2.7 */
 
-                r = manager_send(s->manager, fd, p->ifindex, p->family, &p->sender, p->sender_port, NULL, reply);
+                r = manager_send(s->manager, fd, p->ifindex, p->family, &p->sender, p->sender_port, /* source= */ NULL, reply);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to send reply packet: %m");
                         return;
@@ -1253,7 +1253,7 @@ static int dns_scope_make_conflict_packet(
         assert(rr);
         assert(ret);
 
-        r = dns_packet_new(&p, s->protocol, 0, DNS_PACKET_SIZE_MAX);
+        r = dns_packet_new(&p, s->protocol, /* min_alloc_dsize= */ 0, DNS_PACKET_SIZE_MAX);
         if (r < 0)
                 return r;
 
@@ -1275,11 +1275,11 @@ static int dns_scope_make_conflict_packet(
         DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
         DNS_PACKET_HEADER(p)->arcount = htobe16(1);
 
-        r = dns_packet_append_key(p, rr->key, 0, NULL);
+        r = dns_packet_append_key(p, rr->key, /* flags= */ 0, /* start= */ NULL);
         if (r < 0)
                 return r;
 
-        r = dns_packet_append_rr(p, rr, 0, NULL, NULL);
+        r = dns_packet_append_rr(p, rr, /* flags= */ 0, /* start= */ NULL, /* rdata_start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1345,7 +1345,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
                         &scope->conflict_event_source,
                         CLOCK_BOOTTIME,
                         random_u64_range(LLMNR_JITTER_INTERVAL_USEC),
-                        0,
+                        /* accuracy= */ 0,
                         on_conflict_dispatch, scope);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add conflict dispatch event: %m");
@@ -1529,7 +1529,7 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
 
         scope->announce_event_source = sd_event_source_disable_unref(scope->announce_event_source);
 
-        (void) dns_scope_announce(scope, false);
+        (void) dns_scope_announce(scope, /* goodbye= */ false);
         return 0;
 }
 
@@ -1647,7 +1647,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                         else
                                 flags = goodbye ? (DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH) : DNS_ANSWER_CACHE_FLUSH;
 
-                        r = dns_answer_add(answer, i->rr, 0, flags, NULL);
+                        r = dns_answer_add(answer, i->rr, /* ifindex= */ 0, flags, /* rrsig= */ NULL);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to add RR to announce: %m");
                 }
@@ -1667,11 +1667,11 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 
                 rr->ttl = MDNS_DEFAULT_TTL;
 
-                r = dns_zone_put(&scope->zone, scope, rr, false);
+                r = dns_zone_put(&scope->zone, scope, rr, /* probe= */ false);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add DNS-SD PTR record to MDNS zone, ignoring: %m");
 
-                r = dns_answer_add(answer, rr, 0, 0, NULL);
+                r = dns_answer_add(answer, rr, /* ifindex= */ 0, /* flags= */ 0, /* rrsig= */ NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add RR to announce: %m");
         }
@@ -1679,7 +1679,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         if (dns_answer_isempty(answer))
                 return 0;
 
-        r = dns_scope_make_reply_packet(scope, 0, DNS_RCODE_SUCCESS, NULL, answer, NULL, false, &p);
+        r = dns_scope_make_reply_packet(scope, /* id= */ 0, DNS_RCODE_SUCCESS, NULL, answer, /* soa= */ NULL, /* tentative= */ false, &p);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build reply packet: %m");
 
@@ -1697,7 +1697,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                                 &scope->announce_event_source,
                                 CLOCK_BOOTTIME,
                                 MDNS_ANNOUNCE_DELAY,
-                                0,
+                                /* accuracy= */ 0,
                                 on_announcement_timeout, scope);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to schedule second announcement: %m");
@@ -1722,22 +1722,22 @@ int dns_scope_add_dnssd_registered_services(DnsScope *scope) {
         HASHMAP_FOREACH(service, scope->manager->dnssd_registered_services) {
                 service->withdrawn = false;
 
-                r = dns_zone_put(&scope->zone, scope, service->ptr_rr, false);
+                r = dns_zone_put(&scope->zone, scope, service->ptr_rr, /* probe= */ false);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add PTR record to MDNS zone: %m");
 
                 if (service->sub_ptr_rr) {
-                        r = dns_zone_put(&scope->zone, scope, service->sub_ptr_rr, false);
+                        r = dns_zone_put(&scope->zone, scope, service->sub_ptr_rr, /* probe= */ false);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add selective PTR record to MDNS zone: %m");
                 }
 
-                r = dns_zone_put(&scope->zone, scope, service->srv_rr, true);
+                r = dns_zone_put(&scope->zone, scope, service->srv_rr, /* probe= */ true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add SRV record to MDNS zone: %m");
 
                 LIST_FOREACH(items, txt_data, service->txt_data_items) {
-                        r = dns_zone_put(&scope->zone, scope, txt_data->rr, true);
+                        r = dns_zone_put(&scope->zone, scope, txt_data->rr, /* probe= */ true);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add TXT record to MDNS zone: %m");
                 }

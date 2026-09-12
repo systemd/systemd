@@ -120,9 +120,9 @@ static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) 
         fields_a = sd_json_variant_by_key(*a, "fields");
         fields_b = sd_json_variant_by_key(*b, "fields");
         if (fields_a)
-                (void) sd_json_variant_format(fields_a, 0, &fields_str_a);
+                (void) sd_json_variant_format(fields_a, /* flags= */ 0, &fields_str_a);
         if (fields_b)
-                (void) sd_json_variant_format(fields_b, 0, &fields_str_b);
+                (void) sd_json_variant_format(fields_b, /* flags= */ 0, &fields_str_b);
 
         return strcmp_ptr(fields_str_a, fields_str_b);
 }

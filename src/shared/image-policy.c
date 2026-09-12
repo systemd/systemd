@@ -372,7 +372,7 @@ int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret) {
                 if (!ret)
                         return 0;
 
-                p = image_policy_new(0);
+                p = image_policy_new(/* n_policies= */ 0);
                 if (!p)
                         return -ENOMEM;
 

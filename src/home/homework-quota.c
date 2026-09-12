@@ -39,7 +39,7 @@ int home_update_quota_btrfs(UserRecord *h, int fd, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable btrfs quota support on %s.", path);
 
-        r = btrfs_qgroup_set_limit_fd(fd, 0, h->disk_size);
+        r = btrfs_qgroup_set_limit_fd(fd, /* qgroupid= */ 0, h->disk_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to set disk quota on subvolume %s: %m", path);
 

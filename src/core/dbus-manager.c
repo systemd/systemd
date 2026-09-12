@@ -527,7 +527,7 @@ static int bus_load_unit_by_name(Manager *m, sd_bus_message *message, const char
         if (isempty(name))
                 return bus_get_unit_by_name(m, message, name, ret_unit, reterr_error);
 
-        return manager_load_unit(m, name, NULL, reterr_error, ret_unit);
+        return manager_load_unit(m, name, /* path= */ NULL, reterr_error, ret_unit);
 }
 
 static int reply_unit_path(Unit *u, sd_bus_message *message, sd_bus_error *reterr_error) {
@@ -758,7 +758,7 @@ static int method_start_unit_generic(sd_bus_message *message, Manager *m, JobTyp
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(m, name, NULL, reterr_error, &u);
+        r = manager_load_unit(m, name, /* path= */ NULL, reterr_error, &u);
         if (r < 0)
                 return r;
 
@@ -822,7 +822,7 @@ static int method_generic_unit_operation(
                 return r;
 
         if (!isempty(name) && FLAGS_SET(flags, GENERIC_UNIT_LOAD))
-                r = manager_load_unit(m, name, NULL, reterr_error, &u);
+                r = manager_load_unit(m, name, /* path= */ NULL, reterr_error, &u);
         else
                 r = bus_get_unit_by_name(m, message, name, &u, reterr_error);
         if (r < 0)
@@ -896,7 +896,7 @@ static int method_enqueue_unit_job_many(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        jobs = set_new(NULL);
+        jobs = set_new(/* hash_ops= */ NULL);
         if (!jobs)
                 return -ENOMEM;
 
@@ -921,7 +921,7 @@ static int method_enqueue_unit_job_many(sd_bus_message *message, void *userdata,
                 if (r < 0)
                         return r;
 
-                bus_job_send_pending_change_signal(j, true);
+                bus_job_send_pending_change_signal(j, /* including_new= */ true);
 
                 job_path = job_dbus_path(j);
                 if (!job_path)
@@ -1142,7 +1142,7 @@ static int transient_unit_from_message(
                 return r;
 
         /* Set our properties */
-        r = bus_unit_set_properties(u, message, UNIT_RUNTIME, false, reterr_error);
+        r = bus_unit_set_properties(u, message, UNIT_RUNTIME, /* commit= */ false, reterr_error);
         if (r < 0)
                 return r;
 
@@ -1244,7 +1244,7 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
                 return r;
 
         /* Finally, start it */
-        return bus_unit_queue_job(message, u, JOB_START, mode, 0, reterr_error);
+        return bus_unit_queue_job(message, u, JOB_START, mode, /* flags= */ 0, reterr_error);
 }
 
 static int method_get_job(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1314,7 +1314,7 @@ static int method_clear_jobs(sd_bus_message *message, void *userdata, sd_bus_err
 
         manager_clear_jobs(m);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1335,7 +1335,7 @@ static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_e
 
         manager_reset_failed(m);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error, char **states, char **patterns) {
@@ -1389,7 +1389,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int method_list_units(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return list_units_filtered(message, userdata, reterr_error, NULL, NULL);
+        return list_units_filtered(message, userdata, reterr_error, /* states= */ NULL, /* patterns= */ NULL);
 }
 
 static int method_list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1400,7 +1400,7 @@ static int method_list_units_filtered(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        return list_units_filtered(message, userdata, reterr_error, states, NULL);
+        return list_units_filtered(message, userdata, reterr_error, states, /* patterns= */ NULL);
 }
 
 static int method_list_units_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1489,7 +1489,7 @@ static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_erro
                  * default, we only track peers on the API bus here */
 
                 if (!m->subscribed) {
-                        r = sd_bus_track_new(sd_bus_message_get_bus(message), &m->subscribed, NULL, NULL);
+                        r = sd_bus_track_new(sd_bus_message_get_bus(message), &m->subscribed, /* handler= */ NULL, /* userdata= */ NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -1501,7 +1501,7 @@ static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_erro
                         return sd_bus_error_set(reterr_error, BUS_ERROR_ALREADY_SUBSCRIBED, "Client is already subscribed.");
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_unsubscribe(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1524,7 +1524,7 @@ static int method_unsubscribe(sd_bus_message *message, void *userdata, sd_bus_er
                         return sd_bus_error_set(reterr_error, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int dump_impl(
@@ -1592,7 +1592,7 @@ static int reply_dump(sd_bus_message *message, char *dump) {
 }
 
 static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return dump_impl(message, userdata, reterr_error, NULL, reply_dump);
+        return dump_impl(message, userdata, reterr_error, /* patterns= */ NULL, reply_dump);
 }
 
 static int reply_dump_by_fd(sd_bus_message *message, char *dump) {
@@ -1606,7 +1606,7 @@ static int reply_dump_by_fd(sd_bus_message *message, char *dump) {
 }
 
 static int method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return dump_impl(message, userdata, reterr_error, NULL, reply_dump_by_fd);
+        return dump_impl(message, userdata, reterr_error, /* patterns= */ NULL, reply_dump_by_fd);
 }
 
 static int dump_units_matching_patterns(
@@ -1753,7 +1753,7 @@ static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *re
 
         m->objective = MANAGER_EXIT;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1774,7 +1774,7 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
 
         m->objective = MANAGER_REBOOT;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1816,7 +1816,7 @@ static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_er
         free_and_replace(m->switch_root, rt);
         m->objective = MANAGER_SOFT_REBOOT;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1837,7 +1837,7 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
 
         m->objective = MANAGER_POWEROFF;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1858,7 +1858,7 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *re
 
         m->objective = MANAGER_HALT;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1879,7 +1879,7 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *r
 
         m->objective = MANAGER_KEXEC;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1949,7 +1949,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Path to init binary '%s' not absolute.", init);
 
-                r = chase_and_access(init, root, CHASE_PREFIX_ROOT, X_OK, NULL);
+                r = chase_and_access(init, root, CHASE_PREFIX_ROOT, X_OK, /* ret_path= */ NULL);
                 if (r == -EACCES)
                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Init binary %s is not executable.", init);
@@ -1973,7 +1973,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
 
         m->objective = MANAGER_SWITCH_ROOT;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_set_environment(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -2003,11 +2003,11 @@ static int method_set_environment(sd_bus_message *message, void *userdata, sd_bu
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = manager_client_environment_modify(m, NULL, plus);
+        r = manager_client_environment_modify(m, /* minus= */ NULL, plus);
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_unset_environment(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -2038,11 +2038,11 @@ static int method_unset_environment(sd_bus_message *message, void *userdata, sd_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = manager_client_environment_modify(m, minus, NULL);
+        r = manager_client_environment_modify(m, minus, /* plus= */ NULL);
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_unset_and_set_environment(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -2084,7 +2084,7 @@ static int method_unset_and_set_environment(sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_set_exit_code(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -2104,7 +2104,7 @@ static int method_set_exit_code(sd_bus_message *message, void *userdata, sd_bus_
 
         m->return_value = code;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_lookup_dynamic_user_by_name(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -2336,7 +2336,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
 }
 
 static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return list_unit_files_by_patterns(message, userdata, reterr_error, NULL, NULL);
+        return list_unit_files_by_patterns(message, userdata, reterr_error, /* states= */ NULL, /* patterns= */ NULL);
 }
 
 static int method_list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -2373,7 +2373,7 @@ static int method_get_unit_file_state(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = unit_file_get_state(m->runtime_scope, NULL, name, &state);
+        r = unit_file_get_state(m->runtime_scope, /* root_dir= */ NULL, name, &state);
         if (r < 0)
                 return r;
 
@@ -2393,7 +2393,7 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        r = unit_file_get_default(m->runtime_scope, NULL, &default_target);
+        r = unit_file_get_default(m->runtime_scope, /* root_dir= */ NULL, &default_target);
         if (r == -ERFKILL)
                 return sd_bus_error_set(reterr_error, BUS_ERROR_UNIT_MASKED, "Default target unit file is masked.");
         if (r < 0)
@@ -2415,7 +2415,7 @@ static int send_unit_files_changed(sd_bus *bus, void *userdata) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, message, NULL);
+        return sd_bus_send(bus, message, /* ret_cookie= */ NULL);
 }
 
 static void manager_unit_files_changed(Manager *m, const InstallChange *changes, size_t n_changes) {
@@ -2430,7 +2430,7 @@ static void manager_unit_files_changed(Manager *m, const InstallChange *changes,
         /* See comments for this variable in manager.h */
         m->unit_file_state_outdated = true;
 
-        r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
+        r = bus_foreach_bus(m, /* subscribed2= */ NULL, send_unit_files_changed, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to send UnitFilesChanged signal, ignoring: %m");
 }
@@ -2546,7 +2546,7 @@ static int method_enable_unit_files_generic(
         if (r < 0)
                 return r;
 
-        if (sd_bus_message_is_method_call(message, NULL, "EnableUnitFilesWithFlags")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "EnableUnitFilesWithFlags")) {
                 uint64_t raw_flags;
 
                 r = sd_bus_message_read(message, "t", &raw_flags);
@@ -2643,7 +2643,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset(m->runtime_scope, flags, NULL, l, preset_mode, &changes, &n_changes);
+        r = unit_file_preset(m->runtime_scope, flags, /* root_dir= */ NULL, l, preset_mode, &changes, &n_changes);
         manager_unit_files_changed(m, changes, n_changes);
         if (r < 0)
                 return install_error(reterr_error, r, changes, n_changes);
@@ -2671,8 +2671,8 @@ static int method_disable_unit_files_generic(
         if (r < 0)
                 return r;
 
-        if (sd_bus_message_is_method_call(message, NULL, "DisableUnitFilesWithFlags") ||
-            sd_bus_message_is_method_call(message, NULL, "DisableUnitFilesWithFlagsAndInstallInfo")) {
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "DisableUnitFilesWithFlags") ||
+            sd_bus_message_is_method_call(message, /* interface= */ NULL, "DisableUnitFilesWithFlagsAndInstallInfo")) {
                 uint64_t raw_flags;
 
                 r = sd_bus_message_read(message, "t", &raw_flags);
@@ -2688,7 +2688,7 @@ static int method_disable_unit_files_generic(
                 r = sd_bus_message_read(message, "b", &runtime);
                 if (r < 0)
                         return r;
-                flags = unit_file_bools_to_flags(runtime, false);
+                flags = unit_file_bools_to_flags(runtime, /* force= */ false);
         }
 
         r = bus_verify_manage_unit_files_async(m, message, reterr_error);
@@ -2740,7 +2740,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_revert(m->runtime_scope, NULL, l, &changes, &n_changes);
+        r = unit_file_revert(m->runtime_scope, /* root_dir= */ NULL, l, &changes, &n_changes);
         manager_unit_files_changed(m, changes, n_changes);
         if (r < 0)
                 return install_error(reterr_error, r, changes, n_changes);
@@ -2771,7 +2771,7 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_set_default(m->runtime_scope, force ? UNIT_FILE_FORCE : 0, NULL, name, &changes, &n_changes);
+        r = unit_file_set_default(m->runtime_scope, force ? UNIT_FILE_FORCE : 0, /* root_dir= */ NULL, name, &changes, &n_changes);
         manager_unit_files_changed(m, changes, n_changes);
         if (r < 0)
                 return install_error(reterr_error, r, changes, n_changes);
@@ -2814,7 +2814,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset_all(m->runtime_scope, flags, NULL, preset_mode, &changes, &n_changes);
+        r = unit_file_preset_all(m->runtime_scope, flags, /* root_dir= */ NULL, preset_mode, &changes, &n_changes);
         manager_unit_files_changed(m, changes, n_changes);
         if (r < 0)
                 return install_error(reterr_error, r, changes, n_changes);
@@ -2854,7 +2854,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (dep < 0 || !IN_SET(dep, UNIT_WANTS, UNIT_REQUIRES))
                 return -EINVAL;
 
-        r = unit_file_add_dependency(m->runtime_scope, flags, NULL, l, target, dep, &changes, &n_changes);
+        r = unit_file_add_dependency(m->runtime_scope, flags, /* root_dir= */ NULL, l, target, dep, &changes, &n_changes);
         manager_unit_files_changed(m, changes, n_changes);
         if (r < 0)
                 return install_error(reterr_error, r, changes, n_changes);
@@ -2886,7 +2886,7 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
 
         r = unit_file_disable(m->runtime_scope,
                               UNIT_FILE_DRY_RUN | (runtime ? UNIT_FILE_RUNTIME : 0),
-                              NULL, STRV_MAKE(name), &changes, &n_changes);
+                              /* root_dir= */ NULL, STRV_MAKE(name), &changes, &n_changes);
         if (r < 0)
                 return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
@@ -2977,7 +2977,7 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
 
         manager_override_show_status(m, mode, "bus");
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_dump_unit_descriptor_store(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -3645,7 +3645,7 @@ static int send_finished(sd_bus *bus, void *userdata) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, message, NULL);
+        return sd_bus_send(bus, message, /* ret_cookie= */ NULL);
 }
 
 void bus_manager_send_finished(
@@ -3663,7 +3663,7 @@ void bus_manager_send_finished(
 
         r = bus_foreach_bus(
                         m,
-                        NULL,
+                        /* subscribed2= */ NULL,
                         send_finished,
                         (usec_t[6]) {
                                 firmware_usec,
@@ -3691,7 +3691,7 @@ static int send_reloading(sd_bus *bus, void *userdata) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, message, NULL);
+        return sd_bus_send(bus, message, /* ret_cookie= */ NULL);
 }
 
 void bus_manager_send_reloading(Manager *m, bool active) {
@@ -3699,7 +3699,7 @@ void bus_manager_send_reloading(Manager *m, bool active) {
 
         assert(m);
 
-        r = bus_foreach_bus(m, NULL, send_reloading, INT_TO_PTR(active));
+        r = bus_foreach_bus(m, /* subscribed2= */ NULL, send_reloading, INT_TO_PTR(active));
         if (r < 0)
                 log_debug_errno(r, "Failed to send reloading signal: %m");
 }
@@ -3710,7 +3710,7 @@ static int send_changed_signal(sd_bus *bus, void *userdata) {
         return sd_bus_emit_properties_changed_strv(bus,
                                                    "/org/freedesktop/systemd1",
                                                    "org.freedesktop.systemd1.Manager",
-                                                   NULL);
+                                                   /* names= */ NULL);
 }
 
 void bus_manager_send_change_signal(Manager *m) {
@@ -3718,7 +3718,7 @@ void bus_manager_send_change_signal(Manager *m) {
 
         assert(m);
 
-        r = bus_foreach_bus(m, NULL, send_changed_signal, NULL);
+        r = bus_foreach_bus(m, /* subscribed2= */ NULL, send_changed_signal, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to send manager change signal: %m");
 }

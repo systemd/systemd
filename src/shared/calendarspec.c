@@ -215,22 +215,22 @@ _pure_ bool calendar_spec_valid(CalendarSpec *c) {
         if (c->weekdays_bits > BITS_WEEKDAYS)
                 return false;
 
-        if (!chain_valid(c->year, MIN_YEAR, MAX_YEAR, false))
+        if (!chain_valid(c->year, MIN_YEAR, MAX_YEAR, /* end_of_month= */ false))
                 return false;
 
-        if (!chain_valid(c->month, 1, 12, false))
+        if (!chain_valid(c->month, 1, 12, /* end_of_month= */ false))
                 return false;
 
         if (!chain_valid(c->day, 1, 31, c->end_of_month))
                 return false;
 
-        if (!chain_valid(c->hour, 0, 23, false))
+        if (!chain_valid(c->hour, /* from= */ 0, 23, /* end_of_month= */ false))
                 return false;
 
-        if (!chain_valid(c->minute, 0, 59, false))
+        if (!chain_valid(c->minute, /* from= */ 0, 59, /* end_of_month= */ false))
                 return false;
 
-        if (!chain_valid(c->microsecond, 0, 60*USEC_PER_SEC-1, false))
+        if (!chain_valid(c->microsecond, /* from= */ 0, 60*USEC_PER_SEC-1, /* end_of_month= */ false))
                 return false;
 
         return true;
@@ -315,7 +315,7 @@ static void _format_chain(FILE *f, int space, const CalendarComponent *c, bool s
 
         if (c->next) {
                 fputc(',', f);
-                _format_chain(f, space, c->next, false, usec);
+                _format_chain(f, space, c->next, /* start= */ false, usec);
         }
 }
 
@@ -339,17 +339,17 @@ int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
                 fputc(' ', f);
         }
 
-        format_chain(f, 4, c->year, false);
+        format_chain(f, 4, c->year, /* usec= */ false);
         fputc('-', f);
-        format_chain(f, 2, c->month, false);
+        format_chain(f, 2, c->month, /* usec= */ false);
         fputc(c->end_of_month ? '~' : '-', f);
-        format_chain(f, 2, c->day, false);
+        format_chain(f, 2, c->day, /* usec= */ false);
         fputc(' ', f);
-        format_chain(f, 2, c->hour, false);
+        format_chain(f, 2, c->hour, /* usec= */ false);
         fputc(':', f);
-        format_chain(f, 2, c->minute, false);
+        format_chain(f, 2, c->minute, /* usec= */ false);
         fputc(':', f);
-        format_chain(f, 2, c->microsecond, true);
+        format_chain(f, 2, c->microsecond, /* usec= */ true);
 
         if (c->utc)
                 fputs(" UTC", f);
@@ -369,7 +369,7 @@ int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
                 }
         }
 
-        return memstream_finalize(&m, ret, NULL);
+        return memstream_finalize(&m, ret, /* ret_size= */ NULL);
 }
 
 static int parse_weekdays(const char **p, CalendarSpec *c) {
@@ -696,7 +696,7 @@ static int parse_chain(const char **p, bool usec, CalendarComponent **c) {
 
         if (t[0] == '*') {
                 if (usec) {
-                        r = const_chain(0, c);
+                        r = const_chain(/* value= */ 0, c);
                         if (r < 0)
                                 return r;
                         (*c)->repeat = USEC_PER_SEC;
@@ -707,7 +707,7 @@ static int parse_chain(const char **p, bool usec, CalendarComponent **c) {
                 return 0;
         }
 
-        r = prepend_component(&t, usec, 0, &cc);
+        r = prepend_component(&t, usec, /* nesting= */ 0, &cc);
         if (r < 0)
                 return r;
 
@@ -751,7 +751,7 @@ static int parse_date(const char **p, CalendarSpec *c) {
                 return 1; /* finito, don't parse H:M:S after that */
         }
 
-        r = parse_chain(&t, false, &first);
+        r = parse_chain(&t, /* usec= */ false, &first);
         if (r < 0)
                 return r;
 
@@ -765,7 +765,7 @@ static int parse_date(const char **p, CalendarSpec *c) {
                 return -EINVAL;
 
         t++;
-        r = parse_chain(&t, false, &second);
+        r = parse_chain(&t, /* usec= */ false, &second);
         if (r < 0)
                 return r;
 
@@ -784,7 +784,7 @@ static int parse_date(const char **p, CalendarSpec *c) {
                 return -EINVAL;
 
         t++;
-        r = parse_chain(&t, false, &third);
+        r = parse_chain(&t, /* usec= */ false, &third);
         if (r < 0)
                 return r;
 
@@ -814,7 +814,7 @@ static int parse_calendar_time(const char **p, CalendarSpec *c) {
         if (*t == 0)
                 goto null_hour;
 
-        r = parse_chain(&t, false, &h);
+        r = parse_chain(&t, /* usec= */ false, &h);
         if (r < 0)
                 return r;
 
@@ -822,7 +822,7 @@ static int parse_calendar_time(const char **p, CalendarSpec *c) {
                 return -EINVAL;
 
         t++;
-        r = parse_chain(&t, false, &m);
+        r = parse_chain(&t, /* usec= */ false, &m);
         if (r < 0)
                 return r;
 
@@ -834,7 +834,7 @@ static int parse_calendar_time(const char **p, CalendarSpec *c) {
                 return -EINVAL;
 
         t++;
-        r = parse_chain(&t, true, &s);
+        r = parse_chain(&t, /* usec= */ true, &s);
         if (r < 0)
                 return r;
 
@@ -845,16 +845,16 @@ static int parse_calendar_time(const char **p, CalendarSpec *c) {
         return -EINVAL;
 
 null_hour:
-        r = const_chain(0, &h);
+        r = const_chain(/* value= */ 0, &h);
         if (r < 0)
                 return r;
 
-        r = const_chain(0, &m);
+        r = const_chain(/* value= */ 0, &m);
         if (r < 0)
                 return r;
 
 null_second:
-        r = const_chain(0, &s);
+        r = const_chain(/* value= */ 0, &s);
         if (r < 0)
                 return r;
 
@@ -940,26 +940,26 @@ int calendar_spec_from_string_full(const char *p, CalendarSpec **ret, bool warn_
                 return -EINVAL;
 
         if (strcaseeq(p, "minutely")) {
-                r = const_chain(0, &c->microsecond);
+                r = const_chain(/* value= */ 0, &c->microsecond);
                 if (r < 0)
                         return r;
 
         } else if (strcaseeq(p, "hourly")) {
-                r = const_chain(0, &c->minute);
+                r = const_chain(/* value= */ 0, &c->minute);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->microsecond);
+                r = const_chain(/* value= */ 0, &c->microsecond);
                 if (r < 0)
                         return r;
 
         } else if (strcaseeq(p, "daily")) {
-                r = const_chain(0, &c->hour);
+                r = const_chain(/* value= */ 0, &c->hour);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->minute);
+                r = const_chain(/* value= */ 0, &c->minute);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->microsecond);
+                r = const_chain(/* value= */ 0, &c->microsecond);
                 if (r < 0)
                         return r;
 
@@ -967,13 +967,13 @@ int calendar_spec_from_string_full(const char *p, CalendarSpec **ret, bool warn_
                 r = const_chain(1, &c->day);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->hour);
+                r = const_chain(/* value= */ 0, &c->hour);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->minute);
+                r = const_chain(/* value= */ 0, &c->minute);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->microsecond);
+                r = const_chain(/* value= */ 0, &c->microsecond);
                 if (r < 0)
                         return r;
 
@@ -988,13 +988,13 @@ int calendar_spec_from_string_full(const char *p, CalendarSpec **ret, bool warn_
                 r = const_chain(1, &c->day);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->hour);
+                r = const_chain(/* value= */ 0, &c->hour);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->minute);
+                r = const_chain(/* value= */ 0, &c->minute);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->microsecond);
+                r = const_chain(/* value= */ 0, &c->microsecond);
                 if (r < 0)
                         return r;
 
@@ -1002,13 +1002,13 @@ int calendar_spec_from_string_full(const char *p, CalendarSpec **ret, bool warn_
 
                 c->weekdays_bits = 1;
 
-                r = const_chain(0, &c->hour);
+                r = const_chain(/* value= */ 0, &c->hour);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->minute);
+                r = const_chain(/* value= */ 0, &c->minute);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->microsecond);
+                r = const_chain(/* value= */ 0, &c->microsecond);
                 if (r < 0)
                         return r;
 
@@ -1029,13 +1029,13 @@ int calendar_spec_from_string_full(const char *p, CalendarSpec **ret, bool warn_
                 r = const_chain(1, &c->day);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->hour);
+                r = const_chain(/* value= */ 0, &c->hour);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->minute);
+                r = const_chain(/* value= */ 0, &c->minute);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->microsecond);
+                r = const_chain(/* value= */ 0, &c->microsecond);
                 if (r < 0)
                         return r;
 
@@ -1054,13 +1054,13 @@ int calendar_spec_from_string_full(const char *p, CalendarSpec **ret, bool warn_
                 r = const_chain(1, &c->day);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->hour);
+                r = const_chain(/* value= */ 0, &c->hour);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->minute);
+                r = const_chain(/* value= */ 0, &c->minute);
                 if (r < 0)
                         return r;
-                r = const_chain(0, &c->microsecond);
+                r = const_chain(/* value= */ 0, &c->microsecond);
                 if (r < 0)
                         return r;
 

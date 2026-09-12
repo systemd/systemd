@@ -67,7 +67,7 @@ int sd_dhcp_relay_add_interface(sd_dhcp_relay *relay, int ifindex, int is_upstre
                 .ip_service_type = IPTOS_CLASS_CS6, /* Defaults to CS6 (Internetwork Control). */
         };
 
-        r = hashmap_ensure_put(&relay->interfaces, NULL, INT_TO_PTR(interface->ifindex), interface);
+        r = hashmap_ensure_put(&relay->interfaces, /* hash_ops= */ NULL, INT_TO_PTR(interface->ifindex), interface);
         if (r < 0)
                 return r;
 
@@ -166,11 +166,11 @@ static int interface_open_socket(sd_dhcp_relay_interface *interface) {
                         return r;
         }
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_BROADCAST, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_BROADCAST, /* value= */ true);
         if (r < 0)
                 return r;
 
@@ -182,7 +182,7 @@ static int interface_open_socket(sd_dhcp_relay_interface *interface) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
+        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, /* value= */ true);
         if (r < 0)
                 return r;
 
@@ -300,7 +300,7 @@ int sd_dhcp_relay_interface_start(sd_dhcp_relay_interface *interface) {
         (void) sd_event_source_set_description(s, description);
 
         if (fd_close >= 0) {
-                r = sd_event_source_set_io_fd_own(s, true);
+                r = sd_event_source_set_io_fd_own(s, /* own= */ true);
                 if (r < 0)
                         return r;
                 TAKE_FD(fd_close);

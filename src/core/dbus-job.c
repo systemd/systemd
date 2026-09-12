@@ -63,9 +63,9 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
         }
 
-        job_finish_and_invalidate(j, JOB_CANCELED, true, false);
+        job_finish_and_invalidate(j, JOB_CANCELED, /* recursive= */ true, /* already= */ false);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -219,7 +219,7 @@ static int send_new_signal(sd_bus *bus, void *userdata) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, m, NULL);
+        return sd_bus_send(bus, m, /* ret_cookie= */ NULL);
 }
 
 static int send_changed_signal(sd_bus *bus, void *userdata) {
@@ -241,7 +241,7 @@ void bus_job_send_change_signal(Job *j) {
         assert(j);
 
         /* Make sure that any change signal on the unit is reflected before we send out the change signal on the job */
-        bus_unit_send_pending_change_signal(j->unit, true);
+        bus_unit_send_pending_change_signal(j->unit, /* including_new= */ true);
 
         if (j->in_dbus_queue) {
                 LIST_REMOVE(dbus_queue, j->manager->dbus_job_queue, j);
@@ -298,7 +298,7 @@ static int send_removed_signal(sd_bus *bus, void *userdata) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, m, NULL);
+        return sd_bus_send(bus, m, /* ret_cookie= */ NULL);
 }
 
 void bus_job_send_removed_signal(Job *j) {
@@ -310,7 +310,7 @@ void bus_job_send_removed_signal(Job *j) {
                 bus_job_send_change_signal(j);
 
         /* Make sure that any change signal on the unit is reflected before we send out the change signal on the job */
-        bus_unit_send_pending_change_signal(j->unit, true);
+        bus_unit_send_pending_change_signal(j->unit, /* including_new= */ true);
 
         r = bus_foreach_bus(j->manager, j->bus_track, send_removed_signal, j);
         if (r < 0)

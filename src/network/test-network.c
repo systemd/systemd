@@ -78,9 +78,9 @@ TEST(route_tables) {
         ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
         ASSERT_OK(manager_setup(manager));
 
-        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "hoge:123 foo:456 aaa:111", manager, manager));
-        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "bbb:11111 ccc:22222", manager, manager));
-        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "ddd:22222", manager, manager));
+        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", /* ltype= */ 0, "hoge:123 foo:456 aaa:111", manager, manager));
+        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", /* ltype= */ 0, "bbb:11111 ccc:22222", manager, manager));
+        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", /* ltype= */ 0, "ddd:22222", manager, manager));
 
         test_route_tables_one(manager, "hoge", 123);
         test_route_tables_one(manager, "foo", 456);
@@ -94,14 +94,14 @@ TEST(route_tables) {
         test_route_tables_one(manager, "main", 254);
         test_route_tables_one(manager, "local", 255);
 
-        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "", manager, manager));
+        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", /* ltype= */ 0, "", manager, manager));
         ASSERT_NULL(manager->route_table_names_by_number);
         ASSERT_NULL(manager->route_table_numbers_by_name);
 
         /* Invalid pairs */
-        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "main:123 default:333 local:999", manager, manager));
-        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "xxx:253 yyy:254 local:255", manager, manager));
-        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "1234:321 :567 hoge:foo aaa:-888", manager, manager));
+        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", /* ltype= */ 0, "main:123 default:333 local:999", manager, manager));
+        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", /* ltype= */ 0, "xxx:253 yyy:254 local:255", manager, manager));
+        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", /* ltype= */ 0, "1234:321 :567 hoge:foo aaa:-888", manager, manager));
         ASSERT_NULL(manager->route_table_names_by_number);
         ASSERT_NULL(manager->route_table_numbers_by_name);
 
@@ -119,17 +119,17 @@ TEST(vrf_table) {
 
         vrf.meta.manager = manager;
 
-        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "default", &vrf.table, &vrf));
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", /* ltype= */ 0, "default", &vrf.table, &vrf));
         ASSERT_EQ(vrf.table, 253U);
 
-        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "vrf-test:1234", manager, manager));
-        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "vrf-test", &vrf.table, &vrf));
+        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", /* ltype= */ 0, "vrf-test:1234", manager, manager));
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", /* ltype= */ 0, "vrf-test", &vrf.table, &vrf));
         ASSERT_EQ(vrf.table, 1234U);
 
-        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "5678", &vrf.table, &vrf));
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", /* ltype= */ 0, "5678", &vrf.table, &vrf));
         ASSERT_EQ(vrf.table, 5678U);
 
-        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "no-such-table", &vrf.table, &vrf));
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", /* ltype= */ 0, "no-such-table", &vrf.table, &vrf));
         ASSERT_EQ(vrf.table, 5678U);
 }
 
@@ -190,7 +190,7 @@ static void test_request_netlink_handler_one(bool detach) {
                 ASSERT_EQ(netlink_get_reply_callback_count(rtnl), 0U);
         }
 
-        ASSERT_OK(sd_netlink_wait(rtnl, 0));
+        ASSERT_OK(sd_netlink_wait(rtnl, /* timeout= */ 0));
         ASSERT_OK_POSITIVE(sd_netlink_process(rtnl, /* ret= */ NULL));
 
         ASSERT_EQ(handler_called, !detach);

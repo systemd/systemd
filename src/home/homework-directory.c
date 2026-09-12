@@ -40,19 +40,19 @@ int home_setup_directory(UserRecord *h, HomeSetup *setup) {
 
         assert_se(ip = user_record_image_path(h));
 
-        r = mount_follow_verbose(LOG_ERR, ip, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND, NULL);
+        r = mount_follow_verbose(LOG_ERR, ip, HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0)
                 return r;
 
         setup->undo_mount = true;
 
         /* Turn off any form of propagation for this */
-        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_PRIVATE, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_PRIVATE, /* options= */ NULL);
         if (r < 0)
                 return r;
 
         /* Adjust MS_SUID and similar flags */
-        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
+        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), /* options= */ NULL);
         if (r < 0)
                 return r;
 
@@ -86,7 +86,7 @@ int home_activate_directory(
         if (r < 0)
                 return r;
 
-        r = home_refresh(h, flags, setup, header_home, cache, NULL, &new_home);
+        r = home_refresh(h, flags, setup, header_home, cache, /* ret_statfs= */ NULL, &new_home);
         if (r < 0)
                 return r;
 
@@ -98,7 +98,7 @@ int home_activate_directory(
         setup->root_fd = safe_close(setup->root_fd);
 
         /* We are now done with everything, move the mount into place */
-        r = home_move_mount(NULL, hd);
+        r = home_move_mount(/* mount_suffix= */ NULL, hd);
         if (r < 0)
                 return r;
 
@@ -157,7 +157,7 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
                                 if (r < 0)
                                         log_debug_errno(r, "Failed to enable quota on %s, ignoring: %m", d);
 
-                                r = btrfs_subvol_auto_qgroup(d, 0, false);
+                                r = btrfs_subvol_auto_qgroup(d, /* subvol_id= */ 0, /* create_intermediary_qgroup= */ false);
                                 if (r < 0)
                                         log_debug_errno(r, "Failed to set up automatic quota group on %s, ignoring: %m", d);
 
@@ -226,7 +226,7 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
         if (r < 0)
                 return r;
 
-        r = home_sync_and_statfs(setup->root_fd, NULL);
+        r = home_sync_and_statfs(setup->root_fd, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -241,11 +241,11 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
                         SD_ID128_NULL,
                         SD_ID128_NULL,
                         SD_ID128_NULL,
-                        NULL,
-                        NULL,
+                        /* luks_cipher= */ NULL,
+                        /* luks_cipher_mode= */ NULL,
                         UINT64_MAX,
-                        NULL,
-                        NULL,
+                        /* file_system_type= */ NULL,
+                        /* home_directory= */ NULL,
                         h->uid,
                         (gid_t) h->uid);
         if (r < 0)
@@ -284,11 +284,11 @@ int home_resize_directory(
         assert(ret_home);
         assert(IN_SET(user_record_storage(h), USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT));
 
-        r = home_setup(h, flags, setup, cache, NULL);
+        r = home_setup(h, flags, setup, cache, /* ret_header_home= */ NULL);
         if (r < 0)
                 return r;
 
-        reconciled = home_load_embedded_identity(h, setup->root_fd, NULL, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
+        reconciled = home_load_embedded_identity(h, setup->root_fd, /* header_home= */ NULL, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
         if (reconciled < 0)
                 return reconciled;
 
@@ -314,7 +314,7 @@ int home_resize_directory(
         if (r < 0)
                 return r;
 
-        r = home_sync_and_statfs(setup->root_fd, NULL);
+        r = home_sync_and_statfs(setup->root_fd, /* ret= */ NULL);
         if (r < 0)
                 return r;
 

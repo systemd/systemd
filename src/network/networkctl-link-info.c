@@ -196,12 +196,12 @@ static int decode_link(
                 assert(matched_patterns);
 
                 xsprintf(str, "%i", ifindex);
-                if (!strv_fnmatch_full(patterns, str, 0, &pos) &&
-                    !strv_fnmatch_full(patterns, name, 0, &pos)) {
+                if (!strv_fnmatch_full(patterns, str, /* flags= */ 0, &pos) &&
+                    !strv_fnmatch_full(patterns, name, /* flags= */ 0, &pos)) {
                         bool match = false;
 
                         STRV_FOREACH(p, altnames)
-                                if (strv_fnmatch_full(patterns, *p, 0, &pos)) {
+                                if (strv_fnmatch_full(patterns, *p, /* flags= */ 0, &pos)) {
                                         match = true;
                                         break;
                                 }
@@ -226,7 +226,7 @@ static int decode_link(
 
         info->has_permanent_hw_address =
                 (netlink_message_read_hw_addr(m, IFLA_PERM_ADDRESS, &info->permanent_hw_address) >= 0 ||
-                 ethtool_get_permanent_hw_addr(NULL, info->name, &info->permanent_hw_address) >= 0) &&
+                 ethtool_get_permanent_hw_addr(/* ethtool_fd= */ NULL, info->name, &info->permanent_hw_address) >= 0) &&
                 !hw_addr_is_null(&info->permanent_hw_address) &&
                 !hw_addr_equal(&info->permanent_hw_address, &info->hw_address);
 
@@ -336,15 +336,15 @@ int acquire_link_info(sd_varlink *vl, sd_netlink *rtnl, char * const *patterns, 
         assert(rtnl);
         assert(ret);
 
-        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
+        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, /* ifindex= */ 0);
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_netlink_call(rtnl, req, 0, &reply);
+        r = sd_netlink_call(rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate links: %m");
 

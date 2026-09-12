@@ -139,7 +139,7 @@ static int populate_edit_temp_file(EditFile *e, FILE *f, const char *filename) {
                 _cleanup_free_ char *source_contents = NULL;
 
                 if (source) {
-                        r = read_full_file(source, &source_contents, NULL);
+                        r = read_full_file(source, &source_contents, /* ret_size= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read source file '%s': %m", source);
                 }
@@ -166,7 +166,7 @@ static int populate_edit_temp_file(EditFile *e, FILE *f, const char *filename) {
                         if (PATH_IN_SET(*path, e->path, source))
                                 continue;
 
-                        r = read_full_file(*path, &comment, NULL);
+                        r = read_full_file(*path, &comment, /* ret_size= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read comment file '%s': %m", *path);
 
@@ -344,7 +344,7 @@ static int strip_edit_temp_file(EditFile *e) {
         assert(!e->context->marker_start == !e->context->marker_end);
         assert(e->temp);
 
-        r = read_full_file(e->temp, &old_contents, NULL);
+        r = read_full_file(e->temp, &old_contents, /* ret_size= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read temporary file '%s': %m", e->temp);
 
@@ -444,7 +444,7 @@ static int edit_file_install_one_stdin(EditFile *e, const char *contents, size_t
                 if (r < 0)
                         return log_error_errno(r, "Failed to create parent directories for '%s': %m", e->path);
 
-                r = copy_file_atomic_at(*fd, NULL, AT_FDCWD, e->path, 0644, COPY_REPLACE|COPY_MAC_CREATE);
+                r = copy_file_atomic_at(*fd, /* from= */ NULL, AT_FDCWD, e->path, 0644, COPY_REPLACE|COPY_MAC_CREATE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy stdin contents to '%s': %m", e->path);
 

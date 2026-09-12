@@ -55,10 +55,10 @@ static void test_button_free_cancels_long_press(void) {
         /* Arm a long-press timer owned by b, exactly as start_long_press() does: the source lives in
          * a Manager-scoped field and carries the Button as userdata. */
         assert_se(sd_event_add_time_relative(e, &m->power_key_long_press_event_source, CLOCK_MONOTONIC,
-                                             10 * USEC_PER_SEC, 0, dummy_time_handler, b) >= 0);
+                                             10 * USEC_PER_SEC, /* accuracy= */ 0, dummy_time_handler, b) >= 0);
         /* ... and another one owned by b2. */
         assert_se(sd_event_add_time_relative(e, &m->reboot_key_long_press_event_source, CLOCK_MONOTONIC,
-                                             10 * USEC_PER_SEC, 0, dummy_time_handler, b2) >= 0);
+                                             10 * USEC_PER_SEC, /* accuracy= */ 0, dummy_time_handler, b2) >= 0);
 
         /* Freeing b must cancel the timer b armed. */
         button_free(b);

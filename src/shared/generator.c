@@ -352,7 +352,7 @@ int generator_write_fsck_deps(
                         dep = "Requires";
 
                 } else if (in_initrd() && path_equal(where, "/sysusr/usr")) {
-                        r = write_fsck_sysroot_service(SPECIAL_FSCK_USR_SERVICE, dir, what, NULL);
+                        r = write_fsck_sysroot_service(SPECIAL_FSCK_USR_SERVICE, dir, what, /* extra_after= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -401,7 +401,7 @@ int generator_write_device_timeout(
 
         r = fstab_filter_options(opts, "comment=systemd.device-timeout\0"
                                        "x-systemd.device-timeout\0",
-                                 NULL, &timeout, NULL, filtered);
+                                 /* ret_namefound= */ NULL, &timeout, /* ret_values= */ NULL, filtered);
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse fstab options, ignoring: %m");
                 return 0;
@@ -457,7 +457,7 @@ int generator_write_unit_timeout(
         assert(filter);
         assert(unit_setting);
 
-        r = fstab_filter_options(opts, filter, NULL, &timeout, NULL, NULL);
+        r = fstab_filter_options(opts, filter, /* ret_namefound= */ NULL, &timeout, /* ret_values= */ NULL, /* ret_filtered= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse options for '%s': %m", where);
         if (r == 0)

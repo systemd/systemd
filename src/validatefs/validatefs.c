@@ -225,7 +225,7 @@ static int validate_gpt_label(blkid_probe b, const ValidateFields *f) {
                 return 0;
 
         const char *v = NULL;
-        (void) sym_blkid_probe_lookup_value(b, "PART_ENTRY_NAME", &v, /* len= */ NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PART_ENTRY_NAME", &v, /* ret_size= */ NULL);
 
         if (strv_contains(f->gpt_label, strempty(v)))
                 return 0;
@@ -245,7 +245,7 @@ static int validate_gpt_type(blkid_probe b, const ValidateFields *f) {
                 return 0;
 
         const char *v = NULL;
-        (void) sym_blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* len= */ NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* ret_size= */ NULL);
 
         sd_id128_t id;
         if (!v || sd_id128_from_string(v, &id) < 0) {
@@ -286,7 +286,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
                 return log_oom();
 
         errno = 0;
-        r = sym_blkid_probe_set_device(b, block_fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, block_fd, /* offset= */ 0, /* size= */ 0);
         if (r != 0)
                 return log_error_errno(errno_or_else(ENOMEM), "Failed to set up block device prober for '%s': %m", path);
 
@@ -307,7 +307,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
         const char *v = NULL;
-        (void) sym_blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, /* len= */ NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, /* ret_size= */ NULL);
         if (!streq_ptr(v, "gpt"))
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "File system is supposed to be on a GPT partition table, but is not, refusing.");
 
