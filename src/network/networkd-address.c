@@ -930,6 +930,7 @@ static int address_drop(Address *in, bool removed_by_us) {
         }
 
         ipv4acd_detach(link, address);
+        dhcp_pd_remove_prefix_by_address(link, address);
 
         (void) link_dhcp_relay_address_dropped(link, address);
 
@@ -1337,6 +1338,7 @@ int address_remove_and_cancel(Address *address, Link *link) {
 
         /* Otherwise, the address should be already gone or not configured yet. */
         ipv4acd_detach(link, address);
+        dhcp_pd_remove_prefix_by_address(link, address);
 
         return 0;
 }

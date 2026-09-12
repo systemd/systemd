@@ -1098,8 +1098,11 @@ int link_drop_requests(Link *link, NetworkConfigSource source) {
                         if (address_get(link, address, /* ret= */ NULL) < 0) {
                                 if (remove)
                                         RET_GATHER(ret, address_remove(address, link));
-                                else
+                                else {
                                         ipv4acd_detach(link, address);
+                                        dhcp_pd_remove_prefix_by_address(link, address);
+                                }
+
                         }
                         break;
                 }
@@ -1129,8 +1132,12 @@ int link_drop_requests(Link *link, NetworkConfigSource source) {
                         if (source >= 0 && route->source != source)
                                 continue;
 
-                        if (remove && route_get(link->manager, route, /* ret= */ NULL) < 0)
-                                RET_GATHER(ret, route_remove(route, link->manager));
+                        if (route_get(link->manager, route, /* ret= */ NULL) < 0) {
+                                if (remove)
+                                        RET_GATHER(ret, route_remove(route, link->manager));
+                                else
+                                        dhcp_pd_remove_prefix_by_route(link, route);
+                        }
                         break;
                 }
                 default:

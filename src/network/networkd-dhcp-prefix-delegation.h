@@ -6,6 +6,8 @@
 bool link_dhcp_pd_is_enabled(Link *link);
 bool dhcp_pd_is_uplink(Link *link, Link *target, bool accept_auto);
 int dhcp_pd_find_uplink(Link *link, Link **ret);
+void dhcp_pd_remove_prefix_by_route(Link *link, Route *route);
+void dhcp_pd_remove_prefix_by_address(Link *link, Address *address);
 int dhcp_pd_remove(Link *link, bool only_marked);
 int dhcp_request_prefix_delegation(Link *link);
 int link_drop_dhcp_pd_config(Link *link, Network *network);
