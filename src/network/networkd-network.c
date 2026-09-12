@@ -51,6 +51,14 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 char, string_hash_func, string_compare_func,
                 NetDev, netdev_unref);
 
+/* For complaints about the content of a .network file. Routed through log_syntax(), so that they carry
+ * CONFIG_FILE= and reach the log_syntax() callback like the parser's own diagnostics. */
+#define log_network_warning_errno(network, error, fmt, ...)                                             \
+        log_syntax(/* unit= */ NULL, LOG_WARNING, (network)->filename, /* config_line= */ 0, error,     \
+                   fmt, ##__VA_ARGS__)
+#define log_network_warning(network, fmt, ...)                                                          \
+        log_network_warning_errno(network, /* error= */ 0, fmt, ##__VA_ARGS__)
+
 static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret) {
         const char *kind_string;
         NetDev *netdev;
@@ -70,15 +78,15 @@ static int network_resolve_netdev_one(Network *network, const char *name, NetDev
         else {
                 kind_string = netdev_kind_to_string(kind);
                 if (!kind_string)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: Invalid NetDev kind of %s, ignoring assignment.",
-                                                 network->filename, name);
+                        return log_network_warning_errno(network, SYNTHETIC_ERRNO(EINVAL),
+                                                         "Invalid NetDev kind of %s, ignoring assignment.",
+                                                         name);
         }
 
         r = netdev_get(network->manager, name, &netdev);
         if (r < 0)
-                return log_warning_errno(r, "%s: %s NetDev could not be found, ignoring assignment.",
-                                         network->filename, name);
+                return log_network_warning_errno(network, r,
+                                                 "%s NetDev could not be found, ignoring assignment.", name);
 
         if (netdev->kind != kind && !(kind == _NETDEV_KIND_TUNNEL &&
                                       IN_SET(netdev->kind,
@@ -92,9 +100,9 @@ static int network_resolve_netdev_one(Network *network, const char *name, NetDev
                                              NETDEV_KIND_SIT,
                                              NETDEV_KIND_VTI,
                                              NETDEV_KIND_VTI6)))
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: NetDev %s is not a %s, ignoring assignment",
-                                         network->filename, name, kind_string);
+                return log_network_warning_errno(network, SYNTHETIC_ERRNO(EINVAL),
+                                                 "NetDev %s is not a %s, ignoring assignment",
+                                                 name, kind_string);
 
         *ret = netdev_ref(netdev);
         return 1;
@@ -116,8 +124,9 @@ static int network_resolve_stacked_netdevs(Network *network) {
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        log_warning_errno(r, "%s: Failed to add NetDev '%s' to network, ignoring: %m",
-                                          network->filename, (const char *) name);
+                        log_network_warning_errno(network, r,
+                                                  "Failed to add NetDev '%s' to network, ignoring: %m",
+                                                  (const char *) name);
 
                 TAKE_PTR(netdev);
         }
@@ -133,10 +142,10 @@ int network_verify(Network *network) {
         assert(network->filename);
 
         if (net_match_is_empty(&network->match) && !network->conditions)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: No valid settings found in the [Match] section, ignoring file. "
-                                         "To match all interfaces, add Name=* in the [Match] section.",
-                                         network->filename);
+                return log_network_warning_errno(
+                                network, SYNTHETIC_ERRNO(EINVAL),
+                                "No valid settings found in the [Match] section, ignoring file. "
+                                "To match all interfaces, add Name=* in the [Match] section.");
 
         /* skip out early if configuration does not match the environment */
         if (!condition_test_list_net(network->conditions, environ, NULL, NULL, NULL))
@@ -146,17 +155,16 @@ int network_verify(Network *network) {
 
         if (network->keep_master) {
                 if (network->batadv_name)
-                        log_warning("%s: BatmanAdvanced= set with KeepMaster= enabled, ignoring BatmanAdvanced=.",
-                                    network->filename);
+                        log_network_warning(network,
+                                            "BatmanAdvanced= set with KeepMaster= enabled, "
+                                            "ignoring BatmanAdvanced=.");
                 if (network->bond_name)
-                        log_warning("%s: Bond= set with KeepMaster= enabled, ignoring Bond=.",
-                                    network->filename);
+                        log_network_warning(network, "Bond= set with KeepMaster= enabled, ignoring Bond=.");
                 if (network->bridge_name)
-                        log_warning("%s: Bridge= set with KeepMaster= enabled, ignoring Bridge=.",
-                                    network->filename);
+                        log_network_warning(network,
+                                            "Bridge= set with KeepMaster= enabled, ignoring Bridge=.");
                 if (network->vrf_name)
-                        log_warning("%s: VRF= set with KeepMaster= enabled, ignoring VRF=.",
-                                    network->filename);
+                        log_network_warning(network, "VRF= set with KeepMaster= enabled, ignoring VRF=.");
 
                 network->batadv_name = mfree(network->batadv_name);
                 network->bond_name = mfree(network->bond_name);
@@ -182,16 +190,18 @@ int network_verify(Network *network) {
         if (network->bond) {
                 /* Bonding slave does not support addressing. */
                 if (network->link_local >= 0 && network->link_local != ADDRESS_FAMILY_NO) {
-                        log_warning("%s: Cannot enable LinkLocalAddressing= when Bond= is specified, disabling LinkLocalAddressing=.",
-                                    network->filename);
+                        log_network_warning(network,
+                                            "Cannot enable LinkLocalAddressing= when Bond= is specified, "
+                                            "disabling LinkLocalAddressing=.");
                         network->link_local = ADDRESS_FAMILY_NO;
                 }
                 if (!ordered_hashmap_isempty(network->addresses_by_section))
-                        log_warning("%s: Cannot set addresses when Bond= is specified, ignoring addresses.",
-                                    network->filename);
+                        log_network_warning(network,
+                                            "Cannot set addresses when Bond= is specified, "
+                                            "ignoring addresses.");
                 if (!hashmap_isempty(network->routes_by_section))
-                        log_warning("%s: Cannot set routes when Bond= is specified, ignoring routes.",
-                                    network->filename);
+                        log_network_warning(network,
+                                            "Cannot set routes when Bond= is specified, ignoring routes.");
 
                 network->addresses_by_section = ordered_hashmap_free(network->addresses_by_section);
                 network->routes_by_section = hashmap_free(network->routes_by_section);
@@ -238,16 +248,19 @@ int network_verify(Network *network) {
         network_adjust_bridge_vlan(network);
 
         if (network->mtu > 0 && network->dhcp_use_mtu) {
-                log_warning("%s: MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set. "
-                            "Disabling UseMTU=.", network->filename);
+                log_network_warning(network,
+                                    "MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set. "
+                                    "Disabling UseMTU=.");
                 network->dhcp_use_mtu = false;
         }
 
         if (network->dhcp_critical >= 0) {
                 if (network->keep_configuration >= 0) {
                         if (network->manager->keep_configuration < 0)
-                                log_warning("%s: Both KeepConfiguration= and deprecated CriticalConnection= are set. "
-                                            "Ignoring CriticalConnection=.", network->filename);
+                                log_network_warning(
+                                                network,
+                                                "Both KeepConfiguration= and deprecated CriticalConnection= "
+                                                "are set. Ignoring CriticalConnection=.");
                 } else if (network->dhcp_critical)
                         /* CriticalConnection=yes also preserve foreign static configurations. */
                         network->keep_configuration = KEEP_CONFIGURATION_YES;
@@ -257,12 +270,14 @@ int network_verify(Network *network) {
 
         if (!strv_isempty(network->bind_carrier)) {
                 if (!IN_SET(network->activation_policy, _ACTIVATION_POLICY_INVALID, ACTIVATION_POLICY_BOUND))
-                        log_warning("%s: ActivationPolicy=bound is required with BindCarrier=. "
-                                    "Setting ActivationPolicy=bound.", network->filename);
+                        log_network_warning(network,
+                                            "ActivationPolicy=bound is required with BindCarrier=. "
+                                            "Setting ActivationPolicy=bound.");
                 network->activation_policy = ACTIVATION_POLICY_BOUND;
         } else if (network->activation_policy == ACTIVATION_POLICY_BOUND) {
-                log_warning("%s: ActivationPolicy=bound requires BindCarrier=. "
-                            "Ignoring ActivationPolicy=bound.", network->filename);
+                log_network_warning(network,
+                                    "ActivationPolicy=bound requires BindCarrier=. "
+                                    "Ignoring ActivationPolicy=bound.");
                 network->activation_policy = ACTIVATION_POLICY_UP;
         }
 
@@ -271,8 +286,9 @@ int network_verify(Network *network) {
 
         if (network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
                 if (network->ignore_carrier_loss_set && network->ignore_carrier_loss_usec < USEC_INFINITY)
-                        log_warning("%s: IgnoreCarrierLoss=no or finite timespan conflicts with ActivationPolicy=always-up. "
-                                    "Setting IgnoreCarrierLoss=yes.", network->filename);
+                        log_network_warning(network,
+                                            "IgnoreCarrierLoss=no or finite timespan conflicts with "
+                                            "ActivationPolicy=always-up. Setting IgnoreCarrierLoss=yes.");
                 network->ignore_carrier_loss_set = true;
                 network->ignore_carrier_loss_usec = USEC_INFINITY;
         }
@@ -287,9 +303,10 @@ int network_verify(Network *network) {
                                   activation_policy_to_string(network->activation_policy));
                         network->required_for_online = false;
                 } else if (network->required_for_online == true)
-                        log_warning("%s: RequiredForOnline=yes and ActivationPolicy=%s, "
-                                    "this may cause a delay at boot.", network->filename,
-                                    activation_policy_to_string(network->activation_policy));
+                        log_network_warning(network,
+                                            "RequiredForOnline=yes and ActivationPolicy=%s, "
+                                            "this may cause a delay at boot.",
+                                            activation_policy_to_string(network->activation_policy));
         }
 
         if (network->required_for_online < 0)
