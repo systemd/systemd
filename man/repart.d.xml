@@ -374,6 +374,34 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>FixedOffsetBytes=</varname></term>
+
+        <listitem><para>Pins this partition to an explicit byte offset from the beginning of the disk. Takes
+        a size in bytes, with the usual K, M, G, T, … suffixes (to the base of 1024). When set, newly
+        created partitions are placed exactly at the specified offset rather than being automatically
+        positioned after previous partitions. If the partition already exists on disk at a different offset
+        it is left untouched and a warning is emitted. The offset must be non-zero and a multiple of the
+        device sector size.</para>
+
+        <para>This setting is primarily intended for embedded platforms where a bootloader image must reside
+        at a specific sector offset that precedes the normal first usable LBA of a GPT partition table.
+        When creating a new partition table from scratch and the configured offset is below the default
+        first usable LBA, <command>systemd-repart</command> automatically lowers the GPT first LBA to
+        accommodate it. On existing partition tables the first usable LBA is not modified; an offset below
+        the current first usable LBA will likely fail.</para>
+
+        <para>Partition placement for fixed-offset partitions bypasses the automatic grain-size alignment;
+        the grain-size setting (see <option>--grain-size=</option> in
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+        continues to apply to all auto-placed partitions as before. Space is always reserved after the
+        fixed-offset partition to prevent auto-placed partitions from overlapping it: if
+        <varname>SizeMinBytes=</varname> is set its value is used; otherwise a default minimum size
+        is assumed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CopyBlocks=</varname></term>
 
         <listitem><para>Takes a path to a regular file, block device node, char device node or directory, or
