@@ -1068,12 +1068,16 @@ static void link_drop_from_master(Link *link) {
         link_unref(set_remove(master->slaves, link));
 }
 
-static int link_drop_requests(Link *link) {
+int link_drop_requests(Link *link, NetworkConfigSource source) {
         Request *req;
         int ret = 0;
 
         assert(link);
         assert(link->manager);
+
+        /* If the interface is already removed, then per-source request removal is not necessary. */
+        if (source >= 0 && link->state == LINK_STATE_LINGER)
+                return 0;
 
         ORDERED_SET_FOREACH(req, link->manager->request_queue) {
                 if (req->link != link)
@@ -1082,39 +1086,54 @@ static int link_drop_requests(Link *link) {
                 /* If the request is already called, but its reply is not received, then we need to
                  * drop the configuration (e.g. address) here. Note, if the configuration is known,
                  * it will be handled later by link_drop_unmanaged_addresses() or so. */
-                if (req->waiting_reply && link->state != LINK_STATE_LINGER)
-                        switch (req->type) {
-                        case REQUEST_TYPE_ADDRESS: {
-                                Address *address = ASSERT_PTR(req->userdata);
+                bool remove = req->waiting_reply && link->state != LINK_STATE_LINGER;
 
-                                if (address_get(link, address, NULL) < 0)
-                                        RET_GATHER(ret, address_remove(address, link));
-                                break;
-                        }
-                        case REQUEST_TYPE_NEIGHBOR: {
-                                Neighbor *neighbor = ASSERT_PTR(req->userdata);
+                switch (req->type) {
+                case REQUEST_TYPE_ADDRESS: {
+                        Address *address = ASSERT_PTR(req->userdata);
 
-                                if (neighbor_get(link, neighbor, NULL) < 0)
-                                        RET_GATHER(ret, neighbor_remove(neighbor, link));
-                                break;
-                        }
-                        case REQUEST_TYPE_NEXTHOP: {
-                                NextHop *nexthop = ASSERT_PTR(req->userdata);
+                        if (source >= 0 && address->source != source)
+                                continue;
 
-                                if (nexthop_get_by_id(link->manager, nexthop->id, NULL) < 0)
-                                        RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
-                                break;
-                        }
-                        case REQUEST_TYPE_ROUTE: {
-                                Route *route = ASSERT_PTR(req->userdata);
+                        if (remove && address_get(link, address, /* ret= */ NULL) < 0)
+                                RET_GATHER(ret, address_remove(address, link));
+                        break;
+                }
+                case REQUEST_TYPE_NEIGHBOR: {
+                        Neighbor *neighbor = ASSERT_PTR(req->userdata);
 
-                                if (route_get(link->manager, route, NULL) < 0)
-                                        RET_GATHER(ret, route_remove(route, link->manager));
-                                break;
-                        }
-                        default:
-                                ;
-                        }
+                        if (source >= 0 && neighbor->source != source)
+                                continue;
+
+                        if (remove && neighbor_get(link, neighbor, /* ret= */ NULL) < 0)
+                                RET_GATHER(ret, neighbor_remove(neighbor, link));
+                        break;
+                }
+                case REQUEST_TYPE_NEXTHOP: {
+                        NextHop *nexthop = ASSERT_PTR(req->userdata);
+
+                        if (source >= 0 && nexthop->source != source)
+                                continue;
+
+                        if (remove && nexthop_get_by_id(link->manager, nexthop->id, /* ret= */ NULL) < 0)
+                                RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
+                        break;
+                }
+                case REQUEST_TYPE_ROUTE: {
+                        Route *route = ASSERT_PTR(req->userdata);
+
+                        if (source >= 0 && route->source != source)
+                                continue;
+
+                        if (remove && route_get(link->manager, route, /* ret= */ NULL) < 0)
+                                RET_GATHER(ret, route_remove(route, link->manager));
+                        break;
+                }
+                default:
+                        /* If a source is specified, then ignore all other kinds of requests. */
+                        if (source >= 0)
+                                continue;
+                }
 
                 request_detach(req);
         }
@@ -1135,7 +1154,7 @@ static Link *link_drop(Link *link) {
         /* Drop all references from other links and manager. Note that async netlink calls may have
          * references to the link, and they will be dropped when we receive replies. */
 
-        (void) link_drop_requests(link);
+        (void) link_drop_requests(link, _NETWORK_CONFIG_SOURCE_INVALID);
 
         link_free_bound_to_list(link);
         link_free_bound_by_list(link);
@@ -1427,7 +1446,7 @@ static void link_enter_unmanaged(Link *link) {
                       "Unmanaging interface.");
 
         (void) link_stop_engines(link, /* may_keep_dynamic= */ false);
-        (void) link_drop_requests(link);
+        (void) link_drop_requests(link, _NETWORK_CONFIG_SOURCE_INVALID);
         (void) link_drop_static_config(link);
 
         /* The bound_to map depends on .network file, hence it needs to be freed. But, do not free the
@@ -1515,7 +1534,7 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
                               isempty(joined) ? "" : ")");
 
         /* Dropping configurations based on the old .network file. */
-        r = link_drop_requests(link);
+        r = link_drop_requests(link, _NETWORK_CONFIG_SOURCE_INVALID);
         if (r < 0)
                 return r;
 
