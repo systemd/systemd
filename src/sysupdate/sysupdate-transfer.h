@@ -11,9 +11,10 @@ typedef struct Transfer {
         char *id;
 
         char *min_version;
+        char *max_version;
         char **protected_versions;
         char *current_symlink;
-        bool verify;
+        int verify; /* tristate, unset means yes */
 
         char **features;
         char **requisite_features;
@@ -22,7 +23,7 @@ typedef struct Transfer {
         Resource source, target;
 
         uint64_t instances_max;
-        bool remove_temporary;
+        int remove_temporary; /* tristate, unset means yes */
 
         char **changelog;
         char **appstream;
@@ -64,6 +65,7 @@ Transfer* transfer_free(Transfer *t);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_free);
 
 int transfer_read_definition(Transfer *t, const char *path, const char **dirs, Hashmap *features);
+int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hashmap *features);
 
 int transfer_resolve_paths(Transfer *t, const char *root, const char *node);
 

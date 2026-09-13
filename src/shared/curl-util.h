@@ -41,6 +41,8 @@ int curl_glue_new(CurlGlue **glue, sd_event *event);
 DECLARE_TRIVIAL_REF_UNREF_FUNC(CurlGlue, curl_glue);
 DEFINE_TRIVIAL_CLEANUP_FUNC(CurlGlue*, curl_glue_unref);
 
+sd_event* curl_glue_get_event(CurlGlue *g);
+
 /* Build a CURL easy handle with sane defaults. The caller configures any
  * additional options (headers, write callbacks, …) before handing it off to
  * curl_glue_perform_async(). */
