@@ -24,10 +24,8 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-report-cgroup',
-                'export' : files(
-                        'report-cgroup.c',
-                        'report-cgroup-server.c',
-                ),
+                'sources' : files('report-cgroup-server.c'),
+                'export' : files('report-cgroup.c'),
         },
         libexec_template + {
                 'name' : 'systemd-report-files',
@@ -63,5 +61,11 @@ executables += [
                 'export' : files(
                         'report-sign-tsm.c',
                 ),
+        },
+        test_template + {
+                'sources' : files('test-report-cgroup.c'),
+                'import' : ['systemd-report-cgroup'],
+                # test_pressure_large_scrape() sends a lot of replies, which is slow under sanitizers
+                'timeout' : 120,
         },
 ]
