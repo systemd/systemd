@@ -9296,6 +9296,13 @@ int tpm2_nvpcr_initialize(
                                 signature_json,
                                 &authorize_policy,
                                 &policy_session);
+                if (r == -EUCLEAN) {
+                        /* A PCR was extended while we submitted the policy, so this session is unusable.
+                         * Same situation as below, just observed while building the policy rather than
+                         * while writing. */
+                        if (i > 0)
+                                continue;
+                }
                 if (r < 0)
                         return r;
 
