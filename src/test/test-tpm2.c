@@ -1013,6 +1013,73 @@ TEST(calculate_policy_auth_value) {
         assert_se(digest_check(&d, "759ebd5ed65100e0b4aa2d04b4b789c2672d92ecc9cdda4b5fa16a303132e008"));
 }
 
+static void check_auth_value(const char *pin, const char *fido2_secret, const char *expect) {
+        _cleanup_free_ char *h = NULL;
+        TPM2B_AUTH auth = {};
+
+        ASSERT_OK_ZERO(tpm2_auth_value_from_pin_and_fido2(TPM2_ALG_SHA256, pin, fido2_secret, &auth));
+
+        ASSERT_NOT_NULL(h = hexmem(auth.buffer, auth.size));
+        ASSERT_STREQ(h, expect);
+}
+
+TEST(auth_value_from_pin_and_fido2) {
+        /* The authValue derivation defines the on-disk key derivation of every TPM2 enrollment, so pin the
+         * exact digests here. In particular the PIN-only value must never change, or existing TPM2+PIN
+         * enrollments stop unsealing. */
+
+        /* PIN only: the plain hash of the PIN. */
+        check_auth_value("1234", /* fido2_secret= */ NULL,
+                         "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4");
+
+        /* FIDO2 hmac-secret only: the plain hash of the (base64 encoded) secret. */
+        check_auth_value(/* pin= */ NULL, "yuiB5uMlFQrDgYxLQwgqZw==",
+                         "278968b3761a4e3be7a797ba2fbdd0616045781df5cd33eee9efd1780f5bb66b");
+
+        /* Both: the PIN is hashed first, and the hash then extended with the secret. */
+        check_auth_value("1234", "yuiB5uMlFQrDgYxLQwgqZw==",
+                         "6beef6d33d4d47b4d96324cec7f731f53ea78cf78f4d4643b5e5c792065fa454");
+
+        /* Neither: succeeds without touching the return parameter, i.e. leaves the empty authValue the
+         * callers pre-initialize alone. */
+        TPM2B_AUTH auth = { .size = 4711 };
+        ASSERT_OK_ZERO(tpm2_auth_value_from_pin_and_fido2(
+                                       TPM2_ALG_SHA256,
+                                       /* pin= */ NULL,
+                                       /* fido2_secret= */ NULL,
+                                       &auth));
+        ASSERT_EQ(auth.size, 4711U);
+}
+
+TEST(calculate_sealing_policy_auth_value) {
+        TPM2B_DIGEST pin, fido2, both, neither;
+
+        digest_init(&pin, "0000000000000000000000000000000000000000000000000000000000000000");
+        digest_init(&fido2, "0000000000000000000000000000000000000000000000000000000000000000");
+        digest_init(&both, "0000000000000000000000000000000000000000000000000000000000000000");
+        digest_init(&neither, "0000000000000000000000000000000000000000000000000000000000000000");
+
+        /* A FIDO2 binding adds the very same PolicyAuthValue step to the sealing policy that a PIN does —
+         * that's why a tpm2 and a tpm2-fido2 enrollment cannot be told apart by their policy hash, and why
+         * search_policy_hash() has to skip the latter. Lock the invariant down. */
+
+        TPM2B_DIGEST d7;
+        digest_init(&d7, "aa1154c9e0a774854ccbed4c8ce7e9b906b3d700a1a8db1772d0341a62dbe51b");
+
+        Tpm2PCRValue v[] = {
+                TPM2_PCR_VALUE_MAKE(7, TPM2_ALG_SHA256, d7),
+        };
+
+        ASSERT_OK_ZERO(tpm2_calculate_sealing_policy(v, ELEMENTSOF(v), NULL, NULL, /* use_pin= */ true, /* use_fido2= */ false, NULL, &pin));
+        ASSERT_OK_ZERO(tpm2_calculate_sealing_policy(v, ELEMENTSOF(v), NULL, NULL, /* use_pin= */ false, /* use_fido2= */ true, NULL, &fido2));
+        ASSERT_OK_ZERO(tpm2_calculate_sealing_policy(v, ELEMENTSOF(v), NULL, NULL, /* use_pin= */ true, /* use_fido2= */ true, NULL, &both));
+        ASSERT_OK_ZERO(tpm2_calculate_sealing_policy(v, ELEMENTSOF(v), NULL, NULL, /* use_pin= */ false, /* use_fido2= */ false, NULL, &neither));
+
+        ASSERT_EQ(memcmp_nn(pin.buffer, pin.size, fido2.buffer, fido2.size), 0);
+        ASSERT_EQ(memcmp_nn(pin.buffer, pin.size, both.buffer, both.size), 0);
+        ASSERT_NE(memcmp_nn(pin.buffer, pin.size, neither.buffer, neither.size), 0);
+}
+
 TEST(calculate_policy_nv_written) {
         TPM2B_DIGEST d;
 
@@ -1373,6 +1440,7 @@ static void calculate_seal_and_unseal(
                         &IOVEC_MAKE(secret_string, secret_size),
                         /* policy= */ NULL,
                         /* pin= */ NULL,
+                        /* fido2_secret= */ NULL,
                         /* ret_secret= */ NULL,
                         &blob,
                         &serialized_parent) >= 0);
@@ -1387,6 +1455,7 @@ static void calculate_seal_and_unseal(
                         /* pubkey_pcr_mask= */ 0,
                         /* signature= */ NULL,
                         /* pin= */ NULL,
+                        /* fido2_secret= */ NULL,
                         /* pcrlock_policy= */ NULL,
                         /* primary_alg= */ 0,
                         &blob,
@@ -1460,6 +1529,7 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
                         &policy,
                         1,
                         /* pin= */ NULL,
+                        /* fido2_secret= */ NULL,
                         &secret,
                         &blobs,
                         &n_blobs,
@@ -1475,6 +1545,7 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
                         /* pubkey_pcr_mask= */ 0,
                         /* signature= */ NULL,
                         /* pin= */ NULL,
+                        /* fido2_secret= */ NULL,
                         /* pcrlock_policy= */ NULL,
                         /* primary_alg= */ 0,
                         blobs,
