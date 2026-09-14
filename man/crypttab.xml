@@ -890,6 +890,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>tpm2-fido2=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to <literal>false</literal>. Controls whether
+        TPM2 volume unlocking is bound to a FIDO2 key via the <literal>hmac-secret</literal> extension, in
+        addition to PCRs. Similarly, this option is only useful when TPM2 enrollment metadata is
+        not available.</para>
+
+        <para>When both the TPM2 and the FIDO2 token require a PIN, a single PIN is used for both: the volume
+        is enrolled such that the FIDO2 token's client PIN is also used as the TPM2 PIN.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>tpm2-signature=</option></term>
 
         <listitem><para>Takes an absolute path to a TPM2 PCR JSON signature file, as produced by the
