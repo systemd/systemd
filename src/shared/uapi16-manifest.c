@@ -7,20 +7,25 @@
 #include "sd-gpt.h"
 
 #include "alloc-util.h"
+#include "conf-files.h"
+#include "crypto-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
 #include "json-util.h"
-#include "log.h"
 #include "path-util.h"
 #include "sha256.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "time-util.h"
 #include "uapi16-manifest.h"
 #include "utf8.h"
+#include "voa-util.h"
 
 #define CONTENTS_MAX 256U
 
@@ -833,6 +838,377 @@ int dispatch_uapi16_signature_object(sd_json_variant *v, sd_json_dispatch_flags_
         return 0;
 }
 
+#if HAVE_OPENSSL
+struct Uapi16Signer {
+        X509 *certificate; /* Not owned */
+        CMS_ContentInfo *cms;
+        BIO *bio;
+};
+#endif
+
+Uapi16Signer* uapi16_signer_free(Uapi16Signer *s) {
+#if HAVE_OPENSSL
+        if (!s)
+                return NULL;
+
+        if (s->bio)
+                sym_BIO_free_all(s->bio);
+        if (s->cms)
+                sym_CMS_ContentInfo_free(s->cms);
+
+        return mfree(s);
+#else
+        assert(!s);
+        return NULL;
+#endif
+}
+
+int uapi16_signer_new(X509 *certificate, EVP_PKEY *private_key, Uapi16Signer **ret) {
+#if HAVE_OPENSSL
+        int r;
+
+        assert(certificate);
+        assert(private_key);
+        assert(ret);
+
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        _cleanup_(uapi16_signer_freep) Uapi16Signer *s = new(Uapi16Signer, 1);
+        if (!s)
+                return log_oom();
+
+        *s = (Uapi16Signer) {
+                .certificate = certificate,
+        };
+
+        /* PKCS#7 SignedData and CMS SignedData share their OID and wire format. We go through OpenSSL's
+         * CMS API rather than its legacy PKCS7 API, since only the former knows how to sign with EdDSA
+         * keys (RFC 8419).
+         *
+         * Without signed attributes the signature is made directly over the digest of the data, which
+         * keeps the signature minimal, and makes the output deterministic where the algorithm is. This is
+         * not possible with EdDSA though: a pure EdDSA signature is computed over the whole message in one
+         * go, and hence cannot be applied to a stream. RFC 8419 addresses this by requiring signed
+         * attributes, so that the signature is over a small attribute set which in turn carries the digest
+         * of the content, and mandates SHA-512 as digest algorithm. (Ed448 is not supported: RFC 8419 wants
+         * SHAKE256 with a 512 bit output there, which does not fit our digest BIO chain on the verifying
+         * side, and OpenSSL's handling of that is hardly interoperable anyway.) */
+        const EVP_MD *md = NULL;
+        unsigned flags = CMS_DETACHED|CMS_BINARY|CMS_PARTIAL|CMS_NOATTR|CMS_NOSMIMECAP;
+
+        switch (sym_EVP_PKEY_get_base_id(private_key)) {
+
+        case EVP_PKEY_ED25519:
+                /* OpenSSL < 3.2 refuses to combine EdDSA keys with an explicit digest, which CMS requires
+                 * however. It only fails once the signature is finalized, i.e. after all data went through,
+                 * hence check early. Check the version of the library we actually loaded, not the one we
+                 * were built against. */
+                if (sym_OpenSSL_version_num() < 0x30200000UL)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Signing with Ed25519 keys requires OpenSSL 3.2 or newer.");
+
+                md = sym_EVP_sha512();
+                flags &= ~CMS_NOATTR;
+                break;
+
+        case EVP_PKEY_ED448:
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signing with Ed448 keys is not supported.");
+
+        default:
+                /* Let OpenSSL pick the default digest for the key type */
+                break;
+        }
+
+        /* Set up a detached signature, but don't provide the data yet: we'll feed it incrementally via the
+         * BIO CMS_dataInit() gives us, and finalize once everything went through. */
+        s->cms = sym_CMS_sign(/* signcert= */ NULL, /* pkey= */ NULL, /* certs= */ NULL, /* data= */ NULL, flags);
+        if (!s->cms)
+                return log_openssl_errors(LOG_ERR, "Failed to set up PKCS#7 signature");
+
+        if (!sym_CMS_add1_signer(s->cms, certificate, private_key, md, flags))
+                return log_openssl_errors(LOG_ERR, "Failed to add signer to PKCS#7 signature");
+
+        s->bio = sym_CMS_dataInit(s->cms, /* icont= */ NULL);
+        if (!s->bio)
+                return log_openssl_errors(LOG_ERR, "Failed to set up PKCS#7 data BIO");
+
+        *ret = TAKE_PTR(s);
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signing not supported, OpenSSL support disabled.");
+#endif
+}
+
+int uapi16_signer_feed(Uapi16Signer *s, const void *data, size_t size) {
+#if HAVE_OPENSSL
+        assert(s);
+        assert(data || size == 0);
+
+        if (size == 0)
+                return 0;
+
+        if (size > INT_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Record too large to sign.");
+
+        if (sym_BIO_write(s->bio, data, size) != (int) size)
+                return log_openssl_errors(LOG_ERR, "Failed to feed data into PKCS#7 signature");
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int uapi16_signer_finish(Uapi16Signer *s, sd_json_variant **ret) {
+#if HAVE_OPENSSL
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (sym_CMS_dataFinal(s->cms, s->bio) <= 0)
+                return log_openssl_errors(LOG_ERR, "Failed to finalize PKCS#7 signature");
+
+        _cleanup_free_ uint8_t *der = NULL;
+        int der_size = sym_i2d_CMS_ContentInfo(s->cms, &der);
+        if (der_size < 0)
+                return log_openssl_errors(LOG_ERR, "Failed to convert PKCS#7 signature to DER");
+
+        uint8_t fingerprint[X509_FINGERPRINT_SIZE];
+        r = x509_fingerprint(s->certificate, fingerprint);
+        if (r < 0)
+                return log_error_errno(r, "Failed to calculate certificate fingerprint: %m");
+
+        r = sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("mediaType", UAPI16_SIGNATURE_MEDIA_TYPE),
+                        SD_JSON_BUILD_PAIR_STRING("mechanism", uapi16_signature_mechanism_to_string(UAPI16_SIGNATURE_PKCS7)),
+                        SD_JSON_BUILD_PAIR_HEX("key", fingerprint, sizeof(fingerprint)),
+                        SD_JSON_BUILD_PAIR_BASE64("data", der, der_size));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build signature object: %m");
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+typedef struct Uapi16SignatureVerifier Uapi16SignatureVerifier;
+
+#if HAVE_OPENSSL
+struct Uapi16SignatureVerifier {
+        X509 *const *certificates;      /* Not owned */
+        size_t n_certificates;
+        uint8_t (*fingerprints)[X509_FINGERPRINT_SIZE];
+        BIO *bio;
+};
+#endif
+
+static Uapi16SignatureVerifier* uapi16_signature_verifier_free(Uapi16SignatureVerifier *v) {
+#if HAVE_OPENSSL
+        if (!v)
+                return NULL;
+
+        if (v->bio)
+                sym_BIO_free_all(v->bio);
+
+        free(v->fingerprints);
+        return mfree(v);
+#else
+        assert(!v);
+        return NULL;
+#endif
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Uapi16SignatureVerifier*, uapi16_signature_verifier_free);
+
+static int uapi16_signature_verifier_new(
+                X509 *const *certificates,
+                size_t n_certificates,
+                Uapi16SignatureVerifier **ret) {
+
+#if HAVE_OPENSSL
+        int r;
+
+        assert(certificates);
+        assert(n_certificates > 0);
+        assert(ret);
+
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        _cleanup_(uapi16_signature_verifier_freep) Uapi16SignatureVerifier *v = new(Uapi16SignatureVerifier, 1);
+        if (!v)
+                return log_oom();
+
+        *v = (Uapi16SignatureVerifier) {
+                .certificates = certificates,
+                .n_certificates = n_certificates,
+        };
+
+        v->fingerprints = malloc_multiply(n_certificates, sizeof(*v->fingerprints));
+        if (!v->fingerprints)
+                return log_oom();
+
+        for (size_t i = 0; i < n_certificates; i++) {
+                r = x509_fingerprint(certificates[i], v->fingerprints[i]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to calculate certificate fingerprint: %m");
+        }
+
+        /* We only learn which digest algorithm the signature uses once we reach the signature object at
+         * the end of the stream. Hence run the data through a chain of digest BIOs for all algorithms we
+         * might encounter, and pick the right one at the end. This is what CMS_verify() does internally,
+         * except that we do not have to hold the data in memory. */
+        v->bio = sym_BIO_new(sym_BIO_s_null());
+        if (!v->bio)
+                return log_oom();
+
+        const EVP_MD *mds[] = {
+                sym_EVP_sha256(),
+                sym_EVP_sha384(),
+                sym_EVP_sha512(),
+        };
+
+        FOREACH_ELEMENT(md, mds) {
+                BIO *b = sym_BIO_new(sym_BIO_f_md());
+                if (!b)
+                        return log_oom();
+
+                if (sym_BIO_set_md(b, *md) <= 0) {
+                        sym_BIO_free(b);
+                        return log_openssl_errors(LOG_ERR, "Failed to set digest of BIO");
+                }
+
+                v->bio = sym_BIO_push(b, v->bio);
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signature verification not supported, OpenSSL support disabled.");
+#endif
+}
+
+static int uapi16_signature_verifier_feed(Uapi16SignatureVerifier *v, const void *data, size_t size) {
+#if HAVE_OPENSSL
+        assert(v);
+        assert(data || size == 0);
+
+        if (size == 0)
+                return 0;
+
+        if (size > INT_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Record too large to verify.");
+
+        if (sym_BIO_write(v->bio, data, size) != (int) size)
+                return log_openssl_errors(LOG_ERR, "Failed to feed data into digest");
+
+        return 0;
+#else
+        assert_not_reached();
+#endif
+}
+
+#if HAVE_OPENSSL
+static bool uapi16_signature_verifier_certificate_applies(
+                Uapi16SignatureVerifier *v,
+                size_t i,
+                const Uapi16Signature *sig) {
+
+        assert(v);
+        assert(i < v->n_certificates);
+        assert(sig);
+
+        /* A signature that does not name its key is checked against all certificates */
+        return !iovec_is_set(&sig->key) ||
+                iovec_equal(&sig->key, &IOVEC_MAKE(v->fingerprints[i], X509_FINGERPRINT_SIZE));
+}
+#endif
+
+static int uapi16_signature_verifier_finish(Uapi16SignatureVerifier *v, const Uapi16Signature *sig) {
+#if HAVE_OPENSSL
+        bool tried = false;
+
+        assert(v);
+        assert(sig);
+
+        /* Returns > 0 if the signature verified against one of our certificates, 0 if it was not applicable
+         * (i.e. different mechanism, or a different key), and -EBADMSG if the signature that should have
+         * matched didn't verify. */
+
+        if (sig->mechanism != UAPI16_SIGNATURE_PKCS7)
+                return 0;
+
+        bool applies = false;
+        for (size_t j = 0; j < v->n_certificates && !applies; j++)
+                applies = uapi16_signature_verifier_certificate_applies(v, j, sig);
+        if (!applies) {
+                log_debug("Signature made with a different key, skipping.");
+                return 0;
+        }
+
+        if (!iovec_is_set(&sig->data)) {
+                log_warning("Signature lacks data, skipping.");
+                return 0;
+        }
+
+        const unsigned char *d = sig->data.iov_base;
+        _cleanup_(CMS_ContentInfo_freep) CMS_ContentInfo *cms = sym_d2i_CMS_ContentInfo(NULL, &d, (long) sig->data.iov_len);
+        if (!cms) {
+                log_openssl_errors(LOG_WARNING, "Failed to parse PKCS#7 signature, skipping");
+                return 0;
+        }
+
+        if (sym_OBJ_obj2nid(sym_CMS_get0_type(cms)) != NID_pkcs7_signed) {
+                log_warning("PKCS#7 signature is not of 'signed' type, skipping.");
+                return 0;
+        }
+
+        STACK_OF(CMS_SignerInfo) *sk = sym_CMS_get0_SignerInfos(cms);
+        for (size_t j = 0; j < v->n_certificates; j++) {
+                if (!uapi16_signature_verifier_certificate_applies(v, j, sig))
+                        continue;
+
+                for (int i = 0; i < sym_sk_CMS_SignerInfo_num(sk); i++) {
+                        CMS_SignerInfo *si = sym_sk_CMS_SignerInfo_value(sk, i);
+
+                        tried = true;
+
+                        /* Always check against the certificates we were given, regardless of which
+                         * certificates the signature itself might carry. */
+                        sym_CMS_SignerInfo_set1_signer_cert(si, v->certificates[j]);
+
+                        /* If there are signed attributes the signature covers those (and they in turn carry
+                         * the digest of the data, which CMS_SignerInfo_verify_content() checks), otherwise
+                         * the signature is directly over the digest of the data. Same logic as in
+                         * CMS_verify(). */
+                        if (sym_CMS_signed_get_attr_count(si) >= 0 &&
+                            sym_CMS_SignerInfo_verify(si) <= 0) {
+                                log_openssl_errors(LOG_DEBUG, "PKCS#7 signature verification failed");
+                                continue;
+                        }
+
+                        if (sym_CMS_SignerInfo_verify_content(si, v->bio) > 0)
+                                return 1;
+
+                        log_openssl_errors(LOG_DEBUG, "PKCS#7 signature verification failed");
+                }
+        }
+
+        if (tried)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest signature verification failed.");
+
+        return 0;
+#else
+        assert_not_reached();
+#endif
+}
+
 #define UAPI16_RECORD_SIZE_MAX (4U*1024U*1024U)
 #define UAPI16_RECORD_READ_CHUNK (64U*1024U)
 
@@ -851,7 +1227,8 @@ static int uapi16_manifest_next_record(
 
         /* Extracts the next record from the stream. The bytes read from the stream are collected in
          * 'buffer', and the size of the record (including its record separator) is returned in 'ret_bytes',
-         * so that the caller can consume them from the buffer once done with the record. */
+         * so that the caller can pass the record's raw bytes to the signature verifier before consuming
+         * them from the buffer. */
 
         bool eof = false;
 
@@ -899,15 +1276,26 @@ static int uapi16_manifest_next_record(
 
 int uapi16_manifest_read(
                 FILE *f,
+                X509 *const *certificates,
+                size_t n_certificates,
                 uapi16_object_handler_t handler,
                 void *userdata) {
 
         int r;
 
         assert(f);
+        assert(certificates || n_certificates == 0);
         assert(handler);
 
-        bool signature_seen = false, trailer_seen = false;
+        _cleanup_(uapi16_signature_verifier_freep) Uapi16SignatureVerifier *verifier = NULL;
+        if (n_certificates > 0) {
+                r = uapi16_signature_verifier_new(certificates, n_certificates, &verifier);
+                if (r < 0)
+                        return r;
+        }
+
+        bool signature_seen = false, signature_supported_seen = false, signature_verified = false, trailer_seen = false;
+        _cleanup_free_ char *unsupported_mechanism = NULL;
         _cleanup_(iovec_done) struct iovec buffer = {};
         size_t n_objects = 0;
         for (;; n_objects++) {
@@ -945,11 +1333,48 @@ int uapi16_manifest_read(
                                 if (r < 0)
                                         return r;
 
-                                /* Signatures are not verified yet, but we already refuse file objects after them */
-                                log_debug("Manifest carries a '%s' signature, not verifying.", strna(uapi16_signature_mechanism_to_string(sig.mechanism)));
                                 signature_seen = true;
+
+                                if (sig.mechanism < 0) {
+                                        /* Signatures of mechanisms we do not support (e.g. "openpgp") are
+                                         * skipped, as if they were not there. Remember the mechanism though,
+                                         * so that we can explain the failure if there's no other signature. */
+                                        const char *mechanism = sd_json_variant_string(sd_json_variant_by_key(v, "mechanism"));
+
+                                        log_debug("Ignoring manifest signature of unsupported mechanism '%s'.", mechanism);
+
+                                        if (!unsupported_mechanism) {
+                                                unsupported_mechanism = strdup(mechanism);
+                                                if (!unsupported_mechanism)
+                                                        return log_oom();
+                                        }
+                                } else if (!verifier)
+                                        log_debug("Manifest carries a signature, but no certificate specified, not verifying.");
+                                else if (signature_verified)
+                                        log_debug("Skipping additional signature, as we already found one that checked out.");
+                                else {
+                                        /* The signature covers everything up to the record separator of the
+                                         * first signature object, hence never feed the signature object
+                                         * itself. Multiple signature objects may follow each other, we accept
+                                         * any one that verifies. */
+                                        signature_supported_seen = true;
+
+                                        r = uapi16_signature_verifier_finish(verifier, &sig);
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0) {
+                                                log_debug("Manifest signature verified successfully.");
+                                                signature_verified = true;
+                                        }
+                                }
                         } else {
                                 log_debug("Ignoring object of unknown media type '%s' in manifest.", mt);
+
+                                if (!signature_seen && verifier) {
+                                        r = uapi16_signature_verifier_feed(verifier, buffer.iov_base, bytes);
+                                        if (r < 0)
+                                                return r;
+                                }
                         }
 
                         assert_se(iovec_consume(&buffer, bytes));
@@ -958,6 +1383,12 @@ int uapi16_manifest_read(
 
                 if (signature_seen)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest contains file object after signature object, refusing.");
+
+                if (verifier) {
+                        r = uapi16_signature_verifier_feed(verifier, buffer.iov_base, bytes);
+                        if (r < 0)
+                                return r;
+                }
 
                 assert_se(iovec_consume(&buffer, bytes));
 
@@ -976,5 +1407,114 @@ int uapi16_manifest_read(
         if (!trailer_seen)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest lacks trailer object, file is incomplete, refusing.");
 
+        if (verifier && !signature_verified) {
+                if (signature_supported_seen)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "No signature in manifest verified against the specified certificates, refusing.");
+                if (unsupported_mechanism)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Manifest only carries signatures of unsupported mechanisms (e.g. '%s'), but PKCS#7 signature verification requested, refusing.",
+                                               unsupported_mechanism);
+
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Manifest carries no signature, but signature verification requested, refusing.");
+        }
+
         return 0;
+}
+
+void uapi16_certificates_free(X509 **certificates, size_t n) {
+#if HAVE_OPENSSL
+        FOREACH_ARRAY(i, certificates, n)
+                sym_X509_free(*i);
+#else
+        assert(n == 0);
+#endif
+        free(certificates);
+}
+
+int uapi16_load_voa_certificates(int root_fd, const char *context, X509 ***ret, size_t *ret_n) {
+#if HAVE_OPENSSL
+        int r;
+
+        assert(wildcard_fd_is_valid(root_fd));
+        assert(context);
+        assert(ret);
+        assert(ret_n);
+
+        _cleanup_strv_free_ char **os = NULL;
+        r = voa_os_identifiers(root_fd, &os);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine VOA OS identifiers: %m");
+
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
+
+        r = voa_list_verifiers(
+                        root_fd,
+                        &(const VoaLookup) {
+                                .os = os,
+                                .role = UAPI16_VOA_ROLE,
+                                .context = context,
+                                .mode = VOA_MODE_ARTIFACT_VERIFIER,
+                                .technology = VOA_TECHNOLOGY_X509,
+                                .suffix = VOA_X509_CERTIFICATE_SUFFIX,
+                        },
+                        VOA_WARN,
+                        &files,
+                        &n_files);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate VOA verifiers for UAPI.16 manifests in context '%s': %m", context);
+
+        X509 **certificates = NULL;
+        size_t n_certificates = 0;
+        CLEANUP_ARRAY(certificates, n_certificates, uapi16_certificates_free);
+
+        FOREACH_ARRAY(i, files, n_files) {
+                ConfFile *f = *i;
+
+                /* Read the certificate through the pinned fd, so that the path is not resolved again */
+                _cleanup_fclose_ FILE *file = NULL;
+                r = fdopen_independent(f->fd, "re", &file);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to open certificate '%s', ignoring: %m", f->original_path);
+                        continue;
+                }
+
+                _cleanup_free_ char *pem = NULL;
+                size_t pem_size;
+                r = read_full_stream_full(file, f->original_path, /* offset= */ UINT64_MAX, /* size= */ 64U * 1024U,
+                                          READ_FULL_FILE_FAIL_WHEN_LARGER, &pem, &pem_size);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read certificate '%s', ignoring: %m", f->original_path);
+                        continue;
+                }
+
+                _cleanup_(X509_freep) X509 *cert = NULL;
+                bool more = false;
+                r = openssl_load_x509_certificate_from_pem(&IOVEC_MAKE(pem, pem_size), &cert, &more);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse certificate '%s', ignoring: %m", f->original_path);
+                        continue;
+                }
+                if (more) {
+                        log_warning("Certificate file '%s' contains more than one certificate, ignoring.", f->original_path);
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(certificates, n_certificates + 1))
+                        return log_oom();
+
+                certificates[n_certificates++] = TAKE_PTR(cert);
+                log_debug("Loaded UAPI.16 manifest certificate '%s'.", f->original_path);
+        }
+
+        *ret = TAKE_PTR(certificates);
+        *ret_n = n_certificates;
+        n_certificates = 0;
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signature verification not supported, OpenSSL support disabled.");
+#endif
 }
