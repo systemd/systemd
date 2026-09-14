@@ -18,6 +18,8 @@ int acquire_fido2_key(
                 Fido2EnrollFlags required,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
+                const char *pin,
+                bool use_env_pin,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size);
 
