@@ -156,3 +156,7 @@ void fido2_device_info_free_many(Fido2DeviceInfo *a, size_t n);
 int fido2_enumerate_devices(Fido2DeviceInfo **ret, size_t *ret_n);
 
 int fido2_have_device(const char *device);
+
+/* Checks that a suitable FIDO2 token is plugged in, and resolves a NULL device to it. Returns -ENOMEDIUM if
+ * none is around. */
+int fido2_resolve_device(const char *device, char **ret);

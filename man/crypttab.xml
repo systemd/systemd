@@ -890,6 +890,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>tpm2-fido2=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to <literal>false</literal>. Declares that the
+        TPM2 enrollment of this volume is additionally bound to a FIDO2 token via the
+        <literal>hmac-secret</literal> extension. Unlike <option>tpm2-pin=</option> this option does not
+        control whether the FIDO2 token is actually required — that is recorded in the LUKS2 enrollment
+        metadata, and honoured regardless of this setting. Instead, turning this option on implies
+        <option>fido2-device=auto</option> if no FIDO2 device is configured otherwise, and disables the
+        manual key material configured with <option>tpm2-device-key=</option> or the key file specified in
+        the third column: the FIDO2 credential ID and salt only exist in the LUKS2 header, so unlocking has
+        to read the TPM2 parameters from there too.</para>
+
+        <para>When both the TPM2 and the FIDO2 token require a PIN, a single PIN is used for both: the volume
+        is enrolled such that the FIDO2 token's client PIN is also used as the TPM2 PIN.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>tpm2-signature=</option></term>
 
         <listitem><para>Takes an absolute path to a TPM2 PCR JSON signature file, as produced by the
