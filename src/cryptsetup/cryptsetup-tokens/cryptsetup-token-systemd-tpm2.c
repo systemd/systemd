@@ -123,7 +123,11 @@ _public_ int cryptsetup_token_open_pin(
                         &srk,
                         &pcrlock_nv,
                         &flags,
-                        &argon2id_params);
+                        &argon2id_params,
+                        /* ret_fido2_cid= */ NULL,
+                        /* ret_fido2_salt= */ NULL,
+                        /* ret_fido2_rp_id= */ NULL,
+                        /* ret_fido2_flags= */ NULL);
         if (r < 0)
                 return log_debug_open_error(cd, token, r);
 
@@ -247,7 +251,11 @@ _public_ void cryptsetup_token_dump(
                         &srk,
                         &pcrlock_nv,
                         &flags,
-                        /* ret_argon2id_params= */ NULL);
+                        /* ret_argon2id_params= */ NULL,
+                        /* ret_fido2_cid= */ NULL,
+                        /* ret_fido2_salt= */ NULL,
+                        /* ret_fido2_rp_id= */ NULL,
+                        /* ret_fido2_flags= */ NULL);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON fields: %m");
 

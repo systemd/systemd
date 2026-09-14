@@ -529,6 +529,7 @@ executables += [
         test_template + {
                 'sources' : files('test-tpm2.c'),
                 'dependencies' : [
+                        libfido2_cflags,
                         libopenssl_cflags,
                         tpm2_cflags,
                 ],

@@ -5,6 +5,7 @@
 #include "crypto-util.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
+#include "libfido2-util.h"
 #include "random-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
@@ -1078,6 +1079,135 @@ TEST(calculate_sealing_policy_auth_value) {
         ASSERT_EQ(memcmp_nn(pin.buffer, pin.size, fido2.buffer, fido2.size), 0);
         ASSERT_EQ(memcmp_nn(pin.buffer, pin.size, both.buffer, both.size), 0);
         ASSERT_NE(memcmp_nn(pin.buffer, pin.size, neither.buffer, neither.size), 0);
+}
+
+TEST(make_parse_luks2_json_fido2) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(iovec_done) struct iovec parsed_cid = {}, parsed_salt = {};
+        _cleanup_free_ char *parsed_rp = NULL;
+        Fido2EnrollFlags parsed_fido2_flags;
+        TPM2Flags parsed_flags;
+
+        DEFINE_HEX_PTR(cid_data, "0123456789abcdef0123456789abcdef");
+        DEFINE_HEX_PTR(salt_data, "fedcba9876543210fedcba9876543210");
+        DEFINE_HEX_PTR(blob_data, "00112233445566778899aabbccddeeff");
+        DEFINE_HEX_PTR(policy_hash_data, "17b7703d9d00776310ba032e88c1a8c2a9c630ebdd799db622f6631530789175");
+
+        struct iovec cid = IOVEC_MAKE(cid_data, cid_data_len);
+        struct iovec salt = IOVEC_MAKE(salt_data, salt_data_len);
+        struct iovec blob = IOVEC_MAKE(blob_data, blob_data_len);
+        struct iovec policy_hash = IOVEC_MAKE(policy_hash_data, policy_hash_data_len);
+
+        /* The FIDO2 fields of the LUKS2 token have to survive a make/parse round trip unharmed, as they are
+         * the only place the credential to unlock with is recorded. */
+        ASSERT_OK(tpm2_make_luks2_json(
+                                  /* keyslot= */ 3,
+                                  /* hash_pcr_mask= */ UINT32_C(1) << 7,
+                                  /* pcr_bank= */ TPM2_ALG_SHA256,
+                                  /* pubkey= */ NULL,
+                                  /* pubkey_policy_ref= */ NULL,
+                                  /* pubkey_pcr_mask= */ 0,
+                                  /* primary_alg= */ TPM2_ALG_ECC,
+                                  &blob, /* n_blobs= */ 1,
+                                  &policy_hash, /* n_policy_hash= */ 1,
+                                  /* salt= */ NULL,
+                                  /* srk= */ NULL,
+                                  /* pcrlock_nv= */ NULL,
+                                  TPM2_FLAGS_USE_FIDO2,
+                                  /* argon2id_params= */ NULL,
+                                  &cid,
+                                  &salt,
+                                  FIDO2ENROLL_PIN|FIDO2ENROLL_UP,
+                                  &v));
+
+        ASSERT_OK(tpm2_parse_luks2_json(
+                                  v,
+                                  /* ret_keyslot= */ NULL,
+                                  /* ret_hash_pcr_mask= */ NULL,
+                                  /* ret_pcr_bank= */ NULL,
+                                  /* ret_pubkey= */ NULL,
+                                  /* ret_pubkey_policy_ref= */ NULL,
+                                  /* ret_pubkey_pcr_mask= */ NULL,
+                                  /* ret_primary_alg= */ NULL,
+                                  /* ret_blobs= */ NULL,
+                                  /* ret_n_blobs= */ NULL,
+                                  /* ret_policy_hash= */ NULL,
+                                  /* ret_n_policy_hash= */ NULL,
+                                  /* ret_salt= */ NULL,
+                                  /* ret_srk= */ NULL,
+                                  /* ret_pcrlock_nv= */ NULL,
+                                  &parsed_flags,
+                                  /* ret_argon2id_params= */ NULL,
+                                  &parsed_cid,
+                                  &parsed_salt,
+                                  &parsed_rp,
+                                  &parsed_fido2_flags));
+
+        ASSERT_TRUE(FLAGS_SET(parsed_flags, TPM2_FLAGS_USE_FIDO2));
+        ASSERT_TRUE(iovec_memcmp(&parsed_cid, &cid) == 0);
+        ASSERT_TRUE(iovec_memcmp(&parsed_salt, &salt) == 0);
+        /* The writer hardcodes the relying party, the reader has to report it back verbatim. */
+        ASSERT_STREQ(parsed_rp, "io.systemd.cryptsetup");
+        ASSERT_EQ(parsed_fido2_flags, (Fido2EnrollFlags) (FIDO2ENROLL_PIN|FIDO2ENROLL_UP));
+
+        /* Without the flag none of the FIDO2 fields are written out at all. */
+        v = sd_json_variant_unref(v);
+        ASSERT_OK(tpm2_make_luks2_json(
+                                  /* keyslot= */ 3,
+                                  /* hash_pcr_mask= */ UINT32_C(1) << 7,
+                                  /* pcr_bank= */ TPM2_ALG_SHA256,
+                                  /* pubkey= */ NULL,
+                                  /* pubkey_policy_ref= */ NULL,
+                                  /* pubkey_pcr_mask= */ 0,
+                                  /* primary_alg= */ TPM2_ALG_ECC,
+                                  &blob, /* n_blobs= */ 1,
+                                  &policy_hash, /* n_policy_hash= */ 1,
+                                  /* salt= */ NULL,
+                                  /* srk= */ NULL,
+                                  /* pcrlock_nv= */ NULL,
+                                  /* flags= */ 0,
+                                  /* argon2id_params= */ NULL,
+                                  &cid,
+                                  &salt,
+                                  FIDO2ENROLL_PIN|FIDO2ENROLL_UP,
+                                  &v));
+
+        ASSERT_NULL(sd_json_variant_by_key(v, "tpm2_fido2"));
+        ASSERT_NULL(sd_json_variant_by_key(v, "fido2-credential"));
+        ASSERT_NULL(sd_json_variant_by_key(v, "fido2-salt"));
+        ASSERT_NULL(sd_json_variant_by_key(v, "fido2-rp"));
+
+        iovec_done(&parsed_cid);
+        iovec_done(&parsed_salt);
+        parsed_rp = mfree(parsed_rp);
+
+        ASSERT_OK(tpm2_parse_luks2_json(
+                                  v,
+                                  /* ret_keyslot= */ NULL,
+                                  /* ret_hash_pcr_mask= */ NULL,
+                                  /* ret_pcr_bank= */ NULL,
+                                  /* ret_pubkey= */ NULL,
+                                  /* ret_pubkey_policy_ref= */ NULL,
+                                  /* ret_pubkey_pcr_mask= */ NULL,
+                                  /* ret_primary_alg= */ NULL,
+                                  /* ret_blobs= */ NULL,
+                                  /* ret_n_blobs= */ NULL,
+                                  /* ret_policy_hash= */ NULL,
+                                  /* ret_n_policy_hash= */ NULL,
+                                  /* ret_salt= */ NULL,
+                                  /* ret_srk= */ NULL,
+                                  /* ret_pcrlock_nv= */ NULL,
+                                  &parsed_flags,
+                                  /* ret_argon2id_params= */ NULL,
+                                  &parsed_cid,
+                                  &parsed_salt,
+                                  &parsed_rp,
+                                  &parsed_fido2_flags));
+
+        ASSERT_FALSE(FLAGS_SET(parsed_flags, TPM2_FLAGS_USE_FIDO2));
+        ASSERT_FALSE(iovec_is_set(&parsed_cid));
+        ASSERT_FALSE(iovec_is_set(&parsed_salt));
+        ASSERT_NULL(parsed_rp);
 }
 
 TEST(calculate_policy_nv_written) {
