@@ -18,7 +18,20 @@
 #include "string-util.h"
 #include "time-util.h"
 
-static const MetricFamily cgroup_metric_family_table[8];
+typedef enum CGroupMetricFamily {
+        CGROUP_CPU_USAGE,
+        CGROUP_IO_READ_BYTES,
+        CGROUP_IO_READ_OPERATIONS,
+        CGROUP_MEMORY_USAGE,
+        CGROUP_PRESSURE_AVG10,
+        CGROUP_PRESSURE_STALL_SECONDS,
+        CGROUP_TASKS_CURRENT,
+        _CGROUP_METRIC_FAMILY_MAX,
+} CGroupMetricFamily;
+
+assert_cc(CGROUP_IO_READ_OPERATIONS == CGROUP_IO_READ_BYTES + 1);
+
+static const MetricFamily cgroup_metric_family_table[_CGROUP_METRIC_FAMILY_MAX + 1];
 
 /* Parse cpu.stat for a cgroup once, extracting usage_usec, user_usec and system_usec
  * in a single read so each scrape only opens the file once per cgroup. */
@@ -301,7 +314,7 @@ int report_cgroup_pressure_send(
                                 return r;
 
                         r = metric_build_send_double(
-                                        cgroup_metric_family_table + 4,
+                                        cgroup_metric_family_table + CGROUP_PRESSURE_AVG10,
                                         link,
                                         unit,
                                         (double) rp.avg10 / LOADAVG_FIXED_POINT_1_0,
@@ -310,7 +323,7 @@ int report_cgroup_pressure_send(
                                 return r;
 
                         r = metric_build_send_double(
-                                        cgroup_metric_family_table + 5,
+                                        cgroup_metric_family_table + CGROUP_PRESSURE_STALL_SECONDS,
                                         link,
                                         unit,
                                         (double) rp.total / USEC_PER_SEC,
@@ -348,7 +361,7 @@ static int tasks_current_send(
 }
 
 static int walk_cgroups(
-                const MetricFamily mf[static 7],
+                const MetricFamily mf[static _CGROUP_METRIC_FAMILY_MAX],
                 sd_varlink *link,
                 const char *path,
                 bool pressure_supported) {
@@ -356,28 +369,28 @@ static int walk_cgroups(
         int r;
 
         assert(mf);
-        for (size_t i = 0; i < 7; i++) {
+        for (size_t i = 0; i < _CGROUP_METRIC_FAMILY_MAX; i++) {
                 assert(mf[i].name);
-                assert(!mf[i].generate == (i > 0));
+                assert(!mf[i].generate == (i != CGROUP_CPU_USAGE));
         }
         assert(path);
 
         _cleanup_free_ char *unit = NULL;
         r = cg_path_get_unit(path, &unit);
         if (r >= 0) {
-                r = cpu_usage_send(mf + 0, link, path, unit);
+                r = cpu_usage_send(mf + CGROUP_CPU_USAGE, link, path, unit);
                 if (r < 0)
                         return r;
 
-                r = io_read_send(mf + 1, link, path, unit);
+                r = io_read_send(mf + CGROUP_IO_READ_BYTES, link, path, unit);
                 if (r < 0)
                         return r;
 
-                r = memory_usage_send(mf + 3, link, path, unit);
+                r = memory_usage_send(mf + CGROUP_MEMORY_USAGE, link, path, unit);
                 if (r < 0)
                         return r;
 
-                r = tasks_current_send(mf + 6, link, path, unit);
+                r = tasks_current_send(mf + CGROUP_TASKS_CURRENT, link, path, unit);
                 if (r < 0)
                         return r;
 
@@ -434,7 +447,7 @@ static int walk_cgroups(
 }
 
 static int cgroup_stats_send(
-                const MetricFamily mf[static 7],
+                const MetricFamily mf[static _CGROUP_METRIC_FAMILY_MAX],
                 sd_varlink *link,
                 void *userdata) {
 
@@ -447,43 +460,43 @@ static int cgroup_stats_send(
 
 static const MetricFamily cgroup_metric_family_table[] = {
         /* Keep metrics ordered alphabetically */
-        {
+        [CGROUP_CPU_USAGE] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "CpuUsage",
                 "Per unit metric: CPU usage in nanoseconds (type=total|user|system)",
                 METRIC_FAMILY_TYPE_COUNTER,
                 .generate = cgroup_stats_send,
         },
-        {
+        [CGROUP_IO_READ_BYTES] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "IOReadBytes",
                 "Per unit metric: IO bytes read",
                 METRIC_FAMILY_TYPE_COUNTER,
         },
-        {
+        [CGROUP_IO_READ_OPERATIONS] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "IOReadOperations",
                 "Per unit metric: IO read operations",
                 METRIC_FAMILY_TYPE_COUNTER,
         },
-        {
+        [CGROUP_MEMORY_USAGE] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "MemoryUsage",
                 "Per unit metric: memory usage in bytes",
                 METRIC_FAMILY_TYPE_GAUGE,
         },
-        {
+        [CGROUP_PRESSURE_AVG10] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "PressureAvg10",
                 "Per unit metric: pressure stall percentage over the last 10s (resource=cpu|memory|io, type=some|full)",
                 METRIC_FAMILY_TYPE_GAUGE,
         },
-        {
+        [CGROUP_PRESSURE_STALL_SECONDS] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "PressureStallSeconds",
                 "Per unit metric: total time stalled in seconds (resource=cpu|memory|io, type=some|full)",
                 METRIC_FAMILY_TYPE_COUNTER,
         },
-        {
+        [CGROUP_TASKS_CURRENT] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "TasksCurrent",
                 "Per unit metric: current number of tasks",
                 METRIC_FAMILY_TYPE_GAUGE,
         },
-        {}
+        [_CGROUP_METRIC_FAMILY_MAX] = {}
 };
 
 int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
