@@ -1121,27 +1121,32 @@ static int wireguard_peer_verify(WireguardPeer *peer) {
         if (section_is_invalid(peer->section))
                 return -EINVAL;
 
-        r = wireguard_read_key_file(peer->public_key_file, peer->public_key);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r,
-                                              "%s: Failed to read public key from '%s'. "
-                                              "Ignoring [WireGuardPeer] section from line %u.",
-                                              peer->section->filename, peer->public_key_file,
-                                              peer->section->line);
+        /* See wireguard_verify(): in test mode key files are not read, but a configured one counts as a key. */
+        if (!netdev->manager->test_mode) {
+                r = wireguard_read_key_file(peer->public_key_file, peer->public_key);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r,
+                                                      "%s: Failed to read public key from '%s'. "
+                                                      "Ignoring [WireGuardPeer] section from line %u.",
+                                                      peer->section->filename, peer->public_key_file,
+                                                      peer->section->line);
+        }
 
-        if (eqzero(peer->public_key))
+        if (eqzero(peer->public_key) && !(netdev->manager->test_mode && peer->public_key_file))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: WireGuardPeer section without PublicKey= configured. "
                                               "Ignoring [WireGuardPeer] section from line %u.",
                                               peer->section->filename, peer->section->line);
 
-        r = wireguard_read_key_file(peer->preshared_key_file, peer->preshared_key);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r,
-                                              "%s: Failed to read preshared key from '%s'. "
-                                              "Ignoring [WireGuardPeer] section from line %u.",
-                                              peer->section->filename, peer->preshared_key_file,
-                                              peer->section->line);
+        if (!netdev->manager->test_mode) {
+                r = wireguard_read_key_file(peer->preshared_key_file, peer->preshared_key);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r,
+                                                      "%s: Failed to read preshared key from '%s'. "
+                                                      "Ignoring [WireGuardPeer] section from line %u.",
+                                                      peer->section->filename, peer->preshared_key_file,
+                                                      peer->section->line);
+        }
 
         return 0;
 }
@@ -1199,13 +1204,17 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
         Wireguard *w = WIREGUARD(netdev);
         int r;
 
-        r = wireguard_read_key_file(w->private_key_file, w->private_key);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r,
-                                              "Failed to read private key from '%s', ignoring network device: %m",
-                                              w->private_key_file);
+        /* Key material is read from paths and credentials named by the file. Verification and tests
+         * must neither depend on it being present nor block on what those paths turn out to be. */
+        if (!netdev->manager->test_mode) {
+                r = wireguard_read_key_file(w->private_key_file, w->private_key);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r,
+                                                      "Failed to read private key from '%s', ignoring network device: %m",
+                                                      w->private_key_file);
+        }
 
-        if (eqzero(w->private_key)) {
+        if (eqzero(w->private_key) && !netdev->manager->test_mode) {
                 r = wireguard_read_default_key_cred(netdev, filename);
                 if (r < 0)
                         return r;
