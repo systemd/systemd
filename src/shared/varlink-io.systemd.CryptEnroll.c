@@ -5,9 +5,9 @@
 
 /* The credential types this interface knows about. The same enum is used for the 'mechanism' to enroll, for
  * the slot types to wipe, and for the slot types reported by ListSlots. Note that only password, recovery key
- * and fido2 may actually be *enrolled* via the Enroll() method; pkcs11 and tpm2 slots can be listed and wiped,
- * but enrolling them requires the systemd-cryptenroll command line. Enroll() rejects them with an
- * InvalidParameter error rather than via interface validation, so they are part of this enum. */
+ * and fido2 may actually be *enrolled* via the Enroll() method; pkcs11, tpm2 and tpm2_fido2 slots can be
+ * listed and wiped, but enrolling them requires the systemd-cryptenroll command line. Enroll() rejects them
+ * with an InvalidParameter error rather than via interface validation, so they are part of this enum. */
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 EnrollMechanism,
                 SD_VARLINK_FIELD_COMMENT("A regular passphrase"),
@@ -19,7 +19,9 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("A FIDO2 security token"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(fido2),
                 SD_VARLINK_FIELD_COMMENT("A TPM2 device (not enrollable via this interface)"),
-                SD_VARLINK_DEFINE_ENUM_VALUE(tpm2));
+                SD_VARLINK_DEFINE_ENUM_VALUE(tpm2),
+                SD_VARLINK_FIELD_COMMENT("A TPM2 device bound to a FIDO2 security token (not enrollable via this interface)"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(tpm2_fido2));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 Enroll,
