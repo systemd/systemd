@@ -88,6 +88,7 @@ typedef struct EnrollContext {
         Tpm2PCRValue *tpm2_hash_pcr_values;
         size_t tpm2_n_hash_pcr_values;
         Tpm2WithPin tpm2_pin;
+        bool tpm2_fido2;
         Argon2IdParameters tpm2_argon2id_params;
         usec_t tpm2_argon2id_iter_time;
         char *tpm2_public_key;
