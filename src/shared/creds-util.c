@@ -1362,7 +1362,7 @@ int decrypt_credential_and_warn(
 
         /* Relevant error codes:
          *
-         *   -EBADMSG      → Corrupted file
+         *   -EBADMSG      → Corrupted file, or unparsable PCR signature file
          *   -EOPNOTSUPP   → Unsupported file type (could be: requires TPM but we have no TPM)
          *   -EHOSTDOWN    → Need PCR signature file, but couldn't find it
          *   -EHWPOISON    → Attempt to unlock with NULL key and either CREDENTIAL_ALLOW_REFUSE is on, or CREDENTIAL_ALLOW_NULL is off, but the system has a TPM and SecureBoot is on
@@ -1386,6 +1386,8 @@ int decrypt_credential_and_warn(
                 r = tpm2_load_pcr_signature(tpm2_signature_path, &signature_json);
                 if (r == -ENOENT)
                         return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Couldn't find PCR signature file: %m");
+                if (r == -EBADMSG)
+                        return log_error_errno(r, "PCR signature file is malformed.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to load PCR signature: %m");
         }
