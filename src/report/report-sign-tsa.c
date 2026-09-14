@@ -16,19 +16,20 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "time.h"
 #include "varlink-io.systemd.Report.Signer.h"
 #include "varlink-util.h"
 #include "verbs.h"
 #include "version.h"
 
-#define TSA_ENDPOINT_URL "https://freetsa.org/tsr"
+#define TSA_ENDPOINT_URL "http://timestamp.digicert.com"
 /*Sanity cap, real TSA responses are only a few KB, if too big then refuse to buffer it because the behavior isn't normal.*/
 #define TSA_RESPONSE_MAX_SIZE (64U * 1024U)
 
 
-COMMAND("systemd-report-sign-tsa\0", "Sign a report with a timestamp from the TSA server.",
-        // Man page?
-);
+COMMAND("systemd-report-sign-tsa\0",
+        "Sign a report with a timestamp from the TSA server.",
+        .man_pages = "systemd-report-sign-tsa@.service(8)\0", );
 
 typedef struct SignParameters {
         struct iovec digest;
@@ -70,7 +71,6 @@ static int build_timestamp_request(const struct iovec *digest, const char *algor
         assert(digest);
         assert(algorithm);
         assert(ret_ts_req);
-
 
         _cleanup_(TS_REQ_freep) TS_REQ *ts_req = NULL;
         _cleanup_(TS_MSG_IMPRINT_freep) TS_MSG_IMPRINT *ts_imprint = NULL;
@@ -175,7 +175,8 @@ static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
                 return r;
 
         _cleanup_(OPENSSL_freep) void *req_der = NULL;
-                int req_len = sym_i2d_TS_REQ(ts_req, (unsigned char **) &req_der); // Converts TS_REQ structure into der (binary).
+        int req_len = sym_i2d_TS_REQ(
+                        ts_req, (unsigned char **) &req_der); // Converts TS_REQ structure into der (binary).
         if (req_len < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Failed to serialize TS_REQ.");
 
@@ -292,6 +293,82 @@ static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
 #endif
 }
 
+static int build_ca_store(X509_STORE **ret_store) {
+        int r;
+        assert(ret_store);
+
+        _cleanup_(X509_STORE_freep) X509_STORE *store = NULL;
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        store = sym_X509_STORE_new();
+        if (!store)
+                return log_oom();
+
+        r = sym_X509_STORE_set_default_paths(store);
+        if (r != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set default paths for store.");
+
+        *ret_store = TAKE_PTR(store);
+        return 0;
+}
+
+
+static int response_verify(TS_REQ *ts_req, TS_RESP *ts_resp) {
+        int r;
+
+        assert(ts_req);
+        assert(ts_resp);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        _cleanup_(X509_STORE_freep) X509_STORE *store = NULL;
+        _cleanup_(TS_VERIFY_CTX_freep) TS_VERIFY_CTX *ctx = NULL;
+
+        r = build_ca_store(&store);
+        if (r < 0)
+                return r;
+
+        ctx = sym_TS_REQ_to_TS_VERIFY_CTX(ts_req, /*ctx= */ NULL);
+        if (!ctx)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to build TS verify context.");
+
+        sym_TS_VERIFY_CTX_set0_store(ctx, TAKE_PTR(store));
+        sym_TS_VERIFY_CTX_add_flags(ctx, TS_VFY_SIGNATURE);
+
+        r = sym_TS_RESP_verify_response(ctx, ts_resp);
+        if (r != 1)
+                return log_openssl_errors(LOG_ERR, "Failed to verify TSA response");
+
+        return 0;
+}
+
+static int tst_info_get_timestamp(TS_TST_INFO *tst_info, usec_t *ret) {
+        struct tm tm = {};
+
+        assert(tst_info);
+        assert(ret);
+
+        const ASN1_GENERALIZEDTIME *gt = sym_TS_TST_INFO_get_time(tst_info);
+        if (!gt)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Timestamp token carries no time.");
+
+        if (sym_ASN1_TIME_to_tm(gt, &tm) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse time in timestamp token.");
+
+        time_t t = timegm(&tm);
+        if (t == (time_t) -1)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Time in timestamp token is out of range.");
+
+        *ret = (usec_t) t * USEC_PER_SEC;
+        return 0;
+}
+
+
 static int vl_method_sign(
                 sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
@@ -335,10 +412,25 @@ static int vl_method_sign(
         if (r < 0)
                 return r;
 
+        r = response_verify(ts_req, ts_resp);
+        if (r < 0)
+                return r;
+
+        TS_TST_INFO *tst_info = sym_TS_RESP_get_tst_info(ts_resp);
+        if (!tst_info)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to get TST_INFO");
+
+        usec_t ts;
+        r = tst_info_get_timestamp(tst_info, &ts);
+        if (r < 0)
+                return r;
+
         _cleanup_(OPENSSL_freep) void *token_der = NULL;
         int token_len = sym_i2d_PKCS7(sym_TS_RESP_get_token(ts_resp), (unsigned char **) &token_der);
         if (token_len < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Failed to serialize TS_TST_INFO structure into DER format.");
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(ENOMEM),
+                                "Failed to serialize TS_TST_INFO structure into DER format.");
 
         // TSA Config (call )
         return sd_varlink_replybo(
@@ -346,7 +438,14 @@ static int vl_method_sign(
                         SD_JSON_BUILD_PAIR(
                                         "data",
                                         SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_OBJECT(
-                                                        SD_JSON_BUILD_PAIR_BASE64("timestampToken", token_der, (size_t) token_len),
+                                                        SD_JSON_BUILD_PAIR_BASE64(
+                                                                        "timestampToken",
+                                                                        token_der,
+                                                                        (size_t) token_len),
+                                                        SD_JSON_BUILD_PAIR_STRING(
+                                                                        "timestamp",
+                                                                        FORMAT_TIMESTAMP_STYLE(
+                                                                                        ts, TIMESTAMP_UTC)),
                                                         SD_JSON_BUILD_PAIR_STRING("tsaUrl", TSA_ENDPOINT_URL)))));
 }
 

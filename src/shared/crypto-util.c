@@ -60,6 +60,20 @@ DLSYM_PROTOTYPE(X509_ALGOR_new) = NULL;
 DLSYM_PROTOTYPE(ASN1_INTEGER_get) = NULL;
 DLSYM_PROTOTYPE(d2i_TS_RESP) = NULL;
 DLSYM_PROTOTYPE(i2d_TS_REQ) = NULL;
+
+DLSYM_PROTOTYPE(X509_STORE_new) = NULL;
+DLSYM_PROTOTYPE(X509_STORE_free) = NULL;
+DLSYM_PROTOTYPE(X509_STORE_set_default_paths) = NULL;
+
+DLSYM_PROTOTYPE(TS_REQ_to_TS_VERIFY_CTX) = NULL;
+DLSYM_PROTOTYPE(TS_VERIFY_CTX_set0_store) = NULL;
+DLSYM_PROTOTYPE(TS_VERIFY_CTX_free) = NULL;
+DLSYM_PROTOTYPE(TS_VERIFY_CTX_add_flags) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_verify_response) = NULL;
+
+DLSYM_PROTOTYPE(TS_TST_INFO_get_time) = NULL;
+DLSYM_PROTOTYPE(ASN1_TIME_to_tm) = NULL;
+DLSYM_PROTOTYPE(TS_RESP_get_tst_info) = NULL;
 /*addition end */
 
 DLSYM_PROTOTYPE(ASN1_ANY_it) = NULL;
@@ -421,6 +435,20 @@ int dlopen_libcrypto(int log_level) {
                                 DLSYM_ARG(ASN1_INTEGER_get),
                                 DLSYM_ARG(d2i_TS_RESP),
                                 DLSYM_ARG(i2d_TS_REQ),
+
+                                DLSYM_ARG(X509_STORE_new),
+                                DLSYM_ARG(X509_STORE_free),
+                                DLSYM_ARG(X509_STORE_set_default_paths),
+
+                                DLSYM_ARG(TS_REQ_to_TS_VERIFY_CTX),
+                                DLSYM_ARG(TS_VERIFY_CTX_free),
+                                DLSYM_ARG(TS_VERIFY_CTX_set0_store),
+                                DLSYM_ARG(TS_VERIFY_CTX_add_flags),
+                                DLSYM_ARG(TS_RESP_verify_response),
+
+                                DLSYM_ARG(TS_TST_INFO_get_time),
+                                DLSYM_ARG(ASN1_TIME_to_tm),
+                                DLSYM_ARG(TS_RESP_get_tst_info),
                                 /*addition end*/
 
                                 DLSYM_ARG(ASN1_ANY_it),
