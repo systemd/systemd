@@ -99,7 +99,7 @@
 /* We know up front we're never going to put more than this in a verity sig partition. */
 #define VERITY_SIG_SIZE (HARD_MIN_SIZE*4ULL)
 
-/* LUKS2 takes off 16M of the partition size with its metadata by default */
+/* LUKS2 takes off 16M of the partition size with its metadata and keyslots by default */
 #define LUKS2_METADATA_SIZE (16ULL*1024ULL*1024ULL)
 
 /* To do LUKS2 offline encryption, we need to keep some extra free space at the end of the partition. */
@@ -5574,6 +5574,11 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r < 0)
                         return log_error_errno(r, "Failed to set data offset: %m");
         }
+
+        /* Increase the metadata space to 4M, the largest LUKS2 supports */
+        r = sym_crypt_set_metadata_size(cd, 4096U*1024U, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to change LUKS2 metadata size: %m");
 
         r = sym_crypt_format(
                         cd,
