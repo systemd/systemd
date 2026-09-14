@@ -67,13 +67,16 @@ DLSYM_PROTOTYPE(ASN1_item_new) = NULL;
 static DLSYM_PROTOTYPE(BASIC_CONSTRAINTS_free) = NULL;
 static DLSYM_PROTOTYPE(BASIC_CONSTRAINTS_new) = NULL;
 DLSYM_PROTOTYPE(BIO_ctrl) = NULL;
+DLSYM_PROTOTYPE(BIO_f_md) = NULL;
 DLSYM_PROTOTYPE(BIO_find_type) = NULL;
 DLSYM_PROTOTYPE(BIO_free) = NULL;
 DLSYM_PROTOTYPE(BIO_free_all) = NULL;
 DLSYM_PROTOTYPE(BIO_new) = NULL;
 DLSYM_PROTOTYPE(BIO_new_mem_buf) = NULL;
 DLSYM_PROTOTYPE(BIO_new_socket) = NULL;
+DLSYM_PROTOTYPE(BIO_push) = NULL;
 DLSYM_PROTOTYPE(BIO_s_mem) = NULL;
+DLSYM_PROTOTYPE(BIO_s_null) = NULL;
 DLSYM_PROTOTYPE(BIO_write) = NULL;
 DLSYM_PROTOTYPE(BN_CTX_free) = NULL;
 DLSYM_PROTOTYPE(BN_CTX_new) = NULL;
@@ -104,6 +107,17 @@ DLSYM_PROTOTYPE(BN_secure_new) = NULL;
 DLSYM_PROTOTYPE(BN_set_word) = NULL;
 DLSYM_PROTOTYPE(BN_sub_word) = NULL;
 static DLSYM_PROTOTYPE(BN_to_ASN1_INTEGER) = NULL;
+DLSYM_PROTOTYPE(CMS_ContentInfo_free) = NULL;
+DLSYM_PROTOTYPE(CMS_SignerInfo_set1_signer_cert) = NULL;
+DLSYM_PROTOTYPE(CMS_SignerInfo_verify) = NULL;
+DLSYM_PROTOTYPE(CMS_SignerInfo_verify_content) = NULL;
+DLSYM_PROTOTYPE(CMS_add1_signer) = NULL;
+DLSYM_PROTOTYPE(CMS_dataFinal) = NULL;
+DLSYM_PROTOTYPE(CMS_dataInit) = NULL;
+DLSYM_PROTOTYPE(CMS_get0_SignerInfos) = NULL;
+DLSYM_PROTOTYPE(CMS_get0_type) = NULL;
+DLSYM_PROTOTYPE(CMS_sign) = NULL;
+DLSYM_PROTOTYPE(CMS_signed_get_attr_count) = NULL;
 DLSYM_PROTOTYPE(CRYPTO_free) = NULL;
 DLSYM_PROTOTYPE(ECDSA_SIG_free) = NULL;
 DLSYM_PROTOTYPE(ECDSA_SIG_get0_r) = NULL;
@@ -227,6 +241,7 @@ DLSYM_PROTOTYPE(EVP_sha512) = NULL;
 DLSYM_PROTOTYPE(HMAC) = NULL;
 DLSYM_PROTOTYPE(OBJ_nid2obj) = NULL;
 DLSYM_PROTOTYPE(OBJ_nid2sn) = NULL;
+DLSYM_PROTOTYPE(OBJ_obj2nid) = NULL;
 DLSYM_PROTOTYPE(OBJ_sn2nid) = NULL;
 DLSYM_PROTOTYPE(OBJ_txt2obj) = NULL;
 DLSYM_PROTOTYPE(OPENSSL_sk_new_null) = NULL;
@@ -327,12 +342,14 @@ static DLSYM_PROTOTYPE(X509_sign) = NULL;
 static DLSYM_PROTOTYPE(X509_time_adj_ex) = NULL;
 DLSYM_PROTOTYPE(X509_verify) = NULL;
 DLSYM_PROTOTYPE(d2i_ASN1_OCTET_STRING) = NULL;
+DLSYM_PROTOTYPE(d2i_CMS_ContentInfo) = NULL;
 DLSYM_PROTOTYPE(d2i_ECDSA_SIG) = NULL;
 DLSYM_PROTOTYPE(d2i_ECPKParameters) = NULL;
 DLSYM_PROTOTYPE(d2i_PKCS7) = NULL;
 DLSYM_PROTOTYPE(d2i_PUBKEY) = NULL;
 DLSYM_PROTOTYPE(d2i_X509) = NULL;
 DLSYM_PROTOTYPE(i2d_ASN1_INTEGER) = NULL;
+DLSYM_PROTOTYPE(i2d_CMS_ContentInfo) = NULL;
 DLSYM_PROTOTYPE(i2d_ECDSA_SIG) = NULL;
 DLSYM_PROTOTYPE(i2d_PKCS7) = NULL;
 DLSYM_PROTOTYPE(i2d_PKCS7_fp) = NULL;
@@ -420,13 +437,16 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(BASIC_CONSTRAINTS_free),
                         DLSYM_ARG(BASIC_CONSTRAINTS_new),
                         DLSYM_ARG(BIO_ctrl),
+                        DLSYM_ARG(BIO_f_md),
                         DLSYM_ARG(BIO_find_type),
                         DLSYM_ARG(BIO_free),
                         DLSYM_ARG(BIO_free_all),
                         DLSYM_ARG(BIO_new),
                         DLSYM_ARG(BIO_new_mem_buf),
                         DLSYM_ARG(BIO_new_socket),
+                        DLSYM_ARG(BIO_push),
                         DLSYM_ARG(BIO_s_mem),
+                        DLSYM_ARG(BIO_s_null),
                         DLSYM_ARG(BIO_write),
                         DLSYM_ARG(BN_CTX_free),
                         DLSYM_ARG(BN_CTX_new),
@@ -457,6 +477,17 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(BN_set_word),
                         DLSYM_ARG(BN_sub_word),
                         DLSYM_ARG(BN_to_ASN1_INTEGER),
+                        DLSYM_ARG(CMS_ContentInfo_free),
+                        DLSYM_ARG(CMS_SignerInfo_set1_signer_cert),
+                        DLSYM_ARG(CMS_SignerInfo_verify),
+                        DLSYM_ARG(CMS_SignerInfo_verify_content),
+                        DLSYM_ARG(CMS_add1_signer),
+                        DLSYM_ARG(CMS_dataFinal),
+                        DLSYM_ARG(CMS_dataInit),
+                        DLSYM_ARG(CMS_get0_SignerInfos),
+                        DLSYM_ARG(CMS_get0_type),
+                        DLSYM_ARG(CMS_sign),
+                        DLSYM_ARG(CMS_signed_get_attr_count),
                         DLSYM_ARG(CRYPTO_free),
                         DLSYM_ARG(ECDSA_SIG_free),
                         DLSYM_ARG(ECDSA_SIG_get0_r),
@@ -580,6 +611,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(HMAC),
                         DLSYM_ARG(OBJ_nid2obj),
                         DLSYM_ARG(OBJ_nid2sn),
+                        DLSYM_ARG(OBJ_obj2nid),
                         DLSYM_ARG(OBJ_sn2nid),
                         DLSYM_ARG(OBJ_txt2obj),
                         DLSYM_ARG(OPENSSL_sk_new_null),
@@ -678,12 +710,14 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(X509_time_adj_ex),
                         DLSYM_ARG(X509_verify),
                         DLSYM_ARG(d2i_ASN1_OCTET_STRING),
+                        DLSYM_ARG(d2i_CMS_ContentInfo),
                         DLSYM_ARG(d2i_ECDSA_SIG),
                         DLSYM_ARG(d2i_ECPKParameters),
                         DLSYM_ARG(d2i_PKCS7),
                         DLSYM_ARG(d2i_PUBKEY),
                         DLSYM_ARG(d2i_X509),
                         DLSYM_ARG(i2d_ASN1_INTEGER),
+                        DLSYM_ARG(i2d_CMS_ContentInfo),
                         DLSYM_ARG(i2d_ECDSA_SIG),
                         DLSYM_ARG(i2d_PKCS7),
                         DLSYM_ARG(i2d_PKCS7_fp),
