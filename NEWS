@@ -494,6 +494,17 @@ CHANGES WITH 262 in spe:
 
         Changes in systemd-cryptsetup/systemd-cryptenroll:
 
+        * systemd-cryptenroll's --fido2-device= and --tpm2-device= switches may
+          now be combined, in order to bind a LUKS2 volume to a TPM2 chip and a
+          FIDO2 token at the same time: the token's "hmac-secret" is mixed into
+          the TPM2 authValue, so that both the chip and the token are required
+          to unlock the volume. The matching /etc/crypttab option is the new
+          "tpm2-fido2=" one, and such slots are listed and wiped under the
+          "tpm2-fido2" name. Note that these slots are stored as regular
+          "systemd-tpm2" LUKS2 tokens: older systemd versions do not recognize
+          that a FIDO2 token is required, and will report the failed unlock
+          attempt as a system state/PCR mismatch.
+
         * TPM2 PIN enrollment can now harden PINs with Argon2id. The normal
           --tpm2-with-pin=yes mode derives key material with Argon2id, so a
           compromised TPM alone is not sufficient to recover volume key
