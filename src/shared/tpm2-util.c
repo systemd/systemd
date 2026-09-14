@@ -4403,16 +4403,26 @@ static void tpm2_trim_auth_value(TPM2B_AUTH *auth) {
                 log_debug("authValue ends in 0, trimming as required by the TPM2 specification Part 1 section 'HMAC Computation' authValue Note 2.");
 }
 
-int tpm2_auth_value_from_pin(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
+int tpm2_auth_value_from_pin_and_fido2(TPMI_ALG_HASH hash, const char *pin, const char *fido2_secret, TPM2B_AUTH *ret_auth) {
         TPM2B_AUTH auth = {};
         int r;
 
-        assert(pin);
         assert(ret_auth);
 
-        r = tpm2_digest_buffer(hash, &auth, pin, strlen(pin), /* extend= */ false);
-        if (r < 0)
-                return r;
+        if (!pin && !fido2_secret)
+                return 0;
+
+        if (pin) {
+                r = tpm2_digest_buffer(hash, &auth, pin, strlen(pin), /* extend= */ false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (fido2_secret) {
+                r = tpm2_digest_buffer(hash, &auth, fido2_secret, strlen(fido2_secret), /* extend= */ !!pin);
+                if (r < 0)
+                        return r;
+        }
 
         tpm2_trim_auth_value(&auth);
 
@@ -4438,19 +4448,19 @@ int tpm2_set_auth_binary(Tpm2Context *c, const Tpm2Handle *handle, const TPM2B_A
         return 0;
 }
 
-int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin) {
+int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin, const char *fido2_secret) {
         TPM2B_AUTH auth = {};
         int r;
 
         assert(c);
         assert(handle);
 
-        if (!pin)
+        if (!pin && !fido2_secret)
                 return 0;
 
         CLEANUP_ERASE(auth);
 
-        r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &auth);
+        r = tpm2_auth_value_from_pin_and_fido2(TPM2_ALG_SHA256, pin, fido2_secret, &auth);
         if (r < 0)
                 return r;
 
@@ -5700,6 +5710,7 @@ int tpm2_calculate_sealing_policy(
                 const TPM2B_PUBLIC *public,
                 const char *pubkey_policy_ref,
                 bool use_pin,
+                bool use_fido2,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 TPM2B_DIGEST *digest) {
 
@@ -5743,7 +5754,7 @@ int tpm2_calculate_sealing_policy(
                         return r;
         }
 
-        if (use_pin) {
+        if (use_pin || use_fido2) {
                 r = tpm2_calculate_policy_auth_value(digest);
                 if (r < 0)
                         return r;
@@ -5764,6 +5775,7 @@ static int tpm2_build_sealing_policy(
                 uint32_t pubkey_pcr_mask,
                 sd_json_variant *signature_json,
                 bool use_pin,
+                bool use_fido2,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 TPM2B_DIGEST **ret_policy_digest) {
 
@@ -5830,7 +5842,7 @@ static int tpm2_build_sealing_policy(
                         return r;
         }
 
-        if (use_pin) {
+        if (use_pin || use_fido2) {
                 r = tpm2_policy_auth_value(c, session, NULL);
                 if (r < 0)
                         return r;
@@ -6469,6 +6481,7 @@ static int tpm2_calculate_seal_private(
                 const TPM2B_PUBLIC *parent,
                 const TPM2B_NAME *name,
                 const char *pin,
+                const char *fido2_secret,
                 const TPM2B_DIGEST *seed,
                 const void *secret,
                 size_t secret_size,
@@ -6521,11 +6534,9 @@ static int tpm2_calculate_seal_private(
 
         TPM2B_AUTH auth = {};
         CLEANUP_ERASE(auth);
-        if (pin) {
-                r = tpm2_auth_value_from_pin(parent->publicArea.nameAlg, pin, &auth);
-                if (r < 0)
-                        return r;
-        }
+        r = tpm2_auth_value_from_pin_and_fido2(parent->publicArea.nameAlg, pin, fido2_secret, &auth);
+        if (r < 0)
+                return r;
 
         TPM2B_SENSITIVE sensitive = {
                 .size = sizeof(TPMT_SENSITIVE),
@@ -6821,6 +6832,7 @@ int tpm2_calculate_seal(
                 const struct iovec *secret,
                 const TPM2B_DIGEST *policy,
                 const char *pin,
+                const char *fido2_secret,
                 struct iovec *ret_secret,
                 struct iovec *ret_blob,
                 struct iovec *ret_serialized_parent) {
@@ -6888,7 +6900,7 @@ int tpm2_calculate_seal(
                 return r;
 
         TPM2B_PRIVATE private;
-        r = tpm2_calculate_seal_private(parent_public, &name, pin, &random_seed, secret->iov_base, secret->iov_len, &private);
+        r = tpm2_calculate_seal_private(parent_public, &name, pin, fido2_secret, &random_seed, secret->iov_base, secret->iov_len, &private);
         if (r < 0)
                 return r;
 
@@ -6954,6 +6966,7 @@ int tpm2_seal(Tpm2Context *c,
               const TPM2B_DIGEST policy[],
               size_t n_policy,
               const char *pin,
+              const char *fido2_secret,
               struct iovec *ret_secret,
               struct iovec **ret_blobs,
               size_t *ret_n_blobs,
@@ -7010,12 +7023,9 @@ int tpm2_seal(Tpm2Context *c,
         };
 
         CLEANUP_ERASE(hmac_sensitive);
-
-        if (pin) {
-                r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &hmac_sensitive.userAuth);
-                if (r < 0)
-                        return r;
-        }
+        r = tpm2_auth_value_from_pin_and_fido2(TPM2_ALG_SHA256, pin, fido2_secret, &hmac_sensitive.userAuth);
+        if (r < 0)
+                return r;
 
         assert(sizeof(hmac_sensitive.data.buffer) >= hmac_sensitive.data.size);
 
@@ -7179,6 +7189,7 @@ int tpm2_unseal(Tpm2Context *c,
                 uint32_t pubkey_pcr_mask,
                 sd_json_variant *signature,
                 const char *pin,
+                const char *fido2_secret,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 uint16_t primary_alg,
                 const struct iovec blobs[],
@@ -7200,7 +7211,7 @@ int tpm2_unseal(Tpm2Context *c,
          *   -EUCLEAN         → PCR state doesn't match expectations
          *   -EPERM           → stored policy does not match TPM state
          *   -ENOTRECOVERABLE → all other kinds of TPM errors
-         *   -EILSEQ          → bad PIN
+         *   -EILSEQ          → bad PIN or FIDO2 secret
          *
          * Of these all four of EREMCHG, ENOANO, EUCLEAN, EPERM can all mean that PCR state is not matching
          * expectations. */
@@ -7323,11 +7334,11 @@ int tpm2_unseal(Tpm2Context *c,
                         if (r < 0)
                                 return r;
 
-                        /* If a PIN is set for the seal object, use it to bind the session key to that
-                         * object. This prevents active bus interposers from faking a TPM and seeing the
-                         * unsealed value. An active interposer could fake a TPM, satisfying the encrypted
+                        /* If a PIN or FIDO2 key are set for the seal object, use it to bind the session key
+                         * to that object. This prevents active bus interposers from faking a TPM and seeing
+                         * the unsealed value. An active interposer could fake a TPM, satisfying the encrypted
                          * session, and just forward everything to the *real* TPM. */
-                        r = tpm2_set_auth(c, hmac_key, pin);
+                        r = tpm2_set_auth(c, hmac_key, pin, fido2_secret);
                         if (r < 0)
                                 return r;
 
@@ -7344,7 +7355,7 @@ int tpm2_unseal(Tpm2Context *c,
                                         encryption_session,
                                         &policy_session);
                         if (r < 0)
-                                return r; /* Will return EILSEQ on auth failure (i.e. bad PIN) */
+                                return r; /* Will return EILSEQ on auth failure (i.e. bad PIN or FIDO2) */
 
                         /* If both public PCR key and pcrlock policies are requested, then generate the
                          * public PCR policy for the first shared, and the pcrlock policy for the 2nd */
@@ -7359,6 +7370,7 @@ int tpm2_unseal(Tpm2Context *c,
                                         shard == 0 ? pubkey_pcr_mask : 0,
                                         signature,
                                         !!pin,
+                                        !!fido2_secret,
                                         (shard == 1 || !iovec_is_set(pubkey)) ? pcrlock_policy : NULL,
                                         &policy_digest);
                         if (r == -EUCLEAN && i > 0) {
