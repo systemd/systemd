@@ -645,6 +645,9 @@ int enroll_tpm2(const EnrollContext *c,
                         c->tpm2_pcrlock ? &pcrlock_policy.nv_handle : NULL,
                         flags,
                         &c->tpm2_argon2id_params,
+                        /* fido2_cid= */ NULL,
+                        /* fido2_salt= */ NULL,
+                        /* fido2_flags= */ 0,
                         &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
