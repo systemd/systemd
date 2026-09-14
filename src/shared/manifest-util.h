@@ -5,6 +5,8 @@
 
 #include "forward.h"
 #include "sha256.h"
+#include "recurse-dir.h"
+#include "set.h"
 
 /* Generic helpers for generating (and verifying) file manifests of directory trees, in various formats. */
 
@@ -52,6 +54,8 @@ typedef struct ManifestContext {
         uint64_t counter;
 
         sd_json_format_flags_t json_format_flags;
+
+        uint64_t n_errors;                        /* Number of mismatches found so far */
 } ManifestContext;
 
 #define MANIFEST_CONTEXT_NULL                              \
@@ -88,6 +92,18 @@ int manifest_make(ManifestContext *c, int dir_fd);
  * empty. *line_nr is increased by one for each line read, and is used in log messages; initialize it to
  * zero before the first call. */
 int manifest_parse_sums(FILE *f, size_t *line_nr, char **ret_filename, struct iovec *ret_digest);
+
+/* Verifies the directory tree the specified fd refers to against the manifest read from the specified
+ * stream. The manifest is processed entry by entry, and never loaded into memory as a whole. Every mismatch is
+ * logged and counted, and once the whole manifest is processed -EBADMSG is returned if there was at least
+ * one. Only the list, sha256sums and uapi16 formats are supported. */
+int manifest_verify(ManifestContext *c, int dir_fd, FILE *f);
+
+/* Helpers for the format specific verifiers */
+void manifest_verify_error(ManifestContext *c, const char *path, const char *format, ...) _printf_(3, 4);
+int manifest_verify_mark_seen(ManifestContext *c, const char *path);
+int manifest_verify_hash(ManifestContext *c, const char *path, int inode_fd, const struct iovec *expected);
+int manifest_verify_unlisted(ManifestContext *c, int dir_fd);
 
 /* Calculates the hash of the file the specified fd refers to, with the algorithm configured in the context.
  * The fd may be an O_PATH fd. Flushes the output stream first, so that users get an idea where we are when
