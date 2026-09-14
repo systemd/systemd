@@ -1600,6 +1600,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                 arg_fido2_manual_flags,
                                                 "cryptsetup.fido2-pin",
                                                 arg_ask_password_flags,
+                                                /* pin= */ NULL,
                                                 &decrypted_key,
                                                 &decrypted_key_size);
                         else
