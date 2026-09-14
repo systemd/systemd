@@ -9,7 +9,6 @@
 #include "locale-util.h"
 #include "parse-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(parse_boolean) {
