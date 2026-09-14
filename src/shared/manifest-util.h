@@ -7,6 +7,7 @@
 #include "sha256.h"
 #include "recurse-dir.h"
 #include "set.h"
+#include "uapi16-manifest.h"
 
 /* Generic helpers for generating (and verifying) file manifests of directory trees, in various formats. */
 
@@ -63,6 +64,13 @@ typedef struct ManifestContext {
 
         sd_json_format_flags_t json_format_flags;
 
+        /* Signing (generation) and signature verification (verification), UAPI.16 only */
+        Uapi16SignatureMechanism sign;            /* Mechanism to sign with, or _INVALID for no signature */
+        X509 *certificate;                        /* Not owned. Used for signing and verifying */
+        EVP_PKEY *private_key;                    /* Not owned. Used for signing */
+        Uapi16Signer *signer;                     /* Allocated on demand by manifest_make() */
+        Uapi16SignatureVerifier *signature_verifier; /* Allocated on demand by manifest_verify() */
+
         uint64_t n_errors;                        /* Number of mismatches found so far */
 } ManifestContext;
 
@@ -72,6 +80,7 @@ typedef struct ManifestContext {
                 .fields = _MANIFEST_FIELD_DEFAULT,         \
                 .db_fd = -EBADF,                           \
                 .json_format_flags = SD_JSON_FORMAT_OFF,   \
+                .sign = _UAPI16_SIGNATURE_MECHANISM_INVALID, \
         }
 
 void manifest_context_done(ManifestContext *c);

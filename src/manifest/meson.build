@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-manifest',
                 'public' : true,
                 'sources' : files('manifest.c'),
+                'dependencies' : libopenssl_cflags,
         },
 ]

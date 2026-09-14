@@ -30,6 +30,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "uapi16-manifest.h"
 #include "uid-classification.h"
@@ -44,6 +45,9 @@ void manifest_context_done(ManifestContext *c) {
                 (void) rm_rf_children(TAKE_FD(c->db_fd), REMOVE_PHYSICAL|REMOVE_REWIND, /* root_dev= */ NULL);
 
         c->db_path = rmdir_and_free(c->db_path);
+
+        c->signer = uapi16_signer_free(c->signer);
+        c->signature_verifier = uapi16_signature_verifier_free(c->signature_verifier);
 }
 
 static const char* const manifest_format_table[_MANIFEST_FORMAT_MAX] = {
@@ -427,6 +431,52 @@ static int manifest_mtree_item(
                 c->top_level_covered = true;
 
         return RECURSE_DIR_CONTINUE;
+}
+
+static int uapi16_manifest_write_object(ManifestContext *c, sd_json_variant *j) {
+        int r;
+
+        assert(c);
+        assert(j);
+
+        /* Writes one file object to the output. If we are signing, the object is formatted a second time
+         * without any color sequences, and that rendering (which is what a consumer reading from a file or
+         * pipe sees) is what the signature covers. The colored rendering is for humans only. */
+
+        sd_json_format_flags_t flags = c->json_format_flags | SD_JSON_FORMAT_SEQ | SD_JSON_FORMAT_FLUSH;
+
+        if (c->signer) {
+                sd_json_format_flags_t nocolor_flags = flags & ~(SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_COLOR_AUTO);
+
+                _cleanup_free_ char *text = NULL;
+                r = sd_json_variant_format(j, nocolor_flags, &text);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format JSON object: %m");
+
+                r = uapi16_signer_feed(c->signer, text, strlen(text));
+                if (r < 0)
+                        return r;
+
+                if (flags == nocolor_flags) {
+                        /* Do not format the thing again if color is off anyway */
+                        fputs(text, c->output);
+                        r = fflush_and_check(c->output);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write JSON output: %m");
+
+                        return 0;
+                }
+        }
+
+        r = sd_json_variant_dump(
+                        j,
+                        flags,
+                        c->output,
+                        /* prefix= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write JSON output: %m");
+
+        return 0;
 }
 
 static unsigned manifest_uapi16_fields_to_statx(ManifestField fields) {
@@ -860,9 +910,9 @@ static int manifest_uapi16_item(
         if (r < 0)
                 return log_error_errno(r, "Failed to sort JSON object: %m");
 
-        r = sd_json_variant_dump(j, c->json_format_flags | SD_JSON_FORMAT_SEQ | SD_JSON_FORMAT_FLUSH, c->output, /* prefix= */ NULL);
+        r = uapi16_manifest_write_object(c, j);
         if (r < 0)
-                return log_error_errno(r, "Failed to write JSON output: %m");
+                return r;
 
         if (is_root)
                 c->top_level_covered = true;
@@ -985,6 +1035,28 @@ int manifest_make(ManifestContext *c, int dir_fd) {
         if (!c->color)
                 c->json_format_flags &= ~(SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_COLOR_AUTO);
 
+        /* Resolve the automatic flags the same way sd_json_variant_dump() does, and drop SD_JSON_FORMAT_OFF
+         * (which sd_json_variant_dump() ignores, but sd_json_variant_format() refuses) once, so that the
+         * rendering we sign is exactly what we write. */
+        c->json_format_flags &= ~SD_JSON_FORMAT_OFF;
+        if ((c->json_format_flags & (SD_JSON_FORMAT_COLOR_AUTO|SD_JSON_FORMAT_COLOR)) == SD_JSON_FORMAT_COLOR_AUTO)
+                c->json_format_flags = (c->json_format_flags & ~SD_JSON_FORMAT_COLOR_AUTO) | (colors_enabled() ? SD_JSON_FORMAT_COLOR : 0);
+        if ((c->json_format_flags & (SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_PRETTY)) == SD_JSON_FORMAT_PRETTY_AUTO)
+                c->json_format_flags = (c->json_format_flags & ~SD_JSON_FORMAT_PRETTY_AUTO) | (on_tty() ? SD_JSON_FORMAT_PRETTY : SD_JSON_FORMAT_NEWLINE);
+
+        if (c->sign >= 0) {
+                if (c->format != MANIFEST_FORMAT_UAPI16)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Signing is only supported for UAPI.16 manifests.");
+                if (c->sign != UAPI16_SIGNATURE_PKCS7)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signature mechanism '%s' not supported for signing.", uapi16_signature_mechanism_to_string(c->sign));
+                if (!c->certificate || !c->private_key)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Signing requires a certificate and a private key.");
+
+                r = uapi16_signer_new(c->certificate, c->private_key, &c->signer);
+                if (r < 0)
+                        return r;
+        }
+
         int (*item_callback)(
                         RecurseDirEvent event,
                         const char *path,
@@ -1039,6 +1111,21 @@ int manifest_make(ManifestContext *c, int dir_fd) {
 
         if (c->format == MANIFEST_FORMAT_UAPI16) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+
+                if (c->signer) {
+                        r = uapi16_signer_finish(c->signer, &j);
+                        if (r < 0)
+                                return r;
+
+                        /* The signature object is appended as one more record. Its leading record separator is by
+                         * construction the first byte not covered by the signature. */
+                        r = sd_json_variant_dump(j, c->json_format_flags | SD_JSON_FORMAT_SEQ, c->output, /* prefix= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write signature object: %m");
+
+                        j = sd_json_variant_unref(j);
+                }
+
                 r = sd_json_buildo(
                                 &j,
                                 SD_JSON_BUILD_PAIR("mediaType", JSON_BUILD_CONST_STRING(UAPI16_TRAILER_MEDIA_TYPE)));
@@ -1675,7 +1762,13 @@ static int uapi16_manifest_verify(ManifestContext *c, int dir_fd, FILE *f) {
         assert(dir_fd >= 0);
         assert(f);
 
-        bool trailer_seen = false;
+        if (c->certificate) {
+                r = uapi16_signature_verifier_new(c->certificate, &c->signature_verifier);
+                if (r < 0)
+                        return r;
+        }
+
+        bool signature_seen = false, signature_verified = false, trailer_seen = false;
         _cleanup_(iovec_done) struct iovec buffer = {};
         unsigned n_objects = 0;
         for (;; n_objects++) {
@@ -1706,11 +1799,57 @@ static int uapi16_manifest_verify(ManifestContext *c, int dir_fd, FILE *f) {
                                 continue;
                         }
 
-                        if (mt && !streq_ptr(mt, UAPI16_MANIFEST_MEDIA_TYPE)) {
-                                log_notice("Ignoring object of unknown media type '%s' in manifest.", mt);
+                        if (streq_ptr(mt, UAPI16_SIGNATURE_MEDIA_TYPE)) {
+                                Uapi16Signature sig = UAPI16_SIGNATURE_NULL;
+
+                                r = dispatch_uapi16_signature_object(v, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &sig);
+                                if (r < 0)
+                                        return r;
+
+                                signature_seen = true;
+
+                                if (!c->signature_verifier)
+                                        log_notice("Manifest carries a signature, but no certificate specified, not verifying.");
+                                else if (signature_verified)
+                                        log_debug("Skipping additional signatures, as we already found one that checked out.");
+                                else {
+                                        /* The signature covers everything up to the record separator of the first
+                                         * signature object, hence never feed the signature object itself. Multiple
+                                         * signature objects may follow each other, we accept any one that verifies. */
+                                        r = uapi16_signature_verifier_finish(c->signature_verifier, &sig);
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0) {
+                                                log_info("Manifest signature verified successfully.");
+                                                signature_verified = true;
+                                        }
+                                }
+
                                 assert_se(iovec_consume(&buffer, bytes));
                                 continue;
                         }
+
+                        if (mt && !streq_ptr(mt, UAPI16_MANIFEST_MEDIA_TYPE)) {
+                                log_notice("Ignoring object of unknown media type '%s' in manifest.", mt);
+
+                                if (!signature_seen && c->signature_verifier) {
+                                        r = uapi16_signature_verifier_feed(c->signature_verifier, buffer.iov_base, bytes);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                assert_se(iovec_consume(&buffer, bytes));
+                                continue;
+                        }
+                }
+
+                if (signature_seen)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "File object after signature, manifest is invalid.");
+
+                if (c->signature_verifier) {
+                        r = uapi16_signature_verifier_feed(c->signature_verifier, buffer.iov_base, bytes);
+                        if (r < 0)
+                                return r;
                 }
 
                 assert_se(iovec_consume(&buffer, bytes));
@@ -1737,6 +1876,11 @@ static int uapi16_manifest_verify(ManifestContext *c, int dir_fd, FILE *f) {
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest file does not contain any object, file is incomplete.");
         if (!trailer_seen)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest file does not contain trailer object, file is incomplete.");
+
+        if (c->signature_verifier && !signature_verified)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       signature_seen ? "No signature in manifest verified against the specified certificate." :
+                                                        "Manifest carries no signature, but signature verification requested.");
 
         return 0;
 }

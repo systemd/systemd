@@ -163,3 +163,21 @@ void uapi16_signature_done(Uapi16Signature *s);
 
 /* Parses a signature object, i.e. an object with the UAPI16_SIGNATURE_MEDIA_TYPE media type. */
 int dispatch_uapi16_signature_object(sd_json_variant *v, sd_json_dispatch_flags_t flags, Uapi16Signature *ret);
+
+/* Streaming PKCS#7 signer: created once, fed the bytes of every record as they are generated, and finished
+ * into a signature object. */
+typedef struct Uapi16Signer Uapi16Signer;
+int uapi16_signer_new(X509 *certificate, EVP_PKEY *private_key, Uapi16Signer **ret);
+int uapi16_signer_feed(Uapi16Signer *s, const void *data, size_t size);
+int uapi16_signer_finish(Uapi16Signer *s, sd_json_variant **ret);
+Uapi16Signer* uapi16_signer_free(Uapi16Signer *s);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Uapi16Signer*, uapi16_signer_free);
+
+/* Streaming PKCS#7 signature verifier: fed the bytes of every record as they are read, and finished with
+ * the signatures found in the signature object. */
+typedef struct Uapi16SignatureVerifier Uapi16SignatureVerifier;
+int uapi16_signature_verifier_new(X509 *certificate, Uapi16SignatureVerifier **ret);
+int uapi16_signature_verifier_feed(Uapi16SignatureVerifier *v, const void *data, size_t size);
+int uapi16_signature_verifier_finish(Uapi16SignatureVerifier *v, const Uapi16Signature *sig);
+Uapi16SignatureVerifier* uapi16_signature_verifier_free(Uapi16SignatureVerifier *v);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Uapi16SignatureVerifier*, uapi16_signature_verifier_free);

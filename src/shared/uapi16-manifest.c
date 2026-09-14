@@ -6,12 +6,11 @@
 
 #include "sd-gpt.h"
 
-#include "alloc-util.h"
+#include "crypto-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
 #include "json-util.h"
-#include "log.h"
 #include "path-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -828,4 +827,324 @@ int dispatch_uapi16_signature_object(sd_json_variant *v, sd_json_dispatch_flags_
 
         *ret = TAKE_STRUCT(o);
         return 0;
+}
+
+#if HAVE_OPENSSL
+struct Uapi16Signer {
+        X509 *certificate; /* Not owned */
+        CMS_ContentInfo *cms;
+        BIO *bio;
+};
+#endif
+
+Uapi16Signer* uapi16_signer_free(Uapi16Signer *s) {
+#if HAVE_OPENSSL
+        if (!s)
+                return NULL;
+
+        if (s->bio)
+                sym_BIO_free_all(s->bio);
+        if (s->cms)
+                sym_CMS_ContentInfo_free(s->cms);
+
+        return mfree(s);
+#else
+        assert(!s);
+        return NULL;
+#endif
+}
+
+int uapi16_signer_new(X509 *certificate, EVP_PKEY *private_key, Uapi16Signer **ret) {
+#if HAVE_OPENSSL
+        int r;
+
+        assert(certificate);
+        assert(private_key);
+        assert(ret);
+
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        _cleanup_(uapi16_signer_freep) Uapi16Signer *s = new(Uapi16Signer, 1);
+        if (!s)
+                return log_oom();
+
+        *s = (Uapi16Signer) {
+                .certificate = certificate,
+        };
+
+        /* PKCS#7 SignedData and CMS SignedData share their OID and wire format. We go through OpenSSL's
+         * CMS API rather than its legacy PKCS7 API, since only the former knows how to sign with EdDSA
+         * keys (RFC 8419).
+         *
+         * Without signed attributes the signature is made directly over the digest of the data, which
+         * keeps the signature minimal, and makes the output deterministic where the algorithm is. This is
+         * not possible with EdDSA though: a pure EdDSA signature is computed over the whole message in one
+         * go, and hence cannot be applied to a stream. RFC 8419 addresses this by requiring signed
+         * attributes, so that the signature is over a small attribute set which in turn carries the digest
+         * of the content, and mandates SHA-512 as digest algorithm. (Ed448 is not supported: RFC 8419 wants
+         * SHAKE256 with a 512 bit output there, which does not fit our digest BIO chain on the verifying
+         * side, and OpenSSL's handling of that is hardly interoperable anyway.) */
+        const EVP_MD *md = NULL;
+        unsigned flags = CMS_DETACHED|CMS_BINARY|CMS_PARTIAL|CMS_NOATTR|CMS_NOSMIMECAP;
+
+        switch (sym_EVP_PKEY_get_base_id(private_key)) {
+
+        case EVP_PKEY_ED25519:
+                md = sym_EVP_sha512();
+                flags &= ~CMS_NOATTR;
+                break;
+
+        case EVP_PKEY_ED448:
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signing with Ed448 keys is not supported.");
+
+        default:
+                /* Let OpenSSL pick the default digest for the key type */
+                ;
+        }
+
+        /* Set up a detached signature, but don't provide the data yet: we'll feed it incrementally via the
+         * BIO CMS_dataInit() gives us, and finalize once everything went through. */
+        s->cms = sym_CMS_sign(/* signcert= */ NULL, /* pkey= */ NULL, /* certs= */ NULL, /* data= */ NULL, flags);
+        if (!s->cms)
+                return log_openssl_errors(LOG_ERR, "Failed to set up PKCS#7 signature");
+
+        if (!sym_CMS_add1_signer(s->cms, certificate, private_key, md, flags))
+                return log_openssl_errors(LOG_ERR, "Failed to add signer to PKCS#7 signature");
+
+        s->bio = sym_CMS_dataInit(s->cms, /* icont= */ NULL);
+        if (!s->bio)
+                return log_openssl_errors(LOG_ERR, "Failed to set up PKCS#7 data BIO");
+
+        *ret = TAKE_PTR(s);
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signing not supported, OpenSSL support disabled.");
+#endif
+}
+
+int uapi16_signer_feed(Uapi16Signer *s, const void *data, size_t size) {
+#if HAVE_OPENSSL
+        assert(s);
+        assert(data || size == 0);
+
+        if (size == 0)
+                return 0;
+
+        if (size > INT_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Record too large to sign.");
+
+        if (sym_BIO_write(s->bio, data, size) != (int) size)
+                return log_openssl_errors(LOG_ERR, "Failed to feed data into PKCS#7 signature");
+
+        return 0;
+#else
+        assert_not_reached();
+#endif
+}
+
+int uapi16_signer_finish(Uapi16Signer *s, sd_json_variant **ret) {
+#if HAVE_OPENSSL
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (sym_CMS_dataFinal(s->cms, s->bio) <= 0)
+                return log_openssl_errors(LOG_ERR, "Failed to finalize PKCS#7 signature");
+
+        _cleanup_free_ uint8_t *der = NULL;
+        int der_size = sym_i2d_CMS_ContentInfo(s->cms, &der);
+        if (der_size < 0)
+                return log_openssl_errors(LOG_ERR, "Failed to convert PKCS#7 signature to DER");
+
+        uint8_t fingerprint[X509_FINGERPRINT_SIZE];
+        r = x509_fingerprint(s->certificate, fingerprint);
+        if (r < 0)
+                return log_error_errno(r, "Failed to calculate certificate fingerprint: %m");
+
+        r = sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("mediaType", UAPI16_SIGNATURE_MEDIA_TYPE),
+                        SD_JSON_BUILD_PAIR_STRING("mechanism", uapi16_signature_mechanism_to_string(UAPI16_SIGNATURE_PKCS7)),
+                        SD_JSON_BUILD_PAIR_HEX("key", fingerprint, sizeof(fingerprint)),
+                        SD_JSON_BUILD_PAIR_BASE64("data", der, der_size));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build signature object: %m");
+
+        return 0;
+#else
+        assert_not_reached();
+#endif
+}
+
+#if HAVE_OPENSSL
+struct Uapi16SignatureVerifier {
+        X509 *certificate; /* Not owned */
+        uint8_t fingerprint[X509_FINGERPRINT_SIZE];
+        BIO *bio;
+};
+#endif
+
+Uapi16SignatureVerifier* uapi16_signature_verifier_free(Uapi16SignatureVerifier *v) {
+#if HAVE_OPENSSL
+        if (!v)
+                return NULL;
+
+        if (v->bio)
+                sym_BIO_free_all(v->bio);
+
+        return mfree(v);
+#else
+        assert(!v);
+        return NULL;
+#endif
+}
+
+int uapi16_signature_verifier_new(X509 *certificate, Uapi16SignatureVerifier **ret) {
+#if HAVE_OPENSSL
+        int r;
+
+        assert(certificate);
+        assert(ret);
+
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        _cleanup_(uapi16_signature_verifier_freep) Uapi16SignatureVerifier *v = new(Uapi16SignatureVerifier, 1);
+        if (!v)
+                return log_oom();
+
+        *v = (Uapi16SignatureVerifier) {
+                .certificate = certificate,
+        };
+
+        r = x509_fingerprint(certificate, v->fingerprint);
+        if (r < 0)
+                return log_error_errno(r, "Failed to calculate certificate fingerprint: %m");
+
+        /* We only learn which digest algorithm the signature uses once we reach the signature object at
+         * the end of the stream. Hence run the data through a chain of digest BIOs for all algorithms we
+         * might encounter, and pick the right one at the end. This is what CMS_verify() does internally,
+         * except that we do not have to hold the data in memory. */
+        v->bio = sym_BIO_new(sym_BIO_s_null());
+        if (!v->bio)
+                return log_oom();
+
+        const EVP_MD *mds[] = {
+                sym_EVP_sha256(),
+                sym_EVP_sha384(),
+                sym_EVP_sha512(),
+        };
+
+        FOREACH_ELEMENT(md, mds) {
+                BIO *b = sym_BIO_new(sym_BIO_f_md());
+                if (!b)
+                        return log_oom();
+
+                if (sym_BIO_set_md(b, *md) <= 0) {
+                        sym_BIO_free(b);
+                        return log_openssl_errors(LOG_ERR, "Failed to set digest of BIO");
+                }
+
+                v->bio = sym_BIO_push(b, v->bio);
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signature verification not supported, OpenSSL support disabled.");
+#endif
+}
+
+int uapi16_signature_verifier_feed(Uapi16SignatureVerifier *v, const void *data, size_t size) {
+#if HAVE_OPENSSL
+        assert(v);
+        assert(data || size == 0);
+
+        if (size == 0)
+                return 0;
+
+        if (size > INT_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Record too large to verify.");
+
+        if (sym_BIO_write(v->bio, data, size) != (int) size)
+                return log_openssl_errors(LOG_ERR, "Failed to feed data into digest");
+
+        return 0;
+#else
+        assert_not_reached();
+#endif
+}
+
+int uapi16_signature_verifier_finish(Uapi16SignatureVerifier *v, const Uapi16Signature *sig) {
+#if HAVE_OPENSSL
+        bool tried = false;
+
+        assert(v);
+        assert(sig);
+
+        /* Returns > 0 if the signature verified against our certificate, 0 if it was not applicable
+         * (i.e. different mechanism, or a different key), and -EBADMSG if the signature that should have
+         * matched didn't verify. */
+
+        if (sig->mechanism != UAPI16_SIGNATURE_PKCS7)
+                return 0;
+
+        if (iovec_is_set(&sig->key) && !iovec_equal(&sig->key, &IOVEC_MAKE(v->fingerprint, sizeof(v->fingerprint)))) {
+                log_debug("Signature made with a different key, skipping.");
+                return 0;
+        }
+
+        if (!iovec_is_set(&sig->data)) {
+                log_warning("Signature lacks data, skipping.");
+                return 0;
+        }
+
+        const unsigned char *d = sig->data.iov_base;
+        _cleanup_(CMS_ContentInfo_freep) CMS_ContentInfo *cms = sym_d2i_CMS_ContentInfo(NULL, &d, (long) sig->data.iov_len);
+        if (!cms) {
+                log_openssl_errors(LOG_WARNING, "Failed to parse PKCS#7 signature, skipping");
+                return 0;
+        }
+
+        if (sym_OBJ_obj2nid(sym_CMS_get0_type(cms)) != NID_pkcs7_signed) {
+                log_warning("PKCS#7 signature is not of 'signed' type, skipping.");
+                return 0;
+        }
+
+        STACK_OF(CMS_SignerInfo) *sk = sym_CMS_get0_SignerInfos(cms);
+        for (int i = 0; i < sym_sk_CMS_SignerInfo_num(sk); i++) {
+                CMS_SignerInfo *si = sym_sk_CMS_SignerInfo_value(sk, i);
+
+                tried = true;
+
+                /* Always check against the certificate we were given, regardless of which certificates the
+                 * signature itself might carry. */
+                sym_CMS_SignerInfo_set1_signer_cert(si, v->certificate);
+
+                /* If there are signed attributes the signature covers those (and they in turn carry the
+                 * digest of the data, which CMS_SignerInfo_verify_content() checks), otherwise the signature
+                 * is directly over the digest of the data. Same logic as in CMS_verify(). */
+                if (sym_CMS_signed_get_attr_count(si) >= 0 &&
+                    sym_CMS_SignerInfo_verify(si) <= 0) {
+                        log_openssl_errors(LOG_DEBUG, "PKCS#7 signature verification failed");
+                        continue;
+                }
+
+                if (sym_CMS_SignerInfo_verify_content(si, v->bio) > 0)
+                        return 1;
+
+                log_openssl_errors(LOG_DEBUG, "PKCS#7 signature verification failed");
+        }
+
+        if (tried)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest signature verification failed.");
+
+        return 0;
+#else
+        assert_not_reached();
+#endif
 }

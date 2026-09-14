@@ -178,6 +178,45 @@
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--sign=<replaceable>MECHANISM</replaceable></option></term>
+
+        <listitem><para>When generating a <option>uapi16</option> manifest, append a signature object
+        covering the manifest. Takes the signature mechanism, currently only <option>pkcs7</option> is
+        supported, which generates a detached PKCS#7 (CMS) signature in DER format with the private key and
+        certificate specified with <option>--private-key=</option> and <option>--certificate=</option>. The
+        signature covers the exact bytes of the manifest preceding the signature object (without any color
+        sequences that might be inserted when writing to a terminal). RSA, ECDSA and Ed25519 keys are
+        supported. For RSA and ECDSA keys the signature is made directly over the digest of the manifest,
+        for Ed25519 keys it is made over a set of signed attributes carrying the SHA-512 digest of the
+        manifest, as required by <ulink url="https://www.rfc-editor.org/rfc/rfc8419">RFC 8419</ulink>.
+        Requires OpenSSL. Defaults to <option>no</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
+        <term><option>--private-key-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+        <term><option>--certificate-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+
+        <listitem><para>Set the private key and certificate to use for signing with
+        <option>--sign=</option>. When verifying, only <option>--certificate=</option> is used: if
+        specified, the manifest must carry a signature that verifies against this certificate, otherwise
+        verification fails. If not specified, signature objects in the manifest are ignored. The
+        <option>--certificate=</option> option takes a path to a PEM encoded X.509 certificate or a URI
+        that's passed to the OpenSSL provider configured with <option>--certificate-source=</option>. The
+        <option>--certificate-source=</option> option takes one of <literal>file</literal> or
+        <literal>provider</literal>, with the latter being followed by a specific provider identifier,
+        separated with a colon, e.g. <literal>provider:pkcs11</literal>. The
+        <option>--private-key=</option> option can take a path or a URI that will be passed to the OpenSSL
+        engine or provider, as specified by <option>--private-key-source=</option> as a
+        <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -217,6 +256,13 @@ $ sha256sum -c SHA256SUMS</programlisting>
       <title>Only verify file contents, ignoring ownership and access modes</title>
 
       <programlisting>$ systemd-manifest verify --field=size,hash /srv/tree Uapi16Manifest</programlisting>
+    </example>
+
+    <example>
+      <title>Generate a signed manifest, and verify it against the certificate</title>
+
+      <programlisting>$ systemd-manifest make --sign=pkcs7 --private-key=foo-private-key.pem --certificate=foo-certificate.pem /srv/tree > Uapi16Manifest
+$ systemd-manifest verify --certificate=foo-certificate.pem /srv/tree Uapi16Manifest</programlisting>
     </example>
   </refsect1>
 

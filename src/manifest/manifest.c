@@ -6,7 +6,10 @@
 #include "sd-json.h"
 
 #include "ansi-color.h"
+#include "ask-password-api.h"
 #include "build.h"
+#include "crypto-util.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -15,6 +18,7 @@
 #include "manifest-util.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
@@ -25,7 +29,19 @@ static ManifestFormat arg_format = _MANIFEST_FORMAT_INVALID;
 static ManifestField arg_fields = _MANIFEST_FIELD_DEFAULT;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
+static Uapi16SignatureMechanism arg_sign = _UAPI16_SIGNATURE_MECHANISM_INVALID;
+static char *arg_private_key = NULL;
+static KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
+static char *arg_private_key_source = NULL;
+static char *arg_certificate = NULL;
+static char *arg_certificate_source = NULL;
+static CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
 static bool arg_graceful = false;
+
+STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 
 COMMAND(
         "systemd-manifest\0",
@@ -79,13 +95,126 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_graceful = true;
                         break;
 
+                OPTION_LONG("sign", "MECHANISM", "Sign the manifest (pkcs7, or no)"):
+                        if (isempty(opts.arg) || parse_boolean(opts.arg) == 0)
+                                arg_sign = _UAPI16_SIGNATURE_MECHANISM_INVALID;
+                        else {
+                                arg_sign = uapi16_signature_mechanism_from_string(opts.arg);
+                                if (arg_sign < 0)
+                                        return log_error_errno(arg_sign, "Unknown signature mechanism: %s", opts.arg);
+                        }
+                        break;
+
+                OPTION_COMMON_PRIVATE_KEY("Private key to sign with"):
+                        r = free_and_strdup_warn(&arg_private_key, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_COMMON_PRIVATE_KEY_SOURCE:
+                        r = parse_openssl_key_source_argument(
+                                        opts.arg,
+                                        &arg_private_key_source,
+                                        &arg_private_key_source_type);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_COMMON_CERTIFICATE("Certificate to sign with, or to verify the signature against"):
+                        r = free_and_strdup_warn(&arg_certificate, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_COMMON_CERTIFICATE_SOURCE:
+                        r = parse_openssl_certificate_source_argument(
+                                        opts.arg,
+                                        &arg_certificate_source,
+                                        &arg_certificate_source_type);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 OPTION_COMMON_INTROSPECT_CLI:
                         return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
+        if (arg_private_key_source && !arg_certificate)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "When using --private-key-source=, --certificate= must be specified.");
+
+        if (arg_sign >= 0 && (!arg_private_key || !arg_certificate))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "When using --sign=, both --private-key= and --certificate= must be specified.");
+
         *ret_args = option_parser_get_args(&opts);
         return 1;
 }
+
+#if HAVE_OPENSSL
+static int load_certificate(X509 **ret) {
+        int r;
+
+        assert(ret);
+
+        if (!arg_certificate) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
+                if (r < 0)
+                        return r;
+        }
+
+        r = openssl_load_x509_certificate(
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+
+        return 1;
+}
+
+static int load_private_key(EVP_PKEY **ret, OpenSSLAskPasswordUI **ret_ui) {
+        int r;
+
+        assert(ret);
+        assert(ret_ui);
+
+        if (!arg_private_key) {
+                *ret = NULL;
+                *ret_ui = NULL;
+                return 0;
+        }
+
+        if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
+                if (r < 0)
+                        return r;
+        }
+
+        r = openssl_load_private_key(
+                        arg_private_key_source_type,
+                        arg_private_key_source,
+                        arg_private_key,
+                        &(AskPasswordRequest) {
+                                .tty_fd = -EBADF,
+                                .id = "manifest-private-key-pin",
+                                .keyring = arg_private_key,
+                                .credential = "manifest.private-key-pin",
+                                .until = USEC_INFINITY,
+                                .hup_fd = -EBADF,
+                        },
+                        ret,
+                        ret_ui);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+
+        return 1;
+}
+#endif
 
 static int open_directory(const char *path) {
         int fd;
@@ -130,6 +259,29 @@ static int verb_make(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         _cleanup_(manifest_context_done) ManifestContext c;
         context_from_args(&c);
+        c.sign = arg_sign;
+
+#if HAVE_OPENSSL
+        _cleanup_(X509_freep) X509 *certificate = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
+        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
+
+        if (arg_sign >= 0) {
+                r = load_certificate(&certificate);
+                if (r < 0)
+                        return r;
+
+                r = load_private_key(&private_key, &ui);
+                if (r < 0)
+                        return r;
+
+                c.certificate = certificate;
+                c.private_key = private_key;
+        }
+#else
+        if (arg_sign >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signing not supported, OpenSSL support disabled.");
+#endif
 
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -215,6 +367,19 @@ static int verb_verify(int argc, char *argv[], uintptr_t _data, void *userdata) 
         _cleanup_(manifest_context_done) ManifestContext c;
         context_from_args(&c);
 
+#if HAVE_OPENSSL
+        _cleanup_(X509_freep) X509 *certificate = NULL;
+
+        r = load_certificate(&certificate);
+        if (r < 0)
+                return r;
+
+        c.certificate = certificate;
+#else
+        if (arg_certificate)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signature verification not supported, OpenSSL support disabled.");
+#endif
+
         _cleanup_fclose_ FILE *f = NULL;
         if (manifest) {
                 f = fopen(manifest, "re");
@@ -231,6 +396,8 @@ static int verb_verify(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBCRYPTO_NOTE(suggested);
 
         log_setup();
 
