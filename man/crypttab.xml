@@ -848,6 +848,13 @@
         <command>systemd-cryptenroll --tpm2-device=list</command> to list all suitable TPM2 devices currently
         available, along with their device nodes.</para>
 
+        <para>TPM2 key slots that are additionally bound to a FIDO2 security token (see the
+        <option>--fido2-device=</option> and <option>--tpm2-device=</option> switches of
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
+        are unlocked with this option too. The FIDO2 token is selected with <option>fido2-device=</option>,
+        and discovered automatically if that is not set. If both the TPM2 and the FIDO2 token require a PIN,
+        a single PIN is used for both.</para>
+
         <para>This option implements the following mechanism: when enrolling a TPM2 device via
         <command>systemd-cryptenroll</command> on a LUKS2 volume, a randomized key unlocking the volume is
         generated on the host and loaded into the TPM2 chip where it is encrypted with an asymmetric
