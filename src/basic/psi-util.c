@@ -14,24 +14,19 @@
 #include "string-util.h"
 #include "strv.h"
 
-int read_resource_pressure(const char *path, PressureType type, ResourcePressure *ret) {
+int read_resource_pressure_file(FILE *f, PressureType type, ResourcePressure *ret) {
         _cleanup_free_ char *line = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         unsigned field_filled = 0;
         ResourcePressure rp = {};
         const char *cline;
         char *word;
         int r;
 
-        assert(path);
+        assert(f);
         assert(IN_SET(type, PRESSURE_TYPE_SOME, PRESSURE_TYPE_FULL));
         assert(ret);
 
         const char *t = ASSERT_PTR(pressure_type_to_string(type));
-
-        r = fopen_unlocked(path, "re", &f);
-        if (r < 0)
-                return r;
 
         for (;;) {
                 _cleanup_free_ char *l = NULL;
@@ -98,6 +93,19 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
 
         *ret = rp;
         return 0;
+}
+
+int read_resource_pressure(const char *path, PressureType type, ResourcePressure *ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(path);
+
+        r = fopen_unlocked(path, "re", &f);
+        if (r < 0)
+                return r;
+
+        return read_resource_pressure_file(f, type, ret);
 }
 
 const PressureResourceInfo pressure_resource_info[_PRESSURE_RESOURCE_MAX] = {
