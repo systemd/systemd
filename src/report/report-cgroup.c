@@ -13,9 +13,13 @@
 #include "metrics.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "psi-util.h"
+#include "report-cgroup.h"
 #include "report-server.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "varlink-io.systemd.Metrics.h"
+#include "varlink-util.h"
 #include "verbs.h"
 
 COMMAND(
@@ -25,8 +29,6 @@ COMMAND(
 );
 
 const sd_varlink_server_flags_t report_server_flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
-
-#define METRIC_IO_SYSTEMD_CGROUP_PREFIX "io.systemd.CGroup."
 
 /* Parse cpu.stat for a cgroup once, extracting usage_usec, user_usec and system_usec
  * in a single read so each scrape only opens the file once per cgroup. */
@@ -286,14 +288,14 @@ static int tasks_current_send(
 }
 
 static int walk_cgroups(
-                const MetricFamily mf[static 5],
+                const MetricFamily mf[static 7],
                 sd_varlink *link,
-                const char *path) {
+                const char *path,
+                bool pressure_supported) {
 
         int r;
 
-        assert(mf && mf[0].name && mf[1].name && mf[2].name && mf[3].name && mf[4].name);
-        assert(mf[0].generate && !mf[1].generate && !mf[2].generate && !mf[3].generate && !mf[4].generate);
+        assert(mf);
         assert(path);
 
         _cleanup_free_ char *unit = NULL;
@@ -311,11 +313,23 @@ static int walk_cgroups(
                 if (r < 0)
                         return r;
 
-                r = tasks_current_send(mf + 4, link, path, unit);
+                r = tasks_current_send(mf + 6, link, path, unit);
                 if (r < 0)
                         return r;
 
-                return 0; /* Unit cgroups are leaf nodes for our purposes */
+                if (pressure_supported) {
+                        _cleanup_free_ char *p = NULL;
+                        r = cg_get_path(path, /* suffix= */ NULL, &p);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = report_cgroup_pressure_send(mf + 4, link, p, unit);
+                        if (r < 0)
+                                return r;
+                }
+
+                /* Flush per unit, so that a large scrape doesn't accumulate in the output buffer. */
+                return sd_varlink_flush(link); /* Unit cgroups are leaf nodes for our purposes */
         }
 
         /* Stop at delegation boundaries — don't descend into delegated subtrees */
@@ -349,7 +363,7 @@ static int walk_cgroups(
 
                 path_simplify(child);
 
-                r = walk_cgroups(mf, link, child);
+                r = walk_cgroups(mf, link, child, pressure_supported);
                 if (r < 0)
                         return r;
         }
@@ -358,15 +372,19 @@ static int walk_cgroups(
 }
 
 static int cgroup_stats_send(
-                const MetricFamily mf[static 5],
+                const MetricFamily mf[static 7],
                 sd_varlink *link,
                 void *userdata) {
 
         assert(mf);
+        for (size_t i = 0; i < 7; i++) {
+                assert(mf[i].name);
+                assert((mf[i].generate != NULL) == (i == 0));
+        }
         assert(link);
         assert(!userdata);
 
-        return walk_cgroups(mf, link, "");
+        return walk_cgroups(mf, link, "", is_pressure_supported() > 0);
 }
 
 static const MetricFamily cgroup_metric_family_table[] = {
@@ -393,6 +411,16 @@ static const MetricFamily cgroup_metric_family_table[] = {
                 METRIC_FAMILY_TYPE_GAUGE,
         },
         {
+                METRIC_IO_SYSTEMD_CGROUP_PREFIX "PressureAvg10",
+                "Per unit metric: pressure stall percentage over the last 10s (resource=cpu|memory|io, type=some|full)",
+                METRIC_FAMILY_TYPE_GAUGE,
+        },
+        {
+                METRIC_IO_SYSTEMD_CGROUP_PREFIX "PressureStallSeconds",
+                "Per unit metric: total time stalled in seconds (resource=cpu|memory|io, type=some|full)",
+                METRIC_FAMILY_TYPE_COUNTER,
+        },
+        {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "TasksCurrent",
                 "Per unit metric: current number of tasks",
                 METRIC_FAMILY_TYPE_GAUGE,
@@ -409,5 +437,15 @@ static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters,
 }
 
 int report_server_setup(sd_varlink_server *server) {
-        return report_server_add_metrics_interface(server, vl_method_list_metrics, vl_method_describe_metrics);
+        int r;
+
+        r = sd_varlink_server_add_interface(server, &vl_interface_io_systemd_Metrics);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method(server, "io.systemd.Metrics.Describe", vl_method_describe_metrics);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method: %m");
+
+        return varlink_server_bind_fiber(server, "io.systemd.Metrics.List", vl_method_list_metrics);
 }
