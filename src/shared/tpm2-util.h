@@ -624,6 +624,9 @@ int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size
 int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **pcr_values, size_t *n_pcr_values);
 int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask);
 
+/* Note: tpm2_load_pcr_signature() returns -ENOENT if there is no such file, and -EBADMSG if there is one but
+ * it cannot be parsed. In particular it does not propagate the JSON parser's -EUCLEAN, which means something
+ * else to the TPM2 callers of this. */
 int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret);
 int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pubkey_size);
 
