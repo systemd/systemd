@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "chase.h"
+#include "crypto-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -54,6 +55,27 @@ static const char* const manifest_format_table[_MANIFEST_FORMAT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manifest_format, ManifestFormat);
+
+static const char* const manifest_hash_table[_MANIFEST_HASH_MAX] = {
+        [MANIFEST_HASH_SHA256] = "sha256",
+        [MANIFEST_HASH_SHA512] = "sha512",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(manifest_hash, ManifestHash);
+
+size_t manifest_hash_size(ManifestHash h) {
+        switch (h) {
+
+        case MANIFEST_HASH_SHA256:
+                return SHA256_DIGEST_SIZE;
+
+        case MANIFEST_HASH_SHA512:
+                return 64;
+
+        default:
+                assert_not_reached();
+        }
+}
 
 static const struct {
         ManifestField field;
@@ -172,7 +194,50 @@ int manifest_fields_to_string(ManifestField f, char **ret) {
         return 0;
 }
 
-int manifest_context_hash_fd(ManifestContext *c, int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE]) {
+static int sha512_fd(int fd, uint8_t ret[static MANIFEST_HASH_SIZE_MAX]) {
+#if HAVE_OPENSSL
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = sym_EVP_MD_CTX_new();
+        if (!ctx)
+                return -ENOMEM;
+
+        if (sym_EVP_DigestInit_ex(ctx, sym_EVP_sha512(), /* impl= */ NULL) != 1)
+                return -EIO;
+
+        for (;;) {
+                uint8_t buffer[64 * 1024];
+                ssize_t n;
+
+                n = read(fd, buffer, sizeof(buffer));
+                if (n < 0)
+                        return -errno;
+                if (n == 0)
+                        break;
+
+                if (sym_EVP_DigestUpdate(ctx, buffer, n) != 1)
+                        return -EIO;
+        }
+
+        unsigned size;
+        if (sym_EVP_DigestFinal_ex(ctx, ret, &size) != 1)
+                return -EIO;
+
+        assert(size == manifest_hash_size(MANIFEST_HASH_SHA512));
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int manifest_context_hash_fd(ManifestContext *c, int inode_fd, uint8_t ret[static MANIFEST_HASH_SIZE_MAX]) {
         assert(c);
         assert(inode_fd >= 0);
         assert(ret);
@@ -187,7 +252,17 @@ int manifest_context_hash_fd(ManifestContext *c, int inode_fd, uint8_t ret[stati
         if (fd < 0)
                 return fd;
 
-        return sha256_fd(fd, /* max_size= */ UINT64_MAX, ret);
+        switch (c->hash) {
+
+        case MANIFEST_HASH_SHA256:
+                return sha256_fd(fd, /* max_size= */ UINT64_MAX, ret);
+
+        case MANIFEST_HASH_SHA512:
+                return sha512_fd(fd, ret);
+
+        default:
+                assert_not_reached();
+        }
 }
 
 static bool manifest_handle_skip_event(ManifestContext *c, RecurseDirEvent event, const char *path) {
@@ -365,21 +440,22 @@ static int manifest_mtree_item(
                                 (uint64_t) sx->stx_size);
 
                 if (FLAGS_SET(c->fields, MANIFEST_FIELD_HASH) && inode_fd >= 0 && sx->stx_size > 0) {
-                        uint8_t hash[SHA256_DIGEST_SIZE];
+                        uint8_t hash[MANIFEST_HASH_SIZE_MAX];
 
                         r = manifest_context_hash_fd(c, inode_fd, hash);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to calculate file SHA256 sum for '%s', ignoring: %m", path);
+                                log_warning_errno(r, "Failed to calculate file hash for '%s', ignoring: %m", path);
                                 c->n_metadata_omitted++;
                         } else {
                                 _cleanup_free_ char *h = NULL;
 
-                                h = hexmem(hash, SHA256_DIGEST_SIZE);
+                                h = hexmem(hash, manifest_hash_size(c->hash));
                                 if (!h)
                                         return log_oom();
 
-                                fprintf(f, " %ssha256sum=%s%s",
+                                fprintf(f, " %s%ssum=%s%s",
                                         c->color ? ansi_grey() : "",
+                                        manifest_hash_to_string(c->hash),
                                         c->color ? ansi_normal() : "",
                                         h);
                         }
@@ -526,7 +602,7 @@ static int hardlink_data_lookup(
                 int inode_fd,
                 const struct statx *sx,
                 uint64_t *ret_hardlink_counter,
-                uint8_t ret_hash[static SHA256_DIGEST_SIZE],
+                uint8_t ret_hash[static MANIFEST_HASH_SIZE_MAX],
                 bool *ret_hash_valid) {
 
         _cleanup_free_ char *slt = NULL, *fhs = NULL;
@@ -564,7 +640,7 @@ static int hardlink_data_lookup(
         bool is_empty = r > 0;
 
         uint64_t hardlink_counter;
-        uint8_t hash[SHA256_DIGEST_SIZE];
+        uint8_t hash[MANIFEST_HASH_SIZE_MAX];
         bool hash_valid = false;
 
         r = is_empty ? -ENOENT : readlinkat_malloc(c->db_fd, fhs, &slt);
@@ -760,7 +836,7 @@ static int manifest_uapi16_item(
         bool is_root = isempty(path);
 
         _cleanup_free_ char *data = NULL;
-        uint8_t hash[SHA256_DIGEST_SIZE];
+        uint8_t hash[MANIFEST_HASH_SIZE_MAX];
         uint64_t size = UINT64_MAX;
         bool have_size = false, hash_valid = false;
         const char *type = NULL;
@@ -948,7 +1024,7 @@ static int manifest_sha256sums_item(
 
         assert(inode_fd >= 0);
 
-        uint8_t hash[SHA256_DIGEST_SIZE];
+        uint8_t hash[MANIFEST_HASH_SIZE_MAX];
         r = manifest_context_hash_fd(c, inode_fd, hash);
         if (r < 0) {
                 log_warning_errno(r, "Failed to calculate hash of file '%s', ignoring: %m", path);
@@ -974,6 +1050,24 @@ static int manifest_sha256sums_item(
         return RECURSE_DIR_CONTINUE;
 }
 
+static int manifest_context_check_hash(ManifestContext *c) {
+        assert(c);
+
+        if (!FLAGS_SET(c->fields, MANIFEST_FIELD_HASH) || c->hash == MANIFEST_HASH_SHA256)
+                return 0;
+
+        if (c->format != MANIFEST_FORMAT_MTREE)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Only mtree manifests support hash algorithms other than SHA256.");
+
+        /* Check early if we can do SHA512, rather than failing for every single file */
+        assert(c->hash == MANIFEST_HASH_SHA512);
+#if HAVE_OPENSSL
+        return dlopen_libcrypto(LOG_ERR);
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "SHA512 hashes not supported, OpenSSL support disabled.");
+#endif
+}
+
 int manifest_make(ManifestContext *c, int dir_fd) {
         int r;
 
@@ -985,6 +1079,10 @@ int manifest_make(ManifestContext *c, int dir_fd) {
 
         if (!c->color)
                 c->json_format_flags &= ~(SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_COLOR_AUTO);
+
+        r = manifest_context_check_hash(c);
+        if (r < 0)
+                return r;
 
         int (*item_callback)(
                         RecurseDirEvent event,
@@ -1211,7 +1309,7 @@ int manifest_verify_hash(
                 int inode_fd,
                 const struct iovec *expected) {
 
-        uint8_t hash[SHA256_DIGEST_SIZE];
+        uint8_t hash[MANIFEST_HASH_SIZE_MAX];
         int r;
 
         assert(c);
@@ -1279,7 +1377,7 @@ static int manifest_stat_file(
 
         if (ret_hash) {
                 if (S_ISREG(sx.stx_mode)) {
-                        _cleanup_free_ uint8_t *h = new(uint8_t, SHA256_DIGEST_SIZE);
+                        _cleanup_free_ uint8_t *h = new(uint8_t, MANIFEST_HASH_SIZE_MAX);
                         if (!h)
                                 return -ENOMEM;
 
@@ -1660,6 +1758,10 @@ int manifest_verify(ManifestContext *c, int dir_fd, FILE *f) {
         assert(c);
         assert(dir_fd >= 0);
         assert(f);
+
+        r = manifest_context_check_hash(c);
+        if (r < 0)
+                return r;
 
         switch (c->format) {
 
