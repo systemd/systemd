@@ -163,11 +163,38 @@ void uapi16_signature_done(Uapi16Signature *s);
 /* Parses a signature object, i.e. an object with the UAPI16_SIGNATURE_MEDIA_TYPE media type. */
 int dispatch_uapi16_signature_object(sd_json_variant *v, sd_json_dispatch_flags_t flags, Uapi16Signature *ret);
 
+/* Streaming PKCS#7 signer: created once, fed the bytes of every record as they are generated, and finished
+ * into a signature object. */
+typedef struct Uapi16Signer Uapi16Signer;
+int uapi16_signer_new(X509 *certificate, EVP_PKEY *private_key, Uapi16Signer **ret);
+int uapi16_signer_feed(Uapi16Signer *s, const void *data, size_t size);
+int uapi16_signer_finish(Uapi16Signer *s, sd_json_variant **ret);
+Uapi16Signer* uapi16_signer_free(Uapi16Signer *s);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Uapi16Signer*, uapi16_signer_free);
+
 /* Invoked by uapi16_manifest_read() for every file object of a manifest, in order. Index 0 is the manifest's
  * leading object describing the manifest itself. The handler may take possession of fields of the object. */
 typedef int (*uapi16_object_handler_t)(Uapi16Object *o, size_t index, void *userdata);
 
 /* Reads a UAPI.16 manifest from the specified stream, record by record, without ever holding more than one
  * record in memory, and enforces the structure of the manifest (leading object, signature objects only
- * after file objects, trailer last). Objects of unknown media types are skipped. */
-int uapi16_manifest_read(FILE *f, uapi16_object_handler_t handler, void *userdata);
+ * after file objects, trailer last). Objects of unknown media types are skipped. If certificates are
+ * specified, a PKCS#7 signature by one of them is required. Note that it is only known at the very end
+ * whether the signature checks out, i.e. after the handler has been called for all file objects: callers
+ * must discard what they collected if this returns an error. */
+int uapi16_manifest_read(
+                FILE *f,
+                X509 *const *certificates,
+                size_t n_certificates,
+                uapi16_object_handler_t handler,
+                void *userdata);
+
+/* The VOA role (see voa-util.h) UAPI.16 manifest verifiers are looked up for */
+#define UAPI16_VOA_ROLE "manifest"
+
+/* Loads the X.509 certificates to verify UAPI.16 manifest signatures against from the VOA hierarchy below
+ * the specified root, i.e. from the *-certificate.pem files in the $os/manifest/$context/x509/ directories.
+ * Only artifact verifiers are supported: certificates are trusted as they are, and not checked against
+ * trust anchors. Returns 0 and an empty array if no certificates are found. */
+int uapi16_load_voa_certificates(int root_fd, const char *context, X509 ***ret, size_t *ret_n);
+void uapi16_certificates_free(X509 **certificates, size_t n);

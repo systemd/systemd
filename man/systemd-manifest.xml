@@ -195,6 +195,76 @@
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
+        <term><option>--private-key-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+        <term><option>--certificate-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+
+        <listitem><para>Set the private key and certificate to use for signing. When generating a
+        <option>uapi16</option> manifest with <command>make</command>, the manifest is signed if (and only
+        if) <option>--private-key=</option> is specified, in which case <option>--certificate=</option> must
+        be specified too. A signature object is then appended to the manifest, carrying a detached PKCS#7
+        (CMS) signature in DER format. The signature covers the exact bytes of the manifest preceding the
+        signature object (without any color sequences that might be inserted when writing to a terminal).
+        RSA, ECDSA and Ed25519 keys are supported. For RSA and ECDSA keys the signature is made directly over
+        the digest of the manifest, for Ed25519 keys it is made over a set of signed attributes carrying the
+        SHA-512 digest of the manifest, as required by <ulink
+        url="https://www.rfc-editor.org/rfc/rfc8419">RFC 8419</ulink>. Signing requires OpenSSL.</para>
+
+        <para>When verifying, only <option>--certificate=</option> is used: if specified, the manifest must
+        carry a signature that verifies against this certificate, instead of one of the certificates found in
+        the VOA hierarchy, see <option>--verify=</option> below. The
+        <option>--certificate=</option> option takes a path to a PEM encoded X.509 certificate or a URI
+        that's passed to the OpenSSL provider configured with <option>--certificate-source=</option>. The
+        <option>--certificate-source=</option> option takes one of <literal>file</literal> or
+        <literal>provider</literal>, with the latter being followed by a specific provider identifier,
+        separated with a colon, e.g. <literal>provider:pkcs11</literal>. The
+        <option>--private-key=</option> option can take a path or a URI that will be passed to the OpenSSL
+        engine or provider, as specified by <option>--private-key-source=</option> as a
+        <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--verify=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Controls whether to verify the signature of <option>uapi16</option> manifests when
+        verifying a directory tree. Takes a boolean, defaults to true. If enabled, the manifest must carry a
+        PKCS#7 signature made with the private key of the certificate specified with
+        <option>--certificate=</option>, or, if that option is not used, of one of the X.509 certificates
+        found in the <ulink
+        url="https://uapi-group.org/specifications/specs/file_hierarchy_for_the_verification_of_os_artifacts/">File
+        Hierarchy for the Verification of OS Artifacts</ulink> (VOA), otherwise verification fails. In the
+        latter case, certificates are read from
+        <filename><replaceable>OS</replaceable>/manifest/<replaceable>CONTEXT</replaceable>/x509/<replaceable>NAME</replaceable>-certificate.pem</filename>
+        below the VOA load paths <filename>/etc/voa/</filename>, <filename>/run/voa/</filename>,
+        <filename>/usr/local/share/voa/</filename> and <filename>/usr/share/voa/</filename>, where
+        <replaceable>OS</replaceable> is derived from
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+        <replaceable>CONTEXT</replaceable> is configured with <option>--voa-context=</option>. Only artifact
+        verifiers are supported, i.e. the certificates are trusted as they are, and are not checked against
+        trust anchors. Verification fails if no certificates are found. If disabled, signature objects in the
+        manifest are ignored. The <option>list</option> and <option>sha256sums</option> formats carry no
+        signatures, hence for these this option has no effect, except that explicitly enabling it results in
+        an error. Requires OpenSSL.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--voa-context=<replaceable>CONTEXT</replaceable></option></term>
+
+        <listitem><para>Selects the VOA context to look up certificates in, if signatures are verified
+        without <option>--certificate=</option>, see above. Defaults to <literal>default</literal>. Use
+        <option>--voa-context=sysupdate</option> to verify manifests against the same certificates
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses for verifying <filename>Uapi16Manifest</filename> files it downloads.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -219,10 +289,10 @@
     <title>Examples</title>
 
     <example>
-      <title>Generate a UAPI.16 manifest of a directory tree and verify it</title>
+      <title>Generate an unsigned UAPI.16 manifest of a directory tree and verify it</title>
 
       <programlisting>$ systemd-manifest make /srv/tree > Uapi16Manifest
-$ systemd-manifest verify /srv/tree Uapi16Manifest</programlisting>
+$ systemd-manifest verify --verify=no /srv/tree Uapi16Manifest</programlisting>
     </example>
 
     <example>
@@ -235,7 +305,21 @@ $ sha256sum -c SHA256SUMS</programlisting>
     <example>
       <title>Only verify file contents, ignoring ownership and access modes</title>
 
-      <programlisting>$ systemd-manifest verify --field=size,hash /srv/tree Uapi16Manifest</programlisting>
+      <programlisting>$ systemd-manifest verify --verify=no --field=size,hash /srv/tree Uapi16Manifest</programlisting>
+    </example>
+
+    <example>
+      <title>Generate a signed manifest, and verify it against the certificate</title>
+
+      <programlisting>$ systemd-manifest make --private-key=foo-private-key.pem --certificate=foo-certificate.pem /srv/tree > Uapi16Manifest
+$ systemd-manifest verify --certificate=foo-certificate.pem /srv/tree Uapi16Manifest</programlisting>
+    </example>
+
+    <example>
+      <title>Verify a manifest against the certificates systemd-sysupdate trusts</title>
+
+      <programlisting># cp foo-certificate.pem /etc/voa/$(. /etc/os-release; echo $ID)/manifest/sysupdate/x509/
+$ systemd-manifest verify --voa-context=sysupdate /srv/tree Uapi16Manifest</programlisting>
     </example>
   </refsect1>
 
