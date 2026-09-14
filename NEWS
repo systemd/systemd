@@ -297,6 +297,22 @@ CHANGES WITH 263 in spe:
           this is mostly useful where the value of PCR 11 in the initrd is
           predictable.
 
+        Changes in systemd-cryptsetup/systemd-cryptenroll:
+
+        * systemd-cryptenroll's --fido2-device= and --tpm2-device= switches may
+          now be combined, in order to bind a LUKS2 volume to a TPM2 chip and a
+          FIDO2 token at the same time: the TPM2 seals a secret from which the
+          salt for the token's "hmac-secret" is derived, and the token's answer
+          is the key for the LUKS2 key slot, so that both the chip (with its
+          policy satisfied) and the token are required to unlock the volume.
+          The token has to prove possession of the enrolled credential before
+          it is handed the salt, which defeats FIDO2 token emulators. Such
+          slots are unlocked via the existing "tpm2-device=" /etc/crypttab
+          option, and are listed and wiped under the "tpm2-fido2" name. Note
+          that these slots are stored as regular "systemd-tpm2" LUKS2 tokens:
+          older systemd versions do not recognize that a FIDO2 token is
+          required, and will fail to unlock them without saying why.
+
         Changes in libsystemd:
 
         * sd-varlink-idl.h gained SD_VARLINK_EXPERIMENTAL, which may be used
