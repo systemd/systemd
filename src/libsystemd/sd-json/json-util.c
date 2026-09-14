@@ -51,6 +51,31 @@ int json_dispatch_unhex_iovec(const char *name, sd_json_variant *variant, sd_jso
         return 0;
 }
 
+int json_dispatch_unhex_iovec32(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        struct iovec *iov = ASSERT_PTR(userdata);
+        int r;
+
+        /* This is just like json_dispatch_unhex_iovec() but parses/writes exactly 32byte. (Great for SHA256 hashes and such) */
+
+        if (sd_json_variant_is_null(variant)) {
+                iovec_done(iov);
+                return 0;
+        }
+
+        _cleanup_(iovec_done) struct iovec t = {};
+        r = json_dispatch_unhex_iovec(name, variant, flags, &t);
+        if (r < 0)
+                return r;
+
+        if (t.iov_len != 32)
+                return json_log(variant, flags, r, "JSON field '%s' has unexpected size (expected 32, got %zu).", strna(name), t.iov_len);
+
+
+        iovec_done(iov);
+        *iov = TAKE_STRUCT(t);
+        return 0;
+}
+
 int json_dispatch_unbase64_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_free_ void *buffer = NULL;
         struct iovec *iov = ASSERT_PTR(userdata);
