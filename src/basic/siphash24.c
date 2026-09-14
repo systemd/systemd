@@ -26,13 +26,17 @@
 #include "string-util.h"
 #include "unaligned.h"
 
-static uint64_t rotate_left(uint64_t x, uint8_t b) {
+/* The round is small enough that it is worth inlining at every call site, but large enough that gcc's
+ * -O2 inlining budget declines to do so on its own, leaving a call/ret and a reload of the state around
+ * six rounds of ~14 ALU ops. clang inlines it either way. The reference implementation this file is
+ * derived from writes the round as a macro, i.e. it is unconditionally inlined there too. */
+static inline _always_inline_ uint64_t rotate_left(uint64_t x, uint8_t b) {
         assert(b < 64);
 
         return (x << b) | (x >> (64 - b));
 }
 
-static void sipround(struct siphash *state) {
+static inline _always_inline_ void sipround(struct siphash *state) {
         assert(state);
 
         state->v0 += state->v1;
