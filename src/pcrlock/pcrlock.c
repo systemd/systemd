@@ -3825,7 +3825,11 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         CLEANUP_ERASE(auth);
 
         if (pin) {
-                r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &auth);
+                r = tpm2_auth_value_from_pin_and_fido2(
+                                TPM2_ALG_SHA256,
+                                pin,
+                                /* fido2_secret= */ NULL,
+                                &auth);
                 if (r < 0)
                         return log_error_errno(r, "Failed to hash PIN: %m");
         } else {
