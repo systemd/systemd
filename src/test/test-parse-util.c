@@ -864,6 +864,17 @@ TEST(parse_loadavg_fixed_point) {
         ASSERT_ERROR(parse_loadavg_fixed_point("4096.4096", &fp), ERANGE);
         ASSERT_ERROR(parse_loadavg_fixed_point("-4000.5", &fp), ERANGE);
         ASSERT_ERROR(parse_loadavg_fixed_point("18446744073709551615.5", &fp), ERANGE);
+
+        /* Neither side may be large enough to overflow the shift by LOADAVG_PRECISION_BITS. The largest
+         * integer part that still fits is 2^53-1; 2^53 itself used to shift out of the word entirely and
+         * be reported as a load of zero. */
+        ASSERT_OK_ZERO(parse_loadavg_fixed_point("9007199254740991.99", &fp));
+        ASSERT_EQ(LOADAVG_INT_SIDE(fp), 9007199254740991UL);
+        ASSERT_EQ(LOADAVG_DECIMAL_SIDE(fp), 99U);
+
+        ASSERT_ERROR(parse_loadavg_fixed_point("9007199254740992.00", &fp), ERANGE);
+        ASSERT_ERROR(parse_loadavg_fixed_point("9007199254740993.00", &fp), ERANGE);
+        ASSERT_ERROR(parse_loadavg_fixed_point("1.9007199254740992", &fp), ERANGE);
         ASSERT_ERROR(parse_loadavg_fixed_point("foobar", &fp), EINVAL);
         ASSERT_ERROR(parse_loadavg_fixed_point("3333", &fp), EINVAL);
         ASSERT_ERROR(parse_loadavg_fixed_point("1.2.3", &fp), EINVAL);
