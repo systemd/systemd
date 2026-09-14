@@ -99,6 +99,14 @@ PIN=4321 systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$IMAGE"
 (! systemd-cryptenroll --wipe-slot "$IMAGE")
 (! systemd-cryptenroll --wipe-slot=10240000 "$IMAGE")
 (! systemd-cryptenroll --fido2-device=auto --unlock-fido2-device=auto "$IMAGE")
+# TPM2 and FIDO2 may be combined, but only against a real TPM2 device, and regardless of the switch order
+(! systemd-cryptenroll --tpm2-device-key=/tmp/tpm2.pub --fido2-device=auto "$IMAGE")
+(! systemd-cryptenroll --fido2-device=auto --tpm2-device-key=/tmp/tpm2.pub "$IMAGE")
+(! systemd-cryptenroll --password --tpm2-device=auto --fido2-device=auto "$IMAGE")
+(! systemd-cryptenroll --password --fido2-device=auto --tpm2-device=auto "$IMAGE")
+(! systemd-cryptenroll --tpm2-device=auto --fido2-device=auto --pkcs11-token-uri=auto "$IMAGE")
+(! systemd-cryptenroll --unlock-key-file=/tmp/unlock --unlock-tpm2-device=auto --unlock-fido2-device=auto "$IMAGE")
+(! systemd-cryptenroll --unlock-tpm2-device=auto --unlock-fido2-device=auto --unlock-key-file=/tmp/unlock "$IMAGE")
 
 rm -f "$IMAGE"
 
