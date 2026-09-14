@@ -38,7 +38,7 @@ static int vl_method_sign(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "digest",    SD_JSON_VARIANT_STRING, json_dispatch_unhex_iovec,     offsetof(SignParameters, digest),    SD_JSON_MANDATORY },
+                { "digest",    SD_JSON_VARIANT_STRING, json_dispatch_unhex_iovec32,   offsetof(SignParameters, digest),    SD_JSON_MANDATORY },
                 { "algorithm", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(SignParameters, algorithm), SD_JSON_MANDATORY },
                 {}
         };
@@ -56,8 +56,7 @@ static int vl_method_sign(
 
         if (!streq(sp.algorithm, "SHA256"))
                 return sd_varlink_error_invalid_parameter_name(link, "algorithm");
-        if (sp.digest.iov_len != SHA256_DIGEST_SIZE)
-                return sd_varlink_error_invalid_parameter_name(link, "digest");
+        assert(sp.digest.iov_len == SHA256_DIGEST_SIZE);
 
         uint8_t report_data[TSM_REPORT_DATA_SIZE] = {};
         memcpy(report_data, sp.digest.iov_base, sp.digest.iov_len);
