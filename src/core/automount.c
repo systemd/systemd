@@ -351,7 +351,7 @@ static int automount_coldplug_vanished(Automount *a) {
                  * what they were waiting for, so tell them it is there. The autofs below it cannot be
                  * unmounted and stays behind catatonic: recovering that path takes a manual umount, and
                  * until then automount_start() refuses to use it again. */
-                automount_release_requests(a, 0);
+                automount_release_requests(a, /* status= */ 0);
 
         unmount_autofs(a, /* keep_mount_point= */ !exposed);
 
