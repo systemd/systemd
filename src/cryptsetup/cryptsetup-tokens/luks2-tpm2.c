@@ -118,6 +118,7 @@ int acquire_luks2_key(
                         pubkey_pcr_mask,
                         signature_json,
                         pin,
+                        /* fido2_secret= */ NULL,
                         FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
                         primary_alg,
                         blobs,
