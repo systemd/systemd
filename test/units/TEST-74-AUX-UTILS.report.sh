@@ -45,6 +45,37 @@ echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"typ
 echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"type":"user"' >/dev/null
 echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"type":"system"' >/dev/null
 
+# Per unit pressure stall information, only reported if the kernel supports PSI.
+if cat /proc/pressure/cpu >/dev/null 2>&1; then
+    PSI_UNIT="test-report-psi-$RANDOM.service"
+    systemd-run --unit="$PSI_UNIT" --service-type=exec \
+        -p CPUAccounting=yes -p MemoryAccounting=yes -p IOAccounting=yes -p TasksAccounting=yes \
+        sleep infinity
+
+    cgroup_metrics=$(varlinkctl --more --json=short call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.List {})
+
+    cgroup_pressure_number() {
+        echo "$cgroup_metrics" | jq --seq -r \
+            --arg family "io.systemd.CGroup.$1" --arg unit "$PSI_UNIT" --arg resource "$2" --arg type "$3" '
+            select(.name == $family and .object == $unit and
+                   .fields.resource == $resource and .fields.type == $type) |
+            .value | numbers | select(. >= 0) |
+            select($family != "io.systemd.CGroup.PressureAvg10" or . <= 100) | tostring'
+    }
+
+    for family in PressureAvg10 PressureStallSeconds; do
+        for resource in cpu memory io; do
+            test -n "$(cgroup_pressure_number "$family" "$resource" some)"
+            # No full for cpu prior to 5.13
+            if [ "$resource" != cpu ] || grep -q '^full' /sys/fs/cgroup/system.slice/cpu.pressure 2>/dev/null; then
+                test -n "$(cgroup_pressure_number "$family" "$resource" full)"
+            fi
+        done
+    done
+
+    systemctl stop "$PSI_UNIT"
+fi
+
 # test io.systemd.Network Metrics
 varlinkctl info /run/systemd/report/io.systemd.Network
 varlinkctl list-methods /run/systemd/report/io.systemd.Network
