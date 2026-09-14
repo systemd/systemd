@@ -29,6 +29,7 @@
 #include "initrd-util.h"
 #include "io-util.h"
 #include "json-util.h"
+#include "libfido2-util.h"
 #include "limits-util.h"
 #include "log.h"
 #include "logarithm.h"
@@ -11285,6 +11286,9 @@ int tpm2_make_luks2_json(
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 const Argon2IdParameters *argon2id_params,
+                const struct iovec *fido2_cid,
+                const struct iovec *fido2_salt,
+                Fido2EnrollFlags fido2_flags,
                 sd_json_variant **ret) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *hmj = NULL, *pkmj = NULL;
@@ -11341,6 +11345,7 @@ int tpm2_make_luks2_json(
                         SD_JSON_BUILD_PAIR_VARIANT("tpm2-policy-hash", phj),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PIN), "tpm2-pin", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK), "tpm2_pcrlock", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "tpm2_fido2", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", SD_JSON_BUILD_VARIANT(pkmj)),
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pubkey), "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
                         SD_JSON_BUILD_PAIR_CONDITION(pubkey_policy_ref != NULL, "tpm2_pubkey_ref", SD_JSON_BUILD_STRING(pubkey_policy_ref)),
@@ -11349,7 +11354,13 @@ int tpm2_make_luks2_json(
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_memcost", SD_JSON_BUILD_UNSIGNED(argon2id_params_safe.memcost_bytes)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_iterations", SD_JSON_BUILD_UNSIGNED(argon2id_params_safe.iterations)),
-                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_lanes", SD_JSON_BUILD_UNSIGNED(argon2id_params_safe.lanes)));
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_lanes", SD_JSON_BUILD_UNSIGNED(argon2id_params_safe.lanes)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-credential", JSON_BUILD_IOVEC_BASE64(fido2_cid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-salt", JSON_BUILD_IOVEC_BASE64(fido2_salt)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-rp", JSON_BUILD_CONST_STRING("io.systemd.cryptsetup")),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-clientPin-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(fido2_flags, FIDO2ENROLL_PIN))),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-up-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(fido2_flags, FIDO2ENROLL_UP))),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-uv-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(fido2_flags, FIDO2ENROLL_UV))));
         if (r < 0)
                 return r;
 
@@ -11433,15 +11444,21 @@ int tpm2_parse_luks2_json(
                 struct iovec *ret_srk,
                 struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags,
-                Argon2IdParameters *ret_argon2id_params) {
+                Argon2IdParameters *ret_argon2id_params,
+                struct iovec *ret_fido2_cid,
+                struct iovec *ret_fido2_salt,
+                char **ret_fido2_rp_id,
+                Fido2EnrollFlags *ret_fido2_flags) {
 
-        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {}, fido2_cid = {}, fido2_salt = {};
         _cleanup_free_ char *pubkey_ref = NULL;
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
         uint16_t primary_alg = 0;
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
         int r, keyslot = -1;
         TPM2Flags flags = 0;
+        Fido2EnrollFlags fido2_flags = 0;
+        _cleanup_free_ char *fido2_rp = NULL;
         sd_json_variant *w;
 
         assert(v);
@@ -11537,6 +11554,14 @@ int tpm2_parse_luks2_json(
                 SET_FLAG(flags, TPM2_FLAGS_USE_PCRLOCK, sd_json_variant_boolean(w));
         }
 
+        w = sd_json_variant_by_key(v, "tpm2_fido2");
+        if (w) {
+                if (!sd_json_variant_is_boolean(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 FIDO2 policy is not a boolean.");
+
+                SET_FLAG(flags, TPM2_FLAGS_USE_FIDO2, sd_json_variant_boolean(w));
+        }
+
         w = sd_json_variant_by_key(v, "tpm2_salt");
         if (w) {
                 r = json_variant_unbase64_iovec(w, &salt);
@@ -11629,6 +11654,58 @@ int tpm2_parse_luks2_json(
         } else if (ap.memcost_bytes > 0 || ap.iterations > 0 || ap.lanes > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "Incomplete Argon2id parameters in LUKS2 token.");
 
+        w = sd_json_variant_by_key(v, "fido2-credential");
+        if (w) {
+                r = json_variant_unbase64_iovec(w, &fido2_cid);
+                if (r < 0)
+                        return log_debug_errno(r, "Invalid base64 data in 'fido2-credential' field.");
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-salt");
+        if (w) {
+                r = json_variant_unbase64_iovec(w, &fido2_salt);
+                if (r < 0)
+                        return log_debug_errno(r, "Invalid base64 data in 'fido2-salt' field.");
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-rp");
+        if (w) {
+                /* The "rp" field is optional. */
+
+                if (!sd_json_variant_is_string(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "FIDO2 token data's 'fido2-rp' field is not a string.");
+
+                assert(!fido2_rp);
+                fido2_rp = strdup(sd_json_variant_string(w));
+                if (!fido2_rp)
+                        return log_oom_debug();
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-clientPin-required");
+        if (w) {
+                if (!sd_json_variant_is_boolean(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "FIDO2 client PIN required is not a boolean.");
+
+                SET_FLAG(fido2_flags, FIDO2ENROLL_PIN, sd_json_variant_boolean(w));
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-up-required");
+        if (w) {
+                if (!sd_json_variant_is_boolean(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "FIDO2 user presence required is not a boolean.");
+
+                SET_FLAG(fido2_flags, FIDO2ENROLL_UP, sd_json_variant_boolean(w));
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-uv-required");
+        if (w) {
+                if (!sd_json_variant_is_boolean(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "FIDO2 user validation required is not a boolean.");
+
+                SET_FLAG(fido2_flags, FIDO2ENROLL_UV, sd_json_variant_boolean(w));
+        }
+
         if (ret_keyslot)
                 *ret_keyslot = keyslot;
         if (ret_hash_pcr_mask)
@@ -11661,6 +11738,15 @@ int tpm2_parse_luks2_json(
                 *ret_flags = flags;
         if (ret_argon2id_params)
                 *ret_argon2id_params = ap;
+        if (ret_fido2_cid)
+                *ret_fido2_cid = TAKE_STRUCT(fido2_cid);
+        if (ret_fido2_salt)
+                *ret_fido2_salt = TAKE_STRUCT(fido2_salt);
+        if (ret_fido2_rp_id)
+                *ret_fido2_rp_id = TAKE_PTR(fido2_rp);
+        if (ret_fido2_flags)
+                *ret_fido2_flags = fido2_flags;
+
         return 0;
 }
 
