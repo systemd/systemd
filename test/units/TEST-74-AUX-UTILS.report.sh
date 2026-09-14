@@ -38,12 +38,71 @@ varlinkctl list-methods /run/systemd/report/io.systemd.CGroup
 varlinkctl --more call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.Describe {}
 
+cgroup_describe=$(varlinkctl --more --json=short call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.Describe {})
+for family_type in PressureAvg10:gauge PressureStallSeconds:counter; do
+    echo "$cgroup_describe" | jq --seq -r --arg family "io.systemd.CGroup.${family_type%:*}" \
+        'select(.name == $family) | .type' | grep -wx "${family_type#*:}" >/dev/null
+done
+
 # CpuUsage emits one row per (cgroup, type) where type is total, user, or system.
 # Confirm all three are present.
 cgroup_metrics=$(varlinkctl --more --json=short call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.List {})
 echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"type":"total"' >/dev/null
 echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"type":"user"' >/dev/null
 echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"type":"system"' >/dev/null
+
+PSI_UNIT="test-report-psi-$RANDOM.service"
+trap 'systemctl stop "$PSI_UNIT"' EXIT
+systemd-run --unit="$PSI_UNIT" --service-type=exec sleep infinity
+psi_cgroup="/sys/fs/cgroup$(systemctl show -P ControlGroup "$PSI_UNIT")"
+
+# The server only emits pressure metrics if is_pressure_supported() holds, which reads the files under
+# /proc/pressure/, and then reads the unit cgroup's own attributes, which PSI can be disabled for per
+# subtree via cgroup.pressure. Mirror both conditions here, so that we either test the whole thing or
+# skip it, rather than failing on a host where the server legitimately reports nothing.
+if cat /proc/pressure/cpu /proc/pressure/io /proc/pressure/memory >/dev/null 2>&1 &&
+       cpu_pressure=$(cat "$psi_cgroup/cpu.pressure" 2>/dev/null); then
+    cgroup_metrics=$(varlinkctl --more --json=short call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.List {})
+
+    # Like basic_number(), this only checks presence and numeric type, so that a range violation
+    # further down is reported separately from a metric that is missing altogether.
+    cgroup_pressure_number() {
+        echo "$cgroup_metrics" | jq --seq -r \
+            --arg family "io.systemd.CGroup.$1" --arg unit "$PSI_UNIT" --arg resource "$2" --arg type "$3" '
+            select(.name == $family and .object == $unit and
+                   .fields.resource == $resource and .fields.type == $type) |
+            .value | numbers | tostring'
+    }
+
+    for resource in cpu memory io; do
+        types=(some)
+        # No full for cpu prior to 5.13
+        if [ "$resource" != cpu ] || grep '^full ' <<<"$cpu_pressure" >/dev/null; then
+            types+=(full)
+        fi
+
+        for type in "${types[@]}"; do
+            avg10="$(cgroup_pressure_number PressureAvg10 "$resource" "$type")"
+            stall="$(cgroup_pressure_number PressureStallSeconds "$resource" "$type")"
+            test -n "$avg10"
+            test -n "$stall"
+
+            # avg10 is a percentage, so it must lie in the 0…100 range. This would catch a wrong
+            # fixed-point conversion, which would inflate the value 2048x.
+            awk -v v="$avg10" 'BEGIN { exit !(v >= 0 && v <= 100) }'
+
+            # The stall counter only grows, so the value sampled above cannot exceed what the unit's
+            # own pressure file (in microseconds) shows now. This pins down the seconds conversion,
+            # which a bare "is a number" check cannot.
+            awk -v v="$stall" -v type="$type" '
+                $1 == type { for (i = 2; i <= NF; i++) if (sub(/^total=/, "", $i)) { found = 1; ok = (v >= 0 && v <= $i / 1e6) } }
+                END { exit !(found && ok) }' "$psi_cgroup/$resource.pressure"
+        done
+    done
+fi
+
+systemctl stop "$PSI_UNIT"
+trap - EXIT
 
 # test io.systemd.Network Metrics
 varlinkctl info /run/systemd/report/io.systemd.Network
