@@ -297,7 +297,9 @@
         relationships. Like <option>--mtree</option>, this is useful for comparing image contents in detail,
         but in a structured JSON-based format intended for reproducible artifact descriptions. This is the
         format <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        consumes as <filename>Uapi16Manifest</filename> file. Note that some inode metadata (such as extended
+        consumes as <filename>Uapi16Manifest</filename> file, and that
+        <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        generates and verifies for plain directory trees. Note that some inode metadata (such as extended
         attributes, file system capabilities, MAC labels,
         <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         file flags and timestamps) is currently not included in the output. Additional fields might be added

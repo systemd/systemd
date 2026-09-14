@@ -4,7 +4,6 @@
 #include "sd-json.h"
 
 #include "forward.h"
-#include "sha256.h"
 
 /* Generic helpers for generating (and verifying) file manifests of directory trees, in various formats. */
 
@@ -37,9 +36,21 @@ typedef enum ManifestField {
         _MANIFEST_FIELD_INVALID   = -EINVAL,
 } ManifestField;
 
+/* The hash algorithm to use for MANIFEST_FIELD_HASH. Only the mtree format supports anything but SHA256. */
+typedef enum ManifestHash {
+        MANIFEST_HASH_SHA256,
+        MANIFEST_HASH_SHA512,
+        _MANIFEST_HASH_MAX,
+        _MANIFEST_HASH_INVALID = -EINVAL,
+} ManifestHash;
+
+/* The digest size of the largest hash algorithm we support (i.e. SHA512) */
+#define MANIFEST_HASH_SIZE_MAX 64U
+
 typedef struct ManifestContext {
         ManifestFormat format;
         ManifestField fields;
+        ManifestHash hash;
         FILE *output;           /* not owned */
         bool color;
 
@@ -72,6 +83,7 @@ typedef struct ManifestContext {
         (const ManifestContext) {                          \
                 .format = _MANIFEST_FORMAT_INVALID,        \
                 .fields = _MANIFEST_FIELD_DEFAULT,         \
+                .hash = MANIFEST_HASH_SHA256,              \
                 .db_fd = -EBADF,                           \
                 .json_format_flags = SD_JSON_FORMAT_OFF,   \
         }
@@ -90,6 +102,10 @@ ManifestField manifest_field_from_string(const char *s) _pure_;
  * and "none" are accepted as special values. */
 int manifest_fields_from_string(const char *s, ManifestField *ret);
 int manifest_fields_to_string(ManifestField f, char **ret);
+
+const char* manifest_hash_to_string(ManifestHash i) _const_;
+ManifestHash manifest_hash_from_string(const char *s) _pure_;
+size_t manifest_hash_size(ManifestHash h) _const_;
 
 /* Generates a manifest of the directory tree the specified fd refers to, in the format and with the fields
  * configured in the context. */
@@ -114,6 +130,6 @@ void manifest_verify_error(ManifestContext *c, const char *path, const char *for
 int manifest_verify_hash(ManifestContext *c, const char *path, int inode_fd, const struct iovec *expected);
 
 /* Calculates the hash of the file the specified fd refers to, with the algorithm configured in the context.
- * The fd may be an O_PATH fd. Flushes the output stream first, so that users get an idea where we are when
- * hashing takes a while. */
-int manifest_context_hash_fd(ManifestContext *c, int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE]);
+ * The digest written to the buffer is manifest_hash_size(c->hash) bytes long. The fd may be an O_PATH fd.
+ * Flushes the output stream first, so that users get an idea where we are when hashing takes a while. */
+int manifest_context_hash_fd(ManifestContext *c, int inode_fd, uint8_t ret[static MANIFEST_HASH_SIZE_MAX]);
