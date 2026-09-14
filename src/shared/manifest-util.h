@@ -5,6 +5,7 @@
 
 #include "forward.h"
 #include "sha256.h"
+#include "uapi16-manifest.h"
 
 /* Generic helpers for generating (and verifying) file manifests of directory trees, in various formats. */
 
@@ -60,6 +61,13 @@ typedef struct ManifestContext {
         uint64_t counter;
 
         sd_json_format_flags_t json_format_flags;
+
+        /* Signing (generation) and signature verification (verification), UAPI.16 only */
+        X509 *certificate;                        /* Not owned. Used for signing */
+        X509 *const *certificates;                /* Not owned. If set a signature by one of these is required */
+        size_t n_certificates;
+        EVP_PKEY *private_key;                    /* Not owned. If set the manifest is signed with it (PKCS#7) */
+        Uapi16Signer *signer;                     /* Allocated on demand by manifest_make() */
 
         uint64_t n_errors;                        /* Number of mismatches found so far */
 } ManifestContext;
