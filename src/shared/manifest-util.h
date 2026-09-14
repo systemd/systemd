@@ -11,6 +11,7 @@
 typedef enum ManifestFormat {
         MANIFEST_FORMAT_LIST,       /* A simple list of file names, one per line */
         MANIFEST_FORMAT_MTREE,      /* BSD mtree(8) */
+        MANIFEST_FORMAT_SHA256SUMS, /* The format sha256sum(1) generates, and sha256sum -c consumes */
         MANIFEST_FORMAT_UAPI16,     /* UAPI.16 Manifest */
         _MANIFEST_FORMAT_MAX,
         _MANIFEST_FORMAT_INVALID = -EINVAL,
