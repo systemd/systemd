@@ -13,9 +13,25 @@
 #include "metrics.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "psi-util.h"
 #include "report-cgroup.h"
 #include "string-util.h"
 #include "time-util.h"
+
+typedef enum CGroupMetricFamily {
+        CGROUP_CPU_USAGE,
+        CGROUP_IO_READ_BYTES,
+        CGROUP_IO_READ_OPERATIONS,
+        CGROUP_MEMORY_USAGE,
+        CGROUP_PRESSURE_AVG10,
+        CGROUP_PRESSURE_STALL_SECONDS,
+        CGROUP_TASKS_CURRENT,
+        _CGROUP_METRIC_FAMILY_MAX,
+} CGroupMetricFamily;
+
+assert_cc(CGROUP_IO_READ_OPERATIONS == CGROUP_IO_READ_BYTES + 1);
+
+static const MetricFamily cgroup_metric_family_table[_CGROUP_METRIC_FAMILY_MAX + 1];
 
 /* Parse cpu.stat for a cgroup once, extracting usage_usec, user_usec and system_usec
  * in a single read so each scrape only opens the file once per cgroup. */
@@ -250,6 +266,76 @@ static int memory_usage_send(
         return 0;
 }
 
+int report_cgroup_pressure_send(
+                sd_varlink *link,
+                const char *path,
+                const char *unit) {
+
+        int r;
+
+        assert(link);
+        assert(path);
+        assert(unit);
+
+        for (PressureResource resource = 0; resource < _PRESSURE_RESOURCE_MAX; resource++) {
+                const char *name = pressure_resource_to_string(resource);
+
+                _cleanup_free_ char *p = path_join(path, name);
+                if (!p)
+                        return log_oom();
+
+                if (!strextend(&p, ".pressure"))
+                        return log_oom();
+
+                _cleanup_fclose_ FILE *f = NULL;
+                r = fopen_unlocked(p, "re", &f);
+                if (r < 0) {
+                        if (!IN_SET(r, -ENOENT, -ENODATA) && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                log_debug_errno(r, "Failed to open '%s', ignoring: %m", p);
+                        continue;
+                }
+
+                PressureType type;
+                FOREACH_ARGUMENT(type, PRESSURE_TYPE_SOME, PRESSURE_TYPE_FULL) {
+                        ResourcePressure rp;
+
+                        r = read_resource_pressure_file(f, type, &rp);
+                        if (r < 0) {
+                                if (!IN_SET(r, -ENOENT, -ENODATA) && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                        log_debug_errno(r, "Failed to read %s, ignoring: %m", p);
+                                break; /* If "some" can't be read, "full" won't work either */
+                        }
+
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+                        r = sd_json_buildo(&fields,
+                                           SD_JSON_BUILD_PAIR_STRING("resource", name),
+                                           SD_JSON_BUILD_PAIR_STRING("type", pressure_type_to_string(type)));
+                        if (r < 0)
+                                return r;
+
+                        r = metric_build_send_double(
+                                        cgroup_metric_family_table + CGROUP_PRESSURE_AVG10,
+                                        link,
+                                        unit,
+                                        (double) rp.avg10 / LOADAVG_FIXED_POINT_1_0,
+                                        fields);
+                        if (r < 0)
+                                return r;
+
+                        r = metric_build_send_double(
+                                        cgroup_metric_family_table + CGROUP_PRESSURE_STALL_SECONDS,
+                                        link,
+                                        unit,
+                                        (double) rp.total / USEC_PER_SEC,
+                                        fields);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return sd_varlink_flush(link);
+}
+
 static int tasks_current_send(
                 const MetricFamily *mf,
                 sd_varlink *link,
@@ -275,36 +361,50 @@ static int tasks_current_send(
 }
 
 static int walk_cgroups(
-                const MetricFamily mf[static 5],
+                const MetricFamily mf[static _CGROUP_METRIC_FAMILY_MAX],
                 sd_varlink *link,
-                const char *path) {
+                const char *path,
+                bool pressure_supported) {
 
         int r;
 
-        assert(mf && mf[0].name && mf[1].name && mf[2].name && mf[3].name && mf[4].name);
-        assert(mf[0].generate && !mf[1].generate && !mf[2].generate && !mf[3].generate && !mf[4].generate);
+        assert(mf);
+        for (size_t i = 0; i < _CGROUP_METRIC_FAMILY_MAX; i++) {
+                assert(mf[i].name);
+                assert(!mf[i].generate == (i != CGROUP_CPU_USAGE));
+        }
         assert(path);
 
         _cleanup_free_ char *unit = NULL;
         r = cg_path_get_unit(path, &unit);
         if (r >= 0) {
-                r = cpu_usage_send(mf + 0, link, path, unit);
+                r = cpu_usage_send(mf + CGROUP_CPU_USAGE, link, path, unit);
                 if (r < 0)
                         return r;
 
-                r = io_read_send(mf + 1, link, path, unit);
+                r = io_read_send(mf + CGROUP_IO_READ_BYTES, link, path, unit);
                 if (r < 0)
                         return r;
 
-                r = memory_usage_send(mf + 3, link, path, unit);
+                r = memory_usage_send(mf + CGROUP_MEMORY_USAGE, link, path, unit);
                 if (r < 0)
                         return r;
 
-                r = tasks_current_send(mf + 4, link, path, unit);
+                r = tasks_current_send(mf + CGROUP_TASKS_CURRENT, link, path, unit);
                 if (r < 0)
                         return r;
 
-                return 0; /* Unit cgroups are leaf nodes for our purposes */
+                /* Unit cgroups are leaf nodes for our purposes. */
+                if (pressure_supported) {
+                        _cleanup_free_ char *p = NULL;
+                        r = cg_get_path(path, /* suffix= */ NULL, &p);
+                        if (r < 0)
+                                return log_oom();
+
+                        return report_cgroup_pressure_send(link, p, unit);
+                }
+
+                return sd_varlink_flush(link);
         }
 
         /* Stop at delegation boundaries — don't descend into delegated subtrees */
@@ -338,7 +438,7 @@ static int walk_cgroups(
 
                 path_simplify(child);
 
-                r = walk_cgroups(mf, link, child);
+                r = walk_cgroups(mf, link, child, pressure_supported);
                 if (r < 0)
                         return r;
         }
@@ -347,7 +447,7 @@ static int walk_cgroups(
 }
 
 static int cgroup_stats_send(
-                const MetricFamily mf[static 5],
+                const MetricFamily mf[static _CGROUP_METRIC_FAMILY_MAX],
                 sd_varlink *link,
                 void *userdata) {
 
@@ -355,38 +455,48 @@ static int cgroup_stats_send(
         assert(link);
         assert(!userdata);
 
-        return walk_cgroups(mf, link, "");
+        return walk_cgroups(mf, link, "", is_pressure_supported() > 0);
 }
 
 static const MetricFamily cgroup_metric_family_table[] = {
         /* Keep metrics ordered alphabetically */
-        {
+        [CGROUP_CPU_USAGE] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "CpuUsage",
                 "Per unit metric: CPU usage in nanoseconds (type=total|user|system)",
                 METRIC_FAMILY_TYPE_COUNTER,
                 .generate = cgroup_stats_send,
         },
-        {
+        [CGROUP_IO_READ_BYTES] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "IOReadBytes",
                 "Per unit metric: IO bytes read",
                 METRIC_FAMILY_TYPE_COUNTER,
         },
-        {
+        [CGROUP_IO_READ_OPERATIONS] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "IOReadOperations",
                 "Per unit metric: IO read operations",
                 METRIC_FAMILY_TYPE_COUNTER,
         },
-        {
+        [CGROUP_MEMORY_USAGE] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "MemoryUsage",
                 "Per unit metric: memory usage in bytes",
                 METRIC_FAMILY_TYPE_GAUGE,
         },
-        {
+        [CGROUP_PRESSURE_AVG10] = {
+                METRIC_IO_SYSTEMD_CGROUP_PREFIX "PressureAvg10",
+                "Per unit metric: pressure stall percentage over the last 10s (resource=cpu|memory|io, type=some|full)",
+                METRIC_FAMILY_TYPE_GAUGE,
+        },
+        [CGROUP_PRESSURE_STALL_SECONDS] = {
+                METRIC_IO_SYSTEMD_CGROUP_PREFIX "PressureStallSeconds",
+                "Per unit metric: total time stalled in seconds (resource=cpu|memory|io, type=some|full)",
+                METRIC_FAMILY_TYPE_COUNTER,
+        },
+        [CGROUP_TASKS_CURRENT] = {
                 METRIC_IO_SYSTEMD_CGROUP_PREFIX "TasksCurrent",
                 "Per unit metric: current number of tasks",
                 METRIC_FAMILY_TYPE_GAUGE,
         },
-        {}
+        [_CGROUP_METRIC_FAMILY_MAX] = {}
 };
 
 int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
