@@ -1918,7 +1918,7 @@ static void initialize_clock_timewarp(void) {
                  * take care of maintaining the RTC and do all adjustments. This matches the behavior of
                  * Windows, which leaves the RTC alone if the registry tells that the RTC runs in UTC.
                  */
-                r = clock_set_timezone(&min);
+                r = clock_set_timezone(true, &min);
                 if (r < 0)
                         log_error_errno(r, "Failed to apply local time delta, ignoring: %m");
                 else
