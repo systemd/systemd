@@ -69,6 +69,7 @@ static enum {
         ACTION_DETACH,
         ACTION_LIST,
         ACTION_MTREE,
+        ACTION_SHA256SUMS,
         ACTION_UAPI16,
         ACTION_WITH,
         ACTION_COPY_FROM,
@@ -134,6 +135,7 @@ COMMAND(
                "--detach PATH\0"
                "--list IMAGE\0"
                "--mtree IMAGE\0"
+               "--sha256sums IMAGE\0"
                "--uapi16 IMAGE\0"
                "--with IMAGE [COMMAND…]\0"
                "--copy-from IMAGE PATH [TARGET]\0"
@@ -452,6 +454,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
+                OPTION_LONG("sha256sums", NULL, "Show SHA256SUMS manifest of OS image"):
+                        arg_action = ACTION_SHA256SUMS;
+                        arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                        break;
+
                 OPTION_LONG("uapi16", NULL, "Show UAPI.16 manifest of OS image"):
                         arg_action = ACTION_UAPI16;
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
@@ -572,6 +579,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         case ACTION_LIST:
         case ACTION_MTREE:
+        case ACTION_SHA256SUMS:
                 if (strv_length(args) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file or directory path as only argument.");
@@ -1162,7 +1170,7 @@ static int action_manifest_or_copy_or_make_archive(DissectedImage *m, LoopDevice
         const char *root;
         int r;
 
-        assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_UAPI16, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
+        assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_SHA256SUMS, ACTION_UAPI16, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
 
         /* Determine whether to copy ownership:
          * --copy-ownership=yes: always try to preserve ownership
@@ -1368,6 +1376,7 @@ static int action_manifest_or_copy_or_make_archive(DissectedImage *m, LoopDevice
 
         case ACTION_LIST:
         case ACTION_MTREE:
+        case ACTION_SHA256SUMS:
         case ACTION_UAPI16: {
                 _cleanup_close_ int dfd = -EBADF;
 
@@ -1381,6 +1390,7 @@ static int action_manifest_or_copy_or_make_archive(DissectedImage *m, LoopDevice
                 mc.color = colors_enabled();
                 mc.format = (arg_action == ACTION_LIST) ? MANIFEST_FORMAT_LIST :
                            (arg_action == ACTION_MTREE) ? MANIFEST_FORMAT_MTREE :
+                      (arg_action == ACTION_SHA256SUMS) ? MANIFEST_FORMAT_SHA256SUMS :
                                                           MANIFEST_FORMAT_UAPI16;
                 SET_FLAG(mc.fields, MANIFEST_FIELD_HASH, arg_mtree_hash);
                 mc.json_format_flags = arg_json_format_flags;
@@ -1389,8 +1399,10 @@ static int action_manifest_or_copy_or_make_archive(DissectedImage *m, LoopDevice
                 if (r < 0)
                         return r;
 
-                if (mc.n_skipped > 0) {
-                        log_error("%" PRIu64 " entries skipped, as they were not representable in the manifest.", mc.n_skipped);
+                if (mc.n_skipped_expected > 0)
+                        log_info("%" PRIu64 " entries skipped, as the manifest format does not list inodes of their type.", mc.n_skipped_expected);
+                if (mc.n_skipped > mc.n_skipped_expected) {
+                        log_error("%" PRIu64 " entries skipped, as they were not representable in the manifest.", mc.n_skipped - mc.n_skipped_expected);
                         return -EUCLEAN;
                 }
 
@@ -2019,6 +2031,7 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_LIST:
         case ACTION_MTREE:
+        case ACTION_SHA256SUMS:
         case ACTION_UAPI16:
         case ACTION_COPY_FROM:
         case ACTION_COPY_TO:
