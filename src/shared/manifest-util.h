@@ -11,6 +11,7 @@
 typedef enum ManifestFormat {
         MANIFEST_FORMAT_LIST,       /* A simple list of file names, one per line */
         MANIFEST_FORMAT_MTREE,      /* BSD mtree(8) */
+        MANIFEST_FORMAT_SHA256SUMS, /* The format sha256sum(1) generates, and sha256sum -c consumes */
         MANIFEST_FORMAT_UAPI16,     /* UAPI.16 Manifest */
         _MANIFEST_FORMAT_MAX,
         _MANIFEST_FORMAT_INVALID = -EINVAL,
@@ -44,6 +45,9 @@ typedef struct ManifestContext {
 
         /* Track how many inodes we skipped because not representable in this manifest format */
         uint64_t n_skipped;
+        /* Of the above, how many were skipped because the format does not list inodes of their type by
+         * design (i.e. anything but regular files in SHA256SUMS). This is expected, hence not a failure. */
+        uint64_t n_skipped_expected;
 
         /* Hardlink database fields (only UAPI.16) */
         int db_fd;

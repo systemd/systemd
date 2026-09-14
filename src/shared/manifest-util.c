@@ -44,9 +44,10 @@ void manifest_context_done(ManifestContext *c) {
 }
 
 static const char* const manifest_format_table[_MANIFEST_FORMAT_MAX] = {
-        [MANIFEST_FORMAT_LIST]   = "list",
-        [MANIFEST_FORMAT_MTREE]  = "mtree",
-        [MANIFEST_FORMAT_UAPI16] = "uapi16",
+        [MANIFEST_FORMAT_LIST]       = "list",
+        [MANIFEST_FORMAT_MTREE]      = "mtree",
+        [MANIFEST_FORMAT_SHA256SUMS] = "sha256sums",
+        [MANIFEST_FORMAT_UAPI16]     = "uapi16",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manifest_format, ManifestFormat);
@@ -787,6 +788,115 @@ static int manifest_uapi16_item(
         return RECURSE_DIR_CONTINUE;
 }
 
+static int sums_escape(const char *s, char **ret) {
+        assert(s);
+        assert(ret);
+
+        if (!strpbrk(s, "\n\r\\")) {
+                /* No escaping required */
+                *ret = NULL;
+                return 0;
+        }
+
+        _cleanup_free_ char *buf = new(char, strlen(s) * 2 + 1);
+        if (!buf)
+                return -ENOMEM;
+
+        size_t n = 0;
+
+        for (const char *p = s; *p; p++)
+                switch (*p) {
+                case '\n':
+                        buf[n++] = '\\';
+                        buf[n++] = 'n';
+                        break;
+                case '\r':
+                        buf[n++] = '\\';
+                        buf[n++] = 'r';
+                        break;
+                case '\\':
+                        buf[n++] = '\\';
+                        buf[n++] = '\\';
+                        break;
+                default:
+                        buf[n++] = *p;
+                }
+
+        buf[n] = 0;
+        *ret = TAKE_PTR(buf);
+        return 1;
+}
+
+static int manifest_sha256sums_item(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        ManifestContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        /* Generates output compatible with sha256sum(1), i.e. what "sha256sum -c" (and systemd-sysupdate)
+         * consume. Only regular files are listed, like sha256sum would do it. */
+
+        assert(path);
+
+        if (event != RECURSE_DIR_ENTRY)
+                return RECURSE_DIR_CONTINUE;
+
+        assert(sx);
+
+        if (!FLAGS_SET(sx->stx_mask, STATX_TYPE)) {
+                log_warning("Skipping '%s' because its inode type is unknown.", path);
+                c->n_skipped++;
+                return RECURSE_DIR_CONTINUE;
+        }
+
+        /* The format only lists regular files by design, hence skipping anything else is expected */
+        if (!S_ISREG(sx->stx_mode)) {
+                log_info("Skipping non-regular file '%s' because not representable in SHA256SUMS format.", path);
+                c->n_skipped++;
+                c->n_skipped_expected++;
+                return RECURSE_DIR_CONTINUE;
+        }
+
+        /* We ignore this to avoid input-as-output cycles (only on top-level though!) */
+        if (streq(path, "SHA256SUMS") || (startswith(path, "SHA256SUMS.") && !strchr(path, '/'))) {
+                log_debug("Skipping directory entry '%s' to avoid recursive manifest generation.", path);
+                return RECURSE_DIR_CONTINUE;
+        }
+
+        assert(inode_fd >= 0);
+
+        uint8_t hash[SHA256_DIGEST_SIZE];
+        r = manifest_context_hash_fd(c, inode_fd, hash);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to calculate hash of file '%s', ignoring: %m", path);
+                c->n_skipped++;
+                return RECURSE_DIR_CONTINUE;
+        }
+
+        _cleanup_free_ char *h = hexmem(hash, SHA256_DIGEST_SIZE);
+        if (!h)
+                return log_oom();
+
+        _cleanup_free_ char *escaped = NULL;
+        r = sums_escape(path, &escaped);
+        if (r < 0)
+                return log_error_errno(r, "Failed to escape string for manifest: %m");
+
+        fprintf(c->output,
+                "%s%s  %s\n",
+                escaped ? "\\" : "",
+                h,
+                escaped ?: path);
+
+        return RECURSE_DIR_CONTINUE;
+}
+
 int manifest_make(ManifestContext *c, int dir_fd) {
         int r;
 
@@ -822,6 +932,15 @@ int manifest_make(ManifestContext *c, int dir_fd) {
                 statx_mask |= manifest_mtree_fields_to_statx(c->fields);
                 flags |= RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL;
                 item_callback = manifest_mtree_item;
+                break;
+
+        case MANIFEST_FORMAT_SHA256SUMS:
+                if (!FLAGS_SET(c->fields, MANIFEST_FIELD_HASH))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot generate SHA256SUMS manifest without hash field.");
+
+                statx_mask = STATX_TYPE|STATX_SIZE;
+                flags |= RECURSE_DIR_INODE_FD;
+                item_callback = manifest_sha256sums_item;
                 break;
 
         case MANIFEST_FORMAT_UAPI16:
