@@ -6,6 +6,19 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        Changes in systemd-cryptsetup/systemd-cryptenroll:
+
+        * systemd-cryptenroll's --fido2-device= and --tpm2-device= switches may
+          now be combined, in order to bind a LUKS2 volume to a TPM2 chip and a
+          FIDO2 token at the same time: the token's "hmac-secret" is mixed into
+          the TPM2 authValue, so that both the chip and the token are required
+          to unlock the volume. The matching /etc/crypttab option is the new
+          "tpm2-fido2=" one, and such slots are listed and wiped under the
+          "tpm2-fido2" name. Note that these slots are stored as regular
+          "systemd-tpm2" LUKS2 tokens: older systemd versions do not recognize
+          that a FIDO2 token is required, and will report the failed unlock
+          attempt as a system state/PCR mismatch.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
