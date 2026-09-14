@@ -52,6 +52,7 @@
 #include "io-util.h"
 #include "iso9660.h"
 #include "json-util.h"
+#include "libfido2-util.h"
 #include "libmount-util.h"
 #include "list.h"
 #include "loop-util.h"
@@ -6083,6 +6084,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 &pcrlock_policy.nv_handle,
                                 flags,
                                 &(Argon2IdParameters) {},
+                                /* fido2_cid= */ NULL,
+                                /* fido2_salt= */ NULL,
+                                /* fido2_flags= */ (Fido2EnrollFlags) 0,
                                 &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
