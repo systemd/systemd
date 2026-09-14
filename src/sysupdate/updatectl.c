@@ -1420,10 +1420,10 @@ static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "id",            SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, id),            SD_JSON_MANDATORY },
                 { "description",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, description),   SD_JSON_NULLABLE  },
-                { "isEnabled",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Feature, enabled),       SD_JSON_MANDATORY },
+                { "enabled",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Feature, enabled),       SD_JSON_MANDATORY },
                 { "suggested",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Feature, suggested),     SD_JSON_NULLABLE  },
                 { "documentation", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Feature, documentation), SD_JSON_NULLABLE  },
-                { "appstream",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, appstream),     SD_JSON_NULLABLE  },
+                { "appStream",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, appstream),     SD_JSON_NULLABLE  },
                 { "transfers",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Feature, transfers),     SD_JSON_NULLABLE  },
                 {}
         };
