@@ -571,11 +571,18 @@ char* tpm2_pcr_mask_to_string(uint32_t mask);
 
 extern const uint16_t tpm2_hash_algorithms[];
 
+/* NOTE! This is how systemd-cryptsetup hands its TPM2 parameters to the separately installed
+ * cryptsetup-token-systemd-tpm2 libcryptsetup plugin: it crosses the boundary as an opaque void* that the
+ * plugin copies wholesale, and it carries neither a size nor a version field. The two sides hence have to be
+ * built from the same source tree and upgraded in lockstep — appending a member here makes a newer plugin
+ * read past the end of an older caller's struct. */
 typedef struct systemd_tpm2_plugin_params {
         uint32_t search_pcr_mask;
         const char *device;
         const char *signature_path;
         const char *pcrlock_path;
+        const char *fido2_device;
+        const char *fido2_rp;
 } systemd_tpm2_plugin_params;
 
 typedef enum Tpm2Support {
