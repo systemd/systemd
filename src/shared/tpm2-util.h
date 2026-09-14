@@ -576,6 +576,8 @@ typedef struct systemd_tpm2_plugin_params {
         const char *device;
         const char *signature_path;
         const char *pcrlock_path;
+        const char *fido2_device;
+        const char *fido2_rp;
 } systemd_tpm2_plugin_params;
 
 typedef enum Tpm2Support {
