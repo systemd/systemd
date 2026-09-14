@@ -1386,6 +1386,8 @@ int decrypt_credential_and_warn(
                 r = tpm2_load_pcr_signature(tpm2_signature_path, &signature_json);
                 if (r == -ENOENT)
                         return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Couldn't find PCR signature file: %m");
+                if (r == -EUCLEAN)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR signature file is malformed.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to load PCR signature: %m");
         }
