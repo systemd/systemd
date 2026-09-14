@@ -183,6 +183,8 @@ void job_uninstall(Job *j) {
 
         *pj = NULL;
 
+        manager_queue_system_state_refresh_for_unit(j->unit);
+
         unit_add_to_gc_queue(j->unit);
 
         unit_add_to_dbus_queue(j->unit); /* The Job property of the unit has changed now */
@@ -235,6 +237,7 @@ static void job_merge_into_installed(Job *j, Job *other) {
 
         j->irreversible = j->irreversible || other->irreversible;
         j->ignore_order = j->ignore_order || other->ignore_order;
+        manager_queue_system_state_refresh_for_unit(j->unit);
 }
 
 Job* job_install(Job *j) {
@@ -292,6 +295,7 @@ Job* job_install(Job *j) {
 
         job_add_to_dbus_queue(j); /* announce this job to clients */
         unit_add_to_dbus_queue(j->unit); /* The Job property of the unit has changed now */
+        manager_queue_system_state_refresh_for_unit(j->unit);
 
         return j;
 }

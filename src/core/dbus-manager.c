@@ -3049,7 +3049,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_WRITABLE_PROPERTY("KExecWatchdogUSec", "t", property_get_kexec_watchdog, property_set_kexec_watchdog, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("ServiceWatchdogs", "b", bus_property_get_bool, bus_property_set_bool, offsetof(Manager, service_watchdogs), 0),
         SD_BUS_PROPERTY("ControlGroup", "s", NULL, offsetof(Manager, cgroup_root), 0),
-        SD_BUS_PROPERTY("SystemState", "s", property_get_system_state, 0, 0),
+        SD_BUS_PROPERTY("SystemState", "s", property_get_system_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("ExitCode", "y", NULL, offsetof(Manager, return_value), 0),
         SD_BUS_PROPERTY("DefaultTimerAccuracyUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.timer_accuracy_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultTimeoutStartUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.timeout_start_usec), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3705,20 +3705,23 @@ void bus_manager_send_reloading(Manager *m, bool active) {
 }
 
 static int send_changed_signal(sd_bus *bus, void *userdata) {
+        char **properties = ASSERT_PTR(userdata);
+
         assert(bus);
 
         return sd_bus_emit_properties_changed_strv(bus,
                                                    "/org/freedesktop/systemd1",
                                                    "org.freedesktop.systemd1.Manager",
-                                                   NULL);
+                                                   properties);
 }
 
-void bus_manager_send_change_signal(Manager *m) {
+void bus_manager_send_change_signal(Manager *m, char **properties) {
         int r;
 
         assert(m);
+        assert(!strv_isempty(properties));
 
-        r = bus_foreach_bus(m, NULL, send_changed_signal, NULL);
+        r = bus_foreach_bus(m, NULL, send_changed_signal, properties);
         if (r < 0)
                 log_debug_errno(r, "Failed to send manager change signal: %m");
 }

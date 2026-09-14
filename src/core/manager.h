@@ -266,6 +266,10 @@ typedef struct Manager {
         /* IDs of transactions that once encountered ordering cycle */
         Set *transactions_with_cycle;
 
+        /* Cached system state used to detect changes */
+        ManagerState previous_system_state;
+        sd_event_source *system_state_event_source;
+
         sd_event_source *run_queue_event_source;
 
         char *notify_socket;
@@ -687,6 +691,8 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
 Set* manager_get_units_needing_mounts_for(Manager *m, const char *path, UnitMountDependencyType t);
 
 ManagerState manager_state(Manager *m);
+void manager_queue_system_state_refresh(Manager *m);
+void manager_queue_system_state_refresh_for_unit(Unit *u);
 
 int manager_update_failed_units(Manager *m, Unit *u, bool failed);
 
