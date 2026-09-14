@@ -1966,6 +1966,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                         r = acquire_tpm2_key(
                                         name,
+                                        friendly,
                                         arg_tpm2_device,
                                         arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT_LEGACY : arg_tpm2_pcr_mask,
                                         UINT16_MAX,
@@ -1983,6 +1984,11 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* srk= */ NULL,
                                         /* pcrlock_nv= */ NULL,
                                         arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0,
+                                        /* fido2_device= */ NULL,
+                                        /* fido2_cid= */ NULL,
+                                        /* fido2_salt= */ NULL,
+                                        /* fido2_rp= */ NULL,
+                                        /* fido2_flags= */ 0,
                                         until,
                                         "cryptsetup.tpm2-pin",
                                         arg_ask_password_flags,
@@ -2026,14 +2032,16 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * works. */
 
                         for (;;) {
-                                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {}, fido2_cid = {}, fido2_salt = {};
                                 _cleanup_free_ char *pubkey_policy_ref = NULL;
                                 struct iovec *blobs = NULL, *policy_hash = NULL;
+                                _cleanup_free_ char *fido2_rp = NULL;
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 size_t n_blobs = 0, n_policy_hash = 0;
                                 uint16_t pcr_bank, primary_alg;
                                 Argon2IdParameters argon2id_params = {};
                                 TPM2Flags tpm2_flags;
+                                Fido2EnrollFlags fido2_flags;
 
                                 CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
                                 CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
@@ -2056,6 +2064,10 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &srk,
                                                 &pcrlock_nv,
                                                 &tpm2_flags,
+                                                &fido2_cid,
+                                                &fido2_salt,
+                                                &fido2_rp,
+                                                &fido2_flags,
                                                 &keyslot,
                                                 &token,
                                                 &argon2id_params);
@@ -2077,6 +2089,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                                 r = acquire_tpm2_key(
                                                 name,
+                                                friendly,
                                                 arg_tpm2_device,
                                                 hash_pcr_mask,
                                                 pcr_bank,
@@ -2095,6 +2108,15 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &srk,
                                                 &pcrlock_nv,
                                                 tpm2_flags,
+                                                arg_fido2_device,
+                                                &fido2_cid,
+                                                &fido2_salt,
+                                                /* The relying party a TPM2+FIDO2 slot was enrolled under is
+                                                 * recorded in the token; the crypttab fido2-rp= option is
+                                                 * scoped to standalone systemd-fido2 slots and only serves
+                                                 * as a fallback for tokens that predate the field. */
+                                                fido2_rp ?: arg_fido2_rp_id,
+                                                fido2_flags,
                                                 until,
                                                 "cryptsetup.tpm2-pin",
                                                 arg_ask_password_flags,
