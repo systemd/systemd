@@ -12,6 +12,7 @@
 #include "errno-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
+#include "libfido2-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
@@ -189,14 +190,16 @@ int load_volume_key_tpm2(
         int token = 0; /* first token to look at */
 
         for (;;) {
-                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {}, fido2_cid = {}, fido2_salt = {};
                 _cleanup_free_ char *pubkey_policy_ref = NULL;
                 struct iovec *blobs = NULL, *policy_hash = NULL;
+                _cleanup_free_ char *fido2_rp = NULL;
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
                 Argon2IdParameters ap = {};
                 TPM2Flags tpm2_flags;
+                Fido2EnrollFlags fido2_flags;
                 int keyslot;
 
                 CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
@@ -220,6 +223,10 @@ int load_volume_key_tpm2(
                                 &srk,
                                 &pcrlock_nv,
                                 &tpm2_flags,
+                                &fido2_cid,
+                                &fido2_salt,
+                                &fido2_rp,
+                                &fido2_flags,
                                 &keyslot,
                                 &token,
                                 &ap);
@@ -239,6 +246,7 @@ int load_volume_key_tpm2(
 
                 r = acquire_tpm2_key(
                                 c->node,
+                                c->node,
                                 c->unlock_tpm2_device,
                                 hash_pcr_mask,
                                 pcr_bank,
@@ -257,6 +265,11 @@ int load_volume_key_tpm2(
                                 &srk,
                                 &pcrlock_nv,
                                 tpm2_flags,
+                                c->unlock_fido2_device,
+                                &fido2_cid,
+                                &fido2_salt,
+                                fido2_rp,
+                                fido2_flags,
                                 /* until= */ 0,
                                 "cryptenroll.tpm2-pin",
                                 c->interactive ? 0 : ASK_PASSWORD_HEADLESS,
@@ -273,6 +286,8 @@ int load_volume_key_tpm2(
                 token++; /* try a different token next time */
         }
 
+        if (r == -ENOMEDIUM)
+                return log_error_errno(r, "The FIDO2 token used for this volume is not plugged in.");
         if (r < 0)
                 return log_error_errno(r, "Unlocking via TPM2 device failed: %m");
 

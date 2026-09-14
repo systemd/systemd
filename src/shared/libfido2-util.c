@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "libfido2-util.h"
 #include "log.h"
 
 #if HAVE_LIBFIDO2
-#include "alloc-util.h"
 #include "ansi-color.h"
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
@@ -1545,6 +1545,39 @@ finish:
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "FIDO2 tokens not supported on this build.");
 #endif
+}
+
+int fido2_resolve_device(const char *device, char **ret) {
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        /* Makes sure a FIDO2 token that can be used for unlocking is around, and resolves an unspecified
+         * device to the one token that is plugged in. Reports a missing token as -ENOMEDIUM, which the disk
+         * encryption logic uses to tell "no FIDO2 token (yet)" apart from other errors, and as a signal to
+         * wait for one to show up via udev. */
+
+        assert(ret);
+
+        r = fido2_have_device(device);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOMEDIUM;
+
+        if (device) {
+                resolved = strdup(device);
+                if (!resolved)
+                        return log_oom();
+        } else {
+                r = fido2_find_device_auto(&resolved);
+                if (r == -ENODEV)
+                        return -ENOMEDIUM;
+                if (r < 0)
+                        return log_error_errno(r, "Could not find FIDO2 device: %m");
+        }
+
+        *ret = TAKE_PTR(resolved);
+        return 0;
 }
 
 #if HAVE_LIBFIDO2
