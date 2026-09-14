@@ -95,6 +95,7 @@ typedef struct Uapi16Object {
 #define UAPI16_MANIFEST_FILENAME "Uapi16Manifest"
 #define UAPI16_MANIFEST_SUFFIX ".Uapi16Manifest"
 #define UAPI16_MANIFEST_MEDIA_TYPE "application/vnd.uapi.16.manifest"
+#define UAPI16_SIGNATURE_MEDIA_TYPE "application/vnd.uapi.16.signature"
 #define UAPI16_TRAILER_MEDIA_TYPE "application/vnd.uapi.16.trailer"
 
 /* Returns true for the file name of the manifest when embedded in the file tree it covers (and its suffixed
@@ -133,3 +134,32 @@ int uapi16_object_check_validity(Uapi16Object *o);
 int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_t flags, Uapi16Object *ret);
 
 DECLARE_STRING_TABLE_LOOKUP(uapi16_validity, Uapi16Validity);
+
+/* Returns the "mediaType" field of an object in the JSON-SEQ stream, so that callers can tell file objects,
+ * signature objects and objects of unknown type apart. Returns 0 if the object has no such field. */
+int uapi16_object_media_type(sd_json_variant *v, const char **ret);
+
+typedef enum Uapi16SignatureMechanism {
+        UAPI16_SIGNATURE_PKCS7,
+        UAPI16_SIGNATURE_OPENPGP,
+        _UAPI16_SIGNATURE_MECHANISM_MAX,
+        _UAPI16_SIGNATURE_MECHANISM_INVALID = -EINVAL,
+} Uapi16SignatureMechanism;
+
+DECLARE_STRING_TABLE_LOOKUP(uapi16_signature_mechanism, Uapi16SignatureMechanism);
+
+typedef struct Uapi16Signature {
+        char *media_type;
+        Uapi16SignatureMechanism mechanism; /* _INVALID if the mechanism is not known to us */
+        struct iovec key;                   /* Key identifier (fingerprint), may be unset */
+        struct iovec data;                  /* The signature blob */
+} Uapi16Signature;
+
+#define UAPI16_SIGNATURE_NULL (const Uapi16Signature) {                 \
+                .mechanism = _UAPI16_SIGNATURE_MECHANISM_INVALID,       \
+        }
+
+void uapi16_signature_done(Uapi16Signature *s);
+
+/* Parses a signature object, i.e. an object with the UAPI16_SIGNATURE_MEDIA_TYPE media type. */
+int dispatch_uapi16_signature_object(sd_json_variant *v, sd_json_dispatch_flags_t flags, Uapi16Signature *ret);

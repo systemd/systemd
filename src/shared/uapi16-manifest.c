@@ -751,3 +751,81 @@ static const char* const uapi16_validity_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(uapi16_validity, Uapi16Validity);
+
+int uapi16_object_media_type(sd_json_variant *v, const char **ret) {
+        assert(v);
+        assert(ret);
+
+        sd_json_variant *mt = sd_json_variant_by_key(v, "mediaType");
+        if (!mt) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(mt))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "JSON field 'mediaType' is not a string.");
+
+        *ret = sd_json_variant_string(mt);
+        return 1;
+}
+
+static const char* const uapi16_signature_mechanism_table[_UAPI16_SIGNATURE_MECHANISM_MAX] = {
+        [UAPI16_SIGNATURE_PKCS7]   = "pkcs7",
+        [UAPI16_SIGNATURE_OPENPGP] = "openpgp",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(uapi16_signature_mechanism, Uapi16SignatureMechanism);
+
+void uapi16_signature_done(Uapi16Signature *s) {
+        assert(s);
+
+        s->media_type = mfree(s->media_type);
+        iovec_done(&s->key);
+        iovec_done(&s->data);
+}
+
+static int json_dispatch_signature_mechanism(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Uapi16SignatureMechanism *m = ASSERT_PTR(userdata);
+
+        if (sd_json_variant_is_null(variant)) {
+                *m = _UAPI16_SIGNATURE_MECHANISM_INVALID;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        /* Unknown mechanisms are not an error: we just cannot verify with them, hence store as invalid */
+        *m = uapi16_signature_mechanism_from_string(sd_json_variant_string(variant));
+        if (*m < 0)
+                json_log(variant, flags|SD_JSON_DEBUG, 0, "Unknown signature mechanism '%s', ignoring.", sd_json_variant_string(variant));
+
+        return 0;
+}
+
+int dispatch_uapi16_signature_object(sd_json_variant *v, sd_json_dispatch_flags_t flags, Uapi16Signature *ret) {
+        int r;
+
+        assert(v);
+        assert(ret);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "mediaType", SD_JSON_VARIANT_STRING, sd_json_dispatch_string,           offsetof(Uapi16Signature, media_type), SD_JSON_MANDATORY },
+                { "mechanism", SD_JSON_VARIANT_STRING, json_dispatch_signature_mechanism, offsetof(Uapi16Signature, mechanism),  SD_JSON_MANDATORY },
+                { "key",       SD_JSON_VARIANT_STRING, json_dispatch_unhex_iovec,         offsetof(Uapi16Signature, key),        SD_JSON_NULLABLE  },
+                /* Only the mechanism is mandatory as per spec, whether there's data depends on it */
+                { "data",      SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec,      offsetof(Uapi16Signature, data),       SD_JSON_NULLABLE  },
+                {}
+        };
+
+        _cleanup_(uapi16_signature_done) Uapi16Signature o = UAPI16_SIGNATURE_NULL;
+        r = sd_json_dispatch(v, dispatch_table, flags, &o);
+        if (r < 0)
+                return r;
+
+        if (!streq_ptr(o.media_type, UAPI16_SIGNATURE_MEDIA_TYPE))
+                return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Signature object has unexpected media type '%s', refusing.", strnull(o.media_type));
+
+        *ret = TAKE_STRUCT(o);
+        return 0;
+}

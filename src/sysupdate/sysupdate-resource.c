@@ -688,7 +688,7 @@ static int uapi16_process(
         const char *p = manifest->iov_base;
         size_t left = manifest->iov_len;
 
-        bool trailer_seen = false;
+        bool signature_seen = false, trailer_seen = false;
         size_t n_objects = 0;
         for (;; n_objects++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -701,22 +701,35 @@ static int uapi16_process(
                 if (trailer_seen)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest contains data after the trailer object, refusing.");
 
-                sd_json_variant *mt = sd_json_variant_by_key(v, "mediaType");
-                if (n_objects > 0 && mt && sd_json_variant_is_string(mt)) {
-                        /* File objects usually carry no media type at all. The trailer object ends the
-                         * manifest. Other objects of unknown media type are skipped, as the specification
-                         * requires. */
-                        if (streq(sd_json_variant_string(mt), UAPI16_TRAILER_MEDIA_TYPE)) {
+                const char *mt = NULL;
+                r = uapi16_object_media_type(v, &mt);
+                if (r < 0)
+                        return log_error_errno(r, "Manifest object %zu has a 'mediaType' field that is not a string, refusing.", n_objects);
+                if (n_objects > 0 && mt) {
+                        /* File objects usually carry no media type at all. Signature objects end the list
+                         * of file objects: file objects after them are not covered by the signature, and
+                         * hence refused. The trailer object ends the manifest. Other objects of unknown
+                         * media type are skipped, as the specification requires. */
+                        if (streq(mt, UAPI16_SIGNATURE_MEDIA_TYPE)) {
+                                log_debug("Encountered signature object in manifest, ignoring.");
+                                signature_seen = true;
+                                continue;
+                        }
+
+                        if (streq(mt, UAPI16_TRAILER_MEDIA_TYPE)) {
                                 log_debug("Encountered trailer object in manifest.");
                                 trailer_seen = true;
                                 continue;
                         }
 
-                        if (!streq(sd_json_variant_string(mt), UAPI16_MANIFEST_MEDIA_TYPE)) {
-                                log_debug("Ignoring object of unknown media type '%s' in manifest.", sd_json_variant_string(mt));
+                        if (!streq(mt, UAPI16_MANIFEST_MEDIA_TYPE)) {
+                                log_debug("Ignoring object of unknown media type '%s' in manifest.", mt);
                                 continue;
                         }
                 }
+
+                if (signature_seen)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Manifest contains file object after signature object, refusing.");
 
                 _cleanup_(uapi16_object_done) Uapi16Object object = UAPI16_OBJECT_NULL;
                 r = dispatch_uapi16_object(v, n_objects, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &object);
