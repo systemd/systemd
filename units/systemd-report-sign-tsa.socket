@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Report Signing Socket (TSA)
-Documentation=man:systemd-report-sign-tpm2@.service(8)
+Documentation=man:systemd-report-sign-tsa@.service(8)
 DefaultDependencies=no
 Before=sockets.target shutdown.target
 Conflicts=shutdown.target
