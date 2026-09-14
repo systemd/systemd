@@ -1916,6 +1916,8 @@ static int attach_luks2_by_tpm2_via_plugin(
                 .device = arg_tpm2_device,
                 .signature_path = arg_tpm2_signature,
                 .pcrlock_path = arg_tpm2_pcrlock,
+                .fido2_device = arg_fido2_device,
+                .fido2_rp = arg_fido2_rp_id,
         };
 
         if (!use_token_plugins())
