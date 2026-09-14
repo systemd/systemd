@@ -779,6 +779,8 @@ static int uapi16_process(
 
         return uapi16_manifest_read(
                         f,
+                        /* certificates= */ NULL,
+                        /* n_certificates= */ 0,
                         uapi16_process_object,
                         &(Uapi16ProcessContext) {
                                 .resource = rr,
