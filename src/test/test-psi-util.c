@@ -14,9 +14,6 @@ TEST(read_mem_pressure) {
         _cleanup_close_ int fd = -EBADF;
         ResourcePressure rp;
 
-        if (geteuid() != 0)
-                return (void) log_tests_skipped("not root");
-
         assert_se((fd = mkostemp_safe(path)) >= 0);
 
         assert_se(read_resource_pressure("/verylikelynonexistentpath", PRESSURE_TYPE_SOME, &rp) < 0);
