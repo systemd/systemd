@@ -678,8 +678,12 @@ int mount_option_supported(const char *fstype, const char *key, const char *valu
         assert(key);
 
         fd = fsopen(fstype, FSOPEN_CLOEXEC);
-        if (fd < 0)
+        if (fd < 0) {
+                if (errno == ENODEV)
+                        return log_debug_errno(errno, "Kernel does not support file system type '%s'.", fstype);
+
                 return log_debug_errno(errno, "Failed to open superblock context for '%s': %m", fstype);
+        }
 
         /* Various file systems support fs context only in recent kernels (e.g. btrfs). For older kernels
          * fsconfig() with FSCONFIG_SET_STRING/FSCONFIG_SET_FLAG never fail. Which sucks, because we want to
