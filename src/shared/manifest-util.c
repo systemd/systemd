@@ -32,6 +32,7 @@
 #include "uapi16-manifest.h"
 #include "uid-classification.h"
 #include "user-util.h"
+#include "utf8.h"
 #include "xattr-util.h"
 
 void manifest_context_done(ManifestContext *c) {
@@ -966,4 +967,125 @@ int manifest_make(ManifestContext *c, int dir_fd) {
                 return log_error_errno(r, "Failed to write manifest: %m");
 
         return 0;
+}
+
+static int sums_unescape(const char *s, char **ret) {
+        _cleanup_free_ char *buf = NULL;
+        size_t n = 0;
+
+        assert(s);
+        assert(ret);
+
+        /* Reverses sums_escape() */
+
+        buf = new(char, strlen(s) + 1);
+        if (!buf)
+                return -ENOMEM;
+
+        for (const char *p = s; *p; p++) {
+                if (*p != '\\') {
+                        buf[n++] = *p;
+                        continue;
+                }
+
+                p++;
+                switch (*p) {
+                case 'n':
+                        buf[n++] = '\n';
+                        break;
+                case 'r':
+                        buf[n++] = '\r';
+                        break;
+                case '\\':
+                        buf[n++] = '\\';
+                        break;
+                default:
+                        return -EINVAL;
+                }
+        }
+
+        buf[n] = 0;
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
+
+int manifest_parse_sums(
+                FILE *f,
+                size_t *line_nr,
+                char **ret_filename,
+                struct iovec *ret_digest) {
+
+        int r;
+
+        assert(f);
+        assert(line_nr);
+        assert(ret_filename);
+        assert(ret_digest);
+
+        size_t hash_len = SHA256_DIGEST_SIZE * 2;
+
+        _cleanup_free_ char *line = NULL;
+        r = read_line(f, LONG_LINE_MAX, &line);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read manifest line %zu: %m", *line_nr + 1);
+        if (r == 0) {
+                *ret_filename = NULL;
+                *ret_digest = (struct iovec) {};
+                return 0;
+        }
+
+        size_t n = ++(*line_nr);
+
+        if (!utf8_is_valid(line))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Manifest line %zu is not valid UTF-8, refusing.", n);
+
+        const char *p = line;
+
+        /* coreutils prefixes lines whose file names contain characters that need escaping with a
+         * backslash. */
+        bool escaped = p[0] == '\\';
+        if (escaped)
+                p++;
+
+        /* hash + separator + filename */
+        if (strlen(p) < hash_len + 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Corrupt manifest at line %zu, refusing.", n);
+
+        _cleanup_(iovec_done) struct iovec digest = {};
+        r = unhexmem_full(p, hash_len, /* secure= */ false, &digest.iov_base, &digest.iov_len);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse digest at manifest line %zu, refusing.", n);
+        assert(digest.iov_len == SHA256_DIGEST_SIZE);
+        p += hash_len;
+
+        if (*p != ' ')
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing space separator at manifest line %zu, refusing.", n);
+        p++;
+
+        if (!IN_SET(*p, '*', ' '))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing binary/text input marker at manifest line %zu, refusing.", n);
+        p++;
+
+        if (isempty(p))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty filename specified at manifest line %zu, refusing.", n);
+
+        _cleanup_free_ char *fn = NULL;
+        if (escaped) {
+                r = sums_unescape(p, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Invalid escaping in filename at manifest line %zu, refusing.", n);
+        } else {
+                fn = strdup(p);
+                if (!fn)
+                        return log_oom();
+        }
+
+        /* Accept either a plain filename or a relative subpath like "subdir/file" but reject
+         * absolute paths and any paths containing "." or ".." */
+        if (path_is_absolute(fn) || !path_is_normalized(fn))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid filename specified at manifest line %zu, refusing.", n);
+
+        *ret_filename = TAKE_PTR(fn);
+        *ret_digest = TAKE_STRUCT(digest);
+        return 1;
 }

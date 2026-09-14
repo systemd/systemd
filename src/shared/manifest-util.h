@@ -81,6 +81,14 @@ int manifest_fields_to_string(ManifestField f, char **ret);
  * configured in the context. */
 int manifest_make(ManifestContext *c, int dir_fd);
 
+/* Parses the next entry of a SHA256SUMS-style file (i.e. the output of sha256sum(1) and friends) from the
+ * specified stream. Call this repeatedly on the same stream to iterate through all entries. Returns > 0 and
+ * the file name and digest of the entry, or 0 on EOF in which case the returned file name is NULL and the
+ * digest empty. The file names returned are unescaped, validated to be relative and normalized, and never
+ * empty. *line_nr is increased by one for each line read, and is used in log messages; initialize it to
+ * zero before the first call. */
+int manifest_parse_sums(FILE *f, size_t *line_nr, char **ret_filename, struct iovec *ret_digest);
+
 /* Calculates the hash of the file the specified fd refers to, with the algorithm configured in the context.
  * The fd may be an O_PATH fd. Flushes the output stream first, so that users get an idea where we are when
  * hashing takes a while. */
