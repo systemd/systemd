@@ -457,6 +457,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-manifest-util.c'),
+                'dependencies' : libopenssl_cflags,
         },
         test_template + {
                 'sources' : files('test-math-util.c'),
