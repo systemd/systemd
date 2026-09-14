@@ -133,24 +133,48 @@ static bool wipe_requested(void) {
 }
 
 static const char* const enroll_type_table[_ENROLL_TYPE_MAX] = {
-        [ENROLL_PASSWORD] = "password",
-        [ENROLL_RECOVERY] = "recovery",
-        [ENROLL_PKCS11]   = "pkcs11",
-        [ENROLL_FIDO2]    = "fido2",
-        [ENROLL_TPM2]     = "tpm2",
+        [ENROLL_PASSWORD]        = "password",
+        [ENROLL_RECOVERY]        = "recovery",
+        [ENROLL_PKCS11]          = "pkcs11",
+        [ENROLL_FIDO2]           = "fido2",
+        [ENROLL_TPM2]            = "tpm2",
+        [ENROLL_TPM2_WITH_FIDO2] = "tpm2-fido2",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(enroll_type, EnrollType);
 
 static const char *const luks2_token_type_table[_ENROLL_TYPE_MAX] = {
-        /* ENROLL_PASSWORD has no entry here, as slots of this type do not have a token in the LUKS2 header */
-        [ENROLL_RECOVERY] = "systemd-recovery",
-        [ENROLL_PKCS11]   = "systemd-pkcs11",
-        [ENROLL_FIDO2]    = "systemd-fido2",
-        [ENROLL_TPM2]     = "systemd-tpm2",
+        /* ENROLL_PASSWORD has no entry here, as slots of this type do not have a token in the LUKS2 header.
+         *
+         * Because libcryptsetup will load a dynamic library based on the LUKS2 token name,
+         * ENROLL_TPM2_WITH_FIDO2 is mapped into "systemd-tpm2", as this is the library that can unlock those
+         * devices. They can still be listed and wiped under the "tpm2-fido2" name, as
+         * luks2_token_type_from_json() below tells such entries apart from plain TPM2 ones. */
+        [ENROLL_RECOVERY]        = "systemd-recovery",
+        [ENROLL_PKCS11]          = "systemd-pkcs11",
+        [ENROLL_FIDO2]           = "systemd-fido2",
+        [ENROLL_TPM2]            = "systemd-tpm2",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
+
+EnrollType luks2_token_type_from_json(sd_json_variant *v) {
+        sd_json_variant *w;
+        EnrollType t;
+
+        assert(v);
+
+        w = sd_json_variant_by_key(v, "type");
+        if (!w || !sd_json_variant_is_string(w))
+                return _ENROLL_TYPE_INVALID;
+
+        t = luks2_token_type_from_string(sd_json_variant_string(w));
+        if (t != ENROLL_TPM2)
+                return t;
+
+        w = sd_json_variant_by_key(v, "tpm2_fido2");
+        return w && sd_json_variant_boolean(w) ? ENROLL_TPM2_WITH_FIDO2 : ENROLL_TPM2;
+}
 
 static int enroll_type_mask_from_string(const char *name) {
         assert(name);
@@ -919,6 +943,7 @@ int prepare_luks(
                 break;
 
         case UNLOCK_TPM2:
+        case UNLOCK_TPM2_WITH_FIDO2:
                 r = load_volume_key_tpm2(c, cd, &vk);
                 break;
 
@@ -1031,6 +1056,7 @@ int enroll_now(
                 return enroll_fido2(c, cd, volume_key);
 
         case ENROLL_TPM2:
+        case ENROLL_TPM2_WITH_FIDO2:
                 slot = enroll_tpm2(c, cd, volume_key, &slot_to_wipe);
                 if (slot < 0)
                         return slot;
@@ -1299,7 +1325,7 @@ static int run(int argc, char *argv[]) {
                 goto finish;
 
         /* Benchmark Argon2id parameters before TPM2 enrollment with PIN */
-        if (c.enroll_type == ENROLL_TPM2 && c.tpm2_pin == TPM2_WITH_PIN_YES)
+        if (IN_SET(c.enroll_type, ENROLL_TPM2, ENROLL_TPM2_WITH_FIDO2) && c.tpm2_pin == TPM2_WITH_PIN_YES)
                 argon2id_parameters_benchmark(
                                 &c.tpm2_argon2id_params,
                                 c.tpm2_argon2id_iter_time > 0
