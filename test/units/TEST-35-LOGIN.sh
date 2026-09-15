@@ -1032,6 +1032,10 @@ testcase_restart() {
     done
 }
 
+testcase_inhibit_default() {
+    systemd-inhibit --mode=delay true
+}
+
 setup_test_user
 test_write_dropin
 run_testcases
