@@ -25,6 +25,7 @@ int verb_unit_shell(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *unit = NULL;
+        NamespaceEnterFlags namespace_flags = 0;
         int r;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
@@ -72,6 +73,11 @@ int verb_unit_shell(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to retrieve FDs of namespaces of %s: %m", unit);
 
+        /* User services with PrivateUsers=self only map the user's own identity. Enter as ourselves in
+         * that case, otherwise become root inside the service's user namespace as usual. */
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER)
+                namespace_flags = NAMESPACE_ENTER_KEEP_UID_GID_IF_ROOT_UNMAPPED;
+
         _cleanup_strv_free_ char **args = NULL;
         if (argc > 2) {
                 args = strv_copy(strv_skip(argv, 2));
@@ -80,15 +86,17 @@ int verb_unit_shell(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 
         _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
-        r = namespace_fork(
+        r = namespace_fork_full(
                         "(unit-shell-ns)",
                         "(unit-shell)",
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                         pidns_fd,
                         mntns_fd,
                         netns_fd,
                         userns_fd,
                         root_fd,
+                        namespace_flags,
                         &child);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork and enter the namespace of %s: %m", unit);
