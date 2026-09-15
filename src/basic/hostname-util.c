@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "env-file.h"
+#include "hashmap.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "os-util.h"
@@ -321,7 +322,10 @@ int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
 
         /* Parses the colon-separated TAGS= machine-info field into a sorted, deduplicated strv. Each tag is
          * validated: if 'graceful' is true invalid tags are silently dropped, otherwise an invalid tag makes
-         * us fail with -EINVAL. The result is NULL if no (valid) tags remain. */
+         * us fail with -EINVAL. If the same tag or key is specified more than once, the one specified last
+         * wins if 'graceful' is true, otherwise this makes us fail with -EINVAL, too. At most MACHINE_TAGS_MAX
+         * valid tags are accepted. The result is sorted only after deduplication, and is NULL if no (valid)
+         * tags remain. */
 
         if (isempty(s)) {
                 *ret = NULL;
@@ -332,45 +336,54 @@ int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
         if (!l)
                 return -ENOMEM;
 
-        strv_sort_uniq(l);
-
-        if (!graceful) {
-                if (!machine_tag_list_is_valid(l))
-                        return -EINVAL;
-
-                *ret = strv_isempty(l) ? NULL : TAKE_PTR(l);
-                return 0;
-        }
-
+        /* Maps the key of each tag, i.e. everything up to and including the first '=', or the whole tag if it
+         * has no '=', to the tag itself (borrowed from 'l'). A bare tag and an assignment of the same name
+         * hence get distinct keys and may coexist. */
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
         size_t n = 0;
-        _cleanup_strv_free_ char **cleaned = NULL;
         STRV_FOREACH(i, l) {
-                if (!machine_tag_is_valid(*i))
-                        continue;
-
-                n++;
-                if (n > MACHINE_TAGS_MAX)
-                        return -E2BIG;
-
-                const char *eq = strchr(*i, '=');
-                if (eq) {
-                        /* Suppress duplicate assignments */
-                        bool skip = false;
-                        size_t np = eq - *i + 1;
-                        STRV_FOREACH(j, cleaned)
-                                if (strneq(*i, *j, np)) {
-                                        skip = true;
-                                        break;
-                                }
-
-                        if (skip)
+                if (!machine_tag_is_valid(*i)) {
+                        if (graceful)
                                 continue;
+
+                        return -EINVAL;
                 }
 
-                r = strv_extend(&cleaned, *i);
+                if (++n > MACHINE_TAGS_MAX)
+                        return -E2BIG;
+
+                const char *eq = strchrnul(*i, '=');
+                _cleanup_free_ char *k = strndup(*i, (size_t) (eq - *i) + 1);
+                if (!k)
+                        return -ENOMEM;
+
+                if (hashmap_contains(h, k)) {
+                        if (!graceful)
+                                return -EINVAL;
+
+                        /* Specified before: the one specified later wins */
+                        r = hashmap_update(h, k, *i);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                r = hashmap_ensure_put(&h, &string_hash_ops_free, k, *i);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(k);
+        }
+
+        _cleanup_strv_free_ char **cleaned = NULL;
+        char *v;
+        HASHMAP_FOREACH(v, h) {
+                r = strv_extend(&cleaned, v);
                 if (r < 0)
                         return r;
         }
+
+        strv_sort(cleaned);
 
         *ret = TAKE_PTR(cleaned);
         return 0;

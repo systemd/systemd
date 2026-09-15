@@ -207,8 +207,8 @@
         labels that may be used to classify and group machines for management purposes, for example to
         identify the role a machine plays in a deployment, the fleet or organizational unit it belongs to, or
         any other administrator-defined attribute. Each individual tag must be 1…255 characters long and
-        consist only of ASCII alphanumeric characters, <literal>-</literal> and <literal>.</literal>.  This
-        controls the <varname>TAGS=</varname> field of
+        consist only of ASCII alphanumeric characters, <literal>-</literal> and <literal>.</literal>, and no
+        tag may be specified more than once. This controls the <varname>TAGS=</varname> field of
         <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
         tags may later be queried and changed with the <command>tags</command> command of
         <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, and
