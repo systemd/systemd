@@ -95,6 +95,8 @@ extern DLSYM_PROTOTYPE(TS_TST_INFO_get_time);
 extern DLSYM_PROTOTYPE(ASN1_TIME_to_tm);
 extern DLSYM_PROTOTYPE(TS_RESP_get_tst_info);
 
+extern DLSYM_PROTOTYPE(X509_STORE_load_file);
+
 /* additions end*/
 
 extern DLSYM_PROTOTYPE(ASN1_ANY_it);

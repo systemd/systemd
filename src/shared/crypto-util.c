@@ -74,6 +74,8 @@ DLSYM_PROTOTYPE(TS_RESP_verify_response) = NULL;
 DLSYM_PROTOTYPE(TS_TST_INFO_get_time) = NULL;
 DLSYM_PROTOTYPE(ASN1_TIME_to_tm) = NULL;
 DLSYM_PROTOTYPE(TS_RESP_get_tst_info) = NULL;
+
+DLSYM_PROTOTYPE(X509_STORE_load_file) = NULL;
 /*addition end */
 
 DLSYM_PROTOTYPE(ASN1_ANY_it) = NULL;
@@ -404,6 +406,7 @@ int dlopen_libcrypto(int log_level) {
                                 soname,
                                 LOG_DEBUG,
                                 /*addition start*/
+                                DLSYM_ARG(X509_STORE_load_file),
                                 DLSYM_ARG(TS_REQ_new),
                                 DLSYM_ARG(TS_MSG_IMPRINT_new),
                                 DLSYM_ARG(TS_REQ_set_version),

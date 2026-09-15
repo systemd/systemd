@@ -5,6 +5,7 @@
 #include "assert-util.h"
 #include "build.h"
 #include "cleanup-util.h"
+#include "conf-parser.h"
 #include "crypto-util.h"
 #include "dlopen-note.h"
 #include "iovec-util.h"
@@ -12,7 +13,7 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
-#include "report.h"
+//#include "report.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -22,14 +23,21 @@
 #include "verbs.h"
 #include "version.h"
 
-#define TSA_ENDPOINT_URL "http://timestamp.digicert.com"
+#define TSA_ENDPOINT_URL_DEFAULT "http://timestamp.digicert.com"
 /*Sanity cap, real TSA responses are only a few KB, if too big then refuse to buffer it because the behavior isn't normal.*/
 #define TSA_RESPONSE_MAX_SIZE (64U * 1024U)
+#define TSA_NETWORK_TIMEOUT_USEC_DEFAULT (30 * USEC_PER_SEC)
 
 
 COMMAND("systemd-report-sign-tsa\0",
         "Sign a report with a timestamp from the TSA server.",
         .man_pages = "systemd-report-sign-tsa@.service(8)\0", );
+static char *arg_tsa_url = NULL;
+static usec_t arg_network_timeout_usec = TSA_NETWORK_TIMEOUT_USEC_DEFAULT;
+static char *arg_certificate_authority = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_tsa_url, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_certificate_authority, freep);
 
 typedef struct SignParameters {
         struct iovec digest;
@@ -193,12 +201,12 @@ static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSR), "Failed to initialize CURL.");
 
         /* If configured, set a timeout for the curl operation. */
-        // if (arg_network_timeout_usec != USEC_INFINITY &&
-        //     !easy_setopt(curl,
-        //                  LOG_ERR,
-        //                  CURLOPT_TIMEOUT,
-        //                  (long) DIV_ROUND_UP(arg_network_timeout_usec, USEC_PER_SEC)))
-        //         return -EXFULL;
+        if (arg_network_timeout_usec != USEC_INFINITY &&
+            !easy_setopt(curl,
+                         LOG_ERR,
+                         CURLOPT_TIMEOUT,
+                         (long) DIV_ROUND_UP(arg_network_timeout_usec, USEC_PER_SEC)))
+                return -EXFULL;
 
         /* Tell it to POST to the URL */
         if (!easy_setopt(curl, LOG_ERR, CURLOPT_POST, 1L))
@@ -225,7 +233,7 @@ static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
         (void) easy_setopt(curl, LOG_WARNING, CURLOPT_USERAGENT, "systemd-report " GIT_VERSION);
 
         /*Query this TSA endpoint*/
-        if (!easy_setopt(curl, LOG_ERR, CURLOPT_URL, TSA_ENDPOINT_URL))
+        if (!easy_setopt(curl, LOG_ERR, CURLOPT_URL, arg_tsa_url))
                 return -EXFULL;
 
         if (!easy_setopt(curl, LOG_ERR, CURLOPT_POSTFIELDSIZE, (long) req_len))
@@ -239,7 +247,7 @@ static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
                 return log_error_errno(
                                 SYNTHETIC_ERRNO(EIO),
                                 "Query to %s failed: %s",
-                                TSA_ENDPOINT_URL,
+                                arg_tsa_url,
                                 empty_to_null(&error[0]) ?: sym_curl_easy_strerror(code));
 
         long http_status;
@@ -254,14 +262,14 @@ static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
                 return log_error_errno(
                                 SYNTHETIC_ERRNO(EIO),
                                 "Query to %s failed with code %ld.",
-                                TSA_ENDPOINT_URL,
+                                arg_tsa_url,
                                 http_status);
 
         if (response.iov_len == 0)
                 return log_error_errno(
                                 SYNTHETIC_ERRNO(EBADMSG),
                                 "Query to %s returned an empty response.",
-                                TSA_ENDPOINT_URL);
+                                arg_tsa_url);
 
         const unsigned char *p = response.iov_base; // Pointer to the start of the response data.
         _cleanup_(TS_RESP_freep) TS_RESP *ts_resp = sym_d2i_TS_RESP(
@@ -307,9 +315,12 @@ static int build_ca_store(X509_STORE **ret_store) {
         if (!store)
                 return log_oom();
 
-        r = sym_X509_STORE_set_default_paths(store);
-        if (r != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set default paths for store.");
+        if (arg_certificate_authority) {
+                if(sym_X509_STORE_load_file(store, arg_certificate_authority) != 1)
+                        return log_openssl_errors(LOG_ERR, "Failed to load CA certificate from %s",
+                                                  arg_certificate_authority);
+        } else if (sym_X509_STORE_set_default_paths(store) != 1)
+                 return log_openssl_errors(LOG_ERR, "Failed to set default paths for store.");
 
         *ret_store = TAKE_PTR(store);
         return 0;
@@ -446,7 +457,32 @@ static int vl_method_sign(
                                                                         "timestamp",
                                                                         FORMAT_TIMESTAMP_STYLE(
                                                                                         ts, TIMESTAMP_UTC)),
-                                                        SD_JSON_BUILD_PAIR_STRING("tsaUrl", TSA_ENDPOINT_URL)))));
+                                                        SD_JSON_BUILD_PAIR_STRING("tsaUrl", arg_tsa_url)))));
+}
+
+static int parse_config(void) {
+        static const ConfigTableItem items[] = {
+                {"TSA", "URL",                  config_parse_string,  0, &arg_tsa_url             },
+                {"TSA", "NetworkTimeoutSec",    config_parse_sec,      0, &arg_network_timeout_usec},
+                {"TSA", "CertificateAuthority", config_parse_path,    0, &arg_certificate_authority},
+                {}
+        };
+        int r;
+        r = config_parse_standard_file_with_dropins(
+                        "systemd/report-sign-tsa.conf",
+                        "TSA\0",
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return r;
+        if(isempty(arg_tsa_url)) {
+                r = free_and_strdup(&arg_tsa_url, TSA_ENDPOINT_URL_DEFAULT);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
 }
 
 static int vl_server(void) {
@@ -512,6 +548,10 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+        r = parse_config();
+        if (r <  0)
+                return r;
+
         return vl_server();
 }
 
