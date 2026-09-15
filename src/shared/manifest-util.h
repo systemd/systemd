@@ -7,6 +7,7 @@
 /* Generic helpers for generating (and verifying) file manifests of directory trees, in various formats. */
 
 typedef enum ManifestFormat {
+        MANIFEST_FORMAT_LIST,       /* A simple list of file names, one per line */
         _MANIFEST_FORMAT_MAX,
         _MANIFEST_FORMAT_INVALID = -EINVAL,
 } ManifestFormat;

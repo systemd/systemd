@@ -39,6 +39,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "manifest-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -1145,25 +1146,6 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         return 0;
 }
 
-static int list_print_item(
-                RecurseDirEvent event,
-                const char *path,
-                int dir_fd,
-                int inode_fd,
-                const struct dirent *de,
-                const struct statx *sx,
-                void *userdata) {
-
-        assert(path);
-
-        if (event == RECURSE_DIR_ENTER)
-                printf("%s%s/%s\n", path, ansi_grey(), ansi_normal());
-        else if (event == RECURSE_DIR_ENTRY)
-                printf("%s\n", path);
-
-        return RECURSE_DIR_CONTINUE;
-}
-
 static int get_file_sha256(int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE]) {
         _cleanup_close_ int fd = -EBADF;
 
@@ -1541,14 +1523,18 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 pager_open(arg_pager_flags);
 
-                if (arg_action == ACTION_LIST)
-                        r = recurse_dir(dfd, NULL, 0, UINT_MAX, RECURSE_DIR_SORT, list_print_item, NULL);
-                else if (arg_action == ACTION_MTREE)
+                _cleanup_(manifest_context_done) ManifestContext mc = MANIFEST_CONTEXT_NULL;
+                mc.color = colors_enabled();
+                if (arg_action == ACTION_LIST) {
+                        mc.format = MANIFEST_FORMAT_LIST;
+                        r = manifest_make(&mc, dfd);
+                } else if (arg_action == ACTION_MTREE)
                         r = recurse_dir(dfd, ".", STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID|STATX_SIZE, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL, mtree_print_item, NULL);
                 else
                         assert_not_reached();
                 if (r < 0)
                         return log_error_errno(r, "Failed to list image: %m");
+
                 return 0;
         }
 
