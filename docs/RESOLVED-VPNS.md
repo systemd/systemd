@@ -98,13 +98,13 @@ interfaces are "merged": domains existing on one but not the other will "just
 work" and vice versa.
 
 And one more note: the domain routing logic implemented is a tiny bit more
-complex that what described above: if there two interfaces have search domains
-that are suffix of each other, and a name is looked up that matches both, the
-interface with the longer match will win and get the lookup routed to is DNS
+complex than what is described above: if two interfaces have search domains
+that are suffixes of each other, and a name is looked up that matches both, the
+interface with the longer match will win and get the lookup routed to its DNS
 servers. Only if the match has the same length, then both will be used in
 parallel. Example: one interface has `~foo.example.com` as routing domain, and
-another one `example.com` has search domain. A lookup for
-`waldo.foo.example.com` is the exclusively routed to the first interface's DNS
+another one has `example.com` as search domain. A lookup for
+`waldo.foo.example.com` is exclusively routed to the first interface's DNS
 server, since it matches by three suffix labels instead of just two. The fact
 that the matching length is taken into consideration for the routing decision
 is particularly relevant if you have one interface with the `~.` routing domain
