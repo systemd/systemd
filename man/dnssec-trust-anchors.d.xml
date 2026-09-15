@@ -156,7 +156,7 @@ stag
     set of well-known private DNS zone domains is used as negative
     trust anchors.</para>
 
-    <para>It is also possibly to define per-interface negative trust
+    <para>It is also possible to define per-interface negative trust
     anchors using the <varname>DNSSECNegativeTrustAnchors=</varname>
     setting in
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
