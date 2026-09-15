@@ -123,7 +123,7 @@ static void test_capability_set_to_string_invalid(uint64_t invalid_cap_set) {
 }
 
 TEST(capability_set_to_string) {
-        test_capability_set_to_string_invalid(0);
+        test_capability_set_to_string_invalid(/* invalid_cap_set= */ 0);
 
         /* once the kernel supports 62 (CAP_LIMIT) caps, there are no 'invalid' numbers
          * for us to test with */

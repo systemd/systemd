@@ -32,7 +32,7 @@ int verb_clean_or_freeze(int argc, char *argv[], uintptr_t _data, void *userdata
                         return log_oom();
         }
 
-        r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
+        r = expand_unit_names(bus, strv_skip(argv, 1), /* suffix= */ NULL, &names, /* ret_expanded= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -57,7 +57,7 @@ int verb_clean_or_freeze(int argc, char *argv[], uintptr_t _data, void *userdata
 
                 if (w) {
                         /* If we shall wait for the cleaning to complete, let's add a ref on the unit first */
-                        r = bus_call_method(bus, bus_systemd_mgr, "RefUnit", &error, NULL, "s", *name);
+                        r = bus_call_method(bus, bus_systemd_mgr, "RefUnit", &error, /* ret_reply= */ NULL, "s", *name);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to add reference to unit %s: %s", *name, bus_error_message(&error, r));
                                 if (ret == EXIT_SUCCESS)
@@ -80,7 +80,7 @@ int verb_clean_or_freeze(int argc, char *argv[], uintptr_t _data, void *userdata
                                 return bus_log_create_error(r);
                 }
 
-                r = sd_bus_call(bus, m, 0, &error, NULL);
+                r = sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to %s unit %s: %s", argv[0], *name, bus_error_message(&error, r));
                         if (ret == EXIT_SUCCESS)
@@ -89,7 +89,7 @@ int verb_clean_or_freeze(int argc, char *argv[], uintptr_t _data, void *userdata
                 }
 
                 if (w) {
-                        r = bus_wait_for_units_add_unit(w, *name, BUS_WAIT_REFFED|BUS_WAIT_FOR_MAINTENANCE_END, NULL, NULL);
+                        r = bus_wait_for_units_add_unit(w, *name, BUS_WAIT_REFFED|BUS_WAIT_FOR_MAINTENANCE_END, /* callback= */ NULL, /* userdata= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to watch unit %s: %m", *name);
                 }

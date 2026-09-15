@@ -61,7 +61,7 @@ static void nexthop_attach_to_group_members(NextHop *nexthop) {
                         continue;
                 }
 
-                r = set_ensure_put(&nh->nexthops, NULL, UINT32_TO_PTR(nexthop->id));
+                r = set_ensure_put(&nh->nexthops, /* hash_ops= */ NULL, UINT32_TO_PTR(nexthop->id));
                 if (r < 0)
                         log_debug_errno(r, "Failed to save nexthop ID (%"PRIu32") to group member (%"PRIu32"), ignoring: %m",
                                         nexthop->id, nhg->id);
@@ -453,9 +453,9 @@ static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
         /* Find the lowest unused ID. */
 
         for (uint32_t id = 1; id < UINT32_MAX; id++) {
-                if (nexthop_get_by_id(manager, id, NULL) >= 0)
+                if (nexthop_get_by_id(manager, id, /* ret= */ NULL) >= 0)
                         continue;
-                if (nexthop_get_request_by_id(manager, id, NULL) >= 0)
+                if (nexthop_get_request_by_id(manager, id, /* ret= */ NULL) >= 0)
                         continue;
                 if (set_contains(manager->nexthop_ids, UINT32_TO_PTR(id)))
                         continue;
@@ -742,7 +742,7 @@ int nexthop_is_ready(Manager *manager, uint32_t id, NextHop **ret) {
         if (id == 0)
                 return -EINVAL;
 
-        if (nexthop_get_request_by_id(manager, id, NULL) >= 0)
+        if (nexthop_get_request_by_id(manager, id, /* ret= */ NULL) >= 0)
                 goto not_ready;
 
         if (nexthop_get_by_id(manager, id, &nexthop) < 0)
@@ -771,7 +771,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         assert(nexthop);
         assert(nexthop->id > 0);
 
-        if (!link_is_ready_to_configure(link, false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return false;
 
         /* Currently, we support the following three types of nexthops:
@@ -795,7 +795,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
 
         /* Group nexthop */
         HASHMAP_FOREACH(nhg, nexthop->group) {
-                r = nexthop_is_ready(link->manager, nhg->id, NULL);
+                r = nexthop_is_ready(link->manager, nhg->id, /* ret= */ NULL);
                 if (r <= 0)
                         return r;
         }
@@ -841,7 +841,7 @@ int link_request_nexthop(
         assert(nexthop);
         assert(nexthop->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
-        if (nexthop_get_request(link, nexthop, NULL) >= 0)
+        if (nexthop_get_request(link, nexthop, /* ret= */ NULL) >= 0)
                 return 0; /* already requested, skipping. */
 
         r = nexthop_dup(nexthop, &tmp);
@@ -1027,7 +1027,7 @@ void link_forget_nexthops(Link *link) {
                 /* Update group members. */
                 struct nexthop_grp *nhg;
                 HASHMAP_FOREACH(nhg, nexthop->group) {
-                        if (nexthop_get_by_id(nexthop->manager, nhg->id, NULL) >= 0)
+                        if (nexthop_get_by_id(nexthop->manager, nhg->id, /* ret= */ NULL) >= 0)
                                 continue;
 
                         assert_se(hashmap_remove(nexthop->group, UINT32_TO_PTR(nhg->id)) == nhg);
@@ -1327,7 +1327,7 @@ int network_drop_invalid_nexthops(Network *network) {
                         assert(r > 0);
                 }
 
-                r = hashmap_ensure_put(&nexthops, NULL, UINT32_TO_PTR(nh->id), nh);
+                r = hashmap_ensure_put(&nexthops, /* hash_ops= */ NULL, UINT32_TO_PTR(nh->id), nh);
                 if (r < 0)
                         return log_oom();
                 assert(r > 0);
@@ -1354,7 +1354,7 @@ int manager_build_nexthop_ids(Manager *manager) {
                         if (nh->id == 0)
                                 continue;
 
-                        r = set_ensure_put(&manager->nexthop_ids, NULL, UINT32_TO_PTR(nh->id));
+                        r = set_ensure_put(&manager->nexthop_ids, /* hash_ops= */ NULL, UINT32_TO_PTR(nh->id));
                         if (r < 0)
                                 return r;
                 }
@@ -1415,7 +1415,7 @@ static int config_parse_nexthop_group(
                 uint32_t w;
                 char *sep;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)

@@ -399,7 +399,7 @@ static int bearer_get_all_handler(sd_bus_message *message, void *userdata, sd_bu
         if (r == 0)
                 return 0;
 
-        r = sd_bus_message_rewind(message, true);
+        r = sd_bus_message_rewind(message, /* complete= */ true);
         if (r < 0)
                 return log_warning_errno(r, "Failed to rewind properties of bearer \"%s\"", b->path);
         /* skip name: string "org.freedesktop.ModemManager1.Bearer" */
@@ -581,7 +581,7 @@ static int bus_call_method_async_props(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        return sd_bus_call_async(bus, slot, m, callback, userdata, 0);
+        return sd_bus_call_async(bus, slot, m, callback, userdata, /* usec= */ 0);
 }
 
 static void modem_simple_connect(Modem *modem) {
@@ -857,7 +857,7 @@ static int modem_map_ports(
         uint32_t port_type;
         int r;
 
-        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, NULL);
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, /* contents= */ NULL);
         if (r < 0)
                 return bus_log_parse_error_debug(r);
 
@@ -909,7 +909,7 @@ static int modem_properties_changed_signal(
         if (r == 0)
                 return 0;
 
-        r = sd_bus_message_rewind(message, true);
+        r = sd_bus_message_rewind(message, /* complete= */ true);
         if (r < 0)
                 return log_warning_errno(r, "Failed to rewind properties of modem %s", modem->path);
         old_state = modem->state;

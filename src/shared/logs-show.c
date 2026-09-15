@@ -710,7 +710,7 @@ static int output_short(
                         _cleanup_free_ char *t = NULL, *urlified = NULL;
 
                         t = strndup(config_file, config_file_len);
-                        if (t && terminal_urlify_path(t, NULL, &urlified) >= 0) {
+                        if (t && terminal_urlify_path(t, /* text= */ NULL, &urlified) >= 0) {
                                 size_t urlified_len = strlen(urlified);
                                 size_t shift = urlified_len - config_file_len;
                                 char *joined;
@@ -802,7 +802,7 @@ static int output_verbose(
         assert(f);
         assert(j);
 
-        (void) sd_journal_set_data_threshold(j, 0);
+        (void) sd_journal_set_data_threshold(j, /* sz= */ 0);
 
         r = get_display_realtime(j, &usec);
         if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
@@ -871,7 +871,7 @@ static int output_verbose(
                                 if (!u)
                                         return log_oom();
 
-                                if (terminal_urlify_path(u, NULL, &urlified) >= 0) {
+                                if (terminal_urlify_path(u, /* text= */ NULL, &urlified) >= 0) {
                                         p = urlified;
                                         valuelen = strlen(urlified);
                                 }
@@ -887,9 +887,9 @@ static int output_verbose(
                     (((length < PRINT_CHAR_THRESHOLD) || flags & OUTPUT_FULL_WIDTH)
                      && utf8_is_printable(data, length))) {
                         fprintf(f, "    %s%.*s=", on, (int) fieldlen, (const char*)data);
-                        print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, false,
+                        print_multiline(f, 4 + fieldlen + 1, /* n_columns= */ 0, OUTPUT_FULL_WIDTH, /* priority= */ 0, /* audit= */ false,
                                         p, valuelen,
-                                        NULL);
+                                        /* highlight= */ NULL);
                         fputs(off, f);
                 } else
                         fprintf(f, "    %s%.*s=[%s blob data]%s\n",
@@ -929,7 +929,7 @@ static int output_export(
 
         assert(j);
 
-        (void) sd_journal_set_data_threshold(j, 0);
+        (void) sd_journal_set_data_threshold(j, /* sz= */ 0);
 
         r = sd_journal_get_cursor(j, &cursor);
         if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
@@ -1003,7 +1003,7 @@ static int output_export(
                 if (!r)
                         continue;
 
-                if (utf8_is_printable_newline(data, length, false))
+                if (utf8_is_printable_newline(data, length, /* allow_newline= */ false))
                         fwrite(data, length, 1, f);
                 else {
                         uint64_t le64;
@@ -1311,7 +1311,7 @@ int journal_entry_to_json(
                 array[n++] = d->name;
 
                 if (sd_json_variant_elements(d->values) == 1)
-                        array[n++] = sd_json_variant_by_index(d->values, 0);
+                        array[n++] = sd_json_variant_by_index(d->values, /* index= */ 0);
                 else
                         array[n++] = d->values;
         }
@@ -1349,7 +1349,7 @@ static int output_json(
         return sd_json_variant_dump(object,
                                     output_mode_to_json_format_flags(mode) |
                                     (FLAGS_SET(flags, OUTPUT_COLOR) ? SD_JSON_FORMAT_COLOR : 0),
-                                    f, NULL);
+                                    f, /* prefix= */ NULL);
 }
 
 static int output_cat_field(
@@ -1426,7 +1426,7 @@ static int output_cat(
         assert(j);
         assert(f);
 
-        (void) sd_journal_set_data_threshold(j, 0);
+        (void) sd_journal_set_data_threshold(j, /* sz= */ 0);
 
         if (FLAGS_SET(flags, OUTPUT_COLOR)) {
                 const void *data;
@@ -1601,7 +1601,7 @@ int show_journal(
                 need_seek = true;
 
                 if (not_before > 0) {
-                        r = sd_journal_get_monotonic_usec(j, &usec, NULL);
+                        r = sd_journal_get_monotonic_usec(j, &usec, /* ret_boot_id= */ NULL);
 
                         /* -ESTALE is returned if the timestamp is not from this boot */
                         if (r == -ESTALE)
@@ -1641,7 +1641,7 @@ int show_journal(
                 if (r < 0)
                         return log_error_errno(r, "Failed to get boot id: %m");
 
-                r = sd_journal_get_cutoff_monotonic_usec(j, boot_id, &cutoff, NULL);
+                r = sd_journal_get_cutoff_monotonic_usec(j, boot_id, &cutoff, /* to= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get journal cutoff time: %m");
 
@@ -1707,7 +1707,7 @@ static int add_matches_for_coredump_uid(sd_journal *j, MatchUnitFlag flags, cons
                 return 0;
 
         if (cached_uid == 0) {
-                r = get_user_creds("systemd-coredump", /* flags= */ 0, NULL, &cached_uid, NULL, NULL, NULL);
+                r = get_user_creds("systemd-coredump", /* flags= */ 0, /* ret_username= */ NULL, &cached_uid, /* ret_gid= */ NULL, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to resolve systemd-coredump user, ignoring: %m");
                         cached_uid = UID_INVALID;
@@ -1895,7 +1895,7 @@ int show_journal_by_unit(
         if (r < 0)
                 return log_error_errno(r, "Failed to add conjunction: %m");
 
-        r = add_match_this_boot(j, NULL);
+        r = add_match_this_boot(j, /* machine= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2062,7 +2062,7 @@ int discover_next_id(
                 }
 
                 if (type == LOG_BOOT_ID)
-                        r = sd_journal_get_monotonic_usec(j, NULL, &id.id);
+                        r = sd_journal_get_monotonic_usec(j, /* ret_monotonic= */ NULL, &id.id);
                 else
                         r = journal_get_invocation_id(j, &id.id);
                 if (r < 0)
@@ -2105,7 +2105,7 @@ int discover_next_id(
                 if (r < 0)
                         return r;
 
-                r = sd_journal_step_one(j, 0);
+                r = sd_journal_step_one(j, /* advanced= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -2129,7 +2129,7 @@ int discover_next_id(
                 if (r < 0)
                         return r;
 
-                r = sd_journal_step_one(j, 0);
+                r = sd_journal_step_one(j, /* advanced= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -2171,7 +2171,7 @@ int discover_next_id(
                 if (r < 0)
                         return r;
 
-                r = sd_journal_step_one(j, 0);
+                r = sd_journal_step_one(j, /* advanced= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)

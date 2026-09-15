@@ -119,11 +119,11 @@ int path_make_relative(const char *from, const char *to, char **ret) {
                 return -EINVAL;
 
         for (;;) {
-                r = path_find_first_component(&from, true, &f);
+                r = path_find_first_component(&from, /* accept_dot_dot= */ true, &f);
                 if (r < 0)
                         return r;
 
-                k = path_find_first_component(&to, true, &t);
+                k = path_find_first_component(&to, /* accept_dot_dot= */ true, &t);
                 if (k < 0)
                         return k;
 
@@ -157,7 +157,7 @@ int path_make_relative(const char *from, const char *to, char **ret) {
 
         for (n_parents = 1;; n_parents++) {
                 /* If this includes ".." we can't do a simple series of "..". */
-                r = path_find_first_component(&from, false, &f);
+                r = path_find_first_component(&from, /* accept_dot_dot= */ false, &f);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -287,7 +287,7 @@ char** path_strv_resolve(char **l, const char *root) {
                 } else
                         t = *s;
 
-                r = chase(t, root, 0, &u, NULL);
+                r = chase(t, root, /* flags= */ 0, &u, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         if (root) {
                                 u = TAKE_PTR(orig);
@@ -377,7 +377,7 @@ char* path_simplify_full(char *path, PathSimplifyFlags flags) {
         for (const char *p = f;;) {
                 const char *e;
 
-                r = path_find_first_component(&p, true, &e);
+                r = path_find_first_component(&p, /* accept_dot_dot= */ true, &e);
                 if (r == 0)
                         break;
 
@@ -505,8 +505,8 @@ int path_compare(const char *a, const char *b) {
                 const char *aa, *bb;
                 int j, k;
 
-                j = path_find_first_component(&a, true, &aa);
-                k = path_find_first_component(&b, true, &bb);
+                j = path_find_first_component(&a, /* accept_dot_dot= */ true, &aa);
+                k = path_find_first_component(&b, /* accept_dot_dot= */ true, &bb);
 
                 if (j < 0 || k < 0) {
                         /* When one of paths is invalid, order invalid path after valid one. */
@@ -1177,7 +1177,7 @@ bool path_is_valid_full(const char *p, bool accept_dot_dot) {
         for (const char *e = p;;) {
                 int r;
 
-                r = path_find_first_component(&e, accept_dot_dot, NULL);
+                r = path_find_first_component(&e, accept_dot_dot, /* ret= */ NULL);
                 if (r < 0)
                         return false;
 

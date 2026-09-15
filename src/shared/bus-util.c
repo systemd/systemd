@@ -41,7 +41,7 @@ static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_
         assert(m);
 
         sd_bus_close(sd_bus_message_get_bus(m));
-        sd_event_exit(e, 0);
+        sd_event_exit(e, /* code= */ 0);
 
         return 1;
 }
@@ -96,11 +96,11 @@ int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
                         "arg1='", unique, "',",
                         "arg2=''");
 
-        r = sd_bus_add_match_async(bus, NULL, match, name_owner_change_callback, NULL, e);
+        r = sd_bus_add_match_async(bus, /* ret_slot= */ NULL, match, name_owner_change_callback, /* install_callback= */ NULL, e);
         if (r < 0)
                 return r;
 
-        r = sd_bus_release_name_async(bus, NULL, name, NULL, NULL);
+        r = sd_bus_release_name_async(bus, /* ret_slot= */ NULL, name, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
@@ -160,7 +160,7 @@ int bus_event_loop_with_idle(
 
                         /* Inform the service manager that we are going down, so that it will queue all
                          * further start requests, instead of assuming we are still running. */
-                        (void) sd_notify(false, NOTIFY_STOPPING_MESSAGE);
+                        (void) sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
 
                         r = bus_async_unregister_and_exit(e, bus, name);
                         if (r < 0)
@@ -864,7 +864,7 @@ int bus_register_malloc_status(sd_bus *bus, const char *destination) {
                          "destination='", destination, "',",
                          "member='GetMallocInfo'");
 
-        r = sd_bus_add_match_async(bus, NULL, match, method_dump_memory_state_by_fd, dummy_install_callback, NULL);
+        r = sd_bus_add_match_async(bus, /* ret_slot= */ NULL, match, method_dump_memory_state_by_fd, dummy_install_callback, /* userdata= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to subscribe to GetMallocInfo() calls on MemoryAllocation1 interface: %m");
 

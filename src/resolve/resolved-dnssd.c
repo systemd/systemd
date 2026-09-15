@@ -306,7 +306,7 @@ int dnssd_render_instance_name(Manager *m, DnssdRegisteredService *s, char **ret
         assert(s);
         assert(s->name_template);
 
-        r = specifier_printf(s->name_template, DNS_LABEL_MAX, specifier_table, NULL, m, &name);
+        r = specifier_printf(s->name_template, DNS_LABEL_MAX, specifier_table, /* root= */ NULL, m, &name);
         if (r < 0)
                 return log_debug_errno(r, "Failed to replace specifiers: %m");
 
@@ -361,17 +361,17 @@ int dnssd_update_rrs(DnssdRegisteredService *s) {
         if (r < 0)
                 return r;
 
-        r = dns_name_concat(s->type, "local", 0, &service_name);
+        r = dns_name_concat(s->type, "local", /* flags= */ 0, &service_name);
         if (r < 0)
                 return r;
-        r = dns_name_concat(n, service_name, 0, &full_name);
+        r = dns_name_concat(n, service_name, /* flags= */ 0, &full_name);
         if (r < 0)
                 return r;
         if (s->subtype) {
-                r = dns_name_concat("_sub", service_name, 0, &sub_name);
+                r = dns_name_concat("_sub", service_name, /* flags= */ 0, &sub_name);
                 if (r < 0)
                         return r;
-                r = dns_name_concat(s->subtype, sub_name, 0, &selective_name);
+                r = dns_name_concat(s->subtype, sub_name, /* flags= */ 0, &selective_name);
                 if (r < 0)
                         return r;
         }
@@ -511,7 +511,7 @@ int dnssd_signal_conflict(Manager *manager, const char *name) {
                                                path,
                                                "org.freedesktop.resolve1.DnssdService",
                                                "Conflicted",
-                                               NULL);
+                                               /* types= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Cannot emit signal: %m");
 
@@ -559,7 +559,7 @@ int config_parse_dnssd_name(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, DNS_LABEL_MAX, specifier_table, NULL, NULL, &name);
+        r = specifier_printf(rvalue, DNS_LABEL_MAX, specifier_table, /* root= */ NULL, /* userdata= */ NULL, &name);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid service instance name template '%s', ignoring assignment: %m", rvalue);
@@ -680,7 +680,7 @@ int config_parse_dnssd_txt(
                 DnsTxtItem *i;
                 int r;
 
-                r = extract_first_word(&rvalue, &word, NULL,
+                r = extract_first_word(&rvalue, &word, /* separators= */ NULL,
                                        EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
                 if (r == 0)
                         break;

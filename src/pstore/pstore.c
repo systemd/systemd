@@ -252,10 +252,10 @@ static int process_dmesg_files(PStoreList *list) {
                                         return log_oom();
 
                         /* Now move file from pstore to archive storage */
-                        (void) move_file(pe, erst_subdir, NULL);
+                        (void) move_file(pe, erst_subdir, /* subdir2= */ NULL);
 
                         /* Append to the dmesg */
-                        (void) append_dmesg(pe, erst_subdir, NULL);
+                        (void) append_dmesg(pe, erst_subdir, /* subdir2= */ NULL);
 
                         /* Update, but keep erst_subdir for next file */
                         last_record_id = record_id;
@@ -345,7 +345,7 @@ static int run(int argc, char *argv[]) {
 
         /* Move left over files out of pstore */
         for (size_t n = 0; n < list.n_entries; n++)
-                (void) move_file(&list.entries[n], NULL, NULL);
+                (void) move_file(&list.entries[n], /* subdir1= */ NULL, /* subdir2= */ NULL);
 
         return 0;
 }

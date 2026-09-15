@@ -221,7 +221,7 @@ static void raw_pull_report_progress(RawPull *p, RawProgress progress) {
                 assert_not_reached();
         }
 
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
+        sd_notifyf(/* unset_environment= */ false, "X_IMPORT_PROGRESS=%u%%", percent);
         log_debug("Combined progress %u%%", percent);
 }
 
@@ -248,7 +248,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *p) {
                 return 0;
 
         /* This is a QCOW2 image, let's convert it */
-        r = tempfn_random(p->final_path, NULL, &f);
+        r = tempfn_random(p->final_path, /* extra= */ NULL, &f);
         if (r < 0)
                 return log_oom();
 
@@ -377,7 +377,7 @@ static int raw_pull_make_local_copy(RawPull *p) {
                 _cleanup_close_ int dfd = -EBADF;
                 _cleanup_free_ char *f = NULL;
 
-                r = tempfn_random(path, NULL, &f);
+                r = tempfn_random(path, /* extra= */ NULL, &f);
                 if (r < 0)
                         return log_oom();
 
@@ -396,7 +396,7 @@ static int raw_pull_make_local_copy(RawPull *p) {
                         return log_error_errno(r, "Failed to make writable copy of image: %m");
 
                 (void) copy_times(p->raw_job->disk_fd, dfd, COPY_CRTIME);
-                (void) copy_xattr(p->raw_job->disk_fd, NULL, dfd, NULL, 0);
+                (void) copy_xattr(p->raw_job->disk_fd, /* from= */ NULL, dfd, /* to= */ NULL, /* copy_flags= */ 0);
 
                 dfd = safe_close(dfd);
 
@@ -579,7 +579,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                 if (p->local) {
                         r = install_file(AT_FDCWD, p->local,
-                                         AT_FDCWD, NULL,
+                                         AT_FDCWD, /* target_name= */ NULL,
                                          ((p->flags & IMPORT_READ_ONLY) && p->offset == UINT64_MAX ? INSTALL_READ_ONLY : 0) |
                                          (p->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
                         if (r < 0) {

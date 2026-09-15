@@ -127,21 +127,21 @@ static int varlink_error_for_enroll(sd_varlink *link, int error) {
         switch (error) {
 
         case -EHOSTDOWN:        /* check_for_homed() */
-                return sd_varlink_error(link, "io.systemd.CryptEnroll.VolumeUnderForeignManagement", NULL);
+                return sd_varlink_error(link, "io.systemd.CryptEnroll.VolumeUnderForeignManagement", /* parameters= */ NULL);
 
         case -ENOPKG:           /* credential querying disabled in headless mode but none provided */
-                return sd_varlink_error(link, "io.systemd.CryptEnroll.PasswordRequired", NULL);
+                return sd_varlink_error(link, "io.systemd.CryptEnroll.PasswordRequired", /* parameters= */ NULL);
 
         case -EPERM:
         case -ENOKEY:           /* provided password/key did not unlock the volume */
-                return sd_varlink_error(link, "io.systemd.CryptEnroll.PasswordIncorrect", NULL);
+                return sd_varlink_error(link, "io.systemd.CryptEnroll.PasswordIncorrect", /* parameters= */ NULL);
 
         case -ENODEV:
         case -ENOTUNIQ:         /* no (or no unique) FIDO2 device found */
-                return sd_varlink_error(link, "io.systemd.CryptEnroll.FidoDeviceNotFound", NULL);
+                return sd_varlink_error(link, "io.systemd.CryptEnroll.FidoDeviceNotFound", /* parameters= */ NULL);
 
         case -ENOSTR:           /* FIDO_ERR_ACTION_TIMEOUT */
-                return sd_varlink_error(link, "io.systemd.CryptEnroll.FidoActionTimeout", NULL);
+                return sd_varlink_error(link, "io.systemd.CryptEnroll.FidoActionTimeout", /* parameters= */ NULL);
 
         default:
                 return sd_varlink_error_errno(link, error);
@@ -409,7 +409,7 @@ static int vl_method_list_slots(
         assert(link);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &node);
         if (r != 0)
@@ -447,7 +447,7 @@ static int vl_method_list_slots(
                         return r;
         }
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 int cryptenroll_varlink_server(void) {

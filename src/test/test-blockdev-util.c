@@ -37,8 +37,8 @@ TEST(path_is_encrypted) {
         test_path_is_encrypted_one("/home", -1);
         test_path_is_encrypted_one("/var", -1);
         test_path_is_encrypted_one("/", -1);
-        test_path_is_encrypted_one("/proc", false);
-        test_path_is_encrypted_one("/sys", false);
+        test_path_is_encrypted_one("/proc", /* expect= */ false);
+        test_path_is_encrypted_one("/sys", /* expect= */ false);
         test_path_is_encrypted_one("/dev", booted > 0 ? false : -1);
 }
 
@@ -91,16 +91,16 @@ static void test_partition_node_of_one(const char *main, unsigned partition, con
 }
 
 TEST(partition_node_of) {
-        test_partition_node_of_one("/dev/sda", 2, "/dev/sda2", 0);
-        test_partition_node_of_one("sda", 3, "sda3", 0);
-        test_partition_node_of_one("/dev/nvme0n1", 7, "/dev/nvme0n1p7", 0);
-        test_partition_node_of_one("nvme0n1", 8, "nvme0n1p8", 0);
-        test_partition_node_of_one("/dev/loop1", 3, "/dev/loop1p3", 0);
-        test_partition_node_of_one("", 1, NULL, -EINVAL);
-        test_partition_node_of_one("/", 1, NULL, -EADDRNOTAVAIL);
-        test_partition_node_of_one("/dev/", 1, NULL, -EISDIR);
-        test_partition_node_of_one("/sda", 1, "/sda1", 0);
-        test_partition_node_of_one(".", 1, NULL, -EADDRNOTAVAIL);
+        test_partition_node_of_one("/dev/sda", 2, "/dev/sda2", /* retval= */ 0);
+        test_partition_node_of_one("sda", 3, "sda3", /* retval= */ 0);
+        test_partition_node_of_one("/dev/nvme0n1", 7, "/dev/nvme0n1p7", /* retval= */ 0);
+        test_partition_node_of_one("nvme0n1", 8, "nvme0n1p8", /* retval= */ 0);
+        test_partition_node_of_one("/dev/loop1", 3, "/dev/loop1p3", /* retval= */ 0);
+        test_partition_node_of_one("", 1, /* result= */ NULL, -EINVAL);
+        test_partition_node_of_one("/", 1, /* result= */ NULL, -EADDRNOTAVAIL);
+        test_partition_node_of_one("/dev/", 1, /* result= */ NULL, -EISDIR);
+        test_partition_node_of_one("/sda", 1, "/sda1", /* retval= */ 0);
+        test_partition_node_of_one(".", 1, /* result= */ NULL, -EADDRNOTAVAIL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

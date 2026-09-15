@@ -152,7 +152,7 @@ static void pty_forward_disconnect(PTYForward *f) {
                 }
 
                 /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
-                (void) fd_nonblock(f->output_fd, false);
+                (void) fd_nonblock(f->output_fd, /* nonblock= */ false);
 
                 if (f->close_output_fd)
                         f->output_fd = safe_close(f->output_fd);
@@ -162,7 +162,7 @@ static void pty_forward_disconnect(PTYForward *f) {
                 if (f->saved_stdin)
                         (void) tcsetattr(f->input_fd, TCSANOW, &f->saved_stdin_attr);
 
-                (void) fd_nonblock(f->input_fd, false);
+                (void) fd_nonblock(f->input_fd, /* nonblock= */ false);
                 if (f->close_input_fd)
                         f->input_fd = safe_close(f->input_fd);
         }
@@ -804,13 +804,13 @@ static int shovel(PTYForward *f) {
 
                 if ((f->out_buffer_write_len <= 0 || f->stdout_hangup) &&
                     (f->in_buffer_full <= 0 || f->master_hangup))
-                        return pty_forward_done(f, 0);
+                        return pty_forward_done(f, /* rcode= */ 0);
         }
 
         /* If we were asked to drain, and there's nothing more to handle from the master, then call the callback
          * too. */
         if (f->drain && drained(f))
-                return pty_forward_done(f, 0);
+                return pty_forward_done(f, /* rcode= */ 0);
 
         return 0;
 }
@@ -989,7 +989,7 @@ int pty_forward_new(
                          * (sockets, …) */
                         log_debug_errno(f->input_fd, "Failed to reopen stdin, using original fd: %m");
 
-                        r = fd_nonblock(STDIN_FILENO, true);
+                        r = fd_nonblock(STDIN_FILENO, /* nonblock= */ true);
                         if (r < 0)
                                 return r;
 
@@ -1002,7 +1002,7 @@ int pty_forward_new(
                 if (f->output_fd < 0) {
                         log_debug_errno(f->output_fd, "Failed to reopen stdout, using original fd: %m");
 
-                        r = fd_nonblock(STDOUT_FILENO, true);
+                        r = fd_nonblock(STDOUT_FILENO, /* nonblock= */ true);
                         if (r < 0)
                                 return r;
 
@@ -1011,7 +1011,7 @@ int pty_forward_new(
                         f->close_output_fd = true;
         }
 
-        r = fd_nonblock(master, true);
+        r = fd_nonblock(master, /* nonblock= */ true);
         if (r < 0)
                 return r;
 

@@ -59,7 +59,7 @@ int dhcp_server_put_lease(sd_dhcp_server *server, sd_dhcp_server_lease *lease, b
                 return r;
 
         r = hashmap_ensure_put(is_static ? &server->static_leases_by_address : &server->bound_leases_by_address,
-                               NULL, UINT32_TO_PTR(lease->address), lease);
+                               /* hash_ops= */ NULL, UINT32_TO_PTR(lease->address), lease);
         if (r < 0)
                 return r;
 
@@ -87,7 +87,7 @@ int dhcp_server_set_lease(sd_dhcp_server *server, DHCPRequest *req) {
                         hashmap_remove_value(server->bound_leases_by_address, UINT32_TO_PTR(lease->address), lease);
                         lease->address = req->address;
 
-                        r = hashmap_ensure_put(&server->bound_leases_by_address, NULL, UINT32_TO_PTR(lease->address), lease);
+                        r = hashmap_ensure_put(&server->bound_leases_by_address, /* hash_ops= */ NULL, UINT32_TO_PTR(lease->address), lease);
                         if (r < 0)
                                 return r;
                 }
@@ -498,7 +498,7 @@ static int load_leases_file(int dir_fd, const char *path, SavedInfo *ret) {
                         /* flags= */ SD_JSON_PARSE_MUST_BE_OBJECT,
                         &v,
                         /* reterr_line= */ NULL,
-                        /* ret_column= */ NULL);
+                        /* reterr_column= */ NULL);
         if (r < 0)
                 return r;
 

@@ -53,11 +53,11 @@ static int do_store(const char *prefix) {
         if (fd2 < 0)
                 return log_error_errno(fd2, "Failed to create memfd 2: %m");
 
-        r = sd_pid_notify_with_fds(0, /* unset_environment= */ false, "FDSTORE=1\nFDNAME=testfd1", &fd1, 1);
+        r = sd_pid_notify_with_fds(/* pid= */ 0, /* unset_environment= */ false, "FDSTORE=1\nFDNAME=testfd1", &fd1, 1);
         if (r < 0)
                 return log_error_errno(r, "Failed to store memfd 1 in fd store: %m");
 
-        r = sd_pid_notify_with_fds(0, /* unset_environment= */ false, "FDSTORE=1\nFDNAME=testfd2", &fd2, 1);
+        r = sd_pid_notify_with_fds(/* pid= */ 0, /* unset_environment= */ false, "FDSTORE=1\nFDNAME=testfd2", &fd2, 1);
         if (r < 0)
                 return log_error_errno(r, "Failed to store memfd 2 in fd store: %m");
 
@@ -83,7 +83,7 @@ static int do_store(const char *prefix) {
         if (r < 0)
                 return log_error_errno(r, "Failed to preserve memfd in session: %m");
 
-        r = sd_pid_notifyf_with_fds(0, false, &session_fd, 1, "FDSTORE=1\nFDNAME=%s-direct", prefix);
+        r = sd_pid_notifyf_with_fds(/* pid= */ 0, /* unset_environment= */ false, &session_fd, 1, "FDSTORE=1\nFDNAME=%s-direct", prefix);
         if (r < 0)
                 return log_error_errno(r, "Failed to store session fd in fd store: %m");
         TAKE_FD(session_fd);
@@ -92,7 +92,7 @@ static int do_store(const char *prefix) {
 
         /* Wait for PID 1 to actually process all our FDSTORE notifications before we exit, otherwise
          * the cgroup-based pidref to unit lookup may fail once we're gone, and the fds end up closed. */
-        r = sd_notify_barrier(0, 5 * USEC_PER_SEC);
+        r = sd_notify_barrier(/* unset_environment= */ 0, 5 * USEC_PER_SEC);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for notification barrier: %m");
 
@@ -179,7 +179,7 @@ static int do_check(const char *prefix) {
 
                 /* Remove the fd from the fd store so we don't keep accumulating duplicates across
                  * repeated invocations (and across repeated kexec cycles). */
-                r = sd_pid_notifyf(0, /* unset_environment= */ false,
+                r = sd_pid_notifyf(/* pid= */ 0, /* unset_environment= */ false,
                                    "FDSTOREREMOVE=1\nFDNAME=%s", checks[i].name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to remove fd '%s' from fd store: %m", checks[i].name);
@@ -229,7 +229,7 @@ static int do_check(const char *prefix) {
                                        SESSION_MEMFD_DATA, sbuf);
 
         /* Remove the LUO session fd from the fd store as well. */
-        r = sd_pid_notifyf(0, /* unset_environment= */ false,
+        r = sd_pid_notifyf(/* pid= */ 0, /* unset_environment= */ false,
                            "FDSTOREREMOVE=1\nFDNAME=%s", session_fdname);
         if (r < 0)
                 return log_error_errno(r, "Failed to remove fd '%s' from fd store: %m", session_fdname);
@@ -238,7 +238,7 @@ static int do_check(const char *prefix) {
 
         /* Wait for PID 1 to actually process all our FDSTORE notifications before we exit, otherwise
          * the cgroup-based pidref to unit lookup may fail once we're gone, and the fds end up closed. */
-        r = sd_notify_barrier(0, 5 * USEC_PER_SEC);
+        r = sd_notify_barrier(/* unset_environment= */ 0, 5 * USEC_PER_SEC);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for notification barrier: %m");
 
@@ -269,7 +269,7 @@ static int do_store_hijack(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to preserve memfd in hijack session: %m");
 
-        r = sd_pid_notify_with_fds(0, /* unset_environment= */ false, "FDSTORE=1\nFDNAME=" HIJACK_FDNAME, &session_fd, 1);
+        r = sd_pid_notify_with_fds(/* pid= */ 0, /* unset_environment= */ false, "FDSTORE=1\nFDNAME=" HIJACK_FDNAME, &session_fd, 1);
         if (r < 0)
                 return log_error_errno(r, "Failed to store hijack session fd in fd store: %m");
         TAKE_FD(session_fd);
@@ -278,7 +278,7 @@ static int do_store_hijack(void) {
 
         /* Wait for PID 1 to actually process the FDSTORE notification before we exit, otherwise
          * the cgroup-based pidref to unit lookup may fail once we're gone, and the fd ends up closed. */
-        r = sd_notify_barrier(0, 5 * USEC_PER_SEC);
+        r = sd_notify_barrier(/* unset_environment= */ 0, 5 * USEC_PER_SEC);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for notification barrier: %m");
 

@@ -593,7 +593,7 @@ static int dmi_table(int64_t base, uint32_t len, uint16_t num, const char *devme
          * parse error.
          */
         r = read_full_file_full(AT_FDCWD, devmem, no_file_offset ? 0 : base, len,
-                                0, NULL, (char **) &buf, &size);
+                                /* flags= */ 0, /* bind_name= */ NULL, (char **) &buf, &size);
         if (r < 0)
                 return log_error_errno(r, "Failed to read table: %m");
 
@@ -622,7 +622,7 @@ static int smbios3_decode(const uint8_t *buf, const char *devmem, bool no_file_o
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "64-bit addresses not supported on 32-bit systems.");
 #endif
 
-        return dmi_table(offset, DWORD(buf + 0x0C), 0, devmem, no_file_offset);
+        return dmi_table(offset, DWORD(buf + 0x0C), /* num= */ 0, devmem, no_file_offset);
 }
 
 static int smbios_decode(const uint8_t *buf, const char *devmem, bool no_file_offset) {
@@ -697,7 +697,7 @@ static int run(int argc, char *argv[]) {
         /* Read from dump if so instructed */
         r = read_full_file_full(AT_FDCWD,
                                 arg_source_file ?: SYS_ENTRY_FILE,
-                                0, 0x20, 0, NULL, (char **) &buf, &size);
+                                /* offset= */ 0, 0x20, /* flags= */ 0, /* bind_name= */ NULL, (char **) &buf, &size);
         if (r < 0)
                 return log_full_errno(!arg_source_file && r == -ENOENT ? LOG_DEBUG : LOG_ERR,
                                       r, "Reading \"%s\" failed: %m",

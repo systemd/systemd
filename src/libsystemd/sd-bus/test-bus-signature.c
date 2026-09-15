@@ -11,30 +11,30 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(signature_is_single("y", false));
-        assert_se(signature_is_single("u", false));
-        assert_se(signature_is_single("v", false));
-        assert_se(signature_is_single("as", false));
-        assert_se(signature_is_single("(ss)", false));
-        assert_se(!signature_is_single("()", false));
-        assert_se(!signature_is_single("(()()()()())", false));
-        assert_se(!signature_is_single("(((())))", false));
-        assert_se(signature_is_single("((((s))))", false));
-        assert_se(signature_is_single("{ss}", true));
-        assert_se(signature_is_single("a{ss}", false));
-        assert_se(!signature_is_single("uu", false));
-        assert_se(!signature_is_single("", false));
-        assert_se(!signature_is_single("(", false));
-        assert_se(!signature_is_single(")", false));
-        assert_se(!signature_is_single("())", false));
-        assert_se(!signature_is_single("((())", false));
-        assert_se(!signature_is_single("{)", false));
-        assert_se(!signature_is_single("{}", true));
-        assert_se(!signature_is_single("{sss}", true));
-        assert_se(!signature_is_single("{s}", true));
-        assert_se(!signature_is_single("{ss}", false));
-        assert_se(!signature_is_single("{ass}", true));
-        assert_se(!signature_is_single("a}", true));
+        assert_se(signature_is_single("y", /* allow_dict_entry= */ false));
+        assert_se(signature_is_single("u", /* allow_dict_entry= */ false));
+        assert_se(signature_is_single("v", /* allow_dict_entry= */ false));
+        assert_se(signature_is_single("as", /* allow_dict_entry= */ false));
+        assert_se(signature_is_single("(ss)", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single("()", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single("(()()()()())", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single("(((())))", /* allow_dict_entry= */ false));
+        assert_se(signature_is_single("((((s))))", /* allow_dict_entry= */ false));
+        assert_se(signature_is_single("{ss}", /* allow_dict_entry= */ true));
+        assert_se(signature_is_single("a{ss}", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single("uu", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single("", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single("(", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single(")", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single("())", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single("((())", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single("{)", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single("{}", /* allow_dict_entry= */ true));
+        assert_se(!signature_is_single("{sss}", /* allow_dict_entry= */ true));
+        assert_se(!signature_is_single("{s}", /* allow_dict_entry= */ true));
+        assert_se(!signature_is_single("{ss}", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_single("{ass}", /* allow_dict_entry= */ true));
+        assert_se(!signature_is_single("a}", /* allow_dict_entry= */ true));
 
         assert_se(signature_is_pair("yy"));
         assert_se(signature_is_pair("ss"));
@@ -46,25 +46,25 @@ int main(int argc, char *argv[]) {
         assert_se(!signature_is_pair("sss"));
         assert_se(!signature_is_pair("{s}ss"));
 
-        assert_se(signature_is_valid("ssa{ss}sssub", true));
-        assert_se(signature_is_valid("ssa{ss}sssub", false));
-        assert_se(signature_is_valid("{ss}", true));
-        assert_se(!signature_is_valid("{ss}", false));
-        assert_se(signature_is_valid("", true));
-        assert_se(signature_is_valid("", false));
+        assert_se(signature_is_valid("ssa{ss}sssub", /* allow_dict_entry= */ true));
+        assert_se(signature_is_valid("ssa{ss}sssub", /* allow_dict_entry= */ false));
+        assert_se(signature_is_valid("{ss}", /* allow_dict_entry= */ true));
+        assert_se(!signature_is_valid("{ss}", /* allow_dict_entry= */ false));
+        assert_se(signature_is_valid("", /* allow_dict_entry= */ true));
+        assert_se(signature_is_valid("", /* allow_dict_entry= */ false));
 
-        assert_se(signature_is_valid("sssusa(uuubbba(uu)uuuu)a{u(uuuvas)}", false));
+        assert_se(signature_is_valid("sssusa(uuubbba(uu)uuuu)a{u(uuuvas)}", /* allow_dict_entry= */ false));
 
-        assert_se(!signature_is_valid("a", false));
-        assert_se(signature_is_valid("as", false));
-        assert_se(signature_is_valid("aas", false));
-        assert_se(signature_is_valid("aaas", false));
-        assert_se(signature_is_valid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaad", false));
-        assert_se(signature_is_valid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaas", false));
-        assert_se(!signature_is_valid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaau", false));
+        assert_se(!signature_is_valid("a", /* allow_dict_entry= */ false));
+        assert_se(signature_is_valid("as", /* allow_dict_entry= */ false));
+        assert_se(signature_is_valid("aas", /* allow_dict_entry= */ false));
+        assert_se(signature_is_valid("aaas", /* allow_dict_entry= */ false));
+        assert_se(signature_is_valid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaad", /* allow_dict_entry= */ false));
+        assert_se(signature_is_valid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaas", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_valid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaau", /* allow_dict_entry= */ false));
 
-        assert_se(signature_is_valid("((((((((((((((((((((((((((((((((s))))))))))))))))))))))))))))))))", false));
-        assert_se(!signature_is_valid("((((((((((((((((((((((((((((((((()))))))))))))))))))))))))))))))))", false));
+        assert_se(signature_is_valid("((((((((((((((((((((((((((((((((s))))))))))))))))))))))))))))))))", /* allow_dict_entry= */ false));
+        assert_se(!signature_is_valid("((((((((((((((((((((((((((((((((()))))))))))))))))))))))))))))))))", /* allow_dict_entry= */ false));
 
         assert_se(namespace_complex_pattern("", ""));
         assert_se(namespace_complex_pattern("foobar", "foobar"));

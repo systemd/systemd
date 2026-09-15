@@ -11,7 +11,7 @@ int oci_ref_parse(const char *ref, char **ret_registry, char **ret_image, char *
 
 static inline int oci_ref_valid(const char *ref) {
         int r;
-        r = oci_ref_parse(ref, NULL, NULL, NULL);
+        r = oci_ref_parse(ref, /* ret_registry= */ NULL, /* ret_image= */ NULL, /* ret_tag= */ NULL);
         if (r == -EINVAL)
                 return false;
         if (r < 0)

@@ -54,7 +54,7 @@ static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct 
 
                 pp = strndupa_safe(path, e - path);
 
-                r = add_cgroup(cgroups, pp, false, &parent);
+                r = add_cgroup(cgroups, pp, /* is_const= */ false, &parent);
                 if (r < 0)
                         return r;
         }
@@ -106,7 +106,7 @@ static int add_process(
         assert(name);
         assert(pid > 0);
 
-        r = add_cgroup(cgroups, path, true, &cg);
+        r = add_cgroup(cgroups, path, /* is_const= */ true, &cg);
         if (r < 0)
                 return r;
 

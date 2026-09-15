@@ -85,7 +85,7 @@ int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret) {
          *     -ENOPKG:    "uninitialized" or "uninitialized\n",
          *     -EUCLEAN:   other invalid strings. */
 
-        l = loop_read(fd, buffer, sizeof(buffer), false); /* we expect a short read of either 32/33 or 36/37 chars */
+        l = loop_read(fd, buffer, sizeof(buffer), /* do_poll= */ false); /* we expect a short read of either 32/33 or 36/37 chars */
         if (l < 0)
                 return (int) l;
         if (l == 0) /* empty? */
@@ -322,7 +322,7 @@ int id128_get_boot_for_machine(const char *machine, sd_id128_t *ret) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = pidref_wait_for_terminate_and_check("(sd-bootidns)", &child, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-bootidns)", &child, /* flags= */ 0);
         if (r < 0)
                 return r;
         if (r != EXIT_SUCCESS)

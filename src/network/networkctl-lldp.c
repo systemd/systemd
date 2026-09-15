@@ -189,7 +189,7 @@ static int dump_lldp_neighbors_json(sd_json_variant *reply, char * const *patter
         assert(reply);
 
         if (strv_isempty(patterns))
-                return sd_json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
+                return sd_json_variant_dump(reply, arg_json_format_flags, NULL, /* prefix= */ NULL);
 
         /* Filter and dump the result. */
 
@@ -216,7 +216,7 @@ static int dump_lldp_neighbors_json(sd_json_variant *reply, char * const *patter
         if (r < 0)
                 return log_error_errno(r, "Failed to build json varinat: %m");
 
-        return sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+        return sd_json_variant_dump(v, arg_json_format_flags, NULL, /* prefix= */ NULL);
 }
 
 int verb_link_lldp_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -232,7 +232,7 @@ int verb_link_lldp_status(int argc, char *argv[], uintptr_t _data, void *userdat
         if (r < 0)
                 return r;
 
-        r = varlink_call_and_log(vl, "io.systemd.Network.GetLLDPNeighbors", NULL, &reply);
+        r = varlink_call_and_log(vl, "io.systemd.Network.GetLLDPNeighbors", /* parameters= */ NULL, &reply);
         if (r < 0)
                 return r;
 
@@ -253,7 +253,7 @@ int verb_link_lldp_status(int argc, char *argv[], uintptr_t _data, void *userdat
                 return log_oom();
 
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         table_set_header(table, arg_legend);
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
@@ -261,7 +261,7 @@ int verb_link_lldp_status(int argc, char *argv[], uintptr_t _data, void *userdat
         table_hide_column_from_display(table, (size_t) 0);
 
         /* Make the capabilities not truncated */
-        assert_se(cell = table_get_cell(table, 0, 7));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, 7));
         table_set_minimum_width(table, cell, 11);
 
         sd_json_variant *i;

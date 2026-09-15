@@ -93,7 +93,7 @@ int pull_find_old_etags(
                 if (a >= b)
                         continue;
 
-                ssize_t l = cunescape_length(a, b - a, 0, &u);
+                ssize_t l = cunescape_length(a, b - a, /* flags= */ 0, &u);
                 if (l < 0) {
                         assert(l >= INT8_MIN);
                         return l;
@@ -512,7 +512,7 @@ static int verify_gpg(
                         goto finish;
                 }
 
-                r = copy_file(*keyring_source, copy, 0, 0600, /* copy_flags= */ 0);
+                r = copy_file(*keyring_source, copy, /* open_flags= */ 0, 0600, /* copy_flags= */ 0);
                 if (r < 0) {
                         log_error_errno(r, "Failed to copy keyring '%s': %m", *keyring_source);
                         goto finish;

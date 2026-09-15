@@ -1305,7 +1305,7 @@ static int decompress_startswith_lz4(
 
                 /* Before version 1.8.3, lz4 always tries to decode full a "sequence",
                  * so in pathological cases might need to decompress the full field. */
-                r = decompress_blob_lz4(src, src_size, buffer, &size, 0);
+                r = decompress_blob_lz4(src, src_size, buffer, &size, /* dst_max= */ 0);
                 if (r < 0)
                         return r;
 
@@ -2063,7 +2063,7 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
                         size_t produced = COMPRESS_PIPE_BUFFER_SIZE;
                         size_t consumed = src_remaining;
 
-                        size_t rc = sym_LZ4F_decompress(c->d_lz4, buffer, &produced, src, &consumed, NULL);
+                        size_t rc = sym_LZ4F_decompress(c->d_lz4, buffer, &produced, src, &consumed, /* dOptPtr= */ NULL);
                         if (sym_LZ4F_isError(rc))
                                 return -EBADMSG;
 
@@ -2301,7 +2301,7 @@ int compressor_new(Compressor **ret, Compression type) {
                 c->type = COMPRESSION_LZ4;
 
                 /* Generate the frame header and stash it for the first compressor_start call */
-                size_t header_bound = sym_LZ4F_compressBound(0, &lz4_preferences);
+                size_t header_bound = sym_LZ4F_compressBound(/* srcSize= */ 0, &lz4_preferences);
                 c->lz4_header = malloc(header_bound);
                 if (!c->lz4_header)
                         return -ENOMEM;
@@ -2466,7 +2466,7 @@ int compressor_start(
                 size_t n = sym_LZ4F_compressUpdate(c->c_lz4,
                                                    (uint8_t*) *buffer + *buffer_size,
                                                    *buffer_allocated - *buffer_size,
-                                                   data, size, NULL);
+                                                   data, size, /* cOptPtr= */ NULL);
                 if (sym_LZ4F_isError(n))
                         return -EIO;
 
@@ -2625,12 +2625,12 @@ int compressor_finish(Compressor *c, void **buffer, size_t *buffer_size, size_t 
 
 #if HAVE_LZ4
         case COMPRESSION_LZ4: {
-                size_t bound = sym_LZ4F_compressBound(0, &lz4_preferences);
+                size_t bound = sym_LZ4F_compressBound(/* srcSize= */ 0, &lz4_preferences);
                 r = enlarge_buffer(buffer, buffer_size, buffer_allocated, bound);
                 if (r < 0)
                         return r;
 
-                size_t n = sym_LZ4F_compressEnd(c->c_lz4, *buffer, *buffer_allocated, NULL);
+                size_t n = sym_LZ4F_compressEnd(c->c_lz4, *buffer, *buffer_allocated, /* cOptPtr= */ NULL);
                 if (sym_LZ4F_isError(n))
                         return -EIO;
 

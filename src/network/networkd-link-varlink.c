@@ -139,7 +139,7 @@ int vl_method_link_renew(sd_varlink *vlink, sd_json_variant *parameters, sd_varl
                 return r;
 
         if (!link->network)
-                return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceUnmanaged", NULL);
+                return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceUnmanaged", /* parameters= */ NULL);
 
         r = varlink_verify_polkit_async(
                         vlink,
@@ -154,7 +154,7 @@ int vl_method_link_renew(sd_varlink *vlink, sd_json_variant *parameters, sd_varl
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to renew DHCPv4 lease: %m");
 
-        return sd_varlink_reply(vlink, NULL);
+        return sd_varlink_reply(vlink, /* parameters= */ NULL);
 }
 
 int vl_method_link_force_renew(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -169,7 +169,7 @@ int vl_method_link_force_renew(sd_varlink *vlink, sd_json_variant *parameters, s
                 return r;
 
         if (!link->network)
-                return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceUnmanaged", NULL);
+                return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceUnmanaged", /* parameters= */ NULL);
 
         r = varlink_verify_polkit_async(
                         vlink,
@@ -186,7 +186,7 @@ int vl_method_link_force_renew(sd_varlink *vlink, sd_json_variant *parameters, s
                         return log_link_warning_errno(link, r, "Failed to force-renew DHCP server leases: %m");
         }
 
-        return sd_varlink_reply(vlink, NULL);
+        return sd_varlink_reply(vlink, /* parameters= */ NULL);
 }
 
 int vl_method_link_reconfigure(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -219,5 +219,5 @@ int vl_method_link_reconfigure(sd_varlink *vlink, sd_json_variant *parameters, s
         if (r > 0)
                 return 0; /* Reply will be sent asynchronously via vlink */
 
-        return sd_varlink_reply(vlink, NULL);
+        return sd_varlink_reply(vlink, /* parameters= */ NULL);
 }

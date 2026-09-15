@@ -71,7 +71,7 @@ static int network_get_strv(const char *key, char ***ret) {
         if (isempty(s))
                 return -ENODATA;
 
-        a = strv_split(s, NULL);
+        a = strv_split(s, /* separators= */ NULL);
         if (!a)
                 return -ENOMEM;
 
@@ -141,7 +141,7 @@ static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
         if (r < 0)
                 return r;
 
-        a = strv_split(s, NULL);
+        a = strv_split(s, /* separators= */ NULL);
         if (!a)
                 return -ENOMEM;
 
@@ -303,7 +303,7 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
         for (const char *x = s;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&x, &word, NULL, 0);
+                r = extract_first_word(&x, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)

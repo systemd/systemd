@@ -9,7 +9,7 @@ int memfd_create_wrapper(const char *name, unsigned mode);
 
 int memfd_new_full(const char *name, unsigned extra_flags);
 static inline int memfd_new(const char *name) {
-        return memfd_new_full(name, 0);
+        return memfd_new_full(name, /* extra_flags= */ 0);
 }
 
 int memfd_new_and_seal(const char *name, const void *data, size_t sz) _nonnull_if_nonzero_(2, 3);

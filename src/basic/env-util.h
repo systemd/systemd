@@ -19,7 +19,7 @@ typedef enum ReplaceEnvFlags {
 
 int replace_env_full(const char *format, size_t length, char **env, ReplaceEnvFlags flags, char **ret, char ***ret_unset_variables, char ***ret_bad_variables);
 static inline int replace_env(const char *format, char **env, ReplaceEnvFlags flags, char **ret) {
-        return replace_env_full(format, SIZE_MAX, env, flags, ret, NULL, NULL);
+        return replace_env_full(format, SIZE_MAX, env, flags, ret, /* ret_unset_variables= */ NULL, /* ret_bad_variables= */ NULL);
 }
 
 int replace_env_argv(char **argv, char **env, char ***ret, char ***ret_unset_variables, char ***ret_bad_variables);
@@ -48,7 +48,7 @@ int _strv_env_assign_many(char ***l, ...) _sentinel_;
 
 char* strv_env_get_n(char * const *l, const char *name, size_t k, ReplaceEnvFlags flags);
 static inline char* strv_env_get(char * const *x, const char *n) {
-        return strv_env_get_n(x, n, SIZE_MAX, 0);
+        return strv_env_get_n(x, n, SIZE_MAX, /* flags= */ 0);
 }
 
 char* strv_env_pairs_get(char **l, const char *name) _pure_;

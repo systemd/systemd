@@ -85,6 +85,13 @@ jobs:
       - name: Run clang-tidy
         run: mkosi box -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit --quiet
 
+      - name: Run argument comment checks
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          mkosi box -- meson compile -C build gensources
+          mkosi box -- tools/check-argument-comments.py -p build --diff "$(git merge-base "origin/$BASE_REF" HEAD)" src
+
       - name: Run coccinelle checks
         run: mkosi box -- meson test -C build --suite=coccinelle --print-errorlogs --no-stdsplit
 

@@ -367,7 +367,7 @@ static int load_firmware_data(const char *path, FirmwareData **ret, sd_json_vari
                         /* flags= */ SD_JSON_PARSE_MUST_BE_OBJECT,
                         &json,
                         /* reterr_line= */ NULL,
-                        /* ret_column= */ NULL);
+                        /* reterr_column= */ NULL);
         if (r < 0)
                 return r;
 

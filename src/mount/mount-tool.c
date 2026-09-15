@@ -246,7 +246,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("owner", "USER", "Add uid= and gid= options for USER"):
-                        r = get_user_creds(opts.arg, /* flags= */ 0, NULL, &arg_uid, &arg_gid, NULL, NULL);
+                        r = get_user_creds(opts.arg, /* flags= */ 0, /* ret_username= */ NULL, &arg_uid, &arg_gid, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r,
                                                        r == -EBADMSG ? "UID or GID of user %s are invalid."
@@ -276,7 +276,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("automount", "BOOL", "Create an automount point"):
-                        r = parse_boolean_argument("--automount=", opts.arg, NULL);
+                        r = parse_boolean_argument("--automount=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -530,7 +530,7 @@ static int transient_mount_set_properties(sd_bus_message *m) {
         if (arg_tmpfs) {
                 mode_t mask;
 
-                r = get_process_umask(0, &mask);
+                r = get_process_umask(/* pid= */ 0, &mask);
                 if (r < 0)
                         return r;
 
@@ -637,7 +637,7 @@ static int start_transient_mount(sd_bus *bus) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to start transient mount unit: %s", bus_error_message(&error, r));
 
@@ -648,7 +648,7 @@ static int start_transient_mount(sd_bus *bus) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = bus_wait_for_jobs_one(w, object, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR, NULL);
+                r = bus_wait_for_jobs_one(w, object, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -741,7 +741,7 @@ static int start_transient_automount(sd_bus *bus) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to start transient automount unit: %s", bus_error_message(&error, r));
 
@@ -752,7 +752,7 @@ static int start_transient_automount(sd_bus *bus) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = bus_wait_for_jobs_one(w, object, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR, NULL);
+                r = bus_wait_for_jobs_one(w, object, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -845,7 +845,7 @@ static int find_loop_device(const char *backing_file, sd_device **ret) {
                         continue;
                 }
 
-                if (inode_same(s, backing_file, 0) <= 0)
+                if (inode_same(s, backing_file, /* flags= */ 0) <= 0)
                         continue;
 
                 *ret = sd_device_ref(dev);
@@ -887,7 +887,7 @@ static int stop_mount(sd_bus *bus, const char *where, const char *suffix) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0) {
                 if (streq(suffix, ".automount") &&
                     sd_bus_error_has_name(&error, "org.freedesktop.systemd1.NoSuchUnit"))
@@ -902,7 +902,7 @@ static int stop_mount(sd_bus *bus, const char *where, const char *suffix) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = bus_wait_for_jobs_one(w, object, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR, NULL);
+                r = bus_wait_for_jobs_one(w, object, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -1395,7 +1395,7 @@ static int list_devices(void) {
         if (r < 0)
                 return log_oom();
 
-        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to add block match: %m");
 
@@ -1408,7 +1408,7 @@ static int list_devices(void) {
                 return log_oom();
 
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         r = table_set_sort(table, (size_t) 0);
         if (r < 0)
@@ -1432,9 +1432,9 @@ static int list_devices(void) {
                                 r = sd_device_get_diskseq(d, &ds);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to get diskseq of block device, ignoring: %m");
-                                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                                 } else
-                                        r = table_add_cell(table, NULL, TABLE_UINT64, &ds);
+                                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_UINT64, &ds);
                                 if (r < 0)
                                         return table_log_add_error(r);
 
@@ -1466,7 +1466,7 @@ static int list_devices(void) {
                                 break;
                         }
 
-                        r = table_add_cell(table, NULL, c == COLUMN_NODE ? TABLE_PATH : TABLE_STRING, x);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, c == COLUMN_NODE ? TABLE_PATH : TABLE_STRING, x);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }

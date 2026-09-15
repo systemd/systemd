@@ -9,7 +9,7 @@
 #include "time-util.h"
 
 TEST(pidref_is_set) {
-        ASSERT_FALSE(pidref_is_set(NULL));
+        ASSERT_FALSE(pidref_is_set(/* pidref= */ NULL));
         ASSERT_FALSE(pidref_is_set(&PIDREF_NULL));
         ASSERT_TRUE(pidref_is_set(&PIDREF_MAKE_FROM_PID(1)));
 }
@@ -81,7 +81,7 @@ TEST(pidref_is_self) {
         ASSERT_OK(pidref_set_self(&pidref));
         ASSERT_TRUE(pidref_is_self(&pidref));
 
-        ASSERT_FALSE(pidref_is_self(NULL));
+        ASSERT_FALSE(pidref_is_self(/* pidref= */ NULL));
         ASSERT_FALSE(pidref_is_self(&PIDREF_NULL));
         ASSERT_TRUE(pidref_is_self(&PIDREF_MAKE_FROM_PID(getpid_cached())));
         ASSERT_FALSE(pidref_is_self(&PIDREF_MAKE_FROM_PID(getpid_cached()+1)));
@@ -91,7 +91,7 @@ TEST(pidref_copy) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
-        ASSERT_OK(pidref_copy(NULL, &pidref));
+        ASSERT_OK(pidref_copy(/* pidref= */ NULL, &pidref));
         ASSERT_FALSE(pidref_is_set(&pidref));
 
         ASSERT_OK(pidref_copy(&PIDREF_NULL, &pidref));
@@ -112,7 +112,7 @@ TEST(pidref_dup) {
         _cleanup_(pidref_freep) PidRef *pidref = NULL;
         int r;
 
-        ASSERT_OK(pidref_dup(NULL, &pidref));
+        ASSERT_OK(pidref_dup(/* pidref= */ NULL, &pidref));
         ASSERT_NOT_NULL(pidref);
         ASSERT_FALSE(pidref_is_set(pidref));
         pidref = pidref_free(pidref);
@@ -140,7 +140,7 @@ TEST(pidref_new_from_pid) {
         ASSERT_ERROR(pidref_new_from_pid(-1, &pidref), ESRCH);
         ASSERT_NULL(pidref);
 
-        ASSERT_OK(pidref_new_from_pid(0, &pidref));
+        ASSERT_OK(pidref_new_from_pid(/* pid= */ 0, &pidref));
         ASSERT_TRUE(pidref_is_self(pidref));
         pidref = pidref_free(pidref);
 
@@ -198,7 +198,7 @@ TEST(pidref_verify) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
-        ASSERT_ERROR(pidref_verify(NULL), ESRCH);
+        ASSERT_ERROR(pidref_verify(/* pidref= */ NULL), ESRCH);
         ASSERT_ERROR(pidref_verify(&PIDREF_NULL), ESRCH);
 
         ASSERT_OK_POSITIVE(pidref_verify(&PIDREF_MAKE_FROM_PID(1)));
@@ -210,7 +210,7 @@ TEST(pidref_verify) {
 }
 
 TEST(pidref_is_automatic) {
-        ASSERT_FALSE(pidref_is_automatic(NULL));
+        ASSERT_FALSE(pidref_is_automatic(/* pidref= */ NULL));
         ASSERT_FALSE(pidref_is_automatic(&PIDREF_NULL));
         ASSERT_FALSE(pidref_is_automatic(&PIDREF_MAKE_FROM_PID(1)));
         ASSERT_FALSE(pidref_is_automatic(&PIDREF_MAKE_FROM_PID(getpid_cached())));
@@ -226,7 +226,7 @@ TEST(pidref_is_automatic) {
 }
 
 TEST(pidref_is_remote) {
-        ASSERT_FALSE(pidref_is_remote(NULL));
+        ASSERT_FALSE(pidref_is_remote(/* pidref= */ NULL));
         ASSERT_FALSE(pidref_is_remote(&PIDREF_NULL));
         ASSERT_FALSE(pidref_is_remote(&PIDREF_MAKE_FROM_PID(1)));
         ASSERT_FALSE(pidref_is_remote(&PIDREF_MAKE_FROM_PID(getpid_cached())));
@@ -243,7 +243,7 @@ TEST(pidref_is_remote) {
         ASSERT_FALSE(pidref_is_automatic(&p));
         ASSERT_ERROR(pidref_kill(&p, SIGTERM), EREMOTE);
         ASSERT_ERROR(pidref_kill_and_sigcont(&p, SIGTERM), EREMOTE);
-        ASSERT_ERROR(pidref_wait_for_terminate(&p, NULL), EREMOTE);
+        ASSERT_ERROR(pidref_wait_for_terminate(&p, /* ret_si= */ NULL), EREMOTE);
         ASSERT_ERROR(pidref_verify(&p), EREMOTE);
 }
 
@@ -262,7 +262,7 @@ TEST(pidref_wait_for_terminate_timeout) {
 
         /* Test timeout when process doesn't terminate */
         ASSERT_OK(pidref_safe_fork("(test-pidref-wait-timeout-expired)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &pidref));
-        ASSERT_ERROR(pidref_wait_for_terminate_full(&pidref, 100 * USEC_PER_MSEC, NULL), ETIMEDOUT);
+        ASSERT_ERROR(pidref_wait_for_terminate_full(&pidref, 100 * USEC_PER_MSEC, /* ret_si= */ NULL), ETIMEDOUT);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

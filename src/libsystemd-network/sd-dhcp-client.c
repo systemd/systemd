@@ -110,7 +110,7 @@ int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option) {
                 ;
         }
 
-        return set_ensure_put(&client->req_opts, NULL, UINT8_TO_PTR(option));
+        return set_ensure_put(&client->req_opts, /* hash_ops= */ NULL, UINT8_TO_PTR(option));
 }
 
 int sd_dhcp_client_set_request_address(
@@ -390,7 +390,7 @@ int sd_dhcp_client_set_hostname(
 
         /* Make sure hostnames qualify as DNS and as Linux hostnames */
         if (hostname &&
-            !(hostname_is_valid(hostname, 0) && dns_name_is_valid(hostname) > 0))
+            !(hostname_is_valid(hostname, /* flags= */ 0) && dns_name_is_valid(hostname) > 0))
                 return -EINVAL;
 
         return free_and_strdup(&client->hostname, hostname);
@@ -756,7 +756,7 @@ static int client_timeout_resend(
                         client->event, &client->timeout_resend,
                         CLOCK_BOOTTIME, next_timeout, 10 * USEC_PER_MSEC,
                         client_timeout_resend, client,
-                        client->event_priority, "dhcp4-resend-timer", true);
+                        client->event_priority, "dhcp4-resend-timer", /* force_reset= */ true);
         if (r < 0)
                 goto error;
 
@@ -1015,7 +1015,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                              CLOCK_BOOTTIME,
                              client->expire_time, 10 * USEC_PER_MSEC,
                              client_timeout_expire, client,
-                             client->event_priority, "dhcp4-lifetime", true);
+                             client->event_priority, "dhcp4-lifetime", /* force_reset= */ true);
         if (r < 0)
                 return r;
 
@@ -1031,7 +1031,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                              CLOCK_BOOTTIME,
                              client->t2_time, 10 * USEC_PER_MSEC,
                              client_timeout_t2, client,
-                             client->event_priority, "dhcp4-t2-timeout", true);
+                             client->event_priority, "dhcp4-t2-timeout", /* force_reset= */ true);
         if (r < 0)
                 return r;
 
@@ -1047,7 +1047,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                              CLOCK_BOOTTIME,
                              client->t1_time, 10 * USEC_PER_MSEC,
                              client_timeout_t1, client,
-                             client->event_priority, "dhcp4-t1-timer", true);
+                             client->event_priority, "dhcp4-t1-timer", /* force_reset= */ true);
         if (r < 0)
                 return r;
 

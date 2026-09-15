@@ -53,7 +53,7 @@ static int server_recv(int fd, DnsPacket **ret) {
 
         iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->allocated);
 
-        l = recvmsg_safe(fd, &mh, 0);
+        l = recvmsg_safe(fd, &mh, /* flags= */ 0);
         if (ERRNO_IS_NEG_TRANSIENT(l))
                 return 0;
         if (l <= 0)
@@ -172,7 +172,7 @@ static int server_ipv4_send(
                 .in.sin_port = htobe16(port),
         };
 
-        return sendmsg_loop(fd, &mh, 0);
+        return sendmsg_loop(fd, &mh, /* flags= */ 0);
 }
 
 static int make_reply_packet(DnsPacket *packet, DnsPacket **ret) {
@@ -182,7 +182,7 @@ static int make_reply_packet(DnsPacket *packet, DnsPacket **ret) {
         assert(packet);
         assert(ret);
 
-        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, dns_packet_payload_size_max(packet));
+        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0, dns_packet_payload_size_max(packet));
         if (r < 0)
                 return r;
 
@@ -248,27 +248,27 @@ static int reply_append_edns(DnsPacket *packet, DnsPacket *reply, const char *ex
         saved_size = reply->size;
 
         /* empty name */
-        r = dns_packet_append_uint8(reply, 0, NULL);
+        r = dns_packet_append_uint8(reply, 0, /* start= */ NULL);
         if (r < 0)
                 return r;
 
         /* type */
-        r = dns_packet_append_uint16(reply, DNS_TYPE_OPT, NULL);
+        r = dns_packet_append_uint16(reply, DNS_TYPE_OPT, /* start= */ NULL);
         if (r < 0)
                 return r;
 
         /* class: maximum udp packet that can be received */
-        r = dns_packet_append_uint16(reply, ADVERTISE_DATAGRAM_SIZE_MAX, NULL);
+        r = dns_packet_append_uint16(reply, ADVERTISE_DATAGRAM_SIZE_MAX, /* start= */ NULL);
         if (r < 0)
                 return r;
 
         /* extended RCODE and VERSION */
-        r = dns_packet_append_uint16(reply, ((uint16_t) rcode & 0x0FF0) << 4, NULL);
+        r = dns_packet_append_uint16(reply, ((uint16_t) rcode & 0x0FF0) << 4, /* start= */ NULL);
         if (r < 0)
                 return r;
 
         /* flags: DNSSEC OK (DO), see RFC3225 */
-        r = dns_packet_append_uint16(reply, 0, NULL);
+        r = dns_packet_append_uint16(reply, 0, /* start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -276,22 +276,22 @@ static int reply_append_edns(DnsPacket *packet, DnsPacket *reply, const char *ex
 
         size_t extra_text_len = isempty(extra_text) ? 0 : strlen(extra_text);
         /* RDLENGTH (OPTION CODE + OPTION LENGTH + INFO-CODE + EXTRA-TEXT) */
-        r = dns_packet_append_uint16(reply, 2 + 2 + 2 + extra_text_len, NULL);
+        r = dns_packet_append_uint16(reply, 2 + 2 + 2 + extra_text_len, /* start= */ NULL);
         if (r < 0)
                 return 0;
 
         /* OPTION-CODE: 15 for EDE */
-        r = dns_packet_append_uint16(reply, 15, NULL);
+        r = dns_packet_append_uint16(reply, 15, /* start= */ NULL);
         if (r < 0)
                 return r;
 
         /* OPTION-LENGTH: INFO-CODE + EXTRA-TEXT */
-        r = dns_packet_append_uint16(reply, 2 + extra_text_len, NULL);
+        r = dns_packet_append_uint16(reply, 2 + extra_text_len, /* start= */ NULL);
         if (r < 0)
                 return r;
 
         /* INFO-CODE: EDE code */
-        r = dns_packet_append_uint16(reply, ede_code, NULL);
+        r = dns_packet_append_uint16(reply, ede_code, /* start= */ NULL);
         if (r < 0)
                 return r;
 
@@ -303,7 +303,7 @@ static int reply_append_edns(DnsPacket *packet, DnsPacket *reply, const char *ex
                  *
                  *  Let's exercise our code on the receiving side and not NUL-terminate the EXTRA-TEXT field
                  */
-                r = dns_packet_append_blob(reply, extra_text, extra_text_len, NULL);
+                r = dns_packet_append_blob(reply, extra_text, extra_text_len, /* start= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -330,7 +330,7 @@ static int server_handle_edns_bogus_dnssec(DnsPacket *packet, DnsPacket *reply) 
         assert(packet);
         assert(reply);
 
-        return reply_append_edns(packet, reply, NULL, DNS_RCODE_SERVFAIL, DNS_EDE_RCODE_DNSSEC_BOGUS);
+        return reply_append_edns(packet, reply, /* extra_text= */ NULL, DNS_RCODE_SERVFAIL, DNS_EDE_RCODE_DNSSEC_BOGUS);
 }
 
 static int server_handle_edns_extra_text(DnsPacket *packet, DnsPacket *reply) {
@@ -398,7 +398,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         else if (streq_ptr(name, "edns-extra-text.forwarded.test"))
                 r = server_handle_edns_extra_text(packet, reply);
         else if (streq_ptr(name, "edns-invalid-code.forwarded.test"))
-                r = server_handle_edns_invalid_code(packet, reply, NULL);
+                r = server_handle_edns_invalid_code(packet, reply, /* extra_text= */ NULL);
         else if (streq_ptr(name, "edns-invalid-code-with-extra-text.forwarded.test"))
                 r = server_handle_edns_invalid_code(packet, reply, "Hello [#]$%~ World");
         else if (streq_ptr(name, "edns-code-zero.forwarded.test"))
@@ -434,7 +434,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event: %m");
 
-        r = sd_event_add_io(event, NULL, fd, EPOLLIN, on_dns_packet, NULL);
+        r = sd_event_add_io(event, /* ret= */ NULL, fd, EPOLLIN, on_dns_packet, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add IO event source: %m");
 
@@ -442,7 +442,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
-        (void) sd_notify(/* unset_environment=false */ false, "READY=1");
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
 
         r = sd_event_loop(event);
         if (r < 0)

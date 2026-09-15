@@ -93,7 +93,7 @@ static void brightness_writer_reply(BrightnessWriter *w, int error) {
                         break;
 
                 if (error == 0)
-                        r = sd_bus_reply_method_return(m, NULL);
+                        r = sd_bus_reply_method_return(m, /* types= */ NULL);
                 else
                         r = sd_bus_reply_method_errnof(m, error, "Failed to write to brightness device: %m");
                 if (r < 0)
@@ -167,7 +167,7 @@ static int brightness_writer_fork(BrightnessWriter *w) {
         if (r < 0)
                 return log_error_errno(r, "Failed to watch brightness writer child " PID_FMT ": %m", pidref.pid);
 
-        r = sd_event_source_set_child_process_own(w->child_event_source, true);
+        r = sd_event_source_set_child_process_own(w->child_event_source, /* own= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to take ownership of child process: %m");
 

@@ -29,11 +29,11 @@ int verb_unit_files(int argc, char *argv[], uintptr_t _data, void *userdata) {
         char **v;
         int r;
 
-        r = lookup_paths_init_or_warn(&lp, arg_runtime_scope, 0, NULL);
+        r = lookup_paths_init_or_warn(&lp, arg_runtime_scope, /* flags= */ 0, /* root_dir= */ NULL);
         if (r < 0)
                 return r;
 
-        r = unit_file_build_name_map(&lp, NULL, &unit_ids, &unit_names, NULL);
+        r = unit_file_build_name_map(&lp, /* cache_timestamp_hash= */ NULL, &unit_ids, &unit_names, /* path_cache= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "unit_file_build_name_map() failed: %m");
 

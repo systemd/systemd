@@ -26,7 +26,7 @@ TEST(unsigned) {
         FOREACH_ELEMENT(i, buffer) {
                 u = (unsigned) rand();
                 *i = u;
-                assert_se(prioq_put(q, UINT_TO_PTR(u), NULL) >= 0);
+                assert_se(prioq_put(q, UINT_TO_PTR(u), /* idx= */ NULL) >= 0);
 
                 n = prioq_size(q);
                 assert_se(prioq_remove(q, UINT_TO_PTR(u), &n) == 0);
@@ -71,7 +71,7 @@ TEST(struct) {
         assert_se(s = set_new(&test_hash_ops));
 
         ASSERT_NULL(prioq_peek(q));
-        ASSERT_NULL(prioq_peek_by_index(q, 0));
+        ASSERT_NULL(prioq_peek_by_index(q, /* idx= */ 0));
         ASSERT_NULL(prioq_peek_by_index(q, 1));
         ASSERT_NULL(prioq_peek_by_index(q, UINT_MAX));
 
@@ -99,7 +99,7 @@ TEST(struct) {
         while ((t = set_steal_first(s))) {
                 assert_se(prioq_remove(q, t, &t->idx) == 1);
                 assert_se(prioq_remove(q, t, &t->idx) == 0);
-                assert_se(prioq_remove(q, t, NULL) == 0);
+                assert_se(prioq_remove(q, t, /* idx= */ NULL) == 0);
 
                 free(t);
         }
@@ -109,7 +109,7 @@ TEST(struct) {
 
                 assert_se(t = prioq_pop(q));
                 assert_se(prioq_remove(q, t, &t->idx) == 0);
-                assert_se(prioq_remove(q, t, NULL) == 0);
+                assert_se(prioq_remove(q, t, /* idx= */ NULL) == 0);
                 assert_se(previous <= t->value);
 
                 previous = t->value;

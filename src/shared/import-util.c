@@ -218,7 +218,7 @@ int import_assign_pool_quota_and_warn(const char *path) {
 
         assert(path);
 
-        r = btrfs_subvol_auto_qgroup(path, 0, true);
+        r = btrfs_subvol_auto_qgroup(path, /* subvol_id= */ 0, /* create_intermediary_qgroup= */ true);
         if (r == -ENOTTY) {
                 log_debug_errno(r, "Failed to set up quota hierarchy for %s, as directory is not on btrfs or not a subvolume. Ignoring.", path);
                 return 0;

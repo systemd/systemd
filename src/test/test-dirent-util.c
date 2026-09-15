@@ -47,7 +47,7 @@ TEST(test_dirent_is_file) {
                 .d_name = "test_unknown",
         };
 
-        assert_se(mkdtemp_malloc(NULL, &t) >= 0);
+        assert_se(mkdtemp_malloc(/* template= */ NULL, &t) >= 0);
 
         name = strjoina(t, "/test.txt");
         dotfile = strjoina(t, "/.hidden_file");
@@ -123,7 +123,7 @@ TEST(test_dirent_is_file_with_suffix) {
                 .d_name = "test_unknown",
         };
 
-        assert_se(mkdtemp_malloc(NULL, &t) >= 0);
+        assert_se(mkdtemp_malloc(/* template= */ NULL, &t) >= 0);
 
         name = strjoina(t, "/test.txt");
         dotfile = strjoina(t, "/.hidden_file");
@@ -179,16 +179,16 @@ TEST(test_dirent_is_file_with_suffix) {
 
                 /* Test when d_type is not DT_REG, DT_LNK, or DT_UNKNOWN */
                 assert(de_chr);
-                assert_se(!dirent_is_file_with_suffix(de_chr, NULL));
+                assert_se(!dirent_is_file_with_suffix(de_chr, /* suffix= */ NULL));
         }
 
         /* Test when suffix is NULL */
-        assert_se(dirent_is_file_with_suffix(de_reg, NULL) == true);
+        assert_se(dirent_is_file_with_suffix(de_reg, /* suffix= */ NULL) == true);
         if (de_lnk)
-                assert_se(dirent_is_file_with_suffix(de_lnk, NULL) == true);
+                assert_se(dirent_is_file_with_suffix(de_lnk, /* suffix= */ NULL) == true);
         else
                 log_tests_skipped("de_lnk is NULL, skipping test");
-        assert_se(dirent_is_file_with_suffix(&de_unknown, NULL) == true);
+        assert_se(dirent_is_file_with_suffix(&de_unknown, /* suffix= */ NULL) == true);
 
         /* Test for present suffix */
         assert_se(dirent_is_file_with_suffix(de_reg, "txt") == true);
@@ -207,8 +207,8 @@ TEST(test_dirent_is_file_with_suffix) {
         assert_se(dirent_is_file_with_suffix(&de_unknown, "yes") == false);
 
         /* Test for dot and dot-dot */
-        assert_se(dirent_is_file_with_suffix(de_dot, NULL) == false);
-        assert_se(dirent_is_file_with_suffix(de_dotdot, NULL) == false);
+        assert_se(dirent_is_file_with_suffix(de_dot, /* suffix= */ NULL) == false);
+        assert_se(dirent_is_file_with_suffix(de_dotdot, /* suffix= */ NULL) == false);
 
         closedir(dir);
 }

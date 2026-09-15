@@ -13,39 +13,39 @@ TEST(strip_tab_ansi) {
         char *p, *z;
 
         assert_se(p = strdup("\tFoobar\tbar\twaldo\t"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         fprintf(stdout, "<%s>\n", p);
         ASSERT_STREQ(p, "        Foobar        bar        waldo        ");
         free(p);
 
         assert_se(p = strdup(ANSI_HIGHLIGHT "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         fprintf(stdout, "<%s>\n", p);
         ASSERT_STREQ(p, "Hello world!");
         free(p);
 
         assert_se(p = strdup("\x1B[\x1B[\t\x1B[" ANSI_HIGHLIGHT "\x1B[" "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "\x1B[\x1B[        \x1B[\x1B[Hello world!");
         free(p);
 
         assert_se(p = strdup("\x1B[waldo"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "\x1B[waldo");
         free(p);
 
         assert_se(p = strdup("\r\rwaldo"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "\r\rwaldo");
         free(p);
 
         assert_se(p = strdup("waldo\r\r"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "waldo");
         free(p);
 
         assert_se(p = strdup("waldo\r\r\n\r\n"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "waldo\n\n");
         free(p);
 
@@ -53,7 +53,7 @@ TEST(strip_tab_ansi) {
         assert_se(p = strjoin("something ", urlified, " something-else"));
         assert_se(q = strdup(p));
         printf("<%s>\n", p);
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         printf("<%s>\n", p);
         ASSERT_STREQ(p, "something i am a fabulous link something-else");
         p = mfree(p);
@@ -64,7 +64,7 @@ TEST(strip_tab_ansi) {
         if (z) {
                 *z = 0;
                 assert_se(qq = strdup(q));
-                assert_se(strip_tab_ansi(&q, NULL, NULL));
+                assert_se(strip_tab_ansi(&q, /* _isz= */ NULL, /* highlight= */ NULL));
                 ASSERT_STREQ(q, qq);
         }
 
@@ -73,7 +73,7 @@ TEST(strip_tab_ansi) {
                              "between1" ANSI_OSC "inside2\a"
                              "between2" ANSI_OSC "inside3\x1b\x5c"
                              "after"));
-        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        assert_se(strip_tab_ansi(&p, /* _isz= */ NULL, /* highlight= */ NULL));
         ASSERT_STREQ(p, "beforebetween1between2after");
         free(p);
 }

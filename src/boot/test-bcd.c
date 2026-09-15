@@ -16,7 +16,7 @@ static void load_bcd(const char *path, void **ret_bcd, size_t *ret_bcd_len) {
         _cleanup_free_ char *fn = NULL, *compressed = NULL;
 
         assert_se(get_testdata_dir(path, &fn) >= 0);
-        assert_se(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, SIZE_MAX, 0, NULL, &compressed, &len) >= 0);
+        assert_se(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, &compressed, &len) >= 0);
         assert_se(decompress_blob(COMPRESSION_ZSTD, compressed, len, ret_bcd, ret_bcd_len, SIZE_MAX) >= 0);
 }
 
@@ -43,14 +43,14 @@ static void test_get_bcd_title_one(
 TEST(get_bcd_title) {
         test_get_bcd_title_one("test-bcd/win10.bcd.zst", u"Windows 10", sizeof(u"Windows 10"));
 
-        test_get_bcd_title_one("test-bcd/description-bad-type.bcd.zst", NULL, 0);
-        test_get_bcd_title_one("test-bcd/description-empty.bcd.zst", NULL, 0);
-        test_get_bcd_title_one("test-bcd/description-missing.bcd.zst", NULL, 0);
-        test_get_bcd_title_one("test-bcd/description-too-small.bcd.zst", NULL, 0);
-        test_get_bcd_title_one("test-bcd/displayorder-bad-name.bcd.zst", NULL, 0);
-        test_get_bcd_title_one("test-bcd/displayorder-bad-size.bcd.zst", NULL, 0);
-        test_get_bcd_title_one("test-bcd/displayorder-bad-type.bcd.zst", NULL, 0);
-        test_get_bcd_title_one("test-bcd/empty.bcd.zst", NULL, 0);
+        test_get_bcd_title_one("test-bcd/description-bad-type.bcd.zst", /* title_expect= */ NULL, /* title_len_expect= */ 0);
+        test_get_bcd_title_one("test-bcd/description-empty.bcd.zst", /* title_expect= */ NULL, /* title_len_expect= */ 0);
+        test_get_bcd_title_one("test-bcd/description-missing.bcd.zst", /* title_expect= */ NULL, /* title_len_expect= */ 0);
+        test_get_bcd_title_one("test-bcd/description-too-small.bcd.zst", /* title_expect= */ NULL, /* title_len_expect= */ 0);
+        test_get_bcd_title_one("test-bcd/displayorder-bad-name.bcd.zst", /* title_expect= */ NULL, /* title_len_expect= */ 0);
+        test_get_bcd_title_one("test-bcd/displayorder-bad-size.bcd.zst", /* title_expect= */ NULL, /* title_len_expect= */ 0);
+        test_get_bcd_title_one("test-bcd/displayorder-bad-type.bcd.zst", /* title_expect= */ NULL, /* title_len_expect= */ 0);
+        test_get_bcd_title_one("test-bcd/empty.bcd.zst", /* title_expect= */ NULL, /* title_len_expect= */ 0);
 }
 
 TEST(base_block) {
@@ -91,12 +91,12 @@ TEST(base_block) {
 }
 
 TEST(offset_bounds) {
-        assert_se(!bad_offset(0, sizeof(Key), sizeof(Key)));
+        assert_se(!bad_offset(/* offset= */ 0, sizeof(Key), sizeof(Key)));
         assert_se(!BAD_STRUCT(Key, 0, sizeof(Key)));
         assert_se(!BAD_ARRAY(Key, key_name, 0, 0, sizeof(Key)));
 
-        assert_se(bad_offset(0, sizeof(Key) + 1, sizeof(Key)));
-        assert_se(bad_offset(sizeof(Key) + 1, 0, sizeof(Key)));
+        assert_se(bad_offset(/* offset= */ 0, sizeof(Key) + 1, sizeof(Key)));
+        assert_se(bad_offset(sizeof(Key) + 1, /* len= */ 0, sizeof(Key)));
         assert_se(bad_offset(UINT32_MAX, 2, UINT32_MAX));
 }
 
@@ -156,8 +156,8 @@ TEST(argv_bcds) {
                         saved_argv[i],
                         UINT64_MAX,
                         SIZE_MAX,
-                        0,
-                        NULL,
+                        /* flags= */ 0,
+                        /* bind_name= */ NULL,
                         (char **) &bcd,
                         &len) >= 0);
 

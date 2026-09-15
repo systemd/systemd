@@ -271,7 +271,7 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
                 dir_fd = registry_fd;
         }
 
-        r = sd_json_parse_file_at(NULL, dir_fd, fn, 0, &v, NULL, NULL);
+        r = sd_json_parse_file_at(NULL, dir_fd, fn, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return r;
 
@@ -279,7 +279,7 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
         if (!userns_info)
                 return -ENOMEM;
 
-        r = sd_json_dispatch(v, dispatch_table, 0, userns_info);
+        r = sd_json_dispatch(v, dispatch_table, /* flags= */ 0, userns_info);
         if (r < 0)
                 return r;
 
@@ -717,7 +717,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                 return r;
 
         _cleanup_free_ char *def_buf = NULL;
-        r = sd_json_variant_format(def, 0, &def_buf);
+        r = sd_json_variant_format(def, /* flags= */ 0, &def_buf);
         if (r < 0)
                 return log_debug_errno(r, "Failed to format userns JSON object: %m");
 
@@ -1212,7 +1212,7 @@ bool userns_name_is_valid(const char *name) {
                 return false;
 
         const char *u = strjoina("ns-", name, "-65535"); /* Make sure we can turn this into valid user names */
-        if (!valid_user_group_name(u, 0))
+        if (!valid_user_group_name(u, /* flags= */ 0))
                 return false;
 
         return true;

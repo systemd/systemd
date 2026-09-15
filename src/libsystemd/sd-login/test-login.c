@@ -51,29 +51,29 @@ TEST(login) {
         uid_t u, u2 = UID_INVALID;
         char *t, **seats = NULL, **sessions = NULL;
 
-        r = sd_pid_get_unit(0, &unit);
+        r = sd_pid_get_unit(/* pid= */ 0, &unit);
         log_info("sd_pid_get_unit(0, …) → %s / \"%s\"", e(r), strnull(unit));
         assert_se(IN_SET(r, 0, -ENODATA));
 
-        r = sd_pid_get_user_unit(0, &user_unit);
+        r = sd_pid_get_user_unit(/* pid= */ 0, &user_unit);
         log_info("sd_pid_get_user_unit(0, …) → %s / \"%s\"", e(r), strnull(user_unit));
         assert_se(IN_SET(r, 0, -ENODATA));
 
         /* Coverage for https://github.com/systemd/systemd/issues/39949 */
         assert_se(!unit || !user_unit || !streq(unit, user_unit));
 
-        r = sd_pid_get_slice(0, &slice);
+        r = sd_pid_get_slice(/* pid= */ 0, &slice);
         log_info("sd_pid_get_slice(0, …) → %s / \"%s\"", e(r), strnull(slice));
         assert_se(IN_SET(r, 0, -ENODATA));
 
-        r = sd_pid_get_owner_uid(0, &u2);
+        r = sd_pid_get_owner_uid(/* pid= */ 0, &u2);
         log_info("sd_pid_get_owner_uid(0, …) → %s / "UID_FMT, e(r), u2);
         assert_se(IN_SET(r, 0, -ENODATA));
 
-        r = sd_pid_get_session(0, &session);
+        r = sd_pid_get_session(/* pid= */ 0, &session);
         log_info("sd_pid_get_session(0, …) → %s / \"%s\"", e(r), strnull(session));
 
-        r = sd_pid_get_cgroup(0, &cgroup);
+        r = sd_pid_get_cgroup(/* pid= */ 0, &cgroup);
         log_info("sd_pid_get_cgroup(0, …) → %s / \"%s\"", e(r), strnull(cgroup));
         assert_se(IN_SET(r, 0, -ENOMEDIUM));
 
@@ -118,7 +118,7 @@ TEST(login) {
         sd_peer_get_session(pair[1], &qq);
         assert_se(streq_ptr(pp, qq));
 
-        r = ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_sessions(u2, false, &sessions));
+        r = ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_sessions(u2, /* require_active= */ false, &sessions));
         assert_se(t = strv_join(sessions, " "));
         log_info("sd_uid_get_sessions("UID_FMT", …) → %s \"%s\"", u2, e(r), t);
         if (u2 == UID_INVALID)
@@ -130,9 +130,9 @@ TEST(login) {
         sessions = strv_free(sessions);
         free(t);
 
-        assert_se(r == ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_sessions(u2, false, NULL)));
+        assert_se(r == ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_sessions(u2, /* require_active= */ false, /* ret_sessions= */ NULL)));
 
-        r = ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_seats(u2, false, &seats));
+        r = ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_seats(u2, /* require_active= */ false, &seats));
         assert_se(t = strv_join(seats, " "));
         log_info("sd_uid_get_seats("UID_FMT", …) → %s \"%s\"", u2, e(r), t);
         if (u2 == UID_INVALID)
@@ -144,7 +144,7 @@ TEST(login) {
         seats = strv_free(seats);
         free(t);
 
-        assert_se(r == ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_seats(u2, false, NULL)));
+        assert_se(r == ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_seats(u2, /* require_active= */ false, /* ret_seats= */ NULL)));
 
         if (session) {
                 r = sd_session_is_active(session);
@@ -223,7 +223,7 @@ TEST(login) {
                 _cleanup_free_ uid_t *uids = NULL;
                 unsigned n;
 
-                assert_se(sd_uid_is_on_seat(u, 0, seat) > 0);
+                assert_se(sd_uid_is_on_seat(u, /* require_active= */ 0, seat) > 0);
 
                 r = sd_seat_get_active(seat, &session2, &u2);
                 assert_se(r == 0);
@@ -242,7 +242,7 @@ TEST(login) {
                          seat, e(r), t, n, format_uids(&buf, uids, n));
                 free(t);
 
-                assert_se(sd_seat_get_sessions(seat, NULL, NULL, NULL) == r);
+                assert_se(sd_seat_get_sessions(seat, /* ret_sessions= */ NULL, /* ret_uids= */ NULL, /* ret_n_uids= */ NULL) == r);
         }
 
         r = sd_get_seats(&seats);
@@ -253,9 +253,9 @@ TEST(login) {
         log_info("sd_get_seats(…) → [%i] \"%s\"", r, t);
         t = mfree(t);
 
-        assert_se(sd_get_seats(NULL) == r);
+        assert_se(sd_get_seats(/* ret_seats= */ NULL) == r);
 
-        r = sd_seat_get_active(NULL, &t, NULL);
+        r = sd_seat_get_active(/* seat= */ NULL, &t, /* ret_uid= */ NULL);
         assert_se(IN_SET(r, 0, -ENODATA, -ENXIO));
         log_info("sd_seat_get_active(NULL, …) (active session on current seat) → %s / \"%s\"", e(r), strnull(t));
         free(t);
@@ -268,7 +268,7 @@ TEST(login) {
         log_info("sd_get_sessions(…) → [%i] \"%s\"", r, t);
         free(t);
 
-        assert_se(sd_get_sessions(NULL) == r);
+        assert_se(sd_get_sessions(/* ret_sessions= */ NULL) == r);
 
         {
                 _cleanup_free_ uid_t *uids = NULL;
@@ -278,7 +278,7 @@ TEST(login) {
                 assert_se(r >= 0);
                 log_info("sd_get_uids(…) → [%i] {%s}", r, format_uids(&buf, uids, r));
 
-                assert_se(sd_get_uids(NULL) == r);
+                assert_se(sd_get_uids(/* ret_users= */ NULL) == r);
         }
 
         {
@@ -291,7 +291,7 @@ TEST(login) {
                 assert_se(buf = strv_join(machines, " "));
                 log_info("sd_get_machines(…) → [%i] \"%s\"", r, buf);
 
-                assert_se(sd_get_machine_names(NULL) == r);
+                assert_se(sd_get_machine_names(/* ret_machines= */ NULL) == r);
         }
 }
 

@@ -93,7 +93,7 @@ static void start_target(const char *target, const char *mode) {
         log_info("Requesting %s/start/%s", target, mode);
 
         /* Start this unit only if we can replace basic.target with it */
-        r = bus_call_method(bus, bus_systemd_mgr, "StartUnitReplace", &error, NULL, "sss", SPECIAL_BASIC_TARGET, target, mode);
+        r = bus_call_method(bus, bus_systemd_mgr, "StartUnitReplace", &error, /* ret_reply= */ NULL, "sss", SPECIAL_BASIC_TARGET, target, mode);
 
         /* Don't print a warning if we aren't called during startup */
         if (r < 0 && !sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
@@ -287,7 +287,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

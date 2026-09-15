@@ -117,7 +117,7 @@ static int io_stat_parse(const char *cgroup_path, uint64_t ret[static 2]) {
                 for (;;) {
                         _cleanup_free_ char *word = NULL;
 
-                        r = extract_first_word(&p, &word, NULL, EXTRACT_RETAIN_ESCAPE);
+                        r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_RETAIN_ESCAPE);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -215,7 +215,7 @@ static int memory_usage_send(
 
                         /* Move to parent */
                         const char *e;
-                        r = path_find_last_component(p, /* accept_dot_dot= */ false, &e, NULL);
+                        r = path_find_last_component(p, /* accept_dot_dot= */ false, &e, /* ret= */ NULL);
                         if (r <= 0)
                                 break;
                         p[e - p] = '\0';

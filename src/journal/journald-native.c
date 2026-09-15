@@ -161,7 +161,7 @@ static int manager_process_entry(
 
                 q = memchr(p, '=', e - p);
                 if (q) {
-                        if (journal_field_valid(p, q - p, false)) {
+                        if (journal_field_valid(p, q - p, /* allow_protected= */ false)) {
                                 size_t l;
 
                                 l = e - p;
@@ -229,7 +229,7 @@ static int manager_process_entry(
                         k[e - p] = '=';
                         memcpy(k + (e - p) + 1, e + 1 + sizeof(uint64_t), l);
 
-                        if (journal_field_valid(p, e - p, false)) {
+                        if (journal_field_valid(p, e - p, /* allow_protected= */ false)) {
                                 iovec[n] = IOVEC_MAKE(k, (e - p) + 1 + l);
                                 entry_size += iovec[n].iov_len;
                                 n++;
@@ -492,7 +492,7 @@ int manager_process_native_file(
          * locking. Of course, this should normally not be necessary given the check above, but let's
          * better be safe than sorry, after all NFS is pretty confusing regarding file system flags,
          * and we better don't trust it, and so is SMB. */
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(fd, /* nonblock= */ true);
         if (r < 0)
                 return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
                                                  "Failed to make fd non-blocking: %m");
@@ -541,19 +541,19 @@ int manager_open_native_socket(Manager *m, const char *native_socket) {
 
                 (void) chmod(sa.un.sun_path, 0666);
         } else
-                (void) fd_nonblock(m->native_fd, true);
+                (void) fd_nonblock(m->native_fd, /* nonblock= */ true);
 
-        r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_PASSCRED, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "SO_PASSCRED failed: %m");
 
         if (mac_selinux_use()) {
-                r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_PASSSEC, true);
+                r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_PASSSEC, /* value= */ true);
                 if (r < 0)
                         log_full_errno(ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r, "SO_PASSSEC failed, ignoring: %m");
         }
 
-        r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_TIMESTAMP, true);
+        r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_TIMESTAMP, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "SO_TIMESTAMP failed: %m");
 

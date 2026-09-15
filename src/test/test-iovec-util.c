@@ -25,7 +25,7 @@ TEST(iovec_shift) {
 TEST(iovec_inc) {
         struct iovec iov = IOVEC_MAKE_STRING("54321");
 
-        ASSERT_EQ(iovec_memcmp(iovec_inc(&iov, 0), &CONST_IOVEC_MAKE_STRING("54321")), 0);
+        ASSERT_EQ(iovec_memcmp(iovec_inc(&iov, /* shift= */ 0), &CONST_IOVEC_MAKE_STRING("54321")), 0);
         ASSERT_EQ(iovec_memcmp(iovec_inc(&iov, 1), &CONST_IOVEC_MAKE_STRING("4321")), 0);
         ASSERT_EQ(iovec_memcmp(iovec_inc(&iov, 1), &CONST_IOVEC_MAKE_STRING("321")), 0);
         ASSERT_EQ(iovec_memcmp(iovec_inc(&iov, 1), &CONST_IOVEC_MAKE_STRING("21")), 0);
@@ -35,12 +35,12 @@ TEST(iovec_inc) {
         ASSERT_FALSE(iovec_is_set(iovec_inc(&iov, 1)));
 
         struct iovec empty = {};
-        ASSERT_FALSE(iovec_is_set(iovec_inc(&empty, 0)));
+        ASSERT_FALSE(iovec_is_set(iovec_inc(&empty, /* shift= */ 0)));
         ASSERT_FALSE(iovec_is_set(iovec_inc(&empty, 1)));
 }
 
 TEST(iovec_inc_many) {
-        ASSERT_TRUE(iovec_inc_many(NULL, 0, 0));
+        ASSERT_TRUE(iovec_inc_many(/* iovec= */ NULL, 0, 0));
         ASSERT_TRUE(iovec_inc_many(&(struct iovec) {}, 0, 0));
         ASSERT_TRUE(iovec_inc_many(&(struct iovec) {}, 1, 0));
 
@@ -130,13 +130,13 @@ TEST(iovec_set_and_valid) {
                 half = { .iov_base = (char*) "piff", .iov_len = 0 },
                 invalid = { .iov_base = NULL, .iov_len = 47 };
 
-        assert_se(!iovec_is_set(NULL));
+        assert_se(!iovec_is_set(/* iovec= */ NULL));
         assert_se(!iovec_is_set(&empty));
         assert_se(iovec_is_set(&filled));
         assert_se(!iovec_is_set(&half));
         assert_se(!iovec_is_set(&invalid));
 
-        assert_se(iovec_is_valid(NULL));
+        assert_se(iovec_is_valid(/* iovec= */ NULL));
         assert_se(iovec_is_valid(&empty));
         assert_se(iovec_is_valid(&filled));
         assert_se(iovec_is_valid(&half));
@@ -166,7 +166,7 @@ TEST(iovec_make_byte) {
 TEST(iovec_done_and_memdup) {
         _cleanup_(iovec_done) struct iovec iov = {};
 
-        ASSERT_OK_ZERO(iovec_done_and_memdup(&iov, NULL));
+        ASSERT_OK_ZERO(iovec_done_and_memdup(&iov, /* source= */ NULL));
         ASSERT_TRUE(!iovec_is_set(&iov));
         ASSERT_OK_ZERO(iovec_done_and_memdup(&iov, &(struct iovec) {}));
         ASSERT_TRUE(!iovec_is_set(&iov));
@@ -174,7 +174,7 @@ TEST(iovec_done_and_memdup) {
         ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE_STRING("aaa")));
         ASSERT_OK_POSITIVE(iovec_done_and_memdup(&iov, &IOVEC_MAKE_STRING("bbbbb")));
         ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE_STRING("bbbbb")));
-        ASSERT_OK_POSITIVE(iovec_done_and_memdup(&iov, NULL));
+        ASSERT_OK_POSITIVE(iovec_done_and_memdup(&iov, /* source= */ NULL));
         ASSERT_TRUE(!iovec_is_set(&iov));
         ASSERT_OK_POSITIVE(iovec_done_and_memdup(&iov, &IOVEC_MAKE_STRING("ccc")));
         ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE_STRING("ccc")));

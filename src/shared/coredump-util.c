@@ -46,7 +46,7 @@ int coredump_filter_mask_from_string(const char *s, uint64_t *ret) {
                 CoredumpFilter v;
                 int r;
 
-                r = extract_first_word(&s, &n, NULL, 0);
+                r = extract_first_word(&s, &n, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)

@@ -1235,7 +1235,7 @@ static bool same_entry(uint16_t id, sd_id128_t uuid, const char *path) {
         sd_id128_t ouuid;
         int r;
 
-        r = efi_get_boot_option(id, NULL, &ouuid, &opath, NULL);
+        r = efi_get_boot_option(id, /* ret_title= */ NULL, &ouuid, &opath, /* ret_active= */ NULL);
         if (r < 0)
                 return false;
         if (!sd_id128_equal(uuid, ouuid))
@@ -1957,7 +1957,7 @@ static int remove_loader_variables(void) {
 
                 int q;
 
-                q = efi_set_variable(var, NULL, 0);
+                q = efi_set_variable(var, /* value= */ NULL, /* size= */ 0);
                 if (q == -ENOENT)
                         continue;
                 if (q < 0)
@@ -2180,7 +2180,7 @@ int vl_method_install(
                         &p.context.esp_uuid,
                         /* ret_devid= */ NULL);
         if (r == -ENOKEY)
-                return sd_varlink_error(link, "io.systemd.BootControl.NoESPFound", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.NoESPFound", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2197,9 +2197,9 @@ int vl_method_install(
 
         r = run_install(&p.context);
         if (r == -EUNATCH) /* no boot entry token is set */
-                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }

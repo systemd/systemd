@@ -165,7 +165,7 @@ static void test_must_be_flags(void) {
         /* Populate a temporary directory with one entry of each interesting type and verify that the
          * RECURSE_DIR_MUST_BE_* flags select exactly the right subset. */
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, O_DIRECTORY|O_CLOEXEC, &t));
 
         ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0777));
         ASSERT_OK_ERRNO(reg_fd = openat(tfd, "reg", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0666));
@@ -174,7 +174,7 @@ static void test_must_be_flags(void) {
         ASSERT_OK_ERRNO(mknodat(tfd, "sock", S_IFSOCK|0666, 0));
 
         /* Without any MUST_BE flag we get all four entries. */
-        check_readdir_all(tfd, 0, STRV_MAKE("dir", "reg", "lnk", "sock"));
+        check_readdir_all(tfd, /* flags= */ 0, STRV_MAKE("dir", "reg", "lnk", "sock"));
 
         /* A single MUST_BE flag selects exactly the entries of the matching type. */
         check_readdir_all(tfd, RECURSE_DIR_MUST_BE_DIRECTORY, STRV_MAKE("dir"));
@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
          * https://github.com/systemd/systemd/issues/29603), so ignore them to avoid bogus errors. */
 
         t1 = now(CLOCK_MONOTONIC);
-        assert_se(recurse_dir(fd, p, 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, recurse_dir_callback, &list_recurse_dir) >= 0);
+        assert_se(recurse_dir(fd, p, /* statx_mask= */ 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, recurse_dir_callback, &list_recurse_dir) >= 0);
         t2 = now(CLOCK_MONOTONIC);
 
         t3 = now(CLOCK_MONOTONIC);

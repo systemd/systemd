@@ -397,7 +397,7 @@ void manager_process_syslog_message(
          * _or_ if the input message contained NUL bytes. */
         store_raw = msg != buf || strlen(msg) != raw_len;
 
-        syslog_parse_priority(&msg, &priority, true);
+        syslog_parse_priority(&msg, &priority, /* with_facility= */ true);
 
         if (!client_context_test_priority(context, priority))
                 return;
@@ -483,7 +483,7 @@ void manager_process_syslog_message(
                 iovec[n++] = IOVEC_MAKE(msg_raw, hlen + raw_len);
         }
 
-        manager_dispatch_message(m, iovec, n, mm, context, tv, priority, 0);
+        manager_dispatch_message(m, iovec, n, mm, context, tv, priority, /* object_pid= */ 0);
 }
 
 int manager_open_syslog_socket(Manager *m, const char *syslog_socket) {
@@ -513,24 +513,24 @@ int manager_open_syslog_socket(Manager *m, const char *syslog_socket) {
 
                 (void) chmod(sa.un.sun_path, 0666);
         } else
-                (void) fd_nonblock(m->syslog_fd, true);
+                (void) fd_nonblock(m->syslog_fd, /* nonblock= */ true);
 
-        r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSCRED, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
 
-        r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+        r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSRIGHTS, /* value= */ false);
         if (r < 0)
                 log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS, ignoring: %m");
 
         if (mac_selinux_use()) {
-                r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSSEC, true);
+                r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSSEC, /* value= */ true);
                 if (r < 0)
                         log_full_errno(ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to enable SO_PASSSEC, ignoring: %m");
         }
 
-        r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, true);
+        r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable SO_TIMESTAMP: %m");
 

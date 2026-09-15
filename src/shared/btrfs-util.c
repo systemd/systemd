@@ -511,7 +511,7 @@ int btrfs_subvol_find_subtree_qgroup(int fd, uint64_t subvol_id, uint64_t *ret) 
                         return r;
         }
 
-        r = btrfs_qgroupid_split(subvol_id, &level, NULL);
+        r = btrfs_qgroupid_split(subvol_id, &level, /* id= */ NULL);
         if (r < 0)
                 return r;
         if (level != 0) /* Input must be a leaf qgroup */
@@ -785,7 +785,7 @@ int btrfs_qgroup_destroy_recursive(int fd, uint64_t qgroupid) {
          * qgroups it is assigned to that have the same id part of the
          * qgroupid as the specified group. */
 
-        r = btrfs_qgroupid_split(qgroupid, NULL, &subvol_id);
+        r = btrfs_qgroupid_split(qgroupid, /* level= */ NULL, &subvol_id);
         if (r < 0)
                 return r;
 
@@ -796,7 +796,7 @@ int btrfs_qgroup_destroy_recursive(int fd, uint64_t qgroupid) {
         for (int i = 0; i < n; i++) {
                 uint64_t id;
 
-                r = btrfs_qgroupid_split(qgroups[i], NULL, &id);
+                r = btrfs_qgroupid_split(qgroups[i], /* level= */ NULL, &id);
                 if (r < 0)
                         return r;
 
@@ -1041,7 +1041,7 @@ int btrfs_subvol_remove_at(int dir_fd, const char *path, BtrfsRemoveFlags flags)
         if (r < 0)
                 return r;
 
-        return subvol_remove_children(fd, subvolume, 0, flags);
+        return subvol_remove_children(fd, subvolume, /* subvol_id= */ 0, flags);
 }
 
 int btrfs_qgroup_copy_limits(int fd, uint64_t old_qgroupid, uint64_t new_qgroupid) {
@@ -1176,7 +1176,7 @@ static int copy_quota_hierarchy(int fd, uint64_t old_subvol_id, uint64_t new_sub
         for (int i = 0; i < n_old_qgroups; i++) {
                 uint64_t id;
 
-                r = btrfs_qgroupid_split(old_qgroups[i], NULL, &id);
+                r = btrfs_qgroupid_split(old_qgroups[i], /* level= */ NULL, &id);
                 if (r < 0)
                         return r;
 
@@ -1504,7 +1504,7 @@ int btrfs_subvol_snapshot_at_full(
                 return r;
         }
 
-        return subvol_snapshot_children(old_fd, new_fd, subvolume, 0, flags);
+        return subvol_snapshot_children(old_fd, new_fd, subvolume, /* old_subvol_id= */ 0, flags);
 }
 
 int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
@@ -1684,7 +1684,7 @@ int btrfs_subvol_auto_qgroup_fd(int fd, uint64_t subvol_id, bool insert_intermed
                 for (int i = 0; i < n; i++) {
                         uint64_t level;
 
-                        r = btrfs_qgroupid_split(qgroups[i], &level, NULL);
+                        r = btrfs_qgroupid_split(qgroups[i], &level, /* id= */ NULL);
                         if (r < 0)
                                 return r;
 

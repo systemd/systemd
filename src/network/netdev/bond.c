@@ -277,7 +277,7 @@ int config_parse_arp_ip_target_address(
                 _cleanup_free_ char *n = NULL;
                 union in_addr_union ip;
 
-                r = extract_first_word(&p, &n, NULL, 0);
+                r = extract_first_word(&p, &n, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -303,7 +303,7 @@ int config_parse_arp_ip_target_address(
                         continue;
                 }
 
-                r = ordered_set_ensure_put(&b->arp_ip_targets, NULL, UINT32_TO_PTR(ip.in.s_addr));
+                r = ordered_set_ensure_put(&b->arp_ip_targets, /* ops= */ NULL, UINT32_TO_PTR(ip.in.s_addr));
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r == -EEXIST)
@@ -336,7 +336,7 @@ int config_parse_ad_actor_sys_prio(
 
         return config_parse_uint16_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        1, UINT16_MAX, true,
+                        1, UINT16_MAX, /* ignoring= */ true,
                         &b->ad_actor_sys_prio);
 }
 
@@ -361,7 +361,7 @@ int config_parse_ad_user_port_key(
 
         return config_parse_uint16_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        0, 1023, /* ignoring= */ true,
+                        /* min= */ 0, 1023, /* ignoring= */ true,
                         &b->ad_user_port_key);
 }
 

@@ -167,7 +167,7 @@ static int manager_send_request(Manager *m) {
                                 m->event,
                                 &m->event_timeout,
                                 CLOCK_BOOTTIME,
-                                now(CLOCK_BOOTTIME) + TIMEOUT_USEC, 0,
+                                now(CLOCK_BOOTTIME) + TIMEOUT_USEC, /* accuracy= */ 0,
                                 manager_timeout, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to arm timeout timer: %m");
@@ -204,7 +204,7 @@ static int manager_arm_timer(Manager *m, usec_t next) {
                         m->event,
                         &m->event_timer,
                         CLOCK_BOOTTIME,
-                        next, 0,
+                        next, /* accuracy= */ 0,
                         manager_timer, m);
 }
 
@@ -617,7 +617,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 (void) server_address_pretty(m->current_server_address, &pretty);
 
                 log_info("Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
-                (void) sd_notifyf(false, "STATUS=Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
+                (void) sd_notifyf(/* unset_environment= */ false, "STATUS=Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
         }
 
         if (!spike && !m->synchronized) {
@@ -661,7 +661,7 @@ static int manager_listen_setup(Manager *m) {
         if (r < 0)
                 return -errno;
 
-        r = setsockopt_int(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, true);
+        r = setsockopt_int(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, /* value= */ true);
         if (r < 0)
                 return r;
 
@@ -692,7 +692,7 @@ static int manager_begin(Manager *m) {
 
         server_address_pretty(m->current_server_address, &pretty);
         log_debug("Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
-        (void) sd_notifyf(false, "STATUS=Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
+        (void) sd_notifyf(/* unset_environment= */ false, "STATUS=Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
 
         r = manager_clock_watch_setup(m);
         if (r < 0)
@@ -916,7 +916,7 @@ int manager_connect(Manager *m) {
                 log_debug("Delaying attempts to contact servers.");
 
                 r = sd_event_add_time_relative(m->event, &m->event_retry, CLOCK_BOOTTIME, m->connection_retry_usec,
-                                               0, manager_retry_connect, m);
+                                               /* accuracy= */ 0, manager_retry_connect, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create retry timer: %m");
 
@@ -968,7 +968,7 @@ int manager_connect(Manager *m) {
 
                         if (restart && !m->exhausted_servers && m->poll_interval_usec > 0) {
                                 log_debug("Waiting after exhausting servers.");
-                                r = sd_event_add_time_relative(m->event, &m->event_retry, CLOCK_BOOTTIME, m->poll_interval_usec, 0, manager_retry_connect, m);
+                                r = sd_event_add_time_relative(m->event, &m->event_retry, CLOCK_BOOTTIME, m->poll_interval_usec, /* accuracy= */ 0, manager_retry_connect, m);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create retry timer: %m");
 
@@ -1036,7 +1036,7 @@ void manager_disconnect(Manager *m) {
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
-        (void) sd_notify(false, "STATUS=Idle.");
+        (void) sd_notify(/* unset_environment= */ false, "STATUS=Idle.");
 }
 
 void manager_flush_server_names(Manager *m, ServerType t) {
@@ -1133,7 +1133,7 @@ static bool manager_network_read_link_servers(Manager *m) {
                         }
 
                 if (!found) {
-                        r = server_name_new(m, NULL, SERVER_LINK, *i);
+                        r = server_name_new(m, /* ret= */ NULL, SERVER_LINK, *i);
                         if (r < 0) {
                                 log_oom();
                                 goto clear;
@@ -1206,7 +1206,7 @@ static int manager_network_monitor_listen(Manager *m) {
 
         assert(m);
 
-        r = sd_network_monitor_new(&m->network_monitor, NULL);
+        r = sd_network_monitor_new(&m->network_monitor, /* category= */ NULL);
         if (r == -ENOENT) {
                 log_info("systemd does not appear to be running, not listening for systemd-networkd events.");
                 return 0;
@@ -1268,7 +1268,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 log_debug_errno(r, "Failed to install SIGRTMIN+18 signal handler, ignoring: %m");
 
-        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        r = sd_event_add_memory_pressure(m->event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
@@ -1286,7 +1286,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_resolve_attach_event(m->resolve, m->event, 0);
+        r = sd_resolve_attach_event(m->resolve, m->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 

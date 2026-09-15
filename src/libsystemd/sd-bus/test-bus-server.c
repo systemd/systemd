@@ -65,14 +65,14 @@ static int server(void *userdata) {
 
                         quit = true;
 
-                } else if (sd_bus_message_is_method_call(m, NULL, NULL))
+                } else if (sd_bus_message_is_method_call(m, /* interface= */ NULL, /* member= */ NULL))
                         ASSERT_OK(sd_bus_message_new_method_error(
                                         m,
                                         &reply,
                                         &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method.")));
 
                 if (reply)
-                        ASSERT_OK(sd_bus_send(bus, reply, NULL));
+                        ASSERT_OK(sd_bus_send(bus, reply, /* ret_cookie= */ NULL));
         }
 
         return 0;
@@ -87,7 +87,7 @@ static int client(void *userdata) {
         ASSERT_OK(sd_bus_new(&bus));
         ASSERT_OK(sd_bus_set_description(bus, "client"));
         ASSERT_OK(sd_bus_set_fd(bus, c->fds[1], c->fds[1]));
-        ASSERT_OK(sd_bus_attach_event(bus, sd_fiber_get_event(), 0));
+        ASSERT_OK(sd_bus_attach_event(bus, sd_fiber_get_event(), /* priority= */ 0));
         ASSERT_OK(sd_bus_negotiate_fds(bus, c->client_negotiate_unix_fds));
         ASSERT_OK(sd_bus_set_anonymous(bus, c->client_anonymous_auth));
         ASSERT_OK(sd_bus_start(bus));
@@ -100,7 +100,7 @@ static int client(void *userdata) {
                         "org.freedesktop.systemd.test",
                         "Exit"));
 
-        return sd_bus_call(bus, m, 0, &error, &reply);
+        return sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
 }
 
 static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_fds,
@@ -137,13 +137,13 @@ static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_f
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
-        ASSERT_OK(test_one(true, true, false, false));
-        ASSERT_OK(test_one(true, false, false, false));
-        ASSERT_OK(test_one(false, true, false, false));
-        ASSERT_OK(test_one(false, false, false, false));
-        ASSERT_OK(test_one(true, true, true, true));
-        ASSERT_OK(test_one(true, true, false, true));
-        ASSERT_ERROR(test_one(true, true, true, false), EACCES);
+        ASSERT_OK(test_one(/* client_negotiate_unix_fds= */ true, /* server_negotiate_unix_fds= */ true, /* client_anonymous_auth= */ false, /* server_anonymous_auth= */ false));
+        ASSERT_OK(test_one(/* client_negotiate_unix_fds= */ true, /* server_negotiate_unix_fds= */ false, /* client_anonymous_auth= */ false, /* server_anonymous_auth= */ false));
+        ASSERT_OK(test_one(/* client_negotiate_unix_fds= */ false, /* server_negotiate_unix_fds= */ true, /* client_anonymous_auth= */ false, /* server_anonymous_auth= */ false));
+        ASSERT_OK(test_one(/* client_negotiate_unix_fds= */ false, /* server_negotiate_unix_fds= */ false, /* client_anonymous_auth= */ false, /* server_anonymous_auth= */ false));
+        ASSERT_OK(test_one(/* client_negotiate_unix_fds= */ true, /* server_negotiate_unix_fds= */ true, /* client_anonymous_auth= */ true, /* server_anonymous_auth= */ true));
+        ASSERT_OK(test_one(/* client_negotiate_unix_fds= */ true, /* server_negotiate_unix_fds= */ true, /* client_anonymous_auth= */ false, /* server_anonymous_auth= */ true));
+        ASSERT_ERROR(test_one(/* client_negotiate_unix_fds= */ true, /* server_negotiate_unix_fds= */ true, /* client_anonymous_auth= */ true, /* server_anonymous_auth= */ false), EACCES);
 
         return EXIT_SUCCESS;
 }

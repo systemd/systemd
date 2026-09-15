@@ -453,7 +453,7 @@ static int write_to_console(
         }
 
         if (log_get_show_color())
-                get_log_colors(LOG_PRI(level), &on, &off, NULL);
+                get_log_colors(LOG_PRI(level), &on, &off, /* highlight= */ NULL);
 
         if (show_location) {
                 const char *lon = "", *loff = "";
@@ -853,7 +853,7 @@ int log_dump_internal(
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return -ERRNO_VALUE(error);
 
-        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
+        return log_dispatch_internal(level, error, file, line, func, /* object_field= */ NULL, /* object= */ NULL, /* extra_field= */ NULL, /* extra= */ NULL, buffer);
 }
 
 int log_internalv(
@@ -874,7 +874,7 @@ int log_internalv(
 
         (void) vsnprintf(buffer, sizeof buffer, format, ap);
 
-        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
+        return log_dispatch_internal(level, error, file, line, func, /* object_field= */ NULL, /* object= */ NULL, /* extra_field= */ NULL, /* extra= */ NULL, buffer);
 }
 
 int log_internal(
@@ -1037,12 +1037,12 @@ int log_struct_internal(
 
                         /* If the journal is available do structured logging.
                          * Do not report the errno if it is synthetic. */
-                        log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
+                        log_do_header(header, sizeof(header), level, error, file, line, func, /* object_field= */ NULL, /* object= */ NULL, /* extra_field= */ NULL, /* extra= */ NULL);
                         iovec[n++] = IOVEC_MAKE_STRING(header);
 
                         va_start(ap, format);
                         DISABLE_WARNING_FORMAT_NONLITERAL;
-                        r = log_format_iovec(iovec, iovec_len, &n, true, error, format, ap);
+                        r = log_format_iovec(iovec, iovec_len, &n, /* newline_separator= */ true, error, format, ap);
                         REENABLE_WARNING;
                         m = n;
                         if (r < 0)
@@ -1103,7 +1103,7 @@ int log_struct_internal(
                 return -ERRNO_VALUE(error);
         }
 
-        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buf + 8);
+        return log_dispatch_internal(level, error, file, line, func, /* object_field= */ NULL, /* object= */ NULL, /* extra_field= */ NULL, /* extra= */ NULL, buf + 8);
 }
 
 int log_struct_iovec_internal(
@@ -1142,7 +1142,7 @@ int log_struct_iovec_internal(
                         iovec_len = MIN(iovec_len, IOVEC_MAX);
                 iovec = newa(struct iovec, iovec_len);
 
-                log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
+                log_do_header(header, sizeof(header), level, error, file, line, func, /* object_field= */ NULL, /* object= */ NULL, /* extra_field= */ NULL, /* extra= */ NULL);
 
                 iovec[n++] = IOVEC_MAKE_STRING(header);
                 for (size_t i = 0; i < n_input_iovec && n + 2 <= iovec_len; i++) {
@@ -1168,7 +1168,7 @@ int log_struct_iovec_internal(
                         m = strndupa_safe((char*) input_iovec[i].iov_base + STRLEN("MESSAGE="),
                                           input_iovec[i].iov_len - STRLEN("MESSAGE="));
 
-                        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, m);
+                        return log_dispatch_internal(level, error, file, line, func, /* object_field= */ NULL, /* object= */ NULL, /* extra_field= */ NULL, /* extra= */ NULL, m);
                 }
 
         /* Couldn't find MESSAGE=. */
@@ -1194,7 +1194,7 @@ int log_set_max_level_from_string(const char *e) {
                 LogTarget target;
                 const char *colon;
 
-                r = extract_first_word(&e, &word, ",", 0);
+                r = extract_first_word(&e, &word, ",", /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1390,7 +1390,7 @@ void log_parse_environment(void) {
         /* Do not call from library code. */
 
         if (should_parse_proc_cmdline())
-                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+                (void) proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
 
         log_parse_environment_variables();
 }

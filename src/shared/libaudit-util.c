@@ -67,7 +67,7 @@ static int try_audit_request(int fd) {
 
         iov.iov_len = sizeof(msg);
 
-        n = recvmsg_safe(fd, &mh, 0);
+        n = recvmsg_safe(fd, &mh, /* flags= */ 0);
         if (n < 0)
                 return n;
         if (n != NLMSG_LENGTH(sizeof(struct nlmsgerr)))

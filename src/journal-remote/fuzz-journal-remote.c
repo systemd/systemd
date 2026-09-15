@@ -44,17 +44,17 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         /* In */
 
-        r = journal_remote_server_init(&s, name, JOURNAL_WRITE_SPLIT_NONE, 0);
+        r = journal_remote_server_init(&s, name, JOURNAL_WRITE_SPLIT_NONE, /* file_flags= */ 0);
         if (r < 0) {
                 assert_se(IN_SET(r, -ENOMEM, -EMFILE, -ENFILE));
                 return r;
         }
 
-        ASSERT_OK_POSITIVE(journal_remote_add_source(&s, fdin, (char*) "fuzz-data", false));
+        ASSERT_OK_POSITIVE(journal_remote_add_source(&s, fdin, (char*) "fuzz-data", /* own_name= */ false));
         TAKE_FD(fdin_close);
 
         while (s.active)
-                ASSERT_OK(journal_remote_handle_raw_source(NULL, fdin, 0, &s));
+                ASSERT_OK(journal_remote_handle_raw_source(/* event= */ NULL, fdin, /* revents= */ 0, &s));
 
         assert_se(close(fdin) < 0 && errno == EBADF); /* Check that the fd is closed already */
 
@@ -77,7 +77,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         for (OutputMode mode = 0; mode < _OUTPUT_MODE_MAX; mode++) {
                 if (!dev_null)
                         log_info("/* %s */", output_mode_to_string(mode));
-                ASSERT_OK(show_journal(dev_null ?: stdout, j, mode, 0, 0, -1, 0, NULL));
+                ASSERT_OK(show_journal(dev_null ?: stdout, j, mode, /* n_columns= */ 0, /* not_before= */ 0, -1, /* flags= */ 0, /* ellipsized= */ NULL));
                 ASSERT_OK(sd_journal_seek_head(j));
         }
 

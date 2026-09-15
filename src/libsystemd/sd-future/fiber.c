@@ -184,7 +184,7 @@ _noreturn_ static void fiber_entry_point(void) {
         assert(f->func);
         assert(IN_SET(f->state, FIBER_STATE_INITIAL, FIBER_STATE_READY, FIBER_STATE_CANCELLED));
 
-        finish_switch_stack(NULL);
+        finish_switch_stack(/* fake_stack_save= */ NULL);
 
         /* Capture our resumable point on the fiber's stack, then bounce back to whoever last set
          * f->resume_context. On bootstrap that's fiber_bootstrap(); on every subsequent yield it's
@@ -210,7 +210,7 @@ _noreturn_ static void fiber_entry_point(void) {
         }
 
         /* Pass NULL fake_stack_save to discard the fiber's fake stack since the fiber is done. */
-        start_switch_stack(NULL, &f->resume_stack);
+        start_switch_stack(/* fake_stack_save= */ NULL, &f->resume_stack);
 
         /* Bounce back to whichever fiber_run() call most recently entered us. resume_context is
          * per-fiber so nested fiber_run() — e.g. a bus method dispatched as a fiber handler while
@@ -273,7 +273,7 @@ static void reset_current_fiber(void) {
         Fiber *f = fiber_get_current();
         if (f) {
                 fiber_swap_log_state(f);
-                fiber_ops_set(NULL);
+                fiber_ops_set(/* fiber_ops= */ NULL);
         }
         fiber_set_current(NULL);
 }
@@ -332,7 +332,7 @@ static void fiber_enter(Fiber *fiber, Fiber *prev, void **fake_stack_save) {
 static void fiber_leave(Fiber *fiber, Fiber *prev, void *fake_stack_save) {
         finish_switch_stack(fake_stack_save);
         if (!prev)
-                fiber_ops_set(NULL);
+                fiber_ops_set(/* fiber_ops= */ NULL);
         fiber_swap_log_state(fiber);
         fiber_set_current(prev);
 }

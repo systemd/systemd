@@ -112,7 +112,7 @@ void ordered_set_print(FILE *f, const char *field, OrderedSet *s) {
         fputs(field, f);
 
         ORDERED_SET_FOREACH(p, s)
-                fputs_with_separator(f, p, NULL, &space);
+                fputs_with_separator(f, p, /* separator= */ NULL, &space);
 
         fputc('\n', f);
 }

@@ -119,9 +119,9 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 
                 if (r >= 0) {
                         if (type == SELINUX_AVC)
-                                sym_audit_log_user_avc_message(fd, AUDIT_USER_AVC, buf, NULL, NULL, NULL, getuid());
+                                sym_audit_log_user_avc_message(fd, AUDIT_USER_AVC, buf, /* hostname= */ NULL, /* addr= */ NULL, /* tty= */ NULL, getuid());
                         else if (type == SELINUX_ERROR)
-                                sym_audit_log_user_avc_message(fd, AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, getuid());
+                                sym_audit_log_user_avc_message(fd, AUDIT_USER_SELINUX_ERR, buf, /* hostname= */ NULL, /* addr= */ NULL, /* tty= */ NULL, getuid());
 
                         return 0;
                 }
@@ -134,7 +134,7 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         log_internalv(LOG_AUTH | callback_type_to_priority(type),
-                      0, PROJECT_FILE, __LINE__, __func__,
+                      /* error= */ 0, PROJECT_FILE, __LINE__, __func__,
                       fmt2, ap);
         REENABLE_WARNING;
         va_end(ap);
@@ -151,7 +151,7 @@ static int access_init(sd_bus_error *reterr_error) {
         if (initialized)
                 return 1;
 
-        if (sym_avc_open(NULL, 0) != 0) {
+        if (sym_avc_open(/* opts= */ NULL, /* nopts= */ 0) != 0) {
                 /* Passing errno to save original value for later */
                 r = log_selinux_enforcing_errno(errno, "Failed to open the SELinux AVC: %m");
                 if (r == 0)

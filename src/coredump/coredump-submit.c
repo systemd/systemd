@@ -347,7 +347,7 @@ static int save_external_coredump(
                 log_debug("Limiting core file size to %" PRIu64 " bytes due to cgroup and/or filesystem limits.", max_size);
         }
 
-        r = copy_bytes(context->input_fd, fd, max_size, 0);
+        r = copy_bytes(context->input_fd, fd, max_size, /* copy_flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Cannot store coredump of "PID_FMT" (%s): %m",
                                        context->pidref.pid, context->comm);
@@ -584,14 +584,14 @@ static int change_uid_gid(const CoredumpContext *context) {
         gid_t gid = context->gid;
 
         if (uid_is_system(uid)) {
-                r = get_user_creds("systemd-coredump", /* flags= */ 0, NULL, &uid, &gid, NULL, NULL);
+                r = get_user_creds("systemd-coredump", /* flags= */ 0, /* ret_username= */ NULL, &uid, &gid, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                 if (r < 0) {
                         log_warning_errno(r, "Cannot resolve systemd-coredump user. Proceeding to dump core as root: %m");
                         uid = gid = 0;
                 }
         }
 
-        return drop_privileges(uid, gid, 0);
+        return drop_privileges(uid, gid, /* keep_capabilities= */ 0);
 }
 
 static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_size) {
@@ -736,7 +736,7 @@ int coredump_submit(const CoredumpConfig *config, CoredumpContext *context) {
         if (json_metadata) {
                 _cleanup_free_ char *formatted_json = NULL;
 
-                r = sd_json_variant_format(json_metadata, 0, &formatted_json);
+                r = sd_json_variant_format(json_metadata, /* flags= */ 0, &formatted_json);
                 if (r < 0)
                         return log_error_errno(r, "Failed to format JSON package metadata: %m");
 
@@ -785,7 +785,7 @@ int coredump_submit(const CoredumpConfig *config, CoredumpContext *context) {
          * the coredump to the socket. */
 
         if (coredump_context_is_journald(context)) {
-                r = journal_fd_nonblock(true);
+                r = journal_fd_nonblock(/* nonblock= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make journal socket non-blocking: %m");
         }
@@ -795,7 +795,7 @@ int coredump_submit(const CoredumpConfig *config, CoredumpContext *context) {
         if (coredump_context_is_journald(context)) {
                 int k;
 
-                k = journal_fd_nonblock(false);
+                k = journal_fd_nonblock(/* nonblock= */ false);
                 if (k < 0)
                         return log_error_errno(k, "Failed to make journal socket blocking: %m");
         }

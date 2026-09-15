@@ -404,7 +404,7 @@ static int contains_uint64(MMapFileDescriptor *f, uint64_t n, uint64_t p) {
 
                 c = (a + b) / 2;
 
-                r = mmap_cache_fd_get(f, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z);
+                r = mmap_cache_fd_get(f, 0, /* keep_always= */ false, c * sizeof(uint64_t), sizeof(uint64_t), /* st= */ NULL, (void **) &z);
                 if (r < 0)
                         return r;
 
@@ -458,7 +458,7 @@ static int verify_data(
                 return -EBADMSG;
         }
 
-        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, NULL, NULL);
+        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, /* ret_object= */ NULL, /* ret_offset= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -505,7 +505,7 @@ static int verify_data(
                                 return -EBADMSG;
                         }
 
-                        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, NULL, NULL);
+                        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, /* ret_object= */ NULL, /* ret_offset= */ NULL);
                         if (r < 0)
                                 return r;
                         if (r == 0) {
@@ -675,7 +675,7 @@ static int verify_entry(
                 if (r < 0)
                         return r;
 
-                r = journal_file_move_to_entry_by_offset_for_data(f, u, p, DIRECTION_DOWN, NULL, NULL);
+                r = journal_file_move_to_entry_by_offset_for_data(f, u, p, DIRECTION_DOWN, /* ret_object= */ NULL, /* ret_offset= */ NULL);
                 if (r < 0)
                         return r;
 

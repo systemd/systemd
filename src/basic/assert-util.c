@@ -30,7 +30,7 @@ static void log_assert(
 
         log_abort_msg = buffer;
 
-        log_dispatch_internal(level, 0, file, line, func, NULL, NULL, NULL, NULL, buffer);
+        log_dispatch_internal(level, /* error= */ 0, file, line, func, /* object_field= */ NULL, /* object= */ NULL, /* extra_field= */ NULL, /* extra= */ NULL, buffer);
 }
 
 _noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func) {

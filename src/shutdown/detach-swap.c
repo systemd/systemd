@@ -112,7 +112,7 @@ int swapoff_all(bool *changed) {
 
         LIST_HEAD_INIT(swap_list_head);
 
-        r = swap_list_get(NULL, &swap_list_head);
+        r = swap_list_get(/* swaps= */ NULL, &swap_list_head);
         if (r < 0)
                 return r;
 

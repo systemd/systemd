@@ -21,7 +21,7 @@ bool unit_suffix_is_valid(const char *s) _pure_;
 int unit_name_to_prefix(const char *n, char **ret);
 UnitNameFlags unit_name_to_instance(const char *n, char **ret);
 static inline UnitNameFlags unit_name_classify(const char *n) {
-        return unit_name_to_instance(n, NULL);
+        return unit_name_to_instance(n, /* ret= */ NULL);
 }
 int unit_name_to_prefix_and_instance(const char *n, char **ret);
 
@@ -43,7 +43,7 @@ int unit_name_replace_instance_full(
                 bool accept_glob,
                 char **ret);
 static inline int unit_name_replace_instance(const char *original, const char *instance, char **ret) {
-        return unit_name_replace_instance_full(original, instance, false, ret);
+        return unit_name_replace_instance_full(original, instance, /* accept_glob= */ false, ret);
 }
 
 int unit_name_template(const char *f, char **ret);
@@ -64,7 +64,7 @@ typedef enum UnitNameMangle {
 int unit_name_mangle_with_suffix(const char *name, const char *operation, UnitNameMangle flags, const char *suffix, char **ret);
 
 static inline int unit_name_mangle(const char *name, UnitNameMangle flags, char **ret) {
-        return unit_name_mangle_with_suffix(name, NULL, flags, ".service", ret);
+        return unit_name_mangle_with_suffix(name, /* operation= */ NULL, flags, ".service", ret);
 }
 
 int slice_build_parent_slice(const char *slice, char **ret);

@@ -165,7 +165,7 @@ int getxattr_at_malloc(
                 if (n != -ERANGE)
                         return (int) n;
 
-                n = getxattr_pinned_internal(fd, path, at_flags, by_procfs, name, NULL, 0);
+                n = getxattr_pinned_internal(fd, path, at_flags, by_procfs, name, /* buf= */ NULL, /* size= */ 0);
                 if (n < 0)
                         return (int) n;
 
@@ -273,7 +273,7 @@ int listxattr_at_malloc(int fd, const char *path, int at_flags, char **ret) {
                 if (r != -ERANGE)
                         return r;
 
-                r = listxattr_pinned_internal(fd, path, at_flags, by_procfs, NULL, 0);
+                r = listxattr_pinned_internal(fd, path, at_flags, by_procfs, /* buf= */ NULL, /* size= */ 0);
                 if (r < 0)
                         return r;
 

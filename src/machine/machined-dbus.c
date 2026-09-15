@@ -133,7 +133,7 @@ static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        r = image_find(m->runtime_scope, IMAGE_MACHINE, name, NULL, NULL);
+        r = image_find(m->runtime_scope, IMAGE_MACHINE, name, /* root= */ NULL, /* ret= */ NULL);
         if (r == -ENOENT)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
@@ -413,7 +413,7 @@ static int method_create_or_register_machine(
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
-        if (!hostname_is_valid(name, 0))
+        if (!hostname_is_valid(name, /* flags= */ 0))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine name");
 
         r = bus_message_read_id128(message, &id);
@@ -519,7 +519,7 @@ static int method_create_or_register_machine_ex(
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
-        if (!hostname_is_valid(name, 0))
+        if (!hostname_is_valid(name, /* flags= */ 0))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine name");
 
         r = sd_bus_message_enter_container(message, 'a', "(sv)");
@@ -539,7 +539,7 @@ static int method_create_or_register_machine_ex(
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_enter_container(message, 'v', NULL);
+                r = sd_bus_message_enter_container(message, 'v', /* contents= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -688,7 +688,7 @@ static int method_create_machine(sd_bus_message *message, void *userdata, sd_bus
 
         assert(message);
 
-        if (sd_bus_message_is_method_call(message, NULL, "CreateMachineEx"))
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "CreateMachineEx"))
                 r = method_create_or_register_machine_ex(manager, message, "org.freedesktop.machine1.create-machines", &m, error);
         else
                 r = method_create_or_register_machine(manager, message, "org.freedesktop.machine1.create-machine", &m, error);
@@ -721,7 +721,7 @@ static int method_register_machine(sd_bus_message *message, void *userdata, sd_b
 
         assert(message);
 
-        if (sd_bus_message_is_method_call(message, NULL, "RegisterMachineEx"))
+        if (sd_bus_message_is_method_call(message, /* interface= */ NULL, "RegisterMachineEx"))
                 r = method_create_or_register_machine_ex(manager, message, "org.freedesktop.machine1.register-machine", &m, error);
         else
                 r = method_create_or_register_machine(manager, message, "org.freedesktop.machine1.register-machine", &m, error);
@@ -762,7 +762,7 @@ static int method_register_machine(sd_bus_message *message, void *userdata, sd_b
                 }
         }
 
-        r = machine_start(m, NULL, error);
+        r = machine_start(m, /* properties= */ NULL, error);
         if (r < 0)
                 goto fail;
 
@@ -831,7 +831,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
 
         _cleanup_hashmap_free_ Hashmap *images = NULL;
-        r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, &images);
+        r = image_discover(m->runtime_scope, IMAGE_MACHINE, /* root= */ NULL, &images);
         if (r < 0)
                 return r;
 
@@ -1101,7 +1101,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to adjust quota limit: %m");
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int method_set_image_limit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1486,7 +1486,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
 
                 if (machine->started) {
                         if (streq(result, "done"))
-                                machine_send_create_reply(machine, NULL);
+                                machine_send_create_reply(machine, /* error= */ NULL);
                         else {
                                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
@@ -1586,7 +1586,7 @@ int manager_unref_unit(
         assert(m);
         assert(unit);
 
-        return bus_call_method(m->api_bus, bus_systemd_mgr, "UnrefUnit", error, NULL, "s", unit);
+        return bus_call_method(m->api_bus, bus_systemd_mgr, "UnrefUnit", error, /* ret_reply= */ NULL, "s", unit);
 }
 
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
@@ -1634,9 +1634,9 @@ int manager_kill_unit(Manager *manager, const char *unit, const char *subgroup, 
         assert(unit);
 
         if (empty_or_root(subgroup))
-                return bus_call_method(manager->api_bus, bus_systemd_mgr, "KillUnit", reterr_error, NULL, "ssi", unit, "all", signo);
+                return bus_call_method(manager->api_bus, bus_systemd_mgr, "KillUnit", reterr_error, /* ret_reply= */ NULL, "ssi", unit, "all", signo);
 
-        return bus_call_method(manager->api_bus, bus_systemd_mgr, "KillUnitSubgroup", reterr_error, NULL, "sssi", unit, "cgroup", subgroup, signo);
+        return bus_call_method(manager->api_bus, bus_systemd_mgr, "KillUnitSubgroup", reterr_error, /* ret_reply= */ NULL, "sssi", unit, "cgroup", subgroup, signo);
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *reterr_error) {

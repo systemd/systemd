@@ -142,7 +142,7 @@ static inline int ndisc_option_set_link_layer_address(
                 Set **options,
                 uint8_t type,
                 const struct ether_addr *mac) {
-        return ndisc_option_add_link_layer_address(options, type, 0, mac);
+        return ndisc_option_add_link_layer_address(options, type, /* offset= */ 0, mac);
 }
 int ndisc_option_add_prefix_internal(
                 Set **options,
@@ -175,7 +175,7 @@ static inline int ndisc_option_set_prefix(
                 usec_t preferred_lifetime,
                 usec_t valid_until,
                 usec_t preferred_until) {
-        return ndisc_option_add_prefix_internal(options, 0, flags, prefixlen, address,
+        return ndisc_option_add_prefix_internal(options, /* offset= */ 0, flags, prefixlen, address,
                                                 valid_lifetime, preferred_lifetime,
                                                 valid_until, preferred_until);
 }
@@ -190,7 +190,7 @@ int ndisc_option_add_mtu(
 static inline int ndisc_option_set_mtu(
                 Set **options,
                 uint32_t mtu) {
-        return ndisc_option_add_mtu(options, 0, mtu);
+        return ndisc_option_add_mtu(options, /* offset= */ 0, mtu);
 }
 int ndisc_option_add_home_agent_internal(
                 Set **options,
@@ -210,7 +210,7 @@ static inline int ndisc_option_set_home_agent(
                 uint16_t preference,
                 usec_t lifetime,
                 usec_t valid_until) {
-        return ndisc_option_add_home_agent_internal(options, 0, preference, lifetime, valid_until);
+        return ndisc_option_add_home_agent_internal(options, /* offset= */ 0, preference, lifetime, valid_until);
 }
 int ndisc_option_add_route_internal(
                 Set **options,
@@ -236,7 +236,7 @@ static inline int ndisc_option_set_route(
                 const struct in6_addr *prefix,
                 usec_t lifetime,
                 usec_t valid_until) {
-        return ndisc_option_add_route_internal(options, 0, preference, prefixlen, prefix, lifetime, valid_until);
+        return ndisc_option_add_route_internal(options, /* offset= */ 0, preference, prefixlen, prefix, lifetime, valid_until);
 }
 int ndisc_option_add_rdnss_internal(
                 Set **options,
@@ -259,7 +259,7 @@ static inline int ndisc_option_set_rdnss(
                 const struct in6_addr *addresses,
                 usec_t lifetime,
                 usec_t valid_until) {
-        return ndisc_option_add_rdnss_internal(options, 0, n_addresses, addresses, lifetime, valid_until);
+        return ndisc_option_add_rdnss_internal(options, /* offset= */ 0, n_addresses, addresses, lifetime, valid_until);
 }
 int ndisc_option_add_flags_extension(
                 Set **options,
@@ -283,7 +283,7 @@ static inline int ndisc_option_set_dnssl(
                 char * const *domains,
                 usec_t lifetime,
                 usec_t valid_until) {
-        return ndisc_option_add_dnssl_internal(options, 0, domains, lifetime, valid_until);
+        return ndisc_option_add_dnssl_internal(options, /* offset= */ 0, domains, lifetime, valid_until);
 }
 int ndisc_option_add_captive_portal(
                 Set **options,
@@ -292,7 +292,7 @@ int ndisc_option_add_captive_portal(
 static inline int ndisc_option_set_captive_portal(
                 Set **options,
                 const char *portal) {
-        return ndisc_option_add_captive_portal(options, 0, portal);
+        return ndisc_option_add_captive_portal(options, /* offset= */ 0, portal);
 }
 int ndisc_option_add_prefix64_internal(
                 Set **options,
@@ -315,7 +315,7 @@ static inline int ndisc_option_set_prefix64(
                 const struct in6_addr *prefix,
                 usec_t lifetime,
                 usec_t valid_until) {
-        return ndisc_option_add_prefix64_internal(options, 0, prefixlen, prefix, lifetime, valid_until);
+        return ndisc_option_add_prefix64_internal(options, /* offset= */ 0, prefixlen, prefix, lifetime, valid_until);
 }
 
 int ndisc_option_add_encrypted_dns_internal(
@@ -337,7 +337,7 @@ static inline int ndisc_option_set_encrypted_dns(
                 sd_dns_resolver *res,
                 usec_t lifetime,
                 usec_t valid_until) {
-        return ndisc_option_add_encrypted_dns_internal(options, 0, res, lifetime, valid_until);
+        return ndisc_option_add_encrypted_dns_internal(options, /* offset= */ 0, res, lifetime, valid_until);
 }
 
 int ndisc_send(int fd, const struct in6_addr *dst, const struct icmp6_hdr *hdr, Set *options, usec_t timestamp);

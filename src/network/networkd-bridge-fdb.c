@@ -194,7 +194,7 @@ static bool bridge_fdb_is_ready_to_configure(BridgeFDB *fdb, Link *link) {
         assert(link);
         assert(link->manager);
 
-        if (!link_is_ready_to_configure(link, false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return false;
 
         if (fdb->outgoing_ifname) {
@@ -206,7 +206,7 @@ static bool bridge_fdb_is_ready_to_configure(BridgeFDB *fdb, Link *link) {
                 if (link_get_by_index(link->manager, fdb->outgoing_ifindex, &out) < 0)
                         return false;
         }
-        if (out && !link_is_ready_to_configure(out, false))
+        if (out && !link_is_ready_to_configure(out, /* allow_unmanaged= */ false))
                 return false;
 
         return true;
@@ -240,13 +240,13 @@ int link_request_static_bridge_fdb(Link *link) {
 
         HASHMAP_FOREACH(fdb, link->network->bridge_fdb_entries_by_section) {
                 r = link_queue_request_full(link, REQUEST_TYPE_BRIDGE_FDB,
-                                            fdb, NULL,
+                                            fdb, /* free_func= */ NULL,
                                             trivial_hash_func,
                                             trivial_compare_func,
                                             bridge_fdb_process_request,
                                             &link->static_bridge_fdb_messages,
                                             bridge_fdb_configure_handler,
-                                            NULL);
+                                            /* ret= */ NULL);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to request static bridge FDB entry: %m");
         }

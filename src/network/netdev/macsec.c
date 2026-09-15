@@ -160,7 +160,7 @@ static int macsec_receive_channel_new_static(MACsec *s, const char *filename, un
                 return 0;
         }
 
-        r = macsec_receive_channel_new(s, 0, &c);
+        r = macsec_receive_channel_new(s, /* sci= */ 0, &c);
         if (r < 0)
                 return r;
 
@@ -734,7 +734,7 @@ int config_parse_macsec_key(
         assert(rvalue);
         assert(data);
 
-        (void) warn_file_is_world_accessible(filename, NULL, unit, line);
+        (void) warn_file_is_world_accessible(filename, /* st= */ NULL, unit, line);
 
         if (streq(section, "MACsecTransmitAssociation"))
                 r = macsec_transmit_association_new_static(s, filename, section_line, &a);
@@ -992,7 +992,7 @@ static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
                         READ_FULL_FILE_WARN_WORLD_READABLE |
                         READ_FULL_FILE_CONNECT_SOCKET |
                         READ_FULL_FILE_FAIL_WHEN_LARGER,
-                        NULL, (char **) &key, &key_len);
+                        /* bind_name= */ NULL, (char **) &key, &key_len);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
                                               "Failed to read key from '%s', ignoring: %m",

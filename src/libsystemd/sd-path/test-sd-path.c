@@ -12,7 +12,7 @@ TEST(sd_path_lookup) {
                 _cleanup_free_ char *t = NULL, *s = NULL;
                 int r;
 
-                r = sd_path_lookup(i, NULL, &t);
+                r = sd_path_lookup(i, /* suffix= */ NULL, &t);
                 if (i == SD_PATH_USER_RUNTIME && r == -ENXIO)
                         continue;
                 assert_se(r == 0);
@@ -26,7 +26,7 @@ TEST(sd_path_lookup) {
         }
 
         char *tt;
-        assert_se(sd_path_lookup(_SD_PATH_MAX, NULL, &tt) == -EOPNOTSUPP);
+        assert_se(sd_path_lookup(_SD_PATH_MAX, /* suffix= */ NULL, &tt) == -EOPNOTSUPP);
 }
 
 TEST(sd_path_lookup_strv) {
@@ -34,7 +34,7 @@ TEST(sd_path_lookup_strv) {
                 _cleanup_strv_free_ char **t = NULL, **s = NULL;
                 int r;
 
-                r = sd_path_lookup_strv(i, NULL, &t);
+                r = sd_path_lookup_strv(i, /* suffix= */ NULL, &t);
                 if (i == SD_PATH_USER_RUNTIME && r == -ENXIO)
                         continue;
                 assert_se(r == 0);
@@ -53,7 +53,7 @@ TEST(sd_path_lookup_strv) {
         }
 
         char *tt;
-        assert_se(sd_path_lookup(_SD_PATH_MAX, NULL, &tt) == -EOPNOTSUPP);
+        assert_se(sd_path_lookup(_SD_PATH_MAX, /* suffix= */ NULL, &tt) == -EOPNOTSUPP);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

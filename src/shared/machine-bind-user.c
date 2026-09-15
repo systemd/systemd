@@ -29,7 +29,7 @@ static int check_etc_passwd_collisions(
         if (!directory)
                 return 0;
 
-        r = chase_and_fopen_unlocked("/etc/passwd", directory, CHASE_PREFIX_ROOT, "re", NULL, &f);
+        r = chase_and_fopen_unlocked("/etc/passwd", directory, CHASE_PREFIX_ROOT, "re", /* ret_path= */ NULL, &f);
         if (r == -ENOENT)
                 return 0; /* no user database? then no user, hence no collision */
         if (r < 0)
@@ -64,7 +64,7 @@ static int check_etc_group_collisions(
         if (!directory)
                 return 0;
 
-        r = chase_and_fopen_unlocked("/etc/group", directory, CHASE_PREFIX_ROOT, "re", NULL, &f);
+        r = chase_and_fopen_unlocked("/etc/group", directory, CHASE_PREFIX_ROOT, "re", /* ret_path= */ NULL, &f);
         if (r == -ENOENT)
                 return 0; /* no group database? then no group, hence no collision */
         if (r < 0)
@@ -183,14 +183,14 @@ static int find_free_uid(const char *directory, uid_t *current_uid) {
                                         "No suitable available UID in range " UID_FMT "…" UID_FMT " in machine detected, can't map user.",
                                         MAP_UID_MIN, MAP_UID_MAX);
 
-                r = check_etc_passwd_collisions(directory, NULL, *current_uid);
+                r = check_etc_passwd_collisions(directory, /* name= */ NULL, *current_uid);
                 if (r < 0)
                         return r;
                 if (r > 0) /* already used */
                         continue;
 
                 /* We want to use the UID also as GID, hence check for it in /etc/group too */
-                r = check_etc_group_collisions(directory, NULL, (gid_t) *current_uid);
+                r = check_etc_group_collisions(directory, /* name= */ NULL, (gid_t) *current_uid);
                 if (r <= 0)
                         return r;
         }

@@ -50,7 +50,7 @@ void path_hash_func(const char *p, struct siphash *state) {
                 const char *e;
                 int r;
 
-                r = path_find_first_component(&p, true, &e);
+                r = path_find_first_component(&p, /* accept_dot_dot= */ true, &e);
                 if (r == 0)
                         return;
 

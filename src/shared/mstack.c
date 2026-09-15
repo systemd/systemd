@@ -901,7 +901,7 @@ static int mstack_make_overlayfs(
                         report_errno_and_exit(errno_pipe_fds[1], -errno);
                 }
 
-                report_errno_and_exit(errno_pipe_fds[1], 0);
+                report_errno_and_exit(errno_pipe_fds[1], /* error= */ 0);
         }
 
         _cleanup_close_ int overlayfs_mnt_fd = fsmount(sb_fd, FSMOUNT_CLOEXEC, 0);

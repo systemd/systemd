@@ -61,7 +61,7 @@ static int load_key_file(
         r = read_full_file_full(
                         AT_FDCWD, key_file, UINT64_MAX, DM_MAX_KEY_SIZE,
                         READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET|READ_FULL_FILE_FAIL_WHEN_LARGER,
-                        NULL,
+                        /* bind_name= */ NULL,
                         &tmp_key_file_contents, &tmp_key_file_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to process key file: %m");

@@ -56,7 +56,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
         if (!isempty(new_tz) && !strchr(new_tz, ','))
                 new_tz = strjoina(":", new_tz);
 
-        assert_se(set_unset_env("TZ", new_tz, true) == 0);
+        assert_se(set_unset_env("TZ", new_tz, /* overwrite= */ true) == 0);
         tzset();
 
         ASSERT_OK(calendar_spec_from_string(input, &c));
@@ -270,9 +270,9 @@ static int run_in_child_capture_stderr(const char *spec) {
         int r = pidref_safe_fork_full(
                         "(calendarspec-warn)",
                         (const int[3]) { -1, -1, memfd },
-                        NULL, 0,
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_WAIT|FORK_LOG|FORK_REARRANGE_STDIO,
-                        NULL);
+                        /* ret= */ NULL);
         assert_se(r >= 0);
 
         if (r == 0) {

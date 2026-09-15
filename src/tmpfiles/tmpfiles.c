@@ -495,7 +495,7 @@ static int load_unix_sockets(Context *c) {
                                       "Failed to open %s, ignoring: %m", "/proc/net/unix");
 
         /* Skip header */
-        r = read_line(f, LONG_LINE_MAX, NULL);
+        r = read_line(f, LONG_LINE_MAX, /* ret= */ NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to skip /proc/net/unix header line: %m");
         if (r == 0)
@@ -791,7 +791,7 @@ static int dir_cleanup(
                                                 sub_path, sub_dir,
                                                 atime_nsec, mtime_nsec, cutoff_nsec,
                                                 rootdev_major, rootdev_minor,
-                                                false, maxdepth-1, false,
+                                                /* mountpoint= */ false, maxdepth-1, /* keep_this_level= */ false,
                                                 age_by_file, age_by_dir);
                                 if (q < 0)
                                         r = q;
@@ -812,7 +812,7 @@ static int dir_cleanup(
                          * given cutoff time; delete if it is older.
                          */
                         if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
-                                           cutoff_nsec, sub_path, age_by_dir, true))
+                                           cutoff_nsec, sub_path, age_by_dir, /* is_dir= */ true))
                                 continue;
 
                         log_action("Would remove", "Removing", "%s directory \"%s\"", sub_path);
@@ -868,7 +868,7 @@ static int dir_cleanup(
                         }
 
                         if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
-                                           cutoff_nsec, sub_path, age_by_file, false))
+                                           cutoff_nsec, sub_path, age_by_file, /* is_dir= */ false))
                                 continue;
 
                         if (!arg_dry_run) {
@@ -1093,7 +1093,7 @@ static int path_open_parent_safe(const char *path, bool allow_failure) {
                                       path,
                                       allow_failure ? ", ignoring" : "");
 
-        r = chase(dn, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL, &fd);
+        r = chase(dn, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, /* ret_path= */ NULL, &fd);
         if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
                 return r;
         if (r < 0)
@@ -1118,7 +1118,7 @@ static int path_open_safe(const char *path) {
         if (!path_is_normalized(path))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to open invalid path '%s'.", path);
 
-        r = chase(path, arg_root, CHASE_SAFE|CHASE_WARN|CHASE_NOFOLLOW, NULL, &fd);
+        r = chase(path, arg_root, CHASE_SAFE|CHASE_WARN|CHASE_NOFOLLOW, /* ret_path= */ NULL, &fd);
         if (r == -ENOLINK)
                 return r; /* Unsafe symlink: already covered by CHASE_WARN */
         if (r < 0)
@@ -1160,7 +1160,7 @@ static int parse_xattrs_from_arg(Item *i) {
         for (;;) {
                 _cleanup_free_ char *name = NULL, *value = NULL, *xattr = NULL;
 
-                r = extract_first_word(&p, &xattr, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
+                r = extract_first_word(&p, &xattr, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse extended attribute '%s', ignoring: %m", p);
                 if (r <= 0)
@@ -1342,7 +1342,7 @@ static int parse_acl_cond_exec(
         } else
                 has_exec = true;
 
-        _cleanup_(acl_freep) acl_t parsed = access ? sym_acl_dup(access) : sym_acl_init(0);
+        _cleanup_(acl_freep) acl_t parsed = access ? sym_acl_dup(access) : sym_acl_init(/* count= */ 0);
         if (!parsed)
                 return -errno;
 
@@ -1421,7 +1421,7 @@ static int path_set_acl(
         if (r < 0)
                 return r;
 
-        t = sym_acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
+        t = sym_acl_to_any_text(dup, /* prefix= */ NULL, ',', TEXT_ABBREVIATE);
         log_action("Would set", "Setting",
                    "%s %s ACL %s on %s",
                    type == ACL_TYPE_ACCESS ? "access" : "default",
@@ -1548,7 +1548,7 @@ static int capability_vfs_from_string(const char *s, FCapsUpdate *ret) {
                 char *value, sep;
                 int r;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to split words from '%s': %m", p);
                 if (r == 0)
@@ -1934,7 +1934,7 @@ static int fd_set_attribute(
                         return log_error_errno(procfs_fd, "Failed to reopen '%s': %m", path);
 
                 unsigned previous, current;
-                r = chattr_full(procfs_fd, NULL, f, item->attribute_mask, &previous, &current, CHATTR_FALLBACK_BITWISE);
+                r = chattr_full(procfs_fd, /* path= */ NULL, f, item->attribute_mask, &previous, &current, CHATTR_FALLBACK_BITWISE);
                 if (r == -ENOANO)
                         log_warning("Cannot set file attributes for '%s', maybe due to incompatibility in specified attributes, "
                                     "previous=0x%08x, current=0x%08x, expected=0x%08x, ignoring.",
@@ -2037,7 +2037,7 @@ static int write_one_file(Context *c, Item *i, const char *path, CreationMode cr
         if (r < 0)
                 return r;
 
-        return fd_set_perms(c, i, fd, path, NULL, creation);
+        return fd_set_perms(c, i, fd, path, /* st= */ NULL, creation);
 }
 
 static int create_file(
@@ -2242,7 +2242,7 @@ static int copy_files(Context *c, Item *i) {
                          i->uid_set ? i->uid : UID_INVALID,
                          i->gid_set ? i->gid : GID_INVALID,
                          ((i->append_or_force) ? COPY_MERGE : COPY_MERGE_EMPTY) | COPY_MAC_CREATE | COPY_HARDLINKS,
-                         NULL, NULL);
+                         /* denylist= */ NULL, /* subvolumes= */ NULL);
 
         fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
         if (fd < 0) {
@@ -2417,7 +2417,7 @@ static int create_subvolume(
 
         if (creation == CREATION_NORMAL &&
             IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
-                r = btrfs_subvol_auto_qgroup_fd(fd, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
+                r = btrfs_subvol_auto_qgroup_fd(fd, /* subvol_id= */ 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
                 if (r == -ENOTTY)
                         log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
                 else if (r == -EROFS)
@@ -2453,7 +2453,7 @@ static int empty_directory(
         assert(i);
         assert(i->type == EMPTY_DIRECTORY);
 
-        r = chase(path, arg_root, CHASE_SAFE|CHASE_WARN, NULL, &fd);
+        r = chase(path, arg_root, CHASE_SAFE|CHASE_WARN, /* ret_path= */ NULL, &fd);
         if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
                 return r;
         if (r == -ENOENT) {
@@ -3006,7 +3006,7 @@ static int rm_if_wrong_type_safe(
 
                         r = unlinkat_harder(parent_fd, name, AT_REMOVEDIR, REMOVE_CHMOD | REMOVE_CHMOD_RESTORE);
                 } else
-                        r = unlinkat_harder(parent_fd, name, 0, REMOVE_CHMOD | REMOVE_CHMOD_RESTORE);
+                        r = unlinkat_harder(parent_fd, name, /* unlink_flags= */ 0, REMOVE_CHMOD | REMOVE_CHMOD_RESTORE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to remove \"%s/%s\": %m", parent_name ?: "...", name);
         }
@@ -3030,7 +3030,7 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
 
         if (!is_path(path))
                 /* rm_if_wrong_type_safe already logs errors. */
-                return rm_if_wrong_type_safe(child_mode, AT_FDCWD, NULL, path, AT_SYMLINK_NOFOLLOW);
+                return rm_if_wrong_type_safe(child_mode, AT_FDCWD, /* parent_st= */ NULL, path, AT_SYMLINK_NOFOLLOW);
 
         if (child_mode != 0 && endswith(path, "/"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -3062,7 +3062,7 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                 if (*e == 0)
                         return rm_if_wrong_type_safe(child_mode, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW);
 
-                r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, 0);
+                r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, /* flags= */ 0);
                 /* Remove dangling symlinks. */
                 if (r == -ENOENT)
                         r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW);
@@ -3146,7 +3146,7 @@ static int create_item(Context *c, Item *i) {
                 break;
 
         case COPY_FILES:
-                r = mkdir_parents_item(i, 0);
+                r = mkdir_parents_item(i, /* child_mode= */ 0);
                 if (r < 0)
                         return r;
 
@@ -3810,11 +3810,11 @@ static int clean_item_instance_from_dir(
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *ab_f = NULL, *ab_d = NULL;
 
-                ab_f = age_by_to_string(i->age_by_file, false);
+                ab_f = age_by_to_string(i->age_by_file, /* is_dir= */ false);
                 if (!ab_f)
                         return log_oom();
 
-                ab_d = age_by_to_string(i->age_by_dir, true);
+                ab_d = age_by_to_string(i->age_by_dir, /* is_dir= */ true);
                 if (!ab_d)
                         return log_oom();
 
@@ -3982,7 +3982,7 @@ static int process_item(
                         path = _path;
         }
 
-        r = chase(path, arg_root, CHASE_NO_AUTOFS|CHASE_NONEXISTENT|CHASE_WARN, NULL, NULL);
+        r = chase(path, arg_root, CHASE_NO_AUTOFS|CHASE_NONEXISTENT|CHASE_WARN, /* ret_path= */ NULL, /* ret_fd= */ NULL);
         if (r == -EREMOTE) {
                 log_notice_errno(r, "Skipping %s", i->path); /* We log the configured path, to not confuse the user. */
                 return 0;
@@ -4149,11 +4149,11 @@ static int specifier_expansion_from_arg(const Specifier *specifier_table, Item *
                 _cleanup_free_ char *unescaped = NULL, *resolved = NULL;
                 ssize_t l;
 
-                l = cunescape(i->argument, 0, &unescaped);
+                l = cunescape(i->argument, /* flags= */ 0, &unescaped);
                 if (l < 0)
                         return log_error_errno(l, "Failed to unescape parameter to write: %s", i->argument);
 
-                r = specifier_printf(unescaped, PATH_MAX-1, specifier_table, arg_root, NULL, &resolved);
+                r = specifier_printf(unescaped, PATH_MAX-1, specifier_table, arg_root, /* userdata= */ NULL, &resolved);
                 if (r < 0)
                         return r;
 
@@ -4164,7 +4164,7 @@ static int specifier_expansion_from_arg(const Specifier *specifier_table, Item *
                 STRV_FOREACH(xattr, i->xattrs) {
                         _cleanup_free_ char *resolved = NULL;
 
-                        r = specifier_printf(*xattr, SIZE_MAX, specifier_table, arg_root, NULL, &resolved);
+                        r = specifier_printf(*xattr, SIZE_MAX, specifier_table, arg_root, /* userdata= */ NULL, &resolved);
                         if (r < 0)
                                 return r;
 
@@ -4230,7 +4230,7 @@ static int find_uid(const char *user, uid_t *ret_uid, Hashmap **cache) {
 
         /* Second: pass to NSS if we are running "online" */
         if (!arg_root)
-                return get_user_creds(user, /* flags= */ 0, NULL, ret_uid, NULL, NULL, NULL);
+                return get_user_creds(user, /* flags= */ 0, /* ret_username= */ NULL, ret_uid, /* ret_gid= */ NULL, /* ret_home= */ NULL, /* ret_shell= */ NULL);
 
         /* Third, synthesize "root" unconditionally */
         if (streq(user, "root")) {
@@ -4445,7 +4445,7 @@ static int parse_line(
         i.purge = purge;
         i.ignore_if_target_missing = ignore_if_target_missing;
 
-        r = specifier_printf(path, PATH_MAX-1, specifier_table, arg_root, NULL, &i.path);
+        r = specifier_printf(path, PATH_MAX-1, specifier_table, arg_root, /* userdata= */ NULL, &i.path);
         if (ERRNO_IS_NEG_NOINFO(r))
                 return log_unresolvable_specifier(fname, line);
         if (r < 0) {
@@ -4893,13 +4893,13 @@ static int cat_config(char **config_dirs, char **args) {
         _cleanup_strv_free_ char **files = NULL;
         int r;
 
-        r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, NULL);
+        r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, /* ret_inserted= */ NULL);
         if (r < 0)
                 return r;
 
         pager_open(arg_pager_flags);
 
-        return cat_files(NULL, files, arg_cat_flags);
+        return cat_files(/* file= */ NULL, files, arg_cat_flags);
 }
 
 static int exclude_default_prefixes(void) {
@@ -5201,7 +5201,7 @@ static int read_config_files(
                 } else
                         /* Just warn, ignore result otherwise.
                          * read_config_file() has some debug output, so no need to print anything. */
-                        (void) read_config_file(c, config_dirs, *f, true, invalid_config);
+                        (void) read_config_file(c, config_dirs, *f, /* ignore_enoent= */ true, invalid_config);
 
         return 0;
 }
@@ -5252,7 +5252,7 @@ static int link_parent(Context *c, ItemArray *a) {
                 if (!j)
                         j = ordered_hashmap_get(c->globs, prefix);
                 if (j) {
-                        r = set_ensure_put(&j->children, NULL, a);
+                        r = set_ensure_put(&j->children, /* hash_ops= */ NULL, a);
                         if (r < 0)
                                 return log_oom();
 

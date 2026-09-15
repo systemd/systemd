@@ -452,19 +452,19 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = sd_bus_add_filter(bus, NULL, filter_handler, NULL);
+        r = sd_bus_add_filter(bus, /* ret_slot= */ NULL, filter_handler, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add filter: %m");
 
-        r = sd_bus_request_name(bus, "org.freedesktop.ModemManager1", 0);
+        r = sd_bus_request_name(bus, "org.freedesktop.ModemManager1", /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire bus name: %m");
 
-        r = sd_bus_attach_event(bus, event, 0);
+        r = sd_bus_attach_event(bus, event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        (void) sd_notify(0, "READY=1");
+        (void) sd_notify(/* unset_environment= */ 0, "READY=1");
 
         return sd_event_loop(event);
 }

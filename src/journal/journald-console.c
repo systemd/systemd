@@ -77,7 +77,7 @@ void manager_forward_console(
                 iovec[n++] = IOVEC_MAKE_STRING(": ");
         }
 
-        get_log_colors(LOG_PRI(priority), &color_on, &color_off, NULL);
+        get_log_colors(LOG_PRI(priority), &color_on, &color_off, /* highlight= */ NULL);
 
         /* Fourth: message */
         iovec[n++] = IOVEC_MAKE_STRING(color_on);

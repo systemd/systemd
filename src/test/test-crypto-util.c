@@ -267,7 +267,7 @@ static void verify_hmac(
         size_t digest_size;
 
         if (n_data == 0) {
-                assert_se(openssl_hmac(digest_alg, k, k_len, NULL, 0, &digest, &digest_size) == 0);
+                assert_se(openssl_hmac(digest_alg, k, k_len, /* buf= */ NULL, /* len= */ 0, &digest, &digest_size) == 0);
                 assert_se(memcmp_nn(e, e_len, digest, digest_size) == 0);
                 digest = mfree(digest);
         } else if(n_data == 1) {
@@ -502,7 +502,7 @@ static void check_cipher(
         DEFINE_HEX_PTR(expected, hex_expected);
 
         if (n_data == 0) {
-                assert_se(openssl_cipher(alg, bits, mode, key, key_len, iv, iv_len, NULL, 0, &enc_buf, &enc_buf_len) >= 0);
+                assert_se(openssl_cipher(alg, bits, mode, key, key_len, iv, iv_len, /* buf= */ NULL, /* len= */ 0, &enc_buf, &enc_buf_len) >= 0);
                 assert_se(memcmp_nn(enc_buf, enc_buf_len, expected, expected_len) == 0);
                 enc_buf = mfree(enc_buf);
         } else if (n_data == 1) {
@@ -626,11 +626,11 @@ TEST(string_hashsum) {
         /* echo -n 'asdf' | sha256sum - */
         ASSERT_STREQ(out2, "f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b");
 
-        ASSERT_OK(string_hashsum("", 0, "SHA224", &out3));
+        ASSERT_OK(string_hashsum("", /* len= */ 0, "SHA224", &out3));
         /* echo -n '' | sha224sum - */
         ASSERT_STREQ(out3, "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f");
 
-        ASSERT_OK(string_hashsum("", 0, "SHA256", &out4));
+        ASSERT_OK(string_hashsum("", /* len= */ 0, "SHA256", &out4));
         /* echo -n '' | sha256sum - */
         ASSERT_STREQ(out4, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
 }

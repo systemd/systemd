@@ -315,7 +315,7 @@ static int trigger_xaccess(char * const *extra_devices) {
                         continue;
 
                 /* In case people mistag devices without nodes, we need to ignore this. */
-                r = sd_device_get_devname(d, NULL);
+                r = sd_device_get_devname(d, /* ret= */ NULL);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -345,7 +345,7 @@ int session_save(Session *s) {
         if (!s->started)
                 return 0;
 
-        r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label("/run/systemd/sessions", 0755, /* uid= */ 0, /* gid= */ 0, MKDIR_WARN_MODE);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/systemd/sessions/: %m");
 
@@ -453,7 +453,7 @@ static int session_load_devices(Session *s, const char *devices) {
                 dev_t dev;
                 int k;
 
-                k = extract_first_word(&p, &word, NULL, 0);
+                k = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (k <= 0) {
                         RET_GATHER(r, k);
                         break;
@@ -703,8 +703,8 @@ int session_load(Session *s) {
         }
 
         if (controller) {
-                if (bus_name_has_owner(s->manager->bus, controller, NULL) > 0) {
-                        session_set_controller(s, controller, false, false);
+                if (bus_name_has_owner(s->manager->bus, controller, /* reterr_error= */ NULL) > 0) {
+                        session_set_controller(s, controller, /* force= */ false, /* prepare= */ false);
                         session_load_devices(s, devices);
                 } else
                         session_restore_vt(s);
@@ -873,7 +873,7 @@ static int session_setup_stop_on_idle_timer(Session *s) {
                         &s->stop_on_idle_event_source,
                         CLOCK_MONOTONIC,
                         s->manager->stop_idle_session_usec,
-                        0,
+                        /* accuracy= */ 0,
                         session_dispatch_stop_on_idle, s);
         if (r < 0)
                 return log_error_errno(r, "Failed to add stop on idle session event source: %m");
@@ -942,7 +942,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         (void) trigger_xaccess(s->extra_device_access);
 
         /* Send signals */
-        (void) session_send_signal(s, true);
+        (void) session_send_signal(s, /* new_session= */ true);
         (void) user_send_changed(s->user, "Display");
 
         if (s->seat && s->seat->active == s)
@@ -1066,13 +1066,13 @@ int session_finalize(Session *s) {
         user_add_to_gc_queue(s->user);
 
         if (s->started) {
-                session_send_signal(s, false);
+                session_send_signal(s, /* new_session= */ false);
                 s->started = false;
         }
 
         if (s->seat) {
                 if (s->seat->active == s)
-                        seat_set_active(s->seat, NULL);
+                        seat_set_active(s->seat, /* session= */ NULL);
 
                 seat_save(s->seat);
         }
@@ -1107,7 +1107,7 @@ int session_release(Session *s) {
                         s->manager->event,
                         &s->timer_event_source,
                         CLOCK_MONOTONIC,
-                        RELEASE_USEC, 0,
+                        RELEASE_USEC, /* accuracy= */ 0,
                         release_timeout_callback, s);
 }
 
@@ -1150,7 +1150,7 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
         assert(pid > 0);
         assert(atime);
 
-        r = get_ctty(pid, NULL, &p);
+        r = get_ctty(pid, /* ret_devnr= */ NULL, &p);
         if (r < 0)
                 return r;
 
@@ -1631,7 +1631,7 @@ int session_set_controller(Session *s, const char *sender, bool force, bool prep
                 }
         }
 
-        session_release_controller(s, true);
+        session_release_controller(s, /* notify= */ true);
         s->controller = TAKE_PTR(name);
         (void) session_save(s);
 
@@ -1646,7 +1646,7 @@ void session_drop_controller(Session *s) {
 
         s->track = sd_bus_track_unref(s->track);
         session_set_type(s, s->original_type);
-        session_release_controller(s, false);
+        session_release_controller(s, /* notify= */ false);
         (void) session_save(s);
         session_restore_vt(s);
 }

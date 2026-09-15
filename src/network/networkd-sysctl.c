@@ -114,7 +114,7 @@ int manager_install_sysctl_monitor(Manager *manager) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to load libbpf, not installing sysctl monitor: %m");
 
-        r = cg_pid_get_path(0, &cgroup);
+        r = cg_pid_get_path(/* pid= */ 0, &cgroup);
         if (r < 0)
                 return log_warning_errno(r, "Failed to get cgroup path, ignoring: %m.");
 
@@ -143,7 +143,7 @@ int manager_install_sysctl_monitor(Manager *manager) {
         if (fd < 0)
                 return log_warning_errno(fd, "Failed to get fd of sysctl maps: %m");
 
-        sysctl_buffer = sym_ring_buffer__new(fd, sysctl_event_handler, &manager->sysctl_shadow, NULL);
+        sysctl_buffer = sym_ring_buffer__new(fd, sysctl_event_handler, &manager->sysctl_shadow, /* opts= */ NULL);
         if (!sysctl_buffer)
                 return log_warning_errno(errno, "Failed to create ring buffer: %m");
 
@@ -269,7 +269,7 @@ static int link_update_ipv6_sysctl(Link *link) {
                 return 0;
 
         return sysctl_write_ip_property_boolean(
-                        AF_INET6, link->ifname, "disable_ipv6", false,
+                        AF_INET6, link->ifname, "disable_ipv6", /* value= */ false,
                         manager_get_sysctl_shadow(link->manager));
 }
 
@@ -592,7 +592,7 @@ static int link_set_ipv6_mtu_async_impl(Link *link) {
         /* If not, set up a timer event source. */
         r = event_reset_time_relative(
                         link->manager->event, &link->ipv6_mtu_wait_synced_event_source,
-                        CLOCK_BOOTTIME, 100 * USEC_PER_MSEC, 0,
+                        CLOCK_BOOTTIME, 100 * USEC_PER_MSEC, /* accuracy= */ 0,
                         ipv6_mtu_wait_synced_handler, link,
                         /* priority= */ 0, "ipv6-mtu-wait-synced", /* force_reset= */ true);
         if (r < 0)
@@ -682,7 +682,7 @@ static int link_set_ipv4_promote_secondaries(Link *link) {
          * secondary IP and when the primary one expires it relies on the kernel to promote the
          * secondary IP. See also https://github.com/systemd/systemd/issues/7163 */
         return sysctl_write_ip_property_boolean(
-                        AF_INET, link->ifname, "promote_secondaries", true,
+                        AF_INET, link->ifname, "promote_secondaries", /* value= */ true,
                         manager_get_sysctl_shadow(link->manager));
 }
 

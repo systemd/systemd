@@ -1270,12 +1270,12 @@ static int add_user(Context *c, Item *i) {
         if (!i->uid_set) {
                 uid_t candidate;
 
-                if (read_id_from_file(i, &candidate, NULL) > 0) {
+                if (read_id_from_file(i, &candidate, /* ret_gid= */ NULL) > 0) {
 
                         if (candidate <= 0 || !uid_range_contains(c->uid_range, candidate))
                                 log_debug("User ID " UID_FMT " of file not suitable for %s.", candidate, i->name);
                         else {
-                                r = uid_is_ok(c, candidate, i->name, true);
+                                r = uid_is_ok(c, candidate, i->name, /* check_with_gid= */ true);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                                 else if (r > 0) {
@@ -1289,7 +1289,7 @@ static int add_user(Context *c, Item *i) {
 
         /* Otherwise, try to reuse the group ID */
         if (!i->uid_set && i->gid_set) {
-                r = uid_is_ok(c, (uid_t) i->gid, i->name, true);
+                r = uid_is_ok(c, (uid_t) i->gid, i->name, /* check_with_gid= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                 if (r > 0) {
@@ -1307,7 +1307,7 @@ static int add_user(Context *c, Item *i) {
                         if (r < 0)
                                 return log_error_errno(r, "No free user ID available for %s.", i->name);
 
-                        r = uid_is_ok(c, c->search_uid, i->name, true);
+                        r = uid_is_ok(c, c->search_uid, i->name, /* check_with_gid= */ true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
                         else if (r > 0)
@@ -1318,7 +1318,7 @@ static int add_user(Context *c, Item *i) {
                 i->uid = c->search_uid;
         }
 
-        r = ordered_hashmap_ensure_put(&c->todo_uids, NULL, UID_TO_PTR(i->uid), i);
+        r = ordered_hashmap_ensure_put(&c->todo_uids, /* hash_ops= */ NULL, UID_TO_PTR(i->uid), i);
         if (r == -EEXIST)
                 return log_error_errno(r, "Requested user %s with UID " UID_FMT " and gid" GID_FMT " to be created is duplicated "
                                        "or conflicts with another user.", i->name, i->uid, i->gid);
@@ -1437,7 +1437,7 @@ static int add_group(Context *c, Item *i) {
 
         /* Try to use the suggested numeric GID */
         if (i->gid_set) {
-                r = gid_is_ok(c, i->gid, i->name, false);
+                r = gid_is_ok(c, i->gid, i->name, /* check_with_uid= */ false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                 if (i->id_set_strict) {
@@ -1460,7 +1460,7 @@ static int add_group(Context *c, Item *i) {
 
         /* Try to reuse the numeric uid, if there's one */
         if (!i->gid_set && i->uid_set) {
-                r = gid_is_ok(c, (gid_t) i->uid, i->name, true);
+                r = gid_is_ok(c, (gid_t) i->uid, i->name, /* check_with_uid= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                 if (r > 0) {
@@ -1473,12 +1473,12 @@ static int add_group(Context *c, Item *i) {
         if (!i->gid_set) {
                 gid_t candidate;
 
-                if (read_id_from_file(i, NULL, &candidate) > 0) {
+                if (read_id_from_file(i, /* ret_uid= */ NULL, &candidate) > 0) {
 
                         if (candidate <= 0 || !uid_range_contains(c->uid_range, candidate))
                                 log_debug("Group ID " GID_FMT " of file not suitable for %s.", candidate, i->name);
                         else {
-                                r = gid_is_ok(c, candidate, i->name, true);
+                                r = gid_is_ok(c, candidate, i->name, /* check_with_uid= */ true);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                                 else if (r > 0) {
@@ -1500,7 +1500,7 @@ static int add_group(Context *c, Item *i) {
                         if (r < 0)
                                 return log_error_errno(r, "No free group ID available for %s.", i->name);
 
-                        r = gid_is_ok(c, c->search_uid, i->name, true);
+                        r = gid_is_ok(c, c->search_uid, i->name, /* check_with_uid= */ true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                         else if (r > 0)
@@ -1511,7 +1511,7 @@ static int add_group(Context *c, Item *i) {
                 i->gid = c->search_uid;
         }
 
-        r = ordered_hashmap_ensure_put(&c->todo_gids, NULL, GID_TO_PTR(i->gid), i);
+        r = ordered_hashmap_ensure_put(&c->todo_gids, /* hash_ops= */ NULL, GID_TO_PTR(i->gid), i);
         if (r == -EEXIST)
                 return log_error_errno(r, "Requested group %s with GID "GID_FMT " to be created is duplicated or conflicts with another user.", i->name, i->gid);
         if (r == -ENOMEM)
@@ -1740,7 +1740,7 @@ static int item_equivalent(Item *a, Item *b) {
             !(is_nologin_shell(a_shell) && is_nologin_shell(b_shell))) {
                 _cleanup_free_ char *pa = NULL, *pb = NULL;
 
-                r = chase(a_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pa, NULL);
+                r = chase(a_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pa, /* ret_fd= */ NULL);
                 if (r < 0) {
                         log_full_errno(ERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
                                        r, "Failed to look up path '%s%s%s': %m",
@@ -1748,7 +1748,7 @@ static int item_equivalent(Item *a, Item *b) {
                         return ERRNO_IS_RESOURCE(r) ? r : false;
                 }
 
-                r = chase(b_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pb, NULL);
+                r = chase(b_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pb, /* ret_fd= */ NULL);
                 if (r < 0) {
                         log_full_errno(ERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
                                        r, "Failed to look up path '%s%s%s': %m",
@@ -1826,11 +1826,11 @@ static int parse_line(
                 name = mfree(name);
 
         if (name) {
-                r = specifier_printf(name, NAME_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved_name);
+                r = specifier_printf(name, NAME_MAX, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved_name);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to replace specifiers in '%s': %m", name);
 
-                if (!valid_user_group_name(resolved_name, 0))
+                if (!valid_user_group_name(resolved_name, /* flags= */ 0))
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL),
                                           "'%s' is not a valid user or group name.", resolved_name);
         }
@@ -1840,7 +1840,7 @@ static int parse_line(
                 id = mfree(id);
 
         if (id) {
-                r = specifier_printf(id, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_id);
+                r = specifier_printf(id, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved_id);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, fname, line, r,
                                           "Failed to replace specifiers in '%s': %m", name);
@@ -1851,7 +1851,7 @@ static int parse_line(
                 description = mfree(description);
 
         if (description) {
-                r = specifier_printf(description, LONG_LINE_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved_description);
+                r = specifier_printf(description, LONG_LINE_MAX, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved_description);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, fname, line, r,
                                           "Failed to replace specifiers in '%s': %m", description);
@@ -1866,7 +1866,7 @@ static int parse_line(
                 home = mfree(home);
 
         if (home) {
-                r = specifier_printf(home, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_home);
+                r = specifier_printf(home, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved_home);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, fname, line, r,
                                           "Failed to replace specifiers in '%s': %m", home);
@@ -1883,7 +1883,7 @@ static int parse_line(
                 shell = mfree(shell);
 
         if (shell) {
-                r = specifier_printf(shell, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_shell);
+                r = specifier_printf(shell, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved_shell);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, fname, line, r,
                                           "Failed to replace specifiers in '%s': %m", shell);
@@ -1937,7 +1937,7 @@ static int parse_line(
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL),
                                           "Lines of type 'm' require a group name in the third field.");
 
-                if (!valid_user_group_name(resolved_id, 0))
+                if (!valid_user_group_name(resolved_id, /* flags= */ 0))
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL),
                                                "'%s' is not a valid user or group name.", resolved_id);
 
@@ -1975,7 +1975,7 @@ static int parse_line(
                                 if (split_pair(resolved_id, ":", &uid, &gid) == 0) {
                                         r = parse_gid(gid, &i->gid);
                                         if (r < 0) {
-                                                if (valid_user_group_name(gid, 0))
+                                                if (valid_user_group_name(gid, /* flags= */ 0))
                                                         i->group_name = TAKE_PTR(gid);
                                                 else
                                                         return log_syntax(NULL, LOG_ERR, fname, line, r,
@@ -2093,13 +2093,13 @@ static int cat_config(void) {
         _cleanup_strv_free_ char **files = NULL;
         int r;
 
-        r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, NULL);
+        r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, /* ret_inserted= */ NULL);
         if (r < 0)
                 return r;
 
         pager_open(arg_pager_flags);
 
-        return cat_files(NULL, files, arg_cat_flags);
+        return cat_files(/* file= */ NULL, files, arg_cat_flags);
 }
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
@@ -2365,7 +2365,7 @@ static int run(int argc, char *argv[]) {
 
         if (!c.uid_range) {
                 /* Default to default range of SYSTEMD_UID_MIN..SYSTEM_UID_MAX. */
-                r = read_login_defs(&c.login_defs, NULL, arg_root);
+                r = read_login_defs(&c.login_defs, /* path= */ NULL, arg_root);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read %s%s: %m",
                                                strempty(arg_root), "/etc/login.defs");

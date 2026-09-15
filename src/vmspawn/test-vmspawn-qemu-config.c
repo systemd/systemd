@@ -19,7 +19,7 @@ static int render_key(char **ret, const char *key, const char *value) {
                 return r;
 
         if (ret)
-                assert_se(memstream_finalize(&m, ret, NULL) >= 0);
+                assert_se(memstream_finalize(&m, ret, /* ret_size= */ NULL) >= 0);
 
         return r;
 }
@@ -36,7 +36,7 @@ static int render_section(char **ret, const char *type, const char *id) {
                 return r;
 
         if (ret)
-                assert_se(memstream_finalize(&m, ret, NULL) >= 0);
+                assert_se(memstream_finalize(&m, ret, /* ret_size= */ NULL) >= 0);
 
         return r;
 }
@@ -72,19 +72,19 @@ TEST(qemu_config_value_permits_path_bytes) {
 
 TEST(qemu_config_value_rejects_quote_and_newline) {
         /* These two bytes are the only ones that can break out of the quoted token; both must be refused. */
-        ASSERT_ERROR(render_key(NULL, "file", "ab\"cd"), EINVAL);
-        ASSERT_ERROR(render_key(NULL, "file", "ab\ncd"), EINVAL);
+        ASSERT_ERROR(render_key(/* ret= */ NULL, "file", "ab\"cd"), EINVAL);
+        ASSERT_ERROR(render_key(/* ret= */ NULL, "file", "ab\ncd"), EINVAL);
 }
 
 TEST(qemu_config_key_name_rejects_structure) {
         /* Key names are emitted unquoted, so they must be plain identifiers. */
-        ASSERT_ERROR(render_key(NULL, "fo=o", "v"), EINVAL);
-        ASSERT_ERROR(render_key(NULL, "fo\no", "v"), EINVAL);
-        ASSERT_ERROR(render_key(NULL, "fo\"o", "v"), EINVAL);
-        ASSERT_ERROR(render_key(NULL, "fo o", "v"), EINVAL);
-        ASSERT_ERROR(render_key(NULL, "foo]", "v"), EINVAL);
-        ASSERT_ERROR(render_key(NULL, "/foo", "v"), EINVAL);
-        ASSERT_ERROR(render_key(NULL, "", "v"), EINVAL);
+        ASSERT_ERROR(render_key(/* ret= */ NULL, "fo=o", "v"), EINVAL);
+        ASSERT_ERROR(render_key(/* ret= */ NULL, "fo\no", "v"), EINVAL);
+        ASSERT_ERROR(render_key(/* ret= */ NULL, "fo\"o", "v"), EINVAL);
+        ASSERT_ERROR(render_key(/* ret= */ NULL, "fo o", "v"), EINVAL);
+        ASSERT_ERROR(render_key(/* ret= */ NULL, "foo]", "v"), EINVAL);
+        ASSERT_ERROR(render_key(/* ret= */ NULL, "/foo", "v"), EINVAL);
+        ASSERT_ERROR(render_key(/* ret= */ NULL, "", "v"), EINVAL);
 }
 
 TEST(qemu_config_section_valid) {
@@ -94,27 +94,27 @@ TEST(qemu_config_section_valid) {
         ASSERT_STREQ(out, "\n[drive \"ovmf-code\"]\n");
 
         out = mfree(out);
-        ASSERT_OK(render_section(&out, "smp-opts", NULL));
+        ASSERT_OK(render_section(&out, "smp-opts", /* id= */ NULL));
         ASSERT_STREQ(out, "\n[smp-opts]\n");
 }
 
 TEST(qemu_config_section_type_rejects_structure) {
         /* The section type is emitted unquoted as "[type]" — a ']' or newline here would let a caller
          * close the header early or open a new section. */
-        ASSERT_ERROR(render_section(NULL, "drive]", "id"), EINVAL);
-        ASSERT_ERROR(render_section(NULL, "dr\nive", "id"), EINVAL);
-        ASSERT_ERROR(render_section(NULL, "dr ive", "id"), EINVAL);
-        ASSERT_ERROR(render_section(NULL, "dr\"ive", "id"), EINVAL);
-        ASSERT_ERROR(render_section(NULL, "", "id"), EINVAL);
+        ASSERT_ERROR(render_section(/* ret= */ NULL, "drive]", "id"), EINVAL);
+        ASSERT_ERROR(render_section(/* ret= */ NULL, "dr\nive", "id"), EINVAL);
+        ASSERT_ERROR(render_section(/* ret= */ NULL, "dr ive", "id"), EINVAL);
+        ASSERT_ERROR(render_section(/* ret= */ NULL, "dr\"ive", "id"), EINVAL);
+        ASSERT_ERROR(render_section(/* ret= */ NULL, "", "id"), EINVAL);
 }
 
 TEST(qemu_config_section_id_rejects_structure) {
         /* The id is quoted, but ']' and backslash are still hardened against future runtime data. */
-        ASSERT_ERROR(render_section(NULL, "drive", "i\"d"), EINVAL);
-        ASSERT_ERROR(render_section(NULL, "drive", "i\nd"), EINVAL);
-        ASSERT_ERROR(render_section(NULL, "drive", "i]d"), EINVAL);
-        ASSERT_ERROR(render_section(NULL, "drive", "i\\d"), EINVAL);
-        ASSERT_ERROR(render_section(NULL, "drive", ""), EINVAL);
+        ASSERT_ERROR(render_section(/* ret= */ NULL, "drive", "i\"d"), EINVAL);
+        ASSERT_ERROR(render_section(/* ret= */ NULL, "drive", "i\nd"), EINVAL);
+        ASSERT_ERROR(render_section(/* ret= */ NULL, "drive", "i]d"), EINVAL);
+        ASSERT_ERROR(render_section(/* ret= */ NULL, "drive", "i\\d"), EINVAL);
+        ASSERT_ERROR(render_section(/* ret= */ NULL, "drive", ""), EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

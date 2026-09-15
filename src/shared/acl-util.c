@@ -139,7 +139,7 @@ int devnode_acl(int fd, const Set *uids) {
                                         changed = true;
                                 }
 
-                                r = set_ensure_put(&found, NULL, UID_TO_PTR(*u));
+                                r = set_ensure_put(&found, /* hash_ops= */ NULL, UID_TO_PTR(*u));
                                 if (r < 0)
                                         return r;
 

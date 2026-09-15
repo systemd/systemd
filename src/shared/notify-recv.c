@@ -40,18 +40,18 @@ int notify_socket_prepare_full(
         if (r < 0)
                 return log_debug_errno(r, "Failed to bind notification socket: %m");
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, /* value= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enable SO_PASSCRED on notification socket: %m");
 
         /* SO_PASSPIDFD is supported since kernel v6.5. */
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, /* value= */ true);
         if (r < 0)
                 log_debug_errno(r, "Failed to enable SO_PASSPIDFD on notification socket, ignoring: %m");
 
         if (!accept_fds) {
                 /* since kernel v6.16 */
-                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, /* value= */ false);
                 if (r < 0)
                         log_debug_errno(r, "Failed to disable SO_PASSRIGHTS on notification socket, ignoring: %m");
         }
@@ -65,7 +65,7 @@ int notify_socket_prepare_full(
         if (r < 0)
                 return log_debug_errno(r, "Failed to set priority to notification event source: %m");
 
-        r = sd_event_source_set_io_fd_own(s, true);
+        r = sd_event_source_set_io_fd_own(s, /* own= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to make notification event source own file descriptor: %m");
         TAKE_FD(fd);

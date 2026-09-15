@@ -111,11 +111,11 @@ int main(int argc, char* argv[]) {
         assert_se(sd_bus_open_system(&bus) >= 0);
 
         /* Normally signed */
-        test_rr_lookup(bus, "www.eurid.eu", DNS_TYPE_A, NULL);
-        test_hostname_lookup(bus, "www.eurid.eu", AF_UNSPEC, NULL);
+        test_rr_lookup(bus, "www.eurid.eu", DNS_TYPE_A, /* result= */ NULL);
+        test_hostname_lookup(bus, "www.eurid.eu", AF_UNSPEC, /* result= */ NULL);
 
-        test_rr_lookup(bus, "sigok.verteiltesysteme.net", DNS_TYPE_A, NULL);
-        test_hostname_lookup(bus, "sigok.verteiltesysteme.net", AF_UNSPEC, NULL);
+        test_rr_lookup(bus, "sigok.verteiltesysteme.net", DNS_TYPE_A, /* result= */ NULL);
+        test_hostname_lookup(bus, "sigok.verteiltesysteme.net", AF_UNSPEC, /* result= */ NULL);
 
         /* Normally signed, NODATA */
         test_rr_lookup(bus, "www.eurid.eu", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
@@ -143,31 +143,31 @@ int main(int argc, char* argv[]) {
         test_rr_lookup(bus, "_pgpkey-https._tcp.hkps.pool.sks-keyservers.net", DNS_TYPE_SRV, BUS_ERROR_DNS_NXDOMAIN);
 
         /* wildcard, NSEC zone */
-        test_rr_lookup(bus, ".wilda.nsec.0skar.cz", DNS_TYPE_A, NULL);
-        test_hostname_lookup(bus, ".wilda.nsec.0skar.cz", AF_INET, NULL);
+        test_rr_lookup(bus, ".wilda.nsec.0skar.cz", DNS_TYPE_A, /* result= */ NULL);
+        test_hostname_lookup(bus, ".wilda.nsec.0skar.cz", AF_INET, /* result= */ NULL);
 
         /* wildcard, NSEC zone, NODATA */
         test_rr_lookup(bus, ".wilda.nsec.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
 
         /* wildcard, NSEC3 zone */
-        test_rr_lookup(bus, ".wilda.0skar.cz", DNS_TYPE_A, NULL);
-        test_hostname_lookup(bus, ".wilda.0skar.cz", AF_INET, NULL);
+        test_rr_lookup(bus, ".wilda.0skar.cz", DNS_TYPE_A, /* result= */ NULL);
+        test_hostname_lookup(bus, ".wilda.0skar.cz", AF_INET, /* result= */ NULL);
 
         /* wildcard, NSEC3 zone, NODATA */
         test_rr_lookup(bus, ".wilda.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
 
         /* wildcard, NSEC zone, CNAME */
-        test_rr_lookup(bus, ".wild.nsec.0skar.cz", DNS_TYPE_A, NULL);
-        test_hostname_lookup(bus, ".wild.nsec.0skar.cz", AF_UNSPEC, NULL);
-        test_hostname_lookup(bus, ".wild.nsec.0skar.cz", AF_INET, NULL);
+        test_rr_lookup(bus, ".wild.nsec.0skar.cz", DNS_TYPE_A, /* result= */ NULL);
+        test_hostname_lookup(bus, ".wild.nsec.0skar.cz", AF_UNSPEC, /* result= */ NULL);
+        test_hostname_lookup(bus, ".wild.nsec.0skar.cz", AF_INET, /* result= */ NULL);
 
         /* wildcard, NSEC zone, NODATA, CNAME */
         test_rr_lookup(bus, ".wild.nsec.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
 
         /* wildcard, NSEC3 zone, CNAME */
-        test_rr_lookup(bus, ".wild.0skar.cz", DNS_TYPE_A, NULL);
-        test_hostname_lookup(bus, ".wild.0skar.cz", AF_UNSPEC, NULL);
-        test_hostname_lookup(bus, ".wild.0skar.cz", AF_INET, NULL);
+        test_rr_lookup(bus, ".wild.0skar.cz", DNS_TYPE_A, /* result= */ NULL);
+        test_hostname_lookup(bus, ".wild.0skar.cz", AF_UNSPEC, /* result= */ NULL);
+        test_hostname_lookup(bus, ".wild.0skar.cz", AF_INET, /* result= */ NULL);
 
         /* wildcard, NSEC3 zone, NODATA, CNAME */
         test_rr_lookup(bus, ".wild.0skar.cz", DNS_TYPE_RP, BUS_ERROR_NO_SUCH_RR);
@@ -191,17 +191,17 @@ int main(int argc, char* argv[]) {
         test_hostname_lookup(bus, "kjkfgjhfjgsdfdsfd.com", AF_UNSPEC, BUS_ERROR_DNS_NXDOMAIN);
 
         /* Unsigned A */
-        test_rr_lookup(bus, "poettering.de", DNS_TYPE_A, NULL);
-        test_rr_lookup(bus, "poettering.de", DNS_TYPE_AAAA, NULL);
-        test_hostname_lookup(bus, "poettering.de", AF_UNSPEC, NULL);
-        test_hostname_lookup(bus, "poettering.de", AF_INET, NULL);
-        test_hostname_lookup(bus, "poettering.de", AF_INET6, NULL);
+        test_rr_lookup(bus, "poettering.de", DNS_TYPE_A, /* result= */ NULL);
+        test_rr_lookup(bus, "poettering.de", DNS_TYPE_AAAA, /* result= */ NULL);
+        test_hostname_lookup(bus, "poettering.de", AF_UNSPEC, /* result= */ NULL);
+        test_hostname_lookup(bus, "poettering.de", AF_INET, /* result= */ NULL);
+        test_hostname_lookup(bus, "poettering.de", AF_INET6, /* result= */ NULL);
 
 #if HAVE_LIBIDN2
         /* Unsigned A with IDNA conversion necessary */
-        test_hostname_lookup(bus, "pöttering.de", AF_UNSPEC, NULL);
-        test_hostname_lookup(bus, "pöttering.de", AF_INET, NULL);
-        test_hostname_lookup(bus, "pöttering.de", AF_INET6, NULL);
+        test_hostname_lookup(bus, "pöttering.de", AF_UNSPEC, /* result= */ NULL);
+        test_hostname_lookup(bus, "pöttering.de", AF_INET, /* result= */ NULL);
+        test_hostname_lookup(bus, "pöttering.de", AF_INET6, /* result= */ NULL);
 #endif
 
         /* DNAME, pointing to NXDOMAIN */

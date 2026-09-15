@@ -214,17 +214,17 @@ static int rename_netif(UdevEvent *event) {
 
 revert:
         /* Restore 'dev_db_clone' */
-        (void) device_add_property(event->dev_db_clone, "ID_RENAMING", NULL);
-        (void) device_add_property(event->dev_db_clone, "ID_PROCESSING", NULL);
+        (void) device_add_property(event->dev_db_clone, "ID_RENAMING", /* value= */ NULL);
+        (void) device_add_property(event->dev_db_clone, "ID_PROCESSING", /* value= */ NULL);
         (void) device_update_db(event->dev_db_clone);
 
         /* Restore 'dev' */
         (void) device_set_syspath(dev, old_syspath, /* verify= */ false);
         if (sd_device_get_property_value(dev, "INTERFACE_OLD", &s) >= 0) {
                 (void) device_add_property_internal(dev, "INTERFACE", s);
-                (void) device_add_property_internal(dev, "INTERFACE_OLD", NULL);
+                (void) device_add_property_internal(dev, "INTERFACE_OLD", /* value= */ NULL);
         }
-        (void) device_add_property(dev, "ID_RENAMING", NULL);
+        (void) device_add_property(dev, "ID_RENAMING", /* value= */ NULL);
 
         /* When rename_netif() returns an error, the caller bails out of event_execute_rules() before
          * device_update_db(dev) is called. Without persisting 'dev' here we would leave the on-disk
@@ -277,7 +277,7 @@ static int update_devnode(UdevEvent *event) {
         if (!EVENT_MODE_DESTRUCTIVE(event))
                 return 0;
 
-        r = sd_device_get_devnum(dev, NULL);
+        r = sd_device_get_devnum(dev, /* ret= */ NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -314,7 +314,7 @@ static int event_execute_rules_on_remove(UdevEvent *event, UdevRules *rules) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
 
-        r = device_read_db_internal(dev, true);
+        r = device_read_db_internal(dev, /* force= */ true);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to read database under /run/udev/data/: %m");
 
@@ -331,7 +331,7 @@ static int event_execute_rules_on_remove(UdevEvent *event, UdevRules *rules) {
         r = udev_rules_apply_to_event(rules, event);
 
         if (EVENT_MODE_DESTRUCTIVE(event)) {
-                if (sd_device_get_devnum(dev, NULL) >= 0)
+                if (sd_device_get_devnum(dev, /* ret= */ NULL) >= 0)
                         (void) udev_node_remove(dev);
         }
 
@@ -350,7 +350,7 @@ static int update_clone(UdevEvent *event) {
          * initrd, then udevd may lose the 'move' uevent during switching root. Usually, we do not set the
          * persistent flag for network interfaces, but user may set it. Just for safety. */
 
-        r = device_add_property(dev, "ID_RENAMING", NULL);
+        r = device_add_property(dev, "ID_RENAMING", /* value= */ NULL);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to remove 'ID_RENAMING' property: %m");
 

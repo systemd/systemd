@@ -19,7 +19,7 @@ static inline int notify_socket_prepare(
                 void *userdata,
                 char **ret_path) {
 
-        return notify_socket_prepare_full(event, priority, handler, userdata, false, ret_path, NULL);
+        return notify_socket_prepare_full(event, priority, handler, userdata, /* accept_fds= */ false, ret_path, /* ret_event_source= */ NULL);
 }
 
 int notify_recv_with_fds(
@@ -30,7 +30,7 @@ int notify_recv_with_fds(
                 FDSet **ret_fds);
 
 static inline int notify_recv(int fd, char **ret_text, struct ucred *ret_ucred, PidRef *ret_pidref) {
-        return notify_recv_with_fds(fd, ret_text, ret_ucred, ret_pidref, NULL);
+        return notify_recv_with_fds(fd, ret_text, ret_ucred, ret_pidref, /* ret_fds= */ NULL);
 }
 
 int notify_recv_with_fds_strv(
@@ -41,5 +41,5 @@ int notify_recv_with_fds_strv(
                 FDSet **ret_fds);
 
 static inline int notify_recv_strv(int fd, char ***ret_list, struct ucred *ret_ucred, PidRef *ret_pidref) {
-        return notify_recv_with_fds_strv(fd, ret_list, ret_ucred, ret_pidref, NULL);
+        return notify_recv_with_fds_strv(fd, ret_list, ret_ucred, ret_pidref, /* ret_fds= */ NULL);
 }

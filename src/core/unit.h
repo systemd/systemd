@@ -823,11 +823,11 @@ static inline Hashmap* unit_get_dependencies(Unit *u, UnitDependency d) {
 }
 
 static inline Unit* UNIT_TRIGGER(Unit *u) {
-        return unit_has_dependency(u, UNIT_ATOM_TRIGGERS, NULL);
+        return unit_has_dependency(u, UNIT_ATOM_TRIGGERS, /* other= */ NULL);
 }
 
 static inline Unit* UNIT_GET_SLICE(const Unit *u) {
-        return unit_has_dependency(u, UNIT_ATOM_IN_SLICE, NULL);
+        return unit_has_dependency(u, UNIT_ATOM_IN_SLICE, /* other= */ NULL);
 }
 
 Unit* unit_new(Manager *m, size_t size);
@@ -1003,7 +1003,7 @@ bool unit_is_bound_by_inactive(Unit *u, Unit **ret_culprit);
 PidRef* unit_control_pid(Unit *u);
 PidRef* unit_main_pid_full(Unit *u, bool *ret_is_alien);
 static inline PidRef* unit_main_pid(Unit *u) {
-        return unit_main_pid_full(u, NULL);
+        return unit_main_pid_full(u, /* ret_is_alien= */ NULL);
 }
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);

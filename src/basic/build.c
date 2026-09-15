@@ -243,7 +243,7 @@ static char* systemd_features_with_color(void) {
                 _cleanup_free_ char *word = NULL;
                 char *q;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0) {
                         log_warning_errno(r, "Cannot split features string, ignoring: %m");
                         return NULL;

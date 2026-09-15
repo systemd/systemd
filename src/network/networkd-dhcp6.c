@@ -232,7 +232,7 @@ static int dhcp6_request_address(
                 address_unmark(existing);
 
         r = link_request_address(link, addr, &link->dhcp6_messages,
-                                 dhcp6_address_handler, NULL);
+                                 dhcp6_address_handler, /* ret= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 address %s/128: %m",
                                             IN6_ADDR_TO_STRING(ip6_addr));
@@ -597,7 +597,7 @@ static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
                         r = sd_dhcp6_client_set_duid_uuid(client);
                         break;
                 default:
-                        r = sd_dhcp6_client_set_duid_raw(client, duid->type, NULL, 0);
+                        r = sd_dhcp6_client_set_duid_raw(client, duid->type, /* duid= */ NULL, /* duid_len= */ 0);
                 }
         else
                 r = sd_dhcp6_client_set_duid_raw(client, duid->type, duid->raw_data, duid->raw_data_len);
@@ -626,7 +626,7 @@ static int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to create DHCPv6 client: %m");
 
-        r = sd_dhcp6_client_attach_event(client, link->manager->event, 0);
+        r = sd_dhcp6_client_attach_event(client, link->manager->event, /* priority= */ 0);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to attach event: %m");
 
@@ -851,7 +851,7 @@ int link_request_dhcp6_client(Link *link) {
         if (link->dhcp6_client)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_DHCP6_CLIENT, dhcp6_process_request, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_DHCP6_CLIENT, dhcp6_process_request, /* ret= */ NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the DHCPv6 client: %m");
 

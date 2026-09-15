@@ -31,7 +31,7 @@ int show_logs(int ifindex, const char *ifname) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
-        r = add_match_this_boot(j, NULL);
+        r = add_match_this_boot(j, /* machine= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add boot matches: %m");
 
@@ -59,9 +59,9 @@ int show_logs(int ifindex, const char *ifname) {
                         stdout,
                         j,
                         OUTPUT_SHORT,
-                        0,
-                        0,
+                        /* n_columns= */ 0,
+                        /* not_before= */ 0,
                         arg_lines,
                         get_output_flags() | OUTPUT_BEGIN_NEWLINE,
-                        NULL);
+                        /* ellipsized= */ NULL);
 }

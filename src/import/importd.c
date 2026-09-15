@@ -224,7 +224,7 @@ static void transfer_send_log_line(Transfer *t, const char *line) {
         assert(t);
         assert(line);
 
-        syslog_parse_priority(&line, &priority, true);
+        syslog_parse_priority(&line, &priority, /* with_facility= */ true);
 
         log_full(priority, "(transfer%" PRIu32 ") %s", t->id, line);
 
@@ -338,7 +338,7 @@ static int transfer_finalize(Transfer *t, bool success) {
 
         assert(t);
 
-        transfer_send_logs(t, true);
+        transfer_send_logs(t, /* flush= */ true);
 
         r = sd_bus_emit_signal(
                         t->manager->api_bus,
@@ -354,11 +354,11 @@ static int transfer_finalize(Transfer *t, bool success) {
                 log_error_errno(r, "Cannot emit message: %m");
 
         if (success)
-                r = varlink_many_reply(t->varlink_subscribed, NULL);
+                r = varlink_many_reply(t->varlink_subscribed, /* parameters= */ NULL);
         else if (t->n_canceled > 0)
-                r = varlink_many_error(t->varlink_subscribed, "io.systemd.Import.TransferCancelled", NULL);
+                r = varlink_many_error(t->varlink_subscribed, "io.systemd.Import.TransferCancelled", /* parameters= */ NULL);
         else
-                r = varlink_many_error(t->varlink_subscribed, "io.systemd.Import.TransferFailed", NULL);
+                r = varlink_many_error(t->varlink_subscribed, "io.systemd.Import.TransferFailed", /* parameters= */ NULL);
         if (r < 0)
                 log_warning_errno(r, "Cannot emit varlink reply, ignoring: %m");
 
@@ -424,7 +424,7 @@ static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *u
         assert((size_t) l <= sizeof(t->log_message) - t->log_message_size);
         t->log_message_size += l;
 
-        transfer_send_logs(t, false);
+        transfer_send_logs(t, /* flush= */ false);
 
         return 0;
 }
@@ -482,7 +482,7 @@ static int transfer_start(Transfer *t) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to update $SYSTEMD_LOG_LEVEL, ignoring: %m");
 
-                r = setenv_systemd_exec_pid(true);
+                r = setenv_systemd_exec_pid(/* update_only= */ true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to update $SYSTEMD_EXEC_PID, ignoring: %m");
 
@@ -722,11 +722,11 @@ static int manager_new(RuntimeScope scope, Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        r = sd_event_add_memory_pressure(m->event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
@@ -1308,7 +1308,7 @@ static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *erro
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(msg, NULL);
+        return sd_bus_reply_method_return(msg, /* types= */ NULL);
 }
 
 static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1344,7 +1344,7 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(msg, NULL);
+        return sd_bus_reply_method_return(msg, /* types= */ NULL);
 }
 
 static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1766,7 +1766,7 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
-        r = sd_bus_attach_event(m->system_bus, m->event, 0);
+        r = sd_bus_attach_event(m->system_bus, m->event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach system bus to event loop: %m");
 
@@ -1779,7 +1779,7 @@ static int manager_connect_bus(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get user bus connection: %m");
 
-                r = sd_bus_attach_event(m->api_bus, m->event, 0);
+                r = sd_bus_attach_event(m->api_bus, m->event, /* priority= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach user bus to event loop: %m");
         }
@@ -1792,7 +1792,7 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(m->api_bus, NULL, "org.freedesktop.import1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(m->api_bus, /* ret_slot= */ NULL, "org.freedesktop.import1", /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
@@ -2124,7 +2124,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = sd_notify(false, NOTIFY_READY_MESSAGE);
+        r = sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 

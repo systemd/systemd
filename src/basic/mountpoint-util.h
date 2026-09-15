@@ -41,7 +41,7 @@ static inline int path_to_handle_u64(const char *path, uint64_t *ret) {
         return name_to_handle_at_u64(AT_FDCWD, path, ret);
 }
 static inline int fd_to_handle_u64(int fd, uint64_t *ret) {
-        return name_to_handle_at_u64(fd, NULL, ret);
+        return name_to_handle_at_u64(fd, /* path= */ NULL, ret);
 }
 
 bool file_handle_equal(const struct file_handle *a, const struct file_handle *b);
@@ -56,7 +56,7 @@ int path_get_unique_mnt_id_at(int dir_fd, const char *path, uint64_t *ret);
 int is_mount_point_at(int dir_fd, const char *path, int flags);
 int path_is_mount_point_full(const char *path, const char *root, int flags);
 static inline int path_is_mount_point(const char *path) {
-        return path_is_mount_point_full(path, NULL, 0);
+        return path_is_mount_point_full(path, /* root= */ NULL, /* flags= */ 0);
 }
 
 bool fstype_is_network(const char *fstype);

@@ -332,7 +332,7 @@ int home_setup_undo_mount(HomeSetup *setup, int level) {
         if (!setup->undo_mount)
                 return 0;
 
-        r = umount_recursive(HOME_RUNTIME_WORK_DIR, 0);
+        r = umount_recursive(HOME_RUNTIME_WORK_DIR, /* flags= */ 0);
         if (r < 0) {
                 if (level >= LOG_DEBUG) /* umount_recursive() does debug level logging anyway, no need to
                                          * repeat that here */
@@ -355,7 +355,7 @@ int home_setup_undo_dm(HomeSetup *setup, int level) {
                 assert(setup->crypt_device);
                 assert(setup->dm_name);
 
-                r = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
+                r = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, /* flags= */ 0);
                 if (r < 0)
                         return log_full_errno(level, r, "Failed to deactivate LUKS device: %m");
 
@@ -435,7 +435,7 @@ int home_setup_done(HomeSetup *setup) {
 
         if (setup->image_fd >= 0) {
                 if (setup->do_offline_fallocate) {
-                        q = run_fallocate(setup->image_fd, NULL);
+                        q = run_fallocate(setup->image_fd, /* st= */ NULL);
                         if (setup->tolerate_offline_fallocate_enospc &&
                             ERRNO_IS_NEG_DISK_SPACE(q))
                                 log_warning_errno(q, "Failed to allocate backing file, ignoring: %m");
@@ -515,7 +515,7 @@ int home_setup(
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_setup_luks(h, flags, NULL, setup, cache, ret_header_home);
+                return home_setup_luks(h, flags, /* force_image_path= */ NULL, setup, cache, ret_header_home);
 
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
@@ -603,7 +603,7 @@ static int write_identity_file(int root_fd, sd_json_variant *v, uid_t uid) {
         if (r < 0)
                 log_warning_errno(r, "Failed to normalize user record, ignoring: %m");
 
-        r = tempfn_random(".identity", NULL, &fn);
+        r = tempfn_random(".identity", /* extra= */ NULL, &fn);
         if (r < 0)
                 return r;
 
@@ -617,7 +617,7 @@ static int write_identity_file(int root_fd, sd_json_variant *v, uid_t uid) {
                 goto fail;
         }
 
-        sd_json_variant_dump(normalized, SD_JSON_FORMAT_PRETTY, identity_file, NULL);
+        sd_json_variant_dump(normalized, SD_JSON_FORMAT_PRETTY, identity_file, /* prefix= */ NULL);
 
         r = fflush_and_check(identity_file);
         if (r < 0) {
@@ -848,7 +848,7 @@ int home_maybe_shift_uid(
         /* Let's shift UIDs of this mount. Hopefully this makes the later chowning unnecessary. (Note that we
          * also prefer to do UID mapping even if the UID already matches our goal UID. That's because we want
          * to leave UIDs in the homed managed range unmapped.) */
-        (void) home_shift_uid(setup->root_fd, NULL, st.st_uid, h->uid, &mount_fd);
+        (void) home_shift_uid(setup->root_fd, /* target= */ NULL, st.st_uid, h->uid, &mount_fd);
 
         /* If this worked, then we'll have a reference to the mount now, which we can also use like an O_PATH
          * fd to the new dir. Let's convert it into a proper O_DIRECTORY fd. */
@@ -1003,7 +1003,7 @@ static int home_deactivate(UserRecord *h, bool force) {
                 if (r < 0)
                         return r;
 
-                r = mount_nofollow_verbose(LOG_ERR, user_record_home_directory(h), HOME_RUNTIME_WORK_DIR, NULL, MS_BIND, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, user_record_home_directory(h), HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1122,7 +1122,7 @@ int home_populate(UserRecord *h, int dir_fd) {
         if (r < 0)
                 return r;
 
-        r = home_store_embedded_identity(h, dir_fd, NULL);
+        r = home_store_embedded_identity(h, dir_fd, /* old_home= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1406,15 +1406,15 @@ static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
                 r = user_record_add_binding(
                                 h,
                                 new_storage,
-                                NULL,
+                                /* image_path= */ NULL,
                                 SD_ID128_NULL,
                                 SD_ID128_NULL,
                                 SD_ID128_NULL,
-                                NULL,
-                                NULL,
+                                /* luks_cipher= */ NULL,
+                                /* luks_cipher_mode= */ NULL,
                                 UINT64_MAX,
                                 new_fs,
-                                NULL,
+                                /* home_directory= */ NULL,
                                 UID_INVALID,
                                 GID_INVALID);
                 if (r < 0)
@@ -1718,7 +1718,7 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        r = home_sync_and_statfs(setup.root_fd, NULL);
+        r = home_sync_and_statfs(setup.root_fd, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1838,7 +1838,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_sync_and_statfs(setup.root_fd, NULL);
+        r = home_sync_and_statfs(setup.root_fd, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1874,7 +1874,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_ANY, &cache, NULL, &new_home);
+        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_ANY, &cache, /* ret_embedded_home= */ NULL, &new_home);
         if (r < 0)
                 return r;
 
@@ -2072,7 +2072,7 @@ static int run(int argc, char *argv[]) {
                         if (!filename)
                                 return log_oom();
 
-                        r = fd_cloexec(fd, true);
+                        r = fd_cloexec(fd, /* cloexec= */ true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to enable O_CLOEXEC on blob %s: %m", filename);
 
@@ -2128,9 +2128,9 @@ static int run(int argc, char *argv[]) {
         if (streq(argv[1], "activate"))
                 r = home_activate(home, &new_home);
         else if (streq(argv[1], "deactivate"))
-                r = home_deactivate(home, false);
+                r = home_deactivate(home, /* force= */ false);
         else if (streq(argv[1], "deactivate-force"))
-                r = home_deactivate(home, true);
+                r = home_deactivate(home, /* force= */ true);
         else if (streq(argv[1], "create"))
                 r = home_create(home, blobs, &new_home);
         else if (streq(argv[1], "remove"))
@@ -2173,7 +2173,7 @@ static int run(int argc, char *argv[]) {
          * prepare a fresh record, send to us, and only if it works use it without having to keep a local
          * copy. */
         if (new_home)
-                sd_json_variant_dump(new_home->json, SD_JSON_FORMAT_NEWLINE, stdout, NULL);
+                sd_json_variant_dump(new_home->json, SD_JSON_FORMAT_NEWLINE, stdout, /* prefix= */ NULL);
 
         return 0;
 }

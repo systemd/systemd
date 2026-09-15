@@ -55,7 +55,7 @@ static int dm_list_get(DeviceMapper **head) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
         if (r < 0)
                 return r;
 

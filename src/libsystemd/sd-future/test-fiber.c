@@ -29,7 +29,7 @@ TEST(fiber_simple) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         int value = 5;
-        ASSERT_OK(sd_fiber_new(e, "simple", simple_fiber, &value, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "simple", simple_fiber, &value, /* destroy= */ NULL, &f));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_EQ(sd_future_result(f), 5);
 }
@@ -53,15 +53,15 @@ TEST(fiber_single_yield) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         int counter = 0;
-        ASSERT_OK(sd_fiber_new(e, "yielding", yielding_fiber, &counter, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "yielding", yielding_fiber, &counter, /* destroy= */ NULL, &f));
 
         /* First iteration: fiber runs until first yield */
         ASSERT_EQ(counter, 0);
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(counter, 1);
 
         /* Second iteration: fiber runs from yield to completion */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(counter, 2);
 
         /* No more fibers to run */
@@ -91,7 +91,7 @@ TEST(fiber_multiple_yield) {
         for (size_t i = 0; i < ELEMENTSOF(fibers); i++) {
                 _cleanup_free_ char *name = NULL;
                 ASSERT_OK(asprintf(&name, "counting-%zu", i));
-                ASSERT_OK(sd_fiber_new(e, name, counting_fiber, NULL, NULL, &fibers[i]));
+                ASSERT_OK(sd_fiber_new(e, name, counting_fiber, /* userdata= */ NULL, /* destroy= */ NULL, &fibers[i]));
         }
 
         ASSERT_OK(sd_event_loop(e));
@@ -122,7 +122,7 @@ TEST(fiber_priority_ascending) {
         for (size_t i = 0; i < ELEMENTSOF(fibers); i++) {
                 _cleanup_free_ char *name = NULL;
                 ASSERT_OK(asprintf(&name, "priority-%zu", i));
-                ASSERT_OK(sd_fiber_new(e, name, priority_fiber, &counter, NULL, &fibers[i]));
+                ASSERT_OK(sd_fiber_new(e, name, priority_fiber, &counter, /* destroy= */ NULL, &fibers[i]));
                 ASSERT_OK(sd_future_set_priority(fibers[i], i));
         }
 
@@ -147,7 +147,7 @@ TEST(fiber_priority_identical) {
         for (size_t i = 0; i < ELEMENTSOF(fibers); i++) {
                 _cleanup_free_ char *name = NULL;
                 ASSERT_OK(asprintf(&name, "priority-%zu", i));
-                ASSERT_OK(sd_fiber_new(e, name, priority_fiber, &counter, NULL, &fibers[i]));
+                ASSERT_OK(sd_fiber_new(e, name, priority_fiber, &counter, /* destroy= */ NULL, &fibers[i]));
         }
 
         ASSERT_OK(sd_event_loop(e));
@@ -169,7 +169,7 @@ TEST(fiber_error_return) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "error", error_fiber, NULL, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "error", error_fiber, /* userdata= */ NULL, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_EQ(sd_future_result(f), -ENOENT);
@@ -186,7 +186,7 @@ TEST(fiber_cancel_basic) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         int value = 42;
-        ASSERT_OK(sd_fiber_new(e, "cancel", cancel_fiber, &value, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "cancel", cancel_fiber, &value, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_future_cancel(f));
         ASSERT_OK(sd_event_loop(e));
@@ -215,11 +215,11 @@ TEST(fiber_cancel_propagation_via_yield) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         int yield_count = 0;
-        ASSERT_OK(sd_fiber_new(e, "yielding", fiber_that_yields, &yield_count, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "yielding", fiber_that_yields, &yield_count, /* destroy= */ NULL, &f));
 
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(yield_count, 1);
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(yield_count, 2);
 
         ASSERT_OK(sd_future_cancel(f));
@@ -239,7 +239,7 @@ TEST(fiber_cancel_completed) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         int value = 42;
-        ASSERT_OK(sd_fiber_new(e, "simple", simple_fiber, &value, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "simple", simple_fiber, &value, /* destroy= */ NULL, &f));
 
         /* Run the fiber to completion */
         ASSERT_OK(sd_event_loop(e));
@@ -273,12 +273,12 @@ TEST(fiber_cancel_one_of_many) {
         CLEANUP_ELEMENTS(fibers, sd_future_unref_array_clear);
         int counters[3] = {0, 0, 0};
         for (size_t i = 0; i < ELEMENTSOF(fibers); i++)
-                ASSERT_OK(sd_fiber_new(e, "multiple-yield", multiple_yield_fiber, &counters[i], NULL, &fibers[i]));
+                ASSERT_OK(sd_fiber_new(e, "multiple-yield", multiple_yield_fiber, &counters[i], /* destroy= */ NULL, &fibers[i]));
 
         /* Run one iteration - all fibers yield after incrementing once */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(counters[0], 1);
         ASSERT_EQ(counters[1], 1);
         ASSERT_EQ(counters[2], 1);
@@ -332,12 +332,12 @@ TEST(fiber_wait_for_basic) {
         /* Create target fiber with lower priority (runs second) */
         _cleanup_(sd_future_unrefp) sd_future *target = NULL, *waiter = NULL;
         int counter = 0;
-        ASSERT_OK(sd_fiber_new(e, "slow", slow_fiber, &counter, NULL, &target));
+        ASSERT_OK(sd_fiber_new(e, "slow", slow_fiber, &counter, /* destroy= */ NULL, &target));
         ASSERT_OK(sd_future_set_priority(target, 1));
 
         /* Create waiter fiber with higher priority (runs first) */
-        ASSERT_OK(sd_fiber_new(e, "waiting", waiting_fiber, target, NULL, &waiter));
-        ASSERT_OK(sd_future_set_priority(waiter, 0));
+        ASSERT_OK(sd_fiber_new(e, "waiting", waiting_fiber, target, /* destroy= */ NULL, &waiter));
+        ASSERT_OK(sd_future_set_priority(waiter, /* priority= */ 0));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -367,10 +367,10 @@ TEST(fiber_wait_for_completed) {
         int value = 100;
 
         /* Create target fiber with higher priority (runs first) */
-        ASSERT_OK(sd_fiber_new(e, "simple", simple_fiber, &value, NULL, &target));
-        ASSERT_OK(sd_future_set_priority(target, 0));
+        ASSERT_OK(sd_fiber_new(e, "simple", simple_fiber, &value, /* destroy= */ NULL, &target));
+        ASSERT_OK(sd_future_set_priority(target, /* priority= */ 0));
         /* Create waiter fiber with lower priority (runs second, after target completes) */
-        ASSERT_OK(sd_fiber_new(e, "wait-for-completed", wait_for_completed_fiber, target, NULL, &waiter));
+        ASSERT_OK(sd_fiber_new(e, "wait-for-completed", wait_for_completed_fiber, target, /* destroy= */ NULL, &waiter));
         ASSERT_OK(sd_future_set_priority(waiter, 1));
 
         ASSERT_OK(sd_event_loop(e));
@@ -397,9 +397,9 @@ TEST(fiber_await_resolved_returns_result) {
         int value = 77;
 
         /* Higher-priority target runs to completion before the waiter starts. */
-        ASSERT_OK(sd_fiber_new(e, "target", simple_fiber, &value, NULL, &target));
-        ASSERT_OK(sd_future_set_priority(target, 0));
-        ASSERT_OK(sd_fiber_new(e, "await-resolved", await_resolved_fiber, target, NULL, &waiter));
+        ASSERT_OK(sd_fiber_new(e, "target", simple_fiber, &value, /* destroy= */ NULL, &target));
+        ASSERT_OK(sd_future_set_priority(target, /* priority= */ 0));
+        ASSERT_OK(sd_fiber_new(e, "await-resolved", await_resolved_fiber, target, /* destroy= */ NULL, &waiter));
         ASSERT_OK(sd_future_set_priority(waiter, 1));
 
         ASSERT_OK(sd_event_loop(e));
@@ -427,11 +427,11 @@ TEST(fiber_wait_for_cancelled) {
 
         _cleanup_(sd_future_unrefp) sd_future *target = NULL, *waiter = NULL;
         int counter = 0;
-        ASSERT_OK(sd_fiber_new(e, "yielding", fiber_that_yields, &counter, NULL, &target));
-        ASSERT_OK(sd_fiber_new(e, "wait-for-cancelled", wait_for_cancelled_fiber, target, NULL, &waiter));
+        ASSERT_OK(sd_fiber_new(e, "yielding", fiber_that_yields, &counter, /* destroy= */ NULL, &target));
+        ASSERT_OK(sd_fiber_new(e, "wait-for-cancelled", wait_for_cancelled_fiber, target, /* destroy= */ NULL, &waiter));
 
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         ASSERT_OK(sd_future_cancel(target));
 
@@ -460,12 +460,12 @@ TEST(fiber_wait_for_multiple_waiters) {
 
         _cleanup_(sd_future_unrefp) sd_future *target = NULL;
         int counter = 0;
-        ASSERT_OK(sd_fiber_new(e, "slow", slow_fiber, &counter, NULL, &target));
+        ASSERT_OK(sd_fiber_new(e, "slow", slow_fiber, &counter, /* destroy= */ NULL, &target));
 
         sd_future *waiters[3] = {};
         CLEANUP_ELEMENTS(waiters, sd_future_unref_array_clear);
         for (size_t i = 0; i < ELEMENTSOF(waiters); i++)
-                ASSERT_OK(sd_fiber_new(e, "multi-waiter", multi_waiter_fiber, target, NULL, &waiters[i]));
+                ASSERT_OK(sd_fiber_new(e, "multi-waiter", multi_waiter_fiber, target, /* destroy= */ NULL, &waiters[i]));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -498,11 +498,11 @@ TEST(fiber_wait_for_chain) {
         CLEANUP_ELEMENTS(fibers, sd_future_unref_array_clear);
         int value = 10;
 
-        ASSERT_OK(sd_fiber_new(e, "simple", simple_fiber, &value, NULL, &fibers[0]));
+        ASSERT_OK(sd_fiber_new(e, "simple", simple_fiber, &value, /* destroy= */ NULL, &fibers[0]));
 
         /* Each subsequent fiber waits for the previous and adds 1 */
         for (size_t i = 1; i < ELEMENTSOF(fibers); i++)
-                ASSERT_OK(sd_fiber_new(e, "chain-waiter", chain_waiter_fiber, fibers[i - 1], NULL, &fibers[i]));
+                ASSERT_OK(sd_fiber_new(e, "chain-waiter", chain_waiter_fiber, fibers[i - 1], /* destroy= */ NULL, &fibers[i]));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -547,7 +547,7 @@ static int nested_run_outer_fiber(void *userdata) {
 
         /* Spawn a fiber on the inner event loop. Driving it via sd_event_loop(inner) causes fiber_run() to
          * be invoked while we are already executing inside fiber_run() for the outer fiber. */
-        r = sd_fiber_new(inner, "inner", nested_run_inner_fiber, counter, NULL, &nested);
+        r = sd_fiber_new(inner, "inner", nested_run_inner_fiber, counter, /* destroy= */ NULL, &nested);
         if (r < 0)
                 return r;
 
@@ -572,7 +572,7 @@ TEST(fiber_nested_run) {
 
         _cleanup_(sd_future_unrefp) sd_future *outer = NULL;
         int counter = 0;
-        ASSERT_OK(sd_fiber_new(e, "outer", nested_run_outer_fiber, &counter, NULL, &outer));
+        ASSERT_OK(sd_fiber_new(e, "outer", nested_run_outer_fiber, &counter, /* destroy= */ NULL, &outer));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(outer));
@@ -612,7 +612,7 @@ static int nested_current_check_outer_fiber(void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_fiber_new(inner, "inner", nested_current_check_inner_fiber, slots, NULL, &nested);
+        r = sd_fiber_new(inner, "inner", nested_current_check_inner_fiber, slots, /* destroy= */ NULL, &nested);
         if (r < 0)
                 return r;
 
@@ -639,7 +639,7 @@ TEST(fiber_nested_run_current_restored) {
 
         sd_future *slots[2] = {};
         _cleanup_(sd_future_unrefp) sd_future *outer = NULL;
-        ASSERT_OK(sd_fiber_new(e, "outer", nested_current_check_outer_fiber, slots, NULL, &outer));
+        ASSERT_OK(sd_fiber_new(e, "outer", nested_current_check_outer_fiber, slots, /* destroy= */ NULL, &outer));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(outer));
@@ -664,7 +664,7 @@ static int nested_cancellation_fiber(void *userdata) {
                 return -ENOMEM;
 
         /* Create a nested fiber within this fiber */
-        r = sd_fiber_new(sd_fiber_get_event(), name, nested_cancellation_fiber, counter, NULL, &nested);
+        r = sd_fiber_new(sd_fiber_get_event(), name, nested_cancellation_fiber, counter, /* destroy= */ NULL, &nested);
         if (r < 0)
                 return r;
 
@@ -679,7 +679,7 @@ static int nested_cancellation_fiber(void *userdata) {
 
 static int exit_loop_fiber(void *userdata) {
         /* Just exit the event loop, causing the outer fiber to be cancelled */
-        return sd_event_exit(sd_fiber_get_event(), 0);
+        return sd_event_exit(sd_fiber_get_event(), /* code= */ 0);
 }
 
 TEST(fiber_nested_cancellation) {
@@ -690,11 +690,11 @@ TEST(fiber_nested_cancellation) {
 
         /* Create outer fiber with higher priority (runs first) */
         _cleanup_(sd_future_unrefp) sd_future *outer = NULL;
-        ASSERT_OK(sd_fiber_new(e, "outer", nested_cancellation_fiber, &counter, NULL, &outer));
+        ASSERT_OK(sd_fiber_new(e, "outer", nested_cancellation_fiber, &counter, /* destroy= */ NULL, &outer));
 
         /* Create exit fiber with lower priority (runs after all nested fibers have suspended) */
         _cleanup_(sd_future_unrefp) sd_future *exit_fiber = NULL;
-        ASSERT_OK(sd_fiber_new(e, "exit-loop", exit_loop_fiber, NULL, NULL, &exit_fiber));
+        ASSERT_OK(sd_fiber_new(e, "exit-loop", exit_loop_fiber, /* userdata= */ NULL, /* destroy= */ NULL, &exit_fiber));
         ASSERT_OK(sd_future_set_priority(exit_fiber, 1));
 
         /* Run the event loop - the exit fiber should cause it to exit,
@@ -729,7 +729,7 @@ static int nested_fiber_cleanup_fiber(void *userdata) {
         int r;
 
         /* Create a nested fiber within this fiber. */
-        r = sd_fiber_new(sd_fiber_get_event(), "nested", nested_fiber_cleanup_nested_fiber, userdata, NULL, &nested);
+        r = sd_fiber_new(sd_fiber_get_event(), "nested", nested_fiber_cleanup_nested_fiber, userdata, /* destroy= */ NULL, &nested);
         if (r < 0)
                 return r;
 
@@ -744,7 +744,7 @@ TEST(nested_fiber_cleanup) {
 
         _cleanup_(sd_future_unrefp) sd_future *outer = NULL;
         int counter = 0;
-        ASSERT_OK(sd_fiber_new(e, "outer", nested_fiber_cleanup_fiber, &counter, NULL, &outer));
+        ASSERT_OK(sd_fiber_new(e, "outer", nested_fiber_cleanup_fiber, &counter, /* destroy= */ NULL, &outer));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -773,7 +773,7 @@ TEST(fiber_priority_get) {
 
         int64_t got_priority = 0;
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "priority-check", priority_check_fiber, &got_priority, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "priority-check", priority_check_fiber, &got_priority, /* destroy= */ NULL, &f));
         ASSERT_OK(sd_future_set_priority(f, 10));
 
         ASSERT_OK(sd_event_loop(e));
@@ -802,7 +802,7 @@ TEST(fiber_floating) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         int counter = 0;
-        ASSERT_OK(sd_fiber_new(e, "floating", floating_fiber, &counter, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "floating", floating_fiber, &counter, /* destroy= */ NULL, &f));
 
         ASSERT_OK_ZERO(sd_fiber_get_floating(f));
         ASSERT_OK(sd_fiber_set_floating(f, true));
@@ -832,13 +832,13 @@ TEST(fiber_floating_callback_drops_ref) {
 
         sd_future *f = NULL;
         int counter = 0;
-        ASSERT_OK(sd_fiber_new(e, "floating-cb", floating_fiber, &counter, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "floating-cb", floating_fiber, &counter, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_fiber_set_floating(f, true));
 
         /* Bump the ref for the callback to drop, then install the callback. */
         sd_future_ref(f);
-        ASSERT_OK(sd_future_set_callback(f, drop_extra_ref, NULL));
+        ASSERT_OK(sd_future_set_callback(f, drop_extra_ref, /* userdata= */ NULL));
 
         /* Drop our handle. Refs remaining: floating self-ref + the extra ref the callback will drop. */
         f = sd_future_unref(f);
@@ -854,7 +854,7 @@ TEST(fiber_floating_toggle) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         int counter = 0;
-        ASSERT_OK(sd_fiber_new(e, "floating-toggle", floating_fiber, &counter, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "floating-toggle", floating_fiber, &counter, /* destroy= */ NULL, &f));
 
         /* Toggling floating on and off again should leave the refcount unchanged: set_floating(true)
          * takes a ref and set_floating(false) drops it. If the accounting were off, the subsequent
@@ -890,7 +890,7 @@ TEST(fiber_timeout_suspend_expires) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "timeout-suspend", timeout_suspend_fiber, NULL, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "timeout-suspend", timeout_suspend_fiber, /* userdata= */ NULL, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), ETIME);
@@ -909,7 +909,7 @@ TEST(fiber_timeout_sleep_in_time) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "in-time", timeout_in_time_fiber, NULL, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "in-time", timeout_in_time_fiber, /* userdata= */ NULL, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));
@@ -928,7 +928,7 @@ TEST(fiber_timeout_infinite_no_op) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "infinite", timeout_infinite_fiber, NULL, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "infinite", timeout_infinite_fiber, /* userdata= */ NULL, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));
@@ -948,7 +948,7 @@ TEST(fiber_with_timeout_block) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "with-timeout", with_timeout_block_fiber, NULL, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "with-timeout", with_timeout_block_fiber, /* userdata= */ NULL, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), ETIME);
@@ -985,7 +985,7 @@ TEST(fiber_timeout_nested) {
 
         int fired = 0;
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "nested-timeout", nested_timeout_fiber, &fired, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "nested-timeout", nested_timeout_fiber, &fired, /* destroy= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));
@@ -1043,10 +1043,10 @@ TEST(fiber_signal_mask_is_per_thread) {
         ASSERT_OK_ZERO(-pthread_sigmask(SIG_SETMASK, NULL, &saved));
 
         _cleanup_(sd_future_unrefp) sd_future *waiter = NULL, *peer = NULL;
-        ASSERT_OK(sd_fiber_new(e, "sigmask-peer", sigmask_peer_fiber, NULL, NULL, &peer));
+        ASSERT_OK(sd_fiber_new(e, "sigmask-peer", sigmask_peer_fiber, /* userdata= */ NULL, /* destroy= */ NULL, &peer));
         ASSERT_OK(sd_future_set_priority(peer, 1));
-        ASSERT_OK(sd_fiber_new(e, "sigmask-waiter", sigmask_waiter_fiber, peer, NULL, &waiter));
-        ASSERT_OK(sd_future_set_priority(waiter, 0));
+        ASSERT_OK(sd_fiber_new(e, "sigmask-waiter", sigmask_waiter_fiber, peer, /* destroy= */ NULL, &waiter));
+        ASSERT_OK(sd_future_set_priority(waiter, /* priority= */ 0));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(waiter));
@@ -1098,10 +1098,10 @@ TEST(fiber_log_context_per_fiber) {
 
         size_t peer_observed = 0;
         _cleanup_(sd_future_unrefp) sd_future *waiter = NULL, *peer = NULL;
-        ASSERT_OK(sd_fiber_new(e, "log-peer", log_context_peer_fiber, &peer_observed, NULL, &peer));
+        ASSERT_OK(sd_fiber_new(e, "log-peer", log_context_peer_fiber, &peer_observed, /* destroy= */ NULL, &peer));
         ASSERT_OK(sd_future_set_priority(peer, 1));
-        ASSERT_OK(sd_fiber_new(e, "log-waiter", log_context_waiter_fiber, peer, NULL, &waiter));
-        ASSERT_OK(sd_future_set_priority(waiter, 0));
+        ASSERT_OK(sd_fiber_new(e, "log-waiter", log_context_waiter_fiber, peer, /* destroy= */ NULL, &waiter));
+        ASSERT_OK(sd_future_set_priority(waiter, /* priority= */ 0));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(waiter));
@@ -1157,7 +1157,7 @@ TEST(fiber_stack_guard) {
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
                 _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-                ASSERT_OK(sd_fiber_new(e, "overflow", stack_overflow_fiber, NULL, NULL, &f));
+                ASSERT_OK(sd_fiber_new(e, "overflow", stack_overflow_fiber, /* userdata= */ NULL, /* destroy= */ NULL, &f));
                 (void) sd_event_loop(e);
                 _exit(EXIT_SUCCESS);    /* unreachable if the guard fires */
         }
