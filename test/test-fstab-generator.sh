@@ -67,10 +67,10 @@ test_one() (
 
     # .deb packager seems to dislike files named with backslash. So, as a workaround, we store files
     # without backslash in .expected.
-    for i in "$out"/**/*\\*.{mount,swap}; do
+    for i in "$out"/**/*\\*.{automount,mount,swap}; do
         k="${i//\\/}"
         if [[ "$i" != "$k" ]]; then
-            if [[ -f "$i" ]]; then
+            if [[ -f "$i" && ! -L "$i" ]]; then
                 mv "$i" "$k"
             elif [[ -L "$i" ]]; then
                 dest=$(readlink "$i")
@@ -130,7 +130,7 @@ test_one() (
 for f in "$src"/test-*.input; do
     # If /mnt is a symlink, then the expected output from this
     # test scenario will not match the actual output
-    if test "$f" = "$src/test-18-options.fstab.input" -a "$(readlink /mnt)" != "/mnt"
+    if test "$f" = "$src/test-18-options.fstab.input" -a "$(realpath /mnt)" != "/mnt"
     then
         echo "Skip $f because /mnt is a symlink"
         continue
