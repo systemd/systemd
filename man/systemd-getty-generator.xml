@@ -82,7 +82,7 @@
           active kernel consoles will be enabled. This option will be ignored when the system is running in a
           container.</para>
 
-          <para>When <literal>builtins</literal> is specified, <filename>serial-getty@.service</filename> for
+          <para>When <literal>builtin</literal> is specified, <filename>serial-getty@.service</filename> for
           available virtualizer consoles will be enabled. This option will be ignored when the system is
           running in a container.</para>
 
