@@ -20,7 +20,7 @@ _`systemd-resolved`_ provides a set of APIs on the bus for resolving DNS resourc
 
 Below you'll find examples for two of these calls, to show how to use them.
 Note that glibc offers similar (and more portable) calls in _getaddrinfo()_, _getnameinfo()_ and _res\_query()_.
-Of these _getaddrinfo()_ and _getnameinfo()_ are directed to the calls above via the _nss-resolve_ NSS module, but _req\_query()_ is not.
+Of these _getaddrinfo()_ and _getnameinfo()_ are directed to the calls above via the _nss-resolve_ NSS module, but _res\_query()_ is not.
 There are a number of reasons why it might be preferable to invoke `systemd-resolved`'s bus calls rather than the glibc APIs:
 
 1. Bus APIs are naturally asynchronous, which the glibc APIs generally are not.
@@ -88,7 +88,7 @@ int main(int argc, char*argv[]) {
                                AF_UNSPEC,                                /* Which address family to look for */
                                UINT64_C(0));                             /* Input flags parameter */
         if (r < 0) {
-               fprintf(stderr, "Failed to resolve hostnme: %s\n", error.message);
+                fprintf(stderr, "Failed to resolve hostname: %s\n", error.message);
                 sd_bus_error_free(&error);
                 goto finish;
         }

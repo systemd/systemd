@@ -57,7 +57,7 @@ The text format of the .catalog files is as follows:
   For each message ID (in combination with a locale) only a single entry may be defined.
   Every entry consists of:
     * A separator line beginning with `-- `, followed by a hexadecimal message ID formatted as lower case ASCII string.
-    Optionally, the message ID may be suffixed by a space and a locale identifier, such as `de` or `fr\_FR`, if i10n is required.
+    Optionally, the message ID may be suffixed by a space and a locale identifier, such as `de` or `fr_FR`, if l10n is required.
     * A series of entry headers, in RFC822-style but not supporting continuation lines.
     Some header fields may appear more than once per entry.
     The following header fields are currently known (but additional fields may be added later):
