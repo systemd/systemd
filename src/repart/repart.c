@@ -5126,6 +5126,37 @@ static BlockPartition* block_partition_free(BlockPartition *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(BlockPartition*, block_partition_free);
 
+static int block_partition_matches(int fd, uint64_t offset, uint64_t size) {
+        char sysfs[STRLEN("/sys/dev/block/:/start") + 2*DECIMAL_STR_MAX(dev_t) + 1];
+        _cleanup_free_ char *value = NULL;
+        uint64_t start, device_size;
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+        if (!S_ISBLK(st.st_mode))
+                return -ENOTBLK;
+
+        xsprintf(sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/start", DEVNUM_FORMAT_VAL(st.st_rdev));
+        r = read_one_line_file(sysfs, &value);
+        if (r < 0)
+                return r;
+        r = safe_atou64(value, &start);
+        if (r < 0)
+                return r;
+        if (start > UINT64_MAX / 512U)
+                return -EOVERFLOW;
+
+        r = blockdev_get_device_size(fd, &device_size);
+        if (r < 0)
+                return r;
+
+        return start * 512U == offset && device_size == size;
+}
+
 typedef struct {
         LoopDevice *loop;
         BlockPartition *block_partition;
@@ -5274,6 +5305,7 @@ static int partition_target_prepare(
                         _cleanup_close_ int dev_fd = -EBADF;
                         _cleanup_free_ char *part_node = NULL;
                         _cleanup_(block_partition_freep) BlockPartition *b = NULL;
+                        bool added = false;
                         int nr;
 
                         /* blkpg takes int for partition numbers */
@@ -5294,27 +5326,48 @@ static int partition_target_prepare(
                                   p->offset, NATURAL_ALIGNMENT(p->offset),
                                   size, NATURAL_ALIGNMENT(size));
                         r = block_device_add_partition(whole_fd, nr, p->offset, size);
-                        if (r < 0)
+                        if (r == -EBUSY)
+                                log_debug_errno(r, "Kernel was quicker than us in adding partition '%s'.", part_node);
+                        else if (r < 0)
                                 return log_error_errno(r, "Failed to create new partition '%s': %m", part_node);
+                        else
+                                added = true;
 
                         context->needs_rescan = true;
 
                         dev_fd = open(part_node, O_RDWR|O_CLOEXEC|O_NOCTTY);
                         if (dev_fd < 0) {
                                 r = -errno;
+                                if (added) {
+                                        int q = block_device_remove_partition(whole_fd, nr);
+                                        if (q < 0)
+                                                log_warning_errno(q, "Error while removing block device partition '%s', ignoring: %m", part_node);
+                                }
+                                return log_error_errno(r, "Failed to open new partition '%s': %m", part_node);
+                        }
+
+                        r = block_partition_matches(dev_fd, p->offset, size);
+                        if (r <= 0 && added) {
                                 int q = block_device_remove_partition(whole_fd, nr);
                                 if (q < 0)
                                         log_warning_errno(q, "Error while removing block device partition '%s', ignoring: %m", part_node);
-                                return log_error_errno(r, "Failed to open new partition '%s': %m", part_node);
                         }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to verify new partition '%s': %m", part_node);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                                       "New partition '%s' does not match the requested offset and size.",
+                                                       part_node);
 
                         /* No need to flock for udev, the whole disk fd is already locked. */
 
                         b = new(BlockPartition, 1);
                         if (!b) {
-                                r = block_device_remove_partition(whole_fd, nr);
-                                if (r < 0)
-                                        log_warning_errno(r, "Error while removing block device partition '%s', ignoring: %m", part_node);
+                                if (added) {
+                                        r = block_device_remove_partition(whole_fd, nr);
+                                        if (r < 0)
+                                                log_warning_errno(r, "Error while removing block device partition '%s', ignoring: %m", part_node);
+                                }
 
                                 return log_oom();
                         }

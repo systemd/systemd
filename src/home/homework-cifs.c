@@ -247,6 +247,7 @@ int home_create_cifs(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
                         SD_ID128_NULL,
                         NULL,
                         NULL,
+                        NULL,
                         UINT64_MAX,
                         NULL,
                         NULL,

@@ -80,6 +80,75 @@
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>ThinPool=</varname></term>
+        <listitem><para>Configures an already active raw device-mapper thin pool used for newly created LUKS
+        home areas that do not specify an explicit image path. The value must be an absolute path to a block
+        device containing exactly one <literal>thin-pool</literal> target, for example
+        <filename>/dev/mapper/homes</filename>. Such homes use ext4. If no <varname>diskSize</varname> is
+        specified, the logical size is derived from the active pool's data size, rounded down to the normal
+        home-disk alignment and limited to the supported size range. An explicit <varname>diskSize</varname>
+        remains authoritative. Resizing and automatic space rebalancing are disabled for these fixed logical
+        devices.</para>
+
+        <para>The pool must be dedicated exclusively to <command>systemd-homed</command>. Its DM UUID must
+        be nonempty and must not use the <literal>LVM-</literal> namespace. Mixing homed's 24-bit thin-device
+        IDs with another volume manager can cause ID collisions and data loss. The pool must be writable,
+        use <literal>error_if_no_space</literal>, and pass discards through. Failed, read-only, exhausted, or
+        <literal>needs_check</literal> pools are rejected and their homes remain inactive.</para>
+
+        <para><command>systemd-homed</command> allocates, activates, and deletes thin devices, and records the
+        pool generation UUID and numeric device ID in the machine-specific user-record binding. It maintains
+        a durable, locked allocator state synchronized with the pool transaction ID and never reuses IDs
+        within a pool generation. If that state is lost after the pool has been modified, the transaction ID
+        mismatch is treated as unsafe and the pool is refused rather than restarting allocation at zero.
+        Formatting, initial activation, offline <command>thin_check</command>, repair, and backing-device
+        growth remain platform responsibilities. There is no unattended repair; a corrupt pool must be taken
+        offline and checked or repaired by the administrator before retrying.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HardwareWrappedKeys=</varname></term>
+        <listitem><para>Takes a boolean and defaults to false. When enabled, newly created thin-backed
+        LUKS/ext4 homes use a hardware-wrapped inline-encryption key. The complete block stack and storage
+        controller must support hardware-wrapped key generation, software-secret derivation, ephemeral-key
+        preparation, inline AES-256-XTS encryption through <literal>dm-inlinecrypt</literal>, and journaled
+        <literal>dm-integrity</literal> provisioning. The resulting stack is ext4 over
+        <literal>dm-integrity</literal>, <literal>dm-inlinecrypt</literal>, and the raw dm-thin device. Integrity
+        uses an internal <literal>hmac(sha256)</literal> over filesystem plaintext with 4096-byte sectors,
+        32-byte tags, colocated metadata, and a fixed 32 MiB journal. The lower inline-encryption layer
+        encrypts the data, integrity tags, superblock, and journal. An explicit
+        <literal>yes</literal> fails creation if any required component is unavailable; it never falls back
+        to a raw volume key. Existing wrapped homes remain usable when this setting is later disabled. This
+        is intentionally a system-wide creation policy; no per-user <command>homectl</command> override is
+        provided. New raw-key homes continue to use the unversioned identity-token format for compatibility,
+        while version 2 is reserved for the authenticated hardware-wrapped-key envelope.</para>
+
+        <para>The wrapped key is tied to the storage hardware's wrapping identity. A LUKS header backup and
+        the user's password are not sufficient for recovery after incompatible storage-controller or
+        motherboard replacement. Keep normal LUKS header and dm-thin metadata backups for repair, but also keep an
+        independent encrypted file-level backup. Migrate a home while the source hardware is available by
+        unlocking it and copying its files into a newly created home on the destination; copying only the thin
+        thin device or LUKS header to hardware with a different wrapping identity is not a migration method.</para>
+
+        <para>Password, recovery-key, PKCS#11, and FIDO2 enrollment changes update normal LUKS2 keyslots while
+        retaining the same wrapped data key. Online LUKS reencryption and data-key rotation are not supported
+        for this profile. Locking a newly created wrapped home requires cryptsetup, a
+        <literal>dm-inlinecrypt</literal> target version 1.1 or newer, and a <literal>dm-integrity</literal>
+        target version 1.15 or newer with suspended <literal>key wipe</literal>/<literal>key set</literal>
+        support. Older stacks return an unsupported-operation error without leaving only one layer resumed;
+        full deactivation remains supported and evicts both active keys.</para>
+
+        <para>Each protected home permanently reserves approximately 32 MiB for the integrity journal, in
+        addition to dm-integrity tags and filesystem blocks provisioned in the thin pool. Size thin-pool data
+        and metadata capacity for this overhead. Homes created before integrity support retain their existing
+        layout and do not acquire this reservation automatically.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

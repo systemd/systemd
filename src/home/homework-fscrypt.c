@@ -1385,6 +1385,7 @@ int home_create_fscrypt(
                         SD_ID128_NULL,
                         NULL,
                         NULL,
+                        NULL,
                         UINT64_MAX,
                         NULL,
                         NULL,

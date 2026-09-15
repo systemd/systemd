@@ -51,6 +51,27 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_bzip2, HAVE_BZIP2);
         ASSERT_DLOPEN(dlopen_bpf, HAVE_LIBBPF);
         ASSERT_DLOPEN(dlopen_cryptsetup, HAVE_LIBCRYPTSETUP);
+        if (HAVE_LIBCRYPTSETUP && !cryptsetup_has_hw_wrapped_key_support()) {
+                unsigned capabilities = cryptsetup_hw_wrapped_key_capabilities();
+                char *p = NULL;
+                size_t n = 0;
+
+                /* An older libcryptsetup must keep the ordinary required symbol set loadable while
+                 * wrapped-only entry points fail through their typed compatibility stubs. */
+                if (!FLAGS_SET(capabilities, CRYPTSETUP_HW_WRAPPED_FORMAT))
+                        ASSERT_ERROR(sym_crypt_format_luks2_hw_wrapped(
+                                             NULL, NULL, NULL, NULL, NULL, 0, NULL),
+                                     EOPNOTSUPP);
+                if (!FLAGS_SET(capabilities, CRYPTSETUP_HW_ENCRYPTION_TYPE))
+                        ASSERT_EQ(sym_crypt_get_hw_encryption_type(NULL), CRYPT_SW_ONLY);
+                if (!FLAGS_SET(capabilities, CRYPTSETUP_HW_WRAPPED_GENERATE))
+                        ASSERT_ERROR(sym_crypt_hw_wrapped_key_generate(NULL, &p, &n), EOPNOTSUPP);
+                if (!FLAGS_SET(capabilities, CRYPTSETUP_HW_WRAPPED_DERIVE_SECRET))
+                        ASSERT_ERROR(sym_crypt_hw_wrapped_key_derive_secret(NULL, NULL, 0, &p, &n),
+                                     EOPNOTSUPP);
+                ASSERT_NULL(p);
+                ASSERT_EQ(n, 0U);
+        }
         ASSERT_DLOPEN(dlopen_curl, HAVE_LIBCURL);
         ASSERT_DLOPEN(dlopen_dw, HAVE_ELFUTILS);
         ASSERT_DLOPEN(dlopen_elf, HAVE_ELFUTILS);
