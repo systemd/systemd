@@ -38,7 +38,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_message_read_array()</function> provides access to an array elements in the
+    <para><function>sd_bus_message_read_array()</function> provides access to an array of elements in the
     bus message <parameter>m</parameter>. The "read pointer" in the message must be right before an array of type
     <parameter>type</parameter>. As a special case, <parameter>type</parameter> may be
     <constant>NUL</constant>, in which case any trivial type is acceptable. A pointer to the array data is returned

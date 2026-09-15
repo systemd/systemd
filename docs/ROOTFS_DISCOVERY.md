@@ -362,7 +362,7 @@ typically requires enrolment of TLS server certificates in the system
 firmware, but provides transport integrity, authenticity and
 confidentiality. Acquiring the various resources via plain HTTP should
 generally be sufficient too, as the key resources acquired this way
-area generally authenticated before use via other mechanisms, see above.
+are generally authenticated before use via other mechanisms, see above.
 
 ## Building
 
