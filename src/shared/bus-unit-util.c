@@ -1297,14 +1297,18 @@ static int bus_append_refresh_on_reload(sd_bus_message *m, const char *field, co
         return 1;
 }
 
-static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, const char *eq) {
+int bus_append_log_extra_fields_strv(sd_bus_message *m, char * const *fields) {
         int r;
+
+        assert(m);
+
+        /* Appends a single "LogExtraFields" (sv) property entry carrying all the specified fields */
 
         r = sd_bus_message_open_container(m, 'r', "sv");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_basic(m, 's', field);
+        r = sd_bus_message_append_basic(m, 's', "LogExtraFields");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1316,9 +1320,11 @@ static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, con
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_array(m, 'y', eq, strlen(eq));
-        if (r < 0)
-                return bus_log_create_error(r);
+        STRV_FOREACH(f, fields) {
+                r = sd_bus_message_append_array(m, 'y', *f, strlen(*f));
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
@@ -1333,6 +1339,12 @@ static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, con
                 return bus_log_create_error(r);
 
         return 1;
+}
+
+static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, const char *eq) {
+        assert(streq(field, "LogExtraFields"));
+
+        return bus_append_log_extra_fields_strv(m, STRV_MAKE(eq));
 }
 
 static int bus_append_log_filter_patterns(sd_bus_message *m, const char *field, const char *eq) {

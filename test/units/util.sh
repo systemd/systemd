@@ -597,3 +597,23 @@ wait_for_machine() {
         done
     "
 }
+
+# Waits until no PTY registered with systemd-ptybrokerd carries the specified string in any column of
+# "ptyctl list" anymore (i.e. as its name, or as its description for PTYs acquired by the service manager on
+# behalf of a unit). Deregistration happens asynchronously, hence poll for it. A failing "ptyctl list" is
+# fatal here, rather than being mistaken for the entry being gone.
+wait_for_pty_deregistration() {
+    local name="${1:?}" listing
+
+    for _ in {1..20}; do
+        listing="$(ptyctl list)"
+        if ! tr -s ' ' '\n' <<<"$listing" | grep -Fx "$name" >/dev/null; then
+            return 0
+        fi
+        sleep .5
+    done
+
+    echo >&2 "PTY '$name' was not deregistered in time:"
+    echo >&2 "$listing"
+    return 1
+}

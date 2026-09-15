@@ -13,7 +13,9 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(socket),
                 SD_VARLINK_DEFINE_ENUM_VALUE(fd),
                 SD_VARLINK_DEFINE_ENUM_VALUE(data),
-                SD_VARLINK_DEFINE_ENUM_VALUE(file));
+                SD_VARLINK_DEFINE_ENUM_VALUE(file),
+                SD_VARLINK_DEFINE_ENUM_VALUE(broker),
+                SD_VARLINK_DEFINE_ENUM_VALUE(broker_log));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ExecUtmpMode,
@@ -1569,11 +1571,11 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The parameter passed to the condition"),
                 SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
-/* UnitContext is used both as input to StartTransient (subset settable at creation time: ID,
- * Description, CollectMode, Service, and the Exec subset {WorkingDirectory, Environment, SetCredential,
- * SetCredentialEncrypted}) and as output from List/StartTransient (full unit configuration). Fields
- * that are not settable at creation time are rejected with PropertyNotSupported when supplied as
- * input. */
+/* UnitContext is used both as input to StartTransient (subset settable at creation time: ID, Description,
+ * CollectMode, Service, Kill (currently KillMode and SendSIGHUP only), and the Exec subset listed in
+ * exec_properties[] in src/core/varlink-unit.c) and as output from List/StartTransient (full unit
+ * configuration). Fields that are not settable at creation time are rejected with PropertyNotSupported when
+ * supplied as input. */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitContext,
                 SD_VARLINK_FIELD_COMMENT("The unit type"),
