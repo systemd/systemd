@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -21,6 +22,7 @@ void manifest_context_done(ManifestContext *c) {
 }
 
 static const char* const manifest_format_table[_MANIFEST_FORMAT_MAX] = {
+        [MANIFEST_FORMAT_LIST]  = "list",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manifest_format, ManifestFormat);
@@ -160,6 +162,30 @@ int manifest_context_hash_fd(ManifestContext *c, int inode_fd, uint8_t ret[stati
         return sha256_fd(fd, /* max_size= */ UINT64_MAX, ret);
 }
 
+static int manifest_list_item(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        ManifestContext *c = ASSERT_PTR(userdata);
+
+        assert(path);
+
+        if (event == RECURSE_DIR_ENTER)
+                fprintf(c->output, "%s%s/%s\n",
+                        path,
+                        c->color ? ansi_grey() : "",
+                        c->color ? ansi_normal() : "");
+        else if (event == RECURSE_DIR_ENTRY)
+                fprintf(c->output, "%s\n", path);
+
+        return RECURSE_DIR_CONTINUE;
+}
+
 int manifest_make(ManifestContext *c, int dir_fd) {
         int r;
 
@@ -183,9 +209,12 @@ int manifest_make(ManifestContext *c, int dir_fd) {
 
         switch (c->format) {
 
+        case MANIFEST_FORMAT_LIST:
+                item_callback = manifest_list_item;
+                break;
+
         default:
-                /* No formats are implemented yet */
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Manifest format not supported.");
+                assert_not_reached();
         }
 
         r = recurse_dir(dir_fd, path, statx_mask, /* n_depth_max= */ UINT_MAX, flags, item_callback, c);
