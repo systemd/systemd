@@ -75,7 +75,7 @@
         entropy when loading the random seed. With this option this behaviour may be changed: it either takes
         a boolean parameter or the special string <literal>force</literal>. Defaults to false, in which case
         no entropy is credited. If true, entropy is credited if the random seed file and system state pass
-        various superficial concisistency checks. If set to <literal>force</literal> entropy is credited,
+        various superficial consistency checks. If set to <literal>force</literal> entropy is credited,
         regardless of these checks, as long as the random seed file exists.</para>
 
         <xi:include href="version-info.xml" xpointer="v243"/></listitem>

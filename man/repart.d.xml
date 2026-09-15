@@ -249,7 +249,7 @@
 
         <listitem><para>The textual label to assign to the partition if none is assigned yet. Note that this
         setting is not used for matching. It is also not used when a label is already set for an existing
-        partition. It is thus only used when a partition is newly created or when an existing one had a no
+        partition. It is thus only used when a partition is newly created or when an existing one had no
         label set (that is: an empty label). If not specified, a label derived from the partition type is
         automatically used. Simple specifier expansion is supported, see below.</para>
 

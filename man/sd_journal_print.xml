@@ -163,7 +163,7 @@
     <function>sd_journal_print()</function> and <function>sd_journal_send()</function> described above, which are based
     on format strings, and do strip trailing whitespace.</para>
 
-    <para><function>sd_journal_perror()</function> is a similar to
+    <para><function>sd_journal_perror()</function> is similar to
     <citerefentry project='die-net'><refentrytitle>perror</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and writes a message to the journal that consists of the passed
     string, suffixed with ": " and a human-readable representation of

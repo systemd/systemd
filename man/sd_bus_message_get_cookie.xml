@@ -19,7 +19,7 @@
   <refnamediv>
     <refname>sd_bus_message_get_cookie</refname>
     <refname>sd_bus_message_get_reply_cookie</refname>
-    <refpurpose>Returns the transaction cookie of a message</refpurpose>
+    <refpurpose>Return the transaction cookie of a message</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
