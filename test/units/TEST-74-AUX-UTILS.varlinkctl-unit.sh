@@ -77,6 +77,185 @@ timer_params=$(jq -cn --arg name "$timer_id" '{name: $name}')
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$timer_params" | jq -e '.context.Timer'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$timer_params" | jq -e '.runtime.Timer'
 
+# test io.systemd.Unit.EnqueueJob
+
+# Single EXIT handler for the whole script. bash EXIT traps are not additive, so registering a second
+# trap later would silently replace this one; keep all cleanup here and register it once, up front.
+TRANSIENT_UNITS=()
+at_exit() {
+    systemctl stop varlink-test-enqueue.service 2>/dev/null || true
+    systemctl stop varlink-test-enqueue-2.service 2>/dev/null || true
+    systemctl stop varlink-test-slow.service 2>/dev/null || true
+    rm -f /run/systemd/system/varlink-test-enqueue.service
+    rm -f /run/systemd/system/varlink-test-enqueue-2.service
+    rm -f /run/systemd/system/varlink-test-slow.service
+    rm -f /tmp/enqueue-result.json
+    rm -f /tmp/enqueue-notifications.json
+    for u in "${TRANSIENT_UNITS[@]}"; do
+        systemctl stop "$u" 2>/dev/null || true
+        systemctl reset-failed "$u" 2>/dev/null || true
+    done
+    systemctl daemon-reload
+}
+trap at_exit EXIT
+
+cat >/run/systemd/system/varlink-test-enqueue.service <<UNIT
+[Service]
+Type=oneshot
+ExecStart=true
+RemainAfterExit=yes
+UNIT
+cat >/run/systemd/system/varlink-test-enqueue-2.service <<UNIT
+[Service]
+Type=oneshot
+ExecStart=true
+RemainAfterExit=yes
+UNIT
+systemctl daemon-reload
+
+wait_for_active() {
+    for _ in {1..10}; do
+        systemctl is-active "$1" 2>/dev/null && return 0
+        sleep 1
+    done
+    return 1
+}
+
+wait_for_inactive() {
+    for _ in {1..10}; do
+        (! systemctl is-active "$1" 2>/dev/null) && return 0
+        sleep 1
+    done
+    return 1
+}
+
+# Enqueue a start job (non-streaming) and verify the response contains all expected fields
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service"], "jobType": "start"}' > /tmp/enqueue-result.json
+jq -e '.job.Id' /tmp/enqueue-result.json
+jq -e '.context' /tmp/enqueue-result.json
+jq -e '.runtime' /tmp/enqueue-result.json
+wait_for_active varlink-test-enqueue.service
+
+# Enqueue a stop job and verify response
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service"], "jobType": "stop"}' | jq -e '.job.JobType == "stop"'
+wait_for_inactive varlink-test-enqueue.service
+
+# Test with explicit mode
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service"], "jobType": "start", "mode": "fail"}' | jq -e '.job.Id'
+wait_for_active varlink-test-enqueue.service
+
+# Test restart
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service"], "jobType": "restart"}' | jq -e '.job.JobType == "restart"'
+wait_for_active varlink-test-enqueue.service
+
+# reloadIfPossible on a unit that cannot be reloaded resolves to a plain restart
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service"], "jobType": "restart", "reloadIfPossible": true}' | jq -e '.job.JobType == "restart"'
+wait_for_active varlink-test-enqueue.service
+
+# Multiple units are enqueued in a single transaction, and reported as one reply per job, in the very
+# same format as the single unit case
+systemctl stop varlink-test-enqueue.service
+varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service", "varlink-test-enqueue-2.service"], "jobType": "start"}' > /tmp/enqueue-result.json
+jq -e 'length == 2' /tmp/enqueue-result.json
+jq -e '.[0].context and .[0].runtime and .[0].job.Id' /tmp/enqueue-result.json
+jq -e '[.[].job.Unit] | sort == ["varlink-test-enqueue-2.service", "varlink-test-enqueue.service"]' /tmp/enqueue-result.json
+wait_for_active varlink-test-enqueue.service
+wait_for_active varlink-test-enqueue-2.service
+
+varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service", "varlink-test-enqueue-2.service"], "jobType": "stop"}' | jq -e 'length == 2'
+wait_for_inactive varlink-test-enqueue.service
+wait_for_inactive varlink-test-enqueue-2.service
+
+# Multiple units require the 'more' flag, as they result in multiple replies
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service", "varlink-test-enqueue-2.service"], "jobType": "start"}')
+
+# If one of the units is bogus the whole transaction is refused, i.e. the good one is not started either
+(! varlinkctl call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service", "non-existent.service"], "jobType": "start"}')
+(! systemctl is-active varlink-test-enqueue.service)
+
+# Streaming mode: enqueue and watch until job completes (streaming waits for job to finish)
+varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service"], "jobType": "start", "notifyJobChanges": true}' | jq -e '.[].job'
+systemctl is-active varlink-test-enqueue.service
+
+# Notifications are messages of their own, hence they require the 'more' flag
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service"], "jobType": "start", "notifyJobChanges": true}')
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service"], "jobType": "start", "notifyUnitChanges": true}')
+
+# Job change notifications are not supported for more than one unit for now
+(! varlinkctl call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service", "varlink-test-enqueue-2.service"], "jobType": "start", "notifyJobChanges": true}')
+
+# Error cases
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["non-existent.service"], "jobType": "start"}')
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["invalid-unit-name"], "jobType": "start"}')
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": [], "jobType": "start"}')
+
+# A job can only be watched by a single streaming connection at a time. Because jobs coalesce, a second
+# concurrent streaming request maps onto the same job and must be rejected gracefully (not crash PID 1).
+cat >/run/systemd/system/varlink-test-slow.service <<UNIT
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sleep infinity
+RemainAfterExit=yes
+UNIT
+systemctl daemon-reload
+
+# First streaming start attaches to the job and keeps the stream open in the background.
+varlinkctl call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+    '{"names": ["varlink-test-slow.service"], "jobType": "start", "notifyJobChanges": true}' >/dev/null 2>&1 &
+watcher_pid=$!
+
+# Wait until the job is running (unit is activating, first watcher attached).
+for _ in {1..50}; do
+    [[ "$(systemctl show -P ActiveState varlink-test-slow.service 2>/dev/null)" == "activating" ]] && break
+    sleep 0.1
+done
+[[ "$(systemctl show -P ActiveState varlink-test-slow.service)" == "activating" ]]
+
+# A second concurrent streaming start coalesces onto the same job and must fail with a well-defined error.
+set +o pipefail
+varlinkctl call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+    '{"names": ["varlink-test-slow.service"], "jobType": "start", "notifyJobChanges": true}' |& grep "io.systemd.Unit.JobAlreadyBeingWatched"
+set -o pipefail
+
+systemctl stop varlink-test-slow.service
+wait "$watcher_pid" 2>/dev/null || true
+
+# A unit can carry two jobs at the same time, the regular one and a NOP one, and each of them may be
+# watched by a different connection. The job finishing first must not tear down the unit change
+# subscription of the other one.
+varlinkctl --json=short call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+    '{"names": ["varlink-test-slow.service"], "jobType": "start", "notifyUnitChanges": true}' >/tmp/enqueue-notifications.json &
+watcher_pid=$!
+
+for _ in {1..50}; do
+    [[ "$(systemctl show -P ActiveState varlink-test-slow.service 2>/dev/null)" == "activating" ]] && break
+    sleep 0.1
+done
+[[ "$(systemctl show -P ActiveState varlink-test-slow.service)" == "activating" ]]
+
+# One message per line, and while the start job is still running all of them are unit change
+# notifications, i.e. the final reply cannot be among them yet.
+sleep 1
+notifications=$(wc -l </tmp/enqueue-notifications.json)
+
+# The NOP job goes into the unit's separate nop_job slot, so it is watchable even though the start job
+# above is already watched, and it completes right away.
+varlinkctl call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+    '{"names": ["varlink-test-slow.service"], "jobType": "nop", "notifyJobChanges": true}' >/dev/null
+
+# Removing the NOP job changes the Job property of the unit, hence the still subscribed connection must
+# receive another notification for it.
+for _ in {1..20}; do
+    [[ "$(wc -l </tmp/enqueue-notifications.json)" -gt "$notifications" ]] && break
+    sleep 0.1
+done
+[[ "$(wc -l </tmp/enqueue-notifications.json)" -gt "$notifications" ]]
+
+systemctl stop varlink-test-slow.service
+wait "$watcher_pid" 2>/dev/null || true
+rm -f /run/systemd/system/varlink-test-slow.service
+systemctl daemon-reload
+
 # test io.systemd.Unit in user manager
 testuser_uid=$(id -u testuser)
 systemd-run --wait --pipe --user --machine testuser@ \
@@ -85,17 +264,10 @@ systemd-run --wait --pipe --user --machine testuser@ \
 # Test io.systemd.Unit.StartTransient
 MANAGER_SOCKET="/run/systemd/io.systemd.Manager"
 
-TRANSIENT_UNITS=()
+# Transient units are torn down by at_exit() above; just accumulate their names here.
 defer_transient_cleanup() {
     TRANSIENT_UNITS+=("$1")
 }
-transient_cleanup() {
-    for u in "${TRANSIENT_UNITS[@]}"; do
-        systemctl stop "$u" 2>/dev/null || true
-        systemctl reset-failed "$u" 2>/dev/null || true
-    done
-}
-trap transient_cleanup EXIT
 
 # Basic oneshot transient service
 defer_transient_cleanup varlink-transient-test.service
@@ -367,6 +539,3 @@ unsupported_service=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTra
 echo "$unsupported_service" | grep "io.systemd.Unit.PropertyNotSupported"
 echo "$unsupported_service" | grep "Service.Restart"
 set -o pipefail
-
-transient_cleanup
-trap - EXIT
