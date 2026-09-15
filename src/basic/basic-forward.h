@@ -93,6 +93,7 @@ typedef enum ForkFlags ForkFlags;
 typedef enum Glyph Glyph;
 typedef enum ImageClass ImageClass;
 typedef enum JobMode JobMode;
+typedef enum NamespaceEnterFlags NamespaceEnterFlags;
 typedef enum RuntimeScope RuntimeScope;
 typedef enum TimestampStyle TimestampStyle;
 typedef enum UnitActiveState UnitActiveState;
