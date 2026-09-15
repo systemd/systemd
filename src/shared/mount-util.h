@@ -150,14 +150,23 @@ typedef enum RemountIdmapping {
 int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned flags, struct mount_attr *attr);
 int open_tree_try_drop_idmap(int dir_fd, const char *path, unsigned flags);
 
-int make_userns(uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest_owner, RemountIdmapping idmapping);
+int make_userns(
+                uid_t uid_shift,
+                uid_t uid_range,
+                uid_t source_uid,
+                gid_t source_gid,
+                uid_t dest_uid,
+                gid_t dest_gid,
+                RemountIdmapping idmapping);
 int remount_idmap_fd(char **p, int userns_fd, uint64_t extra_mount_attr_set);
 int remount_idmap(
                 char **p,
                 uid_t uid_shift,
                 uid_t uid_range,
-                uid_t source_owner,
-                uid_t dest_owner,
+                uid_t source_uid,
+                gid_t source_gid,
+                uid_t dest_uid,
+                gid_t dest_gid,
                 RemountIdmapping idmapping);
 
 /* Creates a mount point (without any parents) based on the source path or mode - i.e., a file or a directory */
