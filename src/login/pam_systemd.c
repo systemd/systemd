@@ -474,7 +474,7 @@ static int append_session_io_weight(pam_handle_t *pamh, sd_bus_message *m, const
         return sd_bus_message_append(m, "(sv)", "IOWeight", "t", val);
 }
 
-static const char* getenv_harder(pam_handle_t *pamh, const char *key, const char *fallback) {
+static const char* getenv_harder(pam_handle_t *pamh, bool debug, const char *key, const char *fallback) {
         const char *v;
 
         assert(pamh);
@@ -487,62 +487,70 @@ static const char* getenv_harder(pam_handle_t *pamh, const char *key, const char
          * can still be set from the unit file Environment= block. */
 
         v = sym_pam_getenv(pamh, key);
-        if (!isempty(v))
+        if (!isempty(v)) {
+                pam_debug_syslog(pamh, debug, "Found PAM environment variable %s='%s'", key, v);
                 return v;
+        }
 
         /* We use secure_getenv() here, since we might get loaded into su/sudo, which are SUID. Ideally
          * they'd clean up the environment before invoking foreign code (such as PAM modules), but alas they
          * currently don't (to be precise, they clean up the environment they pass to their children, but
          * not their own environ[]). */
         v = secure_getenv(key);
-        if (!isempty(v))
+        if (!isempty(v)) {
+                pam_debug_syslog(pamh, debug, "Found normal environment variable %s='%s'", key, v);
                 return v;
+        }
 
+        if (fallback)
+                pam_debug_syslog(pamh, debug, "Using fallback %s='%s'", key, fallback);
         return fallback;
 }
 
-static bool getenv_harder_bool(pam_handle_t *pamh, const char *key, bool fallback) {
+static bool getenv_harder_bool(pam_handle_t *pamh, bool debug, const char *key, bool fallback) {
         const char *v;
         int r;
 
         assert(pamh);
         assert(key);
 
-        v = getenv_harder(pamh, key, NULL);
-        if (isempty(v))
-                return fallback;
-
-        r = parse_boolean(v);
-        if (r < 0) {
-                sym_pam_syslog(pamh, LOG_WARNING,
-                               "Failed to parse environment variable value '%s' of '%s', falling back to using '%s'.",
-                               v, key, true_false(fallback));
+        v = getenv_harder(pamh, debug, key, NULL);
+        if (!v) {
+                pam_debug_syslog(pamh, debug, "Using fallback %s=%s", key, true_false(fallback));
                 return fallback;
         }
 
-        return r;
+        r = parse_boolean(v);
+        if (r >= 0)
+                return r;
+
+        sym_pam_syslog(pamh, LOG_WARNING,
+                       "Failed to parse environment variable value '%s', using fallback %s=%s",
+                       v, key, true_false(fallback));
+        return fallback;
 }
 
-static uint32_t getenv_harder_uint32(pam_handle_t *pamh, const char *key, uint32_t fallback) {
+static uint32_t getenv_harder_uint32(pam_handle_t *pamh, bool debug, const char *key, uint32_t fallback) {
         int r;
 
         assert(pamh);
         assert(key);
 
-        const char *v = getenv_harder(pamh, key, NULL);
-        if (isempty(v))
-                return fallback;
-
-        uint32_t u;
-        r = safe_atou32(v, &u);
-        if (r < 0) {
-                sym_pam_syslog(pamh, LOG_WARNING,
-                               "Failed to parse environment variable value '%s' of '%s' as unsigned integer, falling back to using %" PRIu32 ".",
-                               v, key, fallback);
+        const char *v = getenv_harder(pamh, debug, key, NULL);
+        if (!v) {
+                pam_debug_syslog(pamh, debug, "Using fallback %s=%"PRIu32, key, fallback);
                 return fallback;
         }
 
-        return u;
+        uint32_t u;
+        r = safe_atou32(v, &u);
+        if (r >= 0)
+                return u;
+
+        pam_syslog_errno(pamh, LOG_WARNING, r,
+                         "Failed to parse environment variable value '%s' as unsigned integer, using fallback %s=%"PRIu32,
+                         v, key, fallback);
+        return fallback;
 }
 
 static int update_environment(pam_handle_t *pamh, const char *key, const char *value) {
@@ -977,7 +985,7 @@ static void session_context_mangle(
                 /* Chop off leading /dev prefix that some clients specify, but others do not. */
                 c->tty = skip_dev_prefix(c->tty);
 
-        if (!isempty(c->display) && !c->vtnr) {
+        if (!isempty(c->display) && c->vtnr == 0) {
                 if (isempty(c->seat))
                         (void) get_seat_from_display(c->display, &c->seat, &c->vtnr);
                 else if (streq(c->seat, "seat0"))
@@ -1830,7 +1838,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        &default_capability_ambient_set) < 0)
                 return PAM_SESSION_ERR;
 
-        pam_debug_syslog(pamh, debug, "pam-systemd: initializing...");
+        pam_debug_syslog(pamh, debug,
+                         "pam-systemd: initializing (class=%s type=%s desktop=%s area=%s inhibit=%s)...",
+                         strempty(class_pam),
+                         strempty(type_pam),
+                         strempty(desktop_pam),
+                         strempty(area_pam),
+                         strempty(inhibit_what));
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         r = acquire_user_record(pamh, &ur);
@@ -1848,17 +1862,32 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
 
-        c.seat = getenv_harder(pamh, "XDG_SEAT", NULL);
-        c.vtnr = getenv_harder_uint32(pamh, "XDG_VTNR", 0);
-        c.type = getenv_harder(pamh, "XDG_SESSION_TYPE", type_pam);
-        c.class = getenv_harder(pamh, "XDG_SESSION_CLASS", class_pam);
-        c.desktop = getenv_harder(pamh, "XDG_SESSION_DESKTOP", desktop_pam);
-        c.area = getenv_harder(pamh, "XDG_AREA", area_pam);
-        c.incomplete = getenv_harder_bool(pamh, "XDG_SESSION_INCOMPLETE", false);
-        inhibit_what = getenv_harder(pamh, "XDG_SESSION_INHIBIT", inhibit_what);
-        inhibit_why = getenv_harder(pamh, "XDG_SESSION_INHIBIT_WHY", inhibit_why);
+        c.seat = getenv_harder(pamh, debug, "XDG_SEAT", NULL);
+        c.vtnr = getenv_harder_uint32(pamh, debug, "XDG_VTNR", 0);
+        c.type = getenv_harder(pamh, debug, "XDG_SESSION_TYPE", type_pam);
+        c.class = getenv_harder(pamh, debug, "XDG_SESSION_CLASS", class_pam);
+        c.desktop = getenv_harder(pamh, debug, "XDG_SESSION_DESKTOP", desktop_pam);
+        c.area = getenv_harder(pamh, debug, "XDG_AREA", area_pam);
+        c.incomplete = getenv_harder_bool(pamh, debug, "XDG_SESSION_INCOMPLETE", false);
+        inhibit_what = getenv_harder(pamh, debug, "XDG_SESSION_INHIBIT", inhibit_what);
+        inhibit_why = getenv_harder(pamh, debug, "XDG_SESSION_INHIBIT_WHY", inhibit_why);
 
-        const char *extra_device_access = getenv_harder(pamh, "XDG_SESSION_EXTRA_DEVICE_ACCESS", NULL);
+        pam_debug_syslog(pamh, debug,
+                         "Initial state: "
+                         "service=%s display=%s tty=%s remote_user=%s remote_host=%s seat=%s vtnr=%"PRIu32" type=%s class=%s desktop=%s area=%s incomplete=%s inhibit_what=%s",
+                         strempty(c.service),
+                         strempty(c.display),
+                         strempty(c.tty),
+                         strempty(c.remote_user), strempty(c.remote_host),
+                         strempty(c.seat), c.vtnr,
+                         strempty(c.type),
+                         strempty(c.class),
+                         strempty(c.desktop),
+                         strempty(c.area),
+                         yes_no(c.incomplete),
+                         strempty(inhibit_what));
+
+        const char *extra_device_access = getenv_harder(pamh, debug, "XDG_SESSION_EXTRA_DEVICE_ACCESS", NULL);
         if (extra_device_access) {
                 c.extra_device_access = strv_split(extra_device_access, ":");
                 if (!c.extra_device_access)
