@@ -28,7 +28,7 @@ static int vl_server(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-        r = sd_varlink_server_bind_method_many(
+        r = varlink_server_bind_fiber_many(
                         vs,
                         "io.systemd.Metrics.List",     vl_method_list_metrics,
                         "io.systemd.Metrics.Describe", vl_method_describe_metrics);
