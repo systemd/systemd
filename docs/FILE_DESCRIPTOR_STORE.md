@@ -9,7 +9,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 *TL;DR: The systemd service manager may optionally maintain a set of file
 descriptors for each service. Those file descriptors are under control of the
-service. Storing file descriptors in the manager makes is easier to restart
+service. Storing file descriptors in the manager makes it easier to restart
 services without dropping connections or losing state.*
 
 Since its inception `systemd` has supported the *socket* *activation*
