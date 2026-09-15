@@ -44,14 +44,15 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_set_watch_bind()</function> may be used to enable or disable client-side watching of server
-    socket binding for a bus connection object. If the <parameter>b</parameter> is true, the feature is enabled,
-    otherwise disabled (which is the default). When enabled, and the selected bus address refers to an
-    <filename>AF_UNIX</filename> socket in the file system which does not exist while the connection attempt is made an
-    <citerefentry project='man-pages'><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry> watch is installed on
-    it, waiting for the socket to appear. As soon as the socket appears the connection is made. This functionality is
-    useful in particular in early-boot programs that need to run before the system bus is available, but want to
-    connect to it the instant it may be connected to.</para>
+    <para><function>sd_bus_set_watch_bind()</function> may be used to enable or disable client-side watching
+    of server socket binding for a bus connection object. If <parameter>b</parameter> is true, the feature is
+    enabled, otherwise disabled (which is the default). When enabled, and the selected bus address refers to
+    an <filename>AF_UNIX</filename> socket in the file system which does not exist while the connection
+    attempt is made, an
+    <citerefentry project='man-pages'><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    watch is installed on it, waiting for the socket to appear. As soon as the socket appears the connection
+    is made. This functionality is useful in particular in early-boot programs that need to run before the
+    system bus is available, but want to connect to it the instant it may be connected to.</para>
 
     <para><function>sd_bus_get_watch_bind()</function> may be used to query the current setting of this feature. It
     returns zero when the feature is disabled, and positive if enabled.</para>
