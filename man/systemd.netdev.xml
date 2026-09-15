@@ -1268,9 +1268,10 @@ Ports=eth2</programlisting>
       <varlistentry>
         <term><varname>Layer2SpecificHeader=</varname></term>
         <listitem>
-          <para>Specifies layer2specific header type of the session. One of <literal>none</literal> or <literal>default</literal>. Defaults to <literal>default</literal>.</para>
+          <para>Specifies the layer 2 specific header type of the session. One of <literal>none</literal> or
+          <literal>default</literal>. Defaults to <literal>default</literal>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v242"/>
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
     </variablelist>

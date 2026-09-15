@@ -46,7 +46,7 @@
     the program is running as will be uploaded, and then the program will wait and send new entries
     as they become available.</para>
     
-    <para><command>systemd-journal-upload</command> transfers the raw content of journal file and
+    <para><command>systemd-journal-upload</command> transfers the raw content of journal files and
     uses HTTP as a transport protocol.</para> 
     
     <para><filename>systemd-journal-upload.service</filename> is a system service that uses
