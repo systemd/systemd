@@ -575,6 +575,9 @@ option('vmlinux-h', type : 'combo', choices : ['auto', 'provided', 'generated', 
 option('vmlinux-h-path', type : 'string', value : '',
        description : 'path to vmlinux.h to use')
 
+option('rust', type : 'feature',
+       description : 'support for programs written in Rust (needs rustc and bindgen)')
+
 option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
        description : 'controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories')
 

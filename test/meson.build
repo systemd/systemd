@@ -130,6 +130,17 @@ if want_tests != 'false'
         foreach _, exe : executables_by_name
                 link_abi_targets += exe
         endforeach
+        link_abi_targets += rust_executable_targets
+
+        if have_rust
+                test('test-cli-parity',
+                     files('test-cli-parity.sh'),
+                     args : [executables_by_name['test-cli-c'].full_path(),
+                             rust_executables_by_name['test-cli-rust'].full_path()],
+                     depends : [executables_by_name['test-cli-c'], rust_executables_by_name['test-cli-rust']],
+                     env : test_env,
+                     suite : 'rust')
+        endif
 
         if conf.get('BUILD_MODE_DEVELOPER') == 1
                 test('test-link-abi',
