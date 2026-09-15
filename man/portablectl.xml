@@ -122,7 +122,7 @@
         <para>By default, all unit files whose names start with a prefix generated from the image's file name are copied
         out. Specifically, the prefix is determined from the image file name with any suffix such as
         <filename>.raw</filename> removed, truncated at the first occurrence of an underscore character
-        (<literal>_</literal>), if there is one. The underscore logic is supposed to be used to versioning so that the
+        (<literal>_</literal>), if there is one. The underscore logic is supposed to be used for versioning so that
         an image file <filename>foobar_47.11.raw</filename> will result in a unit file matching prefix of
         <filename>foobar</filename>. This prefix is then compared with all unit files names contained in the image in
         the usual directories, but only unit file names where the prefix is followed by <literal>-</literal>,
