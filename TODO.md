@@ -133,7 +133,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - sysupdate: add flag field for features and components, to require a restart
   of the update loop once they have been updated.
 
-- confext/sysext: add policy file concept: json files that encode for rleevant
+- confext/sysext: add policy file concept: json files that encode for relevant
   confext/sysext ddis rules when to enable them, i.e. version checks. also use
   it for the garbage collector
 
@@ -187,7 +187,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - store workload identity OIDC server contact info in cloud imds hwdb.
 
 - systemd-analyze unit-shell-me-harder that has both host and unit trees around
-  but mostly lives in unit namespces
+  but mostly lives in unit namespaces
 
 - os-release consumption at boot: version validation, and maybe in os-release
 
@@ -213,7 +213,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - nspawn/vmspawn: add a concept how we can hand into the payload some proof
   that it is running on a certain host, which it can then include in the report,
   and which allows us to put together a map about which node runs as payload of
-  which other note. in particular useful for transient nodes, as it gives them
+  which other node. in particular useful for transient nodes, as it gives them
   a better location
 
 - add a small varlink service that wraps the raw sftp logic (without ssh) after a
@@ -280,7 +280,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - firstboot: optionally accept credentials at firstboot without authentication
 
 - firstboot/sysinstall: add simple interface for prompting users to enable
-  "features" exposed by of sysupdate.
+  "features" exposed by sysupdate.
 
 - a tool that can prep credentials, put them in the ESP, for provisioning
   systems for SBC or UEFI/HTTP boot. Should be doing what sysinstall does with
@@ -531,7 +531,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   when it is otherwise off
 
 - add growvol and makevol options for /etc/crypttab, similar to
-  x-systemd.growfs and x-systemd-makefs.
+  x-systemd.growfs and x-systemd.makefs.
 
 - Add knob to cryptsetup, to trigger automatic reboot on failure to unlock
   disk. Enable this by default for rootfs, also in gpt-auto-generator
@@ -1194,7 +1194,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   inspiration from IMA log)
 
 - Hook up journald's FSS logic with TPM2: seal the verification disk by
-  time-based policy, so that the verification key can remain on host and ve
+  time-based policy, so that the verification key can remain on host and be
   validated via TPM.
 
 - Hook up systemd-journal-upload with RESTART_RESET=1 logic (should probably
@@ -1722,10 +1722,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - Maybe introduce an InodeRef structure inspired by PidRef, which references a
   specific inode, and combines: a path, an O_PATH fd, and possibly a FID into
   one. Why? We often pass around path and fd separately in chaseat() and similar
-  calls. Because passing around both separately is cumbersome we sometimes only
-  one pass one, once the other and sometimes both. It would make the code a lot
-  simpler if we could path both around at the same time in a simple way, via an
-  InodeRef which *both* pins the inode via an fd, *and* gives us a friendly
+  calls. Because passing around both separately is cumbersome we sometimes pass
+  only one, sometimes the other, and sometimes both. It would make the code a
+  lot simpler if we could pass both around at the same time in a simple way, via
+  an InodeRef which *both* pins the inode via an fd, *and* gives us a friendly
   name for it.
 
 - maybe introduce an OSC sequence that signals when we ask for a password, so
@@ -1956,9 +1956,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - pam_systemd: on interactive logins, maybe show SUPPORT_END information at
   login time, à la motd
 
-- pam_systemd_home: add module parameter to control whether to only accept
-  only password or only pcks11/fido2 auth, and then use this to hook nicely
-  into two of the three PAM stacks gdm provides.
+- pam_systemd_home: add module parameter to control whether to accept only
+  password or only pkcs11/fido2 auth, and then use this to hook nicely into two
+  of the three PAM stacks gdm provides.
   See discussion at https://github.com/authselect/authselect/pull/311
 
 - paranoia: whenever we process passwords, call mlock() on the memory
@@ -2115,7 +2115,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - ptyfwd: use osc context information in vmspawn/nspawn/… to optionally only
   listen to ^]]] key when no further vmspawn/nspawn context is allocated
 
-- ptyfwd: usec osc context information to propagate status messages from
+- ptyfwd: use osc context information to propagate status messages from
   vmspawn/nspawn to service manager's "status" string, reporting what is
   currently in the fg
 
