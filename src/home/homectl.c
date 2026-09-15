@@ -2013,6 +2013,9 @@ static int verb_remove_home(int argc, char *argv[], uintptr_t _data, void *userd
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
+        log_warning("Locking directly via homed is a low-level operation and is thus not recommended.\n"
+                    "Please use 'loginctl secure-lock-user' instead.");
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
@@ -2215,7 +2218,7 @@ static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdat
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "b", /* please_suspend= */ getenv_bool("SYSTEMD_PLEASE_SUSPEND_HOME") > 0);
+                r = sd_bus_message_append(m, "b", false); /* please_suspend (ignored) */
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2865,6 +2868,7 @@ static int verb_unlock_home(int argc, char *argv[], uintptr_t _data, void *userd
         return ret;
 }
 
+// FIXME-homed: do we remove this to deprecate this?
 VERB_NOARG(verb_lock_all_homes, "lock-all",
            "Lock all suitable home areas");
 static int verb_lock_all_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -2873,17 +2877,21 @@ static int verb_lock_all_homes(int argc, char *argv[], uintptr_t _data, void *us
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
+        log_warning("This command has been deprecated. Please use 'loginctl secure-lock-users' instead.");
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
-        r = bus_message_new_method_call(bus, &m, bus_mgr, "LockAllHomes");
+        r = bus_message_new_method_call(bus, &m, bus_login_mgr, "SecureLockUsers");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        /* We disable timing out here because the user can configure how long SecureLockUsers takes
+         * via InhibitDelayMaxSec= in logind.conf */
+        r = sd_bus_call(bus, m, UINT64_MAX, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to lock all homes: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to secure lock users: %s", bus_error_message(&error, r));
 
         return 0;
 }
