@@ -34,6 +34,14 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        link_hash_ops,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        Link,
+        link_free);
+
 int link_new(Manager *m, Link **ret, int ifindex) {
         _cleanup_(link_freep) Link *l = NULL;
         int r;
@@ -58,7 +66,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         if (asprintf(&l->state_file, "/run/systemd/resolve/netif/%i", ifindex) < 0)
                 return -ENOMEM;
 
-        r = hashmap_ensure_put(&m->links, NULL, INT_TO_PTR(ifindex), l);
+        r = hashmap_ensure_put(&m->links, &link_hash_ops, INT_TO_PTR(ifindex), l);
         if (r < 0)
                 return r;
 
