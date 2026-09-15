@@ -56,7 +56,7 @@ static int build_user_json(const char *user_name, uid_t uid, const char *real_na
                                                            SD_JSON_BUILD_PAIR_UNSIGNED("gid", GID_NOBODY),
                                                            SD_JSON_BUILD_PAIR_CONDITION(!isempty(real_name), "realName", SD_JSON_BUILD_STRING(real_name)),
                                                            SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
-                                                           SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
+                                                           SD_JSON_BUILD_PAIR_STRING("shell", nologin_shell()),
                                                            SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                                                            SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
                                                            SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container")))));
