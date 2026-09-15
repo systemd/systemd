@@ -977,7 +977,7 @@ static void session_context_mangle(
                 /* Chop off leading /dev prefix that some clients specify, but others do not. */
                 c->tty = skip_dev_prefix(c->tty);
 
-        if (!isempty(c->display) && !c->vtnr) {
+        if (!isempty(c->display) && c->vtnr == 0) {
                 if (isempty(c->seat))
                         (void) get_seat_from_display(c->display, &c->seat, &c->vtnr);
                 else if (streq(c->seat, "seat0"))
@@ -1830,7 +1830,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        &default_capability_ambient_set) < 0)
                 return PAM_SESSION_ERR;
 
-        pam_debug_syslog(pamh, debug, "pam-systemd: initializing...");
+        pam_debug_syslog(pamh, debug,
+                         "pam-systemd: initializing (class_pam=%s type_pam=%s desktop_pam=%s area_pam=%s inhibit_what=%s)...",
+                         strempty(class_pam),
+                         strempty(type_pam),
+                         strempty(desktop_pam),
+                         strempty(area_pam),
+                         strempty(inhibit_what));
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         r = acquire_user_record(pamh, &ur);
@@ -1857,6 +1863,21 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         c.incomplete = getenv_harder_bool(pamh, "XDG_SESSION_INCOMPLETE", false);
         inhibit_what = getenv_harder(pamh, "XDG_SESSION_INHIBIT", inhibit_what);
         inhibit_why = getenv_harder(pamh, "XDG_SESSION_INHIBIT_WHY", inhibit_why);
+
+        pam_debug_syslog(pamh, debug,
+                         "Initial state: "
+                         "service=%s display=%s tty=%s remote_user=%s remote_host=%s seat=%s vtnr=%"PRIu32" type=%s class=%s desktop=%s area=%s incomplete=%s inhibit_what=%s",
+                         strempty(c.service),
+                         strempty(c.display),
+                         strempty(c.tty),
+                         strempty(c.remote_user), strempty(c.remote_host),
+                         strempty(c.seat), c.vtnr,
+                         strempty(c.type),
+                         strempty(c.class),
+                         strempty(c.desktop),
+                         strempty(c.area),
+                         yes_no(c.incomplete),
+                         strempty(inhibit_what));
 
         const char *extra_device_access = getenv_harder(pamh, "XDG_SESSION_EXTRA_DEVICE_ACCESS", NULL);
         if (extra_device_access) {
