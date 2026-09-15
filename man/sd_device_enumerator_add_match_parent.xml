@@ -108,14 +108,14 @@
 
     <para>The <function>sd_device_enumerator_add_match_property()</function> function adds a filter to
     the <parameter>enumerator</parameter> so that only devices with the specified
-    <parameter>property</parameter> equals to the <parameter>value</parameter> are enumerated.
+    <parameter>property</parameter> equals the <parameter>value</parameter> are enumerated.
     Both <parameter>property</parameter> and <parameter>value</parameter> can be a glob pattern.
     When this is called multiple times, devices that have at least one of the specified
     properties with matching values are enumerated. That is, filters are ORed.</para>
 
     <para>The <function>sd_device_enumerator_add_match_property_required()</function> function adds a
     filter to the <parameter>enumerator</parameter> so that only devices with the specified
-    <parameter>property</parameter> equals to the <parameter>value</parameter> are enumerated.
+    <parameter>property</parameter> equals the <parameter>value</parameter> are enumerated.
     This function is similar to <function>sd_device_enumerator_add_match_property()</function>, but when
     this is called multiple times, devices that have <emphasis>all</emphasis> specified properties
     with matching values are enumerated. That is, filters are ANDed.</para>
@@ -138,13 +138,13 @@
     <parameter>sysattr</parameter> filters are enumerated. That is, these filters are ANDed.</para>
 
     <para>The <function>sd_device_enumerator_add_match_sysname()</function> function adds a filter so
-    that only devices whose sysname equals to <parameter>sysname</parameter> are enumerated.
+    that only devices whose sysname equals <parameter>sysname</parameter> are enumerated.
     <parameter>sysname</parameter> can be a glob pattern. When called multiple times, filters are ORed.</para>
 
     <para>The <function>sd_device_enumerator_add_nomatch_sysname()</function> function adds a filter
-    so that devices whose sysname equals to <parameter>sysname</parameter> are excluded from the
+    so that devices whose sysname equals <parameter>sysname</parameter> are excluded from the
     enumeration. This is useful for excluding specific devices from the enumeration process.
-    When called multiple times, features are ANDed.</para>
+    When called multiple times, filters are ANDed.</para>
 
     <para>The <function>sd_device_enumerator_add_match_tag()</function> function adds a filter so that
     only devices tagged with <parameter>tag</parameter> are enumerated. When called multiple times,

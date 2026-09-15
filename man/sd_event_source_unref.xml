@@ -79,8 +79,8 @@
     counter of the event source object specified as <parameter>source</parameter>.</para>
 
     <para><function>sd_event_source_unref()</function>,
-    <function>sd_bus_creds_unrefp()</function> and
-    <function>sd_bus_creds_ref()</function> execute no operation if
+    <function>sd_event_source_unrefp()</function> and
+    <function>sd_event_source_ref()</function> execute no operation if
     the passed event source object is
     <constant>NULL</constant>.</para>
 
