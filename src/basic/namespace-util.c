@@ -230,7 +230,14 @@ int namespace_open(
         return pidref_namespace_open(&pidref, ret_pidns_fd, ret_mntns_fd, ret_netns_fd, ret_userns_fd, ret_root_fd);
 }
 
-int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
+int namespace_enter_full(
+                int pidns_fd,
+                int mntns_fd,
+                int netns_fd,
+                int userns_fd,
+                int root_fd,
+                NamespaceEnterFlags flags) {
+
         int r;
 
         /* Block dlopen() now, to avoid us inadvertently loading shared library from another namespace */
@@ -272,6 +279,15 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                         return r;
                 if (r > 0)
                         userns_fd = -EBADF;
+        }
+
+        /* Determine this before joining anything, as /proc might not be available afterwards. */
+        bool keep_uid_gid = false;
+        if (userns_fd >= 0 && FLAGS_SET(flags, NAMESPACE_ENTER_KEEP_UID_GID_IF_ROOT_UNMAPPED)) {
+                r = userns_has_root_mapping(userns_fd);
+                if (r < 0)
+                        return r;
+                keep_uid_gid = r == 0;
         }
 
         r = have_effective_cap(CAP_SYS_ADMIN);
@@ -319,13 +335,20 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                         return -errno;
         }
 
-        if (userns_fd >= 0) {
-                /* Try to become root in the user namespace but don't error out if we can't, since it's not
-                 * uncommon to have user namespaces without a root user in them. */
-                r = reset_uid_gid();
-                if (r < 0)
-                        log_debug_errno(r, "Unable to drop auxiliary groups or reset UID/GID, ignoring: %m");
+        if (userns_fd < 0)
+                return 0;
+
+        if (!keep_uid_gid) {
+                /* Joining a user namespace preserves the underlying UID/GID. Require the reset to succeed, as
+                 * otherwise we'd continue running with our original identity inside the namespace. */
+                return reset_uid_gid();
         }
+
+        /* Supplementary groups are not mapped either, drop them where possible. setgroups() may be denied
+         * by policy (e.g. via BPF LSM), which is fine since they cannot be used within the namespace anyway. */
+        r = maybe_setgroups(/* size= */ 0, /* list= */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "Unable to drop supplementary groups, ignoring: %m");
 
         return 0;
 }
@@ -829,6 +852,28 @@ int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
                 *ret_gid = gid;
 
         return 0;
+}
+
+int userns_has_root_mapping(int userns_fd) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        assert(userns_fd >= 0);
+
+        r = userns_enter_and_pin(userns_fd, &pidref);
+        if (r < 0)
+                return r;
+
+        UIDRangeUsernsMode mode;
+        FOREACH_ARGUMENT(mode, UID_RANGE_USERNS_OUTSIDE, GID_RANGE_USERNS_OUTSIDE) {
+                r = uid_map_search_root(pidref.pid, mode, /* ret= */ NULL);
+                if (r == -ENOMSG)
+                        return false;
+                if (r < 0)
+                        return r;
+        }
+
+        return true;
 }
 
 int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
