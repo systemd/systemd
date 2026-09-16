@@ -210,7 +210,25 @@ static void device_update_found_one(Device *d, DeviceFound found, DeviceFound ma
                  * right-away */
 
                 n = (d->found & ~mask) | (found & mask);
-                if (n == d->found)
+
+                /* If the resulting mask is unchanged there is normally nothing to do. However, note that
+                 * while switching root a device may sit in the seemingly inconsistent combination of
+                 * d->found == DEVICE_NOT_FOUND and d->state == DEVICE_TENTATIVE. This mismatch is
+                 * intentional: device_coldplug() sets it up to avoid a spurious active -> dead -> active
+                 * transition (see #12953 and #23208).
+                 *
+                 * Once the start-up process is over, an add/change uevent yields n != DEVICE_NOT_FOUND, so
+                 * d->found changes, d->state is brought back in sync, and the mismatch is resolved. A
+                 * move/remove uevent instead yields n == d->found == DEVICE_NOT_FOUND, yet we still must
+                 * call device_found_changed() to reconcile d->found and d->state (i.e. settle the device to
+                 * DEVICE_DEAD); otherwise the unit would stay stuck in DEVICE_TENTATIVE forever (#43767).
+                 *
+                 * While still switching root (MANAGER_IS_SWITCHING_ROOT() is true) we must instead preserve
+                 * the intentional mismatch, hence do not call device_found_changed() even when
+                 * n == d->found == DEVICE_NOT_FOUND. */
+                if (n == d->found &&
+                    (MANAGER_IS_SWITCHING_ROOT(UNIT(d)->manager) ||
+                     n != DEVICE_NOT_FOUND || d->state != DEVICE_TENTATIVE))
                         return;
 
                 previous = d->found;
