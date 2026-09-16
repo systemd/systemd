@@ -819,6 +819,14 @@ units = [
           'conditions' : ['ENABLE_RESOLVE'],
         },
         {
+          'file' : 'systemd-report-sign-tsa.socket',
+          'conditions' : ['HAVE_OPENSSL','HAVE_LIBCURL'],
+        },
+        {
+          'file' : 'systemd-report-sign-tsa@.service.in',
+          'conditions' : ['HAVE_OPENSSL', 'HAVE_LIBCURL'],
+        },
+        {
           'file' : 'systemd-resolved-varlink.socket',
           'conditions' : ['ENABLE_RESOLVE'],
         },
