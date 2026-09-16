@@ -18,6 +18,9 @@
 /* Maximum number of labels per valid hostname */
 #define DNS_N_LABELS_MAX 127
 
+/* Maximum number of compression pointers we are willing to follow while decoding a single name */
+#define DNS_COMPRESSION_JUMPS_MAX 256U
+
 /* RFC 1035 § 4.1.4 name compression: the two high bits tag a 16-bit field as a pointer, the
  * remaining 14 bits carry the offset, which is hence also the last position a name a pointer can
  * reference may start at. */
