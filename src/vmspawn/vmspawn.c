@@ -26,6 +26,7 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "chase.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "discover-image.h"
@@ -46,6 +47,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "image-policy.h"
 #include "initrd-cpio.h"
 #include "kernel-image.h"
 #include "log.h"
@@ -55,6 +57,7 @@
 #include "main-func.h"
 #include "memfd-util.h"
 #include "mkdir.h"
+#include "mstack.h"
 #include "namespace-util.h"
 #include "netif-util.h"
 #include "nsresource.h"
@@ -99,6 +102,7 @@
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
 #include "vmspawn-varlink.h"
+#include "vpick.h"
 
 #define VM_TAP_HASH_KEY SD_ID128_MAKE(01,d0,c6,4c,2b,df,24,fb,c0,f8,b2,09,7d,59,b2,93)
 
@@ -145,6 +149,8 @@ static bool arg_quiet = false;
 static PagerFlags arg_pager_flags = 0;
 static char *arg_directory = NULL;
 static char *arg_image = NULL;
+static char *arg_mstack = NULL;
+static ImagePolicy *arg_image_policy = NULL;
 static ImageFormat arg_image_format = IMAGE_FORMAT_RAW;
 static char *arg_machine = NULL;
 static char *arg_slice = NULL;
@@ -207,6 +213,8 @@ static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_mstack, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_slice, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cpus, freep);
@@ -350,6 +358,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION('i', "image", "FILE|DEVICE", "Root file system disk image or device for the VM"):
                         r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("mstack", "PATH", "Mount stack to use as root file system for the VM"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_mstack);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("image-policy", "POLICY", "Image dissection policy for --mstack= layers"):
+                        r = parse_image_policy_argument(opts.arg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
@@ -946,6 +966,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_uid_shift != UID_INVALID && !arg_directory)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--private-users= is only supported in combination with --directory=.");
+
+        if (!!arg_directory + !!arg_image + !!arg_mstack > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--directory=, --image= and --mstack= may not be combined.");
 
         if (arg_directory && arg_uid_shift == UID_INVALID) {
                 struct stat st;
@@ -1664,6 +1687,9 @@ static int start_virtiofsd(
                 uid_t source_uid,
                 uid_t target_uid,
                 uid_t uid_range,
+                MStack *mstack,
+                MStackFlags mstack_flags,
+                int mstack_userns_fd,
                 const char *runtime_dir,
                 char **ret_listen_address,
                 PidRef *ret_pidref) {
@@ -1672,6 +1698,7 @@ static int start_virtiofsd(
 
         assert(directory);
         assert(runtime_dir);
+        assert(!mstack || mstack_userns_fd >= 0);
 
         _cleanup_free_ char *virtiofsd = NULL;
         r = find_virtiofsd(&virtiofsd);
@@ -1703,10 +1730,13 @@ static int start_virtiofsd(
         if (asprintf(&sockstr, "%i", sock) < 0)
                 return log_oom();
 
+        const char *shared_dir = mstack || source_uid == FOREIGN_UID_MIN ?
+                "/run/systemd/mount-rootfs" : directory;
+
         /* QEMU doesn't support submounts so don't announce them */
         _cleanup_strv_free_ char **argv = strv_new(
                         virtiofsd,
-                        "--shared-dir", source_uid == FOREIGN_UID_MIN ? "/run/systemd/mount-rootfs" : directory,
+                        "--shared-dir", shared_dir,
                         "--xattr",
                         "--fd", sockstr,
                         "--no-announce-submounts",
@@ -1715,15 +1745,18 @@ static int start_virtiofsd(
         if (!argv)
                 return log_oom();
 
-        _cleanup_close_ int userns_fd = -EBADF, mapped_fd = -EBADF;
+        _cleanup_close_ int allocated_userns_fd = -EBADF, mapped_fd = -EBADF;
+        int userns_fd = mstack_userns_fd;
 
-        if (source_uid == FOREIGN_UID_MIN) {
+        if (!mstack && source_uid == FOREIGN_UID_MIN) {
                 assert(target_uid == 0);
                 assert(uid_range == 0x10000);
 
-                userns_fd = nsresource_allocate_userns(/* vl= */ NULL, /* name= */ NULL, NSRESOURCE_UIDS_64K);
-                if (userns_fd < 0)
-                        return log_error_errno(userns_fd, "Failed to allocate user namespace for virtiofsd: %m");
+                allocated_userns_fd = nsresource_allocate_userns(/* vl= */ NULL, /* name= */ NULL, NSRESOURCE_UIDS_64K);
+                if (allocated_userns_fd < 0)
+                        return log_error_errno(allocated_userns_fd, "Failed to allocate user namespace for virtiofsd: %m");
+
+                userns_fd = allocated_userns_fd;
 
                 _cleanup_close_ int directory_fd = open(directory, O_DIRECTORY|O_CLOEXEC|O_PATH);
                 if (directory_fd < 0)
@@ -1751,11 +1784,38 @@ static int start_virtiofsd(
                         return log_oom();
         }
 
+        _cleanup_free_ int *except_fds = NULL;
+        size_t n_except_fds = 0;
+
+        if (!GREEDY_REALLOC(except_fds, n_except_fds + 1))
+                return log_oom();
+        except_fds[n_except_fds++] = sock;
+
+        if (!mstack && source_uid == FOREIGN_UID_MIN) {
+                if (!GREEDY_REALLOC(except_fds, n_except_fds + 2))
+                        return log_oom();
+                except_fds[n_except_fds++] = userns_fd;
+                except_fds[n_except_fds++] = mapped_fd;
+        }
+
+        if (mstack) {
+                if (!GREEDY_REALLOC(except_fds, n_except_fds + 1 + mstack->n_mounts))
+                        return log_oom();
+
+                except_fds[n_except_fds++] = userns_fd;
+
+                FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
+                        int fd = mstack_mount_get_fd(m);
+                        if (fd >= 0)
+                                except_fds[n_except_fds++] = fd;
+                }
+        }
+
         r = pidref_safe_fork_full(
                         "(virtiofsd)",
                         (const int[3]) { -EBADF, STDOUT_FILENO, STDERR_FILENO },
-                        (int[]) { sock, userns_fd, mapped_fd },
-                        source_uid == FOREIGN_UID_MIN ? 3 : 1,
+                        except_fds,
+                        n_except_fds,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_REARRANGE_STDIO,
                         ret_pidref);
         if (r < 0)
@@ -1779,7 +1839,24 @@ static int start_virtiofsd(
                         _exit(EXIT_FAILURE);
                 }
 
-                if (mapped_fd >= 0 && move_mount(mapped_fd, "", AT_FDCWD, "/run/systemd/mount-rootfs", MOVE_MOUNT_F_EMPTY_PATH) < 0) {
+                if (mstack) {
+                        r = mstack_make_mounts(mstack, directory, mstack_flags);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to prepare .mstack mount tree: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        r = mstack_bind_mounts(
+                                        mstack,
+                                        "/run/systemd/mount-rootfs",
+                                        /* where_fd= */ -EBADF,
+                                        mstack_flags|MSTACK_MKDIR,
+                                        /* ret_root_fd= */ NULL);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to attach .mstack mount tree: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                } else if (mapped_fd >= 0 && move_mount(mapped_fd, "", AT_FDCWD, "/run/systemd/mount-rootfs", MOVE_MOUNT_F_EMPTY_PATH) < 0) {
                         log_error_errno(errno, "Failed to move mount file descriptor to '/run/systemd/mount-rootfs': %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -1798,6 +1875,82 @@ static int start_virtiofsd(
         if (ret_listen_address)
                 *ret_listen_address = TAKE_PTR(listen_address);
 
+        return 0;
+}
+
+static int prepare_mstack(
+                const char *runtime_dir,
+                char **ret_temp_dir,
+                MStack **ret_mstack,
+                int *ret_userns_fd,
+                MStackFlags *ret_flags) {
+        int r;
+
+        assert(runtime_dir);
+        assert(ret_temp_dir);
+        assert(ret_mstack);
+        assert(ret_userns_fd);
+        assert(ret_flags);
+
+        *ret_temp_dir = NULL;
+        *ret_mstack = NULL;
+        *ret_userns_fd = -EBADF;
+        *ret_flags = 0;
+
+        if (!arg_mstack)
+                return 0;
+
+        _cleanup_free_ char *resolved = NULL;
+        r = chase(arg_mstack,
+                  /* root= */ NULL,
+                  CHASE_MUST_BE_DIRECTORY,
+                  &resolved,
+                  /* ret_fd= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve .mstack directory '%s': %m", arg_mstack);
+
+        _cleanup_free_ char *temp_dir = path_join(runtime_dir, "mstack-temporary");
+        if (!temp_dir)
+                return log_oom();
+
+        r = mkdir_p(temp_dir, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create temporary .mstack mount directory '%s': %m", temp_dir);
+
+        _cleanup_(mstack_freep) MStack *mstack = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+        _cleanup_close_ int userns_fd = -EBADF;
+        r = mstack_load(resolved, /* dir_fd= */ -EBADF, &mstack);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load .mstack/ directory '%s': %m", resolved);
+
+        r = mstack_is_read_only(mstack);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if .mstack is read-only: %m");
+
+        MStackFlags mstack_flags = r != 0 ? MSTACK_RDONLY : 0;
+
+        r = mountfsd_connect(&mountfsd_link);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to mountfsd: %m");
+
+        userns_fd = nsresource_allocate_userns(/* vl= */ NULL, /* name= */ NULL, NSRESOURCE_UIDS_64K);
+        if (userns_fd < 0)
+                return log_error_errno(userns_fd, "Failed to allocate user namespace for .mstack: %m");
+
+        r = mstack_open_images(mstack,
+                               mountfsd_link,
+                               userns_fd,
+                               arg_image_policy ?: &image_policy_container,
+                               /* image_filter= */ NULL,
+                               mstack_flags);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open .mstack image '%s': %m", arg_mstack);
+
+        *ret_temp_dir = TAKE_PTR(temp_dir);
+        *ret_mstack = TAKE_PTR(mstack);
+        *ret_userns_fd = TAKE_FD(userns_fd);
+        *ret_flags = mstack_flags;
         return 0;
 }
 
@@ -2099,7 +2252,7 @@ static int make_sidecar_path(const char *suffix, char **ret) {
         assert(suffix);
         assert(ret);
 
-        const char *p = ASSERT_PTR(arg_image ?: arg_directory);
+        const char *p = ASSERT_PTR(arg_image ?: arg_mstack ?: arg_directory);
 
         _cleanup_free_ char *parent = NULL, *filename = NULL;
         r = path_split_prefix_filename(p, &parent, &filename);
@@ -2575,6 +2728,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * state, and the QEMU config file all live below it, and pulling it out from under them gives
          * spurious errors and can leave the directory behind. */
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_(mstack_freep) MStack *mstack = NULL;
+        _cleanup_free_ char *mstack_temp_dir = NULL;
+        _cleanup_close_ int mstack_userns_fd = -EBADF;
+        MStackFlags mstack_flags = 0;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
         int r;
@@ -2715,6 +2872,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         log_debug("Using runtime directory: %s", runtime_dir);
 
+        r = prepare_mstack(runtime_dir, &mstack_temp_dir, &mstack, &mstack_userns_fd, &mstack_flags);
+        if (r < 0)
+                return r;
+
+        bool mstack_read_only = FLAGS_SET(mstack_flags, MSTACK_RDONLY);
+        const char *root_directory = mstack_temp_dir ?: arg_directory;
+
         /* Build a QEMU config file for -readconfig. Items that can be expressed as QemuOpts sections go
          * here; things that require cmdline-only switches (e.g. -kernel, -smbios, -nographic, --add-fd)
          * are added to the cmdline strv below. */
@@ -2748,7 +2912,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        if (arg_directory || arg_runtime_mounts.n_mounts != 0) {
+        if (root_directory || arg_runtime_mounts.n_mounts != 0) {
                 r = qemu_config_key(config_file, "memory-backend", "mem");
                 if (r < 0)
                         return r;
@@ -2913,7 +3077,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         /* A shared memory backend might increase ram usage so only add one if actually necessary for virtiofsd. */
-        if (arg_directory || arg_runtime_mounts.n_mounts != 0) {
+        if (root_directory || arg_runtime_mounts.n_mounts != 0) {
                 r = qemu_config_section(config_file, "object", "mem",
                                         "qom-type", "memory-backend-memfd",
                                         "size", mem,
@@ -3248,7 +3412,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find systemd-socket-activate binary: %m");
 
-        if (arg_directory) {
+        if (root_directory) {
                 _cleanup_free_ char *listen_address = NULL;
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
@@ -3256,25 +3420,30 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 if (arg_ephemeral) {
-                        r = create_ephemeral_snapshot(arg_directory,
+                        r = create_ephemeral_snapshot(root_directory,
                                                       arg_runtime_scope,
                                                       /* read-only */ false,
                                                       &tree_global_lock,
                                                       &tree_local_lock,
                                                       &snapshot_directory);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to create ephemeral snapshot of '%s': %m", arg_directory);
+                                return log_error_errno(r, "Failed to create ephemeral snapshot of '%s': %m", root_directory);
 
                         r = free_and_strdup(&arg_directory, snapshot_directory);
                         if (r < 0)
                                 return log_oom();
+
+                        root_directory = arg_directory;
                 }
 
                 r = start_virtiofsd(
-                                arg_directory,
+                                root_directory,
                                 /* source_uid= */ arg_uid_shift,
                                 /* target_uid= */ 0,
                                 /* uid_range= */ arg_uid_range,
+                                mstack,
+                                mstack_flags,
+                                mstack_userns_fd,
                                 runtime_dir,
                                 &listen_address,
                                 &child);
@@ -3302,7 +3471,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         .tag         = TAKE_PTR(tag),
                 };
 
-                if (strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw") < 0)
+                if (strv_extendf(&arg_kernel_cmdline_extra,
+                                 "root=root rootfstype=virtiofs %s",
+                                 mstack_read_only ? "ro" : "rw") < 0)
                         return log_oom();
         }
 
@@ -3350,6 +3521,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 /* source_uid= */ m->source_uid,
                                 /* target_uid= */ m->target_uid,
                                 /* uid_range= */ 1U,
+                                /* mstack= */ NULL,
+                                /* mstack_flags= */ 0,
+                                /* mstack_userns_fd= */ -EBADF,
                                 runtime_dir,
                                 &listen_address,
                                 &child);
@@ -3697,7 +3871,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 size_t n_pcie_ports =
                         n_drive_ports +                                    /* non-SCSI drives */
                         (arg_network_stack != NETWORK_STACK_NONE ? 1 : 0) + /* network */
-                        (arg_directory ? 1 : 0) +                          /* rootdir virtiofs */
+                        (root_directory ? 1 : 0) +                          /* rootdir virtiofs */
                         arg_runtime_mounts.n_mounts +                      /* runtime virtiofs */
                         (use_vsock ? 1 : 0) +                              /* vsock */
                         VMSPAWN_PCIE_HOTPLUG_SPARES;                       /* hotplug pool */
@@ -4064,7 +4238,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 static int determine_names(void) {
         int r;
 
-        if (!arg_directory && !arg_image) {
+        if (arg_mstack) {
+                r = path_pick_update_warn(&arg_mstack,
+                                          pick_filter_image_mstack,
+                                          ELEMENTSOF(pick_filter_image_mstack),
+                                          PICK_ARCHITECTURE|PICK_TRIES,
+                                          /* ret_result= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!arg_directory && !arg_image && !arg_mstack) {
                 if (arg_machine) {
                         _cleanup_(image_unrefp) Image *i = NULL;
 
@@ -4088,6 +4272,10 @@ static int determine_names(void) {
                         case IMAGE_DIRECTORY:
                         case IMAGE_SUBVOLUME:
                                 r = free_and_strdup(&arg_directory, i->path);
+                                break;
+
+                        case IMAGE_MSTACK:
+                                r = free_and_strdup(&arg_mstack, i->path);
                                 break;
 
                         default:
@@ -4119,6 +4307,14 @@ static int determine_names(void) {
 
                         /* Truncate suffix if there is one */
                         e = endswith(arg_machine, ".raw");
+                        if (e)
+                                *e = 0;
+                } else if (arg_mstack) {
+                        r = path_extract_filename(arg_mstack, &arg_machine);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_mstack);
+
+                        char *e = endswith(arg_machine, ".mstack");
                         if (e)
                                 *e = 0;
                 } else {
@@ -4186,6 +4382,15 @@ static int determine_kernel(void) {
 }
 
 static int verify_arguments(void) {
+        if (arg_ephemeral && arg_mstack)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ephemeral and --mstack= may not be combined.");
+
+        if (arg_image_policy && !arg_mstack)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--image-policy= requires --mstack=.");
+
+        if (arg_mstack && !arg_linux)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--mstack= requires --linux= to be specified.");
+
         if (!strv_isempty(arg_initrds) && !arg_linux)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --initrd= cannot be used without --linux=.");
 
@@ -4271,6 +4476,9 @@ static int run(int argc, char *argv[]) {
         _cleanup_strv_free_ char **names = NULL;
 
         LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
 
         log_setup();
@@ -4314,7 +4522,7 @@ static int run(int argc, char *argv[]) {
 
         if (!arg_quiet && arg_console_mode != CONSOLE_GUI) {
                 _cleanup_free_ char *u = NULL;
-                const char *vm_path = arg_image ?: arg_directory;
+                const char *vm_path = arg_image ?: arg_mstack ?: arg_directory;
                 (void) terminal_urlify_path(vm_path, vm_path, &u);
 
                 log_info("%s %sSpawning VM %s on %s.%s",
