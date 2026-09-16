@@ -345,10 +345,11 @@ static int update_clone(UdevEvent *event) {
         if (!EVENT_MODE_DESTRUCTIVE(event))
                 return 0;
 
-        /* Drop previously added property for safety to make IMPORT{db}="ID_RENAMING" not work. This is
-         * mostly for 'move' uevent, but let's do unconditionally. Why? If a network interface is renamed in
-         * initrd, then udevd may lose the 'move' uevent during switching root. Usually, we do not set the
-         * persistent flag for network interfaces, but user may set it. Just for safety. */
+        /* Drop the ID_RENAMING property from the database clone, so that a subsequent event cannot
+         * re-import a stale ID_RENAMING=1 via IMPORT{db}="ID_RENAMING". This mostly matters for the 'move'
+         * uevent that the kernel emits after a network interface rename. We do it unconditionally on all
+         * destructive events for safety, e.g. in case the interface's udev database was marked persistent
+         * by the user. */
 
         r = device_add_property(dev, "ID_RENAMING", NULL);
         if (r < 0)
