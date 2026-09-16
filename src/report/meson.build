@@ -80,3 +80,10 @@ executables += [
                 ],
         },
 ]
+
+custom_target(
+        input : 'report-sign-tsa.conf.in',
+        output : 'report-sign-tsa.conf',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : conf.get('HAVE_LIBCURL') == 1 and conf.get('HAVE_OPENSSL') == 1 and install_sysconfdir_samples,
+        install_dir : pkgconfigfiledir)
