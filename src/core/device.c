@@ -200,8 +200,12 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
                 device_set_state(d, DEVICE_DEAD);
 }
 
-static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
+static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask, int on_uevent) {
         assert(d);
+
+        /* on_uevent is tristate. If negative, it is automatically determined by mask. */
+        if (on_uevent < 0)
+                on_uevent = FLAGS_SET(mask, DEVICE_FOUND_UDEV);
 
         if (MANAGER_IS_RUNNING(UNIT(d)->manager)) {
                 DeviceFound n, previous;
@@ -210,8 +214,31 @@ static void device_update_found_one(Device *d, DeviceFound found, DeviceFound ma
                  * right-away */
 
                 n = (d->found & ~mask) | (found & mask);
-                if (n == d->found)
-                        return;
+
+                /* If the resulting mask is unchanged there is normally nothing to do. However, note that
+                 * while switching root a device may sit in the seemingly inconsistent combination of
+                 * d->found == DEVICE_NOT_FOUND and d->state == DEVICE_TENTATIVE. This mismatch is
+                 * intentional: device_coldplug() sets it up to avoid a spurious active -> dead -> active
+                 * transition (see #12953 and #23208).
+                 *
+                 * Once the start-up process is over, an add/change uevent yields n != DEVICE_NOT_FOUND, so
+                 * d->found changes, d->state is brought back in sync, and the mismatch is resolved. A
+                 * move/remove uevent instead yields n == d->found == DEVICE_NOT_FOUND, yet we still must
+                 * call device_found_changed() to reconcile d->found and d->state (i.e. settle the device to
+                 * DEVICE_DEAD); otherwise the unit would stay stuck in DEVICE_TENTATIVE forever (#43767).
+                 *
+                 * If this is called for a non-uevent update (e.g. triggered by mount or swap, or called by
+                 * device_catchup()), we must instead preserve the intentional mismatch, hence do not call
+                 * device_found_changed() even when n == d->found == DEVICE_NOT_FOUND. */
+                if (n == d->found) {
+                        /* d->found and d->state should be already in sync. */
+                        if (d->found != DEVICE_NOT_FOUND || d->state != DEVICE_TENTATIVE)
+                                return;
+
+                        /* Only uevent can resolve the intentional mismatch. */
+                        if (!on_uevent)
+                                return;
+                }
 
                 previous = d->found;
                 d->found = n;
@@ -234,7 +261,7 @@ static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFo
 
         l = hashmap_get(m->devices_by_sysfs, sysfs);
         LIST_FOREACH(same_sysfs, d, l)
-                device_update_found_one(d, found, mask);
+                device_update_found_one(d, found, mask, /* on_uevent= */ -1);
 }
 
 static void device_update_found_by_name(Manager *m, const char *path, DeviceFound found, DeviceFound mask) {
@@ -249,11 +276,12 @@ static void device_update_found_by_name(Manager *m, const char *path, DeviceFoun
         if (device_by_path(m, path, &u) < 0)
                 return;
 
-        device_update_found_one(DEVICE(u), found, mask);
+        device_update_found_one(DEVICE(u), found, mask, /* on_uevent= */ -1);
 }
 
 static int device_coldplug(Unit *u) {
         Device *d = ASSERT_PTR(DEVICE(u));
+        int r;
 
         assert(d->state == DEVICE_DEAD);
 
@@ -306,19 +334,29 @@ static int device_coldplug(Unit *u) {
                 found &= ~DEVICE_FOUND_UDEV;
                 if (state == DEVICE_PLUGGED)
                         state = DEVICE_TENTATIVE;
+        }
 
-                /* Also check the validity of the device syspath. Without this check, if the device was
-                 * removed while switching root, it would never go to inactive state, as both Device.found
-                 * and Device.enumerated_found do not have the DEVICE_FOUND_UDEV flag, so device_catchup() in
-                 * device_update_found_one() does nothing in most cases. See issue #25106. Note that the
-                 * syspath field is only serialized when systemd is sufficiently new and the device has been
-                 * already processed by udevd. */
-                if (d->deserialized_sysfs) {
-                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        if (found == DEVICE_NOT_FOUND && state == DEVICE_TENTATIVE && d->deserialized_sysfs) {
+                /* When found and state form the intentional mismatch, check the validity of the device
+                 * syspath and enter the DEVICE_DEAD state if the device has already been removed. Otherwise,
+                 * if the device was removed while switching root (or on a subsequent daemon-reload/reexec),
+                 * it would never go to the dead state. See issue #25106. Note that the syspath field is only
+                 * serialized when systemd is sufficiently new and the device has already been processed by
+                 * udevd. */
 
-                        if (sd_device_new_from_syspath(&dev, d->deserialized_sysfs) < 0)
-                                state = DEVICE_DEAD;
-                }
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                if (sd_device_new_from_syspath(&dev, d->deserialized_sysfs) < 0)
+                        state = DEVICE_DEAD;
+        }
+
+        if (state != DEVICE_DEAD && !d->sysfs && d->deserialized_sysfs) {
+                /* If the device is not dead, set the sysfs to the deserialized one. Otherwise, if the first
+                 * uevent for the device received after starting-up is 'move' or 'remove', the device unit
+                 * cannot be found by device_update_found_by_sysfs() and thus is left in a stale state. */
+                r = device_set_sysfs(d, d->deserialized_sysfs);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(d), r, "Failed to set sysfs path '%s', ignoring: %m",
+                                               d->deserialized_sysfs);
         }
 
         if (d->found == found && d->state == state)
@@ -347,7 +385,7 @@ static void device_catchup(Unit *u) {
         if (!FLAGS_SET(d->found, DEVICE_FOUND_UDEV) && !d->processed)
                 d->enumerated_found &= ~DEVICE_FOUND_UDEV;
 
-        device_update_found_one(d, d->enumerated_found, _DEVICE_FOUND_MASK);
+        device_update_found_one(d, d->enumerated_found, _DEVICE_FOUND_MASK, /* on_uevent= */ false);
 }
 
 static const struct {
@@ -1091,7 +1129,7 @@ static void device_enumerate(Manager *m) {
                         continue;
 
                 SET_FOREACH(d, ready_units) {
-                        device_update_found_one(d, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
+                        device_update_found_one(d, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV, /* on_uevent= */ false);
 
                         /* Why we need to check the syspath here? Because the device unit may be generated by
                          * a devlink, and the syspath may be different from the one of the original device. */
@@ -1099,7 +1137,7 @@ static void device_enumerate(Manager *m) {
                                 d->processed = processed;
                 }
                 SET_FOREACH(d, not_ready_units)
-                        device_update_found_one(d, DEVICE_NOT_FOUND, DEVICE_FOUND_UDEV);
+                        device_update_found_one(d, DEVICE_NOT_FOUND, DEVICE_FOUND_UDEV, /* on_uevent= */ false);
         }
 
         return;
@@ -1223,12 +1261,12 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
         /* These devices are found and ready now, set the udev found bit. Note, this is also necessary to do
          * on remove uevent, as some devlinks may be updated and now point to other device nodes. */
         SET_FOREACH(d, ready_units)
-                device_update_found_one(d, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
+                device_update_found_one(d, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV, /* on_uevent= */ true);
 
         /* These devices may be nominally around, but not ready for us. Hence unset the udev bit, but leave
          * the rest around. This may be redundant for remove uevent, but should be harmless. */
         SET_FOREACH(d, not_ready_units)
-                device_update_found_one(d, DEVICE_NOT_FOUND, DEVICE_FOUND_UDEV);
+                device_update_found_one(d, DEVICE_NOT_FOUND, DEVICE_FOUND_UDEV, /* on_uevent= */ true);
 
         return 0;
 }
