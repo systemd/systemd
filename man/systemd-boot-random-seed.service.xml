@@ -82,7 +82,7 @@
       the boot loader random seed with a new value derived from the kernel entropy pool.</para></listitem>
     </orderedlist>
 
-    <para>This logic should ensure that the kernel's entropy pool is seeded during earliest bool already, if
+    <para>This logic should ensure that the kernel's entropy pool is seeded during earliest boot already, if
     possible, but the highest quality entropy is propagated back to both on-disk seeds.</para>
   </refsect1>
 

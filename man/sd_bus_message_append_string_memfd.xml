@@ -32,6 +32,8 @@
         <funcdef>int sd_bus_message_append_string_memfd</funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>int <parameter>memfd</parameter></paramdef>
+        <paramdef>uint64_t <parameter>offset</parameter></paramdef>
+        <paramdef>uint64_t <parameter>size</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -45,7 +47,7 @@
         <funcdef>int sd_bus_message_append_string_space</funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>size_t <parameter>size</parameter></paramdef>
-        <paramdef>char **<parameter>s</parameter></paramdef>
+        <paramdef>char **<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -59,11 +61,12 @@
     used to append a single string (item of type <literal>s</literal>)
     to message <parameter>m</parameter>.</para>
 
-    <para>In case of
-    <function>sd_bus_message_append_string_memfd()</function>, the
-    contents of <parameter>memfd</parameter> are the string. They must
-    satisfy the same constraints as described for the
-    <literal>s</literal> type in
+    <para>In case of <function>sd_bus_message_append_string_memfd()</function>, the contents are read from
+    <parameter>memfd</parameter>, starting at the specified <parameter>offset</parameter> and up to the
+    specified <parameter>size</parameter>, and appended to the message as a string. If
+    <parameter>offset</parameter> is zero and <parameter>size</parameter> is <constant>UINT64_MAX</constant>,
+    the full contents of the memory file descriptor are used. They must satisfy the same constraints as
+    described for the <literal>s</literal> type in
     <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
     <para>In case of
@@ -89,7 +92,7 @@
     similar to <function>sd_bus_message_append_basic()</function> with
     type <literal>s</literal>, but instead of copying a string into
     the message, it returns a pointer to the destination area to
-    the caller in pointer <parameter>p</parameter>. Space for the string
+    the caller in pointer <parameter>ret</parameter>. Space for the string
     of length <parameter>size</parameter> plus the terminating
     <constant>NUL</constant> is allocated.</para>
   </refsect1>
