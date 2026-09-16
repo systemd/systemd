@@ -159,3 +159,5 @@ systemctl daemon-reexec
 touch "$marker"
 poll "$unit" SubState running
 systemctl stop "$unit"
+
+touch /testok
