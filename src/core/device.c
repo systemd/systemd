@@ -281,6 +281,7 @@ static void device_update_found_by_name(Manager *m, const char *path, DeviceFoun
 
 static int device_coldplug(Unit *u) {
         Device *d = ASSERT_PTR(DEVICE(u));
+        int r;
 
         assert(d->state == DEVICE_DEAD);
 
@@ -346,6 +347,16 @@ static int device_coldplug(Unit *u) {
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
                 if (sd_device_new_from_syspath(&dev, d->deserialized_sysfs) < 0)
                         state = DEVICE_DEAD;
+        }
+
+        if (state != DEVICE_DEAD && !d->sysfs && d->deserialized_sysfs) {
+                /* If the device is not dead, set the sysfs to the deserialized one. Otherwise, if the first
+                 * uevent for the device received after starting-up is 'move' or 'remove', the device unit
+                 * cannot be found by device_update_found_by_sysfs() and thus is left in a stale state. */
+                r = device_set_sysfs(d, d->deserialized_sysfs);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(d), r, "Failed to set sysfs path '%s', ignoring: %m",
+                                               d->deserialized_sysfs);
         }
 
         if (d->found == found && d->state == state)
