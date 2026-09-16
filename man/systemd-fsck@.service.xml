@@ -124,8 +124,8 @@
         <term><varname>fsck.repair</varname></term>
 
         <listitem>
-          <para>The contents of the credentials are parsed as same as the kernel command line options with
-          the same name. See above for more details.</para>
+          <para>The contents of the credentials are parsed in the same way as the kernel command line options
+          of the same name. See above for more details.</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
