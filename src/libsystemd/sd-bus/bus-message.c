@@ -2210,7 +2210,7 @@ _public_ int sd_bus_message_append_array_memfd(
 
         copy_fd = fcntl(memfd, F_DUPFD_CLOEXEC, 3);
         if (copy_fd < 0)
-                return copy_fd;
+                return -errno;
 
         r = memfd_get_size(memfd, &real_size);
         if (r < 0)
@@ -2283,9 +2283,9 @@ _public_ int sd_bus_message_append_string_memfd(
         if (r < 0)
                 return r;
 
-        copy_fd = fcntl(memfd, FD_CLOEXEC, 3);
+        copy_fd = fcntl(memfd, F_DUPFD_CLOEXEC, 3);
         if (copy_fd < 0)
-                return copy_fd;
+                return -errno;
 
         r = memfd_get_size(memfd, &real_size);
         if (r < 0)
