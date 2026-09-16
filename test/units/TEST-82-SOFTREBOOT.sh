@@ -73,6 +73,55 @@ check_device_property() {
 
 export SYSTEMD_LOG_LEVEL=debug
 
+# Test for issue #43767: after switch-root/soft-reboot, a network interface that is renamed
+# should settle the old-name .device units to dead, not leave them stuck in activating (tentative).
+setup_device_renaming_test() {
+    local ifname="testif0"
+    local newname="testrenamed0"
+
+    # Create a dummy interface that will be renamed after soft-reboot
+    ip link add "$ifname" type dummy
+    ip link set "$ifname" down
+    udevadm wait --timeout=30 --settle /sys/devices/virtual/net/"$ifname"
+
+    # Get the interface index for the udev database path
+    local ifindex
+    ifindex=$(cat /sys/class/net/"$ifname"/ifindex)
+
+    # Emulate "udevadm info --cleanup-db" behavior: remove the udev database entry.
+    # This creates the precondition where device_coldplug() after soft-reboot will leave
+    # the device in the empty-found + DEVICE_TENTATIVE state.
+    rm -f /run/udev/data/n"$ifindex"
+
+    # Install a rename rule that will trigger after soft-reboot. The rules file is for
+    # after switching root, hence it is not necessary to reload udevd now.
+    mkdir -p /run/udev/rules.d/
+    cat >/run/udev/rules.d/99-softreboot-rename.rules <<EOF
+ACTION!="add", GOTO="rename_end"
+SUBSYSTEM!="net", GOTO="rename_end"
+KERNEL=="$ifname", NAME="$newname"
+LABEL="rename_end"
+EOF
+}
+
+# shellcheck disable=SC2016
+verify_device_renaming_test() {
+    # After soft-reboot testif0 is carried over and sits in the empty-found + DEVICE_TENTATIVE hold.
+    # Trigger an 'add' uevent so udevd reprocesses it and applies the rename rule to testrenamed0.
+    udevadm trigger --action add --settle /sys/devices/virtual/net/testif0
+
+    # Wait for the old-name units to settle to inactive
+    timeout 30 bash -c 'until [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/testif0)" == "inactive" ]]; do sleep .5; done'
+    timeout 30 bash -c 'until [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/testif0)" == "inactive" ]]; do sleep .5; done'
+    timeout 30 bash -c 'until [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/testrenamed0)" == "active" ]]; do sleep .5; done'
+    timeout 30 bash -c 'until [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/testrenamed0)" == "active" ]]; do sleep .5; done'
+
+    # Cleanup
+    rm -f /run/udev/rules.d/99-softreboot-rename.rules
+    udevadm control --reload
+    ip link del testrenamed0 ||:
+}
+
 if [ -f /run/TEST-82-SOFTREBOOT.touch3 ]; then
     echo "This is the fourth boot!"
     systemd-notify --status="Fourth Boot"
@@ -165,6 +214,9 @@ elif [ -f /run/TEST-82-SOFTREBOOT.touch ]; then
 
     # Clean up what we created earlier
     rm /run/TEST-82-SOFTREBOOT.touch
+
+    # Verify and clean up the device renaming test (issue #43767)
+    verify_device_renaming_test
 
     # Check that the fdstore entry still exists
     test "$LISTEN_FDS" -eq 1
@@ -337,6 +389,9 @@ EOF
     timeout 30 bash -c "until systemctl is-active --quiet user@${linger_uid}.service; do sleep 1; done"
 
     trigger_uevent
+
+    # Set up the device renaming test (issue #43767)
+    setup_device_renaming_test
 
     # Now issue the soft reboot. We should be right back soon.
     touch /run/TEST-82-SOFTREBOOT.touch
