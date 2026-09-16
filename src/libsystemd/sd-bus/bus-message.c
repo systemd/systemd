@@ -2218,7 +2218,7 @@ _public_ int sd_bus_message_append_array_memfd(
 
         if (offset == 0 && size == UINT64_MAX)
                 size = real_size;
-        else if (offset + size > real_size)
+        else if (size > real_size || offset > real_size - size)
                 return -EMSGSIZE;
 
         align = bus_type_get_alignment(type);
@@ -2248,13 +2248,14 @@ _public_ int sd_bus_message_append_array_memfd(
         if (!part)
                 return -ENOMEM;
 
-        part->memfd = copy_fd;
+        if (!INC_SAFE(&m->body_size, size))
+                return -EMSGSIZE;
+
+        part->memfd = TAKE_FD(copy_fd);
         part->memfd_offset = offset;
         part->sealed = true;
         part->size = size;
-        copy_fd = -EBADF;
 
-        m->body_size += size;
         message_extend_containers(m, size);
 
         return sd_bus_message_close_container(m);
@@ -2293,7 +2294,7 @@ _public_ int sd_bus_message_append_string_memfd(
 
         if (offset == 0 && size == UINT64_MAX)
                 size = real_size;
-        else if (offset + size > real_size)
+        else if (size > real_size || offset > real_size - size)
                 return -EMSGSIZE;
 
         /* We require this to be NUL terminated */
@@ -2333,13 +2334,14 @@ _public_ int sd_bus_message_append_string_memfd(
         if (!part)
                 return -ENOMEM;
 
-        part->memfd = copy_fd;
+        if (!INC_SAFE(&m->body_size, size))
+                return -EMSGSIZE;
+
+        part->memfd = TAKE_FD(copy_fd);
         part->memfd_offset = offset;
         part->sealed = true;
         part->size = size;
-        copy_fd = -EBADF;
 
-        m->body_size += size;
         message_extend_containers(m, size);
 
         if (c->enclosing != SD_BUS_TYPE_ARRAY)
