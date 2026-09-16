@@ -4846,4 +4846,149 @@ TEST(overlong_domain) {
                      "0123456789012345678901234567890123456789012345678901234567890");
 }
 
+/* ================================================================
+ * compression-pointer decompression limits
+ * ================================================================ */
+
+/* Build a response whose first record stores a staircase of strictly descending compression pointers
+ * as opaque RDATA, and whose remaining records each own a name that points at the head of that
+ * staircase */
+static size_t append_pointer_staircase(DnsPacket *packet, size_t staircase_pointers, size_t names) {
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t rdata_base, rdlength, head = 0, ancount, total, off;
+
+        assert(packet);
+        assert(!packet->extracted);
+
+        /* Absolute offset where record 1's RDATA begins:
+         * header(12) + name(1, root) + type(2) + class(2) + ttl(4) + rdlength(2) */
+        rdata_base = DNS_PACKET_HEADER_SIZE + 1 + 10;
+
+        /* RDATA holds a root-label terminator, a pad byte, then the pointer staircase */
+        rdlength = 2 + 2 * staircase_pointers;
+
+        ancount = 1 + names;
+        total = rdata_base + rdlength + names * (2 + 10);
+        ASSERT_LE(total, (size_t) DNS_PACKET_SIZE_MAX);
+
+        ASSERT_NOT_NULL(buf = malloc0(total));
+
+        /* Header: response, QDCOUNT=0, ANCOUNT=ancount. */
+        buf[2] = 0x81;
+        buf[3] = 0x80;
+        buf[6] = (uint8_t) (ancount >> 8);
+        buf[7] = (uint8_t) ancount;
+
+        off = DNS_PACKET_HEADER_SIZE;
+        buf[off++] = 0x00;                      /* record 1 name = root */
+        buf[off++] = 0xff; buf[off++] = 0x00;   /* type = 65280 (private use, opaque RDATA) */
+        buf[off++] = 0x00; buf[off++] = 0x01;   /* class = IN */
+        off += 4;                               /* ttl = 0 */
+        buf[off++] = (uint8_t) (rdlength >> 8); buf[off++] = (uint8_t) rdlength;
+
+        /* Build a pointer staircase with a chain of pointers that all reference each other all the
+         * way back to the root-label terminator */
+        ASSERT_EQ(off, rdata_base);
+        buf[off] = 0x00;                        /* rdata[0]: root-label chain terminator */
+        for (size_t cursor = 2; cursor + 1 < rdlength; cursor += 2) {
+                size_t target = rdata_base + cursor - 2; /* previous slot in the staircase */
+
+                buf[off + cursor] = (uint8_t) (0xc0 | (target >> 8));
+                buf[off + cursor + 1] = (uint8_t) (target & 0xff);
+                head = rdata_base + cursor;     /* highest (last) pointer is the chain head */
+        }
+        off += rdlength;
+
+        /* Add a bunch of names that all point to the pointer staircase we just created */
+        for (size_t i = 0; i < names; i++) {
+                buf[off++] = (uint8_t) (0xc0 | (head >> 8)); /* name = pointer to staircase head */
+                buf[off++] = (uint8_t) (head & 0xff);
+                buf[off++] = 0xff; buf[off++] = 0x00;   /* type = 65280 */
+                buf[off++] = 0x00; buf[off++] = 0x01;   /* class = IN */
+                off += 4;                               /* ttl = 0 */
+                off += 2;                               /* rdlength = 0 */
+        }
+
+        ASSERT_EQ(off, total);
+
+        /* dns_packet_new() bumps the returned packet's internal size to DNS_PACKET_HEADER_SIZE on
+         * initialization, but here we try to append a complete packet (with our own header) to it, so let's
+         * truncate it to 0 before doing so, so our new header is at the start of the packet */
+        dns_packet_truncate(packet, 0);
+        ASSERT_OK(dns_packet_append_blob(packet, buf, total, NULL));
+        ASSERT_EQ(packet->size, total);
+        return total;
+}
+
+/* A single name that walks the pointer staircase past the DNS_COMPRESSION_JUMPS_MAX limit, but is
+ * still within the per-packet limit */
+TEST(compression_pointer_chain_exceeds_per_name_cap) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        size_t total;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        total = append_pointer_staircase(packet, DNS_COMPRESSION_JUMPS_MAX + 50, 1);
+        ASSERT_GT(total, DNS_COMPRESSION_JUMPS_MAX + 50);
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+}
+
+/* A chain exactly at the per-name limit is fine; a chain one pointer longer should be rejected */
+TEST(compression_pointer_chain_per_name_cap_boundary) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        /* Exactly at the per-name limit */
+        append_pointer_staircase(packet, DNS_COMPRESSION_JUMPS_MAX - 1, 1);
+        ASSERT_OK(dns_packet_extract(packet));
+
+        packet = dns_packet_unref(packet);
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        /* One pointer past the per-name limit */
+        append_pointer_staircase(packet, DNS_COMPRESSION_JUMPS_MAX, 1);
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+}
+
+/* Multiple names where the staircase depth is within the per-name limit, but since it's referenced by
+ * each name it goes over the per-packet limit */
+TEST(compression_pointer_chain_exceeds_packet_budget) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        const size_t depth = 100, names = 50;
+        size_t total;
+
+        ASSERT_LT(depth, DNS_COMPRESSION_JUMPS_MAX);
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        total = append_pointer_staircase(packet, depth, names);
+        /* Cumulative dereferences (names * depth) exceed the packet size budget */
+        ASSERT_GT(names * depth, total);
+
+        ASSERT_ERROR(dns_packet_extract(packet), EBADMSG);
+}
+
+/* The same staircase as above, but referenced only by a single name so it should not go over the per-packet
+ * limit */
+TEST(compression_pointer_chain_within_budget_accepted) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        const size_t depth = 100;
+        size_t total;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        total = append_pointer_staircase(packet, depth, 1);
+        ASSERT_LT(depth, total);
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_EQ(dns_answer_size(packet->answer), 2u);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
