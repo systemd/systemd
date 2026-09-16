@@ -59,6 +59,9 @@ typedef struct DnsPacket {
         Hashmap *names; /* For name compression */
         size_t opt_start, opt_size;
 
+        /* Cumulative number of compression-pointer dereferences performed while parsing this packet */
+        size_t compression_jumps;
+
         /* Parsed data */
         DnsQuestion *question;
         DnsAnswer *answer;
