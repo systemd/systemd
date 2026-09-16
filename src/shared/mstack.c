@@ -480,7 +480,7 @@ static int mstack_load_now(MStack *mstack, const char *dir, int dir_fd, MStackFl
         return mstack_normalize(mstack);
 }
 
-static int mount_get_fd(MStackMount *m) {
+int mstack_mount_get_fd(const MStackMount *m) {
         assert(m);
 
         if (m->dissected_image) {
@@ -664,7 +664,7 @@ int mstack_open_images(
                                         return r;
                         } else {
                                 m->mount_fd = open_tree_attr_with_fallback(
-                                                mount_get_fd(m),
+                                                mstack_mount_get_fd(m),
                                                 /* path= */ "",
                                                 OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH,
                                                 &(struct mount_attr) {
@@ -781,7 +781,7 @@ static int mstack_make_overlayfs(
 
                         /* overlayfs refuses to work with layers on mounts not owned by our userns, hence create a
                          * clone that is owned by our userns */
-                        _cleanup_close_ int cloned_fd = mount_fd_clone(ASSERT_FD(mount_get_fd(m)), /* recursive= */ false, /* replacement_fd= */ NULL);
+                        _cleanup_close_ int cloned_fd = mount_fd_clone(ASSERT_FD(mstack_mount_get_fd(m)), /* recursive= */ false, /* replacement_fd= */ NULL);
                         if (cloned_fd < 0)
                                 report_errno_and_exit(errno_pipe_fds[1], cloned_fd);
 
@@ -940,7 +940,7 @@ int mstack_make_mounts(
         if (mstack->root_mount) {
                 assert(!mstack->has_tmpfs_root);
 
-                mstack->root_mount_fd = fcntl(mount_get_fd(mstack->root_mount), F_DUPFD_CLOEXEC, 3);
+                mstack->root_mount_fd = fcntl(mstack_mount_get_fd(mstack->root_mount), F_DUPFD_CLOEXEC, 3);
                 if (mstack->root_mount_fd < 0)
                         return log_debug_errno(errno, "Failed to create root bind mount: %m");
 
