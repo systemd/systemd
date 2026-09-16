@@ -265,11 +265,13 @@ def call_ukify(opts) -> None:
     if devicetree := devicetree_file_location(opts):
         opts2.devicetree = devicetree
 
-    opts2.cmdline = kernel_cmdline(opts)
     if BOOT_STUB:
         opts2.stub = BOOT_STUB
 
     ukify.apply_config(opts2)
+    # if cmdline is not provided through config file, fall back to the current cmdline
+    if opts2.cmdline is None:
+        opts2.cmdline = kernel_cmdline(opts)
     ukify.finalize_options(opts2)
     ukify.check_inputs(opts2)
     ukify.make_uki(opts2)
