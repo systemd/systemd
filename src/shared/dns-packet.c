@@ -1583,7 +1583,7 @@ int dns_packet_read_name(
         assert(p);
 
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
-        size_t after_rindex = 0, jump_barrier = p->rindex;
+        size_t after_rindex = 0, jump_barrier = p->rindex, jumps = 0;
         _cleanup_free_ char *name = NULL;
         bool first = true;
         size_t n = 0, m = 0;
@@ -1641,6 +1641,12 @@ int dns_packet_read_name(
 
                         ptr = (uint16_t) (c & ~(DNS_COMPRESSION_POINTER_FLAG >> 8)) << 8 | (uint16_t) d;
                         if (ptr < DNS_PACKET_HEADER_SIZE || ptr >= jump_barrier)
+                                return -EBADMSG;
+
+                        /* Limit the number of jumps both per-name and per-packet */
+                        if (jumps++ >= DNS_COMPRESSION_JUMPS_MAX)
+                                return -EBADMSG;
+                        if (p->compression_jumps++ >= p->size)
                                 return -EBADMSG;
 
                         if (after_rindex == 0)
@@ -2694,6 +2700,8 @@ int dns_packet_extract(DnsPacket *p) {
 
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
 
+        p->compression_jumps = 0;
+
         r = dns_packet_extract_question(p, &question);
         if (r < 0)
                 return r;
@@ -2815,6 +2823,8 @@ int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
         k -= timestamp;
 
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
+
+        p->compression_jumps = 0;
 
         n = DNS_PACKET_QDCOUNT(p);
         for (unsigned i = 0; i < n; i++) {

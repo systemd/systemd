@@ -51,6 +51,9 @@ assert_cc(sizeof(DnsPacketHeader) == 12);
 /* With EDNS0 we can use larger packets, default to 1232, which is what is commonly used */
 #define DNS_PACKET_UNICAST_SIZE_LARGE_MAX 1232u
 
+/* Maximum number of compression pointers we are willing to follow while decoding a single name */
+#define DNS_COMPRESSION_JUMPS_MAX 256U
+
 typedef struct DnsPacket {
         unsigned n_ref;
         DnsProtocol protocol;
@@ -58,6 +61,9 @@ typedef struct DnsPacket {
         void *_data; /* don't access directly, use DNS_PACKET_DATA()! */
         Hashmap *names; /* For name compression */
         size_t opt_start, opt_size;
+
+        /* Cumulative number of compression-pointer dereferences performed while parsing this packet */
+        size_t compression_jumps;
 
         /* Parsed data */
         DnsQuestion *question;
