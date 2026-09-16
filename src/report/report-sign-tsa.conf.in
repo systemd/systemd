@@ -17,6 +17,6 @@
 # See report-sign-tsa.conf(5) for details.
 
 [TSA]
-URL=https://freetsa.org/tsr
+#URL=http://timestamp.digicert.com
 #NetworkTimeoutSec=30
-CertificateAuthority=/etc/systemd/www-freetsa-org(1).pem
+#CertificateAuthority=

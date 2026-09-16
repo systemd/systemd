@@ -7,31 +7,32 @@
 #include "cleanup-util.h"
 #include "conf-parser.h"
 #include "crypto-util.h"
+#include "curl-util.h"
 #include "dlopen-note.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
-//#include "report.h"
+#include "static-destruct.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "time.h"
 #include "varlink-io.systemd.Report.Signer.h"
 #include "varlink-util.h"
 #include "verbs.h"
 #include "version.h"
 
+
 #define TSA_ENDPOINT_URL_DEFAULT "http://timestamp.digicert.com"
-/*Sanity cap, real TSA responses are only a few KB, if too big then refuse to buffer it because the behavior isn't normal.*/
 #define TSA_RESPONSE_MAX_SIZE (64U * 1024U)
 #define TSA_NETWORK_TIMEOUT_USEC_DEFAULT (30 * USEC_PER_SEC)
 
 
 COMMAND("systemd-report-sign-tsa\0",
         "Sign a report with a timestamp from the TSA server.",
-        .man_pages = "systemd-report-sign-tsa@.service(8)\0", );
+        .man_pages = "systemd-report-sign-tsa@.service(8)\0");
+
 static char *arg_tsa_url = NULL;
 static usec_t arg_network_timeout_usec = TSA_NETWORK_TIMEOUT_USEC_DEFAULT;
 static char *arg_certificate_authority = NULL;
@@ -52,11 +53,11 @@ static int build_nonce(ASN1_INTEGER **ret_nonce) {
         int r;
         assert(ret_nonce);
 
+        _cleanup_(ASN1_INTEGER_freep) ASN1_INTEGER *nonce = NULL;
+
         r = dlopen_libcrypto(LOG_DEBUG);
         if (r < 0)
                 return r;
-
-        _cleanup_(ASN1_INTEGER_freep) ASN1_INTEGER *nonce = NULL;
 
         uint64_t nonce_val;
 
@@ -138,9 +139,7 @@ static int build_timestamp_request(const struct iovec *digest, const char *algor
         *ret_ts_req = TAKE_PTR(ts_req);
         return 0;
 }
-#if HAVE_LIBCURL
-#        include "curl-util.h"
-// Collects the response into a struct iovec, reallocationg as needed.
+
 static size_t tsa_write_callback(char *buf, size_t size, size_t nmemb, void *userp) {
 
         struct iovec *response = ASSERT_PTR(userp);
@@ -167,10 +166,8 @@ static size_t tsa_write_callback(char *buf, size_t size, size_t nmemb, void *use
 
         return nmemb;
 }
-#endif
 
 static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
-#if HAVE_LIBCURL
         _cleanup_(curl_slist_free_allp) struct curl_slist *header = NULL;
         char error[CURL_ERROR_SIZE] = {};
         int r;
@@ -178,13 +175,16 @@ static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
         assert(ts_req);
         assert(ret_ts_resp);
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         r = dlopen_curl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
         _cleanup_(OPENSSL_freep) void *req_der = NULL;
-        int req_len = sym_i2d_TS_REQ(
-                        ts_req, (unsigned char **) &req_der); // Converts TS_REQ structure into der (binary).
+        int req_len = sym_i2d_TS_REQ(ts_req, (unsigned char **) &req_der);
         if (req_len < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Failed to serialize TS_REQ.");
 
@@ -195,8 +195,7 @@ static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create curl header: %m");
 
-        _cleanup_(curl_easy_cleanupp)
-                        CURL *curl = sym_curl_easy_init(); // Creates easy handle for single network transfer.
+        _cleanup_(curl_easy_cleanupp) CURL *curl = sym_curl_easy_init();
         if (!curl)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSR), "Failed to initialize CURL.");
 
@@ -232,7 +231,7 @@ static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
 
         (void) easy_setopt(curl, LOG_WARNING, CURLOPT_USERAGENT, "systemd-report " GIT_VERSION);
 
-        /*Query this TSA endpoint*/
+        /* Query this TSA endpoint */
         if (!easy_setopt(curl, LOG_ERR, CURLOPT_URL, arg_tsa_url))
                 return -EXFULL;
 
@@ -271,11 +270,9 @@ static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
                                 "Query to %s returned an empty response.",
                                 arg_tsa_url);
 
-        const unsigned char *p = response.iov_base; // Pointer to the start of the response data.
-        _cleanup_(TS_RESP_freep) TS_RESP *ts_resp = sym_d2i_TS_RESP(
-                        NULL,
-                        &p,
-                        (long) response.iov_len); // Decode the DER-encoded TS_RESP structure from the TSA response.
+        const unsigned char *p = response.iov_base;
+        _cleanup_(TS_RESP_freep)
+                        TS_RESP *ts_resp = sym_d2i_TS_RESP(/*TS_RESP**= */ NULL, &p, (long) response.iov_len);
         if (!ts_resp)
                 return log_error_errno(
                                 SYNTHETIC_ERRNO(EBADMSG),
@@ -296,9 +293,6 @@ static int query_tsa(const TS_REQ *ts_req, TS_RESP **ret_ts_resp) {
 
         *ret_ts_resp = TAKE_PTR(ts_resp);
         return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without libcurl.");
-#endif
 }
 
 static int build_ca_store(X509_STORE **ret_store) {
@@ -306,6 +300,7 @@ static int build_ca_store(X509_STORE **ret_store) {
         assert(ret_store);
 
         _cleanup_(X509_STORE_freep) X509_STORE *store = NULL;
+
 
         r = dlopen_libcrypto(LOG_DEBUG);
         if (r < 0)
@@ -316,16 +311,17 @@ static int build_ca_store(X509_STORE **ret_store) {
                 return log_oom();
 
         if (arg_certificate_authority) {
-                if(sym_X509_STORE_load_file(store, arg_certificate_authority) != 1)
-                        return log_openssl_errors(LOG_ERR, "Failed to load CA certificate from %s",
-                                                  arg_certificate_authority);
+                if (sym_X509_STORE_load_file(store, arg_certificate_authority) != 1)
+                        return log_openssl_errors(
+                                        LOG_ERR,
+                                        "Failed to load CA certificate from %s",
+                                        arg_certificate_authority);
         } else if (sym_X509_STORE_set_default_paths(store) != 1)
-                 return log_openssl_errors(LOG_ERR, "Failed to set default paths for store.");
+                return log_openssl_errors(LOG_ERR, "Failed to set default paths for store.");
 
         *ret_store = TAKE_PTR(store);
         return 0;
 }
-
 
 static int response_verify(TS_REQ *ts_req, TS_RESP *ts_resp) {
         int r;
@@ -333,12 +329,12 @@ static int response_verify(TS_REQ *ts_req, TS_RESP *ts_resp) {
         assert(ts_req);
         assert(ts_resp);
 
+        _cleanup_(X509_STORE_freep) X509_STORE *store = NULL;
+        _cleanup_(TS_VERIFY_CTX_freep) TS_VERIFY_CTX *ctx = NULL;
+
         r = dlopen_libcrypto(LOG_DEBUG);
         if (r < 0)
                 return r;
-
-        _cleanup_(X509_STORE_freep) X509_STORE *store = NULL;
-        _cleanup_(TS_VERIFY_CTX_freep) TS_VERIFY_CTX *ctx = NULL;
 
         r = build_ca_store(&store);
         if (r < 0)
@@ -399,9 +395,14 @@ static int vl_method_sign(
         _cleanup_(TS_REQ_freep) TS_REQ *ts_req = NULL;
         _cleanup_(TS_RESP_freep) TS_RESP *ts_resp = NULL;
 
-        int r;
         assert(link);
         assert(parameters);
+
+        int r;
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         r = varlink_check_privileged_peer(link);
         if (r < 0)
@@ -413,7 +414,7 @@ static int vl_method_sign(
         if (!iovec_is_set(&sp.digest))
                 return sd_varlink_error_invalid_parameter_name(link, "digest");
 
-        if (!streq(sp.algorithm, "SHA256"))
+        if (isempty(sp.algorithm))
                 return sd_varlink_error_invalid_parameter_name(link, "algorithm");
 
         r = build_timestamp_request(&sp.digest, sp.algorithm, &ts_req);
@@ -441,9 +442,8 @@ static int vl_method_sign(
         if (token_len < 0)
                 return log_error_errno(
                                 SYNTHETIC_ERRNO(ENOMEM),
-                                "Failed to serialize TS_TST_INFO structure into DER format.");
+                                "Failed to serialize TSA token structure into DER format.");
 
-        // TSA Config (call )
         return sd_varlink_replybo(
                         link,
                         SD_JSON_BUILD_PAIR(
@@ -462,21 +462,22 @@ static int vl_method_sign(
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
-                {"TSA", "URL",                  config_parse_string,  0, &arg_tsa_url             },
-                {"TSA", "NetworkTimeoutSec",    config_parse_sec,      0, &arg_network_timeout_usec},
-                {"TSA", "CertificateAuthority", config_parse_path,    0, &arg_certificate_authority},
+                { "TSA", "URL", config_parse_string, 0, &arg_tsa_url },
+                { "TSA", "NetworkTimeoutSec", config_parse_sec, 0, &arg_network_timeout_usec },
+                { "TSA", "CertificateAuthority", config_parse_path, 0, &arg_certificate_authority },
                 {}
         };
         int r;
         r = config_parse_standard_file_with_dropins(
                         "systemd/report-sign-tsa.conf",
                         "TSA\0",
-                        config_item_table_lookup, items,
+                        config_item_table_lookup,
+                        items,
                         CONFIG_PARSE_WARN,
                         /* userdata= */ NULL);
         if (r < 0)
                 return r;
-        if(isempty(arg_tsa_url)) {
+        if (isempty(arg_tsa_url)) {
                 r = free_and_strdup(&arg_tsa_url, TSA_ENDPOINT_URL_DEFAULT);
                 if (r < 0)
                         return log_oom();
@@ -541,15 +542,14 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        int r;
-
         log_setup();
+        int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
         r = parse_config();
-        if (r <  0)
+        if (r < 0)
                 return r;
 
         return vl_server();
