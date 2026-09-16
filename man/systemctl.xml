@@ -740,8 +740,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           (e.g.: with <option>RootImage=</option>, <option>PrivateMounts=</option>, etc.). This command
           supports bind-mounting directories, regular files, device nodes, <constant>AF_UNIX</constant>
           socket nodes, as well as FIFOs.  The bind mount is ephemeral, and it is undone as soon as the
-          current unit process exists. Note that the namespace mentioned here, where the bind mount will be
-          added to, is the one where the main service process runs. Other processes (those exececuted by
+          current unit process exits. Note that the namespace mentioned here, where the bind mount will be
+          added to, is the one where the main service process runs. Other processes (those executed by
           <option>ExecReload=</option>, <option>ExecStartPre=</option>, etc.) run in distinct namespaces.
           </para>
 
@@ -767,15 +767,14 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <option>RootImage=</option>/<option>RootDirectory=</option>). The following argument, if any, is
           interpreted as a colon-separated tuple of partition name and comma-separated list of mount options
           for that partition. The format is the same as the service <option>MountImages=</option>
-          setting. When combined with the <option>--read-only</option> switch, a ready-only mount is
+          setting. When combined with the <option>--read-only</option> switch, a read-only mount is
           created. When combined with the <option>--mkdir</option> switch, the destination path is first
           created before the mount is applied.</para>
 
           <para>Note that this option is currently only supported for units that run within a mount namespace
           (i.e. with <option>RootImage=</option>, <option>PrivateMounts=</option>, etc.). Note that the
-          namespace mentioned here where the image mount will be added to, is the one where the main service
-          process runs. Note that the namespace mentioned here, where the bind mount will be
-          added to, is the one where the main service process runs. Other processes (those exececuted by
+          namespace mentioned here, where the image mount will be added to, is the one where the main
+          service process runs. Other processes (those executed by
           <option>ExecReload=</option>, <option>ExecStartPre=</option>, etc.) run in distinct namespaces.
           </para>
 

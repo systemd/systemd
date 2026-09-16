@@ -63,7 +63,7 @@
 
     <para>The report additionally includes the measurement event log, and the public area of the signing key.
     The public area is provided as a JSON encoded <constant>TPMT_PUBLIC</constant> structure, and in PEM
-    encooded form.</para>
+    encoded form.</para>
 
     <para>The preceding components are all executed under the audit session, and the report is only generated
     if that session remains exclusive throughout. Because the audit session attestation records whether the

@@ -89,7 +89,7 @@
     similar to <function>sd_bus_message_append_basic()</function> with
     type <literal>s</literal>, but instead of copying a string into
     the message, it returns a pointer to the destination area to
-    the caller in pointer <parameter>p</parameter>. Space for the string
+    the caller in pointer <parameter>s</parameter>. Space for the string
     of length <parameter>size</parameter> plus the terminating
     <constant>NUL</constant> is allocated.</para>
   </refsect1>
