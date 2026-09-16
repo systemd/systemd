@@ -112,7 +112,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0) {
                 orig_stdout_fd = fcntl(fileno(stdout), F_DUPFD_CLOEXEC, 3);
                 if (orig_stdout_fd < 0)
-                        log_warning_errno(orig_stdout_fd, "Failed to duplicate fd 1: %m");
+                        log_warning_errno(errno, "Failed to duplicate fd 1, ignoring: %m");
                 else
                         assert_se(freopen("/dev/null", "w", stdout));
         }
