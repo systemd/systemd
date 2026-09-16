@@ -70,5 +70,6 @@ int mstack_apply(
 
 int mstack_is_read_only(MStack *mstack);
 int mstack_is_foreign_uid_owned(MStack *mstack);
+int mstack_mount_get_fd(const MStackMount *m);
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(mstack_mount_type, MStackMountType);
