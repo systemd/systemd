@@ -51,6 +51,9 @@ assert_cc(sizeof(DnsPacketHeader) == 12);
 /* With EDNS0 we can use larger packets, default to 1232, which is what is commonly used */
 #define DNS_PACKET_UNICAST_SIZE_LARGE_MAX 1232u
 
+/* Maximum number of compression pointers we are willing to follow while decoding a single name */
+#define DNS_COMPRESSION_JUMPS_MAX 256U
+
 typedef struct DnsPacket {
         unsigned n_ref;
         DnsProtocol protocol;
