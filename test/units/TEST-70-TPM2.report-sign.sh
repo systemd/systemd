@@ -16,8 +16,11 @@ set -o pipefail
 # attestation we rebuild the public key, re-marshal the TPMS_ATTEST that was
 # signed, and verify the signature using the embedded Python helper below. The
 # helper also cross-checks the parallel PEM encodings (publicKeyPEM and signaturePEM)
-# against the JSON encodings. We also confirm the report digest is carried in the
-# extraData field of the session audit attestation.
+# against the JSON encodings. The PCR values that accompany the quote are read
+# outside of the audit session, so the helper re-digests them in the order given by
+# the quoted PCR selection and checks the result against the attested pcrDigest. We
+# also confirm the report digest is carried in the extraData field of the session
+# audit attestation.
 #
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
@@ -339,6 +342,33 @@ def verify(key, scheme, sig_bytes, message):
         sys.exit(f"unsupported scheme {alg}")
 
 
+def check_pcr(i, comp):
+    """Check the properties of the pcr component."""
+    att = comp["attestInfo"]["attest"]
+
+    values = {}
+    for v in comp.get("pcrValues", []):
+        key = (v["hashAlg"], v["pcr"])
+        if key in values:
+            sys.exit(f"component {i}: duplicate PCR value for {v['hashAlg']} PCR {v['pcr']}")
+        values[key] = bytes.fromhex(v["digest"])
+
+    data = b""
+    for s in att["attested"]["pcrSelect"]:
+        for p in sorted(s["pcrSelect"]):
+            value = values.pop((s["hash"], p), None)
+            if value is None:
+                sys.exit(f"component {i}: missing PCR value for {s['hash']} PCR {p}")
+            data += value
+
+    if values:
+        sys.exit(f"component {i}: pcrValues contains PCRs that were not quoted")
+
+    alg = comp["attestInfo"]["sig_scheme"]["details"]["hashAlg"]
+    if hash(alg, data) != bytes.fromhex(att["attested"]["pcrDigest"]):
+        sys.exit(f"component {i}: pcrValues do not match the attested pcrDigest")
+
+
 def check_nvpcr(i, comp):
     """Check the properties of the nvpcr component."""
     nv = comp["nvPublic"]
@@ -443,7 +473,9 @@ def main():
         except InvalidSignature:
             sys.exit(f"component {i} ({comp['type']}): signature verification FAILED")
 
-        if comp["type"] == "nvpcr":
+        if comp["type"] == "pcr":
+            check_pcr(i, comp)
+        elif comp["type"] == "nvpcr":
             check_nvpcr(i, comp)
         elif comp["type"] == "session-audit":
             # The report digest passed to the signer is the session audit's
@@ -495,6 +527,10 @@ for i in "${!comp_types[@]}"; do
     case "$type" in
         pcr)
             saw_pcr=1
+
+            # PCR components carry the values of the quoted PCRs. The Python
+            # helper above cross-checks them against the attested pcrDigest.
+            [ "$(echo "$comp" | jq '.pcrValues | length')" -gt 0 ]
             ;;
         nvpcr)
             n_nvpcr=$((n_nvpcr + 1))
