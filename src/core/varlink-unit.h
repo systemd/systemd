@@ -10,6 +10,7 @@
 #define VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED "io.systemd.Unit.UnitTypeNotSupported"
 #define VARLINK_ERROR_UNIT_BAD_SETTING "io.systemd.Unit.BadUnitSetting"
 #define VARLINK_ERROR_UNIT_ALREADY_BEING_WATCHED "io.systemd.Unit.AlreadyBeingWatched"
+#define VARLINK_ERROR_UNIT_PID_UNKNOWN "io.systemd.Unit.ProcessIdUnknown"
 
 int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 
