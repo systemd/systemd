@@ -317,7 +317,9 @@
         <listitem><para>An automount unit will be created for the file
         system. See
         <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details.</para>
+        for details. Note that by default the automount point is established in early boot even for network
+        file systems, see <ulink url="https://systemd.io/MOUNT_REQUIREMENTS/#automount-points">Mount Point
+        Availability Requirements</ulink>.</para>
 
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
