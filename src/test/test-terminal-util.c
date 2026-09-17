@@ -217,6 +217,38 @@ TEST(terminal_get_size_dsr) {
                 log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
 }
 
+TEST(terminal_fix_size_vc) {
+        struct winsize before = {}, after = {};
+        int r;
+
+        /* On a virtual console terminal_fix_size() must not query the terminal at all: it should report
+         * success without touching the dimensions the kernel gave us. */
+
+        _cleanup_close_ int fd = open("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return (void) log_notice_errno(errno, "Can't open /dev/tty1, skipping: %m");
+
+        _cleanup_free_ char *name = NULL;
+        r = getttyname_harder(fd, &name);
+        if (r < 0)
+                return (void) log_notice_errno(r, "Can't get name of /dev/tty1, skipping: %m");
+        if (!tty_is_vc_resolve(name))
+                return (void) log_notice("/dev/tty1 is not a virtual console, skipping.");
+
+        if (ioctl(fd, TIOCGWINSZ, &before) < 0)
+                return (void) log_notice_errno(errno, "Can't get terminal size via ioctl, skipping: %m");
+
+        usec_t n = now(CLOCK_MONOTONIC);
+        r = terminal_fix_size(fd, fd);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
+
+        ASSERT_OK_ZERO(r);
+        ASSERT_OK_ERRNO(ioctl(fd, TIOCGWINSZ, &after));
+        ASSERT_EQ(before.ws_row, after.ws_row);
+        ASSERT_EQ(before.ws_col, after.ws_col);
+}
+
 TEST(terminal_fix_size) {
         int r;
 
