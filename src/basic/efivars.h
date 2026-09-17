@@ -22,6 +22,7 @@
 #define EFI_VARIABLE_BOOTSERVICE_ACCESS                    UINT32_C(0x00000002)
 #define EFI_VARIABLE_RUNTIME_ACCESS                        UINT32_C(0x00000004)
 #define EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS UINT32_C(0x00000020)
+#define EFI_VARIABLE_APPEND_WRITE                          UINT32_C(0x00000040)
 
 /* Note that the <lowercaseuuid>-<varname> naming scheme is an efivarfs convention, i.e. part of the Linux
  * API file system implementation for EFI. EFI itself processes UIDS in binary form.
