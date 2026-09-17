@@ -8,7 +8,7 @@ typedef enum ChaseFlags {
         CHASE_NONEXISTENT        = 1 << 1,  /* It's OK if the path doesn't actually exist. */
         CHASE_NO_AUTOFS          = 1 << 2,  /* Return -EREMOTE if autofs mount point found */
         CHASE_TRIGGER_AUTOFS     = 1 << 3,  /* Use open_tree() rather than openat() to trigger autofs mount */
-        CHASE_SAFE               = 1 << 4,  /* Return -EPERM if we ever traverse from unprivileged to privileged files or directories */
+        CHASE_SAFE               = 1 << 4,  /* Return -ENOLINK if we ever traverse from unprivileged to privileged files or directories */
         CHASE_TRAIL_SLASH        = 1 << 5,  /* Any trailing slash will be preserved */
         CHASE_STEP               = 1 << 6,  /* Just execute a single step of the normalization */
         CHASE_NOFOLLOW           = 1 << 7,  /* Do not follow the path's right-most component. With ret_fd, when the path's
@@ -28,6 +28,10 @@ typedef enum ChaseFlags {
         CHASE_MUST_BE_DIRECTORY  = 1 << 13, /* Fail if returned inode fd is not a dir */
         CHASE_MUST_BE_REGULAR    = 1 << 14, /* Fail if returned inode fd is not a regular file */
         CHASE_MUST_BE_SOCKET     = 1 << 15, /* Fail if returned inode fd is not a socket */
+        CHASE_MAX_MODE           = 1 << 16, /* Return -ENOLINK if a directory the walk enters has permission
+                                             * bits beyond 0755, or the final regular file any bit beyond
+                                             * 0644, suid/sgid/sticky included. The root and the starting
+                                             * directory are not checked, symlinks never. */
 } ChaseFlags;
 
 int statx_unsafe_transition(const struct statx *a, const struct statx *b);

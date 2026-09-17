@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# systemd-keyring-setup.service is not enabled by default, but the integration tests rely on it
+# provisioning the keyrings from the initrd.
+enable systemd-keyring-setup.service
