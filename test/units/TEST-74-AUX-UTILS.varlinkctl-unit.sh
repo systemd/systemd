@@ -378,6 +378,17 @@ grep -x to-stdout "$transient_out" >/dev/null
 grep -x to-stderr "$transient_err" >/dev/null
 rm -f "$transient_out" "$transient_err"
 
+# Starting a transient scope
+defer_transient_cleanup varlink-transient-scope.scope
+sleep infinity &
+scope_child="$!"
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    "{\"context\":{\"ID\":\"varlink-transient-scope.scope\",\"Scope\":{\"PIDs\":[{\"pid\":${scope_child}}],\"OOMPolicy\":\"kill\", \"TimeoutStopUSec\":12000000}}}"
+timeout 30 bash -c 'until systemctl is-active varlink-transient-scope.scope; do sleep 0.5; done'
+systemctl whoami "$scope_child" | grep "^varlink-transient-scope.scope$" >/dev/null
+systemctl show -P TimeoutStopUSec varlink-transient-scope.scope | grep 12s >/dev/null
+systemctl show -P OOMPolicy varlink-transient-scope.scope | grep kill >/dev/null
+
 # Error cases: verify specific varlink error types
 set +o pipefail
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -475,6 +486,11 @@ defer_transient_cleanup varlink-transient-bad-cred-value.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-cred-value.service","Exec":{"SetCredential":[{"id":"mycred","value":"!!!not_base64!!!"}]},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
     "context"
+# Bad PID on a scope
+defer_transient_cleanup varlink-transient-badpid.scope
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-badpid.scope","Scope":{"PIDs":[{"pid": 1}]}}}' \
+    "Scope.PIDs"
 # Exec on a unit type without an exec context (.slice) is rejected
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-exec.slice","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
