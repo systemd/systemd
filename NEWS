@@ -14031,7 +14031,7 @@ CHANGES WITH 242:
 
         * A system may now be booted with systemd.volatile=overlay on the
           kernel command line, which causes the root file system to be set up as
-          an overlayfs mount combining the root-only root directory with a
+          an overlayfs mount combining the read-only root directory with a
           writable tmpfs. In this setup, the underlying root device is not
           modified, and any changes are lost at reboot.
 
