@@ -143,7 +143,8 @@ static int bus_set_transient_usec_internal(
                 else
                         *p = v;
 
-                char *n = strndupa_safe(name, strlen(name) - 4);
+                const char *e = ASSERT_PTR(endswith(name, "USec"));
+                char *n = strndupa_safe(name, e - name);
                 unit_write_settingf(u, flags, name, "%sSec=%s", n, FORMAT_TIMESPAN(v, USEC_PER_MSEC));
         }
 
