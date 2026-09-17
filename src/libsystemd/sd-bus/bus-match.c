@@ -299,7 +299,7 @@ int bus_match_run(
                         node->leaf.callback->last_iteration = bus->iteration_counter;
                 }
 
-                r = sd_bus_message_rewind(m, true);
+                r = sd_bus_message_rewind(m, /* complete= */ true);
                 if (r < 0)
                         return r;
 
@@ -479,7 +479,7 @@ static int bus_match_add_compare_value(
                 where->child = c;
 
                 if (t == BUS_MATCH_MESSAGE_TYPE) {
-                        c->compare.children = hashmap_new(NULL);
+                        c->compare.children = hashmap_new(/* hash_ops= */ NULL);
                         if (!c->compare.children) {
                                 r = -ENOMEM;
                                 goto fail;
@@ -861,7 +861,7 @@ char* bus_match_to_string(BusMatchComponent *components, size_t n_components) {
         }
 
         char *buffer;
-        r = memstream_finalize(&m, &buffer, NULL);
+        r = memstream_finalize(&m, &buffer, /* ret_size= */ NULL);
         if (r < 0)
                 return NULL;
 

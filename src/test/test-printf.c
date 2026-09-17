@@ -77,7 +77,7 @@ TEST(parse_printf_format) {
                 fmt = mfree(fmt);
 
                 ASSERT_NOT_NULL(fmt = strjoin("%", i->prefix));
-                test_parse_printf_format_one(fmt, 0, NULL);
+                test_parse_printf_format_one(fmt, 0, /* expected= */ NULL);
         }
 
         FOREACH_ELEMENT(i, float_table) {
@@ -90,7 +90,7 @@ TEST(parse_printf_format) {
                 }
 
                 ASSERT_NOT_NULL(fmt = strjoin("%", i->prefix));
-                test_parse_printf_format_one(fmt, 0, NULL);
+                test_parse_printf_format_one(fmt, 0, /* expected= */ NULL);
         }
 
         test_parse_printf_format_one("%c",  1, (int[]) { PA_CHAR });
@@ -103,10 +103,10 @@ TEST(parse_printf_format) {
 
         test_parse_printf_format_one("%p",  1, (int[]) { PA_POINTER });
 
-        test_parse_printf_format_one("%m",  0, NULL);
-        test_parse_printf_format_one("%%",  0, NULL);
+        test_parse_printf_format_one("%m",  0, /* expected= */ NULL);
+        test_parse_printf_format_one("%%",  0, /* expected= */ NULL);
 
-        test_parse_printf_format_one("asfhghejmlahpgakdmsalc", 0, NULL);
+        test_parse_printf_format_one("asfhghejmlahpgakdmsalc", 0, /* expected= */ NULL);
         test_parse_printf_format_one(
                         "%d%i%o%u%x%X", 6,
                         (int[]) { PA_INT, PA_INT, PA_INT, PA_INT, PA_INT, PA_INT });

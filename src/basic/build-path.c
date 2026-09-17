@@ -167,7 +167,7 @@ int get_build_exec_dir(char **ret) {
                 return -ENOEXEC;
 
         _cleanup_free_ char *exe = NULL;
-        r = get_process_exe(0, &exe);
+        r = get_process_exe(/* pid= */ 0, &exe);
         if (r < 0)
                 return runpath_cached = r;
 

@@ -297,7 +297,7 @@ static int edid_search(char16_t **ret_panel) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allow uninitialized device enumerator: %m");
 
-        r = sd_device_enumerator_add_match_subsystem(e, "drm", true);
+        r = sd_device_enumerator_add_match_subsystem(e, "drm", /* match= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to add drm match subsystem to device enumerator: %m");
 
@@ -350,8 +350,8 @@ int verb_chid(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_align_percent(table, table_get_cell(table, 0, 0), 100);
-        (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 50);
+        (void) table_set_align_percent(table, table_get_cell(table, /* row= */ 0, /* column= */ 0), 100);
+        (void) table_set_align_percent(table, table_get_cell(table, /* row= */ 0, 1), 50);
 
         _cleanup_(smbios_fields_free) char16_t* smbios_fields[_CHID_SMBIOS_FIELDS_MAX] = {};
         r = smbios_fields_acquire(smbios_fields);

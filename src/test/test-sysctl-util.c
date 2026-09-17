@@ -53,14 +53,14 @@ TEST(sysctl_read) {
         assert_se(sysctl_read_ip_property(AF_INET, "lo", "forwarding", &s));
         assert_se(STR_IN_SET(s, "0", "1"));
 
-        r = sysctl_write_ip_property(AF_INET, "lo", "forwarding", s, NULL);
+        r = sysctl_write_ip_property(AF_INET, "lo", "forwarding", s, /* shadow= */ NULL);
         assert_se(r >= 0 || ERRNO_IS_NEG_FS_WRITE_REFUSED(r));
         s = mfree(s);
 
-        assert_se(sysctl_read_ip_property(AF_INET, NULL, "ip_forward", &s));
+        assert_se(sysctl_read_ip_property(AF_INET, /* ifname= */ NULL, "ip_forward", &s));
         assert_se(STR_IN_SET(s, "0", "1"));
 
-        r = sysctl_write_ip_property(AF_INET, NULL, "ip_forward", s, NULL);
+        r = sysctl_write_ip_property(AF_INET, /* ifname= */ NULL, "ip_forward", s, /* shadow= */ NULL);
         assert_se(r >= 0 || ERRNO_IS_NEG_FS_WRITE_REFUSED(r));
         s = mfree(s);
 

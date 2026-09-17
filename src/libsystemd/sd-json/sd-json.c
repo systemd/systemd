@@ -459,7 +459,7 @@ _public_ int sd_json_variant_new_base32hex(sd_json_variant **ret, const void *p,
         assert_return(ret, -EINVAL);
         assert_return(n == 0 || p, -EINVAL);
 
-        s = base32hexmem(p, n, false);
+        s = base32hexmem(p, n, /* padding= */ false);
         if (!s)
                 return -ENOMEM;
 
@@ -887,7 +887,7 @@ _public_ sd_json_variant *sd_json_variant_unref(sd_json_variant *v) {
                 v->n_ref--;
 
                 if (v->n_ref == 0) {
-                        json_variant_free_inner(v, false);
+                        json_variant_free_inner(v, /* force_sensitive= */ false);
                         free(v);
                 }
         }
@@ -1378,7 +1378,7 @@ mismatch:
 }
 
 _public_ sd_json_variant *sd_json_variant_by_key(sd_json_variant *v, const char *key) {
-        return sd_json_variant_by_key_full(v, key, NULL);
+        return sd_json_variant_by_key_full(v, key, /* ret_key= */ NULL);
 }
 
 _public_ int sd_json_variant_equal(sd_json_variant *a, sd_json_variant *b) {
@@ -1773,7 +1773,7 @@ static int json_format(FILE *f, sd_json_variant *v, sd_json_format_flags_t flags
                                 }
 
                                 if (flags & SD_JSON_FORMAT_PRETTY) {
-                                        print_source(f, e, flags, false);
+                                        print_source(f, e, flags, /* whitespace= */ false);
                                         fputs(prefix2, f);
                                 }
 
@@ -1784,7 +1784,7 @@ static int json_format(FILE *f, sd_json_variant *v, sd_json_format_flags_t flags
 
                         if (flags & SD_JSON_FORMAT_PRETTY) {
                                 fputc('\n', f);
-                                print_source(f, v, flags, true);
+                                print_source(f, v, flags, /* whitespace= */ true);
                                 fputs(strempty(prefix), f);
                         }
 
@@ -1826,7 +1826,7 @@ static int json_format(FILE *f, sd_json_variant *v, sd_json_format_flags_t flags
                                 }
 
                                 if (flags & SD_JSON_FORMAT_PRETTY) {
-                                        print_source(f, e, flags, false);
+                                        print_source(f, e, flags, /* whitespace= */ false);
                                         fputs(prefix2, f);
                                 }
 
@@ -1843,7 +1843,7 @@ static int json_format(FILE *f, sd_json_variant *v, sd_json_format_flags_t flags
 
                         if (flags & SD_JSON_FORMAT_PRETTY) {
                                 fputc('\n', f);
-                                print_source(f, v, flags, true);
+                                print_source(f, v, flags, /* whitespace= */ true);
                                 fputs(strempty(prefix), f);
                         }
 
@@ -1878,7 +1878,7 @@ _public_ int sd_json_variant_format(sd_json_variant *v, sd_json_format_flags_t f
         if (!f)
                 return -ENOMEM;
 
-        r = sd_json_variant_dump(v, flags, f, NULL);
+        r = sd_json_variant_dump(v, flags, f, /* prefix= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1900,7 +1900,7 @@ _public_ int sd_json_variant_dump(sd_json_variant *v, sd_json_format_flags_t fla
         if (!f)
                 f = stdout;
 
-        print_source(f, v, flags, false);
+        print_source(f, v, flags, /* whitespace= */ false);
 
         if (((flags & (SD_JSON_FORMAT_COLOR_AUTO|SD_JSON_FORMAT_COLOR)) == SD_JSON_FORMAT_COLOR_AUTO) && colors_enabled())
                 flags |= SD_JSON_FORMAT_COLOR;
@@ -3453,7 +3453,7 @@ _public_ int sd_json_parse_with_source(
                         return -ENOMEM;
         }
 
-        return json_parse_internal(&string, s, flags, ret, reterr_line, reterr_column, false);
+        return json_parse_internal(&string, s, flags, ret, reterr_line, reterr_column, /* continue_end= */ false);
 }
 
 _public_ int sd_json_parse_with_source_continue(
@@ -3472,7 +3472,7 @@ _public_ int sd_json_parse_with_source_continue(
                         return -ENOMEM;
         }
 
-        return json_parse_internal(p, s, flags, ret, reterr_line, reterr_column, true);
+        return json_parse_internal(p, s, flags, ret, reterr_line, reterr_column, /* continue_end= */ true);
 }
 
 _public_ int sd_json_parse(
@@ -3482,7 +3482,7 @@ _public_ int sd_json_parse(
                 unsigned *reterr_line,
                 unsigned *reterr_column) {
 
-        return sd_json_parse_with_source(string, NULL, flags, ret, reterr_line, reterr_column);
+        return sd_json_parse_with_source(string, /* source= */ NULL, flags, ret, reterr_line, reterr_column);
 }
 
 _public_ int sd_json_parse_continue(
@@ -3492,7 +3492,7 @@ _public_ int sd_json_parse_continue(
                 unsigned *reterr_line,
                 unsigned *reterr_column) {
 
-        return sd_json_parse_with_source_continue(p, NULL, flags, ret, reterr_line, reterr_column);
+        return sd_json_parse_with_source_continue(p, /* source= */ NULL, flags, ret, reterr_line, reterr_column);
 }
 
 _public_ int sd_json_parse_file_at(
@@ -3511,9 +3511,9 @@ _public_ int sd_json_parse_file_at(
                 if (FLAGS_SET(flags, SD_JSON_PARSE_SEEK0) && fseek(f, /* offset= */ 0, SEEK_SET) < 0)
                         return -errno;
 
-                r = read_full_stream(f, &text, NULL);
+                r = read_full_stream(f, &text, /* ret_size= */ NULL);
         } else
-                r = read_full_file_full(dir_fd, path, UINT64_MAX, SIZE_MAX, 0, NULL, &text, NULL);
+                r = read_full_file_full(dir_fd, path, UINT64_MAX, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, &text, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 
@@ -3872,7 +3872,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 /* Note that we don't care for current->n_suppress here, we should generate parsing
                                  * errors even in suppressed object properties */
 
-                                r = sd_json_parse(l, 0, &add, NULL, NULL);
+                                r = sd_json_parse(l, /* flags= */ 0, &add, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                                 if (r < 0)
                                         goto finish;
                         } else
@@ -4174,7 +4174,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         if (current->n_suppress == 0) {
                                 _cleanup_free_ char **sorted = NULL;
 
-                                r = set_dump_sorted(set, (void ***) &sorted, NULL);
+                                r = set_dump_sorted(set, (void ***) &sorted, /* ret_n= */ NULL);
                                 if (r < 0)
                                         goto finish;
 
@@ -5381,7 +5381,7 @@ _public_ int sd_json_dispatch(
                 sd_json_dispatch_flags_t flags,
                 void *userdata) {
 
-        return sd_json_dispatch_full(v, table, NULL, flags, userdata, NULL);
+        return sd_json_dispatch_full(v, table, /* bad= */ NULL, flags, userdata, /* reterr_bad_field= */ NULL);
 }
 
 _public_ int sd_json_dispatch_stdbool(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {

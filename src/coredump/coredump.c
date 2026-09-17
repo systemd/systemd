@@ -42,7 +42,7 @@ static int run(int argc, char *argv[]) {
         log_parse_environment();
         log_set_target_and_open(LOG_TARGET_KMSG);
 
-        r = sd_listen_fds(false);
+        r = sd_listen_fds(/* unset_environment= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine the number of file descriptors: %m");
 

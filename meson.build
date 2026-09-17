@@ -15,7 +15,7 @@ project('systemd', 'c',
 
 add_test_setup(
         'default',
-        exclude_suites : ['clang-tidy', 'coccinelle', 'unused-symbols', 'integration-tests'],
+        exclude_suites : ['clang-tidy', 'coccinelle', 'argument-comments', 'unused-symbols', 'integration-tests'],
         exe_wrapper : find_program('tools/test-crash-trace.sh'),
         is_default : true,
 )
@@ -2882,6 +2882,38 @@ if meson.version().version_compare('>=1.4.0')
                                 )
                         endif
                 endforeach
+        endforeach
+
+        # One test per top-level source directory, checking the sources that are actually compiled, like clang-tidy.
+        argument_comments_sources = {}
+        foreach source : sources
+                if systemd_headers.contains(source)
+                        continue
+                endif
+
+                path = source.full_path()
+                if not path.endswith('.c') or path.endswith('.bpf.c')
+                        continue
+                endif
+
+                if path.startswith(meson.project_build_root())
+                        continue
+                endif
+
+                dir = path.replace(meson.project_source_root() + '/src/', '').split('/')[0]
+                argument_comments_sources += {dir : argument_comments_sources.get(dir, []) + [source]}
+        endforeach
+
+        foreach dir, dir_sources : argument_comments_sources
+                test(
+                        'argument-comments-@0@'.format(dir),
+                        check_argument_comments_py,
+                        args : ['-p', meson.project_build_root()] + dir_sources,
+                        suite : 'argument-comments',
+                        depends : generated_sources,
+                        is_parallel : false, # the script parallelizes over its files by itself
+                        timeout : 300,
+                )
         endforeach
 endif
 

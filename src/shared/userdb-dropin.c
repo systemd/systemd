@@ -30,7 +30,7 @@ static int load_user(
 
         assert(f);
 
-        r = sd_json_parse_file(f, path, 0, &v, NULL, NULL);
+        r = sd_json_parse_file(f, path, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return r;
 
@@ -62,7 +62,7 @@ static int load_user(
                                 return -ENOMEM;
                 }
 
-                r = sd_json_parse_file(NULL, j, SD_JSON_PARSE_SENSITIVE, &privileged_v, NULL, NULL);
+                r = sd_json_parse_file(NULL, j, SD_JSON_PARSE_SENSITIVE, &privileged_v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (ERRNO_IS_NEG_PRIVILEGE(r))
                         have_privileged = false;
                 else if (r == -ENOENT)
@@ -125,7 +125,7 @@ int dropin_user_record_by_name(const char *name, const char *path, UserDBFlags f
                 if (!filename_is_valid(j)) /* Doesn't qualify as valid filename? Then it's definitely not provided as a drop-in */
                         return -ESRCH;
 
-                r = search_and_fopen_nulstr(j, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
+                r = search_and_fopen_nulstr(j, "re", /* root= */ NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)
@@ -155,7 +155,7 @@ int dropin_user_record_by_uid(uid_t uid, const char *path, UserDBFlags flags, Us
                 /* Note that we don't bother to validate this as a filename, as this is generated from a decimal
                  * integer, i.e. is definitely OK as a filename */
 
-                r = search_and_fopen_nulstr(buf, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
+                r = search_and_fopen_nulstr(buf, "re", /* root= */ NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)
@@ -164,7 +164,7 @@ int dropin_user_record_by_uid(uid_t uid, const char *path, UserDBFlags flags, Us
                 path = found_path;
         }
 
-        return load_user(f, path, NULL, uid, flags, ret);
+        return load_user(f, path, /* name= */ NULL, uid, flags, ret);
 }
 
 static int load_group(
@@ -182,7 +182,7 @@ static int load_group(
 
         assert(f);
 
-        r = sd_json_parse_file(f, path, 0, &v, NULL, NULL);
+        r = sd_json_parse_file(f, path, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return r;
 
@@ -206,7 +206,7 @@ static int load_group(
                                 return -ENOMEM;
                 }
 
-                r = sd_json_parse_file(NULL, j, SD_JSON_PARSE_SENSITIVE, &privileged_v, NULL, NULL);
+                r = sd_json_parse_file(NULL, j, SD_JSON_PARSE_SENSITIVE, &privileged_v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (ERRNO_IS_NEG_PRIVILEGE(r))
                         have_privileged = false;
                 else if (r == -ENOENT)
@@ -269,7 +269,7 @@ int dropin_group_record_by_name(const char *name, const char *path, UserDBFlags 
                 if (!filename_is_valid(j)) /* Doesn't qualify as valid filename? Then it's definitely not provided as a drop-in */
                         return -ESRCH;
 
-                r = search_and_fopen_nulstr(j, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
+                r = search_and_fopen_nulstr(j, "re", /* root= */ NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)
@@ -297,7 +297,7 @@ int dropin_group_record_by_gid(gid_t gid, const char *path, UserDBFlags flags, G
 
                 xsprintf(buf, GID_FMT ".group", gid);
 
-                r = search_and_fopen_nulstr(buf, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
+                r = search_and_fopen_nulstr(buf, "re", /* root= */ NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)
@@ -306,5 +306,5 @@ int dropin_group_record_by_gid(gid_t gid, const char *path, UserDBFlags flags, G
                 path = found_path;
         }
 
-        return load_group(f, path, NULL, gid, flags, ret);
+        return load_group(f, path, /* name= */ NULL, gid, flags, ret);
 }

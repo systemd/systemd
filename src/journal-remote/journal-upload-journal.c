@@ -168,7 +168,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         if (memory_startswith(u->field_data, u->field_length, "_BOOT_ID="))
                                 continue;
 
-                        if (!utf8_is_printable_newline(u->field_data, u->field_length, false)) {
+                        if (!utf8_is_printable_newline(u->field_data, u->field_length, /* allow_newline= */ false)) {
                                 u->entry_state = ENTRY_BINARY_FIELD_START;
                                 continue;
                         }
@@ -272,7 +272,7 @@ static void check_update_watchdog(Uploader *u) {
         elapsed_time = usec_sub_unsigned(after, u->watchdog_timestamp);
         if (elapsed_time > u->watchdog_usec / 2) {
                 log_debug("Update watchdog timer");
-                sd_notify(false, "WATCHDOG=1");
+                sd_notify(/* unset_environment= */ false, "WATCHDOG=1");
                 u->watchdog_timestamp = after;
         }
 }
@@ -432,7 +432,7 @@ int open_journal_for_upload(Uploader *u,
 
         u->journal = j;
 
-        sd_journal_set_data_threshold(j, 0);
+        sd_journal_set_data_threshold(j, /* sz= */ 0);
 
         if (follow) {
                 fd = sd_journal_get_fd(j);

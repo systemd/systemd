@@ -11,7 +11,7 @@
 
 TEST(progress_bar) {
 
-        draw_progress_bar(PROGRESS_PREFIX, 0);
+        draw_progress_bar(PROGRESS_PREFIX, /* percentage= */ 0);
 
         bool paused = false;
 

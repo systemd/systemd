@@ -50,7 +50,7 @@ static int map_basic(sd_bus_message *m, unsigned flags, void *userdata) {
         assert(m);
         assert(userdata);
 
-        r = sd_bus_message_peek_type(m, &type, NULL);
+        r = sd_bus_message_peek_type(m, &type, /* ret_contents= */ NULL);
         if (r < 0)
                 return bus_log_parse_error_debug(r);
 
@@ -169,7 +169,7 @@ int bus_message_map_all_properties(
                         }
 
                 if (prop) {
-                        r = sd_bus_message_peek_type(m, NULL, &contents);
+                        r = sd_bus_message_peek_type(m, /* ret_type= */ NULL, &contents);
                         if (r < 0)
                                 return bus_log_parse_error_debug(r);
 

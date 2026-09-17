@@ -18,7 +18,7 @@ TEST(af_list) {
         }
 
         ASSERT_NULL(af_to_name(af_max()));
-        ASSERT_NULL(af_to_name(0));
+        ASSERT_NULL(af_to_name(/* id= */ 0));
         ASSERT_NULL(af_to_name(-1));
         assert_se(af_from_name("huddlduddl") == -EINVAL);
         assert_se(af_from_name("") == -EINVAL);

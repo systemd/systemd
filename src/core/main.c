@@ -217,7 +217,7 @@ static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         if (r < 0)
                 return r;
 
-        r = strv_extend_strv(&dirs, CONF_PATHS_STRV("systemd"), false);
+        r = strv_extend_strv(&dirs, CONF_PATHS_STRV("systemd"), /* filter_duplicates= */ false);
         if (r < 0)
                 return r;
 
@@ -327,7 +327,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 if (path_is_absolute(value))
-                        (void) parse_path_argument(value, false, &arg_early_core_pattern);
+                        (void) parse_path_argument(value, /* suppress_root= */ false, &arg_early_core_pattern);
                 else
                         log_warning("Specified core pattern '%s' is not an absolute path, ignoring.", value);
 
@@ -492,7 +492,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                (void) parse_path_argument(value, false, &arg_watchdog_device);
+                (void) parse_path_argument(value, /* suppress_root= */ false, &arg_watchdog_device);
 
         } else if (proc_cmdline_key_streq(key, "systemd.watchdog_sec")) {
 
@@ -1228,7 +1228,7 @@ static int parse_argv(int argc, char *argv[]) {
                 /* Options not shown in --help. */
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "crash-reboot", "BOOL", /* help= */ NULL):
-                        r = parse_boolean_argument("--crash-reboot", opts.arg, NULL);
+                        r = parse_boolean_argument("--crash-reboot", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         arg_crash_action = r > 0 ? CRASH_REBOOT : CRASH_FREEZE;
@@ -1245,7 +1245,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (fd < 0)
                                 return log_error_errno(fd, "Failed to parse serialization fd \"%s\": %m", opts.arg);
 
-                        (void) fd_cloexec(fd, true);
+                        (void) fd_cloexec(fd, /* cloexec= */ true);
 
                         FILE *f = fdopen(fd, "r");
                         if (!f)
@@ -1319,7 +1319,7 @@ static int prepare_reexecute(
 
         /* Make sure nothing is really destructed when we shut down */
         m->n_reloading++;
-        bus_manager_send_reloading(m, true);
+        bus_manager_send_reloading(m, /* active= */ true);
 
         /* Only close the initramfs trust window when actually switching root.
          * During a plain daemon-reexec in the initrd, PID1 still needs to
@@ -1347,7 +1347,7 @@ static int prepare_reexecute(
         if (r < 0)
                 return log_error_errno(r, "Failed to finish serialization file: %m");
 
-        r = fd_cloexec(fileno(f), false);
+        r = fd_cloexec(fileno(f), /* cloexec= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to disable O_CLOEXEC for serialization: %m");
 
@@ -1552,19 +1552,19 @@ static int os_release_status(void) {
 
                 if (in_initrd()) {
                         if (log_get_show_color())
-                                status_printf(NULL, 0,
+                                status_printf(/* status= */ NULL, /* flags= */ 0,
                                               ANSI_HIGHLIGHT "Booting initrd of " ANSI_NORMAL "%s" ANSI_NORMAL ANSI_HIGHLIGHT "." ANSI_NORMAL,
                                               fancy_name);
                         else
-                                status_printf(NULL, 0,
+                                status_printf(/* status= */ NULL, /* flags= */ 0,
                                               "Booting initrd of %s...", label);
                 } else {
                         if (log_get_show_color())
-                                status_printf(NULL, 0,
+                                status_printf(/* status= */ NULL, /* flags= */ 0,
                                               "\n" ANSI_HIGHLIGHT "Welcome to " ANSI_NORMAL "%s" ANSI_NORMAL ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n",
                                               fancy_name);
                         else
-                                status_printf(NULL, 0,
+                                status_printf(/* status= */ NULL, /* flags= */ 0,
                                               "\nWelcome to %s!\n",
                                               label);
                 }
@@ -1573,7 +1573,7 @@ static int os_release_status(void) {
         if (support_end && os_release_support_ended(support_end, /* quiet= */ false, /* ret_eol= */ NULL) > 0)
                 /* pretty_name may include the version already, so we'll print the version only if we
                  * have it and we're not using pretty_name. */
-                status_printf(ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL, 0,
+                status_printf(ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL, /* flags= */ 0,
                               "This OS version (%s%s%s) is past its end-of-support date (%s)",
                               label,
                               (pretty_name || !version) ? "" : " version ",
@@ -1707,14 +1707,14 @@ static int fixup_environment(void) {
          *
          * However if TERM was configured through the kernel command line then leave it alone. */
         _cleanup_free_ char *term = NULL;
-        r = proc_cmdline_get_key("TERM", 0, &term);
+        r = proc_cmdline_get_key("TERM", /* flags= */ 0, &term);
         if (r < 0)
                 return r;
         if (r > 0) {
                 /* If we pick up $TERM, then also pick up $COLORTERM, $NO_COLOR */
                 FOREACH_STRING(v, "COLORTERM", "NO_COLOR") {
                         _cleanup_free_ char *vv = NULL;
-                        r = proc_cmdline_get_key(v, 0, &vv);
+                        r = proc_cmdline_get_key(v, /* flags= */ 0, &vv);
                         if (r < 0)
                                 return r;
                         if (r > 0 && setenv(v, vv, /* overwrite= */ true) < 0)
@@ -1722,7 +1722,7 @@ static int fixup_environment(void) {
                 }
         } else {
                 /* If no $TERM is set then look for the per-tty variable instead */
-                r = proc_cmdline_get_key("systemd.tty.term.console", 0, &term);
+                r = proc_cmdline_get_key("systemd.tty.term.console", /* flags= */ 0, &term);
                 if (r < 0)
                         return r;
         }
@@ -1821,8 +1821,8 @@ static int become_shutdown(int objective, int retval) {
         /* If we reboot or kexec let's set the shutdown watchdog and tell the
          * shutdown binary to repeatedly ping it.
          * Disable the pretimeout watchdog, as we do not support it from the shutdown binary. */
-        (void) watchdog_setup_pretimeout(0);
-        (void) watchdog_setup_pretimeout_governor(NULL);
+        (void) watchdog_setup_pretimeout(/* timeout= */ 0);
+        (void) watchdog_setup_pretimeout_governor(/* governor= */ NULL);
         r = watchdog_setup(watchdog_timer);
         watchdog_close(/* disarm= */ r < 0);
 
@@ -1909,7 +1909,7 @@ static void initialize_clock_timewarp(void) {
         /* This is called very early on, before we parse the kernel command line or otherwise figure out why
          * we are running, but only once. */
 
-        if (clock_is_localtime(NULL) > 0) {
+        if (clock_is_localtime(/* adjtime_path= */ NULL) > 0) {
                 int min;
 
                 /* The very first call of settimeofday() also does a time warp in the kernel.
@@ -1973,7 +1973,7 @@ static void cmdline_take_random_seed(void) {
                 log_warning("Random seed specified on kernel command line has size %zu, but %zu bytes required to fill entropy pool.",
                             arg_random_seed_size, suggested);
 
-        r = random_write_entropy(-1, arg_random_seed, arg_random_seed_size, true);
+        r = random_write_entropy(-1, arg_random_seed, arg_random_seed_size, /* credit= */ true);
         if (r < 0) {
                 log_warning_errno(r, "Failed to credit entropy specified on kernel command line, ignoring: %m");
                 return;
@@ -2435,8 +2435,8 @@ static int invoke_main_loop(
                         set_manager_defaults(m);
                         set_manager_settings(m);
 
-                        update_cpu_affinity(false);
-                        update_numa_policy(false);
+                        update_cpu_affinity(/* skip_setup= */ false);
+                        update_numa_policy(/* skip_setup= */ false);
 
                         if (saved_log_level >= 0)
                                 manager_override_log_level(m, saved_log_level);
@@ -2459,7 +2459,7 @@ static int invoke_main_loop(
                         manager_send_reloading(m); /* From the perspective of the manager calling us this is
                                                     * pretty much the same as a reload */
 
-                        r = prepare_reexecute(m, &arg_serialization, ret_fds, false);
+                        r = prepare_reexecute(m, &arg_serialization, ret_fds, /* switching_root= */ false);
                         if (r < 0) {
                                 *ret_error_message = "Failed to prepare for reexecution";
                                 return r;
@@ -2477,10 +2477,10 @@ static int invoke_main_loop(
                         manager_send_reloading(m); /* From the perspective of the manager calling us this is
                                                     * pretty much the same as a reload */
 
-                        manager_set_switching_root(m, true);
+                        manager_set_switching_root(m, /* switching_root= */ true);
 
                         if (!m->switch_root_init) {
-                                r = prepare_reexecute(m, &arg_serialization, ret_fds, true);
+                                r = prepare_reexecute(m, &arg_serialization, ret_fds, /* switching_root= */ true);
                                 if (r < 0) {
                                         *ret_error_message = "Failed to prepare for reexecution";
                                         return r;
@@ -2500,7 +2500,7 @@ static int invoke_main_loop(
 
                 case MANAGER_SOFT_REBOOT:
                         manager_send_reloading(m);
-                        manager_set_switching_root(m, true);
+                        manager_set_switching_root(m, /* switching_root= */ true);
 
                         r = prepare_reexecute(m, &arg_serialization, ret_fds, /* switching_root= */ true);
                         if (r < 0) {
@@ -2723,7 +2723,7 @@ static int initialize_runtime(
                                                         LOG_MESSAGE_ID(SD_MESSAGE_CORE_CAPABILITY_BOUNDING_USER_STR));
                         }
 
-                        r = capability_bounding_set_drop(arg_capability_bounding_set, true);
+                        r = capability_bounding_set_drop(arg_capability_bounding_set, /* right_now= */ true);
                         if (r < 0) {
                                 *ret_error_message = "Failed to drop capability bounding set";
                                 return log_struct_errno(LOG_EMERG, r,
@@ -2785,7 +2785,7 @@ static int initialize_runtime(
         /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
          * not affect the permitted and effective sets which are important for the manager itself to
          * operate. */
-        r = capability_ambient_set_apply(0, /* also_inherit= */ false);
+        r = capability_ambient_set_apply(/* set= */ 0, /* also_inherit= */ false);
         if (r < 0)
                 log_warning_errno(r, "Failed to reset ambient capability set, ignoring: %m");
 
@@ -2889,7 +2889,7 @@ static int do_queue_default_job(
         }
 
         log_info("Queued %s job for default target %s.",
-                 job_type_to_string(job->type), unit_status_string(job->unit, NULL));
+                 job_type_to_string(job->type), unit_status_string(job->unit, /* ret_combined_buffer= */ NULL));
 
         return 0;
 }
@@ -2975,7 +2975,7 @@ static void setenv_manager_environment(void) {
         STRV_FOREACH(p, arg_manager_environment) {
                 log_debug("Setting '%s' in our own environment.", *p);
 
-                r = putenv_dup(*p, true);
+                r = putenv_dup(*p, /* override= */ true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to setenv \"%s\", ignoring: %m", *p);
         }
@@ -3084,7 +3084,7 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
                 log_warning_errno(r, "Failed to parse config file, ignoring: %m");
 
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+                r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
         }

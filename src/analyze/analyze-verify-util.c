@@ -198,7 +198,7 @@ int verify_executable(Unit *u, const ExecCommand *exec, const char *root) {
         if (exec->flags & EXEC_COMMAND_IGNORE_FAILURE)
                 return 0;
 
-        r = find_executable_full(exec->path, root, NULL, false, NULL, NULL);
+        r = find_executable_full(exec->path, root, /* exec_search_path= */ NULL, /* use_path_envvar= */ false, /* ret_filename= */ NULL, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Command %s is not executable: %m", exec->path);
 
@@ -230,7 +230,7 @@ static int verify_documentation(Unit *u, bool check_man) {
                 log_unit_debug(u, "Found documentation item: %s", *p);
 
                 if (check_man && startswith(*p, "man:")) {
-                        k = show_man_page(*p + 4, true);
+                        k = show_man_page(*p + 4, /* null_stdio= */ true);
                         if (k != 0) {
                                 if (k < 0)
                                         log_unit_error_errno(u, k, "Can't show %s: %m", *p + 4);

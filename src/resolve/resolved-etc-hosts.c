@@ -86,12 +86,12 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
         assert(hosts);
         assert(line);
 
-        r = extract_first_word(&line, &address_str, NULL, EXTRACT_RELAX);
+        r = extract_first_word(&line, &address_str, /* separators= */ NULL, EXTRACT_RELAX);
         if (r < 0)
                 return log_error_errno(r, "/etc/hosts:%u: failed to extract address: %m", nr);
         assert(r > 0); /* We already checked that the line is not empty, so it should contain *something* */
 
-        r = in_addr_ifindex_from_string_auto(address_str, &address.family, &address.address, NULL);
+        r = in_addr_ifindex_from_string_auto(address_str, &address.family, &address.address, /* ifindex= */ NULL);
         if (r < 0) {
                 log_warning_errno(r, "/etc/hosts:%u: address '%s' is invalid, ignoring: %m", nr, address_str);
                 return 0;
@@ -133,7 +133,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                 _cleanup_free_ char *name = NULL;
                 EtcHostsItemByName *bn;
 
-                r = extract_first_word(&line, &name, NULL, EXTRACT_RELAX);
+                r = extract_first_word(&line, &name, /* separators= */ NULL, EXTRACT_RELAX);
                 if (r < 0)
                         return log_error_errno(r, "/etc/hosts:%u: couldn't extract hostname: %m", nr);
                 if (r == 0)
@@ -400,7 +400,7 @@ static int answer_add_ptr(DnsAnswer *answer, DnsResourceKey *key, const char *na
         if (!rr->ptr.name)
                 return -ENOMEM;
 
-        return dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+        return dns_answer_add(answer, rr, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL);
 }
 
 static int answer_add_cname(DnsAnswer *answer, const char *name, const char *cname) {
@@ -414,7 +414,7 @@ static int answer_add_cname(DnsAnswer *answer, const char *name, const char *cna
         if (!rr->cname.name)
                 return -ENOMEM;
 
-        return dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+        return dns_answer_add(answer, rr, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL);
 }
 
 static int answer_add_addr(DnsAnswer *answer, const char *name, const struct in_addr_data *a) {
@@ -425,7 +425,7 @@ static int answer_add_addr(DnsAnswer *answer, const char *name, const struct in_
         if (r < 0)
                 return r;
 
-        return dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+        return dns_answer_add(answer, rr, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL);
 }
 
 static int etc_hosts_lookup_by_address(

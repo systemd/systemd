@@ -330,7 +330,7 @@ int copy_bytes_full(
 
                 /* First, try copy_file_range(), unless we already tried */
                 if (try_cfr) {
-                        n = try_copy_file_range(fdf, NULL, fdt, NULL, m, 0u);
+                        n = try_copy_file_range(fdf, /* off_in= */ NULL, fdt, /* off_out= */ NULL, m, 0u);
                         if (n < 0) {
                                 if (!IN_SET(n, -EINVAL, -ENOSYS, -EXDEV, -EBADF, -EOPNOTSUPP))
                                         return n;
@@ -653,7 +653,7 @@ static void hardlink_context_destroy(HardlinkContext *c) {
                 if (lseek(c->dir_fd, 0, SEEK_SET) < 0)
                         log_debug_errno(errno, "Failed to lseek on file descriptor, ignoring: %m");
 
-                r = rm_rf_children(TAKE_FD(c->dir_fd), REMOVE_PHYSICAL, NULL); /* consumes dir_fd in all cases, even on failure */
+                r = rm_rf_children(TAKE_FD(c->dir_fd), REMOVE_PHYSICAL, /* root_dev= */ NULL); /* consumes dir_fd in all cases, even on failure */
                 if (r < 0)
                         log_debug_errno(r, "Failed to remove hardlink store (%s) contents, ignoring: %m", c->subdir);
 
@@ -875,7 +875,7 @@ static int fd_copy_regular(
         if (r > 0) /* worked! */
                 return 0;
 
-        fdf = xopenat_full(df, from, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, 0);
+        fdf = xopenat_full(df, from, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, /* mode= */ 0);
         if (fdf < 0)
                 return fdf;
 
@@ -894,7 +894,7 @@ static int fd_copy_regular(
         if (r < 0)
                 return r;
 
-        r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress, userdata);
+        r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, /* ret_remains= */ NULL, /* ret_remains_size= */ NULL, progress, userdata);
         if (r < 0)
                 goto fail;
 
@@ -907,7 +907,7 @@ static int fd_copy_regular(
                 r = -errno;
 
         (void) clamp_futimens(fdt, st, ts_clamp);
-        (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
+        (void) copy_xattr(fdf, /* from= */ NULL, fdt, /* to= */ NULL, copy_flags);
 
         if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
                 r = fd_verify_linked(fdf);
@@ -1206,7 +1206,7 @@ static int fd_copy_directory(
                                 if (buf.st_dev != original_device)
                                         continue;
 
-                                r = is_mount_point_at(dirfd(d), de->d_name, 0);
+                                r = is_mount_point_at(dirfd(d), de->d_name, /* flags= */ 0);
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
@@ -1239,7 +1239,7 @@ finish:
 
                 /* Run hardlink context cleanup now because it potentially changes timestamps */
                 hardlink_context_destroy(&our_hardlink_context);
-                (void) copy_xattr(dirfd(d), NULL, fdt, NULL, copy_flags);
+                (void) copy_xattr(dirfd(d), /* from= */ NULL, fdt, /* to= */ NULL, copy_flags);
 
                 (void) clamp_futimens(fdt, st, ts_clamp);
         } else if (FLAGS_SET(copy_flags, COPY_RESTORE_DIRECTORY_TIMESTAMPS)) {
@@ -1367,7 +1367,7 @@ int copy_tree_at_full(
                 return -errno;
 
         r = fd_copy_tree_generic(fdf, from, &st, fdt, to, st.st_dev, COPY_DEPTH_MAX, override_uid,
-                                 override_gid, copy_flags, ts_clamp, denylist, subvolumes, NULL, NULL, progress_path,
+                                 override_gid, copy_flags, ts_clamp, denylist, subvolumes, /* hardlink_context= */ NULL, /* display_path= */ NULL, progress_path,
                                  progress_bytes, userdata);
         if (r < 0)
                 return r;
@@ -1476,14 +1476,14 @@ int copy_file_fd_at_full(
         assert(fdt >= 0);
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
-        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, 0);
+        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, /* mode= */ 0);
         if (fdf < 0)
                 return fdf;
 
         if (fstat(fdt, &st) < 0)
                 return -errno;
 
-        r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress_bytes, userdata);
+        r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, /* ret_remains= */ NULL, /* ret_remains_size= */ NULL, progress_bytes, userdata);
         if (r < 0)
                 return r;
 
@@ -1492,7 +1492,7 @@ int copy_file_fd_at_full(
          * mode/ownership of that device node...) */
         if (S_ISREG(st.st_mode)) {
                 (void) copy_times(fdf, fdt, copy_flags);
-                (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
+                (void) copy_xattr(fdf, /* from= */ NULL, fdt, /* to= */ NULL, copy_flags);
         }
 
         if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
@@ -1533,7 +1533,7 @@ int copy_file_at_full(
         assert(dir_fdt >= 0 || dir_fdt == AT_FDCWD);
         assert(to);
 
-        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, 0);
+        fdf = xopenat_full(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY, XO_REGULAR, /* mode= */ 0);
         if (fdf < 0)
                 return fdf;
 
@@ -1563,12 +1563,12 @@ int copy_file_at_full(
         if ((chattr_mask & CHATTR_EARLY_FL) != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL);
 
-        r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags & ~COPY_LOCK_BSD, NULL, NULL, progress_bytes, userdata);
+        r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags & ~COPY_LOCK_BSD, /* ret_remains= */ NULL, /* ret_remains_size= */ NULL, progress_bytes, userdata);
         if (r < 0)
                 goto fail;
 
         (void) copy_times(fdf, fdt, copy_flags);
-        (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
+        (void) copy_xattr(fdf, /* from= */ NULL, fdt, /* to= */ NULL, copy_flags);
 
         if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
                 r = fd_verify_linked(fdf);
@@ -1759,7 +1759,7 @@ int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_
         _cleanup_free_ char *names = NULL;
         int ret = 0, r;
 
-        r = listxattr_at_malloc(df, from, 0, &names);
+        r = listxattr_at_malloc(df, from, /* at_flags= */ 0, &names);
         if (r < 0)
                 return r;
 
@@ -1769,7 +1769,7 @@ int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_
 
                 _cleanup_free_ char *value = NULL;
                 size_t value_size;
-                r = getxattr_at_malloc(df, from, p, 0, &value, &value_size);
+                r = getxattr_at_malloc(df, from, p, /* at_flags= */ 0, &value, &value_size);
                 if (r == -ENODATA)
                         continue; /* gone by now */
                 if (r < 0)

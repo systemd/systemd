@@ -338,17 +338,17 @@ static int path_add_default_dependencies(Path *p) {
         if (!UNIT(p)->default_dependencies)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_PATHS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_PATHS_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(p)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 static int path_add_trigger_dependencies(Path *p) {
@@ -364,7 +364,7 @@ static int path_add_trigger_dependencies(Path *p) {
         if (r < 0)
                 return r;
 
-        return unit_add_two_dependencies(UNIT(p), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
+        return unit_add_two_dependencies(UNIT(p), UNIT_BEFORE, UNIT_TRIGGERS, x, /* add_reference= */ true, UNIT_DEPENDENCY_IMPLICIT);
 }
 
 static int path_add_extras(Path *p) {
@@ -397,7 +397,7 @@ static int path_load(Unit *u) {
 
         assert(u->load_state == UNIT_STUB);
 
-        r = unit_load_fragment_and_dropin(u, true);
+        r = unit_load_fragment_and_dropin(u, /* fragment_required= */ true);
         if (r < 0)
                 return r;
 
@@ -467,7 +467,7 @@ static void path_set_state(Path *p, PathState state) {
         assert(p);
 
         if (p->state != state)
-                bus_unit_send_pending_change_signal(UNIT(p), false);
+                bus_unit_send_pending_change_signal(UNIT(p), /* including_new= */ false);
 
         old_state = p->state;
         p->state = state;
@@ -491,7 +491,7 @@ static int path_coldplug(Unit *u) {
         if (p->deserialized_state != p->state) {
 
                 if (IN_SET(p->deserialized_state, PATH_WAITING, PATH_RUNNING))
-                        path_enter_waiting(p, true, false);
+                        path_enter_waiting(p, /* initial= */ true, /* from_trigger_notify= */ false);
                 else
                         path_set_state(p, p->deserialized_state);
         }
@@ -607,7 +607,7 @@ static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) 
          * might have appeared/been removed by now, so we must
          * recheck */
 
-        if (path_check_good(p, false, from_trigger_notify, &trigger_path)) {
+        if (path_check_good(p, /* initial= */ false, from_trigger_notify, &trigger_path)) {
                 log_unit_debug(UNIT(p), "Got triggered by '%s'.", trigger_path);
                 path_enter_running(p, trigger_path);
                 return;
@@ -639,7 +639,7 @@ static int path_start(Unit *u) {
         path_mkdir(p);
 
         p->result = PATH_SUCCESS;
-        path_enter_waiting(p, true, false);
+        path_enter_waiting(p, /* initial= */ true, /* from_trigger_notify= */ false);
 
         return 1;
 }
@@ -724,7 +724,7 @@ static int path_deserialize_item(Unit *u, const char *key, const char *value, FD
                                 return 0;
                         }
 
-                        l = cunescape(value+skip, 0, &unescaped);
+                        l = cunescape(value+skip, /* flags= */ 0, &unescaped);
                         if (l < 0) {
                                 log_unit_warning_errno(u, l, "Failed to unescape serialize path: %m");
                                 return 0;
@@ -788,7 +788,7 @@ static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
         if (changed)
                 path_enter_running(p, found->path);
         else
-                path_enter_waiting(p, false, false);
+                path_enter_waiting(p, /* initial= */ false, /* from_trigger_notify= */ false);
 
         return 0;
 

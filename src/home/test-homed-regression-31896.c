@@ -23,12 +23,12 @@ static int run(int argc, char **argv) {
         assert_se(argc == 2);
         username = argv[1];
 
-        assert_se(bus_call_method(bus, bus_home_mgr, "RefHomeUnrestricted", NULL, &ref, "sb", username, true) >= 0);
+        assert_se(bus_call_method(bus, bus_home_mgr, "RefHomeUnrestricted", /* reterr_error= */ NULL, &ref, "sb", username, true) >= 0);
 
-        assert_se(bus_call_method_async(bus, NULL, bus_home_mgr, "AuthenticateHome", NULL, NULL, "ss", username, "{}") >= 0);
+        assert_se(bus_call_method_async(bus, /* ret_slot= */ NULL, bus_home_mgr, "AuthenticateHome", /* callback= */ NULL, /* userdata= */ NULL, "ss", username, "{}") >= 0);
         assert_se(sd_bus_flush(bus) >= 0);
 
-        (void) bus_call_method(bus, bus_home_mgr, "ReleaseHome", &error, NULL, "s", username);
+        (void) bus_call_method(bus, bus_home_mgr, "ReleaseHome", &error, /* ret_reply= */ NULL, "s", username);
         assert_se(!sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY)); /* Make sure we didn't crash */
 
         return 0;

@@ -214,7 +214,7 @@ int cpu_set_add_all(CPUSet *c) {
         if (m == 0)
                 return -ENXIO;
 
-        return cpu_set_add_range(c, 0, m - 1);
+        return cpu_set_add_range(c, /* start= */ 0, m - 1);
 }
 
 int config_parse_cpu_set(

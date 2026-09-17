@@ -276,12 +276,12 @@ TEST(cpu_set_add) {
 TEST(cpu_set_add_range) {
         _cleanup_(cpu_set_done) CPUSet c = {};
 
-        ASSERT_ERROR(cpu_set_add_range(&c, 0, 8192), ERANGE);
-        ASSERT_ERROR(cpu_set_add_range(&c, 0, SIZE_MAX), ERANGE);
-        ASSERT_SIGNAL(cpu_set_add_range(&c, 100, 0), SIGABRT);
+        ASSERT_ERROR(cpu_set_add_range(&c, /* start= */ 0, 8192), ERANGE);
+        ASSERT_ERROR(cpu_set_add_range(&c, /* start= */ 0, SIZE_MAX), ERANGE);
+        ASSERT_SIGNAL(cpu_set_add_range(&c, 100, /* end= */ 0), SIGABRT);
 
-        ASSERT_OK(cpu_set_add_range(&c, 0, 0));
-        ASSERT_OK(cpu_set_add_range(&c, 0, 8191));
+        ASSERT_OK(cpu_set_add_range(&c, /* start= */ 0, /* end= */ 0));
+        ASSERT_OK(cpu_set_add_range(&c, /* start= */ 0, 8191));
 }
 
 TEST(cpus_online) {

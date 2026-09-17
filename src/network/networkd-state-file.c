@@ -582,7 +582,7 @@ static void serialize_addresses(
 
         if (lvalue)
                 fprintf(f, "%s=", lvalue);
-        fputstrv(f, addresses, NULL, space);
+        fputstrv(f, addresses, /* separator= */ NULL, space);
 
         if (lease && conditional) {
                 const struct in_addr *lease_addresses;
@@ -605,7 +605,7 @@ static void serialize_addresses(
 
                 r = lease6_get_fqdn(lease6, &in6_hosts);
                 if (r > 0)
-                        fputstrv(f, in6_hosts, NULL, space);
+                        fputstrv(f, in6_hosts, /* separator= */ NULL, space);
         }
 
         if (lvalue)
@@ -642,7 +642,7 @@ static void serialize_resolvers(
                         if (r < 0)
                                 return (void) log_warning_errno(r, "Failed to get DoT servers from DHCP DNR, ignoring: %m");
                         if (r > 0)
-                                fputstrv(f, names, NULL, space);
+                                fputstrv(f, names, /* separator= */ NULL, space);
                 }
         }
 
@@ -657,7 +657,7 @@ static void serialize_resolvers(
                         if (r < 0)
                                 return (void) log_warning_errno(r, "Failed to get DoT servers from DHCPv6 DNR, ignoring: %m");
                         if (r > 0)
-                                fputstrv(f, names, NULL, space);
+                                fputstrv(f, names, /* separator= */ NULL, space);
                 }
         }
 
@@ -676,7 +676,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, U
         assert(f);
 
         ORDERED_SET_FOREACH(p, static_domains)
-                fputs_with_separator(f, p, NULL, &space);
+                fputs_with_separator(f, p, /* separator= */ NULL, &space);
 
         if (use_domains == USE_DOMAINS_NO)
                 return;
@@ -686,23 +686,23 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, U
                 char **domains;
 
                 if (sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname) >= 0)
-                        fputs_with_separator(f, domainname, NULL, &space);
+                        fputs_with_separator(f, domainname, /* separator= */ NULL, &space);
                 if (sd_dhcp_lease_get_search_domains(link->dhcp_lease, &domains) >= 0)
-                        fputstrv(f, domains, NULL, &space);
+                        fputstrv(f, domains, /* separator= */ NULL, &space);
         }
 
         if (link->dhcp6_lease && link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP6) == use_domains) {
                 char **domains;
 
                 if (sd_dhcp6_lease_get_domains(link->dhcp6_lease, &domains) >= 0)
-                        fputstrv(f, domains, NULL, &space);
+                        fputstrv(f, domains, /* separator= */ NULL, &space);
         }
 
         if (link_get_use_domains(link, NETWORK_CONFIG_SOURCE_NDISC) == use_domains) {
                 NDiscDNSSL *dd;
 
                 SET_FOREACH(dd, link->ndisc_dnssl)
-                        fputs_with_separator(f, ndisc_dnssl_domain(dd), NULL, &space);
+                        fputs_with_separator(f, ndisc_dnssl_domain(dd), /* separator= */ NULL, &space);
         }
 }
 
@@ -805,7 +805,7 @@ static int link_save(Link *link) {
 
                 fputs("DNS=", f);
                 if (link->n_dns != UINT_MAX)
-                        link_save_dns(link, f, link->dns, link->n_dns, NULL);
+                        link_save_dns(link, f, link->dns, link->n_dns, /* space= */ NULL);
                 else {
                         space = false;
                         link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);
@@ -818,7 +818,7 @@ static int link_save(Link *link) {
                         /* DNR resolvers are not required to provide Do53 service, however resolved doesn't
                          * know how to handle such a server so for now Do53 service is required, and
                          * assumed. */
-                        serialize_resolvers(f, NULL, &space,
+                        serialize_resolvers(f, /* lvalue= */ NULL, &space,
                                             link->dhcp_lease,
                                             link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP4),
                                             link->dhcp6_lease,
@@ -830,15 +830,15 @@ static int link_save(Link *link) {
                                         serialize_dnr(f, &dnr->resolver, 1, &space);
                         }
 
-                        serialize_addresses(f, NULL, &space,
-                                            NULL,
+                        serialize_addresses(f, /* lvalue= */ NULL, &space,
+                                            /* addresses= */ NULL,
                                             link->dhcp_lease,
                                             link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP4),
                                             SD_DHCP_LEASE_DNS,
                                             link->dhcp6_lease,
                                             link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP6),
                                             sd_dhcp6_lease_get_dns,
-                                            NULL);
+                                            /* lease6_get_fqdn= */ NULL);
 
                         if (link_get_use_dns(link, NETWORK_CONFIG_SOURCE_NDISC)) {
                                 NDiscRDNSS *dd;
@@ -854,10 +854,10 @@ static int link_save(Link *link) {
 
                 if (link->ntp) {
                         fputs("NTP=", f);
-                        fputstrv(f, link->ntp, NULL, NULL);
+                        fputstrv(f, link->ntp, /* separator= */ NULL, /* space= */ NULL);
                         fputc('\n', f);
                 } else
-                        serialize_addresses(f, "NTP", NULL,
+                        serialize_addresses(f, "NTP", /* space= */ NULL,
                                             link->network->ntp,
                                             link->dhcp_lease,
                                             link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP4),
@@ -867,8 +867,8 @@ static int link_save(Link *link) {
                                             sd_dhcp6_lease_get_ntp_addrs,
                                             sd_dhcp6_lease_get_ntp_fqdn);
 
-                serialize_addresses(f, "SIP", NULL,
-                                    NULL,
+                serialize_addresses(f, "SIP", /* space= */ NULL,
+                                    /* addresses= */ NULL,
                                     link->dhcp_lease,
                                     link->network->dhcp_use_sip,
                                     SD_DHCP_LEASE_SIP,
@@ -951,7 +951,7 @@ static int link_save(Link *link) {
 
                         fputs("DNSSEC_NTA=", f);
                         SET_FOREACH(n, nta_anchors)
-                                fputs_with_separator(f, n, NULL, &space);
+                                fputs_with_separator(f, n, /* separator= */ NULL, &space);
                         fputc('\n', f);
                 }
         }

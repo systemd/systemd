@@ -78,7 +78,7 @@ static int run(int argc, char *argv[]) {
                                /* sector_size= */ 0,
                                /* compression= */ NULL,
                                /* compression_level= */ NULL,
-                               /* extra_mkfs_options= */ NULL);
+                               /* extra_mkfs_args= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

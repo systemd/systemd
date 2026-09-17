@@ -15,7 +15,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         FILE *g = NULL;
         int r;
 
-        if (outside_size_range(size, 0, 65536))
+        if (outside_size_range(size, /* lower= */ 0, 65536))
                 return 0;
 
         fuzz_setup_logging();
@@ -79,7 +79,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 }
         }
 
-        bus_match_dump(g ?: stdout, &root, 0); /* We do this even on failure, to check consistency after error. */
+        bus_match_dump(g ?: stdout, &root, /* level= */ 0); /* We do this even on failure, to check consistency after error. */
         bus_match_free(&root);
 
         return 0;

@@ -354,7 +354,7 @@ int sd_dhcp6_client_set_fqdn(
 
         /* Make sure FQDN qualifies as DNS and as Linux hostname */
         if (fqdn &&
-            !(hostname_is_valid(fqdn, 0) && dns_name_is_valid(fqdn) > 0))
+            !(hostname_is_valid(fqdn, /* flags= */ 0) && dns_name_is_valid(fqdn) > 0))
                 return -EINVAL;
 
         return free_and_strdup(&client->fqdn, fqdn);
@@ -777,7 +777,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
 
         case DHCP6_STATE_SOLICITATION:
                 if (client->rapid_commit) {
-                        r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
+                        r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_RAPID_COMMIT, /* optlen= */ 0, /* optval= */ NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -936,7 +936,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                                       CLOCK_BOOTTIME,
                                       client->retransmit_time, 10 * USEC_PER_MSEC,
                                       client_timeout_resend, client,
-                                      client->event_priority, "dhcp6-resend-timer", true);
+                                      client->event_priority, "dhcp6-resend-timer", /* force_reset= */ true);
         if (r < 0)
                 client_stop(client, r);
 
@@ -982,9 +982,9 @@ static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state) {
 
         r = event_reset_time(client->event, &client->timeout_resend,
                              CLOCK_BOOTTIME,
-                             0, 0,
+                             /* usec= */ 0, /* accuracy= */ 0,
                              client_timeout_resend, client,
-                             client->event_priority, "dhcp6-resend-timeout", true);
+                             client->event_priority, "dhcp6-resend-timeout", /* force_reset= */ true);
         if (r < 0)
                 goto error;
 
@@ -1084,7 +1084,7 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
                                               CLOCK_BOOTTIME,
                                               lifetime_t1, 10 * USEC_PER_SEC,
                                               client_timeout_t1, client,
-                                              client->event_priority, "dhcp6-t1-timeout", true);
+                                              client->event_priority, "dhcp6-t1-timeout", /* force_reset= */ true);
                 if (r < 0)
                         goto error;
         }
@@ -1098,7 +1098,7 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
                                               CLOCK_BOOTTIME,
                                               lifetime_t2, 10 * USEC_PER_SEC,
                                               client_timeout_t2, client,
-                                              client->event_priority, "dhcp6-t2-timeout", true);
+                                              client->event_priority, "dhcp6-t2-timeout", /* force_reset= */ true);
                 if (r < 0)
                         goto error;
         }
@@ -1113,7 +1113,7 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
                                               CLOCK_BOOTTIME,
                                               lifetime_valid, USEC_PER_SEC,
                                               client_timeout_expire, client,
-                                              client->event_priority, "dhcp6-lease-expire", true);
+                                              client->event_priority, "dhcp6-lease-expire", /* force_reset= */ true);
                 if (r < 0)
                         goto error;
         }

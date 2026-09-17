@@ -83,12 +83,12 @@ static uint64_t query_flag(
 static uint64_t query_flags(void) {
         /* Allow callers to turn off validation, synthetization, caching, etc., when we resolve via
          * nss-resolve. */
-        return  query_flag("SYSTEMD_NSS_RESOLVE_VALIDATE", 0, SD_RESOLVED_NO_VALIDATE) |
-                query_flag("SYSTEMD_NSS_RESOLVE_SYNTHESIZE", 0, SD_RESOLVED_NO_SYNTHESIZE) |
-                query_flag("SYSTEMD_NSS_RESOLVE_CACHE", 0, SD_RESOLVED_NO_CACHE) |
-                query_flag("SYSTEMD_NSS_RESOLVE_ZONE", 0, SD_RESOLVED_NO_ZONE) |
-                query_flag("SYSTEMD_NSS_RESOLVE_TRUST_ANCHOR", 0, SD_RESOLVED_NO_TRUST_ANCHOR) |
-                query_flag("SYSTEMD_NSS_RESOLVE_NETWORK", 0, SD_RESOLVED_NO_NETWORK);
+        return  query_flag("SYSTEMD_NSS_RESOLVE_VALIDATE", /* value= */ 0, SD_RESOLVED_NO_VALIDATE) |
+                query_flag("SYSTEMD_NSS_RESOLVE_SYNTHESIZE", /* value= */ 0, SD_RESOLVED_NO_SYNTHESIZE) |
+                query_flag("SYSTEMD_NSS_RESOLVE_CACHE", /* value= */ 0, SD_RESOLVED_NO_CACHE) |
+                query_flag("SYSTEMD_NSS_RESOLVE_ZONE", /* value= */ 0, SD_RESOLVED_NO_ZONE) |
+                query_flag("SYSTEMD_NSS_RESOLVE_TRUST_ANCHOR", /* value= */ 0, SD_RESOLVED_NO_TRUST_ANCHOR) |
+                query_flag("SYSTEMD_NSS_RESOLVE_NETWORK", /* value= */ 0, SD_RESOLVED_NO_NETWORK);
 }
 
 static int query_ifindex(void) {
@@ -174,7 +174,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 goto not_found;
         }
 
-        r = dispatch_resolve_hostname_reply(NULL, rparams, nss_json_dispatch_flags, &p);
+        r = dispatch_resolve_hostname_reply(/* name= */ NULL, rparams, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
         if (p.n_addresses == 0)
@@ -325,7 +325,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 goto not_found;
         }
 
-        r = dispatch_resolve_hostname_reply(NULL, rparams, nss_json_dispatch_flags, &p);
+        r = dispatch_resolve_hostname_reply(/* name= */ NULL, rparams, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
         if (p.n_addresses == 0)
@@ -496,7 +496,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 goto not_found;
         }
 
-        r = dispatch_resolve_address_reply(NULL, rparams, nss_json_dispatch_flags, &p);
+        r = dispatch_resolve_address_reply(/* name= */ NULL, rparams, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
         if (p.n_names == 0)

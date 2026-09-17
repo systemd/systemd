@@ -459,7 +459,7 @@ int manager_acquire_image(Manager *m, const char *name, Image **ret) {
                 return log_debug_errno(r, "Failed to enable source: %m") ;
 
         _cleanup_(image_unrefp) Image *image = NULL;
-        r = image_find(m->runtime_scope, IMAGE_MACHINE, name, NULL, &image);
+        r = image_find(m->runtime_scope, IMAGE_MACHINE, name, /* root= */ NULL, &image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find image: %m");
 

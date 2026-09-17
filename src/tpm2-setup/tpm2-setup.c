@@ -200,7 +200,7 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
                         &data.public,
                         /* ret_name= */ NULL,
                         /* ret_qname= */ NULL,
-                        NULL);
+                        /* ret_handle= */ NULL);
         if (r == -EDEADLK)
                 return r;
         if (r < 0)

@@ -404,7 +404,7 @@ EFI_STATUS pack_cpio(
                 _cleanup_free_ char *content = NULL;
                 size_t contentsize = 0;  /* avoid false maybe-uninitialized warning */
 
-                err = file_read(extra_dir, items[i], 0, 0, &content, &contentsize);
+                err = file_read(extra_dir, items[i], /* offset= */ 0, /* size= */ 0, &content, &contentsize);
                 if (err != EFI_SUCCESS) {
                         log_warning_status(err, "Failed to read %ls, ignoring: %m", items[i]);
                         continue;

@@ -62,7 +62,7 @@ static int parse_xml_annotation(Context *context, uint64_t *flags) {
 
                 int t;
 
-                t = xml_tokenize(&context->current, &name, &context->xml_state, NULL);
+                t = xml_tokenize(&context->current, &name, &context->xml_state, /* line= */ NULL);
                 if (t < 0) {
                         log_error("XML parse error.");
                         return t;
@@ -190,7 +190,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                 _cleanup_free_ char *name = NULL;
                 int t;
 
-                t = xml_tokenize(&context->current, &name, &context->xml_state, NULL);
+                t = xml_tokenize(&context->current, &name, &context->xml_state, /* line= */ NULL);
                 if (t < 0) {
                         log_error("XML parse error.");
                         return t;
@@ -390,7 +390,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                                                name);
                         } else if (t == XML_TAG_OPEN) {
                                 if (streq_ptr(name, "annotation")) {
-                                        r = parse_xml_annotation(context, NULL);
+                                        r = parse_xml_annotation(context, /* flags= */ NULL);
                                         if (r < 0)
                                                 return r;
                                 } else
@@ -527,7 +527,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                                                name);
                         } else if (t == XML_TAG_OPEN) {
                                 if (streq_ptr(name, "annotation")) {
-                                        r = parse_xml_annotation(context, NULL);
+                                        r = parse_xml_annotation(context, /* flags= */ NULL);
                                         if (r < 0)
                                                 return r;
                                 } else
@@ -692,7 +692,7 @@ int parse_xml_introspect(const char *prefix, const char *xml, const XMLIntrospec
         for (;;) {
                 _cleanup_free_ char *name = NULL;
 
-                r = xml_tokenize(&context.current, &name, &context.xml_state, NULL);
+                r = xml_tokenize(&context.current, &name, &context.xml_state, /* line= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "XML parse error");
 
@@ -702,7 +702,7 @@ int parse_xml_introspect(const char *prefix, const char *xml, const XMLIntrospec
                 if (r == XML_TAG_OPEN) {
 
                         if (streq(name, "node")) {
-                                r = parse_xml_node(&context, prefix, 0);
+                                r = parse_xml_node(&context, prefix, /* n_depth= */ 0);
                                 if (r < 0)
                                         return r;
                         } else

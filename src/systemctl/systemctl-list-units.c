@@ -38,7 +38,7 @@ static int get_unit_list_recursive(
         assert(ret_replies);
         assert(ret_unit_infos);
 
-        c = get_unit_list(bus, NULL, patterns, &unit_infos, 0, &reply);
+        c = get_unit_list(bus, /* machine= */ NULL, patterns, &unit_infos, 0, &reply);
         if (c < 0)
                 return c;
 
@@ -98,14 +98,14 @@ static int table_add_triggered(Table *table, char **triggered) {
         assert(table);
 
         if (strv_isempty(triggered))
-                return table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                return table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
         else if (strv_length(triggered) == 1)
-                return table_add_cell(table, NULL, TABLE_STRING, triggered[0]);
+                return table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, triggered[0]);
         else
                 /* This should never happen, currently our socket units can only trigger a
                  * single unit. But let's handle this anyway, who knows what the future
                  * brings? */
-                return table_add_cell(table, NULL, TABLE_STRV, triggered);
+                return table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRV, triggered);
 }
 
 static char *format_unit_id(const char *unit, const char *machine) {
@@ -131,7 +131,7 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
                         return log_error_errno(r, "Failed to hide column: %m");
         }
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
@@ -457,7 +457,7 @@ static int output_sockets_list(const SocketInfo *sockets, size_t n_sockets) {
 
         table_set_header(table, arg_legend != 0);
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
@@ -507,7 +507,7 @@ int verb_list_sockets(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        r = expand_unit_names(bus, strv_skip(argv, 1), ".socket", &sockets_with_suffix, NULL);
+        r = expand_unit_names(bus, strv_skip(argv, 1), ".socket", &sockets_with_suffix, /* ret_expanded= */ NULL);
         if (r < 0)
                 return r;
 
@@ -659,12 +659,12 @@ static int output_timers_list(const TimerInfo *timers, size_t n_timers) {
 
         table_set_header(table, arg_legend != 0);
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
-        (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
+        (void) table_set_align_percent(table, table_get_cell(table, /* row= */ 0, 1), 100);
+        (void) table_set_align_percent(table, table_get_cell(table, /* row= */ 0, 3), 100);
 
         FOREACH_ARRAY(t, timers, n_timers) {
                 _cleanup_free_ char *unit = NULL;
@@ -788,7 +788,7 @@ int verb_list_timers(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        r = expand_unit_names(bus, strv_skip(argv, 1), ".timer", &timers_with_suffix, NULL);
+        r = expand_unit_names(bus, strv_skip(argv, 1), ".timer", &timers_with_suffix, /* ret_expanded= */ NULL);
         if (r < 0)
                 return r;
 
@@ -930,7 +930,7 @@ static int output_automounts_list(const AutomountInfo *infos, size_t n_infos) {
 
         table_set_header(table, arg_legend != 0);
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
@@ -949,13 +949,13 @@ static int output_automounts_list(const AutomountInfo *infos, size_t n_infos) {
                         return table_log_add_error(r);
 
                 if (timestamp_is_set(info->timeout_idle_usec))
-                        r = table_add_cell(table, NULL, TABLE_TIMESPAN_MSEC, &info->timeout_idle_usec);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_TIMESPAN_MSEC, &info->timeout_idle_usec);
                 else
-                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
-                r = table_add_cell(table, NULL, TABLE_STRING, unit);
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, unit);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -987,7 +987,7 @@ int verb_list_automounts(int argc, char *argv[], uintptr_t _data, void *userdata
 
         pager_open(arg_pager_flags);
 
-        r = expand_unit_names(bus, strv_skip(argv, 1), ".automount", &names, NULL);
+        r = expand_unit_names(bus, strv_skip(argv, 1), ".automount", &names, /* ret_expanded= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1145,7 +1145,7 @@ static int output_paths_list(const PathInfo *paths, size_t n_paths) {
 
         table_set_header(table, arg_legend != 0);
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
@@ -1195,7 +1195,7 @@ int verb_list_paths(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        r = expand_unit_names(bus, strv_skip(argv, 1), ".path", &units, NULL);
+        r = expand_unit_names(bus, strv_skip(argv, 1), ".path", &units, /* ret_expanded= */ NULL);
         if (r < 0)
                 return r;
 

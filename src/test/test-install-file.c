@@ -13,7 +13,7 @@ TEST(install_file) {
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL;
         struct stat stat1, stat2;
 
-        assert_se(mkdtemp_malloc(NULL, &p) >= 0);
+        assert_se(mkdtemp_malloc(/* template= */ NULL, &p) >= 0);
         assert_se(a = path_join(p, "foo"));
         assert_se(b = path_join(p, "bar"));
 
@@ -23,7 +23,7 @@ TEST(install_file) {
         assert_se(lstat(a, &stat1) >= 0);
         assert_se(S_ISREG(stat1.st_mode));
 
-        assert_se(install_file(AT_FDCWD, a, AT_FDCWD, b, 0) >= 0);
+        assert_se(install_file(AT_FDCWD, a, AT_FDCWD, b, /* flags= */ 0) >= 0);
         assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC) >= 0);
 
         assert_se(write_string_file(b, "ttss", WRITE_STRING_FILE_CREATE) >= 0);

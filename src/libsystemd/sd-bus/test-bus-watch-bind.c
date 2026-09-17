@@ -22,14 +22,14 @@
 static int method_foobar(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Got Foobar() call.");
 
-        ASSERT_OK(sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), 0));
-        return sd_bus_reply_method_return(m, NULL);
+        ASSERT_OK(sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), /* code= */ 0));
+        return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
 static int method_exit(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Got Exit() call");
 
-        ASSERT_OK(sd_bus_reply_method_return(m, NULL));
+        ASSERT_OK(sd_bus_reply_method_return(m, /* types= */ NULL));
         /* Simulate D-Bus going away to test the bus_exit_now() path with exit_on_disconnect set */
         bus_enter_closing(sd_bus_message_get_bus(m), EXIT_FAILURE);
         return 0;
@@ -99,7 +99,7 @@ static int server(void *userdata) {
 
                 ASSERT_OK(sd_event_new(&event));
 
-                ASSERT_OK(bus_fd = sd_fiber_accept(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC));
+                ASSERT_OK(bus_fd = sd_fiber_accept(fd, /* addr= */ NULL, /* addrlen= */ NULL, SOCK_NONBLOCK|SOCK_CLOEXEC));
 
                 log_debug("Accepted server connection");
 
@@ -110,9 +110,9 @@ static int server(void *userdata) {
                 ASSERT_OK(sd_bus_set_server(bus, true, id));
                 /* ASSERT_OK(sd_bus_set_anonymous(bus, true)); */
 
-                ASSERT_OK(sd_bus_attach_event(bus, event, 0));
+                ASSERT_OK(sd_bus_attach_event(bus, event, /* priority= */ 0));
 
-                ASSERT_OK(sd_bus_add_object_vtable(bus, NULL, "/foo", "foo.TestInterface", vtable, NULL));
+                ASSERT_OK(sd_bus_add_object_vtable(bus, /* ret_slot= */ NULL, "/foo", "foo.TestInterface", vtable, /* userdata= */ NULL));
 
                 ASSERT_OK(sd_bus_start(bus));
 
@@ -144,7 +144,7 @@ static int client1(void *userdata) {
         ASSERT_OK(sd_bus_set_watch_bind(bus, true));
         ASSERT_OK(sd_bus_start(bus));
 
-        ASSERT_OK(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Foobar", &error, NULL, NULL));
+        ASSERT_OK(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Foobar", &error, /* ret_reply= */ NULL, /* types= */ NULL));
 
         log_debug("Client1 done");
 
@@ -163,13 +163,13 @@ static int client2(void *userdata) {
         t = strjoina("unix:path=", path);
         ASSERT_OK(sd_bus_set_address(bus, t));
         ASSERT_OK(sd_bus_set_watch_bind(bus, true));
-        ASSERT_OK(sd_bus_attach_event(bus, sd_fiber_get_event(), 0));
+        ASSERT_OK(sd_bus_attach_event(bus, sd_fiber_get_event(), /* priority= */ 0));
         ASSERT_OK(sd_bus_start(bus));
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        ASSERT_OK(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Foobar", NULL, &m, NULL));
+        ASSERT_OK(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Foobar", /* reterr_error= */ NULL, &m, /* types= */ NULL));
 
-        ASSERT_OK_ZERO(sd_bus_message_is_method_error(m, NULL));
+        ASSERT_OK_ZERO(sd_bus_message_is_method_error(m, /* name= */ NULL));
         log_debug("Client2 done");
 
         return 0;
@@ -198,7 +198,7 @@ static int request_exit(void *userdata) {
         ASSERT_OK(sd_bus_set_description(bus, "request-exit"));
         ASSERT_OK(sd_bus_start(bus));
 
-        ASSERT_OK(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Exit", NULL, NULL, NULL));
+        ASSERT_OK(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Exit", /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL));
 
         return 0;
 }

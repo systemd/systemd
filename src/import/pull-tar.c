@@ -212,7 +212,7 @@ static void tar_pull_report_progress(TarPull *p, TarProgress progress) {
         if (!ratelimit_below(&p->progress_ratelimit))
                 return;
 
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
+        sd_notifyf(/* unset_environment= */ false, "X_IMPORT_PROGRESS=%u%%", percent);
 
         if (isatty_safe(STDERR_FILENO))
                 draw_progress_bar("Total:", percent);
@@ -265,7 +265,7 @@ static int tar_pull_make_local_copy(TarPull *p) {
                 return log_oom();
 
         if (FLAGS_SET(p->flags, IMPORT_PULL_KEEP_DOWNLOAD)) {
-                r = tempfn_random(path, NULL, &t);
+                r = tempfn_random(path, /* extra= */ NULL, &t);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate temporary filename for %s: %m", path);
 
@@ -343,7 +343,7 @@ static int tar_pull_make_local_copy(TarPull *p) {
                                                 BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
                                                 BTRFS_SNAPSHOT_RECURSIVE);
                         else
-                                r = copy_tree(p->final_path, t, UID_INVALID, GID_INVALID, COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree(p->final_path, t, UID_INVALID, GID_INVALID, COPY_HARDLINKS, /* denylist= */ NULL, /* subvolumes= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create original download image: %m");
                 }
@@ -503,7 +503,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 r = install_file(
                                 AT_FDCWD, p->local,
-                                AT_FDCWD, NULL,
+                                AT_FDCWD, /* target_name= */ NULL,
                                 (p->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY|INSTALL_GRACEFUL : 0) |
                                 (p->flags & IMPORT_SYNC ? INSTALL_SYNCFS|INSTALL_GRACEFUL : 0));
                 if (r < 0) {
@@ -511,7 +511,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                         goto finish;
                 }
         } else {
-                r = tar_pull_determine_path(p, NULL, &p->final_path);
+                r = tar_pull_determine_path(p, /* suffix= */ NULL, &p->final_path);
                 if (r < 0)
                         goto finish;
 
@@ -756,7 +756,7 @@ int tar_pull_start(
                 p->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
 
         if (!FLAGS_SET(flags, IMPORT_DIRECT)) {
-                r = pull_find_old_etags(url, p->image_root, DT_DIR, ".tar-", NULL, &p->tar_job->old_etags);
+                r = pull_find_old_etags(url, p->image_root, DT_DIR, ".tar-", /* suffix= */ NULL, &p->tar_job->old_etags);
                 if (r < 0)
                         return r;
         }

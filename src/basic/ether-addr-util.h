@@ -20,7 +20,7 @@ struct hw_addr_data {
 
 int parse_hw_addr_full(const char *s, size_t expected_len, struct hw_addr_data *ret);
 static inline int parse_hw_addr(const char *s, struct hw_addr_data *ret) {
-        return parse_hw_addr_full(s, 0, ret);
+        return parse_hw_addr_full(s, /* expected_len= */ 0, ret);
 }
 int parse_ether_addr(const char *s, struct ether_addr *ret);
 
@@ -34,7 +34,7 @@ char* hw_addr_to_string_full(
                 HardwareAddressToStringFlags flags,
                 char buffer[static HW_ADDR_TO_STRING_MAX]);
 static inline char* hw_addr_to_string(const struct hw_addr_data *addr, char buffer[static HW_ADDR_TO_STRING_MAX]) {
-        return hw_addr_to_string_full(addr, 0, buffer);
+        return hw_addr_to_string_full(addr, /* flags= */ 0, buffer);
 }
 
 /* Note: the lifetime of the compound literal is the immediately surrounding block,

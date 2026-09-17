@@ -202,7 +202,7 @@ static void log_umount_blockers(const char *mnt) {
                 if (!fdp)
                         return (void) log_oom();
 
-                _cleanup_closedir_ DIR *fd_dir = xopendirat(dirfd(dir), fdp, 0);
+                _cleanup_closedir_ DIR *fd_dir = xopendirat(dirfd(dir), fdp, /* flags= */ 0);
                 if (!fd_dir) {
                         if (errno != ENOENT) /* process gone by now? */
                                 log_debug_errno(errno, "Failed to open /proc/%s/, ignoring: %m",fdp);
@@ -262,7 +262,7 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
         /* Due to the possibility of a remount operation hanging, we fork a child process and set a
          * timeout. If the timeout lapses, the assumption is that the particular remount failed. */
         r = pidref_safe_fork_full("(sd-remount)",
-                           NULL,
+                           /* stdio_fds= */ NULL,
                            pfd, ELEMENTSOF(pfd),
                            FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pidref);
         if (r < 0)
@@ -273,7 +273,7 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
                 log_info("Remounting '%s' read-only with options '%s'.", m->path, strempty(m->remount_options));
 
                 /* Start the mount operation here in the child */
-                r = mount(NULL, m->path, NULL, m->remount_flags, m->remount_options);
+                r = mount(/* source= */ NULL, m->path, /* filesystemtype= */ NULL, m->remount_flags, m->remount_options);
                 if (r < 0)
                         log_full_errno(last_try ? LOG_ERR : LOG_INFO,
                                        errno,
@@ -324,7 +324,7 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
         /* Due to the possibility of a umount operation hanging, we fork a child process and set a
          * timeout. If the timeout lapses, the assumption is that the particular umount failed. */
         r = pidref_safe_fork_full("(sd-umount)",
-                           NULL,
+                           /* stdio_fds= */ NULL,
                            pfd, ELEMENTSOF(pfd),
                            FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pidref);
         if (r < 0)
@@ -444,14 +444,14 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
                  * /run/shutdown/mounts from there.
                  */
                 if (!resolved_mounts_path)
-                        (void) chase("/run/shutdown/mounts", NULL, 0, &resolved_mounts_path, NULL);
+                        (void) chase("/run/shutdown/mounts", /* root= */ NULL, /* flags= */ 0, &resolved_mounts_path, /* ret_fd= */ NULL);
                 if (!path_equal(dirname, resolved_mounts_path)) {
                         char newpath[STRLEN("/run/shutdown/mounts/") + 16 + 1];
 
                         xsprintf(newpath, "/run/shutdown/mounts/%016" PRIx64, random_u64());
 
                         /* on error of is_dir, assume directory */
-                        if (is_dir(m->path, true) != 0) {
+                        if (is_dir(m->path, /* follow= */ true) != 0) {
                                 r = mkdir_p(newpath, 0000);
                                 if (r < 0) {
                                         log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not create directory %s: %m", newpath);
@@ -467,7 +467,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
 
                         log_info("Moving mount %s to %s.", m->path, newpath);
 
-                        r = RET_NERRNO(mount(m->path, newpath, NULL, MS_MOVE, NULL));
+                        r = RET_NERRNO(mount(m->path, newpath, /* filesystemtype= */ NULL, MS_MOVE, /* data= */ NULL));
                         if (r < 0) {
                                 n_failed++;
                                 log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not move %s to %s: %m", m->path, newpath);

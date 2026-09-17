@@ -396,7 +396,7 @@ int deserialize_fd_many(FDSet *fds, const char *value, size_t n, int *ret) {
                 _cleanup_free_ char *w = NULL;
                 int fd;
 
-                r = extract_first_word(&value, &w, NULL, 0);
+                r = extract_first_word(&value, &w, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -429,7 +429,7 @@ int deserialize_strv(const char *value, char ***l) {
         assert(l);
         assert(value);
 
-        unescaped_len = cunescape(value, 0, &unescaped);
+        unescaped_len = cunescape(value, /* flags= */ 0, &unescaped);
         if (unescaped_len < 0)
                 return unescaped_len;
 
@@ -492,7 +492,7 @@ int deserialize_environment(const char *value, char ***list) {
 
         /* Changes the *environment strv inline. */
 
-        l = cunescape(value, 0, &unescaped);
+        l = cunescape(value, /* flags= */ 0, &unescaped);
         if (l < 0)
                 return log_error_errno(l, "Failed to unescape: %m");
 

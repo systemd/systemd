@@ -24,10 +24,10 @@ int link_request_to_bring_up_or_down(Link *link, bool up);
 int link_up_or_down_now(Link *link, bool up);
 int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink);
 static inline int link_up_now(Link *link) {
-        return link_up_or_down_now(link, true);
+        return link_up_or_down_now(link, /* up= */ true);
 }
 static inline int link_down_now(Link *link) {
-        return link_up_or_down_now(link, false);
+        return link_up_or_down_now(link, /* up= */ false);
 }
 
 int link_down_slave_links(Link *link);

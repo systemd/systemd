@@ -53,7 +53,7 @@ static inline bool null_or_empty(struct stat *st) {
 int null_or_empty_path_with_root(const char *fn, const char *root);
 
 static inline int null_or_empty_path(const char *fn) {
-        return null_or_empty_path_with_root(fn, NULL);
+        return null_or_empty_path_with_root(fn, /* root= */ NULL);
 }
 
 typedef enum XStatXFlags {
@@ -76,7 +76,7 @@ static inline int xstatx(
                 unsigned mandatory_mask,
                 struct statx *ret) {
 
-        return xstatx_full(fd, path, statx_flags, 0, mandatory_mask, 0, 0, ret);
+        return xstatx_full(fd, path, statx_flags, /* xstatx_flags= */ 0, mandatory_mask, /* optional_mask= */ 0, /* mandatory_attributes= */ 0, ret);
 }
 
 int fd_is_read_only_fs(int fd);
@@ -87,7 +87,7 @@ static inline int inode_same(const char *filea, const char *fileb, int flags) {
         return inode_same_at(AT_FDCWD, filea, AT_FDCWD, fileb, flags);
 }
 static inline int fd_inode_same(int fda, int fdb) {
-        return inode_same_at(fda, NULL, fdb, NULL, AT_EMPTY_PATH);
+        return inode_same_at(fda, /* filea= */ NULL, fdb, /* fileb= */ NULL, AT_EMPTY_PATH);
 }
 
 /* The .f_type field of struct statfs is really weird defined on
@@ -97,7 +97,7 @@ typedef typeof_field(struct statfs, f_type) statfs_f_type_t;
 bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) _pure_;
 int is_fs_type_at(int dir_fd, const char *path, statfs_f_type_t magic_value);
 static inline int fd_is_fs_type(int fd, statfs_f_type_t magic_value) {
-        return is_fs_type_at(fd, NULL, magic_value);
+        return is_fs_type_at(fd, /* path= */ NULL, magic_value);
 }
 static inline int path_is_fs_type(const char *path, statfs_f_type_t magic_value) {
         return is_fs_type_at(AT_FDCWD, path, magic_value);

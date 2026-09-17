@@ -39,13 +39,13 @@ typedef enum ChattrApplyFlags {
 
 int chattr_full(int dir_fd, const char *path, unsigned value, unsigned mask, unsigned *ret_previous, unsigned *ret_final, ChattrApplyFlags flags);
 static inline int chattr_at(int dir_fd, const char *path, unsigned value, unsigned mask) {
-        return chattr_full(dir_fd, path, value, mask, NULL, NULL, 0);
+        return chattr_full(dir_fd, path, value, mask, /* ret_previous= */ NULL, /* ret_final= */ NULL, /* flags= */ 0);
 }
 static inline int chattr_fd(int fd, unsigned value, unsigned mask) {
-        return chattr_full(fd, NULL, value, mask, NULL, NULL, 0);
+        return chattr_full(fd, /* path= */ NULL, value, mask, /* ret_previous= */ NULL, /* ret_final= */ NULL, /* flags= */ 0);
 }
 static inline int chattr_path(const char *path, unsigned value, unsigned mask) {
-        return chattr_full(AT_FDCWD, path, value, mask, NULL, NULL, 0);
+        return chattr_full(AT_FDCWD, path, value, mask, /* ret_previous= */ NULL, /* ret_final= */ NULL, /* flags= */ 0);
 }
 
 int read_attr_fd(int fd, unsigned *ret);
@@ -61,7 +61,7 @@ int set_proj_id_recursive(int fd, uint32_t proj_id);
 #define CHATTR_SECRET_FLAGS (FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL)
 
 static inline int chattr_secret(int fd, ChattrApplyFlags flags) {
-        return chattr_full(fd, NULL, CHATTR_SECRET_FLAGS, CHATTR_SECRET_FLAGS, NULL, NULL, flags|CHATTR_FALLBACK_BITWISE);
+        return chattr_full(fd, /* path= */ NULL, CHATTR_SECRET_FLAGS, CHATTR_SECRET_FLAGS, /* ret_previous= */ NULL, /* ret_final= */ NULL, flags|CHATTR_FALLBACK_BITWISE);
 }
 
 bool inode_type_can_chattr(mode_t mode);

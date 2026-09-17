@@ -10,7 +10,7 @@
 #include "syslog-util.h"
 
 int bus_log_control_api_register(sd_bus *bus) {
-        return bus_add_implementation(bus, &log_control_object, NULL);
+        return bus_add_implementation(bus, &log_control_object, /* userdata= */ NULL);
 }
 
 int bus_property_get_log_level(

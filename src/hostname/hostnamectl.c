@@ -128,7 +128,7 @@ static int print_status_info(StatusInfo *i) {
         if (!table)
                 return log_oom();
 
-        assert_se(cell = table_get_cell(table, 0, 0));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, /* column= */ 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_UNSET);
@@ -486,7 +486,7 @@ static int show_all_names(sd_bus *bus) {
                                    "org.freedesktop.hostname1",
                                    "/org/freedesktop/hostname1",
                                    hostname_map,
-                                   0,
+                                   /* flags= */ 0,
                                    &error,
                                    &host_message,
                                    &info);
@@ -497,7 +497,7 @@ static int show_all_names(sd_bus *bus) {
                                    "org.freedesktop.systemd1",
                                    "/org/freedesktop/systemd1",
                                    manager_map,
-                                   0,
+                                   /* flags= */ 0,
                                    &error,
                                    &manager_message,
                                    &info);
@@ -532,7 +532,7 @@ static int show_all_names(sd_bus *bus) {
                             "GetHardwareSerial",
                             &error,
                             &hardware_serial_reply,
-                            NULL);
+                            /* types= */ NULL);
         if (r < 0)
                 log_full_errno(sd_bus_error_has_names(
                                                &error,
@@ -568,7 +568,7 @@ static int get_hostname_based_on_flag(sd_bus *bus) {
         attr = arg_pretty ? "PrettyHostname" :
                 arg_static ? "StaticHostname" : "Hostname";
 
-        return get_one_name(bus, attr, NULL);
+        return get_one_name(bus, attr, /* ret= */ NULL);
 }
 
 VERB_DEFAULT_NOARG(verb_show_status, "status", "Show current hostname settings");
@@ -582,7 +582,7 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 const char *text = NULL;
 
-                r = bus_call_method(bus, bus_hostname, "Describe", &error, &reply, NULL);
+                r = bus_call_method(bus, bus_hostname, "Describe", &error, &reply, /* types= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Could not get description: %s", bus_error_message(&error, r));
 
@@ -594,7 +594,7 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse JSON: %m");
 
-                sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, NULL, /* prefix= */ NULL);
                 return 0;
         }
 
@@ -613,7 +613,7 @@ static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const ch
         if (!error)
                 error = &e;
 
-        r = bus_call_method(bus, bus_hostname, method, error, NULL, "sb", value, arg_ask_password);
+        r = bus_call_method(bus, bus_hostname, method, error, /* ret_reply= */ NULL, "sb", value, arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Could not set %s: %s", target, bus_error_message(error, r));
 
@@ -621,7 +621,7 @@ static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const ch
 }
 
 static int set_simple_string(sd_bus *bus, const char *target, const char *method, const char *value) {
-        return set_simple_string_internal(bus, NULL, target, method, value);
+        return set_simple_string_internal(bus, /* error= */ NULL, target, method, value);
 }
 
 static int verb_set_hostname(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -720,28 +720,28 @@ static int verb_get_or_set_hostname(int argc, char *argv[], uintptr_t data, void
 VERB(verb_get_or_set_icon_name, "icon-name", "[NAME]\0", VERB_ANY, 2, 0, "Get/set icon name for host");
 VERB(verb_get_or_set_icon_name, "set-icon-name", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_icon_name(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return argc == 1 ? get_one_name(userdata, "IconName", NULL) :
+        return argc == 1 ? get_one_name(userdata, "IconName", /* ret= */ NULL) :
                            set_simple_string(userdata, "icon", "SetIconName", argv[1]);
 }
 
 VERB(verb_get_or_set_chassis, "chassis", "[NAME]\0", VERB_ANY, 2, 0, "Get/set chassis type for host");
 VERB(verb_get_or_set_chassis, "set-chassis", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_chassis(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return argc == 1 ? get_one_name(userdata, "Chassis", NULL) :
+        return argc == 1 ? get_one_name(userdata, "Chassis", /* ret= */ NULL) :
                            set_simple_string(userdata, "chassis", "SetChassis", argv[1]);
 }
 
 VERB(verb_get_or_set_deployment, "deployment", "[NAME]\0", VERB_ANY, 2, 0, "Get/set deployment environment for host");
 VERB(verb_get_or_set_deployment, "set-deployment", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_deployment(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return argc == 1 ? get_one_name(userdata, "Deployment", NULL) :
+        return argc == 1 ? get_one_name(userdata, "Deployment", /* ret= */ NULL) :
                            set_simple_string(userdata, "deployment", "SetDeployment", argv[1]);
 }
 
 VERB(verb_get_or_set_location, "location", "[NAME]\0", VERB_ANY, 2, 0, "Get/set location for host");
 VERB(verb_get_or_set_location, "set-location", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_location(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return argc == 1 ? get_one_name(userdata, "Location", NULL) :
+        return argc == 1 ? get_one_name(userdata, "Location", /* ret= */ NULL) :
                            set_simple_string(userdata, "location", "SetLocation", argv[1]);
 }
 

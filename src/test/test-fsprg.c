@@ -300,7 +300,7 @@ TEST(fsprg) {
         struct iovec *states = new0(struct iovec, n_states);
         CLEANUP_ARRAY(states, n_states, iovec_array_free);
 
-        if (initialize_libgcrypt(false) >= 0) {
+        if (initialize_libgcrypt(/* secmem= */ false) >= 0) {
                 struct iovec seed = IOVEC_ALLOCA(FSPRG_RECOMMENDED_SEEDLEN),
                         msk = IOVEC_ALLOCA(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR)),
                         mpk = IOVEC_ALLOCA(FSPRG_mpkinbytes(FSPRG_RECOMMENDED_SECPAR)),
@@ -321,7 +321,7 @@ TEST(fsprg) {
                                 ASSERT_TRUE(iovec_equal(&state, &IOVEC_MAKE(expected_state[i], sizeof(expected_state[i]))));
 
                         /* Verify key */
-                        ASSERT_OK(FSPRG_GetKey(state.iov_base, key.iov_base, key.iov_len, 0));
+                        ASSERT_OK(FSPRG_GetKey(state.iov_base, key.iov_base, key.iov_len, /* idx= */ 0));
                         if (i < ELEMENTSOF(expected_key))
                                 ASSERT_TRUE(iovec_equal(&key, &IOVEC_MAKE(expected_key[i], sizeof(expected_key[i]))));
 
@@ -374,7 +374,7 @@ TEST(fsprg) {
                 }
 
                 /* Generate state by fsprg_generate_state(0) */
-                ASSERT_OK(fsprg_generate_state(FSPRG_RECOMMENDED_SECPAR, 0, &seed, &state));
+                ASSERT_OK(fsprg_generate_state(FSPRG_RECOMMENDED_SECPAR, /* epoch= */ 0, &seed, &state));
                 ASSERT_EQ(iovec_memcmp(&state, &states[0]), 0);
 
                 /* Generate states by fsprg_evolve() */
@@ -403,7 +403,7 @@ TEST(hmac) {
         CLEANUP_ARRAY(tags, n_tags, iovec_array_free);
 
 #if HAVE_GCRYPT
-        if (initialize_libgcrypt(false) >= 0) {
+        if (initialize_libgcrypt(/* secmem= */ false) >= 0) {
                 struct iovec seed = IOVEC_ALLOCA(FSPRG_RECOMMENDED_SEEDLEN),
                         msk = IOVEC_ALLOCA(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR)),
                         mpk = IOVEC_ALLOCA(FSPRG_mpkinbytes(FSPRG_RECOMMENDED_SECPAR)),
@@ -428,7 +428,7 @@ TEST(hmac) {
                         sym_gcry_md_reset(hmac);
 
                         /* Initialize HMAC with fsprg key */
-                        ASSERT_OK(FSPRG_GetKey(state.iov_base, key.iov_base, key.iov_len, 0));
+                        ASSERT_OK(FSPRG_GetKey(state.iov_base, key.iov_base, key.iov_len, /* idx= */ 0));
                         ASSERT_EQ(gcry_err_code(sym_gcry_md_setkey(hmac, key.iov_base, key.iov_len)), (gcry_err_code_t) GPG_ERR_NO_ERROR);
 
                         /* Put dummy data */
@@ -436,7 +436,7 @@ TEST(hmac) {
                         sym_gcry_md_write(hmac, str, strlen(str));
 
                         /* Finalize HMAC and generate tag. */
-                        memcpy(tag.iov_base, sym_gcry_md_read(hmac, 0), tag.iov_len);
+                        memcpy(tag.iov_base, sym_gcry_md_read(hmac, /* algo= */ 0), tag.iov_len);
 
                         /* Verify tag */
                         if (i < ELEMENTSOF(expected_tag))
@@ -461,13 +461,13 @@ TEST(hmac) {
                 generate_seed(&seed);
 
                 /* Calculate initial state */
-                ASSERT_OK(fsprg_generate_state(FSPRG_RECOMMENDED_SECPAR, 0, &seed, &state));
+                ASSERT_OK(fsprg_generate_state(FSPRG_RECOMMENDED_SECPAR, /* epoch= */ 0, &seed, &state));
 
                 /* Allocate HMAC */
-                _cleanup_(EVP_MAC_freep) EVP_MAC *hmac = ASSERT_NOT_NULL(sym_EVP_MAC_fetch(NULL, "HMAC", NULL));
+                _cleanup_(EVP_MAC_freep) EVP_MAC *hmac = ASSERT_NOT_NULL(sym_EVP_MAC_fetch(/* libctx= */ NULL, "HMAC", /* properties= */ NULL));
                 _cleanup_(EVP_MAC_CTX_freep) EVP_MAC_CTX *hmac_ctx = ASSERT_NOT_NULL(sym_EVP_MAC_CTX_new(hmac));
                 _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = ASSERT_NOT_NULL(sym_OSSL_PARAM_BLD_new());
-                ASSERT_OK_POSITIVE(sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_MAC_PARAM_DIGEST, "SHA256", 0));
+                ASSERT_OK_POSITIVE(sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_MAC_PARAM_DIGEST, "SHA256", /* bsize= */ 0));
                 _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = ASSERT_NOT_NULL(sym_OSSL_PARAM_BLD_to_param(bld));
 
                 for (size_t i = 0; i < n_tags; i++) {

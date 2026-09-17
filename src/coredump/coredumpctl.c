@@ -163,13 +163,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
-                        r = parse_path_argument(opts.arg, false, &arg_root);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
-                        r = parse_path_argument(opts.arg, false, &arg_image);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;

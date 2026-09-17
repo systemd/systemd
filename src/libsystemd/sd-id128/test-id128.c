@@ -42,7 +42,7 @@ TEST(id128) {
         ASSERT_FALSE(sd_id128_in_set(id, ID128_WALDI));
         ASSERT_FALSE(sd_id128_in_set(id, ID128_WALDI, ID128_WALDI));
 
-        if (sd_booted() > 0 && sd_id128_get_machine(NULL) >= 0) {
+        if (sd_booted() > 0 && sd_id128_get_machine(/* ret= */ NULL) >= 0) {
                 ASSERT_OK(sd_id128_get_machine(&id));
                 printf("machine: %s\n", sd_id128_to_string(id, t));
 
@@ -104,7 +104,7 @@ TEST(id128) {
         ASSERT_FALSE(id128_is_valid("01020304-0506-0708-090a0b0c0d0e0f10"));
         ASSERT_FALSE(id128_is_valid("010203040506-0708-090a-0b0c0d0e0f10"));
 
-        fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC);
+        fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC);
         ASSERT_OK(fd);
 
         /* First, write as UUID */
@@ -173,32 +173,32 @@ TEST(id128) {
         ASSERT_OK_ERRNO(ftruncate(fd, 0));
         ASSERT_EQ(write(fd, "uninitialized", STRLEN("uninitialized")), (ssize_t) STRLEN("uninitialized"));
         ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
-        ASSERT_ERROR(id128_read_fd(fd, ID128_FORMAT_ANY, NULL), ENOPKG);
+        ASSERT_ERROR(id128_read_fd(fd, ID128_FORMAT_ANY, /* ret= */ NULL), ENOPKG);
 
         ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
         ASSERT_OK_ERRNO(ftruncate(fd, 0));
         ASSERT_EQ(write(fd, "uninitialized\n", STRLEN("uninitialized\n")), (ssize_t) STRLEN("uninitialized\n"));
         ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
-        ASSERT_ERROR(id128_read_fd(fd, ID128_FORMAT_ANY, NULL), ENOPKG);
+        ASSERT_ERROR(id128_read_fd(fd, ID128_FORMAT_ANY, /* ret= */ NULL), ENOPKG);
 
         ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
         ASSERT_OK_ERRNO(ftruncate(fd, 0));
         ASSERT_EQ(write(fd, "uninitialized\nfoo", STRLEN("uninitialized\nfoo")), (ssize_t) STRLEN("uninitialized\nfoo"));
         ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
-        ASSERT_ERROR(id128_read_fd(fd, ID128_FORMAT_ANY, NULL), EUCLEAN);
+        ASSERT_ERROR(id128_read_fd(fd, ID128_FORMAT_ANY, /* ret= */ NULL), EUCLEAN);
 
         ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
         ASSERT_OK_ERRNO(ftruncate(fd, 0));
         ASSERT_EQ(write(fd, "uninit", STRLEN("uninit")), (ssize_t) STRLEN("uninit"));
         ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
-        ASSERT_ERROR(id128_read_fd(fd, ID128_FORMAT_ANY, NULL), EUCLEAN);
+        ASSERT_ERROR(id128_read_fd(fd, ID128_FORMAT_ANY, /* ret= */ NULL), EUCLEAN);
 
         /* build/systemd-id128 -a f03daaeb1c334b43a732172944bf772e show 51df0b4bc3b04c9780e299b98ca373b8 */
         ASSERT_OK(sd_id128_get_app_specific(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8),
                                             SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id));
         ASSERT_EQ_ID128(id, SD_ID128_MAKE(1d,ee,59,54,e7,5c,4d,6f,b9,6c,c6,c0,4c,a1,8a,86));
 
-        if (sd_booted() > 0 && sd_id128_get_machine(NULL) >= 0) {
+        if (sd_booted() > 0 && sd_id128_get_machine(/* ret= */ NULL) >= 0) {
                 ASSERT_OK(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id));
                 ASSERT_OK(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id2));
                 ASSERT_EQ_ID128(id, id2);
@@ -257,7 +257,7 @@ TEST(benchmark_sd_id128_get_machine_app_specific) {
         unsigned iterations = slow_tests_enabled() ? 1000000 : 1000;
         usec_t t, q;
 
-        if (sd_id128_get_machine(NULL) < 0)
+        if (sd_id128_get_machine(/* ret= */ NULL) < 0)
                 return (void) log_tests_skipped("/etc/machine-id is not initialized");
 
         log_info("/* %s (%u iterations) */", __func__, iterations);
@@ -283,7 +283,7 @@ TEST(id128_at) {
         _cleanup_free_ char *p = NULL;
         sd_id128_t id, i;
 
-        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        tfd = mkdtemp_open(/* template= */ NULL, O_PATH, &t);
         ASSERT_OK(tfd);
         ASSERT_OK_ERRNO(mkdirat(tfd, "etc", 0755));
         ASSERT_OK_ERRNO(symlinkat("etc", tfd, "etc2"));
@@ -363,7 +363,7 @@ TEST(ID128_REFUSE_NULL) {
         _cleanup_close_ int tfd = -EBADF;
         sd_id128_t id;
 
-        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        tfd = mkdtemp_open(/* template= */ NULL, O_PATH, &t);
         ASSERT_OK(tfd);
 
         ASSERT_ERROR(id128_write_at(tfd, "zero-id", ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, (sd_id128_t) {}), ENOMEDIUM);

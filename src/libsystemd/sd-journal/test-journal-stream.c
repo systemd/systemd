@@ -74,9 +74,9 @@ static void run_test(void) {
         ASSERT_OK_ERRNO(chdir(t));
         (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL);
 
-        ASSERT_OK_ZERO(journal_file_open(-EBADF, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &one));
-        ASSERT_OK_ZERO(journal_file_open(-EBADF, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &two));
-        ASSERT_OK_ZERO(journal_file_open(-EBADF, "three.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &three));
+        ASSERT_OK_ZERO(journal_file_open(-EBADF, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &one));
+        ASSERT_OK_ZERO(journal_file_open(-EBADF, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &two));
+        ASSERT_OK_ZERO(journal_file_open(-EBADF, "three.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &three));
 
         for (i = 0; i < N_ENTRIES; i++) {
                 char *p, *q;
@@ -101,12 +101,21 @@ static void run_test(void) {
                 iovec[1] = IOVEC_MAKE(q, strlen(q));
 
                 if (i % 10 == 0)
-                        ASSERT_OK_ZERO(journal_file_append_entry(three, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL));
+                        ASSERT_OK_ZERO(journal_file_append_entry(three, &ts, /* boot_id= */ NULL, iovec, 2, /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));
                 else {
                         if (i % 3 == 0)
-                                ASSERT_OK_ZERO(journal_file_append_entry(two, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL));
+                                ASSERT_OK_ZERO(journal_file_append_entry(
+                                                two,
+                                                &ts,
+                                                /* boot_id= */ NULL,
+                                                iovec,
+                                                2,
+                                                /* seqnum= */ NULL,
+                                                /* seqnum_id= */ NULL,
+                                                /* ret_object= */ NULL,
+                                                /* ret_offset= */ NULL));
 
-                        ASSERT_OK_ZERO(journal_file_append_entry(one, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL));
+                        ASSERT_OK_ZERO(journal_file_append_entry(one, &ts, /* boot_id= */ NULL, iovec, 2, /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));
                 }
 
                 free(p);
@@ -164,7 +173,7 @@ static void run_test(void) {
         printf("resulting match expression is: %s\n", z);
         free(z);
 
-        verify_contents(j, 0);
+        verify_contents(j, /* skip= */ 0);
 
         ASSERT_OK(sd_journal_query_unique(j, "NUMBER"));
         SD_JOURNAL_FOREACH_UNIQUE(j, data, l)

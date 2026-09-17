@@ -188,14 +188,14 @@ static int spawn_wait(Spawn *spawn) {
 
         if (spawn->timeout_usec != USEC_INFINITY) {
                 if (spawn->timeout_warn_usec < spawn->timeout_usec) {
-                        r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
+                        r = sd_event_add_time(e, /* ret= */ NULL, CLOCK_MONOTONIC,
                                               usec_add(spawn->cmd_birth_usec, spawn->timeout_warn_usec), USEC_PER_SEC,
                                               on_spawn_timeout_warning, spawn);
                         if (r < 0)
                                 return log_device_debug_errno(spawn->device, r, "Failed to create timeout warning event source: %m");
                 }
 
-                r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
+                r = sd_event_add_time(e, /* ret= */ NULL, CLOCK_MONOTONIC,
                                       usec_add(spawn->cmd_birth_usec, spawn->timeout_usec), USEC_PER_SEC,
                                       on_spawn_timeout, spawn);
                 if (r < 0)
@@ -275,7 +275,7 @@ int udev_event_spawn(
                                                       "Failed to create pipe for command '%s': %m", cmd);
 
         _cleanup_strv_free_ char **argv = NULL;
-        r = strv_split_full(&argv, cmd, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_RETAIN_ESCAPE);
+        r = strv_split_full(&argv, cmd, /* separators= */ NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
                 return log_device_error_errno(event->dev, r, "Failed to split command: %m");
 
@@ -392,7 +392,7 @@ void udev_event_execute_run(UdevEvent *event) {
 
                         log_device_debug(event->dev, "Running command \"%s\"", command);
 
-                        r = udev_event_spawn(event, /* accept_failure= */ false, command, NULL, 0, NULL);
+                        r = udev_event_spawn(event, /* accept_failure= */ false, command, /* result= */ NULL, /* result_size= */ 0, /* ret_truncated= */ NULL);
                         if (r < 0)
                                 log_device_warning_errno(event->dev, r, "Failed to execute '%s', ignoring: %m", command);
                         else if (r > 0) /* returned value is positive when program fails */

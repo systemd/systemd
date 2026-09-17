@@ -127,8 +127,8 @@ static inline int link_queue_request(
                 request_process_func_t process,
                 Request **ret) {
 
-        return link_queue_request_full(link, type, NULL, NULL, NULL, NULL,
-                                       process, NULL, NULL, ret);
+        return link_queue_request_full(link, type, /* userdata= */ NULL, /* free_func= */ NULL, /* hash_func= */ NULL, /* compare_func= */ NULL,
+                                       process, /* counter= */ NULL, /* netlink_handler= */ NULL, ret);
 }
 
 #define link_queue_request_safe(link, type, userdata, free_func, hash_func, compare_func, process, counter, netlink_handler, ret) \

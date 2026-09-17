@@ -121,7 +121,7 @@ int allocate_scope(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0) {
                 /* If this failed with a property we couldn't write, this is quite likely because the server
                  * doesn't support PIDFDs yet, let's try without. */
@@ -167,7 +167,7 @@ int terminate_scope(sd_bus *bus, const char *scope) {
                         bus_systemd_mgr,
                         "KillUnit",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "ssi",
                         scope,
                         "all",

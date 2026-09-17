@@ -40,7 +40,7 @@ static void transaction_delete_unit(Transaction *tr, Unit *u) {
         /* Deletes all jobs associated with a certain unit from the transaction. */
 
         while ((j = hashmap_get(tr->jobs, u)))
-                transaction_delete_job(tr, j, true);
+                transaction_delete_job(tr, j, /* delete_dependencies= */ true);
 }
 
 static void transaction_abort(Transaction *tr) {
@@ -49,7 +49,7 @@ static void transaction_abort(Transaction *tr) {
         assert(tr);
 
         while ((j = hashmap_first(tr->jobs)))
-                transaction_delete_job(tr, j, false);
+                transaction_delete_job(tr, j, /* delete_dependencies= */ false);
 
         assert(hashmap_isempty(tr->jobs));
 }
@@ -140,7 +140,7 @@ static void transaction_merge_and_delete_job(Transaction *tr, Job *j, Job *other
         /* Kill the other job. */
         other->subject_list = NULL;
         other->object_list = NULL;
-        transaction_delete_job(tr, other, true);
+        transaction_delete_job(tr, other, /* delete_dependencies= */ true);
 }
 
 static bool job_is_conflicted_by(Job *j) {
@@ -217,7 +217,7 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *job) {
                                        j->unit->id, job_type_to_string(j->type),
                                        k->unit->id, job_type_to_string(k->type),
                                        d->unit->id, job_type_to_string(d->type));
-                        transaction_delete_job(tr, d, true);
+                        transaction_delete_job(tr, d, /* delete_dependencies= */ true);
                         return 0;
                 }
 
@@ -388,7 +388,7 @@ static void transaction_drop_redundant(Transaction *tr) {
                         if (!keep) {
                                 log_trace("Found redundant job %s/%s, dropping from transaction.",
                                           j->unit->id, job_type_to_string(j->type));
-                                transaction_delete_job(tr, j, false);
+                                transaction_delete_job(tr, j, /* delete_dependencies= */ false);
                                 again = true;
                                 break;
                         }
@@ -506,7 +506,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                            STATUS_TYPE_NOTICE,
                                            status,
                                            "Ordering cycle found, skipping %s",
-                                           unit_status_string(delete->unit, NULL));
+                                           unit_status_string(delete->unit, /* ret_combined_buffer= */ NULL));
                         transaction_delete_unit(tr, delete->unit);
                         return -EAGAIN;
                 }
@@ -575,7 +575,7 @@ static int transaction_verify_order(Transaction *tr, unsigned *generation, sd_bu
         g = (*generation)++;
 
         HASHMAP_FOREACH(j, tr->jobs) {
-                r = transaction_verify_order_one(tr, j, NULL, g, e);
+                r = transaction_verify_order_one(tr, j, /* from= */ NULL, g, e);
                 if (r < 0)
                         return r;
         }
@@ -601,7 +601,7 @@ static void transaction_collect_garbage(Transaction *tr) {
 
                         if (!j->object_list) {
                                 log_trace("Garbage collecting job %s/%s", j->unit->id, job_type_to_string(j->type));
-                                transaction_delete_job(tr, j, true);
+                                transaction_delete_job(tr, j, /* delete_dependencies= */ true);
                                 again = true;
                                 break;
                         }
@@ -702,7 +702,7 @@ rescan:
                                        "Deleting %s/%s to minimize impact.",
                                        j->unit->id, job_type_to_string(j->type));
 
-                        transaction_delete_job(tr, j, true);
+                        transaction_delete_job(tr, j, /* delete_dependencies= */ true);
                         goto rescan;
                 }
         }
@@ -738,7 +738,7 @@ static int transaction_apply(
 
                         /* Not invalidating recursively. Avoids triggering OnFailure= actions of dependent
                          * jobs. Also avoids invalidating our iterator. */
-                        job_finish_and_invalidate(j, JOB_CANCELED, false, false);
+                        job_finish_and_invalidate(j, JOB_CANCELED, /* recursive= */ false, /* already= */ false);
                 }
         }
 
@@ -747,7 +747,7 @@ static int transaction_apply(
                 assert(!j->transaction_prev);
                 assert(!j->transaction_next);
 
-                r = hashmap_ensure_put(&m->jobs, NULL, UINT32_TO_PTR(j->id), j);
+                r = hashmap_ensure_put(&m->jobs, /* hash_ops= */ NULL, UINT32_TO_PTR(j->id), j);
                 if (r < 0)
                         goto rollback;
         }
@@ -756,7 +756,7 @@ static int transaction_apply(
                 Job *installed_job;
 
                 /* Clean the job dependencies. */
-                transaction_unlink_job(tr, j, false);
+                transaction_unlink_job(tr, j, /* delete_dependencies= */ false);
 
                 installed_job = job_install(j);
                 if (installed_job != j) {
@@ -778,7 +778,7 @@ static int transaction_apply(
 
                 job_add_to_run_queue(j);
                 job_add_to_dbus_queue(j);
-                job_start_timer(j, false);
+                job_start_timer(j, /* job_running= */ false);
                 job_shutdown_magic(j);
 
                 /* When 'affected' is specified, let's track all in it all jobs that were touched because of
@@ -1368,8 +1368,8 @@ Transaction* transaction_new(bool irreversible, uint64_t id) {
                 return NULL;
 
         *tr = (Transaction) {
-                .jobs = hashmap_new(NULL),
-                .anchor_jobs = set_new(NULL),
+                .jobs = hashmap_new(/* hash_ops= */ NULL),
+                .anchor_jobs = set_new(/* hash_ops= */ NULL),
                 .irreversible = irreversible,
                 .id = id,
         };

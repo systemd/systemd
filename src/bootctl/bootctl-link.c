@@ -1537,7 +1537,7 @@ static int vl_link_finish(sd_varlink *link, LinkParameters *p, bool with_ids) {
                                 &p->context.dollar_boot_path,
                                 &p->context.dollar_boot_fd);
                 if (r == -ENOKEY)
-                        return sd_varlink_error(link, "io.systemd.BootControl.NoDollarBootFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.BootControl.NoDollarBootFound", /* parameters= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1547,14 +1547,14 @@ static int vl_link_finish(sd_varlink *link, LinkParameters *p, bool with_ids) {
 
         r = run_link(&p->context);
         if (r == -EUNATCH) /* no boot entry token is set */
-                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
         if (with_ids)
                 return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("ids", p->context.linked_ids));
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 int vl_method_link(
@@ -1618,11 +1618,11 @@ int vl_method_link(
         KernelImageType kit = _KERNEL_IMAGE_TYPE_INVALID;
         r = inspect_kernel(p.context.kernel_fd, /* filename= */ NULL, &kit);
         if (r == -EBADMSG)
-                return sd_varlink_error(link, "io.systemd.BootControl.InvalidKernelImage", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.InvalidKernelImage", /* parameters= */ NULL);
         if (r < 0)
                 return r;
         if (kit != KERNEL_IMAGE_TYPE_UKI)
-                return sd_varlink_error(link, "io.systemd.BootControl.InvalidKernelImage", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.InvalidKernelImage", /* parameters= */ NULL);
 
         return vl_link_finish(link, &p, /* with_ids= */ true);
 }
@@ -1714,7 +1714,7 @@ int vl_method_on_completed_update(
         if (r < 0)
                 return r;
         if (r == 0) /* Nothing staged for linking. */
-                return sd_varlink_reply(link, NULL);
+                return sd_varlink_reply(link, /* parameters= */ NULL);
 
         return vl_link_finish(link, &p, /* with_ids= */ false);
 }

@@ -78,85 +78,85 @@ static void test_parse_hw_addr_full_one(const char *in, size_t expected_len, con
 
 TEST(parse_hw_addr) {
         /* IPv4 */
-        test_parse_hw_addr_full_one("10.0.0.1", 0, "0a:00:00:01");
+        test_parse_hw_addr_full_one("10.0.0.1", /* expected_len= */ 0, "0a:00:00:01");
         test_parse_hw_addr_full_one("10.0.0.1", 4, "0a:00:00:01");
-        test_parse_hw_addr_full_one("192.168.0.1", 0, "c0:a8:00:01");
+        test_parse_hw_addr_full_one("192.168.0.1", /* expected_len= */ 0, "c0:a8:00:01");
         test_parse_hw_addr_full_one("192.168.0.1", 4, "c0:a8:00:01");
         /* IPv6 */
-        test_parse_hw_addr_full_one("::", 0, "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00");
+        test_parse_hw_addr_full_one("::", /* expected_len= */ 0, "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00");
         test_parse_hw_addr_full_one("::", 16, "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00");
-        test_parse_hw_addr_full_one("::1", 0, "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:01");
+        test_parse_hw_addr_full_one("::1", /* expected_len= */ 0, "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:01");
         test_parse_hw_addr_full_one("::1", 16, "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:01");
-        test_parse_hw_addr_full_one("1234::", 0, "12:34:00:00:00:00:00:00:00:00:00:00:00:00:00:00");
+        test_parse_hw_addr_full_one("1234::", /* expected_len= */ 0, "12:34:00:00:00:00:00:00:00:00:00:00:00:00:00:00");
         test_parse_hw_addr_full_one("1234::", 16, "12:34:00:00:00:00:00:00:00:00:00:00:00:00:00:00");
-        test_parse_hw_addr_full_one("12:34::56", 0, "00:12:00:34:00:00:00:00:00:00:00:00:00:00:00:56");
+        test_parse_hw_addr_full_one("12:34::56", /* expected_len= */ 0, "00:12:00:34:00:00:00:00:00:00:00:00:00:00:00:56");
         test_parse_hw_addr_full_one("12:34::56", 16, "00:12:00:34:00:00:00:00:00:00:00:00:00:00:00:56");
-        test_parse_hw_addr_full_one("12aa:34::56", 0, "12:aa:00:34:00:00:00:00:00:00:00:00:00:00:00:56");
+        test_parse_hw_addr_full_one("12aa:34::56", /* expected_len= */ 0, "12:aa:00:34:00:00:00:00:00:00:00:00:00:00:00:56");
         test_parse_hw_addr_full_one("12aa:34::56", 16, "12:aa:00:34:00:00:00:00:00:00:00:00:00:00:00:56");
-        test_parse_hw_addr_full_one("1234:5678:90ab:cdef:1234:5678:90ab:cdef", 0, "12:34:56:78:90:ab:cd:ef:12:34:56:78:90:ab:cd:ef");
+        test_parse_hw_addr_full_one("1234:5678:90ab:cdef:1234:5678:90ab:cdef", /* expected_len= */ 0, "12:34:56:78:90:ab:cd:ef:12:34:56:78:90:ab:cd:ef");
         test_parse_hw_addr_full_one("1234:5678:90ab:cdef:1234:5678:90ab:cdef", 16, "12:34:56:78:90:ab:cd:ef:12:34:56:78:90:ab:cd:ef");
         /* Dot */
-        test_parse_hw_addr_full_one("12.34", 0, "00:12:00:34");
+        test_parse_hw_addr_full_one("12.34", /* expected_len= */ 0, "00:12:00:34");
         test_parse_hw_addr_full_one("12.34", 4, "00:12:00:34");
         test_parse_hw_addr_full_one("12.34", SIZE_MAX, "00:12:00:34");
-        test_parse_hw_addr_full_one("12.34.56", 0, "00:12:00:34:00:56");
+        test_parse_hw_addr_full_one("12.34.56", /* expected_len= */ 0, "00:12:00:34:00:56");
         test_parse_hw_addr_full_one("12.34.56", 6, "00:12:00:34:00:56");
         test_parse_hw_addr_full_one("12.34.56", SIZE_MAX, "00:12:00:34:00:56");
-        test_parse_hw_addr_full_one("12.34.56.78", 0, "0c:22:38:4e"); /* IPv4 address */
+        test_parse_hw_addr_full_one("12.34.56.78", /* expected_len= */ 0, "0c:22:38:4e"); /* IPv4 address */
         test_parse_hw_addr_full_one("12.34.56.78", 4, "0c:22:38:4e"); /* IPv4 address */
         test_parse_hw_addr_full_one("12.34.56.78", 8, "00:12:00:34:00:56:00:78");
         test_parse_hw_addr_full_one("12.34.56.78", SIZE_MAX, "00:12:00:34:00:56:00:78");
-        test_parse_hw_addr_full_one("12.34.56.78.90", 0, NULL);
+        test_parse_hw_addr_full_one("12.34.56.78.90", /* expected_len= */ 0, /* expected= */ NULL);
         test_parse_hw_addr_full_one("12.34.56.78.90", 10, "00:12:00:34:00:56:00:78:00:90");
         test_parse_hw_addr_full_one("12.34.56.78.90", SIZE_MAX, "00:12:00:34:00:56:00:78:00:90");
-        test_parse_hw_addr_full_one("aabb.ccdd", 0, "aa:bb:cc:dd");
+        test_parse_hw_addr_full_one("aabb.ccdd", /* expected_len= */ 0, "aa:bb:cc:dd");
         test_parse_hw_addr_full_one("aabb.ccdd", 4, "aa:bb:cc:dd");
         test_parse_hw_addr_full_one("aabb.ccdd", SIZE_MAX, "aa:bb:cc:dd");
-        test_parse_hw_addr_full_one("aabb.ccdd.eeff", 0, "aa:bb:cc:dd:ee:ff");
+        test_parse_hw_addr_full_one("aabb.ccdd.eeff", /* expected_len= */ 0, "aa:bb:cc:dd:ee:ff");
         test_parse_hw_addr_full_one("aabb.ccdd.eeff", 6, "aa:bb:cc:dd:ee:ff");
         test_parse_hw_addr_full_one("aabb.ccdd.eeff", SIZE_MAX, "aa:bb:cc:dd:ee:ff");
         /* Colon */
-        test_parse_hw_addr_full_one("12:34", 0, NULL);
+        test_parse_hw_addr_full_one("12:34", /* expected_len= */ 0, /* expected= */ NULL);
         test_parse_hw_addr_full_one("12:34", 2, "12:34");
         test_parse_hw_addr_full_one("12:34", SIZE_MAX, "12:34");
-        test_parse_hw_addr_full_one("12:34:56:78:90:ab", 0, "12:34:56:78:90:ab");
+        test_parse_hw_addr_full_one("12:34:56:78:90:ab", /* expected_len= */ 0, "12:34:56:78:90:ab");
         test_parse_hw_addr_full_one("12:34:56:78:90:ab", 6, "12:34:56:78:90:ab");
         test_parse_hw_addr_full_one("12:34:56:78:90:ab", SIZE_MAX, "12:34:56:78:90:ab");
-        test_parse_hw_addr_full_one("12:34:56:78:90:ab:cd:ef", 0, "00:12:00:34:00:56:00:78:00:90:00:ab:00:cd:00:ef"); /* IPv6 */
+        test_parse_hw_addr_full_one("12:34:56:78:90:ab:cd:ef", /* expected_len= */ 0, "00:12:00:34:00:56:00:78:00:90:00:ab:00:cd:00:ef"); /* IPv6 */
         test_parse_hw_addr_full_one("12:34:56:78:90:ab:cd:ef", 8, "12:34:56:78:90:ab:cd:ef");
         test_parse_hw_addr_full_one("12:34:56:78:90:ab:cd:ef", 16, "00:12:00:34:00:56:00:78:00:90:00:ab:00:cd:00:ef"); /* IPv6 */
         test_parse_hw_addr_full_one("12:34:56:78:90:ab:cd:ef", SIZE_MAX, "12:34:56:78:90:ab:cd:ef");
-        test_parse_hw_addr_full_one("12:34:56:78:90:AB:CD:EF", 0, "00:12:00:34:00:56:00:78:00:90:00:ab:00:cd:00:ef"); /* IPv6 */
+        test_parse_hw_addr_full_one("12:34:56:78:90:AB:CD:EF", /* expected_len= */ 0, "00:12:00:34:00:56:00:78:00:90:00:ab:00:cd:00:ef"); /* IPv6 */
         test_parse_hw_addr_full_one("12:34:56:78:90:AB:CD:EF", 8, "12:34:56:78:90:ab:cd:ef");
         test_parse_hw_addr_full_one("12:34:56:78:90:AB:CD:EF", 16, "00:12:00:34:00:56:00:78:00:90:00:ab:00:cd:00:ef"); /* IPv6 */
         test_parse_hw_addr_full_one("12:34:56:78:90:AB:CD:EF", SIZE_MAX, "12:34:56:78:90:ab:cd:ef");
         /* Hyphen */
-        test_parse_hw_addr_full_one("12-34", 0, NULL);
+        test_parse_hw_addr_full_one("12-34", /* expected_len= */ 0, /* expected= */ NULL);
         test_parse_hw_addr_full_one("12-34", 2, "12:34");
         test_parse_hw_addr_full_one("12-34", SIZE_MAX, "12:34");
-        test_parse_hw_addr_full_one("12-34-56-78-90-ab-cd-ef", 0, NULL);
+        test_parse_hw_addr_full_one("12-34-56-78-90-ab-cd-ef", /* expected_len= */ 0, /* expected= */ NULL);
         test_parse_hw_addr_full_one("12-34-56-78-90-ab-cd-ef", 8, "12:34:56:78:90:ab:cd:ef");
         test_parse_hw_addr_full_one("12-34-56-78-90-ab-cd-ef", SIZE_MAX, "12:34:56:78:90:ab:cd:ef");
-        test_parse_hw_addr_full_one("12-34-56-78-90-AB-CD-EF", 0, NULL);
+        test_parse_hw_addr_full_one("12-34-56-78-90-AB-CD-EF", /* expected_len= */ 0, /* expected= */ NULL);
         test_parse_hw_addr_full_one("12-34-56-78-90-AB-CD-EF", 8, "12:34:56:78:90:ab:cd:ef");
         test_parse_hw_addr_full_one("12-34-56-78-90-AB-CD-EF", SIZE_MAX, "12:34:56:78:90:ab:cd:ef");
 
         /* Invalid */
-        test_parse_hw_addr_full_one("", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("12", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("12.", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("12.34.", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one(".12", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one(".12.34", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("12.34:56", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("1234:56", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("1234:56", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("12:34:", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one(":12:34", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("::1", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("aa:bb-cc", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("aa:xx", SIZE_MAX, NULL);
-        test_parse_hw_addr_full_one("aa bb", SIZE_MAX, NULL);
+        test_parse_hw_addr_full_one("", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one("12", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one("12.", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one("12.34.", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one(".12", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one(".12.34", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one("12.34:56", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one("1234:56", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one("1234:56", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one("12:34:", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one(":12:34", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one("::1", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one("aa:bb-cc", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one("aa:xx", SIZE_MAX, /* expected= */ NULL);
+        test_parse_hw_addr_full_one("aa bb", SIZE_MAX, /* expected= */ NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

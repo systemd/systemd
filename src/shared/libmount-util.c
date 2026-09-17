@@ -76,7 +76,7 @@ int libmount_parse_full(
         else if (path)
                 r = sym_mnt_table_parse_file(table, path);
         else
-                r = sym_mnt_table_parse_mtab(table, NULL);
+                r = sym_mnt_table_parse_mtab(table, /* filename= */ NULL);
         if (r < 0)
                 return r;
 
@@ -89,7 +89,7 @@ int libmount_parse_fstab(
         struct libmnt_table **ret_table,
         struct libmnt_iter **ret_iter) {
 
-        return libmount_parse_full(fstab_path(), NULL, MNT_ITER_FORWARD, ret_table, ret_iter);
+        return libmount_parse_full(fstab_path(), /* source= */ NULL, MNT_ITER_FORWARD, ret_table, ret_iter);
 }
 
 int libmount_is_leaf(

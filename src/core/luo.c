@@ -337,7 +337,7 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
         if (r < 0)
                 return log_error_errno(r, "Failed to finish LUO serialization file: %m");
 
-        r = fd_cloexec(fileno(f), false);
+        r = fd_cloexec(fileno(f), /* cloexec= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to disable O_CLOEXEC for LUO serialization: %m");
 

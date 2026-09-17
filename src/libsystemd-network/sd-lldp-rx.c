@@ -427,13 +427,13 @@ static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
         /* Keep ref in case the callback drops the last reference, so we can use it below */
         _unused_ _cleanup_(sd_lldp_rx_unrefp) sd_lldp_rx *ref = sd_lldp_rx_ref(lldp_rx);
 
-        r = lldp_rx_make_space(lldp_rx, 0);
+        r = lldp_rx_make_space(lldp_rx, /* extra= */ 0);
         if (r < 0) {
                 log_lldp_rx_errno(lldp_rx, r, "Failed to make space, ignoring: %m");
                 return 0;
         }
 
-        r = lldp_rx_start_timer(lldp_rx, NULL);
+        r = lldp_rx_start_timer(lldp_rx, /* neighbor= */ NULL);
         if (r < 0) {
                 log_lldp_rx_errno(lldp_rx, r, "Failed to restart timer, ignoring: %m");
                 return 0;
@@ -457,9 +457,9 @@ static int lldp_rx_start_timer(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *neighbor) 
 
         return event_reset_time(lldp_rx->event, &lldp_rx->timer_event_source,
                                 CLOCK_BOOTTIME,
-                                n->until, 0,
+                                n->until, /* accuracy= */ 0,
                                 on_timer_event, lldp_rx,
-                                lldp_rx->event_priority, "lldp-rx-timer", true);
+                                lldp_rx->event_priority, "lldp-rx-timer", /* force_reset= */ true);
 }
 
 static int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_neighbor * const *b) {
@@ -529,7 +529,7 @@ int sd_lldp_rx_set_neighbors_max(sd_lldp_rx *lldp_rx, uint64_t m) {
         assert_return(m > 0, -EINVAL);
 
         lldp_rx->neighbors_max = m;
-        lldp_rx_make_space(lldp_rx, 0);
+        lldp_rx_make_space(lldp_rx, /* extra= */ 0);
 
         return 0;
 }

@@ -102,7 +102,7 @@ TEST(rm_rf_chmod) {
                 /* This test only works unpriv (as only then the access mask for the owning user matters),
                  * hence drop privs here */
 
-                r = ASSERT_OK(pidref_safe_fork("(setresuid)", FORK_DEATHSIG_SIGTERM|FORK_WAIT, NULL));
+                r = ASSERT_OK(pidref_safe_fork("(setresuid)", FORK_DEATHSIG_SIGTERM|FORK_WAIT, /* ret= */ NULL));
 
                 if (r == 0) {
                         /* child */

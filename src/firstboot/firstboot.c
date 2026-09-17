@@ -273,13 +273,13 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
         if (arg_locale || arg_locale_messages)
                 return 0;
 
-        r = read_credential("firstboot.locale", (void**) &arg_locale, NULL);
+        r = read_credential("firstboot.locale", (void**) &arg_locale, /* ret_size= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential firstboot.locale, ignoring: %m");
         else
                 acquired_from_creds = true;
 
-        r = read_credential("firstboot.locale-messages", (void**) &arg_locale_messages, NULL);
+        r = read_credential("firstboot.locale-messages", (void**) &arg_locale_messages, /* ret_size= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential firstboot.locale-messages, ignoring: %m");
         else
@@ -449,7 +449,7 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
                 return 0;
 
         _cleanup_free_ char *km = NULL;
-        r = read_credential("firstboot.keymap", (void**) &km, NULL);
+        r = read_credential("firstboot.keymap", (void**) &km, /* ret_size= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential firstboot.keymap, ignoring: %m");
         else if (!keymap_is_valid(km))
@@ -588,7 +588,7 @@ static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
                 return 0;
 
         _cleanup_free_ char *tz = NULL;
-        r = read_credential("firstboot.timezone", (void**) &tz, NULL);
+        r = read_credential("firstboot.timezone", (void**) &tz, /* ret_size= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential firstboot.timezone, ignoring: %m");
         else if (!timezone_is_valid(tz, LOG_DEBUG))
@@ -703,7 +703,7 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
                 return 0;
 
         _cleanup_free_ char *hn = NULL;
-        r = read_credential("firstboot.hostname", (void**) &hn, NULL);
+        r = read_credential("firstboot.hostname", (void**) &hn, /* ret_size= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential firstboot.hostname, ignoring: %m");
         else if (!hostname_is_valid(hn, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK|VALID_HOSTNAME_WORD_TOKEN))
@@ -1032,7 +1032,7 @@ static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
         if (arg_root_shell)
                 return 0;
 
-        r = read_credential("passwd.shell.root", (void**) &arg_root_shell, NULL);
+        r = read_credential("passwd.shell.root", (void**) &arg_root_shell, /* ret_size= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential passwd.shell.root, ignoring: %m");
         else {
@@ -1225,7 +1225,7 @@ static int process_root_account(int rfd, sd_varlink **mute_console_link) {
 
         pfd = chase_and_open_parent_at(rfd, rfd, "/etc/passwd",
                                        CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
-                                       NULL);
+                                       /* ret_filename= */ NULL);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/passwd: %m");
 
@@ -1427,13 +1427,13 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
-                        r = parse_path_argument(opts.arg, true, &arg_root);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH", "Operate on disk image as filesystem root"):
-                        r = parse_path_argument(opts.arg, false, &arg_image);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
@@ -1666,7 +1666,7 @@ static int reload_system_manager(sd_bus **bus) {
         assert(bus);
 
         if (!*bus) {
-                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, bus);
+                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, /* host= */ NULL, RUNTIME_SCOPE_SYSTEM, bus);
                 if (r < 0)
                         return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, RUNTIME_SCOPE_SYSTEM);
         }
@@ -1689,7 +1689,7 @@ static int reload_vconsole(sd_bus **bus) {
         assert(bus);
 
         if (!*bus) {
-                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, bus);
+                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, /* host= */ NULL, RUNTIME_SCOPE_SYSTEM, bus);
                 if (r < 0)
                         return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, RUNTIME_SCOPE_SYSTEM);
         }
@@ -1707,7 +1707,7 @@ static int reload_vconsole(sd_bus **bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR, NULL);
+        r = bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for systemd-vconsole-setup.service/restart: %m");
         return 0;

@@ -357,7 +357,7 @@ static int create_veritytab_device(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(arg_dest, NULL, n, &f);
+        r = generator_open_unit_file(arg_dest, /* source= */ NULL, n, &f);
         if (r < 0)
                 return r;
 
@@ -484,7 +484,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         arg_veritytab = getenv("SYSTEMD_VERITYTAB") ?: "/etc/veritytab";
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse kernel command line: %m");
 

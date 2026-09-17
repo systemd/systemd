@@ -57,7 +57,7 @@ static int start_target(sd_bus *bus, const char *target) {
                         bus_systemd_mgr,
                         "StartUnit",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "ss", target, "isolate");
 
         if (r < 0)

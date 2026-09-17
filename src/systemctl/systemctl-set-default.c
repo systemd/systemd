@@ -47,7 +47,7 @@ static void emit_cmdline_warning(void) {
         _cleanup_free_ char *override = NULL;
         int r;
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, &override, 0);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, &override, /* flags= */ 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to parse kernel command line, ignoring: %m");
         if (override)
@@ -76,7 +76,7 @@ static int determine_default(char **ret_name) {
                 if (r < 0)
                         return r;
 
-                r = bus_call_method(bus, bus_systemd_mgr, "GetDefaultTarget", &error, &reply, NULL);
+                r = bus_call_method(bus, bus_systemd_mgr, "GetDefaultTarget", &error, &reply, /* types= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get default target: %s", bus_error_message(&error, r));
 

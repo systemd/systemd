@@ -15,7 +15,7 @@ TEST(raw_clone) {
         log_info("before clone: getpid()→"PID_FMT, parent);
         assert_se(getpid() == parent);
 
-        pid = raw_clone(0);
+        pid = raw_clone(/* flags= */ 0);
         assert_se(pid >= 0);
 
         pid2 = getpid();

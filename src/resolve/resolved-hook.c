@@ -298,8 +298,8 @@ static void hook_recycle_varlink(Hook *h, sd_varlink *vl) {
         assert(vl);
 
         /* Disable any potential callbacks while we are recycling the thing */
-        sd_varlink_set_userdata(vl, NULL);
-        (void) sd_varlink_bind_reply(vl, NULL);
+        sd_varlink_set_userdata(vl, /* userdata= */ NULL);
+        (void) sd_varlink_bind_reply(vl, /* reply= */ NULL);
 
         if (set_size(h->idle_links) > HOOK_IDLE_CONNECTIONS_MAX)
                 return;

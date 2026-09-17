@@ -161,7 +161,7 @@ int config_parse_domains(
                 const char *domain;
                 bool is_route;
 
-                r = extract_first_word(&p, &w, NULL, 0);
+                r = extract_first_word(&p, &w, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -182,7 +182,7 @@ int config_parse_domains(
                         domain = "."; /* make sure we don't allow empty strings, thus write the root
                                        * domain as "." */
                 } else {
-                        r = dns_name_normalize(domain, 0, &normalized);
+                        r = dns_name_normalize(domain, /* flags= */ 0, &normalized);
                         if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r,
                                            "'%s' is not a valid domain name, ignoring.", domain);
@@ -239,7 +239,7 @@ int config_parse_dns(
                 _cleanup_(in_addr_full_freep) struct in_addr_full *dns = NULL;
                 _cleanup_free_ char *w = NULL;
 
-                r = extract_first_word(&p, &w, NULL, 0);
+                r = extract_first_word(&p, &w, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -294,7 +294,7 @@ int config_parse_dnssec_negative_trust_anchors(
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
 
-                r = extract_first_word(&p, &w, NULL, 0);
+                r = extract_first_word(&p, &w, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {

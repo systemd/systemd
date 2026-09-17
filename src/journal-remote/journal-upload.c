@@ -196,7 +196,7 @@ int start_upload(Uploader *u,
                 _cleanup_(curl_slist_free_allp) struct curl_slist *h = NULL;
                 struct curl_slist *l;
 
-                h = sym_curl_slist_append(NULL, "Content-Type: application/vnd.fdo.journal");
+                h = sym_curl_slist_append(/* list= */ NULL, "Content-Type: application/vnd.fdo.journal");
                 if (!h)
                         return log_oom();
 
@@ -485,7 +485,7 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
-        (void) sd_watchdog_enabled(false, &u->watchdog_usec);
+        (void) sd_watchdog_enabled(/* unset_environment= */ false, &u->watchdog_usec);
 
         return load_cursor_state(u);
 }
@@ -580,17 +580,17 @@ static int parse_accept_encoding_header(Uploader *u) {
         assert(u);
 
         if (ordered_hashmap_isempty(arg_compression))
-                return update_content_encoding_header(u, NULL);
+                return update_content_encoding_header(u, /* cc= */ NULL);
 
         struct curl_header *header;
-        CURLHcode hcode = sym_curl_easy_header(u->easy, "Accept-Encoding", 0, CURLH_HEADER, -1, &header);
+        CURLHcode hcode = sym_curl_easy_header(u->easy, "Accept-Encoding", /* index= */ 0, CURLH_HEADER, -1, &header);
         if (hcode != CURLHE_OK)
                 goto not_found;
 
         for (const char *p = header->value;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, ",", 0);
+                r = extract_first_word(&p, &word, ",", /* flags= */ 0);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse Accept-Encoding header value, ignoring: %m");
                 if (r == 0)
@@ -619,7 +619,7 @@ not_found:
         if (arg_force_compression)
                 return update_content_encoding_header(u, ordered_hashmap_first(arg_compression));
 
-        return update_content_encoding_header(u, NULL);
+        return update_content_encoding_header(u, /* cc= */ NULL);
 #else
         return 0;
 #endif
@@ -798,7 +798,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "follow", "BOOL",
                                   "Whether to wait for input"):
-                        r = parse_boolean_argument("--follow", opts.arg, NULL);
+                        r = parse_boolean_argument("--follow", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         arg_follow = r;
@@ -840,9 +840,9 @@ static int open_journal(sd_journal **j) {
         if (arg_directory)
                 r = sd_journal_open_directory(j, arg_directory, arg_journal_type);
         else if (arg_file)
-                r = sd_journal_open_files(j, (const char**) arg_file, 0);
+                r = sd_journal_open_files(j, (const char**) arg_file, /* flags= */ 0);
         else if (arg_machine)
-                r = journal_open_machine(j, arg_machine, 0);
+                r = journal_open_machine(j, arg_machine, /* flags= */ 0);
         else
                 r = sd_journal_open_namespace(j, arg_namespace,
                                               (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_namespace_flags | arg_journal_type);

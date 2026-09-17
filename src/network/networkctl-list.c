@@ -27,7 +27,7 @@ int verb_list_links(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        c = acquire_link_info(NULL, rtnl, argc > 1 ? argv + 1 : NULL, &links);
+        c = acquire_link_info(/* vl= */ NULL, rtnl, argc > 1 ? argv + 1 : NULL, &links);
         if (c < 0)
                 return c;
 
@@ -38,18 +38,18 @@ int verb_list_links(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_oom();
 
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         table_set_header(table, arg_legend);
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        assert_se(cell = table_get_cell(table, 0, 0));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, /* column= */ 0));
         (void) table_set_minimum_width(table, cell, 3);
-        (void) table_set_weight(table, cell, 0);
+        (void) table_set_weight(table, cell, /* weight= */ 0);
         (void) table_set_ellipsize_percent(table, cell, 100);
         (void) table_set_align_percent(table, cell, 100);
 
-        assert_se(cell = table_get_cell(table, 0, 1));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, 1));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         FOREACH_ARRAY(link, links, c) {
@@ -58,10 +58,10 @@ int verb_list_links(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 const char *on_color_operational, *on_color_setup;
 
                 (void) sd_network_link_get_operational_state(link->ifindex, &operational_state);
-                operational_state_to_color(link->name, operational_state, &on_color_operational, NULL);
+                operational_state_to_color(link->name, operational_state, &on_color_operational, /* off= */ NULL);
 
                 (void) sd_network_link_get_setup_state(link->ifindex, &setup_state);
-                setup_state_to_color(setup_state, &on_color_setup, NULL);
+                setup_state_to_color(setup_state, &on_color_setup, /* off= */ NULL);
 
                 r = net_get_type_string(link->sd_device, link->iftype, &t);
                 if (r == -ENOMEM)

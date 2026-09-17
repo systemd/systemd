@@ -6,12 +6,12 @@
 
 int generator_open_unit_file_full(const char *dir, const char *source, const char *filename, FILE **ret_file, char **ret_final_path, char **ret_temp_path);
 static inline int generator_open_unit_file(const char *dir, const char *source, const char *filename, FILE **ret_file) {
-        return generator_open_unit_file_full(dir, source, filename, ret_file, NULL, NULL);
+        return generator_open_unit_file_full(dir, source, filename, ret_file, /* ret_final_path= */ NULL, /* ret_temp_path= */ NULL);
 }
 
 int generator_add_symlink_full(const char *dir, const char *dst, const char *dep_type, const char *src, const char *instance);
 static inline int generator_add_symlink(const char *dir, const char *dst, const char *dep_type, const char *src) {
-        return generator_add_symlink_full(dir, dst, dep_type, src, NULL);
+        return generator_add_symlink_full(dir, dst, dep_type, src, /* instance= */ NULL);
 }
 
 int generator_write_fsck_deps(

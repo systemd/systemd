@@ -118,7 +118,7 @@ static int process_resume(const HibernateInfo *info) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate device unit name from path '%s': %m", info->device);
 
-        r = generator_write_device_timeout(arg_dest, info->device, arg_resume_options ?: arg_root_options, NULL);
+        r = generator_write_device_timeout(arg_dest, info->device, arg_resume_options ?: arg_root_options, /* filtered= */ NULL);
         if (r < 0)
                 log_warning_errno(r, "Failed to write device timeout drop-in, ignoring: %m");
         if (r <= 0) {
@@ -170,7 +170,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return 0;
         }
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, /* flags= */ 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

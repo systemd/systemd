@@ -271,12 +271,12 @@ int json_stream_connect_fd_pair(JsonStream *s, int input_fd, int output_fd) {
         /* NB: input_fd and output_fd are donated to the JsonStream instance on success.
          * The fds may be changed to non-blocking mode even on failure. */
 
-        r = fd_nonblock(input_fd, true);
+        r = fd_nonblock(input_fd, /* nonblock= */ true);
         if (r < 0)
                 return json_stream_log_errno(s, r, "Failed to make input fd %d nonblocking: %m", input_fd);
 
         if (input_fd != output_fd) {
-                r = fd_nonblock(output_fd, true);
+                r = fd_nonblock(output_fd, /* nonblock= */ true);
                 if (r < 0)
                         return json_stream_log_errno(s, r, "Failed to make output fd %d nonblocking: %m", output_fd);
         }
@@ -804,7 +804,7 @@ int json_stream_attach_event(JsonStream *s, sd_event *event, int64_t priority) {
                         return json_stream_log_errno(s, r, "Failed to acquire default event loop: %m");
         }
 
-        r = sd_event_add_io(s->event, &s->input_event_source, s->input_fd, 0, json_stream_io_callback, s);
+        r = sd_event_add_io(s->event, &s->input_event_source, s->input_fd, /* events= */ 0, json_stream_io_callback, s);
         if (r < 0)
                 goto fail;
 
@@ -821,7 +821,7 @@ int json_stream_attach_event(JsonStream *s, sd_event *event, int64_t priority) {
         if (s->input_fd == s->output_fd)
                 s->output_event_source = sd_event_source_ref(s->input_event_source);
         else {
-                r = sd_event_add_io(s->event, &s->output_event_source, s->output_fd, 0, json_stream_io_callback, s);
+                r = sd_event_add_io(s->event, &s->output_event_source, s->output_fd, /* events= */ 0, json_stream_io_callback, s);
                 if (r < 0)
                         goto fail;
 

@@ -246,7 +246,7 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
         /* Finalize database. But do not re-create database on remove, which has been already removed in
          * event_execute_rules_on_remove(). */
         if (!device_for_action(dev, SD_DEVICE_REMOVE)) {
-                r = device_add_property(dev, "ID_PROCESSING", NULL);
+                r = device_add_property(dev, "ID_PROCESSING", /* value= */ NULL);
                 if (r < 0)
                         return log_device_warning_errno(dev, r, "Failed to remove 'ID_PROCESSING' property: %m");
 
@@ -258,7 +258,7 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
         log_device_uevent(dev, "Device processed");
 
         /* send processed event to libudev listeners */
-        r = device_monitor_send(worker->monitor, NULL, dev);
+        r = device_monitor_send(worker->monitor, /* destination= */ NULL, dev);
         if (r < 0) {
                 log_device_warning_errno(dev, r, "Failed to broadcast event to libudev listeners: %m");
                 (void) sd_event_exit(worker->event, r);
@@ -287,7 +287,7 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
                 (void) device_add_errno(dev, r);
 
                 /* broadcast (possibly partially processed) event to libudev listeners */
-                int k = device_monitor_send(monitor, NULL, dev);
+                int k = device_monitor_send(monitor, /* destination= */ NULL, dev);
                 if (k < 0) {
                         log_device_warning_errno(dev, k, "Failed to broadcast event to libudev listeners: %m");
                         (void) sd_event_exit(worker->event, k);
@@ -319,7 +319,7 @@ int udev_worker_main(UdevWorker *worker, sd_device *dev) {
         DEVICE_TRACE_POINT(worker_spawned, dev, getpid_cached());
 
         /* Reset OOM score, we only protect the main daemon. */
-        r = set_oom_score_adjust(0);
+        r = set_oom_score_adjust(/* value= */ 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to reset OOM score, ignoring: %m");
 
@@ -327,7 +327,7 @@ int udev_worker_main(UdevWorker *worker, sd_device *dev) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        r = sd_event_add_signal(worker->event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+        r = sd_event_add_signal(worker->event, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set SIGTERM event: %m");
 

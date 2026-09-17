@@ -49,7 +49,7 @@ void manager_forward_wall(
         } else
                 l = message;
 
-        r = wall(l, "systemd-journald", NULL, NULL, NULL);
+        r = wall(l, "systemd-journald", /* origin_tty= */ NULL, /* match_tty= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to send wall message: %m");
 }

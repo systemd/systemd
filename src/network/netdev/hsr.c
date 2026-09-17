@@ -97,7 +97,7 @@ static int netdev_hsr_config_verify(NetDev *netdev, const char *filename) {
 }
 
 static int netdev_hsr_is_ready_to_create(NetDev *netdev, Link *link) {
-        return hsr_get_port_links(netdev, NULL, NULL) >= 0;
+        return hsr_get_port_links(netdev, /* ret1= */ NULL, /* ret2= */ NULL) >= 0;
 }
 
 static void netdev_hsr_done(NetDev *netdev) {

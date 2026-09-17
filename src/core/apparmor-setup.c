@@ -58,7 +58,7 @@ int mac_apparmor_setup(void) {
         }
 
         /* aa_policy_cache_new will internally use the same path as aa_policy_cache_dir_path_preview has returned. */
-        r = sym_aa_policy_cache_new(&policy_cache, features, AT_FDCWD, "/etc/apparmor/earlypolicy", 0);
+        r = sym_aa_policy_cache_new(&policy_cache, features, AT_FDCWD, "/etc/apparmor/earlypolicy", /* max_caches= */ 0);
         if (r < 0) {
                 if (errno == ENOENT)
                         log_debug_errno(errno,
@@ -69,7 +69,7 @@ int mac_apparmor_setup(void) {
                 return 0;
         }
 
-        r = sym_aa_policy_cache_replace_all(policy_cache, NULL);
+        r = sym_aa_policy_cache_replace_all(policy_cache, /* kernel_interface= */ NULL);
         if (r < 0) {
                 log_warning_errno(errno,
                                   "Failed to load the profiles from the early AppArmor policy cache directory '%s', ignoring: %m",

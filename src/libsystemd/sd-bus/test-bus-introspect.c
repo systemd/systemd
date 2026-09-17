@@ -11,7 +11,7 @@ static void test_manual_introspection_one(const sd_bus_vtable vtable[]) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(introspect_begin(&intro, false) >= 0);
+        assert_se(introspect_begin(&intro, /* trusted= */ false) >= 0);
 
         assert_se(introspect_write_interface(&intro, "org.foo", vtable) >= 0);
         /* write again to check if output looks OK for a different interface */

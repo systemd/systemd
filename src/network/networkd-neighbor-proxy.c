@@ -111,7 +111,7 @@ static int neighbor_proxy_address_process_request(Request *req, Link *link, stru
         assert(link);
         assert(address);
 
-        if (!link_is_ready_to_configure(link, false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return 0;
 
         r = neighbor_proxy_address_configure(address, link, req);

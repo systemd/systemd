@@ -293,7 +293,7 @@ static int ndisc_nexthop_find_id(NextHop *nexthop, Link *link) {
         if (r < 0)
                 return r;
 
-        uint32_t id = ndisc_generate_nexthop_id(nexthop, link, app_id, 0);
+        uint32_t id = ndisc_generate_nexthop_id(nexthop, link, app_id, /* trial= */ 0);
         if (nexthop_get_by_id(link->manager, id, &n) >= 0 &&
             ndisc_take_nexthop_id(nexthop, n, link->manager))
                 return true;
@@ -364,10 +364,10 @@ static int ndisc_nexthop_acquire_id(NextHop *nexthop, Link *link) {
                 if (set_contains(link->manager->nexthop_ids, UINT32_TO_PTR(id)))
                         continue; /* The ID is already used in a .network file. */
 
-                if (nexthop_get_by_id(link->manager, id, NULL) >= 0)
+                if (nexthop_get_by_id(link->manager, id, /* ret= */ NULL) >= 0)
                         continue; /* The ID is already used by an existing nexthop. */
 
-                if (nexthop_get_request_by_id(link->manager, id, NULL) >= 0)
+                if (nexthop_get_request_by_id(link->manager, id, /* ret= */ NULL) >= 0)
                         continue; /* The ID is already used by a nexthop being requested. */
 
                 log_link_debug(link, "Generated new ndisc nexthop ID for %s with trial %"PRIu64": %"PRIu32,
@@ -570,7 +570,7 @@ static int ndisc_request_route(Route *route, Link *link) {
         route->pref = pref_original;
         ndisc_set_route_priority(link, route);
 
-        bool is_new = route_get(link->manager, route, NULL) < 0;
+        bool is_new = route_get(link->manager, route, /* ret= */ NULL) < 0;
 
         r = link_request_route(link, route, &link->ndisc_messages, ndisc_route_handler);
         if (r < 0)
@@ -734,7 +734,7 @@ static int ndisc_request_address(Address *address, Link *link) {
         }
 
         r = link_request_address(link, address, &link->ndisc_messages,
-                                 ndisc_address_handler, NULL);
+                                 ndisc_address_handler, /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r > 0 && is_new)
@@ -1105,7 +1105,7 @@ static int ndisc_router_drop_default(Link *link, sd_ndisc_router *rt) {
 
                 assert(route_gw->nexthop.family == AF_INET6);
 
-                r = route_dup(route_gw, NULL, &tmp);
+                r = route_dup(route_gw, /* nh= */ NULL, &tmp);
                 if (r < 0)
                         return r;
 
@@ -1130,7 +1130,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         assert(rt);
 
         /* If the router lifetime is zero, the router should not be used as the default gateway. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
+        r = sd_ndisc_router_get_lifetime(rt, /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1179,7 +1179,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
                 assert(route_gw->nexthop.family == AF_INET6);
 
-                r = route_dup(route_gw, NULL, &route);
+                r = route_dup(route_gw, /* nh= */ NULL, &route);
                 if (r < 0)
                         return r;
 
@@ -1285,7 +1285,7 @@ static int ndisc_remember_router(Link *link, sd_ndisc_router *rt) {
         sd_ndisc_router_unref(hashmap_remove(link->ndisc_routers_by_sender, &rt->packet->sender_address));
 
         /* Remember RAs with non-zero lifetime. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
+        r = sd_ndisc_router_get_lifetime(rt, /* ret= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -1732,7 +1732,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt, bool zero
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        if (link_get_ipv6_address(link, &gateway, NULL) >= 0) {
+        if (link_get_ipv6_address(link, &gateway, /* ret= */ NULL) >= 0) {
                 if (DEBUG_LOGGING)
                         log_link_debug(link, "Advertised route gateway %s is local to the link, ignoring route",
                                        IN6_ADDR_TO_STRING(&gateway));
@@ -2597,7 +2597,7 @@ static int ndisc_setup_expire(Link *link) {
                 return 0;
 
         r = event_reset_time(link->manager->event, &link->ndisc_expire, CLOCK_BOOTTIME,
-                             lifetime_usec, 0, ndisc_expire_handler, link, 0, "ndisc-expiration", true);
+                             lifetime_usec, /* accuracy= */ 0, ndisc_expire_handler, link, /* priority= */ 0, "ndisc-expiration", /* force_reset= */ true);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to update expiration timer for ndisc: %m");
 
@@ -2725,7 +2725,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        if (sd_ndisc_router_get_lifetime(rt, NULL) <= 0)
+        if (sd_ndisc_router_get_lifetime(rt, /* ret= */ NULL) <= 0)
                 (void) ndisc_drop_redirect(link, &router);
 
         if (link->ndisc_messages == 0)
@@ -2950,7 +2950,7 @@ static int ndisc_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_attach_event(link->ndisc, link->manager->event, 0);
+        r = sd_ndisc_attach_event(link->ndisc, link->manager->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 
@@ -3078,7 +3078,7 @@ int link_request_ndisc(Link *link) {
         if (link->ndisc)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_NDISC, ndisc_process_request, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_NDISC, ndisc_process_request, /* ret= */ NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the IPv6 Router Discovery: %m");
 

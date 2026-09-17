@@ -63,15 +63,15 @@ TEST(null_or_empty_path) {
 }
 
 TEST(null_or_empty_path_with_root) {
-        assert_se(null_or_empty_path_with_root("/dev/null", NULL) == 1);
+        assert_se(null_or_empty_path_with_root("/dev/null", /* root= */ NULL) == 1);
         assert_se(null_or_empty_path_with_root("/dev/null", "/") == 1);
         assert_se(null_or_empty_path_with_root("/dev/null", "/.././../") == 1);
         assert_se(null_or_empty_path_with_root("/dev/null", "/.././..") == 1);
-        assert_se(null_or_empty_path_with_root("../../../../../../../../../../../../../../../../../../../../dev/null", NULL) == 1);
+        assert_se(null_or_empty_path_with_root("../../../../../../../../../../../../../../../../../../../../dev/null", /* root= */ NULL) == 1);
         assert_se(null_or_empty_path_with_root("../../../../../../../../../../../../../../../../../../../../dev/null", "/") == 1);
-        assert_se(null_or_empty_path_with_root("/proc/self/exe", NULL) == 0);
+        assert_se(null_or_empty_path_with_root("/proc/self/exe", /* root= */ NULL) == 0);
         assert_se(null_or_empty_path_with_root("/proc/self/exe", "/") == 0);
-        assert_se(null_or_empty_path_with_root("/nosuchfileordir", NULL) == -ENOENT);
+        assert_se(null_or_empty_path_with_root("/nosuchfileordir", /* root= */ NULL) == -ENOENT);
         assert_se(null_or_empty_path_with_root("/nosuchfileordir", "/.././../") == -ENOENT);
         assert_se(null_or_empty_path_with_root("/nosuchfileordir", "/.././..") == -ENOENT);
         assert_se(null_or_empty_path_with_root("/foobar/barbar/dev/null", "/foobar/barbar") == 1);
@@ -88,12 +88,12 @@ TEST(inode_same) {
         assert_se(fd >= 0);
         assert_se(symlink(name, name_alias) >= 0);
 
-        assert_se(inode_same(name, name, 0) > 0);
+        assert_se(inode_same(name, name, /* flags= */ 0) > 0);
         assert_se(inode_same(name, name, AT_SYMLINK_NOFOLLOW) > 0);
-        assert_se(inode_same(name, name_alias, 0) > 0);
+        assert_se(inode_same(name, name_alias, /* flags= */ 0) > 0);
         assert_se(inode_same(name, name_alias, AT_SYMLINK_NOFOLLOW) == 0);
 
-        assert_se(inode_same("/proc", "/proc", 0));
+        assert_se(inode_same("/proc", "/proc", /* flags= */ 0));
         assert_se(inode_same("/proc", "/proc", AT_SYMLINK_NOFOLLOW));
 
         _cleanup_close_ int fd1 = open("/dev/null", O_CLOEXEC|O_RDONLY),
@@ -102,36 +102,36 @@ TEST(inode_same) {
         assert_se(fd1 >= 0);
         assert_se(fd2 >= 0);
 
-        assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH) > 0);
-        assert_se(inode_same_at(fd2, NULL, fd1, NULL, AT_EMPTY_PATH) > 0);
-        assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) > 0);
-        assert_se(inode_same_at(fd2, NULL, fd1, NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) > 0);
-        assert_se(inode_same_at(fd1, NULL, fd1, NULL, AT_EMPTY_PATH) > 0);
-        assert_se(inode_same_at(fd2, NULL, fd2, NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) > 0);
+        assert_se(inode_same_at(fd1, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH) > 0);
+        assert_se(inode_same_at(fd2, /* filea= */ NULL, fd1, /* fileb= */ NULL, AT_EMPTY_PATH) > 0);
+        assert_se(inode_same_at(fd1, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) > 0);
+        assert_se(inode_same_at(fd2, /* filea= */ NULL, fd1, /* fileb= */ NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) > 0);
+        assert_se(inode_same_at(fd1, /* filea= */ NULL, fd1, /* fileb= */ NULL, AT_EMPTY_PATH) > 0);
+        assert_se(inode_same_at(fd2, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) > 0);
 
         safe_close(fd2);
         fd2 = open("/dev/urandom", O_CLOEXEC|O_RDONLY);
         assert_se(fd2 >= 0);
 
-        assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH) == 0);
-        assert_se(inode_same_at(fd2, NULL, fd1, NULL, AT_EMPTY_PATH) == 0);
-        assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) == 0);
-        assert_se(inode_same_at(fd2, NULL, fd1, NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) == 0);
+        assert_se(inode_same_at(fd1, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH) == 0);
+        assert_se(inode_same_at(fd2, /* filea= */ NULL, fd1, /* fileb= */ NULL, AT_EMPTY_PATH) == 0);
+        assert_se(inode_same_at(fd1, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) == 0);
+        assert_se(inode_same_at(fd2, /* filea= */ NULL, fd1, /* fileb= */ NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) == 0);
 
-        assert_se(inode_same_at(AT_FDCWD, NULL, AT_FDCWD, NULL, AT_EMPTY_PATH) > 0);
-        assert_se(inode_same_at(AT_FDCWD, NULL, fd1, NULL, AT_EMPTY_PATH) == 0);
-        assert_se(inode_same_at(fd1, NULL, AT_FDCWD, NULL, AT_EMPTY_PATH) == 0);
+        assert_se(inode_same_at(AT_FDCWD, /* filea= */ NULL, AT_FDCWD, /* fileb= */ NULL, AT_EMPTY_PATH) > 0);
+        assert_se(inode_same_at(AT_FDCWD, /* filea= */ NULL, fd1, /* fileb= */ NULL, AT_EMPTY_PATH) == 0);
+        assert_se(inode_same_at(fd1, /* filea= */ NULL, AT_FDCWD, /* fileb= */ NULL, AT_EMPTY_PATH) == 0);
 
         _cleanup_(umount_and_unlink_and_freep) char *p = NULL;
 
-        assert_se(tempfn_random_child(NULL, NULL, &p) >= 0);
+        assert_se(tempfn_random_child(NULL, /* extra= */ NULL, &p) >= 0);
         assert_se(touch(p) >= 0);
 
-        r = mount_nofollow_verbose(LOG_ERR, name, p, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, name, p, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0)
                 assert_se(ERRNO_IS_NEG_PRIVILEGE(r));
         else {
-                assert_se(inode_same(name, p, 0) > 0);
+                assert_se(inode_same(name, p, /* flags= */ 0) > 0);
                 assert_se(inode_same(name, p, AT_SYMLINK_NOFOLLOW) > 0);
         }
 }
@@ -152,11 +152,11 @@ TEST(is_symlink) {
 
 TEST(path_is_fs_type) {
         /* run might not be a mount point in build chroots */
-        if (path_is_mount_point_full("/run", NULL, AT_SYMLINK_FOLLOW) > 0) {
+        if (path_is_mount_point_full("/run", /* root= */ NULL, AT_SYMLINK_FOLLOW) > 0) {
                 assert_se(path_is_fs_type("/run", TMPFS_MAGIC) > 0);
                 assert_se(path_is_fs_type("/run", BTRFS_SUPER_MAGIC) == 0);
         }
-        if (path_is_mount_point_full("/proc", NULL, AT_SYMLINK_FOLLOW) > 0) {
+        if (path_is_mount_point_full("/proc", /* root= */ NULL, AT_SYMLINK_FOLLOW) > 0) {
                 assert_se(path_is_fs_type("/proc", PROC_SUPER_MAGIC) > 0);
                 assert_se(path_is_fs_type("/proc", BTRFS_SUPER_MAGIC) == 0);
         }
@@ -174,7 +174,7 @@ TEST(path_is_temporary_fs) {
         }
 
         /* run might not be a mount point in build chroots */
-        if (path_is_mount_point_full("/run", NULL, AT_SYMLINK_FOLLOW) > 0)
+        if (path_is_mount_point_full("/run", /* root= */ NULL, AT_SYMLINK_FOLLOW) > 0)
                 assert_se(path_is_temporary_fs("/run") > 0);
         assert_se(path_is_temporary_fs("/proc") == 0);
         assert_se(path_is_temporary_fs("/i-dont-exist") == -ENOENT);
@@ -190,7 +190,7 @@ TEST(path_is_read_only_fs) {
                                s, r, r < 0 ? ERRNO_NAME(r) : yes_no(r));
         }
 
-        if (path_is_mount_point_full("/sys", NULL, AT_SYMLINK_FOLLOW) > 0)
+        if (path_is_mount_point_full("/sys", /* root= */ NULL, AT_SYMLINK_FOLLOW) > 0)
                 assert_se(IN_SET(path_is_read_only_fs("/sys"), 0, 1));
 
         assert_se(path_is_read_only_fs("/proc") == 0);
@@ -269,7 +269,7 @@ TEST(fd_verify_linked) {
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *p = NULL;
 
-        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        tfd = mkdtemp_open(/* template= */ NULL, O_PATH, &t);
         assert_se(tfd >= 0);
 
         assert_se(p = path_join(t, "hoge"));

@@ -105,7 +105,7 @@ int efi_loader_get_entries(char ***ret) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntries"), NULL, (void**) &entries, &size);
+        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntries"), /* ret_attribute= */ NULL, (void**) &entries, &size);
         if (r < 0)
                 return r;
 
@@ -170,7 +170,7 @@ int efi_loader_get_features(uint64_t *ret) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderFeatures"), NULL, &v, &s);
+        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderFeatures"), /* ret_attribute= */ NULL, &v, &s);
         if (r == -ENOENT) {
                 _cleanup_free_ char *info = NULL;
 
@@ -225,7 +225,7 @@ int efi_stub_get_features(uint64_t *ret) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("StubFeatures"), NULL, &v, &s);
+        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("StubFeatures"), /* ret_attribute= */ NULL, &v, &s);
         if (r == -ENOENT) {
                 _cleanup_free_ char *info = NULL;
 

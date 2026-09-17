@@ -34,7 +34,7 @@ typedef enum BusFocus {
 
 int acquire_bus_full(BusFocus focus, bool graceful, sd_bus **ret);
 static inline int acquire_bus(BusFocus focus, sd_bus **ret) {
-        return acquire_bus_full(focus, false, ret);
+        return acquire_bus_full(focus, /* graceful= */ false, ret);
 }
 void release_busses(void);
 

@@ -565,7 +565,7 @@ static int server_receive_message(sd_event_source *s, int fd, uint32_t revents, 
                 .msg_controllen = sizeof(control),
         };
 
-        ssize_t len = recvmsg_safe(fd, &msg, 0);
+        ssize_t len = recvmsg_safe(fd, &msg, /* flags= */ 0);
         if (ERRNO_IS_NEG_TRANSIENT(len) || ERRNO_IS_NEG_DISCONNECT(len))
                 return 0;
         if (len < 0) {
@@ -593,15 +593,15 @@ static int server_open_socket(sd_dhcp_server *server) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_TIMESTAMP, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_TIMESTAMP, /* value= */ true);
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_BROADCAST, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_BROADCAST, /* value= */ true);
         if (r < 0)
                 return r;
 
@@ -613,7 +613,7 @@ static int server_open_socket(sd_dhcp_server *server) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
+        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, /* value= */ true);
         if (r < 0)
                 return r;
 
@@ -659,7 +659,7 @@ int dhcp_server_setup_io_event_source(sd_dhcp_server *server) {
         (void) sd_event_source_set_description(s, "dhcp-server-io");
 
         if (fd_close >= 0) {
-                r = sd_event_source_set_io_fd_own(s, true);
+                r = sd_event_source_set_io_fd_own(s, /* own= */ true);
                 if (r < 0)
                         return r;
                 TAKE_FD(fd_close);

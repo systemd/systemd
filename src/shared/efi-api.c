@@ -102,7 +102,7 @@ static int get_os_indications(uint64_t *ret) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("OsIndications"), NULL, &v, &s);
+        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("OsIndications"), /* ret_attribute= */ NULL, &v, &s);
         if (r == -ENOENT) {
                 /* Some firmware implementations that do support OsIndications and report that with
                  * OsIndicationsSupported will remove the OsIndications variable when it is unset. Let's
@@ -185,7 +185,7 @@ int efi_reboot_to_firmware_supported(void) {
         if (!is_efi_boot())
                 goto not_supported;
 
-        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("OsIndicationsSupported"), NULL, &v, &s);
+        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("OsIndicationsSupported"), /* ret_attribute= */ NULL, &v, &s);
         if (r == -ENOENT)
                 goto not_supported; /* variable doesn't exist? it's not supported then */
         if (r < 0)
@@ -264,7 +264,7 @@ int efi_get_boot_option(
                 return -EOPNOTSUPP;
 
         xsprintf(variable, EFI_GLOBAL_VARIABLE_STR("Boot%04X"), id);
-        r = efi_get_variable(variable, NULL, (void **)&buf, &l);
+        r = efi_get_variable(variable, /* ret_attribute= */ NULL, (void **)&buf, &l);
         if (r < 0)
                 return r;
         if (l < offsetof(struct boot_option, title))
@@ -437,7 +437,7 @@ int efi_remove_boot_option(uint16_t id) {
                 return -EOPNOTSUPP;
 
         xsprintf(variable, EFI_GLOBAL_VARIABLE_STR("Boot%04X"), id);
-        return efi_set_variable(variable, NULL, 0);
+        return efi_set_variable(variable, /* value= */ NULL, /* size= */ 0);
 #else
         return -EOPNOTSUPP;
 #endif
@@ -454,7 +454,7 @@ int efi_get_boot_order(uint16_t **ret_order) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("BootOrder"), NULL, &buf, &l);
+        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("BootOrder"), /* ret_attribute= */ NULL, &buf, &l);
         if (r < 0)
                 return r;
 

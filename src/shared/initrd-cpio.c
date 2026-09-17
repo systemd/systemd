@@ -142,10 +142,10 @@ int initrd_cpio_credentials_to_tempfile(
         if (!f)
                 return log_oom();
 
-        r = append_cpio_entry(f, S_IFDIR | 0555, ".extra", NULL, 0, &inode);
+        r = append_cpio_entry(f, S_IFDIR | 0555, ".extra", /* data= */ NULL, /* data_size= */ 0, &inode);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '.extra' directory entry to credentials cpio: %m");
-        r = append_cpio_entry(f, S_IFDIR | 0500, ".extra/system_credentials", NULL, 0, &inode);
+        r = append_cpio_entry(f, S_IFDIR | 0500, ".extra/system_credentials", /* data= */ NULL, /* data_size= */ 0, &inode);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '.extra/system_credentials' directory entry to credentials cpio: %m");
 

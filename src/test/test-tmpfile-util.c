@@ -42,7 +42,7 @@ TEST(writing_tmpfile) {
 TEST(tempfn) {
         char *ret = NULL, *p;
 
-        ASSERT_OK(tempfn_xxxxxx("/foo/bar/waldo", NULL, &ret));
+        ASSERT_OK(tempfn_xxxxxx("/foo/bar/waldo", /* extra= */ NULL, &ret));
         ASSERT_STREQ(ret, "/foo/bar/.#waldoXXXXXX");
         free(ret);
 
@@ -50,7 +50,7 @@ TEST(tempfn) {
         ASSERT_STREQ(ret, "/foo/bar/.#[miau]waldoXXXXXX");
         free(ret);
 
-        ASSERT_OK(tempfn_random("/foo/bar/waldo", NULL, &ret));
+        ASSERT_OK(tempfn_random("/foo/bar/waldo", /* extra= */ NULL, &ret));
         ASSERT_NOT_NULL(p = startswith(ret, "/foo/bar/.#waldo"));
         ASSERT_EQ(strlen(p), 16U);
         ASSERT_TRUE(in_charset(p, "0123456789abcdef"));
@@ -62,7 +62,7 @@ TEST(tempfn) {
         ASSERT_TRUE(in_charset(p, "0123456789abcdef"));
         free(ret);
 
-        ASSERT_OK(tempfn_random_child("/foo/bar/waldo", NULL, &ret));
+        ASSERT_OK(tempfn_random_child("/foo/bar/waldo", /* extra= */ NULL, &ret));
         ASSERT_NOT_NULL(p = startswith(ret, "/foo/bar/waldo/.#"));
         ASSERT_EQ(strlen(p), 16U);
         ASSERT_TRUE(in_charset(p, "0123456789abcdef"));
@@ -98,29 +98,29 @@ static void test_tempfn_random_one(const char *p, const char *extra, const char 
 TEST(tempfn_random) {
         _cleanup_free_ char *dir = NULL, *p = NULL, *q = NULL;
 
-        test_tempfn_random_one("", NULL, NULL, -EINVAL);
-        test_tempfn_random_one(".", NULL, NULL, -EADDRNOTAVAIL);
-        test_tempfn_random_one("..", NULL, NULL, -EINVAL);
-        test_tempfn_random_one("/", NULL, NULL, -EADDRNOTAVAIL);
-        test_tempfn_random_one("foo", "hoge/aaa", NULL, -EINVAL);
+        test_tempfn_random_one("", /* extra= */ NULL, /* expect= */ NULL, -EINVAL);
+        test_tempfn_random_one(".", /* extra= */ NULL, /* expect= */ NULL, -EADDRNOTAVAIL);
+        test_tempfn_random_one("..", /* extra= */ NULL, /* expect= */ NULL, -EINVAL);
+        test_tempfn_random_one("/", /* extra= */ NULL, /* expect= */ NULL, -EADDRNOTAVAIL);
+        test_tempfn_random_one("foo", "hoge/aaa", /* expect= */ NULL, -EINVAL);
 
-        test_tempfn_random_one("foo", NULL, ".#foo", 0);
-        test_tempfn_random_one("foo", "bar", ".#barfoo", 0);
-        test_tempfn_random_one("/tmp/foo", NULL, "/tmp/.#foo", 0);
-        test_tempfn_random_one("/tmp/foo", "bar", "/tmp/.#barfoo", 0);
-        test_tempfn_random_one("./foo", NULL, ".#foo", 0);
-        test_tempfn_random_one("./foo", "bar", ".#barfoo", 0);
-        test_tempfn_random_one("../foo", NULL, "../.#foo", 0);
-        test_tempfn_random_one("../foo", "bar", "../.#barfoo", 0);
+        test_tempfn_random_one("foo", /* extra= */ NULL, ".#foo", /* ret= */ 0);
+        test_tempfn_random_one("foo", "bar", ".#barfoo", /* ret= */ 0);
+        test_tempfn_random_one("/tmp/foo", /* extra= */ NULL, "/tmp/.#foo", /* ret= */ 0);
+        test_tempfn_random_one("/tmp/foo", "bar", "/tmp/.#barfoo", /* ret= */ 0);
+        test_tempfn_random_one("./foo", /* extra= */ NULL, ".#foo", /* ret= */ 0);
+        test_tempfn_random_one("./foo", "bar", ".#barfoo", /* ret= */ 0);
+        test_tempfn_random_one("../foo", /* extra= */ NULL, "../.#foo", /* ret= */ 0);
+        test_tempfn_random_one("../foo", "bar", "../.#barfoo", /* ret= */ 0);
 
-        test_tempfn_random_one("foo/", NULL, ".#foo", 0);
-        test_tempfn_random_one("foo/", "bar", ".#barfoo", 0);
-        test_tempfn_random_one("/tmp/foo/", NULL, "/tmp/.#foo", 0);
-        test_tempfn_random_one("/tmp/foo/", "bar", "/tmp/.#barfoo", 0);
-        test_tempfn_random_one("./foo/", NULL, ".#foo", 0);
-        test_tempfn_random_one("./foo/", "bar", ".#barfoo", 0);
-        test_tempfn_random_one("../foo/", NULL, "../.#foo", 0);
-        test_tempfn_random_one("../foo/", "bar", "../.#barfoo", 0);
+        test_tempfn_random_one("foo/", /* extra= */ NULL, ".#foo", /* ret= */ 0);
+        test_tempfn_random_one("foo/", "bar", ".#barfoo", /* ret= */ 0);
+        test_tempfn_random_one("/tmp/foo/", /* extra= */ NULL, "/tmp/.#foo", /* ret= */ 0);
+        test_tempfn_random_one("/tmp/foo/", "bar", "/tmp/.#barfoo", /* ret= */ 0);
+        test_tempfn_random_one("./foo/", /* extra= */ NULL, ".#foo", /* ret= */ 0);
+        test_tempfn_random_one("./foo/", "bar", ".#barfoo", /* ret= */ 0);
+        test_tempfn_random_one("../foo/", /* extra= */ NULL, "../.#foo", /* ret= */ 0);
+        test_tempfn_random_one("../foo/", "bar", "../.#barfoo", /* ret= */ 0);
 
         assert_se(dir = new(char, PATH_MAX - 20));
         memset(dir, 'x', PATH_MAX - 21);
@@ -131,8 +131,8 @@ TEST(tempfn_random) {
         assert_se(p = path_join(dir, "a"));
         assert_se(q = path_join(dir, ".#a"));
 
-        test_tempfn_random_one(p, NULL, q, 0);
-        test_tempfn_random_one(p, "b", NULL, -EINVAL);
+        test_tempfn_random_one(p, /* extra= */ NULL, q, /* ret= */ 0);
+        test_tempfn_random_one(p, "b", /* expect= */ NULL, -EINVAL);
 
         p = mfree(p);
         q = mfree(q);
@@ -145,12 +145,12 @@ TEST(tempfn_random) {
         memset(stpcpy(q, ".#"), 'x', NAME_MAX - STRLEN(".#") - 16);
         q[NAME_MAX - 16] = '\0';
 
-        test_tempfn_random_one(p, NULL, q, 0);
+        test_tempfn_random_one(p, /* extra= */ NULL, q, /* ret= */ 0);
 
         memset(stpcpy(q, ".#hoge"), 'x', NAME_MAX - STRLEN(".#hoge") - 16);
         q[NAME_MAX - 16] = '\0';
 
-        test_tempfn_random_one(p, "hoge", q, 0);
+        test_tempfn_random_one(p, "hoge", q, /* ret= */ 0);
 }
 
 static void test_tempfn_xxxxxx_one(const char *p, const char *extra, const char *expect, int ret) {
@@ -175,29 +175,29 @@ static void test_tempfn_xxxxxx_one(const char *p, const char *extra, const char 
 TEST(tempfn_xxxxxx) {
         _cleanup_free_ char *dir = NULL, *p = NULL, *q = NULL;
 
-        test_tempfn_xxxxxx_one("", NULL, NULL, -EINVAL);
-        test_tempfn_xxxxxx_one(".", NULL, NULL, -EADDRNOTAVAIL);
-        test_tempfn_xxxxxx_one("..", NULL, NULL, -EINVAL);
-        test_tempfn_xxxxxx_one("/", NULL, NULL, -EADDRNOTAVAIL);
-        test_tempfn_xxxxxx_one("foo", "hoge/aaa", NULL, -EINVAL);
+        test_tempfn_xxxxxx_one("", /* extra= */ NULL, /* expect= */ NULL, -EINVAL);
+        test_tempfn_xxxxxx_one(".", /* extra= */ NULL, /* expect= */ NULL, -EADDRNOTAVAIL);
+        test_tempfn_xxxxxx_one("..", /* extra= */ NULL, /* expect= */ NULL, -EINVAL);
+        test_tempfn_xxxxxx_one("/", /* extra= */ NULL, /* expect= */ NULL, -EADDRNOTAVAIL);
+        test_tempfn_xxxxxx_one("foo", "hoge/aaa", /* expect= */ NULL, -EINVAL);
 
-        test_tempfn_xxxxxx_one("foo", NULL, ".#foo", 0);
-        test_tempfn_xxxxxx_one("foo", "bar", ".#barfoo", 0);
-        test_tempfn_xxxxxx_one("/tmp/foo", NULL, "/tmp/.#foo", 0);
-        test_tempfn_xxxxxx_one("/tmp/foo", "bar", "/tmp/.#barfoo", 0);
-        test_tempfn_xxxxxx_one("./foo", NULL, ".#foo", 0);
-        test_tempfn_xxxxxx_one("./foo", "bar", ".#barfoo", 0);
-        test_tempfn_xxxxxx_one("../foo", NULL, "../.#foo", 0);
-        test_tempfn_xxxxxx_one("../foo", "bar", "../.#barfoo", 0);
+        test_tempfn_xxxxxx_one("foo", /* extra= */ NULL, ".#foo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("foo", "bar", ".#barfoo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("/tmp/foo", /* extra= */ NULL, "/tmp/.#foo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("/tmp/foo", "bar", "/tmp/.#barfoo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("./foo", /* extra= */ NULL, ".#foo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("./foo", "bar", ".#barfoo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("../foo", /* extra= */ NULL, "../.#foo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("../foo", "bar", "../.#barfoo", /* ret= */ 0);
 
-        test_tempfn_xxxxxx_one("foo/", NULL, ".#foo", 0);
-        test_tempfn_xxxxxx_one("foo/", "bar", ".#barfoo", 0);
-        test_tempfn_xxxxxx_one("/tmp/foo/", NULL, "/tmp/.#foo", 0);
-        test_tempfn_xxxxxx_one("/tmp/foo/", "bar", "/tmp/.#barfoo", 0);
-        test_tempfn_xxxxxx_one("./foo/", NULL, ".#foo", 0);
-        test_tempfn_xxxxxx_one("./foo/", "bar", ".#barfoo", 0);
-        test_tempfn_xxxxxx_one("../foo/", NULL, "../.#foo", 0);
-        test_tempfn_xxxxxx_one("../foo/", "bar", "../.#barfoo", 0);
+        test_tempfn_xxxxxx_one("foo/", /* extra= */ NULL, ".#foo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("foo/", "bar", ".#barfoo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("/tmp/foo/", /* extra= */ NULL, "/tmp/.#foo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("/tmp/foo/", "bar", "/tmp/.#barfoo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("./foo/", /* extra= */ NULL, ".#foo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("./foo/", "bar", ".#barfoo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("../foo/", /* extra= */ NULL, "../.#foo", /* ret= */ 0);
+        test_tempfn_xxxxxx_one("../foo/", "bar", "../.#barfoo", /* ret= */ 0);
 
         assert_se(dir = new(char, PATH_MAX - 10));
         memset(dir, 'x', PATH_MAX - 11);
@@ -208,8 +208,8 @@ TEST(tempfn_xxxxxx) {
         assert_se(p = path_join(dir, "a"));
         assert_se(q = path_join(dir, ".#a"));
 
-        test_tempfn_xxxxxx_one(p, NULL, q, 0);
-        test_tempfn_xxxxxx_one(p, "b", NULL, -EINVAL);
+        test_tempfn_xxxxxx_one(p, /* extra= */ NULL, q, /* ret= */ 0);
+        test_tempfn_xxxxxx_one(p, "b", /* expect= */ NULL, -EINVAL);
 
         p = mfree(p);
         q = mfree(q);
@@ -222,12 +222,12 @@ TEST(tempfn_xxxxxx) {
         memset(stpcpy(q, ".#"), 'x', NAME_MAX - STRLEN(".#") - 6);
         q[NAME_MAX - 6] = '\0';
 
-        test_tempfn_xxxxxx_one(p, NULL, q, 0);
+        test_tempfn_xxxxxx_one(p, /* extra= */ NULL, q, /* ret= */ 0);
 
         memset(stpcpy(q, ".#hoge"), 'x', NAME_MAX - STRLEN(".#hoge") - 6);
         q[NAME_MAX - 6] = '\0';
 
-        test_tempfn_xxxxxx_one(p, "hoge", q, 0);
+        test_tempfn_xxxxxx_one(p, "hoge", q, /* ret= */ 0);
 }
 
 static void test_tempfn_random_child_one(const char *p, const char *extra, const char *expect, int ret) {
@@ -253,29 +253,29 @@ static void test_tempfn_random_child_one(const char *p, const char *extra, const
 TEST(tempfn_random_child) {
         _cleanup_free_ char *dir = NULL, *p = NULL, *q = NULL;
 
-        test_tempfn_random_child_one("", NULL, ".#", 0);
-        test_tempfn_random_child_one(".", NULL, ".#", 0);
-        test_tempfn_random_child_one("..", NULL, "../.#", 0);
-        test_tempfn_random_child_one("/", NULL, "/.#", 0);
-        test_tempfn_random_child_one("foo", "hoge/aaa", NULL, -EINVAL);
+        test_tempfn_random_child_one("", /* extra= */ NULL, ".#", /* ret= */ 0);
+        test_tempfn_random_child_one(".", /* extra= */ NULL, ".#", /* ret= */ 0);
+        test_tempfn_random_child_one("..", /* extra= */ NULL, "../.#", /* ret= */ 0);
+        test_tempfn_random_child_one("/", /* extra= */ NULL, "/.#", /* ret= */ 0);
+        test_tempfn_random_child_one("foo", "hoge/aaa", /* expect= */ NULL, -EINVAL);
 
-        test_tempfn_random_child_one("foo", NULL, "foo/.#", 0);
-        test_tempfn_random_child_one("foo", "bar", "foo/.#bar", 0);
-        test_tempfn_random_child_one("/tmp/foo", NULL, "/tmp/foo/.#", 0);
-        test_tempfn_random_child_one("/tmp/foo", "bar", "/tmp/foo/.#bar", 0);
-        test_tempfn_random_child_one("./foo", NULL, "foo/.#", 0);
-        test_tempfn_random_child_one("./foo", "bar", "foo/.#bar", 0);
-        test_tempfn_random_child_one("../foo", NULL, "../foo/.#", 0);
-        test_tempfn_random_child_one("../foo", "bar", "../foo/.#bar", 0);
+        test_tempfn_random_child_one("foo", /* extra= */ NULL, "foo/.#", /* ret= */ 0);
+        test_tempfn_random_child_one("foo", "bar", "foo/.#bar", /* ret= */ 0);
+        test_tempfn_random_child_one("/tmp/foo", /* extra= */ NULL, "/tmp/foo/.#", /* ret= */ 0);
+        test_tempfn_random_child_one("/tmp/foo", "bar", "/tmp/foo/.#bar", /* ret= */ 0);
+        test_tempfn_random_child_one("./foo", /* extra= */ NULL, "foo/.#", /* ret= */ 0);
+        test_tempfn_random_child_one("./foo", "bar", "foo/.#bar", /* ret= */ 0);
+        test_tempfn_random_child_one("../foo", /* extra= */ NULL, "../foo/.#", /* ret= */ 0);
+        test_tempfn_random_child_one("../foo", "bar", "../foo/.#bar", /* ret= */ 0);
 
-        test_tempfn_random_child_one("foo/", NULL, "foo/.#", 0);
-        test_tempfn_random_child_one("foo/", "bar", "foo/.#bar", 0);
-        test_tempfn_random_child_one("/tmp/foo/", NULL, "/tmp/foo/.#", 0);
-        test_tempfn_random_child_one("/tmp/foo/", "bar", "/tmp/foo/.#bar", 0);
-        test_tempfn_random_child_one("./foo/", NULL, "foo/.#", 0);
-        test_tempfn_random_child_one("./foo/", "bar", "foo/.#bar", 0);
-        test_tempfn_random_child_one("../foo/", NULL, "../foo/.#", 0);
-        test_tempfn_random_child_one("../foo/", "bar", "../foo/.#bar", 0);
+        test_tempfn_random_child_one("foo/", /* extra= */ NULL, "foo/.#", /* ret= */ 0);
+        test_tempfn_random_child_one("foo/", "bar", "foo/.#bar", /* ret= */ 0);
+        test_tempfn_random_child_one("/tmp/foo/", /* extra= */ NULL, "/tmp/foo/.#", /* ret= */ 0);
+        test_tempfn_random_child_one("/tmp/foo/", "bar", "/tmp/foo/.#bar", /* ret= */ 0);
+        test_tempfn_random_child_one("./foo/", /* extra= */ NULL, "foo/.#", /* ret= */ 0);
+        test_tempfn_random_child_one("./foo/", "bar", "foo/.#bar", /* ret= */ 0);
+        test_tempfn_random_child_one("../foo/", /* extra= */ NULL, "../foo/.#", /* ret= */ 0);
+        test_tempfn_random_child_one("../foo/", "bar", "../foo/.#bar", /* ret= */ 0);
 
         assert_se(dir = new(char, PATH_MAX - 21));
         memset(dir, 'x', PATH_MAX - 22);
@@ -286,8 +286,8 @@ TEST(tempfn_random_child) {
         assert_se(p = path_join(dir, "a"));
         assert_se(q = path_join(p, ".#"));
 
-        test_tempfn_random_child_one(p, NULL, q, 0);
-        test_tempfn_random_child_one(p, "b", NULL, -EINVAL);
+        test_tempfn_random_child_one(p, /* extra= */ NULL, q, /* ret= */ 0);
+        test_tempfn_random_child_one(p, "b", /* expect= */ NULL, -EINVAL);
 
         p = mfree(p);
         q = mfree(q);
@@ -298,10 +298,10 @@ TEST(tempfn_random_child) {
 
         assert_se(q = path_join(p, ".#"));
 
-        test_tempfn_random_child_one(p, NULL, q, 0);
+        test_tempfn_random_child_one(p, /* extra= */ NULL, q, /* ret= */ 0);
 
         assert_se(strextend(&q, "hoge"));
-        test_tempfn_random_child_one(p, "hoge", q, 0);
+        test_tempfn_random_child_one(p, "hoge", q, /* ret= */ 0);
 }
 
 TEST(link_tmpfile) {
@@ -332,7 +332,7 @@ TEST(link_tmpfile) {
         assert_se(endswith(ans2, " (deleted)"));
 
         pattern = strjoina(p, "/tmpfiles-test");
-        assert_se(tempfn_random(pattern, NULL, &d) >= 0);
+        assert_se(tempfn_random(pattern, /* extra= */ NULL, &d) >= 0);
 
         fd = safe_close(fd);
         fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);

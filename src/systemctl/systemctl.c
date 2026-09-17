@@ -505,7 +505,7 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
                         }
 
                         /* First, try to parse unsigned, so that we can support the prefixes 0x, 0o, 0b */
-                        r = safe_atou_full(opts.arg, 0, &u);
+                        r = safe_atou_full(opts.arg, /* base= */ 0, &u);
                         if (r < 0)
                                 /* If this didn't work, try as signed integer, without those prefixes */
                                 r = safe_atoi(opts.arg, &arg_kill_value);
@@ -595,7 +595,7 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
                         break;
 
                 OPTION_LONG("legend", "BOOL", "Enable/disable the legend (column headers and hints)"):
-                        r = parse_boolean_argument("--legend", opts.arg, NULL);
+                        r = parse_boolean_argument("--legend", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         arg_legend = r;
@@ -637,14 +637,14 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
 
                 OPTION_LONG("root", "PATH",
                             "Edit/enable/disable/mask unit files in the specified root directory"):
-                        r = parse_path_argument(opts.arg, false, &arg_root);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("image", "PATH",
                             "Edit/enable/disable/mask unit files in the specified disk image"):
-                        r = parse_path_argument(opts.arg, false, &arg_image);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;

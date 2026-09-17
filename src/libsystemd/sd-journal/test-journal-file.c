@@ -25,18 +25,18 @@ static void test_journal_file_parse_uid_from_filename_simple(
 
 TEST(journal_file_parse_uid_from_filename) {
 
-        test_journal_file_parse_uid_from_filename_simple("/var/log/journal/", 0, -EISDIR);
+        test_journal_file_parse_uid_from_filename_simple("/var/log/journal/", /* expected_uid= */ 0, -EISDIR);
 
         /* The helper should return -EREMOTE for any filenames that don't look like an online or offline user
          * journals. This includes archived and disposed journal files. */
-        test_journal_file_parse_uid_from_filename_simple("/etc/password", 0, -EREMOTE);
-        test_journal_file_parse_uid_from_filename_simple("system.journal", 0, -EREMOTE);
-        test_journal_file_parse_uid_from_filename_simple("user-1000@0005d26980bdce6e-2f2a4939583822ef.journal~", 0, -EREMOTE);
-        test_journal_file_parse_uid_from_filename_simple("user-1000@xxx-yyy-zzz.journal", 0, -EREMOTE);
+        test_journal_file_parse_uid_from_filename_simple("/etc/password", /* expected_uid= */ 0, -EREMOTE);
+        test_journal_file_parse_uid_from_filename_simple("system.journal", /* expected_uid= */ 0, -EREMOTE);
+        test_journal_file_parse_uid_from_filename_simple("user-1000@0005d26980bdce6e-2f2a4939583822ef.journal~", /* expected_uid= */ 0, -EREMOTE);
+        test_journal_file_parse_uid_from_filename_simple("user-1000@xxx-yyy-zzz.journal", /* expected_uid= */ 0, -EREMOTE);
 
-        test_journal_file_parse_uid_from_filename_simple("user-1000.journal", 1000, 0);
-        test_journal_file_parse_uid_from_filename_simple("user-foo.journal", 0, -EINVAL);
-        test_journal_file_parse_uid_from_filename_simple("user-65535.journal", 0, -ENXIO);
+        test_journal_file_parse_uid_from_filename_simple("user-1000.journal", 1000, /* expected_error= */ 0);
+        test_journal_file_parse_uid_from_filename_simple("user-foo.journal", /* expected_uid= */ 0, -EINVAL);
+        test_journal_file_parse_uid_from_filename_simple("user-65535.journal", /* expected_uid= */ 0, -ENXIO);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

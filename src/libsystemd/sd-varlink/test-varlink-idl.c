@@ -174,7 +174,7 @@ static void test_parse_format_one(const sd_varlink_interface *iface) {
         assert_se(sd_varlink_idl_dump(stdout, iface, SD_VARLINK_IDL_FORMAT_COLOR, /* cols= */ SIZE_MAX) >= 0);
         assert_se(varlink_idl_consistent(iface, LOG_ERR) >= 0);
         assert_se(sd_varlink_idl_format(iface, &text) >= 0);
-        assert_se(sd_varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
+        assert_se(sd_varlink_idl_parse(text, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &parsed) >= 0);
         assert_se(varlink_idl_consistent(parsed, LOG_ERR) >= 0);
         assert_se(sd_varlink_idl_format(parsed, &text2) >= 0);
 
@@ -187,10 +187,10 @@ static void test_parse_format_one(const sd_varlink_interface *iface) {
         /* Do the same thing, but aggressively line break, and make sure this is roundtrippable as well */
         assert_se(sd_varlink_idl_dump(stdout, iface, SD_VARLINK_IDL_FORMAT_COLOR, 23) >= 0);
         assert_se(varlink_idl_consistent(iface, LOG_ERR) >= 0);
-        assert_se(sd_varlink_idl_format_full(iface, 0, 23, &text) >= 0);
-        assert_se(sd_varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
+        assert_se(sd_varlink_idl_format_full(iface, /* flags= */ 0, 23, &text) >= 0);
+        assert_se(sd_varlink_idl_parse(text, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &parsed) >= 0);
         assert_se(varlink_idl_consistent(parsed, LOG_ERR) >= 0);
-        assert_se(sd_varlink_idl_format_full(parsed, 0, 23, &text2) >= 0);
+        assert_se(sd_varlink_idl_format_full(parsed, /* flags= */ 0, 23, &text2) >= 0);
 
         ASSERT_STREQ(text, text2);
 }
@@ -266,17 +266,17 @@ TEST(parse) {
                 "type Barstruct ( a : (x, y, z), b : (x : int), c: (f, ff, fff), d: object, e : (sub : (subsub: (subsubsub: string, subsubsub2: (iii, ooo)))))"
                 ;
 
-        assert_se(sd_varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
+        assert_se(sd_varlink_idl_parse(text, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &parsed) >= 0);
         test_parse_format_one(parsed);
 
         assert_se(sd_varlink_idl_parse("interface org.freedesktop.Foo\n"
-                                       "type Foo (b: bool, c: foo, c: int)", NULL, NULL, NULL) == -ENETUNREACH); /* unresolved type */
+                                       "type Foo (b: bool, c: foo, c: int)", /* reterr_line= */ NULL, /* reterr_column= */ NULL, /* ret= */ NULL) == -ENETUNREACH); /* unresolved type */
         assert_se(sd_varlink_idl_parse("interface org.freedesktop.Foo\n"
-                                       "type Foo ()", NULL, NULL, NULL) == -EBADMSG); /* empty struct/enum */
+                                       "type Foo ()", /* reterr_line= */ NULL, /* reterr_column= */ NULL, /* ret= */ NULL) == -EBADMSG); /* empty struct/enum */
 }
 
 TEST(interface_name_is_valid) {
-        assert_se(!varlink_idl_interface_name_is_valid(NULL));
+        assert_se(!varlink_idl_interface_name_is_valid(/* name= */ NULL));
         assert_se(!varlink_idl_interface_name_is_valid(""));
         assert_se(!varlink_idl_interface_name_is_valid(","));
         assert_se(!varlink_idl_interface_name_is_valid("."));
@@ -295,7 +295,7 @@ TEST(interface_name_is_valid) {
 }
 
 TEST(symbol_name_is_valid) {
-        assert_se(!varlink_idl_symbol_name_is_valid(NULL));
+        assert_se(!varlink_idl_symbol_name_is_valid(/* name= */ NULL));
         assert_se(!varlink_idl_symbol_name_is_valid(""));
         assert_se(!varlink_idl_symbol_name_is_valid("_"));
         assert_se(!varlink_idl_symbol_name_is_valid("_foo"));
@@ -314,7 +314,7 @@ TEST(symbol_name_is_valid) {
 }
 
 TEST(field_name_is_valid) {
-        assert_se(!varlink_idl_field_name_is_valid(NULL));
+        assert_se(!varlink_idl_field_name_is_valid(/* name= */ NULL));
         assert_se(!varlink_idl_field_name_is_valid(""));
         assert_se(!varlink_idl_field_name_is_valid("_"));
         assert_se(!varlink_idl_field_name_is_valid("_foo"));
@@ -333,7 +333,7 @@ TEST(field_name_is_valid) {
 }
 
 TEST(qualified_symbol_name_is_valid) {
-        assert_se(varlink_idl_qualified_symbol_name_is_valid(NULL) == 0);
+        assert_se(varlink_idl_qualified_symbol_name_is_valid(/* name= */ NULL) == 0);
         assert_se(varlink_idl_qualified_symbol_name_is_valid("") == 0);
         assert_se(varlink_idl_qualified_symbol_name_is_valid("x") == 0);
         assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx") == 0);
@@ -356,7 +356,7 @@ TEST(validate_json) {
                 "#paff\n"
                 "b:int, c:?bool, d:[]int, e:?[string]bool, f:?(piff, paff), g:(f:float) ) -> ()\n";
 
-        assert_se(sd_varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
+        assert_se(sd_varlink_idl_parse(text, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &parsed) >= 0);
         test_parse_format_one(parsed);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -367,7 +367,7 @@ TEST(validate_json) {
                                              SD_JSON_BUILD_PAIR("d", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(5), SD_JSON_BUILD_UNSIGNED(7), SD_JSON_BUILD_UNSIGNED(107))),
                                              SD_JSON_BUILD_PAIR("g", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("f", SD_JSON_BUILD_REAL(0.5f)))))) >= 0);
 
-        sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, stdout, NULL);
+        sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, stdout, /* prefix= */ NULL);
 
         const sd_varlink_symbol* symbol = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, "Mymethod"));
 
@@ -391,7 +391,7 @@ static int test_recursive_one(unsigned depth) {
         if (!text)
                 return log_oom();
 
-        return sd_varlink_idl_parse(text, NULL, NULL, &parsed);
+        return sd_varlink_idl_parse(text, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &parsed);
 }
 
 TEST(recursive) {
@@ -413,7 +413,7 @@ static int test_method(sd_varlink *link, sd_json_variant *parameters, sd_varlink
 }
 
 static int done_method(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        assert_se(sd_event_exit(sd_varlink_get_event(link), 0) >= 0);
+        assert_se(sd_event_exit(sd_varlink_get_event(link), /* code= */ 0) >= 0);
         return 0;
 }
 
@@ -437,16 +437,16 @@ static void* server_thread(void *userdata) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
 
-        assert_se(sd_varlink_server_new(&server, 0) >= 0);
+        assert_se(sd_varlink_server_new(&server, /* flags= */ 0) >= 0);
         assert_se(varlink_set_info_systemd(server) >= 0);
         assert_se(sd_varlink_server_add_interface(server, &vl_interface_xyz) >= 0);
         assert_se(sd_varlink_server_bind_method(server, "xyz.TestMethod", test_method) >= 0);
         assert_se(sd_varlink_server_bind_method(server, "xyz.Done", done_method) >= 0);
 
         assert_se(sd_event_new(&event) >= 0);
-        assert_se(sd_varlink_server_attach_event(server, event, 0) >= 0);
+        assert_se(sd_varlink_server_attach_event(server, event, /* priority= */ 0) >= 0);
 
-        assert_se(sd_varlink_server_add_connection(server, PTR_TO_FD(userdata), NULL) >= 0);
+        assert_se(sd_varlink_server_add_connection(server, PTR_TO_FD(userdata), /* ret= */ NULL) >= 0);
 
         assert_se(sd_event_loop(event) >= 0);
         return NULL;
@@ -476,8 +476,8 @@ TEST(validate_method_call) {
 
         assert_se(!error_id);
 
-        sd_json_variant_dump(reply, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL);
-        sd_json_variant_dump(expected_reply, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL);
+        sd_json_variant_dump(reply, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, NULL, /* prefix= */ NULL);
+        sd_json_variant_dump(expected_reply, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, NULL, /* prefix= */ NULL);
         assert_se(sd_json_variant_equal(reply, expected_reply));
 
         assert_se(sd_varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
@@ -502,7 +502,7 @@ TEST(validate_method_call) {
                                                 SD_JSON_BUILD_PAIR_UNSIGNED("bar", 9))) >= 0);
         ASSERT_STREQ(error_id, SD_VARLINK_ERROR_INVALID_PARAMETER);
 
-        assert_se(sd_varlink_send(v, "xyz.Done", NULL) >= 0);
+        assert_se(sd_varlink_send(v, "xyz.Done", /* parameters= */ NULL) >= 0);
         assert_se(sd_varlink_flush(v) >= 0);
         assert_se(pthread_join(t, NULL) == 0);
 }

@@ -759,9 +759,9 @@ static int context_show_table(Context *c) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 0), 100);
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 2), 50);
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 3), 50);
+        (void) table_set_align_percent(t, table_get_cell(t, /* row= */ 0, /* column= */ 0), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, /* row= */ 0, 2), 50);
+        (void) table_set_align_percent(t, table_get_cell(t, /* row= */ 0, 3), 50);
 
         FOREACH_ARRAY(update_set, c->update_sets, c->n_update_sets) {
                 UpdateSet *us = *update_set;
@@ -823,12 +823,12 @@ static int context_show_version(Context *c, const char *version) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 3), 100);
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 4), 100);
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 5), 100);
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 6), 100);
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 7), 100);
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 8), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, /* row= */ 0, 3), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, /* row= */ 0, 4), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, /* row= */ 0, 5), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, /* row= */ 0, 6), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, /* row= */ 0, 7), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, /* row= */ 0, 8), 100);
         table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
 
         /* Starting in v257, these fields would be automatically formatted with underscores. This would have
@@ -879,57 +879,57 @@ static int context_show_version(Context *c, const char *version) {
 
                 if (i->metadata.partition_uuid_set) {
                         have_partition_attributes = true;
-                        r = table_add_cell(t, NULL, TABLE_UUID, &i->metadata.partition_uuid);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_UUID, &i->metadata.partition_uuid);
                 } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
                 if (i->metadata.partition_flags_set) {
                         have_partition_attributes = true;
-                        r = table_add_cell(t, NULL, TABLE_UINT64_HEX, &i->metadata.partition_flags);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_UINT64_HEX, &i->metadata.partition_flags);
                 } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
                 if (i->metadata.mtime != USEC_INFINITY) {
                         have_fs_attributes = true;
-                        r = table_add_cell(t, NULL, TABLE_TIMESTAMP, &i->metadata.mtime);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_TIMESTAMP, &i->metadata.mtime);
                 } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
                 if (i->metadata.mode != MODE_INVALID) {
                         have_fs_attributes = true;
-                        r = table_add_cell(t, NULL, TABLE_MODE, &i->metadata.mode);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_MODE, &i->metadata.mode);
                 } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
                 if (i->metadata.size != UINT64_MAX) {
                         have_size = true;
-                        r = table_add_cell(t, NULL, TABLE_SIZE, &i->metadata.size);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_SIZE, &i->metadata.size);
                 } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
                 if (i->metadata.tries_done != UINT64_MAX) {
                         have_tries = true;
-                        r = table_add_cell(t, NULL, TABLE_UINT64, &i->metadata.tries_done);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_UINT64, &i->metadata.tries_done);
                 } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
                 if (i->metadata.tries_left != UINT64_MAX) {
                         have_tries = true;
-                        r = table_add_cell(t, NULL, TABLE_UINT64, &i->metadata.tries_left);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_UINT64, &i->metadata.tries_left);
                 } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -938,9 +938,9 @@ static int context_show_version(Context *c, const char *version) {
 
                         have_no_auto = true;
                         b = i->metadata.no_auto;
-                        r = table_add_cell(t, NULL, TABLE_BOOLEAN, &b);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_BOOLEAN, &b);
                 } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
                 if (i->metadata.read_only >= 0) {
@@ -948,9 +948,9 @@ static int context_show_version(Context *c, const char *version) {
 
                         have_read_only = true;
                         b = i->metadata.read_only;
-                        r = table_add_cell(t, NULL, TABLE_BOOLEAN, &b);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_BOOLEAN, &b);
                 } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -959,9 +959,9 @@ static int context_show_version(Context *c, const char *version) {
 
                         have_growfs = true;
                         b = i->metadata.growfs;
-                        r = table_add_cell(t, NULL, TABLE_BOOLEAN, &b);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_BOOLEAN, &b);
                 } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -974,9 +974,9 @@ static int context_show_version(Context *c, const char *version) {
                         if (!formatted)
                                 return log_oom();
 
-                        r = table_add_cell(t, NULL, TABLE_STRING, formatted);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_STRING, formatted);
                 } else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -1022,7 +1022,7 @@ static int context_show_version(Context *c, const char *version) {
 
                 STRV_FOREACH(url, changelog_urls) {
                         _cleanup_free_ char *changelog_link = NULL;
-                        r = terminal_urlify(*url, NULL, &changelog_link);
+                        r = terminal_urlify(*url, /* text= */ NULL, &changelog_link);
                         if (r < 0)
                                 return log_oom();
                         printf("ChangeLog: %s\n", changelog_link);
@@ -1051,7 +1051,7 @@ static int context_show_version(Context *c, const char *version) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
-                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print JSON: %m");
 
@@ -1089,7 +1089,7 @@ static int context_vacuum(
         }
 
         FOREACH_ARRAY(tr, c->disabled_transfers, c->n_disabled_transfers) {
-                r = transfer_vacuum(*tr, UINT64_MAX /* wipe all instances */, NULL);
+                r = transfer_vacuum(*tr, UINT64_MAX /* wipe all instances */, /* extra_protected_version= */ NULL);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -1114,7 +1114,7 @@ static int context_vacuum(
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
-                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print JSON: %m");
         }
@@ -1289,7 +1289,7 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
         Image *image;
         int r;
 
-        r = image_discover(runtime_scope, (ImageClass) class, NULL, &images);
+        r = image_discover(runtime_scope, (ImageClass) class, /* root= */ NULL, &images);
         if (r < 0)
                 return r;
 
@@ -1419,7 +1419,7 @@ static int context_load_paths_from_target(Context *context) {
                 Image *image, *selected_image = NULL;
 
                 /* These are all image-based target classes, so first find the corresponding image. */
-                r = image_discover(RUNTIME_SCOPE_SYSTEM, (ImageClass) context->target_identifier.class, NULL, &images);
+                r = image_discover(RUNTIME_SCOPE_SYSTEM, (ImageClass) context->target_identifier.class, /* root= */ NULL, &images);
                 if (r < 0)
                         return r;
 
@@ -1442,7 +1442,7 @@ static int context_load_paths_from_target(Context *context) {
 
                         /* Load the components in a separate Context specific to the given Image before
                          * committing to loading that state to the main Context. */
-                        r = context_load_offline(&image_context, 0, 0);
+                        r = context_load_offline(&image_context, /* process_image_flags= */ 0, /* read_definitions_flags= */ 0);
                         if (r < 0)
                                 return r;
 
@@ -2011,7 +2011,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
-                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print JSON: %m");
 
@@ -2065,7 +2065,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                         if (r < 0)
                                 return r;
 
-                        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, /* prefix= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to print JSON: %m");
 
@@ -2186,7 +2186,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
-                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print JSON: %m");
         }
@@ -2482,7 +2482,7 @@ static int vl_method_list_features(sd_varlink *link, sd_json_variant *parameters
                         PROCESS_IMAGE_READ_ONLY,
                         READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r == -ENOENT)
-                return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", NULL);
+                return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2501,7 +2501,7 @@ static int vl_method_list_features(sd_varlink *link, sd_json_variant *parameters
         }
 
         if (!l) {
-                r = sd_json_variant_new_array(&l, NULL, 0);
+                r = sd_json_variant_new_array(&l, /* array= */ NULL, 0);
                 if (r < 0)
                         return r;
         }
@@ -2552,7 +2552,7 @@ static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdat
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
-                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print JSON: %m");
 
@@ -2599,14 +2599,14 @@ static int vl_method_check_new(sd_varlink *link, sd_json_variant *parameters, sd
                         READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS|
                         READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS);
         if (r == -ENOENT)
-                return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", NULL);
+                return sd_varlink_error(link, "io.systemd.SysUpdate.NoSuchTarget", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
         if (context.candidate)
                 r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("available", context.candidate->version));
         else
-                r = sd_varlink_error(link, "io.systemd.SysUpdate.NoUpdateNeeded", NULL);
+                r = sd_varlink_error(link, "io.systemd.SysUpdate.NoUpdateNeeded", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2823,7 +2823,7 @@ static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (r < 0)
                 return r;
 
-        return context_vacuum(&context, 0, NULL);
+        return context_vacuum(&context, /* space= */ 0, /* extra_protected_version= */ NULL);
 }
 
 VERB_NOARG(verb_cleanup, "cleanup", "Clean up orphaned files");
@@ -3111,7 +3111,7 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
-                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, /* prefix= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print JSON: %m");
         }
@@ -3126,7 +3126,7 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, NULL, NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -3171,7 +3171,7 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
         }
 
         if (!l) {
-                r = sd_json_variant_new_array(&l, NULL, 0);
+                r = sd_json_variant_new_array(&l, /* array= */ NULL, 0);
                 if (r < 0)
                         return r;
         }

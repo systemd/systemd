@@ -217,7 +217,7 @@ int get_unit_list(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0 && (sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_METHOD,
                                                      SD_BUS_ERROR_ACCESS_DENIED))) {
                 /* Fallback to legacy ListUnitsFiltered method */
@@ -234,7 +234,7 @@ int get_unit_list(
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, 0, &error, &reply);
+                r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
@@ -288,7 +288,7 @@ int expand_unit_names(
                 UnitNameMangle options = UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN);
                 char *t;
 
-                r = unit_name_mangle_with_suffix(*name, NULL, options, suffix ?: ".service", &t);
+                r = unit_name_mangle_with_suffix(*name, /* operation= */ NULL, options, suffix ?: ".service", &t);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle name: %m");
 
@@ -306,7 +306,7 @@ int expand_unit_names(
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
 
-                r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
+                r = get_unit_list(bus, /* machine= */ NULL, globs, &unit_infos, 0, &reply);
                 if (r < 0)
                         return r;
 
@@ -332,7 +332,7 @@ int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_maske
         assert(unit);
         assert(ret);
 
-        r = unit_name_mangle(unit, 0, &name);
+        r = unit_name_mangle(unit, /* flags= */ 0, &name);
         if (r < 0)
                 return r;
 
@@ -425,7 +425,7 @@ int need_daemon_reload(sd_bus *bus, const char *unit) {
         /* We don't use unit_dbus_path_from_name() directly since we
          * don't want to load the unit if it isn't loaded. */
 
-        r = bus_call_method(bus, bus_systemd_mgr, "GetUnit", NULL, &reply, "s", unit);
+        r = bus_call_method(bus, bus_systemd_mgr, "GetUnit", /* reterr_error= */ NULL, &reply, "s", unit);
         if (r < 0)
                 return r;
 
@@ -439,7 +439,7 @@ int need_daemon_reload(sd_bus *bus, const char *unit) {
                         path,
                         "org.freedesktop.systemd1.Unit",
                         "NeedDaemonReload",
-                        NULL,
+                        /* reterr_error= */ NULL,
                         'b', &b);
         if (r < 0)
                 return r;
@@ -470,7 +470,7 @@ int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **ret_unit_
                 if (!path)
                         return log_oom();
 
-                r = chase(path, arg_root, 0, &lpath, NULL);
+                r = chase(path, arg_root, /* flags= */ 0, &lpath, /* ret_fd= */ NULL);
                 if (r == -ENOENT)
                         continue;
                 if (r == -ENOMEM)
@@ -582,7 +582,7 @@ int unit_find_paths(
                 }
         } else {
                 if (!*cached_name_map) {
-                        r = unit_file_build_name_map(lp, NULL, cached_id_map, cached_name_map, NULL);
+                        r = unit_file_build_name_map(lp, /* cache_timestamp_hash= */ NULL, cached_id_map, cached_name_map, /* path_cache= */ NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -607,9 +607,9 @@ int unit_find_paths(
                 }
 
                 if (ret_dropin_paths) {
-                        r = unit_file_find_dropin_paths(arg_root, lp->search_path, NULL,
+                        r = unit_file_find_dropin_paths(arg_root, lp->search_path, /* unit_path_cache= */ NULL,
                                                         ".d", ".conf",
-                                                        NULL, names, &dropins);
+                                                        /* name= */ NULL, names, &dropins);
                         if (r < 0)
                                 return r;
                 }
@@ -733,7 +733,7 @@ int unit_exists(LookupPaths *lp, const char *unit) {
         int r;
 
         if (unit_name_is_valid(unit, UNIT_NAME_TEMPLATE))
-                return unit_find_template_path(unit, lp, NULL, NULL);
+                return unit_find_template_path(unit, lp, /* ret_fragment_path= */ NULL, /* ret_template= */ NULL);
 
         path = unit_dbus_path_from_name(unit);
         if (!path)
@@ -743,7 +743,7 @@ int unit_exists(LookupPaths *lp, const char *unit) {
         if (r < 0)
                 return r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, property_map, 0, &error, &m, &info);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, property_map, /* flags= */ 0, &error, &m, &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
@@ -840,7 +840,7 @@ int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
                                    map[arg_dependency],
                                    BUS_MAP_STRDUP,
                                    &error,
-                                   NULL,
+                                   /* ret_reply= */ NULL,
                                    &deps);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties of %s: %s", name, bus_error_message(&error, r));

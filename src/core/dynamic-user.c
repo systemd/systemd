@@ -375,7 +375,7 @@ static int dynamic_user_realize(
                 /* Let's see if a proper, static user or group by this name exists. Try to take the lock on
                  * /etc/passwd, if that fails with EROFS then /etc is read-only. In that case it's fine if we don't
                  * take the lock, given that users can't be added there anyway in this case. */
-                r = etc_passwd_lock_fd = take_etc_passwd_lock(NULL);
+                r = etc_passwd_lock_fd = take_etc_passwd_lock(/* root= */ NULL);
                 if (r < 0 && r != -EROFS)
                         return r;
 
@@ -764,13 +764,13 @@ int dynamic_creds_realize(DynamicCreds *creds, char **suggested_paths, uid_t *ui
         /* Realize both the referenced user and group */
 
         if (creds->user) {
-                r = dynamic_user_realize(creds->user, suggested_paths, &u, &g, true);
+                r = dynamic_user_realize(creds->user, suggested_paths, &u, &g, /* is_user= */ true);
                 if (r < 0)
                         return r;
         }
 
         if (creds->group && creds->group != creds->user) {
-                r = dynamic_user_realize(creds->group, suggested_paths, NULL, &g, false);
+                r = dynamic_user_realize(creds->group, suggested_paths, /* ret_uid= */ NULL, &g, /* is_user= */ false);
                 if (r < 0)
                         return r;
         }

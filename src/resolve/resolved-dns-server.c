@@ -685,7 +685,7 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 
         log_debug("Announcing packet size %zu in egress EDNS(0) packet.", packet_size);
 
-        return dns_packet_append_opt(packet, packet_size, edns_do, /* include_rfc6975= */ true, NULL, 0, NULL);
+        return dns_packet_append_opt(packet, packet_size, edns_do, /* include_rfc6975= */ true, /* nsid= */ NULL, /* rcode= */ 0, /* ret_start= */ NULL);
 }
 
 int dns_server_ifindex(const DnsServer *s) {
@@ -938,7 +938,7 @@ int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, con
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&string, &word, NULL, 0);
+                r = extract_first_word(&string, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r <= 0)
                         return r;
 
@@ -995,7 +995,7 @@ int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&string, &word, NULL, EXTRACT_UNQUOTE);
+                r = extract_first_word(&string, &word, /* separators= */ NULL, EXTRACT_UNQUOTE);
                 if (r <= 0)
                         return r;
 
@@ -1080,7 +1080,7 @@ DnsServer *manager_get_dns_server(Manager *m) {
 
         while (m->current_dns_server &&
                manager_server_is_stub(m, m->current_dns_server)) {
-                manager_next_dns_server(m, NULL);
+                manager_next_dns_server(m, /* if_current= */ NULL);
                 if (m->current_dns_server == m->dns_servers)
                         manager_set_dns_server(m, NULL);
         }

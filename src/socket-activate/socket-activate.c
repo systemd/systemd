@@ -64,7 +64,7 @@ static int open_sockets(int *ret_epoll_fd) {
 
         assert(ret_epoll_fd);
 
-        n = sd_listen_fds(true);
+        n = sd_listen_fds(/* unset_environment= */ true);
         if (n < 0)
                 return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
         if (n > 0) {
@@ -287,7 +287,7 @@ static int do_accept(char * const *argv, int fd) {
         }
 
         (void) getsockname_pretty(fd_accepted, &local);
-        (void) getpeername_pretty(fd_accepted, true, &peer);
+        (void) getpeername_pretty(fd_accepted, /* include_port= */ true, &peer);
         log_info("Connection from %s to %s", strna(peer), strna(local));
 
         return fork_and_exec_process(argv, fd_accepted);
@@ -402,7 +402,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         /* Empty argument means one empty name */
                         r = strv_extend_strv(&arg_fdnames,
                                              strv_isempty(names) ? STRV_MAKE("") : names,
-                                             false);
+                                             /* filter_duplicates= */ false);
                         if (r < 0)
                                 return log_error_errno(r, "strv_extend_strv: %m");
                         break;

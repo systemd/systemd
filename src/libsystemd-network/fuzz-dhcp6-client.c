@@ -55,7 +55,7 @@ static void fuzz_client(sd_dhcp6_client *client, const uint8_t *data, size_t siz
                 }
 
         /* Send message if the client has a lease. */
-        if (state != DHCP6_STATE_INFORMATION_REQUEST && sd_dhcp6_client_get_lease(client, NULL) >= 0) {
+        if (state != DHCP6_STATE_INFORMATION_REQUEST && sd_dhcp6_client_get_lease(client, /* ret= */ NULL) >= 0) {
                 client->state = DHCP6_STATE_REQUEST;
                 dhcp6_client_send_message(client);
         }
@@ -77,12 +77,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        if (outside_size_range(size, 0, 65536))
+        if (outside_size_range(size, /* lower= */ 0, 65536))
                 return 0;
 
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_dhcp6_client_new(&client) >= 0);
-        assert_se(sd_dhcp6_client_attach_event(client, e, 0) >= 0);
+        assert_se(sd_dhcp6_client_attach_event(client, e, /* priority= */ 0) >= 0);
         assert_se(sd_dhcp6_client_set_ifindex(client, 42) >= 0);
         assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
 

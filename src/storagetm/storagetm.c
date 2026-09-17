@@ -683,7 +683,7 @@ static int nvme_subsystem_report(NvmeSubsystem *subsystem, NvmePort *ipv4, NvmeP
 
         _cleanup_free_ struct local_address *addresses = NULL;
         int n_addresses;
-        n_addresses = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
+        n_addresses = local_addresses(/* context= */ NULL, /* ifindex= */ 0, AF_UNSPEC, &addresses);
         if (n_addresses < 0)
                 return log_error_errno(n_addresses, "Failed to determine local IP addresses: %m");
 
@@ -728,7 +728,7 @@ static int nvme_port_report(NvmePort *port, bool *plymouth_done) {
 
         _cleanup_free_ struct local_address *addresses = NULL;
         int n_addresses;
-        n_addresses = local_addresses(NULL, 0, port->ip_family, &addresses);
+        n_addresses = local_addresses(/* context= */ NULL, /* ifindex= */ 0, port->ip_family, &addresses);
         if (n_addresses < 0)
                 return log_error_errno(n_addresses, "Failed to determine local IP addresses: %m");
 
@@ -1066,7 +1066,7 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *mm, void *use
                                 /* ret= */ NULL,
                                 CLOCK_MONOTONIC,
                                 750 * USEC_PER_MSEC,
-                                0,
+                                /* accuracy= */ 0,
                                 on_display_refresh,
                                 c);
                 if (r < 0)

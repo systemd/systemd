@@ -192,8 +192,8 @@ static void test_monitor(struct udev *udev) {
         fd_udev = udev_monitor_get_fd(udev_monitor);
         ep_udev.data.fd = fd_udev;
 
-        assert_se(udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "block", NULL) >= 0);
-        assert_se(udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "tty", NULL) >= 0);
+        assert_se(udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "block", /* devtype= */ NULL) >= 0);
+        assert_se(udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "tty", /* devtype= */ NULL) >= 0);
         assert_se(udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "usb", "usb_device") >= 0);
 
         assert_se(udev_monitor_enable_receiving(udev_monitor) >= 0);
@@ -342,7 +342,7 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
         SAVE_ASSERT_RETURN_IS_CRITICAL;
         log_set_assert_return_is_critical(hwdb);
 
-        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0))
+        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, /* flags= */ 0))
                 log_info("'%s'='%s'", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
 
         hwdb = udev_hwdb_unref(hwdb);
@@ -354,12 +354,12 @@ static void test_list(void) {
         struct udev_list_entry *e;
 
         /* empty list */
-        assert_se(list = udev_list_new(false));
+        assert_se(list = udev_list_new(/* unique= */ false));
         assert_se(!udev_list_get_entry(list));
         list = udev_list_free(list);
 
         /* unique == false */
-        assert_se(list = udev_list_new(false));
+        assert_se(list = udev_list_new(/* unique= */ false));
         assert_se(udev_list_entry_add(list, "aaa", "hoge"));
         assert_se(udev_list_entry_add(list, "aaa", "hogehoge"));
         assert_se(udev_list_entry_add(list, "bbb", "foo"));
@@ -383,7 +383,7 @@ static void test_list(void) {
         list = udev_list_free(list);
 
         /* unique == true */
-        assert_se(list = udev_list_new(true));
+        assert_se(list = udev_list_new(/* unique= */ true));
         assert_se(udev_list_entry_add(list, "aaa", "hoge"));
         assert_se(udev_list_entry_add(list, "aaa", "hogehoge"));
         assert_se(udev_list_entry_add(list, "bbb", "foo"));

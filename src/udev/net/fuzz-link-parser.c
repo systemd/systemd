@@ -10,7 +10,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(unlink_tempfilep) char filename[] = "/tmp/fuzz-link-config.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
 
-        if (outside_size_range(size, 0, 65536))
+        if (outside_size_range(size, /* lower= */ 0, 65536))
                 return 0;
 
         fuzz_setup_logging();

@@ -1086,7 +1086,7 @@ int config_parse_advertise(
                 _cleanup_free_ char *w = NULL;
                 enum ethtool_link_mode_bit_indices mode;
 
-                r = extract_first_word(&p, &w, NULL, 0);
+                r = extract_first_word(&p, &w, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -1237,7 +1237,7 @@ int config_parse_wol(
                 _cleanup_free_ char *w = NULL;
                 bool found = false;
 
-                r = extract_first_word(&p, &w, NULL, 0);
+                r = extract_first_word(&p, &w, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {

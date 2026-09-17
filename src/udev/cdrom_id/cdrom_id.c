@@ -256,7 +256,7 @@ static int media_eject(int fd) {
         scsi_cmd_set(&sc, 4, 0x02);
         scsi_cmd_set(&sc, 5, 0);
 
-        return scsi_cmd_run_and_log(&sc, fd, NULL, 0, "start/stop unit");
+        return scsi_cmd_run_and_log(&sc, fd, /* buf= */ NULL, /* bufsize= */ 0, "start/stop unit");
 }
 
 static int cd_capability_compat(Context *c) {
@@ -1000,17 +1000,17 @@ work:
         /* lock the media, so we enable eject button events */
         if (arg_lock && c.has_media) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (lock)");
-                (void) media_lock(c.fd, true);
+                (void) media_lock(c.fd, /* lock= */ true);
         }
 
         if (arg_unlock && c.has_media) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
-                (void) media_lock(c.fd, false);
+                (void) media_lock(c.fd, /* lock= */ false);
         }
 
         if (arg_eject) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
-                (void) media_lock(c.fd, false);
+                (void) media_lock(c.fd, /* lock= */ false);
                 log_debug("START_STOP_UNIT (eject)");
                 (void) media_eject(c.fd);
         }

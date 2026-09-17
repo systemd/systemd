@@ -74,7 +74,7 @@ _public_ int cryptsetup_token_open(
                 size_t *password_len,
                 void *usrptr /* plugin defined parameter passed to crypt_activate_by_token*() API */) {
 
-        return cryptsetup_token_open_pin(cd, token, NULL, 0, password, password_len, usrptr);
+        return cryptsetup_token_open_pin(cd, token, /* pin= */ NULL, /* pin_size= */ 0, password, password_len, usrptr);
 }
 
 /*
@@ -154,7 +154,7 @@ _public_ int cryptsetup_token_validate(
                 return 1;
         }
 
-        r = sd_json_variant_unbase64(w, NULL, NULL);
+        r = sd_json_variant_unbase64(w, /* ret= */ NULL, /* ret_size= */ NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded key: %m.");
 

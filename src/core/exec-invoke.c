@@ -125,7 +125,7 @@ static int flag_fds(
                  * since after all we want to pass these fds to our
                  * children */
 
-                r = fd_cloexec(fds[i], false);
+                r = fd_cloexec(fds[i], /* cloexec= */ false);
                 if (r < 0)
                         return r;
         }
@@ -142,7 +142,7 @@ static int open_null_as(int flags, int nfd) {
         if (fd < 0)
                 return -errno;
 
-        return move_fd(fd, nfd, false);
+        return move_fd(fd, nfd, /* cloexec= */ false);
 }
 
 static int connect_journal_socket(
@@ -253,7 +253,7 @@ static int connect_logger_as(
                     exec_output_forward_to_console(output)) < 0)
                 return -errno;
 
-        return move_fd(TAKE_FD(fd), nfd, false);
+        return move_fd(TAKE_FD(fd), nfd, /* cloexec= */ false);
 }
 
 static int open_terminal_as(const char *path, int flags, int nfd) {
@@ -266,7 +266,7 @@ static int open_terminal_as(const char *path, int flags, int nfd) {
         if (fd < 0)
                 return fd;
 
-        return move_fd(fd, nfd, false);
+        return move_fd(fd, nfd, /* cloexec= */ false);
 }
 
 static int acquire_path(const char *path, int flags, mode_t mode) {
@@ -404,7 +404,7 @@ static int setup_input(
         case EXEC_INPUT_NAMED_FD:
                 assert(named_iofds[STDIN_FILENO] >= 0);
 
-                (void) fd_nonblock(named_iofds[STDIN_FILENO], false);
+                (void) fd_nonblock(named_iofds[STDIN_FILENO], /* nonblock= */ false);
                 return RET_NERRNO(dup2(named_iofds[STDIN_FILENO], STDIN_FILENO));
 
         case EXEC_INPUT_DATA: {
@@ -414,7 +414,7 @@ static int setup_input(
                 if (fd < 0)
                         return fd;
 
-                return move_fd(fd, STDIN_FILENO, false);
+                return move_fd(fd, STDIN_FILENO, /* cloexec= */ false);
         }
 
         case EXEC_INPUT_FILE: {
@@ -430,7 +430,7 @@ static int setup_input(
                 if (fd < 0)
                         return fd;
 
-                return move_fd(fd, STDIN_FILENO, false);
+                return move_fd(fd, STDIN_FILENO, /* cloexec= */ false);
         }
 
         default:
@@ -624,7 +624,7 @@ static int setup_output(
         case EXEC_OUTPUT_NAMED_FD:
                 assert(named_iofds[fileno] >= 0);
 
-                (void) fd_nonblock(named_iofds[fileno], false);
+                (void) fd_nonblock(named_iofds[fileno], /* nonblock= */ false);
                 return RET_NERRNO(dup2(named_iofds[fileno], fileno));
 
         case EXEC_OUTPUT_FILE:
@@ -650,7 +650,7 @@ static int setup_output(
                 if (fd < 0)
                         return fd;
 
-                return move_fd(fd, fileno, 0);
+                return move_fd(fd, fileno, /* cloexec= */ 0);
         }
 
         default:
@@ -1027,7 +1027,7 @@ static int enforce_user(
 
                 /* First step: If we need to keep capabilities but drop privileges we need to make sure we
                  * keep our caps, while we drop privileges. Add KEEP_CAPS to the securebits */
-                r = set_securebits(1U << SECURE_KEEP_CAPS, 0);
+                r = set_securebits(1U << SECURE_KEEP_CAPS, /* mask= */ 0);
                 if (r < 0)
                         return r;
         }
@@ -1194,7 +1194,7 @@ static int attach_to_subcgroup(
         if (r == 0)
                 return 0;
 
-        r = cg_attach(subgroup, 0);
+        r = cg_attach(subgroup, /* pid= */ 0);
         if (r == -EUCLEAN)
                 return log_error_errno(r,
                                 "Failed to attach process " PID_FMT " to cgroup '%s', "
@@ -1660,7 +1660,7 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p) {
                         return r;
         }
 
-        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_filter, action, false);
+        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_filter, action, /* log_missing= */ false);
 }
 
 static int apply_syscall_log(const ExecContext *c, const ExecParameters *p) {
@@ -1685,7 +1685,7 @@ static int apply_syscall_log(const ExecContext *c, const ExecParameters *p) {
                 action = SCMP_ACT_ALLOW;
         }
 
-        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_log, action, false);
+        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_log, action, /* log_missing= */ false);
 }
 
 static int apply_syscall_archs(const ExecContext *c, const ExecParameters *p) {
@@ -1794,7 +1794,7 @@ static int apply_protect_kernel_modules(const ExecContext *c, const ExecParamete
         if (skip_seccomp_unavailable("ProtectKernelModules="))
                 return 0;
 
-        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM), false);
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM), /* log_missing= */ false);
 }
 
 static int apply_protect_kernel_logs(const ExecContext *c, const ExecParameters *p) {
@@ -1820,7 +1820,7 @@ static int apply_protect_clock(const ExecContext *c, const ExecParameters *p) {
         if (skip_seccomp_unavailable("ProtectClock="))
                 return 0;
 
-        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_CLOCK, SCMP_ACT_ERRNO(EPERM), false);
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_CLOCK, SCMP_ACT_ERRNO(EPERM), /* log_missing= */ false);
 }
 
 static int apply_private_devices(const ExecContext *c, const ExecParameters *p) {
@@ -1835,7 +1835,7 @@ static int apply_private_devices(const ExecContext *c, const ExecParameters *p) 
         if (skip_seccomp_unavailable("PrivateDevices="))
                 return 0;
 
-        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM), false);
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM), /* log_missing= */ false);
 }
 
 static int apply_restrict_namespaces(const ExecContext *c, const ExecParameters *p) {
@@ -2071,7 +2071,7 @@ static int build_environment(
         if (!username && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 assert(!c->user);
 
-                r = get_user_creds("root", USER_CREDS_CLEAN, &_username, NULL, NULL, &_home, &_shell);
+                r = get_user_creds("root", USER_CREDS_CLEAN, &_username, /* ret_uid= */ NULL, /* ret_gid= */ NULL, &_home, &_shell);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to determine credentials for user root: %s",
                                         STRERROR_USER(r));
@@ -2577,7 +2577,7 @@ static int setup_private_users(
         if (n != 0) /* on success we should have read 0 bytes */
                 return -EIO;
 
-        r = pidref_wait_for_terminate_and_check("(sd-userns)", &pidref, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-userns)", &pidref, /* flags= */ 0);
         if (r < 0)
                 return r;
         pidref_done(&pidref);
@@ -2615,7 +2615,7 @@ static int can_mount_proc(void) {
 
                 /* Try mounting /proc on /dev/shm/. No need to clean up the mount since the mount
                  * namespace will be cleaned up once the process exits. */
-                r = mount_follow_verbose(LOG_DEBUG, "proc", "/dev/shm/", "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+                r = mount_follow_verbose(LOG_DEBUG, "proc", "/dev/shm/", "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, /* options= */ NULL);
                 if (r < 0) {
                         (void) write(errno_pipe[1], &r, sizeof(r));
                         _exit(EXIT_FAILURE);
@@ -2734,7 +2734,7 @@ static int create_many_symlinks(const char *root, const char *source, char **sym
                 if (r < 0)
                         return r;
 
-                r = symlink_idempotent(src_abs, dst_abs, true);
+                r = symlink_idempotent(src_abs, dst_abs, /* make_relative= */ true);
                 if (r < 0)
                         return r;
         }
@@ -2820,7 +2820,7 @@ static int unset_exec_storage_quota(int fd, uint32_t proj_id, bool quota_account
 
         /* Release project ID if no accounting needed */
         if (!quota_accounting) {
-                r = set_proj_id_recursive(fd, 0);
+                r = set_proj_id_recursive(fd, /* proj_id= */ 0);
                 if (r < 0)
                         log_warning_errno(r, "Failed to release project ID %" PRIu32 ", ignoring: %m", proj_id);
         }
@@ -2883,7 +2883,7 @@ static int apply_exec_quotas(
         if (*exec_dt_proj_id > 0 && *exec_dt_proj_id != proj_id) {
                 /* Set the existing project ID only if the current directory's ID does not exist or does not match */
                 proj_id = *exec_dt_proj_id;
-                r = quota_proj_id_set_recursive(fd, proj_id, false);
+                r = quota_proj_id_set_recursive(fd, proj_id, /* verify_exclusive= */ false);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to set project ID for %s: %m", target_dir);
         } else if (*exec_dt_proj_id == 0) {
@@ -2917,7 +2917,7 @@ static int apply_exec_quotas(
                         }
 
                         if (!quota_dqblk_is_populated(&req)) {
-                                int proj_id_was_set = quota_proj_id_set_recursive(fd, proj_id, true);
+                                int proj_id_was_set = quota_proj_id_set_recursive(fd, proj_id, /* verify_exclusive= */ true);
                                 if (proj_id_was_set < 0)
                                         return log_debug_errno(proj_id_was_set, "Failed to set project ID for %s: %m", target_dir);
                                 if (proj_id_was_set) {
@@ -3090,7 +3090,7 @@ static int setup_exec_directory(
                         }
 
                         /* First set up private root if it doesn't exist yet, with access mode 0700 and owned by root:root */
-                        r = mkdir_safe_label(pp, 0700, 0, 0, MKDIR_WARN_MODE);
+                        r = mkdir_safe_label(pp, 0700, /* uid= */ 0, /* gid= */ 0, MKDIR_WARN_MODE);
                         if (r < 0)
                                 goto fail;
 
@@ -3104,7 +3104,7 @@ static int setup_exec_directory(
                         if (r < 0)
                                 goto fail;
 
-                        if (is_dir(p, false) > 0 &&
+                        if (is_dir(p, /* follow= */ false) > 0 &&
                             (access_nofollow(pp, F_OK) == -ENOENT)) {
 
                                 /* Hmm, the private directory doesn't exist yet, but the normal one exists? If so, move
@@ -3140,7 +3140,7 @@ static int setup_exec_directory(
                                  *    and, /var/lib/foo is a symlink to /var/lib/private/foo. So, not only
                                  *    we do not need to create the symlink, but we cannot create the symlink.
                                  *    See issue #24783. */
-                                r = symlink_idempotent(pp, p, true);
+                                r = symlink_idempotent(pp, p, /* make_relative= */ true);
                                 if (r < 0)
                                         goto fail;
                         }
@@ -3159,7 +3159,7 @@ static int setup_exec_directory(
                                  * since they all support the private/ symlink logic at least in some
                                  * configurations, see above. */
 
-                                r = chase(target, NULL, 0, &target_resolved, NULL);
+                                r = chase(target, /* root= */ NULL, /* flags= */ 0, &target_resolved, /* ret_fd= */ NULL);
                                 if (r < 0)
                                         goto fail;
 
@@ -3170,7 +3170,7 @@ static int setup_exec_directory(
                                 }
 
                                 /* /var/lib or friends may be symlinks. So, let's chase them also. */
-                                r = chase(q, NULL, CHASE_NONEXISTENT, &q_resolved, NULL);
+                                r = chase(q, /* root= */ NULL, CHASE_NONEXISTENT, &q_resolved, /* ret_fd= */ NULL);
                                 if (r < 0)
                                         goto fail;
 
@@ -3314,7 +3314,7 @@ static int setup_smack(
         assert(executable_fd >= 0);
 
         if (context->smack_process_label) {
-                r = mac_smack_apply_pid(0, context->smack_process_label);
+                r = mac_smack_apply_pid(/* pid= */ 0, context->smack_process_label);
                 if (r < 0)
                         return r;
         } else if (params->fallback_smack_process_label) {
@@ -3324,7 +3324,7 @@ static int setup_smack(
                 if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                         return r;
 
-                r = mac_smack_apply_pid(0, exec_label ?: params->fallback_smack_process_label);
+                r = mac_smack_apply_pid(/* pid= */ 0, exec_label ?: params->fallback_smack_process_label);
                 if (r < 0)
                         return r;
         }
@@ -5489,7 +5489,7 @@ int exec_invoke(
 
         /* If a socket is connected to STDIN/STDOUT/STDERR, we must drop O_NONBLOCK */
         if (socket_fd >= 0)
-                (void) fd_nonblock(socket_fd, false);
+                (void) fd_nonblock(socket_fd, /* nonblock= */ false);
 
         /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted
          * from it. */
@@ -5522,7 +5522,7 @@ int exec_invoke(
                                                            !exec_params_needs_control_subcgroup(params)
                                                            ? params->cgroup_path : subcgroup;
 
-                r = cg_attach(cgtarget, 0);
+                r = cg_attach(cgtarget, /* pid= */ 0);
                 if (r == -EUCLEAN) {
                         *exit_status = EXIT_CGROUP;
                         return log_error_errno(r,
@@ -6252,7 +6252,7 @@ int exec_invoke(
 
         _cleanup_free_ char *executable = NULL;
         _cleanup_close_ int executable_fd = -EBADF;
-        r = find_executable_full(path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
+        r = find_executable_full(path, /* root= */ NULL, context->exec_search_path, /* use_path_envvar= */ false, &executable, &executable_fd);
         if (r < 0) {
                 *exit_status = EXIT_EXEC;
                 log_struct_errno(LOG_NOTICE, r,

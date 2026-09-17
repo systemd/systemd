@@ -165,7 +165,7 @@ static int user_save_internal(User *u) {
         assert(u);
         assert(u->state_file);
 
-        r = mkdir_safe_label("/run/systemd/users", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label("/run/systemd/users", 0755, /* uid= */ 0, /* gid= */ 0, MKDIR_WARN_MODE);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/systemd/users/: %m");
 
@@ -523,7 +523,7 @@ static int user_update_slice(User *u) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call_async(u->manager->bus, NULL, m, update_slice_callback, u->user_record, 0);
+        r = sd_bus_call_async(u->manager->bus, /* ret_slot= */ NULL, m, update_slice_callback, u->user_record, /* usec= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to change user slice properties: %m");
 
@@ -583,7 +583,7 @@ int user_start(User *u) {
                 if (!dual_timestamp_is_set(&u->timestamp))
                         dual_timestamp_now(&u->timestamp);
 
-                user_send_signal(u, true);
+                user_send_signal(u, /* new_user= */ true);
                 u->started = true;
         }
 
@@ -673,7 +673,7 @@ int user_finalize(User *u) {
         user_add_to_gc_queue(u);
 
         if (u->started) {
-                user_send_signal(u, false);
+                user_send_signal(u, /* new_user= */ false);
                 u->started = false;
         }
 
@@ -898,7 +898,7 @@ UserState user_get_state(User *u) {
 int user_kill(User *u, int signo) {
         assert(u);
 
-        return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, NULL);
+        return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, /* error= */ NULL);
 }
 
 static bool elect_display_filter(Session *s) {
@@ -1009,7 +1009,7 @@ void user_update_last_session_timer(User *u) {
         r = sd_event_add_time(u->manager->event,
                               &u->timer_event_source,
                               CLOCK_MONOTONIC,
-                              usec_add(u->last_session_timestamp, user_stop_delay), 0,
+                              usec_add(u->last_session_timestamp, user_stop_delay), /* accuracy= */ 0,
                               user_stop_timeout_callback, u);
         if (r < 0)
                 log_warning_errno(r, "Failed to enqueue user stop event source, ignoring: %m");

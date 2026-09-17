@@ -195,7 +195,7 @@ static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *us
                 printf("settle " SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
 
         if (set_isempty(settle_ids))
-                return sd_event_exit(sd_device_monitor_get_event(m), 0);
+                return sd_event_exit(sd_device_monitor_get_event(m), /* code= */ 0);
 
         return 0;
 }

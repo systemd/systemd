@@ -145,7 +145,7 @@ static void device_done(Unit *u) {
 static int device_load(Unit *u) {
         int r;
 
-        r = unit_load_fragment_and_dropin(u, false);
+        r = unit_load_fragment_and_dropin(u, /* fragment_required= */ false);
         if (r < 0)
                 return r;
 
@@ -166,7 +166,7 @@ static void device_set_state(Device *d, DeviceState state) {
         assert(d);
 
         if (d->state != state)
-                bus_unit_send_pending_change_signal(UNIT(d), false);
+                bus_unit_send_pending_change_signal(UNIT(d), /* including_new= */ false);
 
         old_state = d->state;
         d->state = state;
@@ -388,7 +388,7 @@ static int device_found_from_string_many(const char *name, DeviceFound *ret) {
                 _cleanup_free_ char *word = NULL;
                 DeviceFound f = 0;
 
-                r = extract_first_word(&name, &word, ",", 0);
+                r = extract_first_word(&name, &word, ",", /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -557,7 +557,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&wants, &word, NULL, EXTRACT_UNQUOTE | EXTRACT_RETAIN_ESCAPE);
+                r = extract_first_word(&wants, &word, /* separators= */ NULL, EXTRACT_UNQUOTE | EXTRACT_RETAIN_ESCAPE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -586,7 +586,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                                 return log_unit_error_errno(u, r, "Failed to mangle unit name \"%s\": %m", word);
                 }
 
-                r = unit_add_dependency_by_name(u, UNIT_WANTS, k, true, UNIT_DEPENDENCY_UDEV);
+                r = unit_add_dependency_by_name(u, UNIT_WANTS, k, /* add_reference= */ true, UNIT_DEPENDENCY_UDEV);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to add Wants= dependency: %m");
 
@@ -617,7 +617,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                                         continue; /* The unit was already listed and is running. */
                         }
 
-                        r = manager_add_job_by_name(u->manager, JOB_START, *i, JOB_FAIL, NULL, &error, NULL);
+                        r = manager_add_job_by_name(u->manager, JOB_START, *i, JOB_FAIL, /* affected_jobs= */ NULL, &error, /* ret= */ NULL);
                         if (r < 0)
                                 log_unit_full_errno(u, sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) ? LOG_DEBUG : LOG_WARNING, r,
                                                     "Failed to enqueue %s job, ignoring: %s", property, bus_error_message(&error, r));
@@ -654,7 +654,7 @@ static void device_upgrade_mount_deps(Unit *u) {
                 if (other->type != UNIT_MOUNT)
                         continue;
 
-                r = unit_add_dependency(other, UNIT_BINDS_TO, u, true, UNIT_DEPENDENCY_UDEV);
+                r = unit_add_dependency(other, UNIT_BINDS_TO, u, /* add_reference= */ true, UNIT_DEPENDENCY_UDEV);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to add BindsTo= dependency between device and mount unit, ignoring: %m");
         }
@@ -740,7 +740,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                 device_upgrade_mount_deps(u);
 
         if (units) {
-                r = set_ensure_put(units, NULL, d);
+                r = set_ensure_put(units, /* hash_ops= */ NULL, d);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to store unit: %m");
         }
@@ -807,7 +807,7 @@ static int device_setup_devlink_unit_one(Manager *m, const char *devlink, Set **
         if (device_by_path(m, devlink, &u) < 0)
                 return 0; /* The corresponding .device unit not found. That's fine. */
 
-        return set_ensure_put(not_ready_units, NULL, DEVICE(u));
+        return set_ensure_put(not_ready_units, /* hash_ops= */ NULL, DEVICE(u));
 }
 
 static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_units, Set **not_ready_units) {
@@ -844,7 +844,7 @@ static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_unit
                 if (r < 0 && r != -ENOENT)
                         log_device_warning_errno(dev, r, "Failed to get SYSTEMD_ALIAS property, ignoring: %m");
                 if (r >= 0) {
-                        r = strv_split_full(&aliases, s, NULL, EXTRACT_UNQUOTE);
+                        r = strv_split_full(&aliases, s, /* separators= */ NULL, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 log_device_warning_errno(dev, r, "Failed to parse SYSTEMD_ALIAS property, ignoring: %m");
                 }
@@ -891,7 +891,7 @@ static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_unit
                         (void) device_setup_devlink_unit_one(m, d->path, ready_units, not_ready_units);
                 else
                         /* This is an alias unit of dropped or not ready device. */
-                        (void) set_ensure_put(not_ready_units, NULL, d);
+                        (void) set_ensure_put(not_ready_units, /* hash_ops= */ NULL, d);
         }
 
         return 0;
@@ -939,14 +939,14 @@ static int device_setup_units(Manager *m, sd_device *dev, Set **ret_ready_units,
                 /* If the device exists but not ready, then save the units and unset udev bits later. */
 
                 if (device_by_path(m, syspath, &u) >= 0) {
-                        r = set_ensure_put(&not_ready_units, NULL, DEVICE(u));
+                        r = set_ensure_put(&not_ready_units, /* hash_ops= */ NULL, DEVICE(u));
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to store unit, ignoring: %m");
                 }
 
                 if (sd_device_get_devname(dev, &devname) >= 0 &&
                     device_by_path(m, devname, &u) >= 0) {
-                        r = set_ensure_put(&not_ready_units, NULL, DEVICE(u));
+                        r = set_ensure_put(&not_ready_units, /* hash_ops= */ NULL, DEVICE(u));
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to store unit, ignoring: %m");
                 }
@@ -999,7 +999,7 @@ static int device_following_set(Unit *u, Set **ret) {
                 return 0;
         }
 
-        set = set_new(NULL);
+        set = set_new(/* hash_ops= */ NULL);
         if (!set)
                 return -ENOMEM;
 
@@ -1172,7 +1172,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         /* When udevd failed to process the device, SYSTEMD_ALIAS or any other properties may contain invalid
          * values. Let's refuse to handle the uevent. */
-        if (sd_device_get_property_value(dev, "UDEV_WORKER_FAILED", NULL) >= 0) {
+        if (sd_device_get_property_value(dev, "UDEV_WORKER_FAILED", /* ret= */ NULL) >= 0) {
                 int v;
 
                 if (device_get_property_int(dev, "UDEV_WORKER_ERRNO", &v) >= 0)
@@ -1272,7 +1272,7 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
                         return;
                 }
 
-                (void) device_setup_unit(m, dev, node, /* main= */ false, NULL); /* 'dev' may be NULL. */
+                (void) device_setup_unit(m, dev, node, /* main= */ false, /* units= */ NULL); /* 'dev' may be NULL. */
         }
 
         /* Update the device unit's state, should it exist */

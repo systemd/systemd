@@ -89,7 +89,7 @@ void random_bytes(void *p, size_t n) {
         }
 
         _cleanup_close_ int fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd >= 0 && loop_read_exact(fd, p, n, false) >= 0)
+        if (fd >= 0 && loop_read_exact(fd, p, n, /* do_poll= */ false) >= 0)
                 return;
 
         /* This is a terrible fallback. Oh well. */

@@ -24,35 +24,35 @@ static inline bool iovw_equal(const struct iovec_wrapper *a, const struct iovec_
 
 int iovw_put_full(struct iovec_wrapper *iovw, bool accept_zero, void *data, size_t len);
 static inline int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
-        return iovw_put_full(iovw, false, data, len);
+        return iovw_put_full(iovw, /* accept_zero= */ false, data, len);
 }
 int iovw_put_iov_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec *iov);
 static inline int iovw_put_iov(struct iovec_wrapper *iovw, const struct iovec *iov) {
-        return iovw_put_iov_full(iovw, false, iov);
+        return iovw_put_iov_full(iovw, /* accept_zero= */ false, iov);
 }
 int iovw_put_iovw_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec_wrapper *source);
 static inline int iovw_put_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source) {
-        return iovw_put_iovw_full(iovw, false, source);
+        return iovw_put_iovw_full(iovw, /* accept_zero= */ false, source);
 }
 int iovw_consume_full(struct iovec_wrapper *iovw, bool accept_zero, void *data, size_t len);
 static inline int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
-        return iovw_consume_full(iovw, false, data, len);
+        return iovw_consume_full(iovw, /* accept_zero= */ false, data, len);
 }
 int iovw_consume_iov_full(struct iovec_wrapper *iovw, bool accept_zero, struct iovec *iov);
 static inline int iovw_consume_iov(struct iovec_wrapper *iovw, struct iovec *iov) {
-        return iovw_consume_iov_full(iovw, false, iov);
+        return iovw_consume_iov_full(iovw, /* accept_zero= */ false, iov);
 }
 int iovw_extend_full(struct iovec_wrapper *iovw, bool accept_zero, const void *data, size_t len);
 static inline int iovw_extend(struct iovec_wrapper *iovw, const void *data, size_t len) {
-        return iovw_extend_full(iovw, false, data, len);
+        return iovw_extend_full(iovw, /* accept_zero= */ false, data, len);
 }
 int iovw_extend_iov_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec *iov);
 static inline int iovw_extend_iov(struct iovec_wrapper *iovw, const struct iovec *iov) {
-        return iovw_extend_iov_full(iovw, false, iov);
+        return iovw_extend_iov_full(iovw, /* accept_zero= */ false, iov);
 }
 int iovw_extend_iovw_full(struct iovec_wrapper *iovw, bool accept_zero, const struct iovec_wrapper *source);
 static inline int iovw_extend_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source) {
-        return iovw_extend_iovw_full(iovw, false, source);
+        return iovw_extend_iovw_full(iovw, /* accept_zero= */ false, source);
 }
 
 static inline bool iovw_isempty(const struct iovec_wrapper *iovw) {
@@ -61,10 +61,10 @@ static inline bool iovw_isempty(const struct iovec_wrapper *iovw) {
 
 int iovw_put_string_field_full(struct iovec_wrapper *iovw, bool replace, const char *field, const char *value);
 static inline int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const char *value) {
-        return iovw_put_string_field_full(iovw, false, field, value);
+        return iovw_put_string_field_full(iovw, /* replace= */ false, field, value);
 }
 static inline int iovw_replace_string_field(struct iovec_wrapper *iovw, const char *field, const char *value) {
-        return iovw_put_string_field_full(iovw, true, field, value);
+        return iovw_put_string_field_full(iovw, /* replace= */ true, field, value);
 }
 int iovw_put_string_fieldf_full(struct iovec_wrapper *iovw, bool replace, const char *field, const char *format, ...) _printf_(4, 5);
 #define iovw_put_string_fieldf(iovw, ...)     iovw_put_string_fieldf_full(iovw, false, __VA_ARGS__)

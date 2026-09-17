@@ -88,13 +88,13 @@ static int inspect_uki(
         assert(sections || le16toh(pe_header->pe.NumberOfSections) == 0);
 
         if (ret_cmdline) {
-                r = pe_read_section_data_by_name(fd, pe_header, sections, ".cmdline", PE_SECTION_READ_MAX, (void**) &cmdline, NULL);
+                r = pe_read_section_data_by_name(fd, pe_header, sections, ".cmdline", PE_SECTION_READ_MAX, (void**) &cmdline, /* ret_size= */ NULL);
                 if (r < 0 && r != -ENXIO) /* If the section doesn't exist, that's fine */
                         return r;
         }
 
         if (ret_uname) {
-                r = pe_read_section_data_by_name(fd, pe_header, sections, ".uname", PE_SECTION_READ_MAX, (void**) &uname, NULL);
+                r = pe_read_section_data_by_name(fd, pe_header, sections, ".uname", PE_SECTION_READ_MAX, (void**) &uname, /* ret_size= */ NULL);
                 if (r < 0 && r != -ENXIO) /* If the section doesn't exist, that's fine */
                         return r;
         }

@@ -272,7 +272,7 @@ int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_v
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&manager->reload_reexec_ratelimit)) {
                 log_warning("Reloading request rejected due to rate limit.");
-                return sd_varlink_error(link, VARLINK_ERROR_MANAGER_RATE_LIMIT_REACHED, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MANAGER_RATE_LIMIT_REACHED, /* parameters= */ NULL);
         }
 
         /* Instead of sending the reply back right away, we just remember that we need to and then send it
@@ -316,7 +316,7 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&manager->reload_reexec_ratelimit)) {
                 log_warning("Reexecution request rejected due to rate limit.");
-                return sd_varlink_error(link, VARLINK_ERROR_MANAGER_RATE_LIMIT_REACHED, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MANAGER_RATE_LIMIT_REACHED, /* parameters= */ NULL);
         }
 
         /* We don't send a reply back here, the client should just wait for us disconnecting. */
@@ -350,7 +350,7 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
         if (r <= 0)
                 return r;
 
-        r = sd_varlink_set_sentinel(link, NULL);
+        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
         if (r < 0)
                 return r;
 
@@ -430,7 +430,7 @@ static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameter
         assert(selinux_permission);
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_METHOD_NOT_IMPLEMENTED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_METHOD_NOT_IMPLEMENTED, /* parameters= */ NULL);
 
         if (can_do_root) {
                 static const sd_json_dispatch_field dispatch_table[] = {
@@ -463,7 +463,7 @@ static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameter
                 free_and_replace(m->switch_root, root);
         m->objective = objective;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 int vl_method_poweroff(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

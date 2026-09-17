@@ -401,7 +401,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         return -ENOMEM;
         }
 
-        _cleanup_close_ int fd = xopenat(dir_fd, NULL, O_CLOEXEC|O_DIRECTORY|O_PATH);
+        _cleanup_close_ int fd = xopenat(dir_fd, /* path= */ NULL, O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return fd;
 

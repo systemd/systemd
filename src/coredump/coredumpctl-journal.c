@@ -26,7 +26,7 @@ static int add_match(sd_journal *j, const char *match) {
 
                 match = p;
                 field = "COREDUMP_EXE";
-        } else if (parse_pid(match, NULL) >= 0)
+        } else if (parse_pid(match, /* ret= */ NULL) >= 0)
                 field = "COREDUMP_PID";
         else
                 field = "COREDUMP_COMM";
@@ -87,7 +87,7 @@ int acquire_journal(sd_journal **ret, char * const *matches) {
                         return log_error_errno(r, "Failed to open journal: %m");
         }
 
-        r = journal_access_check_and_warn(j, arg_quiet, true);
+        r = journal_access_check_and_warn(j, arg_quiet, /* want_other_users= */ true);
         if (r < 0)
                 return r;
 

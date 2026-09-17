@@ -113,7 +113,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
 
 found:
         data->device = sd_device_ref(device);
-        return sd_event_exit(sd_device_monitor_get_event(monitor), 0);
+        return sd_event_exit(sd_device_monitor_get_event(monitor), /* code= */ 0);
 }
 
 static int device_wait_for_initialization_internal(
@@ -168,7 +168,7 @@ static int device_wait_for_initialization_internal(
         }
 
         if (subsystem) {
-                r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, subsystem, NULL);
+                r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, subsystem, /* devtype= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add %s subsystem match to monitor: %m", subsystem);
         }
@@ -192,9 +192,9 @@ static int device_wait_for_initialization_internal(
 
         if (timeout_usec != USEC_INFINITY) {
                 r = sd_event_add_time_relative(
-                                event, NULL,
-                                CLOCK_MONOTONIC, timeout_usec, 0,
-                                NULL, INT_TO_PTR(-ETIMEDOUT));
+                                event, /* ret= */ NULL,
+                                CLOCK_MONOTONIC, timeout_usec, /* accuracy= */ 0,
+                                /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT));
                 if (r < 0)
                         return log_error_errno(r, "Failed to add timeout event source: %m");
         }
@@ -221,11 +221,11 @@ static int device_wait_for_initialization_internal(
 }
 
 int device_wait_for_initialization(sd_device *device, const char *subsystem, usec_t timeout_usec, sd_device **ret) {
-        return device_wait_for_initialization_internal(device, NULL, subsystem, timeout_usec, ret);
+        return device_wait_for_initialization_internal(device, /* devlink= */ NULL, subsystem, timeout_usec, ret);
 }
 
 int device_wait_for_devlink(const char *devlink, const char *subsystem, usec_t timeout_usec, sd_device **ret) {
-        return device_wait_for_initialization_internal(NULL, devlink, subsystem, timeout_usec, ret);
+        return device_wait_for_initialization_internal(/* _device= */ NULL, devlink, subsystem, timeout_usec, ret);
 }
 
 int device_is_renaming(sd_device *dev) {

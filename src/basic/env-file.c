@@ -52,9 +52,9 @@ static int parse_env_file_internal(
         assert(push);
 
         if (f)
-                r = read_full_stream(f, &contents, NULL);
+                r = read_full_stream(f, &contents, /* ret_size= */ NULL);
         else
-                r = read_full_file(fname, &contents, NULL);
+                r = read_full_file(fname, &contents, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 
@@ -614,7 +614,7 @@ static void env_file_fputs_escaped(FILE *f, const char *p) {
 
         flockfile(f);
 
-        if (string_has_cc(p, NULL) || chars_intersect(p, WHITESPACE SHELL_NEED_QUOTES)) {
+        if (string_has_cc(p, /* ok= */ NULL) || chars_intersect(p, WHITESPACE SHELL_NEED_QUOTES)) {
                 fputc_unlocked('"', f);
 
                 for (; *p; p++) {

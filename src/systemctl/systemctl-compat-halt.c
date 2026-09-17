@@ -117,7 +117,7 @@ int halt_parse_argv(int argc, char *argv[], int log_level_shift) {
         size_t n_args = option_parser_get_n_args(&opts);
 
         if (arg_action == ACTION_REBOOT && n_args <= 1) {
-                r = update_reboot_parameter_and_warn(args[0], false);
+                r = update_reboot_parameter_and_warn(args[0], /* keep= */ false);
                 if (r < 0)
                         return r;
         } else if (n_args > 0)
@@ -154,7 +154,7 @@ int halt_main(void) {
                 arg_no_block = true;
 
                 if (!arg_dry_run)
-                        return verb_start(0, NULL, /* data= */ 0, NULL);
+                        return verb_start(/* argc= */ 0, /* argv= */ NULL, /* data= */ 0, /* userdata= */ NULL);
         }
 
         r = must_be_root();
