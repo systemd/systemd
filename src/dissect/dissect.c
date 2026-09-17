@@ -8,8 +8,9 @@
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 
-#include "architecture.h"
+#include "ansi-color.h"
 #include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
@@ -21,13 +22,10 @@
 #include "dissect-image.h"
 #include "dlopen-note.h"
 #include "env-util.h"
-#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-table.h"
-#include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
@@ -42,6 +40,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nsresource.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
