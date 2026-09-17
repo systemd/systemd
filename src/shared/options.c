@@ -693,24 +693,25 @@ static int option_build_json(const Option *opt, const char *group, sd_json_varia
                         return r;
         }
 
-        const char *argtype =
-                option_arg_required(opt) ? "required_argument" :
-                option_arg_optional(opt) ? "optional_argument" :
-                "no_argument";
+        const char *value =
+                option_arg_required(opt) ? "yes" :
+                option_arg_optional(opt) ? "optional" :
+                "no";
 
-        /* The "isExperimental" field is an extension not (yet) covered by the specification. */
-
+        /* The "id" is the long name, or the short name for options which only have that, which is
+         * unique within the option namespace. Ungrouped options are listed under "Options" in the
+         * help output, see print_verb_option_help() in verbs.c. */
         return sd_json_buildo(
                         ret,
+                        SD_JSON_BUILD_PAIR_STRING("type", "option"),
+                        SD_JSON_BUILD_PAIR_STRING("id", opt->long_code ?: CHAR_TO_STR(opt->short_code)),
                         SD_JSON_BUILD_PAIR_VARIANT("names", names),
-                        SD_JSON_BUILD_PAIR_STRING("argument", argtype),
+                        SD_JSON_BUILD_PAIR_STRING("value", value),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         !!opt->metavar,
-                                        "metavar", SD_JSON_BUILD_STRING(opt->metavar)),
+                                        "valueName", SD_JSON_BUILD_STRING(opt->metavar)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!opt->help, "help", SD_JSON_BUILD_STRING(opt->help)),
-                        SD_JSON_BUILD_PAIR_CONDITION(
-                                        !!group,
-                                        "group", SD_JSON_BUILD_STRV(STRV_MAKE(group))),
+                        SD_JSON_BUILD_PAIR_STRV("sections", STRV_MAKE(group ?: "Options")),
                         SD_JSON_BUILD_PAIR_CONDITION(
                                         FLAGS_SET(opt->flags, OPTION_EXPERIMENTAL),
                                         "isExperimental", SD_JSON_BUILD_BOOLEAN(true)));
