@@ -251,7 +251,7 @@ r     -        500-900
 
       <para>Only applies to lines of type <varname>u</varname> and should otherwise
       be left unset (or <literal>-</literal>). It is recommended to omit this, unless
-      a shell different <filename>/usr/sbin/nologin</filename> must be used.</para>
+      a shell different from <filename>/usr/sbin/nologin</filename> must be used.</para>
     </refsect2>
   </refsect1>
 

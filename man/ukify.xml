@@ -53,7 +53,7 @@
     a boot loader. When used with <ulink url="https://www.qemu.org/docs/master/">qemu</ulink>, a UKI can also
     be executed through "direct kernel boot", see example below.</para>
 
-    <para><command>ukify</command> can also be used generate other types of UKI-like images, in particular
+    <para><command>ukify</command> can also be used to generate other types of UKI-like images, in particular
     extensions. See the description of the <command>build</command> verb below. <command>ukify</command> can
     also generate certificates and keys for SecureBoot and PCR signing, see the description of the
     <command>genkey</command> verb below. <command>ukify</command> can also print detailed information about
