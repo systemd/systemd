@@ -33,7 +33,8 @@
 #include "verbs.h"
 #include "web-util.h"
 
-#define METRICS_MAX 4096U
+/* We limit per source, with the METRICS_LINKS_MAX this gives us a global cap too */
+#define METRICS_PER_SOURCE_MAX 4096U
 #define METRICS_LINKS_MAX 128U
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
@@ -66,6 +67,8 @@ typedef struct LinkInfo {
         Context *context;
         sd_varlink *link;
         char *name;
+        size_t n_metrics;
+        bool logged_metrics_per_source_max_reached;
 } LinkInfo;
 
 static LinkInfo* link_info_free(LinkInfo *li) {
@@ -254,7 +257,13 @@ static int on_query_reply(
                 goto finish;
         }
 
-        if (context->n_metrics >= METRICS_MAX) {
+        if (li->n_metrics >= METRICS_PER_SOURCE_MAX) {
+                if (!li->logged_metrics_per_source_max_reached) {
+                        li->logged_metrics_per_source_max_reached = true;
+                        log_warning("Reached limit of %u metrics, dropping further metrics from '%s'.",
+                                    METRICS_PER_SOURCE_MAX, li->name);
+                }
+
                 context->n_skipped_metrics++;
                 goto finish;
         }
@@ -272,6 +281,7 @@ static int on_query_reply(
                 return log_oom();
 
         context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
+        li->n_metrics++;
 
 finish:
         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
@@ -716,19 +726,22 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                         return r;
         }
 
+        r = 0;
+
         if (context.n_skipped_sources > 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
-                                         "Too many metrics sources, only %zu sources contacted, %zu sources skipped.",
-                                         context.n_contacted_sources, context.n_skipped_sources);
+                r = log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                      "Too many metrics sources, only %zu sources contacted, %zu sources skipped.",
+                                      context.n_contacted_sources, context.n_skipped_sources);
         if (context.n_invalid_metrics > 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
-                                         "%zu metrics are not valid.",
-                                         context.n_invalid_metrics);
+                r = log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                      "%zu metrics are not valid.",
+                                      context.n_invalid_metrics);
         if (context.n_skipped_metrics > 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
-                                         "Too many metrics, only %zu metrics collected, %zu metrics skipped.",
-                                         context.n_metrics, context.n_skipped_metrics);
-        return 0;
+                r = log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                      "Too many metrics, only %zu metrics collected, %zu metrics skipped.",
+                                      context.n_metrics, context.n_skipped_metrics);
+
+        return r;
 }
 
 VERB_NOARG(verb_list_sources, "list-sources", "Show list of known metrics sources");
