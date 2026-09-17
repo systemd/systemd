@@ -1802,6 +1802,7 @@ int namespace_fork_full(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
+                NamespaceEnterFlags namespace_flags,
                 PidRef *ret) {
 
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref_outer = PIDREF_NULL;
@@ -1847,7 +1848,7 @@ int namespace_fork_full(
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                r = namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd);
+                r = namespace_enter_full(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd, namespace_flags);
                 if (r < 0) {
                         log_full_errno(prio, r, "Failed to join namespace: %m");
                         report_errno_and_exit(errno_pipe_fd[1], r);
@@ -1905,6 +1906,22 @@ int namespace_fork_full(
                 pidref_done(&pidref_outer); /* disarm sigkill_wait */
 
         return 1;
+}
+
+int namespace_fork(
+                const char *outer_name,
+                const char *inner_name,
+                ForkFlags flags,
+                int pidns_fd,
+                int mntns_fd,
+                int netns_fd,
+                int userns_fd,
+                int root_fd,
+                PidRef *ret) {
+
+        return namespace_fork_full(outer_name, inner_name, /* except_fds= */ NULL, /* n_except_fds= */ 0, flags,
+                                   pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd,
+                                   /* namespace_flags= */ 0, ret);
 }
 
 bool oom_score_adjust_is_valid(int oa) {
