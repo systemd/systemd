@@ -272,6 +272,11 @@ CHANGES WITH 262 in spe:
 
         Changes in systemd-boot, systemd-stub & bootctl:
 
+        * DeviceTrees referenced by Boot Loader Specification Type #1 entries
+          are now measured into PCR 12 as tagged events when Secure Boot is
+          disabled. Existing PCR 12 policies for such entries need to be
+          updated to include the new measurement.
+
         * Random seed handling now respects the "read-only" ESP/vFAT file
           flag. If the backing volume or /loader/random-seed file is marked
           read-only, systemd-boot skips updating the seed and does not credit
