@@ -46,7 +46,7 @@ enum {
 #define LOADER_CONF_EVENT_TAG_ID UINT32_C(0xf5bc582a)
 
 /* The tag used for EV_EVENT_TAG event log records covering DeviceTree blobs */
-#define DEVICETREE_ADDON_EVENT_TAG_ID UINT32_C(0x6c46f751)
+#define DEVICETREE_EVENT_TAG_ID UINT32_C(0x6c46f751)
 
 /* The tag used for EV_EVENT_TAG event log records covering initrd addons */
 #define INITRD_ADDON_EVENT_TAG_ID UINT32_C(0x49dffe0f)
