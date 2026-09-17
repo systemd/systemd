@@ -8,7 +8,9 @@
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 
+#include "ansi-color.h"
 #include "architecture.h"
 #include "argv-util.h"
 #include "blockdev-util.h"
@@ -42,6 +44,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nsresource.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
