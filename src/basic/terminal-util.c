@@ -2681,17 +2681,32 @@ int terminal_get_size(
         return r;
 }
 
+static int fd_is_vc(int fd) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(fd >= 0);
+
+        r = getttyname_harder(fd, &name);
+        if (r < 0)
+                return r;
+
+        return tty_is_vc_resolve(name);
+}
+
 int terminal_fix_size(int input_fd, int output_fd) {
         unsigned rows, columns;
         int r;
 
-        /* Tries to update the current terminal dimensions to the ones reported via ANSI sequences.
-         *
-         * Why bother with this? The ioctl() information is often incorrect on serial terminals (since
-         * there's no handshake or protocol to determine the right dimensions in RS232), but since the ANSI
-         * sequences are interpreted by the final terminal instead of an intermediary tty driver they should
-         * be more accurate.
-         */
+        /* Don't ask a virtual console at all. There is no intermediary here that could be wrong about the
+         * dimensions: the kernel renders the screen itself, so its winsize is authoritative. */
+        r = fd_is_vc(input_fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether terminal is a virtual console, assuming it is not: %m");
+        else if (r > 0) {
+                log_debug("Not querying dimensions of a virtual console, kernel dimensions are authoritative.");
+                return 0;
+        }
 
         struct winsize ws = {};
         if (ioctl(output_fd, TIOCGWINSZ, &ws) < 0)
