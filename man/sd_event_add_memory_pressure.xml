@@ -264,17 +264,13 @@
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Not enough memory to allocate an object.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <listitem><para>Not enough memory to allocate an object.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>An invalid argument has been passed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <listitem><para>An invalid argument has been passed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -283,9 +279,7 @@
           <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname>,
           <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> variable has been
           set to the literal string <filename>/dev/null</filename>, in order to explicitly disable pressure
-          handling.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          handling.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -293,9 +287,7 @@
 
           <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname>,
           <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> variable has been
-          set to an invalid string, for example a relative rather than an absolute path.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          set to an invalid string, for example a relative rather than an absolute path.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -303,9 +295,7 @@
 
           <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname>,
           <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> variable points
-          to a regular file outside of the procfs or cgroupfs file systems.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          to a regular file outside of the procfs or cgroupfs file systems.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -313,9 +303,7 @@
 
           <listitem><para>No configuration via <varname>$MEMORY_PRESSURE_WATCH</varname>,
           <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> has been specified
-          and the local kernel does not support the PSI interface.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          and the local kernel does not support the PSI interface.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -327,33 +315,25 @@
           <function>sd_event_source_set_cpu_pressure_period()</function>,
           <function>sd_event_source_set_io_pressure_type()</function>,
           and <function>sd_event_source_set_io_pressure_period()</function> if invoked on event sources
-          at a time later than immediately after allocating them.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          at a time later than immediately after allocating them.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ESTALE</constant></term>
 
-          <listitem><para>The event loop is already terminated.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <listitem><para>The event loop is already terminated.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The event loop has been created in a different process, library or module instance.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <listitem><para>The event loop has been created in a different process, library or module instance.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EDOM</constant></term>
 
-          <listitem><para>The passed event source is not a signal event source.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <listitem><para>The passed event source is not a signal event source.</para></listitem>
         </varlistentry>
 
       </variablelist>
