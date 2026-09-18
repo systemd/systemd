@@ -3326,7 +3326,7 @@ static int inner_child(
                 NULL, /* LANG */
                 NULL
         };
-        const char *exec_target;
+        const char *exec_target, *dollar_path;
         _cleanup_strv_free_ char **env_use = NULL;
         int r, which_failed;
 
@@ -3345,6 +3345,20 @@ static int inner_child(
         assert(fd_inner_socket >= 0);
 
         log_debug("Inner child is initializing.");
+
+        /* Reset the environment here to prevent accidentlly leaking variables from the host when running
+         * programs from the container before executing the payload. */
+        if (clearenv() < 0)
+                return log_error_errno(errno, "Failed to clear environment: %m");
+
+        /* Use the user supplied search $PATH if there is one, or DEFAULT_PATH_COMPAT if not to search the
+         * payload binary (or any spawned binaries executed in the meantime). */
+        dollar_path = strv_env_get(arg_setenv, "PATH");
+        if (!dollar_path)
+                dollar_path = DEFAULT_PATH_COMPAT;
+
+        if (setenv("PATH", dollar_path, 1) < 0)
+                return log_error_errno(errno, "Failed to update $PATH: %m");
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
                 /* Tell the parent, that it now can write the UID map. */
@@ -3675,18 +3689,7 @@ static int inner_child(
 
                 exec_target = "/usr/lib/systemd/systemd, /lib/systemd/systemd, /sbin/init";
         } else if (!strv_isempty(arg_parameters)) {
-                const char *dollar_path;
-
                 exec_target = arg_parameters[0];
-
-                /* Use the user supplied search $PATH if there is one, or DEFAULT_PATH_COMPAT if not to search the
-                 * binary. */
-                dollar_path = strv_env_get(env_use, "PATH");
-                if (dollar_path) {
-                        if (setenv("PATH", dollar_path, 1) < 0)
-                                return log_error_errno(errno, "Failed to update $PATH: %m");
-                }
-
                 execvpe(arg_parameters[0], arg_parameters, env_use);
         } else {
                 if (!arg_chdir)
