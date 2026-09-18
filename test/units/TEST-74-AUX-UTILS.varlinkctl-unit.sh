@@ -489,6 +489,13 @@ systemctl whoami "$scope_child" | grep "^varlink-transient-scope.scope$" >/dev/n
 systemctl show -P TimeoutStopUSec varlink-transient-scope.scope | grep 12s >/dev/null
 systemctl show -P OOMPolicy varlink-transient-scope.scope | grep kill >/dev/null
 
+# Unit dependencies
+defer_transient_cleanup varlink-transient-deps.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-deps.service","After":["varlink-transient-test.service"],"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-deps.service; do sleep 0.5; done'
+systemctl show -P After varlink-transient-deps.service | grep varlink-transient-test.service >/dev/null
+
 # CGroup context: scalar resource-control properties round-trip into the reply
 # context, systemctl show and the transient fragment
 defer_transient_cleanup varlink-transient-cgroup.service
@@ -677,6 +684,11 @@ defer_transient_cleanup varlink-transient-badpid.scope
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-badpid.scope","Scope":{"PIDs":[{"pid": 1}]}}}' \
     "Scope.PIDs"
+# Dependency on invalid unit (rejected at dispatch time)
+defer_transient_cleanup varlink-invalid-dependency.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-invalid-dependency.service","Requires":["invalid@.service"],"Service":{"ExecStart":[{"path":"/usr/bin/true"}]}}}' \
+    "context"
 # Exec on a unit type without an exec context (.slice) is rejected
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-exec.slice","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
@@ -702,6 +714,12 @@ unsupported_kill=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransi
     '{"context":{"ID":"varlink-transient-unknown-kill.service","Kill":{"KillSignal":"SIGINT"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
 echo "$unsupported_kill" | grep "io.systemd.Unit.PropertyNotSupported"
 echo "$unsupported_kill" | grep "Kill.KillSignal"
+# Same for non-transient dependency types
+defer_transient_cleanup varlink-non-transient-dependency.service
+non_transient_dep=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-non-transient-dependency.service","Triggers":["varlink-transient-exists.service"],"Service":{"ExecStart":[{"path":"/usr/bin/true"}]}}}' 2>&1 || true)
+echo "$non_transient_dep" | grep "io.systemd.Unit.PropertyNotSupported"
+echo "$non_transient_dep" | grep "Triggers"
 # Out-of-range CPUWeight= is rejected
 defer_transient_cleanup varlink-transient-bad-weight.service
 expect_invalid_parameter \
