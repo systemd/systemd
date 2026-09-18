@@ -78,7 +78,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_event_source_set_userdata()</function> and
-    <function>sd_event_source_get_userdata()</function> were added in version 229.</para>
+    <function>sd_event_source_get_userdata()</function> were added in version 209.</para>
   </refsect1>
 
   <refsect1>
