@@ -86,6 +86,125 @@ The following sections contain advanced topics on how to speed up development or
 streamline debugging. Feel free to read them if you're interested but they're
 not required to write basic patches.
 
+## Writing programs in Rust
+
+Programs may be written in Rust. They use `libsystemd-shared-<nnn>.so` like the C programs do, through the
+`systemd_shared` crate built from `src/rust/systemd-shared/` (and the generated `systemd_shared_sys` crate it
+wraps). Rust support is optional and off wherever the toolchain is missing or too old: it needs rustc 1.85,
+bindgen 0.71.1 (with a libclang it can load) and meson 1.8.0 or newer, `-Drust=enabled` fails loudly instead.
+The mkosi build images and tools trees have the toolchain, so `mkosi box -- meson setup -Drust=enabled build`
+is the easiest way to work on it. Outside of mkosi:
+
+```sh
+apt install rustc bindgen rustfmt rust-clippy   # Debian 13; its meson is 1.7.0, pip install meson
+dnf install rust bindgen-cli rustfmt clippy     # Fedora
+pacman -S rust rust-bindgen                     # Arch Linux
+zypper install rust rust-bindgen                # openSUSE Tumbleweed
+```
+
+A program is a `.rs` crate root, declared like a C program next to it:
+
+```meson
+if have_rust
+        rust_executables += [
+                {
+                        'sources' : files('systemd-foo.rs'),
+                        'install_dir' : libexecdir,
+                        'conditions' : ['ENABLE_FOO'],
+                },
+        ]
+endif
+```
+
+and looks like a C program, because it uses the same command line framework (`verbs.h`, `options.h`):
+
+```rust
+#![no_main]
+
+use systemd_shared::prelude::*;
+
+static ARG_PAGER_FLAGS: AtomicU32 = AtomicU32::new(0);
+
+verbs! {
+    COMMAND {
+        names: "systemd-foo\0",
+        abstract_: "Frob the foo.",
+        man_pages: "systemd-foo.1\0",
+        pager_flags: ARG_PAGER_FLAGS,
+    },
+    VERB_DEFAULT_NOARG(verb_status, "status", "Show the status"),
+    VERB(verb_show, "show", "NAME...", 2, VERB_ANY, 0, "Show some names"),
+    VERB_COMMON_HELP_AUTO,
+}
+
+fn verb_status(args: Argv, _data: usize, _userdata: *mut c_void) -> Result<c_int> { … }
+fn verb_show(args: Argv, _data: usize, _userdata: *mut c_void) -> Result<c_int> { … }
+
+fn parse_argv(opts: &mut OptionParser) -> Result<c_int> {
+    foreach_option! { opts,
+        OPTION_COMMON_HELP => return command_print_help!(),
+        OPTION_COMMON_VERSION => return version(),
+        OPTION_COMMON_NO_PAGER => ARG_PAGER_FLAGS.fetch_or(sys::PAGER_DISABLE as u32, Ordering::Relaxed),
+        OPTION('v', "verbose", None, "Print more") => …,
+        OPTION('f', "frob", "VALUE", "Set the frob value") => … opts.arg() …,
+        OPTION_COMMON_INTROSPECT_CLI => return introspect_cli!(sys::SD_JSON_FORMAT_OFF),
+    }
+    Ok(1)
+}
+
+fn run(argv: Argv) -> Result<()> {
+    let mut opts = OptionParser::new(&argv);
+    if parse_argv(&mut opts)? <= 0 {
+        return Ok(());
+    }
+    dispatch_verb!(opts.args(), ptr::null_mut()).map(|_| ())
+}
+
+define_main!(run);
+```
+
+`verbs!` and `foreach_option!` put the same `Verb` and `Option` entries into the same `SYSTEMD_VERBS` and
+`SYSTEMD_OPTIONS` linker sections as `COMMAND()`, `VERB()` and `OPTION()` do in C, and from there on it is
+the C code of libsystemd-shared that parses the command line, dispatches the verbs, prints `--help` and
+answers `--introspect-cli`; `define_main!()` is `DEFINE_MAIN_FUNCTION()` (`main_prepare()`, `log_setup()`,
+the body, `main_finalize()`, `Err` becomes `EXIT_FAILURE`). A Rust program therefore behaves exactly like a C
+program — `test/test-cli-parity.sh` proves it by running `src/test/test-cli-c.c` and
+`src/test/test-cli-rust.rs`, which declare the same command, through forty invocations and requiring
+identical output and exit status. `#![no_main]` is needed because the C `main()` has to see the real
+`argv`, which `rename_process()` overwrites later; `std::env::args()` keeps working. Everything of
+`src/basic/`, `src/shared/`, the public `sd-*.h` headers and the libc and kernel constants systemd code uses is
+reachable as `systemd_shared::sys::<C name>`, including the static inline helpers (bindgen writes C
+trampolines for them which are compiled into the program, the same code a C program gets by inlining).
+Programs whose name starts with `test-` are registered as unit tests (`'type' : 'manual'` builds one without
+running it), `'public' : true` gets a program the `--help` and `--version` checks of the dist suite.
+`src/test/test-rust-shared.rs` and `src/test/test-cli-rust.rs` are the examples to start from.
+
+Some things to know:
+
+- Rust programs link the Rust standard library statically, that is how every Rust program is built.
+  Everything from systemd stays in the shared library, so a program costs about 300 KB when built with
+  `-Db_lto=true`, and about 1.2 MB without.
+- Rust programs take part in `test-link-abi`, so they may not pull in glibc symbols newer than the baseline the
+  C programs are held to. That rules out `std::process`, whose spawning code needs `pidfd_spawnp()` from glibc
+  2.39; the tree's `safe_fork()` and pidref helpers are reachable instead.
+- Only the standard library is available, external crates are not used.
+- Programs are built with `-C panic=abort` and with overflow checks on. A panic logs at `LOG_CRIT` with its
+  location and aborts, like a failed `assert()`.
+- `file!()` and `#[track_caller]` locations are relative to the source root, like `PROJECT_FILE` in C, so
+  `CODE_FILE=` in the journal matches (rustc 1.95 or newer).
+- rustc has no stable equivalent of `-fcf-protection`, so Rust programs carry no IBT/SHSTK markers where the C
+  programs do.
+- Sanitizer and coverage builds instrument the C side only, and fuzzers stay C.
+- The lint set lives in `meson.build` (`rust_args`) and is enforced by the build; `--werror` makes rustc
+  warnings errors like it does for C.
+- `meson test -C build --suite rust` runs the Rust unit tests, doctests and test programs;
+  `meson test -C build --suite dist` includes the rustfmt check, the check that
+  `src/rust/systemd-shared/bindings.h` covers every header, and `test-link-abi`; `ninja -C build clippy` runs
+  clippy and `ninja -C build rustdoc` builds the crate documentation. meson writes a `rust-project.json` for
+  rust-analyzer into the build directory. `.clippy.toml` is looked up from the current directory, set
+  `CLIPPY_CONF_DIR` to the source root when the build directory lives elsewhere.
+- CI builds with the newest toolchain (Fedora rawhide) and with the oldest supported one (Debian 13).
+
 ## Building the OS image without a tools tree
 
 By default, `mkosi` will first build a tools tree and use it build the image and

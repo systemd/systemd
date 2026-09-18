@@ -5,12 +5,14 @@ project('systemd', 'c',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu17',
+                'rust_std=2021',
                 'prefix=/usr',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
         meson_version : '>= 0.62.0',
+        subproject_dir : 'src/rust',
 )
 
 add_test_setup(
@@ -363,6 +365,126 @@ else
         cxx_cmd = ''
 endif
 
+#####################################################################
+
+rust_feature = get_option('rust')
+# The oldest rustc we support. Also handed to bindgen, so that the generated bindings never require a
+# newer compiler than the hand-written code does.
+rust_msrv = '1.85'
+bindgen_min_version = '0.71.1'
+have_rust = false
+
+if rust_feature.allowed()
+        # The rust module's bindgen() integration is used by the src/rust/systemd-shared subproject, which
+        # requires this meson version on its own.
+        if meson.version().version_compare('< 1.8.0')
+                if rust_feature.enabled()
+                        error('Rust support requires meson >= 1.8.0, found @0@'.format(meson.version()))
+                endif
+                message('Rust support requires meson >= 1.8.0, disabling')
+        elif meson.is_cross_build()
+                if rust_feature.enabled()
+                        error('Rust support is not available when cross-compiling yet')
+                endif
+                message('Rust support is not available when cross-compiling yet, disabling')
+        else
+                have_rust = add_languages('rust', native : false, required : rust_feature)
+        endif
+endif
+
+if have_rust
+        rustc = meson.get_compiler('rust')
+        if rustc.version().version_compare('< ' + rust_msrv)
+                if rust_feature.enabled()
+                        error('rustc >= @0@ is required, found @1@'.format(rust_msrv, rustc.version()))
+                endif
+                message('rustc >= @0@ is required, found @1@, disabling Rust support'.format(rust_msrv, rustc.version()))
+                have_rust = false
+        endif
+endif
+
+if have_rust
+        bindgen = find_program('bindgen', required : rust_feature, version : '>= ' + bindgen_min_version)
+        have_rust = bindgen.found()
+
+        # 0.72.0 generates bindings that do not compile, 0.72.1 fixed that.
+        if have_rust and bindgen.version() == '0.72.0'
+                if rust_feature.enabled()
+                        error('bindgen 0.72.0 is known to be broken, use 0.71.1 or >= 0.72.1')
+                endif
+                message('bindgen 0.72.0 is known to be broken, disabling Rust support')
+                have_rust = false
+        endif
+endif
+
+if have_rust
+        # bindgen parses C with libclang, which it loads at run time, so find_program() proves nothing about
+        # it. Run it once over a header that reports the libclang version and contains the construct bindgen
+        # < 0.72.1 mishandles with libclang >= 22 (https://github.com/rust-lang/rust-bindgen/pull/3278).
+        bindgen_probe = run_command(bindgen, files('tools/bindgen-probe.h'), '--formatter', 'none', check : false)
+        libclang_version = ''
+        if bindgen_probe.returncode() == 0
+                foreach line : bindgen_probe.stderr().split('\n')
+                        if line.contains('clang version ')
+                                libclang_version = line.split('clang version ')[1].split(' ')[0]
+                        endif
+                endforeach
+        endif
+
+        if libclang_version == ''
+                if rust_feature.enabled()
+                        error('bindgen cannot generate bindings, is libclang installed?\n' + bindgen_probe.stderr())
+                endif
+                message('bindgen cannot generate bindings, disabling Rust support')
+                have_rust = false
+        elif libclang_version.version_compare('>= 22') and bindgen.version().version_compare('< 0.72.1') and not bindgen_probe.stdout().contains('pub foo')
+                if rust_feature.enabled()
+                        error('bindgen @0@ does not work with libclang @1@, use bindgen >= 0.72.1'.format(bindgen.version(), libclang_version))
+                endif
+                message('bindgen @0@ does not work with libclang @1@, disabling Rust support'.format(bindgen.version(), libclang_version))
+                have_rust = false
+        endif
+endif
+
+if have_rust
+        rustfmt = find_program('rustfmt', required : false)
+
+        # Applies to everything written in Rust, including the subproject, hence global. Warnings are errors
+        # only under --werror, like for C.
+        rust_args = [
+                '-D', 'non_ascii_idents',
+                '-D', 'unsafe_op_in_unsafe_fn',
+                '-W', 'missing_docs',
+                '-W', 'rust_2018_idioms',
+                '-W', 'unreachable_pub',
+                '-W', 'clippy::undocumented_unsafe_blocks',
+                '-W', 'clippy::unnecessary_safety_comment',
+                '-W', 'clippy::unnecessary_safety_doc',
+                '-W', 'clippy::ptr_as_ptr',
+                '-W', 'clippy::ptr_cast_constness',
+                '-W', 'clippy::ref_as_ptr',
+                '-W', 'clippy::as_ptr_cast_mut',
+                '-W', 'clippy::cast_lossless',
+                '-W', 'clippy::dbg_macro',
+                '-W', 'rustdoc::missing_crate_level_docs',
+                # rustc's default depends on the optimization level. C code in systemd checks its arithmetic
+                # where it matters, Rust code does not get to wrap silently either.
+                '-C', 'overflow-checks=yes',
+        ]
+        # meson passes source paths relative to the build directory, which is what file!() and hence
+        # CODE_FILE= in the journal would show. Strip the prefix like PROJECT_FILE does for C. This also
+        # makes the paths in the debug info relative to the source root (--remap-path-scope=macro would
+        # limit it to file!(), but rustdoc does not accept that flag on stable).
+        rust_args += ['--remap-path-prefix=' + relative_source_path + '/=']
+        add_global_arguments(rust_args, language : 'rust')
+
+        summary({
+                'rustc'    : rustc.version(),
+                'bindgen'  : bindgen.version(),
+                'libclang' : libclang_version,
+        }, section : 'Rust')
+endif
+
 if want_libfuzzer
         if cc.has_argument('-fsanitize=fuzzer-no-link')
                 userspace_c_args += '-fsanitize=fuzzer-no-link'
@@ -526,12 +648,8 @@ if get_option('libc') == 'musl' and host_machine.cpu_family() == 'x86'
         possible_cc_flags += '-mstackrealign'
 endif
 
-add_project_arguments(
-        cc.get_supported_arguments(
-                basic_disabled_warnings,
-                possible_common_cc_flags
-        ),
-        language : 'c')
+common_c_args = cc.get_supported_arguments(basic_disabled_warnings, possible_common_cc_flags)
+add_project_arguments(common_c_args, language : 'c')
 
 add_project_link_arguments(
         cc.get_supported_link_arguments(possible_common_link_flags),
@@ -1826,6 +1944,10 @@ simple_fuzzers = []
 catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
+rust_executables = [] # programs written in Rust, see the loop over them below
+rust_executable_targets = []
+rust_executables_by_name = {}
+rust_sources = []
 executables_by_name = {}
 exported_by_name = {}
 fuzzer_exes = []
@@ -1912,6 +2034,30 @@ subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
 subdir('src/libudev')
+
+if have_rust
+        # Everything Rust code needs to use libsystemd-shared, handed to the src/rust/systemd-shared
+        # subproject. The comment at the top of its meson.build explains why it is a subproject.
+        meson.override_dependency(
+                'systemd-shared-internal',
+                declare_dependency(
+                        link_with : libshared,
+                        include_directories : includes,
+                        dependencies : [libshared_deps, userspace]))
+        # The project arguments do not cross into the subproject; the C it compiles gets them this way.
+        meson.override_dependency(
+                'systemd-common-c-args',
+                declare_dependency(compile_args : common_c_args))
+
+        systemd_shared_rust = subproject(
+                'systemd-shared',
+                default_options : [
+                        'rust-target=' + rust_msrv,
+                        'libc=' + get_option('libc'),
+                        'tests=' + (want_tests != 'false').to_string(),
+                ])
+        libsystemd_shared_rs = systemd_shared_rust.get_variable('libsystemd_shared_rs')
+endif
 
 libsystemd = shared_library(
         'systemd',
@@ -2677,6 +2823,104 @@ foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyut
         endif
 endforeach
 
+#####################################################################
+
+# Programs written in Rust are declared like the C ones, but with .rs sources:
+#
+#         rust_executables += [
+#                 {
+#                         'sources' : files('foo.rs'),
+#                         'install_dir' : libexecdir,
+#                 },
+#         ]
+#
+# The first source is the crate root, the others are only tracked for rebuilds. 'conditions', 'public' and
+# 'type' work like for the C programs: public programs get the --help and --version checks, names starting
+# with 'test-' are registered as unit tests (unless the type is 'manual') and installed with the C ones
+# when -Dinstall-tests is on. There are no .standalone variants: Rust programs always link libsystemd-shared
+# dynamically. They do take part in test-link-abi, so std::process and whatever else would drag in symbols
+# newer than the glibc baseline is off limits (see docs/CODING_STYLE.md).
+
+if have_rust
+        rust_executable_template = {
+                'link_with' : [libsystemd_shared_rs],
+                'install' : true,
+                'install_rpath' : pkglibdir,
+                # meson keeps rustc's own library directory in the runpath of Rust programs that link a shared
+                # library (it is only needed for Rust dylibs, which we do not use) and cannot grow a runpath
+                # when installing. Add a build-only entry that is at least as long as the installed runpath, so
+                # that install always succeeds, and let fix-rust-rpath.py drop the leftover entry afterwards.
+                # Both become no-ops once meson stops adding the directory.
+                'build_rpath' : meson.project_build_root() / pkglibdir.strip('/'),
+                # Unwinding cannot cross the C frames of an event loop anyway, and it is what makes
+                # -Db_lto=true builds small. A panic logs at LOG_CRIT (see program.rs) and aborts.
+                'rust_args' : ['-C', 'panic=abort'],
+                'build_by_default' : true,
+        }
+
+        foreach dict : rust_executables
+                name = dict.get('name', '')
+                if name == ''
+                        name = fs.stem(dict.get('sources')[0])
+                endif
+                is_test = name.startswith('test-')
+
+                build = true
+                foreach cond : dict.get('conditions', [])
+                        if conf.get(cond) != 1
+                                build = false
+                                break
+                        endif
+                endforeach
+                if not build
+                        continue
+                endif
+
+                kwargs = rust_executable_template
+                foreach key, val : dict
+                        if key in ['name', 'sources', 'conditions', 'public', 'suite', 'timeout', 'type']
+                                continue
+                        endif
+                        kwargs += { key : val }
+                endforeach
+
+                if is_test
+                        kwargs += {
+                                'install' : install_tests,
+                                'install_dir' : unittestsdir,
+                                'build_by_default' : want_tests != 'false',
+                        }
+                endif
+
+                exe = executable(name, dict.get('sources'), kwargs : kwargs)
+                rust_executable_targets += exe
+                rust_executables_by_name += { name : exe }
+                rust_sources += dict.get('sources')
+                if dict.get('public', false)
+                        public_programs += exe
+                endif
+
+                type = dict.get('type', '')
+                if is_test and want_tests != 'false' and type != 'manual' and (type != 'unsafe' or want_tests == 'unsafe')
+                        test(name, exe,
+                             env : test_env,
+                             timeout : dict.get('timeout', 30),
+                             suite : dict.get('suite', 'rust'))
+                endif
+                if kwargs.get('install')
+                        meson.add_install_script(python, fix_rust_rpath_py, pkglibdir,
+                                                 kwargs.get('install_dir', bindir) / name)
+                endif
+        endforeach
+
+        if want_tests != 'false' and rustfmt.found() and rust_sources.length() > 0
+                test('rustfmt',
+                     rustfmt,
+                     args : ['--check', '--edition', '2021', rust_sources],
+                     suite : 'dist')
+        endif
+endif
+
 if mkosi.found()
         custom_target(
                 build_always_stale : true,
@@ -2789,7 +3033,8 @@ if git.found()
         all_files = run_command(
                 env, '-u', 'GIT_WORK_TREE',
                 git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
-                     'ls-files', ':/*.[ch]', ':/*.cc',
+                     # files() may not reach into the subproject directory
+                     'ls-files', ':/*.[ch]', ':/*.cc', ':(exclude,top)src/rust',
                 check : false)
         if all_files.returncode() == 0
                 existing_files = []
@@ -3088,6 +3333,7 @@ foreach tuple : [
         ['binfmt'],
         ['bootloader'],
         ['bpf-framework',          conf.get('BPF_FRAMEWORK') == 1],
+        ['rust',                   have_rust],
         ['coredump'],
         ['efi'],
         ['environment.d'],
