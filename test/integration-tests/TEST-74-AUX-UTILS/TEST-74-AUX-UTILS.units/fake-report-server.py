@@ -52,6 +52,34 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(response)
 
+    def do_GET(self):
+        # Mimic the JSON answer of a freegeoip-style geolocation service, for
+        # testing systemd-report-geoip. The address is deliberately not in
+        # canonical form (and might not even be an address), to verify that
+        # the client validates and normalizes it.
+        if self.path != '/json/':
+            self.send_error(404, 'Not Found')
+            return
+
+        response = json.dumps({
+            'ip': args.geoip_address,
+            'country_code': 'DE',
+            'country_name': 'Germany',
+            'region_code': 'BE',
+            'region_name': 'State of Berlin',
+            'city': 'Berlin',
+            'zip_code': '10785',
+            'time_zone': 'Europe/Berlin',
+            'latitude': 52.5061,
+            'longitude': 13.3684,
+            'metro_code': 0,
+        }).encode()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', len(response))
+        self.end_headers()
+        self.wfile.write(response)
+
     def log_message(self, fmt, *args):
         print(f'{self.address_string()} - {fmt % args}')
 
@@ -60,6 +88,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=8089)
 parser.add_argument('--cert', help='TLS certificate file')
 parser.add_argument('--key', help='TLS private key file')
+parser.add_argument('--geoip-address', default='2001:0DB8:0000:0000:0000:0000:0000:0001',
+                    help='IP address to return in the geolocation answer')
 args = parser.parse_args()
 
 server = HTTPServer(('', args.port), Handler)
