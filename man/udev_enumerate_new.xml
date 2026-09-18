@@ -38,12 +38,12 @@
 
       <funcprototype>
         <funcdef>struct udev_enumerate *<function>udev_enumerate_ref</function></funcdef>
-        <paramdef>struct udev_enumerate *<parameter>udev_enumerate</parameter></paramdef>
+        <paramdef>struct udev_enumerate *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>struct udev_enumerate *<function>udev_enumerate_unref</function></funcdef>
-        <paramdef>struct udev_enumerate *<parameter>udev_enumerate</parameter></paramdef>
+        <paramdef>struct udev_enumerate *<parameter>p</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>

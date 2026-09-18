@@ -30,7 +30,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_message_new_method_call</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>m</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>destination</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
@@ -40,7 +40,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_message_new_method_return</function></funcdef>
         <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>m</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -50,7 +50,7 @@
 
     <para>The <function>sd_bus_message_new_method_call()</function> function creates a new bus
     message object that encapsulates a D-Bus method call, and returns it in the
-    <parameter>m</parameter> output parameter. The call will be made on the destination
+    <parameter>ret</parameter> output parameter. The call will be made on the destination
     <parameter>destination</parameter>, path <parameter>path</parameter>, on the interface
     <parameter>interface</parameter>, member <parameter>member</parameter>.</para>
 
@@ -76,7 +76,7 @@
 
     <para>The <function>sd_bus_message_new_method_return()</function> function creates a new bus
     message object that is a reply to the method call <parameter>call</parameter> and returns it in
-    the <parameter>m</parameter> output parameter. The <parameter>call</parameter> parameter must be
+    the <parameter>ret</parameter> output parameter. The <parameter>call</parameter> parameter must be
     a method call message. The sender of <parameter>call</parameter> is used as the destination.
     </para>
   </refsect1>
@@ -96,7 +96,7 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The output parameter <parameter>m</parameter> is
+          <listitem><para>The output parameter <parameter>ret</parameter> is
           <constant>NULL</constant>.</para>
 
           <para>The <parameter>destination</parameter> parameter is non-null and is not a valid D-Bus

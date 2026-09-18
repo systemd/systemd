@@ -68,12 +68,12 @@
 
       <funcprototype>
         <funcdef>struct udev_device *<function>udev_device_ref</function></funcdef>
-        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>struct udev_device *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>struct udev_device *<function>udev_device_unref</function></funcdef>
-        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>struct udev_device *<parameter>p</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>

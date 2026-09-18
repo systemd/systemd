@@ -34,22 +34,22 @@
         <funcdef>int <function>sd_journal_get_data</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
         <paramdef>const char *<parameter>field</parameter></paramdef>
-        <paramdef>const void **<parameter>data</parameter></paramdef>
-        <paramdef>size_t *<parameter>length</parameter></paramdef>
+        <paramdef>const void **<parameter>ret_data</parameter></paramdef>
+        <paramdef>size_t *<parameter>ret_size</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_journal_enumerate_data</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
-        <paramdef>const void **<parameter>data</parameter></paramdef>
-        <paramdef>size_t *<parameter>length</parameter></paramdef>
+        <paramdef>const void **<parameter>ret_data</parameter></paramdef>
+        <paramdef>size_t *<parameter>ret_size</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_journal_enumerate_available_data</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
-        <paramdef>const void **<parameter>data</parameter></paramdef>
-        <paramdef>size_t *<parameter>length</parameter></paramdef>
+        <paramdef>const void **<parameter>ret_data</parameter></paramdef>
+        <paramdef>size_t *<parameter>ret_size</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -61,7 +61,7 @@
         <funcdef><function>SD_JOURNAL_FOREACH_DATA</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
         <paramdef>const void *<parameter>data</parameter></paramdef>
-        <paramdef>size_t <parameter>length</parameter></paramdef>
+        <paramdef>size_t <parameter>size</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -73,7 +73,7 @@
       <funcprototype>
         <funcdef>int <function>sd_journal_get_data_threshold</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
-        <paramdef>size_t *<parameter>sz</parameter></paramdef>
+        <paramdef>size_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>

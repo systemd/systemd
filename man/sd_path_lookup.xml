@@ -114,14 +114,14 @@
         <funcdef>int <function>sd_path_lookup</function></funcdef>
         <paramdef>uint64_t <parameter>type</parameter></paramdef>
         <paramdef>const char *<parameter>suffix</parameter></paramdef>
-        <paramdef>char **<parameter>paths</parameter></paramdef>
+        <paramdef>char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_path_lookup_strv</function></funcdef>
         <paramdef>uint64_t <parameter>type</parameter></paramdef>
         <paramdef>const char *<parameter>suffix</parameter></paramdef>
-        <paramdef>char ***<parameter>paths</parameter></paramdef>
+        <paramdef>char ***<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
