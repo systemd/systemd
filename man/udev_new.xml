@@ -38,7 +38,7 @@
 
       <funcprototype>
         <funcdef>struct udev *<function>udev_ref</function></funcdef>
-        <paramdef>struct udev *<parameter>udev</parameter></paramdef>
+        <paramdef>struct udev *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>

@@ -27,8 +27,8 @@
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_set_relative_timeout</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
-        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>

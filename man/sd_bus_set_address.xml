@@ -37,7 +37,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_get_address</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>const char **<parameter>address</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>

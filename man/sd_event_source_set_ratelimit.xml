@@ -31,32 +31,32 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_set_ratelimit</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
         <paramdef>uint64_t <parameter>interval_usec</parameter></paramdef>
         <paramdef>unsigned <parameter>burst</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_ratelimit</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
         <paramdef>uint64_t* <parameter>ret_interval_usec</parameter></paramdef>
         <paramdef>unsigned* <parameter>ret_burst</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_is_ratelimited</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_set_ratelimit_expire_callback</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
         <paramdef>sd_event_handler_t<parameter>callback</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_leave_ratelimit</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -83,7 +83,7 @@
     enabled and rate limiting is not in effect.</para>
 
     <para><function>sd_event_source_get_ratelimit()</function> may be used to query the current rate limiting
-    parameters set on the event source object <parameter>source</parameter>. The previously set interval and
+    parameters set on the event source object <parameter>s</parameter>. The previously set interval and
     burst vales are returned in the second and third argument.</para>
 
     <para><function>sd_event_source_is_ratelimited()</function> may be used to query whether the event source
@@ -123,7 +123,7 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para><parameter>source</parameter> is not a valid pointer to an
+          <listitem><para><parameter>s</parameter> is not a valid pointer to an
           <structname>sd_event_source</structname> object.
           </para>
 
