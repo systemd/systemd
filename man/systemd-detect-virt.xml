@@ -34,7 +34,7 @@
     <para><command>systemd-detect-virt</command> detects execution in
     a virtualized environment. It identifies the virtualization
     technology and can distinguish full machine virtualization from
-    container virtualization. <filename>systemd-detect-virt</filename>
+    container virtualization. <command>systemd-detect-virt</command>
     exits with a return value of 0 (success) if a virtualization
     technology is detected, and non-zero (error) otherwise. By default,
     any type of virtualization is detected, and the options

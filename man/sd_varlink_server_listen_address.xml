@@ -32,26 +32,26 @@
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_server_listen_address</function></funcdef>
-        <paramdef>sd_varlink_server* <parameter>server</parameter></paramdef>
+        <paramdef>sd_varlink_server* <parameter>s</parameter></paramdef>
         <paramdef>const char* <parameter>address</parameter></paramdef>
         <paramdef>mode_t <parameter>mode</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_server_listen_fd</function></funcdef>
-        <paramdef>sd_varlink_server* <parameter>server</parameter></paramdef>
+        <paramdef>sd_varlink_server* <parameter>s</parameter></paramdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_server_listen_name</function></funcdef>
-        <paramdef>sd_varlink_server* <parameter>server</parameter></paramdef>
+        <paramdef>sd_varlink_server* <parameter>s</parameter></paramdef>
         <paramdef>const char* <parameter>name</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_server_listen_auto</function></funcdef>
-        <paramdef>sd_varlink_server* <parameter>server</parameter></paramdef>
+        <paramdef>sd_varlink_server* <parameter>s</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
