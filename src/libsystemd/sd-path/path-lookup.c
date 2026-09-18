@@ -181,10 +181,11 @@ int state_directory(RuntimeScope scope, const char *fallback_suffix, char **ret)
 
         assert(ret);
 
-        /* Accept $STATE_DIRECTORY as authoritative, i.e. only works for our service's own state dir.
+        /* Accept $STATE_DIRECTORY as authoritative, i.e. only works for our service's own state dir, as
+         * typically the fallback_suffix is ignored if $STATE_DIRECTORY is set.
          *
-         * If it's missing, apply the suffix to /var/lib/, or $XDG_STATE_HOME if we are in a user runtime
-         * scope.
+         * If $STATE_DIRECTORY is missing, apply the fallback suffix to /var/lib/, or $XDG_STATE_HOME if we
+         * are in a user runtime scope.
          *
          * Return value indicates whether the suffix was applied or not. */
 
