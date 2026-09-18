@@ -191,19 +191,44 @@ cleanup_notify_reload() {
         /tmp/reload-wellbehaved-in /tmp/reload-wellbehaved-out
 }
 
+# journalctl can transiently open no journal file at all, which is indistinguishable from the
+# journal being empty. Both the cursor this leaves behind and the read that later uses it have
+# to tolerate that, or the flake moves from one to the other.
+seed_journal_cursor() {
+    local cursor_file="${1:?}"
+
+    # Remove the file inside the loop, so a retry starts from no file at all rather than from
+    # whatever the failed attempt left behind: journalctl reads --cursor-file as input when it
+    # exists, and "test -s" should mean "this attempt produced a cursor".
+    timeout 30 bash -xec 'until rm -f "$1" && journalctl --sync && journalctl -q -n 0 --cursor-file="$1" && test -s "$1"; do sleep 1; done' bash "$cursor_file"
+}
+
+assert_reload_signal_warning() {
+    local unit="${1:?}"
+    local cursor_file="${2:?}"
+    local cursor
+
+    # Without a cursor the search starts at the head of the journal and can match a warning left
+    # by an earlier subtest. seed_journal_cursor() guarantees one.
+    cursor="$(cat "$cursor_file")"
+    test -n "$cursor"
+
+    # Pass the cursor by value, because a read rewrites --cursor-file even when it matched
+    # nothing, which would move a later attempt past the message it is waiting for.
+    timeout 30 bash -xec 'until journalctl --sync && journalctl -u "$1" --after-cursor="$2" --grep "lacks handler for reload signal" >/dev/null; do sleep 1; done' bash "$unit" "$cursor"
+}
+
 trap cleanup_notify_reload EXIT
 cleanup_notify_reload
 
 # Test 1: Service without signal handler should fail to start
 mkfifo /tmp/reload-nohandler-in /tmp/reload-nohandler-out
-journalctl -q -n 0 --cursor-file=/tmp/reload-nohandler-cursor
+seed_journal_cursor /tmp/reload-nohandler-cursor
 (! systemctl start notify-reload-no-handler.service)
 assert_eq "$(systemctl show notify-reload-no-handler.service -P SubState)" "failed"
 assert_eq "$(systemctl show notify-reload-no-handler.service -P Result)" "protocol"
 # Verify error was logged about missing signal handler
-journalctl --sync
-journalctl -u notify-reload-no-handler.service --cursor-file=/tmp/reload-nohandler-cursor \
-    --grep "lacks handler for reload signal" >/dev/null
+assert_reload_signal_warning notify-reload-no-handler.service /tmp/reload-nohandler-cursor
 systemctl reset-failed notify-reload-no-handler.service
 rm -f /tmp/reload-nohandler-in /tmp/reload-nohandler-out
 
@@ -226,14 +251,12 @@ assert_eq "$response" "handler-removed"
 
 # Reload should succeed (with warning) even though handler is gone - service will be killed by SIGHUP
 # but that's intentional after the first start succeeds
-journalctl -q -n 0 --cursor-file=/tmp/reload-toggle-cursor
+seed_journal_cursor /tmp/reload-toggle-cursor
 systemctl reload --no-block notify-reload-toggle-handler.service
 # The service will die from SIGHUP since the handler is removed
 timeout 10 bash -c 'while systemctl is-active --quiet notify-reload-toggle-handler.service; do sleep .5; done'
 # Verify warning was logged
-journalctl --sync
-journalctl -u notify-reload-toggle-handler.service --cursor-file=/tmp/reload-toggle-cursor \
-    --grep "lacks handler for reload signal" >/dev/null
+assert_reload_signal_warning notify-reload-toggle-handler.service /tmp/reload-toggle-cursor
 rm -f /tmp/reload-toggle-in /tmp/reload-toggle-out
 
 # Test 4: Well-behaved service with handler should work correctly
