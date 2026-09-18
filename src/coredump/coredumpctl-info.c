@@ -115,7 +115,7 @@ error:
 
 static int print_list(FILE *file, sd_journal *j, Table *t) {
         _cleanup_free_ char
-                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
+                *mid = NULL, *cid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL,
                 *filename = NULL, *truncated = NULL;
         const void *d;
@@ -125,6 +125,7 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
         const char *present = NULL, *color = NULL;
         uint64_t size = UINT64_MAX;
         bool normal_coredump, has_inline_coredump;
+        sd_id128_t coredump_id = SD_ID128_NULL;
         uid_t uid_as_int = UID_INVALID;
         gid_t gid_as_int = GID_INVALID;
         pid_t pid_as_int = 0;
@@ -135,6 +136,7 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
                 RETRIEVE(d, l, "MESSAGE_ID", mid);
+                RETRIEVE(d, l, "COREDUMP_ID", cid);
                 RETRIEVE(d, l, "COREDUMP_PID", pid);
                 RETRIEVE(d, l, "COREDUMP_UID", uid);
                 RETRIEVE(d, l, "COREDUMP_GID", gid);
@@ -154,6 +156,8 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
                 return 0;
         }
 
+        if (cid)
+                (void) sd_id128_from_string(cid, &coredump_id);
         (void) parse_uid(uid, &uid_as_int);
         (void) parse_gid(gid, &gid_as_int);
         (void) parse_pid(pid, &pid_as_int);
@@ -182,6 +186,13 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
         if (STRPTR_IN_SET(present, "present", "journal") && truncated && parse_boolean(truncated) > 0)
                 present = "truncated";
 
+        if (sd_id128_is_null(coredump_id))
+                r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
+        else
+                r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_ID128, &coredump_id);
+        if (r < 0)
+                return table_log_add_error(r);
+
         r = table_add_many(
                         t,
                         TABLE_TIMESTAMP, ts,
@@ -201,6 +212,7 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
 
 typedef enum CoredumpField {
         COREDUMP_FIELD_MID,
+        COREDUMP_FIELD_ID,
         COREDUMP_FIELD_PID,
         COREDUMP_FIELD_UID,
         COREDUMP_FIELD_GID,
@@ -232,6 +244,7 @@ typedef enum CoredumpField {
 
 static const char* const coredump_field_table[_COREDUMP_FIELD_MAX] = {
         [COREDUMP_FIELD_MID]              = "MESSAGE_ID",
+        [COREDUMP_FIELD_ID]               = "COREDUMP_ID",
         [COREDUMP_FIELD_PID]              = "COREDUMP_PID",
         [COREDUMP_FIELD_UID]              = "COREDUMP_UID",
         [COREDUMP_FIELD_GID]              = "COREDUMP_GID",
@@ -263,6 +276,7 @@ static const char* const coredump_field_table[_COREDUMP_FIELD_MAX] = {
 typedef struct CoredumpFields {
         char *fields[_COREDUMP_FIELD_MAX];
 
+        sd_id128_t coredump_id;
         bool normal_coredump;
         const char *storage_state;  /* points to a static string, not owned */
         const char *storage_color;  /* points to a static string, not owned */
@@ -298,6 +312,12 @@ static int coredump_fields_load(sd_journal *j, CoredumpFields *f) {
 
         f->normal_coredump = streq_ptr(f->fields[COREDUMP_FIELD_MID], SD_MESSAGE_COREDUMP_STR);
 
+        if (f->fields[COREDUMP_FIELD_ID]) {
+                r = sd_id128_from_string(f->fields[COREDUMP_FIELD_ID], &f->coredump_id);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse coredump ID '%s', ignoring: %m", f->fields[COREDUMP_FIELD_ID]);
+        }
+
         if (f->fields[COREDUMP_FIELD_FILENAME]) {
                 r = resolve_filename(arg_root, &f->fields[COREDUMP_FIELD_FILENAME]);
                 if (r < 0)
@@ -330,6 +350,82 @@ static int coredump_fields_load(sd_journal *j, CoredumpFields *f) {
         return 0;
 }
 
+static int table_add_string_field_full(
+                Table *table,
+                const char *field,
+                const char *color,
+                TableDataType dt,
+                const char *value) {
+
+        int r;
+
+        assert(table);
+        assert(field);
+
+        if (isempty(value))
+                return 0;
+
+        r = table_add_many(table,
+                           TABLE_FIELD, field,
+                           dt, value,
+                           TABLE_SET_COLOR, color);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 0;
+}
+
+static int table_add_string_field(Table *table, const char *field, const char *value) {
+        return table_add_string_field_full(table, field, /* color= */ NULL, TABLE_STRING, value);
+}
+
+_printf_(5, 6)
+static int table_add_string_fieldf_full(
+                Table *table,
+                const char *field,
+                const char *color,
+                TableDataType dt,
+                const char *format,
+                ...) {
+
+        _cleanup_free_ char *value = NULL;
+        va_list ap;
+        int r;
+
+        assert(table);
+        assert(field);
+        assert(format);
+
+        va_start(ap, format);
+        r = vasprintf(&value, format, ap);
+        va_end(ap);
+        if (r < 0)
+                return log_oom();
+
+        return table_add_string_field_full(table, field, color, dt, value);
+}
+
+#define table_add_string_fieldf(table, field, format, ...) \
+        table_add_string_fieldf_full(table, field, /* color= */ NULL, TABLE_STRING, format, __VA_ARGS__)
+
+static int table_add_string_field2_full(
+                Table *table,
+                const char *field,
+                const char *color,
+                TableDataType dt,
+                const char *value,
+                const char *supp) {
+
+        if (isempty(supp))
+                return table_add_string_field_full(table, field, color, dt, value);
+
+        return table_add_string_fieldf_full(table, field, color, dt, "%s (%s)", value, supp);
+}
+
+static int table_add_string_field2(Table *table, const char *field, const char *value, const char *supp) {
+        return table_add_string_field2_full(table, field, /* color= */ NULL, TABLE_STRING, value, supp);
+}
+
 static int print_info(FILE *file, sd_journal *j, bool need_space) {
         _cleanup_(coredump_fields_done) CoredumpFields f = {
                 .disk_size = UINT64_MAX,
@@ -343,55 +439,53 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (r < 0)
                 return r;
 
-        if (need_space)
-                fputs("\n", file);
+        _cleanup_(table_unrefp) Table *table = table_new_vertical();
+        if (!table)
+                return log_oom();
+
+        if (!sd_id128_is_null(f.coredump_id)) {
+                r = table_add_string_field(table, "ID", SD_ID128_TO_STRING(f.coredump_id));
+                if (r < 0)
+                        return r;
+        }
 
         if (f.fields[COREDUMP_FIELD_COMM])
-                fprintf(file,
-                        "           PID: %s%s%s (%s)\n",
-                        ansi_highlight(), strna(f.fields[COREDUMP_FIELD_PID]), ansi_normal(), f.fields[COREDUMP_FIELD_COMM]);
+                r = table_add_string_fieldf_full(table, "PID", /* color= */ NULL, TABLE_STRING_WITH_ANSI, "%s%s%s (%s)",
+                                                 ansi_highlight(), strna(f.fields[COREDUMP_FIELD_PID]), ansi_normal(),
+                                                 f.fields[COREDUMP_FIELD_COMM]);
         else
-                fprintf(file,
-                        "           PID: %s%s%s\n",
-                        ansi_highlight(), strna(f.fields[COREDUMP_FIELD_PID]), ansi_normal());
+                r = table_add_string_field_full(table, "PID", ansi_highlight(), TABLE_STRING, strna(f.fields[COREDUMP_FIELD_PID]));
+        if (r < 0)
+                return r;
 
         if (f.fields[COREDUMP_FIELD_TID]) {
-                if (f.fields[COREDUMP_FIELD_THREAD_NAME])
-                        fprintf(file, "           TID: %s (%s)\n", f.fields[COREDUMP_FIELD_TID], f.fields[COREDUMP_FIELD_THREAD_NAME]);
-                else
-                        fprintf(file, "           TID: %s\n", f.fields[COREDUMP_FIELD_TID]);
+                r = table_add_string_field2(table, "TID", f.fields[COREDUMP_FIELD_TID], f.fields[COREDUMP_FIELD_THREAD_NAME]);
+                if (r < 0)
+                        return r;
         }
 
         if (f.fields[COREDUMP_FIELD_UID]) {
+                _cleanup_free_ char *u = NULL;
                 uid_t n;
 
-                if (parse_uid(f.fields[COREDUMP_FIELD_UID], &n) >= 0) {
-                        _cleanup_free_ char *u = NULL;
-
+                if (parse_uid(f.fields[COREDUMP_FIELD_UID], &n) >= 0)
                         u = uid_to_name(n);
-                        fprintf(file,
-                                "           UID: %s (%s)\n",
-                                f.fields[COREDUMP_FIELD_UID], u);
-                } else
-                        fprintf(file,
-                                "           UID: %s\n",
-                                f.fields[COREDUMP_FIELD_UID]);
+
+                r = table_add_string_field2(table, "UID", f.fields[COREDUMP_FIELD_UID], u);
+                if (r < 0)
+                        return r;
         }
 
         if (f.fields[COREDUMP_FIELD_GID]) {
+                _cleanup_free_ char *g = NULL;
                 gid_t n;
 
-                if (parse_gid(f.fields[COREDUMP_FIELD_GID], &n) >= 0) {
-                        _cleanup_free_ char *g = NULL;
-
+                if (parse_gid(f.fields[COREDUMP_FIELD_GID], &n) >= 0)
                         g = gid_to_name(n);
-                        fprintf(file,
-                                "           GID: %s (%s)\n",
-                                f.fields[COREDUMP_FIELD_GID], g);
-                } else
-                        fprintf(file,
-                                "           GID: %s\n",
-                                f.fields[COREDUMP_FIELD_GID]);
+
+                r = table_add_string_field2(table, "GID", f.fields[COREDUMP_FIELD_GID], g);
+                if (r < 0)
+                        return r;
         }
 
         if (f.fields[COREDUMP_FIELD_SGNL]) {
@@ -399,8 +493,6 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 const char *name = f.normal_coredump ? "Signal" : "Reason";
 
                 if (f.normal_coredump && safe_atoi(f.fields[COREDUMP_FIELD_SGNL], &sig) >= 0) {
-                        fprintf(file, "        %s: %s (%s)", name, f.fields[COREDUMP_FIELD_SGNL], signal_to_string(sig));
-
                         if (f.fields[COREDUMP_FIELD_CODE]) {
                                 int n;
                                 const char *s;
@@ -410,76 +502,114 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                                 else
                                         s = NULL;
 
-                                fprintf(file, " si_code: %s", s ?: f.fields[COREDUMP_FIELD_CODE]);
-                        }
-
-                        fputc('\n', file);
+                                r = table_add_string_fieldf(table, name, "%s (%s) si_code: %s",
+                                                           f.fields[COREDUMP_FIELD_SGNL], signal_to_string(sig),
+                                                           s ?: f.fields[COREDUMP_FIELD_CODE]);
+                        } else
+                                r = table_add_string_field2(table, name, f.fields[COREDUMP_FIELD_SGNL], signal_to_string(sig));
                 } else
-                        fprintf(file, "        %s: %s\n", name, f.fields[COREDUMP_FIELD_SGNL]);
+                        r = table_add_string_field(table, name, f.fields[COREDUMP_FIELD_SGNL]);
+                if (r < 0)
+                        return r;
         }
 
         if (f.fields[COREDUMP_FIELD_TIMESTAMP]) {
                 usec_t u;
 
-                r = safe_atou64(f.fields[COREDUMP_FIELD_TIMESTAMP], &u);
-                if (r >= 0)
-                        fprintf(file, "     Timestamp: %s (%s)\n",
-                                FORMAT_TIMESTAMP(u), FORMAT_TIMESTAMP_RELATIVE(u));
+                if (safe_atou64(f.fields[COREDUMP_FIELD_TIMESTAMP], &u) >= 0)
+                        r = table_add_string_field2(table, "Timestamp", FORMAT_TIMESTAMP(u), FORMAT_TIMESTAMP_RELATIVE(u));
                 else
-                        fprintf(file, "     Timestamp: %s\n", f.fields[COREDUMP_FIELD_TIMESTAMP]);
+                        r = table_add_string_field(table, "Timestamp", f.fields[COREDUMP_FIELD_TIMESTAMP]);
+                if (r < 0)
+                        return r;
         }
 
-        if (f.fields[COREDUMP_FIELD_CMDLINE])
-                fprintf(file, "  Command Line: %s\n", f.fields[COREDUMP_FIELD_CMDLINE]);
-        if (f.fields[COREDUMP_FIELD_EXE])
-                fprintf(file, "    Executable: %s%s%s\n", ansi_highlight(), f.fields[COREDUMP_FIELD_EXE], ansi_normal());
-        if (f.fields[COREDUMP_FIELD_CGROUP])
-                fprintf(file, " Control Group: %s\n", f.fields[COREDUMP_FIELD_CGROUP]);
-        if (f.fields[COREDUMP_FIELD_UNIT])
-                fprintf(file, "          Unit: %s\n", f.fields[COREDUMP_FIELD_UNIT]);
-        if (f.fields[COREDUMP_FIELD_USER_UNIT])
-                fprintf(file, "     User Unit: %s\n", f.fields[COREDUMP_FIELD_USER_UNIT]);
-        if (f.fields[COREDUMP_FIELD_SLICE])
-                fprintf(file, "         Slice: %s\n", f.fields[COREDUMP_FIELD_SLICE]);
-        if (f.fields[COREDUMP_FIELD_SESSION])
-                fprintf(file, "       Session: %s\n", f.fields[COREDUMP_FIELD_SESSION]);
+        if (f.fields[COREDUMP_FIELD_CMDLINE]) {
+                r = table_add_string_field(table, "Command Line", f.fields[COREDUMP_FIELD_CMDLINE]);
+                if (r < 0)
+                        return r;
+        }
+        if (f.fields[COREDUMP_FIELD_EXE]) {
+                r = table_add_string_field_full(table, "Executable", ansi_highlight(), TABLE_STRING, f.fields[COREDUMP_FIELD_EXE]);
+                if (r < 0)
+                        return r;
+        }
+        if (f.fields[COREDUMP_FIELD_CGROUP]) {
+                r = table_add_string_field(table, "Control Group", f.fields[COREDUMP_FIELD_CGROUP]);
+                if (r < 0)
+                        return r;
+        }
+        if (f.fields[COREDUMP_FIELD_UNIT]) {
+                r = table_add_string_field(table, "Unit", f.fields[COREDUMP_FIELD_UNIT]);
+                if (r < 0)
+                        return r;
+        }
+        if (f.fields[COREDUMP_FIELD_USER_UNIT]) {
+                r = table_add_string_field(table, "User Unit", f.fields[COREDUMP_FIELD_USER_UNIT]);
+                if (r < 0)
+                        return r;
+        }
+        if (f.fields[COREDUMP_FIELD_SLICE]) {
+                r = table_add_string_field(table, "Slice", f.fields[COREDUMP_FIELD_SLICE]);
+                if (r < 0)
+                        return r;
+        }
+        if (f.fields[COREDUMP_FIELD_SESSION]) {
+                r = table_add_string_field(table, "Session", f.fields[COREDUMP_FIELD_SESSION]);
+                if (r < 0)
+                        return r;
+        }
         if (f.fields[COREDUMP_FIELD_OWNER_UID]) {
+                _cleanup_free_ char *u = NULL;
                 uid_t n;
 
-                if (parse_uid(f.fields[COREDUMP_FIELD_OWNER_UID], &n) >= 0) {
-                        _cleanup_free_ char *u = NULL;
-
+                if (parse_uid(f.fields[COREDUMP_FIELD_OWNER_UID], &n) >= 0)
                         u = uid_to_name(n);
-                        fprintf(file,
-                                "     Owner UID: %s (%s)\n",
-                                f.fields[COREDUMP_FIELD_OWNER_UID], u);
-                } else
-                        fprintf(file,
-                                "     Owner UID: %s\n",
-                                f.fields[COREDUMP_FIELD_OWNER_UID]);
+
+                r = table_add_string_field2(table, "Owner UID", f.fields[COREDUMP_FIELD_OWNER_UID], u);
+                if (r < 0)
+                        return r;
         }
-        if (f.fields[COREDUMP_FIELD_BOOT_ID])
-                fprintf(file, "       Boot ID: %s\n", f.fields[COREDUMP_FIELD_BOOT_ID]);
-        if (f.fields[COREDUMP_FIELD_MACHINE_ID])
-                fprintf(file, "    Machine ID: %s\n", f.fields[COREDUMP_FIELD_MACHINE_ID]);
-        if (f.fields[COREDUMP_FIELD_HOSTNAME])
-                fprintf(file, "      Hostname: %s\n", f.fields[COREDUMP_FIELD_HOSTNAME]);
+        if (f.fields[COREDUMP_FIELD_BOOT_ID]) {
+                r = table_add_string_field(table, "Boot ID", f.fields[COREDUMP_FIELD_BOOT_ID]);
+                if (r < 0)
+                        return r;
+        }
+        if (f.fields[COREDUMP_FIELD_MACHINE_ID]) {
+                r = table_add_string_field(table, "Machine ID", f.fields[COREDUMP_FIELD_MACHINE_ID]);
+                if (r < 0)
+                        return r;
+        }
+        if (f.fields[COREDUMP_FIELD_HOSTNAME]) {
+                r = table_add_string_field(table, "Hostname", f.fields[COREDUMP_FIELD_HOSTNAME]);
+                if (r < 0)
+                        return r;
+        }
 
         if (f.fields[COREDUMP_FIELD_FILENAME]) {
-                fprintf(file,
-                        "       Storage: %s%s (%s)%s\n",
-                        strempty(f.storage_color),
-                        f.fields[COREDUMP_FIELD_FILENAME],
-                        f.storage_state,
-                        ansi_normal());
+                r = table_add_string_field2_full(table, "Storage", f.storage_color, TABLE_STRING,
+                                                 f.fields[COREDUMP_FIELD_FILENAME], f.storage_state);
+                if (r < 0)
+                        return r;
 
-                if (f.disk_size != UINT64_MAX)
-                        fprintf(file, "  Size on Disk: %s\n", FORMAT_BYTES(f.disk_size));
-        } else
-                fprintf(file, "       Storage: %s\n", f.storage_state);
+                if (f.disk_size != UINT64_MAX) {
+                        r = table_add_string_field(table, "Size on Disk", FORMAT_BYTES(f.disk_size));
+                        if (r < 0)
+                                return r;
+                }
+        } else {
+                r = table_add_string_field(table, "Storage", f.storage_state);
+                if (r < 0)
+                        return r;
+        }
 
-        if (f.fields[COREDUMP_FIELD_PKGMETA_NAME] && f.fields[COREDUMP_FIELD_PKGMETA_VERSION])
-                fprintf(file, "       Package: %s/%s\n", f.fields[COREDUMP_FIELD_PKGMETA_NAME], f.fields[COREDUMP_FIELD_PKGMETA_VERSION]);
+        if (f.fields[COREDUMP_FIELD_PKGMETA_NAME] && f.fields[COREDUMP_FIELD_PKGMETA_VERSION]) {
+                r = table_add_string_fieldf(table, "Package", "%s/%s",
+                                            f.fields[COREDUMP_FIELD_PKGMETA_NAME],
+                                            f.fields[COREDUMP_FIELD_PKGMETA_VERSION]);
+                if (r < 0)
+                        return r;
+        }
 
         /* Print out the build-id of the 'main' ELF module, by matching the JSON key
          * with the 'exe' field. */
@@ -488,27 +618,37 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 sd_json_variant *module_json;
 
                 JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, f.package_json) {
-                        sd_json_variant *build_id;
-
                         /* We only print the build-id for the 'main' ELF module */
                         if (!path_equal_filename(module_name, f.fields[COREDUMP_FIELD_EXE]))
                                 continue;
 
-                        build_id = sd_json_variant_by_key(module_json, "buildId");
-                        if (build_id)
-                                fprintf(file, "      build-id: %s\n", sd_json_variant_string(build_id));
+                        r = table_add_string_field(
+                                        table, "Build ID",
+                                        sd_json_variant_string(sd_json_variant_by_key(module_json, "buildId")));
+                        if (r < 0)
+                                return r;
 
                         break;
                 }
         }
 
         if (f.fields[COREDUMP_FIELD_MESSAGE]) {
-                _cleanup_free_ char *m = NULL;
-
-                m = strreplace(f.fields[COREDUMP_FIELD_MESSAGE], "\n", "\n                ");
-
-                fprintf(file, "       Message: %s\n", strstrip(m ?: f.fields[COREDUMP_FIELD_MESSAGE]));
+                _cleanup_strv_free_ char **lines = strv_split_newlines(f.fields[COREDUMP_FIELD_MESSAGE]);
+                if (lines) {
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "Message",
+                                           TABLE_STRV, lines);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
         }
+
+        if (need_space)
+                fputs("\n", file);
+
+        r = table_print_full(table, file, /* flush= */ false);
+        if (r < 0)
+                return table_log_print_error(r);
 
         return 0;
 }
@@ -551,6 +691,7 @@ static int print_info_json(FILE *file, sd_journal *j) {
                 (void) safe_atou64(f.fields[COREDUMP_FIELD_TIMESTAMP], &ts);
 
         r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
+                SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(f.coredump_id), "ID", SD_JSON_BUILD_ID128(f.coredump_id)),
                 SD_JSON_BUILD_PAIR_CONDITION(pid_is_valid(pid_as_int), "PID", SD_JSON_BUILD_UNSIGNED(pid_as_int)),
                 SD_JSON_BUILD_PAIR_CONDITION(!pid_is_valid(pid_as_int) && !!f.fields[COREDUMP_FIELD_PID], "PID", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_PID])),
                 SD_JSON_BUILD_PAIR_CONDITION(pid_is_valid(tid_as_int), "TID", SD_JSON_BUILD_UNSIGNED(tid_as_int)),
