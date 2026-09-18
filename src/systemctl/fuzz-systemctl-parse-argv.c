@@ -54,6 +54,7 @@ _alias_(verb_noop)
         verb_start_system_special,
         verb_switch_root,
         verb_trivial_method,
+        verb_wait,
         verb_whoami;
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
