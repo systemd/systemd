@@ -271,10 +271,12 @@ char* option_parser_get_arg(const OptionParser *state, size_t i);
 
 char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar);
 
-const Option* options_find_namespace(
+bool options_find_namespace(
                 const Option options[],
                 const Option options_end[],
-                const char *namespace);
+                const char *namespace,
+                const Option **ret_start,
+                const Option **ret_end);
 
 int options_get_help_table_group(
                 const Option options[],
