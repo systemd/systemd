@@ -295,6 +295,13 @@ timeout 30 bash -c 'until systemctl is-active varlink-transient-scope.scope; do 
 systemctl whoami "$scope_child" | grep "^varlink-transient-scope.scope$" >/dev/null
 systemctl show -P TimeoutStopUSec varlink-transient-scope.scope | grep 12345 >/dev/null
 
+# Unit dependencies
+defer_transient_cleanup varlink-transient-deps.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-deps.service","After":["varlink-transient-test.service"],"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-deps.service; do sleep 0.5; done'
+systemctl show -P After varlink-transient-deps.service | grep varlink-transient-test.service >/dev/null
+
 # Error cases: verify specific varlink error types
 set +o pipefail
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \

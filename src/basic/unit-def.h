@@ -328,6 +328,9 @@ DECLARE_STRING_TABLE_LOOKUP(freezer_state, FreezerState);
 FreezerState freezer_state_finish(FreezerState state) _const_;
 FreezerState freezer_state_objective(FreezerState state) _const_;
 
+DECLARE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
+bool unit_dependency_can_be_transient(UnitDependency d);
+
 DECLARE_STRING_TABLE_LOOKUP(unit_marker, UnitMarker);
 DECLARE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
 DECLARE_STRING_TABLE_LOOKUP(device_state, DeviceState);
@@ -340,7 +343,6 @@ DECLARE_STRING_TABLE_LOOKUP(socket_state, SocketState);
 DECLARE_STRING_TABLE_LOOKUP(swap_state, SwapState);
 DECLARE_STRING_TABLE_LOOKUP(target_state, TargetState);
 DECLARE_STRING_TABLE_LOOKUP(timer_state, TimerState);
-DECLARE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
 DECLARE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
 DECLARE_STRING_TABLE_LOOKUP(job_mode, JobMode);
 DECLARE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
