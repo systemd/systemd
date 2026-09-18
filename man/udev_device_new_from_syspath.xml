@@ -68,12 +68,12 @@
 
       <funcprototype>
         <funcdef>struct udev_device *<function>udev_device_ref</function></funcdef>
-        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>struct udev_device *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>struct udev_device *<function>udev_device_unref</function></funcdef>
-        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>struct udev_device *<parameter>p</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -175,10 +175,10 @@
     <para><function>udev_device_new_from_syspath()</function>,
     <function>udev_device_new_from_devnum()</function>,
     <function>udev_device_new_from_subsystem_sysname()</function>,
-    <function>udev_device_new_from_device_id()</function>,
     <function>udev_device_new_from_environment()</function>,
     <function>udev_device_ref()</function>, and
-    <function>udev_device_unref()</function> were added in version 221.</para>
+    <function>udev_device_unref()</function> were added in version 183.</para>
+    <para><function>udev_device_new_from_device_id()</function> was added in version 189.</para>
   </refsect1>
 
   <refsect1>

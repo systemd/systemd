@@ -72,7 +72,7 @@
 
     <para>In addition, when invoked as a Varlink service (i.e. via socket activation through
     <filename>systemd-imds-metrics.socket</filename>), <command>systemd-imds</command> acts as an
-    <constant>io.systemd.Metrics</constant> provider for
+    <interfacename>io.systemd.Metrics</interfacename> provider for
     <citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry>. It
     exposes the detected cloud vendor and the well-known <literal>hostname</literal>,
     <literal>region</literal>, <literal>zone</literal>, <literal>ipv4-public</literal> and

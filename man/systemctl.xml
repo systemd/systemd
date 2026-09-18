@@ -809,7 +809,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <varname>BusName=<replaceable>destination</replaceable></varname> property and also implement the
           generic
           <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          interface. (<filename>systemctl</filename> will use the generic D-Bus protocol to access the
+          interface. (<command>systemctl</command> will use the generic D-Bus protocol to access the
           <interfacename>org.freedesktop.LogControl1.LogLevel</interfacename> interface for the D-Bus name
           <replaceable>destination</replaceable>.)</para>
 
@@ -843,7 +843,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <varname>BusName=<replaceable>destination</replaceable></varname> property and also implement the
           generic
           <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          interface. (<filename>systemctl</filename> will use the generic D-Bus protocol to access the
+          interface. (<command>systemctl</command> will use the generic D-Bus protocol to access the
           <interfacename>org.freedesktop.LogControl1.LogLevel</interfacename> interface for the D-Bus name
           <replaceable>destination</replaceable>.)</para>
 

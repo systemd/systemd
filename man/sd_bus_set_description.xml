@@ -44,7 +44,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_get_description</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>const char **<parameter>description</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -83,13 +83,13 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_get_scope</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>const char **<parameter>scope</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_get_tid</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>pid_t *<parameter>tid</parameter></paramdef>
+        <paramdef>pid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -110,7 +110,7 @@
     before the bus is started.</para>
 
     <para><function>sd_bus_get_description()</function> returns a description string in
-    <parameter>description</parameter>. This string may have been previously set with
+    <parameter>ret</parameter>. This string may have been previously set with
     <function>sd_bus_set_description()</function> or
     <citerefentry><refentrytitle>sd_bus_open_with_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     or similar. If not set this way, a default string like <literal>system</literal> or
@@ -148,12 +148,12 @@
     interactive authorization is allowed and false if not.</para>
 
     <para><function>sd_bus_get_scope()</function> stores the scope of the given bus object in
-    <parameter>scope</parameter>. The scope of the system bus is <literal>system</literal>. The
+    <parameter>ret</parameter>. The scope of the system bus is <literal>system</literal>. The
     scope of a user session bus is <literal>user</literal>. If the given bus object is not the
     system or a user session bus, <function>sd_bus_get_scope()</function> returns an error.</para>
 
     <para><function>sd_bus_get_tid()</function> stores the kernel thread id of the thread associated
-    with the given bus object in <parameter>tid</parameter>. If <parameter>bus</parameter> is a
+    with the given bus object in <parameter>ret</parameter>. If <parameter>bus</parameter> is a
     default bus object obtained by calling one of the functions of the
     <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     family of functions, it stores the thread id of the thread the bus object was created in.
@@ -215,9 +215,7 @@
           <term><constant>-ENODATA</constant></term>
 
           <listitem><para>The bus object passed to <function>sd_bus_get_scope()</function> was not a
-          system or user session bus.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          system or user session bus.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -227,9 +225,7 @@
           default bus object and is not attached to an event loop.</para>
 
           <para>The bus object passed to <function>sd_bus_get_description()</function> did
-          not have a <parameter>description</parameter>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          not have a <parameter>description</parameter>.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -243,13 +239,13 @@
     <function>sd_bus_get_description()</function>,
     <function>sd_bus_set_anonymous()</function>,
     <function>sd_bus_set_trusted()</function>,
-    <function>sd_bus_set_allow_interactive_authorization()</function>, and
-    <function>sd_bus_get_allow_interactive_authorization()</function> were added in version 240.</para>
-    <para><function>sd_bus_is_anonymous()</function>,
+    <function>sd_bus_set_allow_interactive_authorization()</function>,
+    <function>sd_bus_get_allow_interactive_authorization()</function>,
+    <function>sd_bus_is_anonymous()</function>,
     <function>sd_bus_is_trusted()</function>,
     <function>sd_bus_get_scope()</function>,
     <function>sd_bus_get_tid()</function>, and
-    <function>sd_bus_get_unique_name()</function> were added in version 246.</para>
+    <function>sd_bus_get_unique_name()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>
