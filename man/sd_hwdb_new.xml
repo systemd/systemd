@@ -121,7 +121,7 @@
     <title>History</title>
     <para><function>sd_hwdb_new()</function>,
     <function>sd_hwdb_ref()</function>, and
-    <function>sd_hwdb_unref()</function> were added in version 246.</para>
+    <function>sd_hwdb_unref()</function> were added in version 240.</para>
     <para><function>sd_hwdb_new_from_path()</function> was added in version 252.</para>
   </refsect1>
 

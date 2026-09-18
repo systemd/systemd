@@ -126,7 +126,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_event_set_watchdog()</function> and
-    <function>sd_event_get_watchdog()</function> were added in version 229.</para>
+    <function>sd_event_get_watchdog()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>
