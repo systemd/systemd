@@ -107,8 +107,8 @@
     <title>Description</title>
 
     <para>These functions set or query D-Bus properties. D-Bus properties are service fields exposed
-    via the <constant>org.freedesktop.DBus.Properties</constant> interface. Under the hood, these
-    functions call methods of the <constant>org.freedesktop.DBus.Properties</constant> interface and
+    via the <interfacename>org.freedesktop.DBus.Properties</interfacename> interface. Under the hood, these
+    functions call methods of the <interfacename>org.freedesktop.DBus.Properties</interfacename> interface and
     as a result their semantics are similar to
     <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
@@ -123,7 +123,7 @@
 
     <para><function>sd_bus_set_propertyv()</function> is equivalent to
     <function>sd_bus_set_property()</function>, except that it is called with a
-    <literal>va_list</literal> instead of a variable number of arguments.</para>
+    <constant>va_list</constant> instead of a variable number of arguments.</para>
 
     <para><function>sd_bus_get_property()</function> queries a D-Bus property. If retrieving the
     property fails or an internal error occurs, an error is returned and an extended description of

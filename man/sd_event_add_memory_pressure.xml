@@ -239,7 +239,7 @@
     caches maintained by <filename>libsystemd</filename> and then invokes glibc's <citerefentry
     project='man-pages'><refentrytitle>malloc_trim</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
     makes the operation executed when the handler function parameter of
-    <function>sd_event_add_memory_pressure</function> is passed as <constant>NULL</constant> directly
+    <function>sd_event_add_memory_pressure()</function> is passed as <constant>NULL</constant> directly
     accessible for invocation at any time (see above). This function will log a structured log message at
     <constant>LOG_DEBUG</constant> level (with message ID f9b0be465ad540d0850ad32172d57c21) about the memory
     pressure operation.</para>
