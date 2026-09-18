@@ -77,7 +77,7 @@
     <title>History</title>
     <para><function>udev_enumerate_new()</function>,
     <function>udev_enumerate_ref()</function>, and
-    <function>udev_enumerate_unref()</function> were added in version 221.</para>
+    <function>udev_enumerate_unref()</function> were added in version 183.</para>
   </refsect1>
 
   <refsect1>

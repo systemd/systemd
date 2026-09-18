@@ -93,7 +93,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_set_method_call_timeout()</function> and
-    <function>sd_bus_get_method_call_timeout()</function> were added in version 246.</para>
+    <function>sd_bus_get_method_call_timeout()</function> were added in version 240.</para>
   </refsect1>
 
   <refsect1>
