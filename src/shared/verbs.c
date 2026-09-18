@@ -246,6 +246,12 @@ const Verb* _verbs_find_command(
                 const char *name,
                 const CommandDescription **ret_cmd) {
 
+        /* Locate the entry in the verbs array with VERB_COMMAND_MARKER.
+         * This entry contains a pointer to a CommandDescription 'cmd' in its .data field.
+         * If 'name' is specified, the name has to be in either cmd->names or
+         * cmd->option_namespace. The latter is intended to be used to match service
+         * implementations from the generic service code. */
+
         assert(verbs);
         assert(verbs_end > verbs);
         assert((uintptr_t) verbs % sizeof(void*) == 0);
@@ -256,7 +262,7 @@ const Verb* _verbs_find_command(
                         continue;
 
                 const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(verb->data);
-                if (name && !nulstr_contains(cmd->names, name))
+                if (name && !nulstr_contains(cmd->names, name) && !streq_ptr(name, cmd->option_namespace))
                         continue;
 
                 /* This function returns the Verb slot through the return value, and the

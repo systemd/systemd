@@ -22,7 +22,7 @@ int _service_parse_argv(
         assert(argv);
 
         const CommandDescription *cmd = NULL;
-        assert_se(_verbs_find_command(verbs, verbs_end, /* name= */ NULL, &cmd));
+        assert_se(_verbs_find_command(verbs, verbs_end, "service", &cmd));
 
         /* The COMMAND description must reference the option namespace defined below, and list
          * exactly the option groups matching the features the service supports. Options outside of
