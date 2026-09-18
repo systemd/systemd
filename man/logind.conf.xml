@@ -364,7 +364,7 @@
         <listitem><para>Controls the maximum number of concurrent user sessions to manage. Defaults to 8192
         (8K). Depending on how the <filename>pam_systemd.so</filename> module is included in the PAM stack
         configuration, further login sessions will either be refused, or permitted but not tracked by
-        <filename>systemd-logind</filename>.</para>
+        <command>systemd-logind</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
@@ -385,10 +385,10 @@
         <term><varname>StopIdleSessionSec=</varname></term>
 
         <listitem><para>Specifies a timeout in seconds, or a time span value after which
-        <filename>systemd-logind</filename> checks the idle state of all sessions. Every session that is idle
+        <command>systemd-logind</command> checks the idle state of all sessions. Every session that is idle
         for longer than the timeout will be stopped. Note that this option does not apply to
         <literal>greeter</literal> or <literal>lock-screen</literal> sessions. Defaults to
-        <literal>infinity</literal> (<filename>systemd-logind</filename> is not checking the idle state
+        <literal>infinity</literal> (<command>systemd-logind</command> is not checking the idle state
         of sessions). For details about the syntax of time spans, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         </para>

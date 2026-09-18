@@ -52,7 +52,7 @@
 
     <para><command>storagectl</command> may be used to inspect storage providers and the storage
     volumes they expose. A storage provider is a service implementing the
-    <constant>io.systemd.StorageProvider</constant> <ulink url="https://varlink.org/">Varlink</ulink>
+    <interfacename>io.systemd.StorageProvider</interfacename> <ulink url="https://varlink.org/">Varlink</ulink>
     interface, registered as an AF_UNIX socket below the well-known socket directory
     <filename>/run/systemd/io.systemd.StorageProvider/</filename> (in system mode) or
     <varname>$XDG_RUNTIME_DIR</varname><filename>/systemd/io.systemd.StorageProvider/</filename> (in user mode). The two
@@ -112,7 +112,7 @@
 
         <listitem><para>List the storage providers known to the system. This is determined by scanning the
         well-known socket directory for <constant>AF_UNIX</constant> sockets that look like
-        <constant>io.systemd.StorageProvider</constant> endpoints. For each provider it is also reported
+        <interfacename>io.systemd.StorageProvider</interfacename> endpoints. For each provider it is also reported
         whether the socket can currently be connected to.</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
