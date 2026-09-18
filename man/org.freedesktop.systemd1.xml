@@ -51,7 +51,7 @@
     <title>The Manager Object</title>
 
     <para>The main entry point object is available on the fixed
-    <constant>/org/freedesktop/systemd1</constant> object path:</para>
+    <literal>/org/freedesktop/systemd1</literal> object path:</para>
 
     <programlisting executable="systemd" node="/org/freedesktop/systemd1" interface="org.freedesktop.systemd1.Manager">
 node /org/freedesktop/systemd1 {
@@ -1575,9 +1575,9 @@ node /org/freedesktop/systemd1 {
       <para><function>Subscribe()</function> enables most bus signals to be sent out. Clients which are
       interested in signals need to call this method. Signals are only sent out if at least one client
       invoked this method. Note that this behavior is applied to all the signals that the object
-      in <constant>/org/freedesktop/systemd1</constant> may emit, including the
-      D-Bus standard <constant>org.freedesktop.DBus.Properties.PropertiesChanged</constant>
-      signal and others that do not belong to the <constant>org.freedesktop.systemd1</constant> interface.</para>
+      in <literal>/org/freedesktop/systemd1</literal> may emit, including the
+      D-Bus standard <literal>org.freedesktop.DBus.Properties.PropertiesChanged</literal>
+      signal and others that do not belong to the <interfacename>org.freedesktop.systemd1</interfacename> interface.</para>
 
       <para><function>Unsubscribe()</function> reverts the signal subscription that
       <function>Subscribe()</function> implements. It is not necessary to invoke
@@ -1621,7 +1621,7 @@ node /org/freedesktop/systemd1 {
       are normally only called as the last step of shutdown and should not be called directly. To shut down
       the machine, it is generally a better idea to invoke <function>Reboot()</function>,
       <function>RebootWithFlags()</function> or <function>PowerOff()</function> on the
-      <filename>systemd-logind</filename> manager object; see
+      <command>systemd-logind</command> manager object; see
       <citerefentry><refentrytitle>org.freedesktop.login1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for more information. <function>SoftReboot()</function> accepts an argument indicating the path for the
       root file system to activate for the next boot cycle. If an empty string is specified the
@@ -12823,7 +12823,7 @@ node /org/freedesktop/systemd1/job/666 {
       execute yet. The latter indicates that a job is currently being executed.</para>
 
       <para><varname>ActivationDetails</varname> has the same content as the property of the same name under
-      the <varname>org.freedesktop.systemd1.Unit</varname> interface.</para>
+      the <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface.</para>
     </refsect2>
   </refsect1>
 

@@ -301,7 +301,7 @@ node /org/freedesktop/resolve1 {
 
       <para>Note that currently, the class field has to be specified as IN or ANY. Specifying a different
       class will return an error indicating that look-ups of this kind are unsupported. Similarly, some
-      special types are not supported either (AXFR, OPT, …). While <filename>systemd-resolved</filename> parses and validates resource
+      special types are not supported either (AXFR, OPT, …). While <command>systemd-resolved</command> parses and validates resource
       records of many types, it is crucial that clients using this API understand that the RR data originates
       from the network and should be thoroughly validated before use.</para>
 
@@ -351,7 +351,7 @@ node /org/freedesktop/resolve1 {
       contains information about the resolver operation performed.</para>
 
       <para>The <function>ResetStatistics()</function> method resets the various statistics counters that
-      <filename>systemd-resolved</filename> maintains to zero. (For details, see the statistics properties below.)</para>
+      <command>systemd-resolved</command> maintains to zero. (For details, see the statistics properties below.)</para>
 
       <para>The <function>GetLink()</function> method takes a network interface index and returns the object
       path to the <interfacename>org.freedesktop.resolve1.Link</interfacename> object corresponding to it.
@@ -418,7 +418,7 @@ node /org/freedesktop/resolve1 {
       <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       for details.</para>
 
-      <para>Network management software integrating with <filename>systemd-resolved</filename> should call
+      <para>Network management software integrating with <command>systemd-resolved</command> should call
       <function>SetLinkDNS()</function> or <function>SetLinkDNSEx()</function>,
       <function>SetLinkDefaultRoute()</function>, <function>SetLinkDomains()</function> and others after the
       interface appeared in the kernel (and thus after a network interface index has been assigned), but
@@ -454,7 +454,7 @@ node /org/freedesktop/resolve1 {
       client that registered it: when the client disconnects from the bus the service is automatically
       unregistered and goodbye packets are sent out, as if <function>UnregisterService()</function> had been
       called. Clients hence must keep their bus connection open for as long as the service shall remain
-      registered. The registration also does not survive <filename>systemd-resolved</filename> losing its
+      registered. The registration also does not survive <command>systemd-resolved</command> losing its
       own bus connection, in which case tracking clients is not possible anymore and all services registered
       via this method are unregistered. To register a DNS-SD service independently of a client's lifetime,
       use <filename>*.dnssd</filename> files, see
@@ -517,7 +517,7 @@ node /org/freedesktop/resolve1 {
         IPv4/UDP and IPv6/UDP. If all of these five bits are off on input (which is strongly recommended) the
         look-up will be done via all suitable protocols for the specific look-up. Note that these flags
         operate as filter only, but cannot force a look-up to be done via a protocol. Specifically,
-        <filename>systemd-resolved</filename> will only route look-ups within the .local TLD to MulticastDNS
+        <command>systemd-resolved</command> will only route look-ups within the .local TLD to MulticastDNS
         (plus some reverse look-up address domains), and single-label names to LLMNR (plus some reverse
         address lookup domains). It will route neither of these to Unicast DNS servers. Also, it will do
         LLMNR and Multicast DNS only on interfaces suitable for multicast.</para>
@@ -563,7 +563,7 @@ node /org/freedesktop/resolve1 {
         locally synthesized data, such as <literal>localhost</literal> or data from
         <filename>/etc/hosts</filename>. Moreover, it is set for all LLMNR or mDNS RRs which originate from
         the local host. Applications that require authenticated RR data for operation should check this flag
-        before trusting the data. Note that <filename>systemd-resolved</filename> will never return
+        before trusting the data. Note that <command>systemd-resolved</command> will never return
         invalidated data, hence this flag simply allows one to discern the cases where data is known to be
         trusted, or where there is proof that the data is "rightfully" unauthenticated (which includes cases
         where the underlying protocol or server does not support authenticating data).</para>
@@ -594,7 +594,7 @@ node /org/freedesktop/resolve1 {
       but may differ if a conflict is detected on the network.</para>
 
       <para><varname>DNS</varname> and <varname>DNSEx</varname> contain arrays of all DNS servers currently
-      used by <filename>systemd-resolved</filename>. <varname>DNS</varname> contains information similar to
+      used by <command>systemd-resolved</command>. <varname>DNS</varname> contains information similar to
       the DNS server data in <filename>/run/systemd/resolve/resolv.conf</filename>. Each structure in the
       array consists of a numeric network interface index, an address family, and a byte array containing the
       DNS server address (either 4 bytes in length for IPv4 or 16 bytes in lengths for IPv6).
@@ -619,14 +619,14 @@ node /org/freedesktop/resolve1 {
       <varname>DNS</varname> and <varname>DNSEx</varname> arrays described above.</para>
 
       <para>Similarly, the <varname>Domains</varname> property contains an array of all search and routing
-      domains currently used by <filename>systemd-resolved</filename>. Each entry consists of a network
+      domains currently used by <command>systemd-resolved</command>. Each entry consists of a network
       interface index (again, 0 encodes system-wide entries), the actual domain name, and whether the entry
       is used only for routing (true) or for both routing and searching (false).</para>
 
       <para>The <varname>TransactionStatistics</varname> property contains information about the number of
-      transactions <filename>systemd-resolved</filename> has processed. It contains a pair of unsigned 64-bit counters, the first
+      transactions <command>systemd-resolved</command> has processed. It contains a pair of unsigned 64-bit counters, the first
       containing the number of currently ongoing transactions, the second the number of total transactions
-      <filename>systemd-resolved</filename> is processing or has processed. The latter value may be reset using the
+      <command>systemd-resolved</command> is processing or has processed. The latter value may be reset using the
       <function>ResetStatistics()</function> method described above. Note that the number of transactions does
       not directly map to the number of issued resolver bus method calls. While simple look-ups usually require a
       single transaction only, more complex look-ups might result in more, for example when CNAMEs or DNSSEC
@@ -658,7 +658,7 @@ node /org/freedesktop/resolve1 {
       <para>The <varname>DNSSECSupported</varname> boolean property reports whether DNSSEC is enabled and
       the selected DNS servers support it. It combines information about system-wide and per-link DNS
       settings (see below), and only reports true if DNSSEC is enabled and supported on every interface for
-      which DNS is configured and for the system-wide settings if there are any. Note that <filename>systemd-resolved</filename> assumes
+      which DNS is configured and for the system-wide settings if there are any. Note that <command>systemd-resolved</command> assumes
       DNSSEC is supported by DNS servers until it verifies that this is not the case. Thus, the reported
       value may initially be true, until the first transactions are executed.</para>
 
@@ -839,62 +839,62 @@ node /org/freedesktop/resolve1/link/_1 {
   <refsect1>
     <title>Common Errors</title>
 
-    <para>Many bus methods <filename>systemd-resolved</filename> exposes (in particular the resolver methods such
+    <para>Many bus methods <command>systemd-resolved</command> exposes (in particular the resolver methods such
     as <function>ResolveHostname()</function> on the <interfacename>Manager</interfacename> interface) may return
     some of the following errors:</para>
 
     <variablelist>
-      <varlistentry><term><constant>org.freedesktop.resolve1.NoNameServers</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.NoNameServers</literal></term>
       <listitem><para>No suitable DNS servers were found to resolve a request.</para>
 
       <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.InvalidReply</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.InvalidReply</literal></term>
       <listitem><para>A response from the selected DNS server was not understood.</para>
 
       <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.NoSuchRR</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.NoSuchRR</literal></term>
       <listitem><para>The requested name exists, but there is no resource record of the requested type for
       it. (This is the DNS NODATA case).</para>
 
       <xi:include href="version-info.xml" xpointer="v246"/></listitem></varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.CNameLoop</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.CNameLoop</literal></term>
       <listitem><para>The look-up failed because a CNAME or DNAME loop was detected.</para>
 
       <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.Aborted</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.Aborted</literal></term>
       <listitem><para>The look-up was aborted because the selected protocol became unavailable while the
       operation was ongoing.</para>
 
       <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.NoSuchService</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.NoSuchService</literal></term>
       <listitem><para>A service look-up was successful, but the <constant class="dns">SRV</constant> record
       reported that the service is not available.</para>
 
       <xi:include href="version-info.xml" xpointer="v246"/></listitem></varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.DnssecFailed</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.DnssecFailed</literal></term>
       <listitem><para>The acquired response did not pass DNSSEC validation.</para>
 
       <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.NoTrustAnchor</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.NoTrustAnchor</literal></term>
       <listitem><para>No chain of trust could be established for the response to a configured DNSSEC trust
       anchor.</para>
 
       <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.ResourceRecordTypeUnsupported</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.ResourceRecordTypeUnsupported</literal></term>
       <listitem><para>The requested resource record type is not supported on the selected DNS servers. This
       error is generated for example when an RRSIG record is requested from a DNS server that does not
       support DNSSEC.</para>
@@ -903,13 +903,13 @@ node /org/freedesktop/resolve1/link/_1 {
 
       </varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.NoSuchLink</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.NoSuchLink</literal></term>
       <listitem><para>No network interface with the specified network interface index exists.
       </para>
 
       <xi:include href="version-info.xml" xpointer="v246"/></listitem></varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.LinkBusy</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.LinkBusy</literal></term>
       <listitem><para>The requested configuration change could not be made because
       <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       already took possession of the interface and supplied configuration data for it.</para>
@@ -917,14 +917,14 @@ node /org/freedesktop/resolve1/link/_1 {
       <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.NetworkDown</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.NetworkDown</literal></term>
       <listitem><para>The requested look-up failed because the system is currently not connected to any
       suitable network.</para>
 
       <xi:include href="version-info.xml" xpointer="v246"/></listitem></varlistentry>
 
-      <varlistentry><term><constant>org.freedesktop.resolve1.DnsError.NXDOMAIN</constant></term>
-      <term><constant>org.freedesktop.resolve1.DnsError.REFUSED</constant></term>
+      <varlistentry><term><literal>org.freedesktop.resolve1.DnsError.NXDOMAIN</literal></term>
+      <term><literal>org.freedesktop.resolve1.DnsError.REFUSED</literal></term>
       <term>...</term>
       <listitem><para>The look-up failed with a DNS return code reporting a failure. The error names used as
       suffixes here are defined in by IANA in

@@ -39,7 +39,7 @@
 
     <para><function>sd_bus_get_name_machine_id()</function> retrieves the D-Bus machine identity of the
     machine that the bus client identified by <parameter>name</parameter> is running on. Internally, it calls
-    the <function>GetMachineId</function> method of the <constant>org.freedesktop.DBus.Peer</constant>
+    the <function>GetMachineId()</function> method of the <literal>org.freedesktop.DBus.Peer</literal>
     interface. The D-Bus machine identity is a 128-bit UUID. On Linux systems running systemd, this
     corresponds to the contents of <filename>/etc/machine-id</filename>. On success, the machine identity is
     stored in <parameter>ret</parameter>.</para>
