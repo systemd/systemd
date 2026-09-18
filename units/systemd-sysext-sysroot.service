@@ -18,6 +18,7 @@ ConditionPathExists=/etc/initrd-release
 ConditionKernelCommandLine=!systemd.sysext=0
 
 DefaultDependencies=no
+After=systemd-confext-sysroot.service
 Conflicts=shutdown.target
 Before=initrd-root-fs.target shutdown.target
 Wants=modprobe@loop.service modprobe@dm_mod.service
