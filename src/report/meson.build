@@ -37,6 +37,17 @@ executables += [
                 ),
         },
         libexec_template + {
+                'name' : 'systemd-report-geoip',
+                'export' : files(
+                        'report-geoip.c',
+                        'report-geoip-server.c',
+                ),
+                'dependencies' : [
+                        libcurl_cflags,
+                ],
+                'conditions' : ['HAVE_LIBCURL'],
+        },
+        libexec_template + {
                 'name' : 'systemd-report-sign-plain',
                 'export' : files(
                         'report-sign-plain.c',
@@ -65,3 +76,10 @@ executables += [
                 ),
         },
 ]
+
+custom_target(
+        input : 'report-geoip.conf.in',
+        output : 'report-geoip.conf',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : conf.get('HAVE_LIBCURL') == 1 and install_sysconfdir_samples,
+        install_dir : pkgconfigfiledir)
