@@ -101,7 +101,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_journal_get_cutoff_realtime_usec()</function> and
-    <function>sd_journal_get_cutoff_monotonic_usec()</function> were added in version 187.</para>
+    <function>sd_journal_get_cutoff_monotonic_usec()</function> were added in version 184.</para>
   </refsect1>
 
   <refsect1>

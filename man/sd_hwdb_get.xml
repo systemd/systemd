@@ -148,7 +148,7 @@
     <para><function>sd_hwdb_get()</function>,
     <function>sd_hwdb_seek()</function>,
     <function>sd_hwdb_enumerate()</function>, and
-    <function>SD_HWDB_FOREACH_PROPERTY()</function> were added in version 246.</para>
+    <function>SD_HWDB_FOREACH_PROPERTY()</function> were added in version 240.</para>
   </refsect1>
 
   <refsect1>

@@ -102,7 +102,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_event_source_set_floating()</function> and
-    <function>sd_event_source_get_floating()</function> were added in version 244.</para>
+    <function>sd_event_source_get_floating()</function> were added in version 240.</para>
   </refsect1>
 
   <refsect1>
