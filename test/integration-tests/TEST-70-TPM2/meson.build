@@ -25,8 +25,8 @@ integration_tests += [
                 'vm' : true,
                 'firmware' : 'uefi',
                 'tpm' : true,
-                # Keep systemd-boot from treating the VM as safe for automatic Secure Boot key enrollment.
-                'qemu-args' : ['-cpu max,hypervisor=off', '-smbios type=0,vm=off'],
+                # Prevent systemd-boot from treating the VM as safe for automatic Secure Boot key enrollment.
+                'hide-hypervisor' : true,
                 'cmdline' : integration_test_template['cmdline'] + [
                         'systemd.default_device_timeout_sec=300',
                 ],
