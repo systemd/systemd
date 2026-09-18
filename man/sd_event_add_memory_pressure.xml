@@ -40,63 +40,63 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_add_memory_pressure</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
-        <paramdef>sd_event_source **<parameter>ret_source</parameter></paramdef>
-        <paramdef>sd_event_handler_t <parameter>handler</parameter></paramdef>
+        <paramdef>sd_event *<parameter>e</parameter></paramdef>
+        <paramdef>sd_event_source **<parameter>ret</parameter></paramdef>
+        <paramdef>sd_event_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_set_memory_pressure_type</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
-        <paramdef>const char *<parameter>type</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
+        <paramdef>const char *<parameter>ty</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_set_memory_pressure_period</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
         <paramdef>uint64_t <parameter>threshold_usec</parameter></paramdef>
         <paramdef>uint64_t <parameter>window_usec</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_add_cpu_pressure</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
-        <paramdef>sd_event_source **<parameter>ret_source</parameter></paramdef>
-        <paramdef>sd_event_handler_t <parameter>handler</parameter></paramdef>
+        <paramdef>sd_event *<parameter>e</parameter></paramdef>
+        <paramdef>sd_event_source **<parameter>ret</parameter></paramdef>
+        <paramdef>sd_event_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_set_cpu_pressure_type</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
-        <paramdef>const char *<parameter>type</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
+        <paramdef>const char *<parameter>ty</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_set_cpu_pressure_period</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
         <paramdef>uint64_t <parameter>threshold_usec</parameter></paramdef>
         <paramdef>uint64_t <parameter>window_usec</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_add_io_pressure</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
-        <paramdef>sd_event_source **<parameter>ret_source</parameter></paramdef>
-        <paramdef>sd_event_handler_t <parameter>handler</parameter></paramdef>
+        <paramdef>sd_event *<parameter>e</parameter></paramdef>
+        <paramdef>sd_event_source **<parameter>ret</parameter></paramdef>
+        <paramdef>sd_event_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_set_io_pressure_type</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
-        <paramdef>const char *<parameter>type</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
+        <paramdef>const char *<parameter>ty</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_set_io_pressure_period</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
         <paramdef>uint64_t <parameter>threshold_usec</parameter></paramdef>
         <paramdef>uint64_t <parameter>window_usec</parameter></paramdef>
       </funcprototype>
@@ -119,11 +119,11 @@
     url="https://docs.kernel.org/accounting/psi.html">Pressure Stall Information (PSI)</ulink> logic.</para>
 
     <para>These functions expect an event loop object as first parameter, and return the allocated event source
-    object in the second parameter, on success. The <parameter>handler</parameter> parameter is a function to
+    object in the second parameter, on success. The <parameter>callback</parameter> parameter is a function to
     call when pressure is seen, or <constant>NULL</constant>. The handler function will be passed the
     <parameter>userdata</parameter> pointer, which may be chosen freely by the caller. The handler may return
     negative to signal an error (see below), other return values are ignored. If
-    <parameter>handler</parameter> is <constant>NULL</constant>, a default handler is used. For
+    <parameter>callback</parameter> is <constant>NULL</constant>, a default handler is used. For
     <function>sd_event_add_memory_pressure()</function>, the default handler compacts allocation caches
     maintained by <filename>libsystemd</filename> as well as glibc (via <citerefentry
     project='man-pages'><refentrytitle>malloc_trim</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
@@ -239,7 +239,7 @@
     caches maintained by <filename>libsystemd</filename> and then invokes glibc's <citerefentry
     project='man-pages'><refentrytitle>malloc_trim</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
     makes the operation executed when the handler function parameter of
-    <function>sd_event_add_memory_pressure</function> is passed as <constant>NULL</constant> directly
+    <function>sd_event_add_memory_pressure()</function> is passed as <constant>NULL</constant> directly
     accessible for invocation at any time (see above). This function will log a structured log message at
     <constant>LOG_DEBUG</constant> level (with message ID f9b0be465ad540d0850ad32172d57c21) about the memory
     pressure operation.</para>
@@ -264,17 +264,13 @@
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Not enough memory to allocate an object.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <listitem><para>Not enough memory to allocate an object.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>An invalid argument has been passed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <listitem><para>An invalid argument has been passed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -283,9 +279,7 @@
           <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname>,
           <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> variable has been
           set to the literal string <filename>/dev/null</filename>, in order to explicitly disable pressure
-          handling.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          handling.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -293,9 +287,7 @@
 
           <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname>,
           <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> variable has been
-          set to an invalid string, for example a relative rather than an absolute path.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          set to an invalid string, for example a relative rather than an absolute path.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -303,9 +295,7 @@
 
           <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname>,
           <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> variable points
-          to a regular file outside of the procfs or cgroupfs file systems.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          to a regular file outside of the procfs or cgroupfs file systems.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -313,9 +303,7 @@
 
           <listitem><para>No configuration via <varname>$MEMORY_PRESSURE_WATCH</varname>,
           <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> has been specified
-          and the local kernel does not support the PSI interface.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          and the local kernel does not support the PSI interface.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -327,33 +315,25 @@
           <function>sd_event_source_set_cpu_pressure_period()</function>,
           <function>sd_event_source_set_io_pressure_type()</function>,
           and <function>sd_event_source_set_io_pressure_period()</function> if invoked on event sources
-          at a time later than immediately after allocating them.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          at a time later than immediately after allocating them.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ESTALE</constant></term>
 
-          <listitem><para>The event loop is already terminated.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <listitem><para>The event loop is already terminated.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The event loop has been created in a different process, library or module instance.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <listitem><para>The event loop has been created in a different process, library or module instance.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EDOM</constant></term>
 
-          <listitem><para>The passed event source is not a signal event source.</para>
-
-          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <listitem><para>The passed event source is not a signal event source.</para></listitem>
         </varlistentry>
 
       </variablelist>

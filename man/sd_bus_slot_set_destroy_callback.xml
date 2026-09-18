@@ -31,20 +31,20 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
-        <funcdef>typedef int (*<function>sd_bus_destroy_t</function>)</funcdef>
+        <funcdef>typedef void (*<function>sd_bus_destroy_t</function>)</funcdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_slot_set_destroy_callback</function></funcdef>
-        <paramdef>sd_bus_slot *<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot *<parameter>s</parameter></paramdef>
         <paramdef>sd_bus_destroy_t <parameter>callback</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_slot_get_destroy_callback</function></funcdef>
-        <paramdef>sd_bus_slot *<parameter>slot</parameter></paramdef>
-        <paramdef>sd_bus_destroy_t *<parameter>callback</parameter></paramdef>
+        <paramdef>sd_bus_slot *<parameter>s</parameter></paramdef>
+        <paramdef>sd_bus_destroy_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -56,7 +56,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_track_get_destroy_callback</function></funcdef>
         <paramdef>sd_bus_track *<parameter>track</parameter></paramdef>
-        <paramdef>sd_bus_destroy_t *<parameter>callback</parameter></paramdef>
+        <paramdef>sd_bus_destroy_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -65,7 +65,7 @@
     <title>Description</title>
 
     <para><function>sd_bus_slot_set_destroy_callback()</function> sets <parameter>callback</parameter> as the callback
-    function to be called right before the bus slot object <parameter>slot</parameter> is deallocated. The
+    function to be called right before the bus slot object <parameter>s</parameter> is deallocated. The
     <parameter>userdata</parameter> pointer from the slot object will be passed as the <parameter>userdata</parameter>
     parameter. This pointer can be set by an argument to the constructor functions, see
     <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>, or directly,
@@ -75,7 +75,7 @@
     operations or taking new references to the bus slot object is not permissible.</para>
 
     <para><function>sd_bus_slot_get_destroy_callback()</function> returns the current callback
-    for <parameter>slot</parameter> in the <parameter>callback</parameter> parameter.</para>
+    for <parameter>s</parameter> in the <parameter>ret</parameter> parameter.</para>
 
     <para><function>sd_bus_track_set_destroy_callback()</function> and
     <function>sd_bus_track_get_destroy_callback()</function> provide equivalent functionality for the
@@ -104,7 +104,7 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The <parameter>slot</parameter> or <parameter>track</parameter> parameter is
+          <listitem><para>The <parameter>s</parameter> or <parameter>track</parameter> parameter is
           <constant>NULL</constant>.</para></listitem>
         </varlistentry>
       </variablelist>
