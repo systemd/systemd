@@ -27,7 +27,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_pending</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -38,7 +38,7 @@
 
     <para><function>sd_event_source_get_pending()</function> may be
     used to determine whether the event source object specified as
-    <parameter>source</parameter> has seen events but has not been
+    <parameter>s</parameter> has seen events but has not been
     dispatched yet (and thus is marked "pending").</para>
 
     <para>Event source objects initially are not marked pending, when
@@ -82,14 +82,14 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para><parameter>source</parameter> is not a valid pointer to an
+          <listitem><para><parameter>s</parameter> is not a valid pointer to an
           <structname>sd_event_source</structname> object.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EDOM</constant></term>
 
-          <listitem><para><parameter>source</parameter> refers to an event source object created with
+          <listitem><para><parameter>s</parameter> refers to an event source object created with
           <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
         </varlistentry>
 
@@ -121,7 +121,7 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_source_get_pending()</function> was added in version 229.</para>
+    <para><function>sd_event_source_get_pending()</function> was added in version 209.</para>
   </refsect1>
 
   <refsect1>

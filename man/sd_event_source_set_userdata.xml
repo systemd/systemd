@@ -28,13 +28,13 @@
 
       <funcprototype>
         <funcdef>void* <function>sd_event_source_set_userdata</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>void* <function>sd_event_source_get_userdata</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -45,7 +45,7 @@
 
     <para><function>sd_event_source_set_userdata()</function> may be
     used to set an arbitrary user data pointer for the event source
-    object specified as <parameter>source</parameter>. The user data
+    object specified as <parameter>s</parameter>. The user data
     pointer is usually specified when creating an event source object
     with calls such as
     <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -60,7 +60,7 @@
 
     <para><function>sd_event_source_get_userdata()</function> may be
     used to query the current user data pointer assigned to the event
-    source object <parameter>source</parameter>.</para>
+    source object <parameter>s</parameter>.</para>
   </refsect1>
 
   <refsect1>
@@ -78,7 +78,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_event_source_set_userdata()</function> and
-    <function>sd_event_source_get_userdata()</function> were added in version 229.</para>
+    <function>sd_event_source_get_userdata()</function> were added in version 209.</para>
   </refsect1>
 
   <refsect1>

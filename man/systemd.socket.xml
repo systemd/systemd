@@ -385,7 +385,7 @@
         user/group (if run in user context).  If only a user is specified but no group, then the group is
         derived from the user's default group.</para>
 
-        <xi:include href="version-info.xml" xpointer="v214"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v196"/></listitem>
       </varlistentry>
 
       <varlistentry>

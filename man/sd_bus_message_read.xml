@@ -45,8 +45,8 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_message_peek_type</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
-        <paramdef>char *<parameter>type</parameter></paramdef>
-        <paramdef>const char **<parameter>contents</parameter></paramdef>
+        <paramdef>char *<parameter>ret_type</parameter></paramdef>
+        <paramdef>const char **<parameter>ret_contents</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -159,8 +159,8 @@
 
     <para><function>sd_bus_message_peek_type()</function> determines the type of the next element in
     <parameter>m</parameter> to be read by <function>sd_bus_message_read()</function> or similar functions.
-    On success, the type is stored in <parameter>type</parameter>, if it is not <constant>NULL</constant>.
-    If the type is a container type, the type of its elements is stored in <parameter>contents</parameter>,
+    On success, the type is stored in <parameter>ret_type</parameter>, if it is not <constant>NULL</constant>.
+    If the type is a container type, the type of its elements is stored in <parameter>ret_contents</parameter>,
     if it is not <constant>NULL</constant>. If this function successfully determines the type of the next
     element in <parameter>m</parameter>, it returns a positive integer. If there are no more elements to be
     read, it returns zero.</para>
@@ -185,9 +185,7 @@
           <term><constant>-EBUSY</constant></term>
 
           <listitem><para>When reading from a container, this error will be returned if unread elements
-          are left in the container.</para>
-
-          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+          are left in the container.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -264,8 +262,8 @@ fd_copy = fcntl(fd, FD_DUPFD_CLOEXEC, 3);</programlisting>
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_message_read()</function> and
-    <function>sd_bus_message_readv()</function> were added in version 240.</para>
-    <para><function>sd_bus_message_peek_type()</function> was added in version 246.</para>
+    <function>sd_bus_message_peek_type()</function> were added in version 209.</para>
+    <para><function>sd_bus_message_readv()</function> was added in version 240.</para>
   </refsect1>
 
   <refsect1>

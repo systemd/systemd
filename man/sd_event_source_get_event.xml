@@ -27,7 +27,7 @@
 
       <funcprototype>
         <funcdef>sd_event* <function>sd_event_source_get_event</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -38,7 +38,7 @@
 
     <para><function>sd_event_source_get_event()</function> may be used
     to retrieve the event loop object the event source object specified
-    as <parameter>source</parameter> is associated with. The event
+    as <parameter>s</parameter> is associated with. The event
     loop object is specified when creating an event source object with
     calls such as
     <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -58,7 +58,7 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_source_get_event()</function> was added in version 229.</para>
+    <para><function>sd_event_source_get_event()</function> was added in version 209.</para>
   </refsect1>
 
   <refsect1>
