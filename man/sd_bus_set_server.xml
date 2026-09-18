@@ -189,7 +189,7 @@
     <function>sd_bus_set_bus_client()</function>,
     <function>sd_bus_is_bus_client()</function>,
     <function>sd_bus_set_monitor()</function>, and
-    <function>sd_bus_is_monitor()</function> were added in version 246.</para>
+    <function>sd_bus_is_monitor()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>

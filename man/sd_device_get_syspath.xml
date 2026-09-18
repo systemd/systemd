@@ -236,9 +236,9 @@
     <function>sd_device_get_devtype()</function>,
     <function>sd_device_get_devname()</function>,
     <function>sd_device_get_devnum()</function>,
-    <function>sd_device_get_ifindex()</function>,
-    <function>sd_device_get_driver()</function>, and
-    <function>sd_device_get_diskseq()</function> were added in version 251.</para>
+    <function>sd_device_get_ifindex()</function>, and
+    <function>sd_device_get_driver()</function> were added in version 240.</para>
+    <para><function>sd_device_get_diskseq()</function> was added in version 250.</para>
     <para><function>sd_device_get_driver_subsystem()</function> and
     <function>sd_device_get_device_id()</function> were added in version 257.</para>
   </refsect1>
