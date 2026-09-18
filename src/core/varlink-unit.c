@@ -895,6 +895,7 @@ typedef struct StartTransientContextParameters {
         const char *id;
         const char *description;
         CollectMode collect_mode;
+        char **dependencies[_UNIT_DEPENDENCY_MAX];
         TransientExecContextParameters exec;
         TransientKillContextParameters kill;
         TransientServiceParameters service;
@@ -907,6 +908,10 @@ typedef struct StartTransientContextParameters {
 
 static void start_transient_context_parameters_done(StartTransientContextParameters *p) {
         assert(p);
+
+        FOREACH_ELEMENT(d, p->dependencies)
+                strv_free(*d);
+
         transient_exec_context_parameters_done(&p->exec);
         transient_service_parameters_done(&p->service);
         transient_scope_parameters_done(&p->scope);
@@ -1125,8 +1130,25 @@ static int dispatch_transient_scope(const char *name, sd_json_variant *variant, 
         return sd_json_dispatch_full(variant, scope_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->scope, &p->bad_scope_field);
 }
 
+static int dispatch_dependency(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char ***dest = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **units = NULL;
+        int r;
+
+        r = sd_json_dispatch_strv(name, variant, /* flags= */ 0, &units);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(unit, units)
+                if (!unit_name_is_valid(*unit, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid unit name.", strna(name));
+
+        strv_free_and_replace(*dest, units);
+        return 0;
+}
+
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        static const sd_json_dispatch_field context_dispatch[] = {
+        static const sd_json_dispatch_field base_context_dispatch[] = {
                 { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name,   offsetof(StartTransientContextParameters, id),           SD_JSON_MANDATORY },
                 { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description),  0                 },
                 { "CollectMode", SD_JSON_VARIANT_STRING, dispatch_collect_mode,           offsetof(StartTransientContextParameters, collect_mode), 0                 },
@@ -1134,8 +1156,29 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
                 { "Kill",        SD_JSON_VARIANT_OBJECT, dispatch_transient_kill,         0,                                                       0                 },
                 { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                       0                 },
                 { "Scope",       SD_JSON_VARIANT_OBJECT, dispatch_transient_scope,        0,                                                       0                 },
-                {}
         };
+        /* Build dispatch table only once, it's constant. */
+        static sd_json_dispatch_field context_dispatch[ELEMENTSOF(base_context_dispatch) + _UNIT_DEPENDENCY_MAX + 1] = {};
+        static bool context_dispatch_set = false;
+
+        if (!context_dispatch_set) {
+                size_t i = 0;
+
+                FOREACH_ELEMENT(field, base_context_dispatch)
+                        context_dispatch[i++] = *field;
+
+                for (UnitDependency dep = 0; dep < _UNIT_DEPENDENCY_MAX; dep++) {
+                        if (!unit_dependency_can_be_transient(dep))
+                                continue;
+                        context_dispatch[i++] = (sd_json_dispatch_field) {
+                                .name = unit_dependency_to_string(dep),
+                                .type = SD_JSON_VARIANT_ARRAY,
+                                .callback = dispatch_dependency,
+                                .offset = offsetof(StartTransientContextParameters, dependencies[dep]),
+                        };
+                }
+                context_dispatch_set = true;
+        }
 
         StartTransientParameters *p = ASSERT_PTR(userdata);
         const char *bad_field = NULL;
@@ -1177,7 +1220,7 @@ static void transient_unit_apply_usec(Unit *u, const char *name, usec_t *p, usec
         unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, name, "%sSec=%s", n, FORMAT_TIMESPAN(v, USEC_PER_MSEC));
 }
 
-static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p) {
+static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p, const char **reterr_field) {
         int r;
 
         assert(u);
@@ -1193,6 +1236,26 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
         if (p->collect_mode >= 0) {
                 u->collect_mode = p->collect_mode;
                 unit_write_settingf(u, UNIT_RUNTIME, "CollectMode", "CollectMode=%s", collect_mode_to_string(p->collect_mode));
+        }
+
+        for (UnitDependency dep_type = 0; dep_type < _UNIT_DEPENDENCY_MAX; dep_type++) {
+                if (!unit_dependency_can_be_transient(dep_type))
+                        continue;
+
+                const char *dep_type_name = unit_dependency_to_string(dep_type);
+                STRV_FOREACH(dep, p->dependencies[dep_type]) {
+                        r = unit_add_dependency_by_name(u, dep_type, *dep, true, UNIT_DEPENDENCY_FILE);
+                        if (r < 0) {
+                                if (reterr_field)
+                                        *reterr_field = dep_type_name;
+                                return r;
+                        }
+
+                        _cleanup_free_ char *label = strjoin(dep_type_name, "-", *dep);
+                        if (!label)
+                                return -ENOMEM;
+                        unit_write_settingf(u, UNIT_RUNTIME, label, "%s=%s", dep_type_name, *dep);
+                }
         }
 
         return 0;
@@ -1988,9 +2051,10 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 return varlink_reply_bus_error(link, r, &bus_error);
 
         /* Apply unit-level properties from context */
-        r = transient_unit_apply_properties(u, &p.context);
+        bad_field = NULL;
+        r = transient_unit_apply_properties(u, &p.context, &bad_field);
         if (r == -EINVAL)
-                return sd_varlink_error_invalid_parameter_name(link, "context");
+                return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "context");
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
