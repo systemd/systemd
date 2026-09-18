@@ -14,6 +14,7 @@ systemd_homed_sources = files(
         'homed-operation.c',
         'homed-varlink.c',
         'homed.c',
+        'homework-thin.c',
         'user-record-sign.c',
 )
 systemd_homed_export_sources = files(
@@ -30,10 +31,12 @@ systemd_homework_sources = files(
         'homework-fido2.c',
         'homework-fscrypt.c',
         'homework-luks.c',
+        'homework-luks-token.c',
         'homework-mount.c',
         'homework-password-cache.c',
         'homework-pkcs11.c',
         'homework-quota.c',
+        'homework-thin.c',
 )
 
 homed_gperf_c = custom_target(
@@ -67,7 +70,10 @@ executables += [
                 'dbus' : true,
                 'sources' : systemd_homed_sources,
                 'export' : systemd_homed_export_sources,
-                'dependencies' : libopenssl_cflags,
+                'dependencies' : [
+                        libblkid_cflags,
+                        libopenssl_cflags,
+                ],
         },
         libexec_template + {
                 'name' : 'systemd-homework',
@@ -102,6 +108,17 @@ executables += [
         test_template + {
                 'sources' : files('test-homed-regression-31896.c'),
                 'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files('test-home-util.c'),
+                'import' : ['systemd-homed'],
+        },
+        test_template + {
+                'sources' : files(
+                        'test-homework-luks-token.c',
+                        'homework-luks-token.c',
+                ),
+                'dependencies' : libopenssl_cflags,
         },
 ]
 

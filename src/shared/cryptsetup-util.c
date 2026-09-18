@@ -23,6 +23,17 @@ DLSYM_PROTOTYPE(crypt_activate_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_deactivate) = NULL;
 DLSYM_PROTOTYPE(crypt_deactivate_by_name) = NULL;
 DLSYM_PROTOTYPE(crypt_format) = NULL;
+static int missing_crypt_format_luks2_hw_wrapped(
+                struct crypt_device *cd,
+                const char *cipher,
+                const char *cipher_mode,
+                const char *uuid,
+                const char *wrapped_key,
+                size_t wrapped_key_size,
+                struct crypt_params_luks2 *params) {
+        return -EOPNOTSUPP;
+}
+DLSYM_PROTOTYPE(crypt_format_luks2_hw_wrapped) = missing_crypt_format_luks2_hw_wrapped;
 DLSYM_PROTOTYPE(crypt_free) = NULL;
 DLSYM_PROTOTYPE(crypt_get_cipher) = NULL;
 DLSYM_PROTOTYPE(crypt_get_cipher_mode) = NULL;
@@ -80,6 +91,46 @@ DLSYM_PROTOTYPE(crypt_volume_key_get) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
 DLSYM_PROTOTYPE(crypt_wipe) = NULL;
 DLSYM_PROTOTYPE(crypt_get_integrity_info) = NULL;
+static int missing_crypt_get_hw_encryption_type(struct crypt_device *cd) {
+        return CRYPT_SW_ONLY;
+}
+DLSYM_PROTOTYPE(crypt_get_hw_encryption_type) = missing_crypt_get_hw_encryption_type;
+static int missing_crypt_hw_wrapped_key_generate(
+                struct crypt_device *cd,
+                char **wrapped_key,
+                size_t *wrapped_key_size) {
+        return -EOPNOTSUPP;
+}
+DLSYM_PROTOTYPE(crypt_hw_wrapped_key_generate) = missing_crypt_hw_wrapped_key_generate;
+static int missing_crypt_hw_wrapped_key_derive_secret(
+                struct crypt_device *cd,
+                const char *wrapped_key,
+                size_t wrapped_key_size,
+                char **secret,
+                size_t *secret_size) {
+        return -EOPNOTSUPP;
+}
+DLSYM_PROTOTYPE(crypt_hw_wrapped_key_derive_secret) = missing_crypt_hw_wrapped_key_derive_secret;
+DLSYM_PROTOTYPE(crypt_safe_free) = NULL;
+
+unsigned cryptsetup_hw_wrapped_key_capabilities(void) {
+        unsigned capabilities = 0;
+
+        if (sym_crypt_format_luks2_hw_wrapped != missing_crypt_format_luks2_hw_wrapped)
+                capabilities |= CRYPTSETUP_HW_WRAPPED_FORMAT;
+        if (sym_crypt_get_hw_encryption_type != missing_crypt_get_hw_encryption_type)
+                capabilities |= CRYPTSETUP_HW_ENCRYPTION_TYPE;
+        if (sym_crypt_hw_wrapped_key_generate != missing_crypt_hw_wrapped_key_generate)
+                capabilities |= CRYPTSETUP_HW_WRAPPED_GENERATE;
+        if (sym_crypt_hw_wrapped_key_derive_secret != missing_crypt_hw_wrapped_key_derive_secret)
+                capabilities |= CRYPTSETUP_HW_WRAPPED_DERIVE_SECRET;
+
+        return capabilities;
+}
+
+bool cryptsetup_has_hw_wrapped_key_support(void) {
+        return cryptsetup_hw_wrapped_key_capabilities() == _CRYPTSETUP_HW_WRAPPED_ALL;
+}
 
 static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
 
@@ -319,6 +370,7 @@ int dlopen_cryptsetup(int log_level) {
                         DLSYM_ARG(crypt_reencrypt_run),
                         DLSYM_ARG(crypt_resize),
                         DLSYM_ARG(crypt_resume_by_volume_key),
+                        DLSYM_ARG(crypt_safe_free),
                         DLSYM_ARG(crypt_set_data_device),
                         DLSYM_ARG(crypt_set_data_offset),
                         DLSYM_ARG(crypt_set_debug_level),
@@ -344,6 +396,10 @@ int dlopen_cryptsetup(int log_level) {
          * symbol unconditionally. */
         DLSYM_OPTIONAL(cryptsetup_dl, crypt_set_keyring_to_link);
         DLSYM_OPTIONAL(cryptsetup_dl, crypt_token_set_external_path);
+        DLSYM_OPTIONAL(cryptsetup_dl, crypt_format_luks2_hw_wrapped);
+        DLSYM_OPTIONAL(cryptsetup_dl, crypt_get_hw_encryption_type);
+        DLSYM_OPTIONAL(cryptsetup_dl, crypt_hw_wrapped_key_generate);
+        DLSYM_OPTIONAL(cryptsetup_dl, crypt_hw_wrapped_key_derive_secret);
 
         /* Redirect the default logging calls of libcryptsetup to our own logging infra. (Note that
          * libcryptsetup also maintains per-"struct crypt_device" log functions, which we'll also set
