@@ -161,7 +161,7 @@
         configured with <varname>IdleActionSec=</varname> (see below)
         has expired.</para>
 
-        <xi:include href="version-info.xml" xpointer="v198"/>
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
 
@@ -172,7 +172,7 @@
         configured in <varname>IdleAction=</varname> (see above) is
         taken after the system is idle.</para>
 
-        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v197"/></listitem>
       </varlistentry>
 
       <varlistentry>
