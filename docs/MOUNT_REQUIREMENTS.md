@@ -100,3 +100,47 @@ for example works well in such scenarios.
 [`systemd-homed.service(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-homed.html)
 is an example of a regular service from category 3/regular.
 It runs after `basic.target` and requires `/home/` to be mounted.
+
+## Automount Points
+
+By default, automount points are established during early boot, before `local-fs.target`,
+even when the backing file system is a network file system;
+only the mount unit behind them is ordered after `network-online.target`.
+This is intentional:
+establishing the automount point does not itself wait for the backing file system;
+accesses to the path trigger mounting and wait for it to complete.
+
+The flip side is that a network file system automounted on a path
+that is accessed during early boot can hang the boot:
+the accessing service blocks until the mount completes,
+the mount waits for the network to come up,
+and bringing up the network waits, directly or via `sysinit.target`, for the blocked service.
+An automount below a network mount requires the parent network mount to be established first.
+This can create an ordering cycle if the parent mount depends on networking services
+ordered after `local-fs.target`.
+
+Hence, do not use `x-systemd.automount` or automount units for network file systems
+on paths from category 1/initrd,
+nor on paths from category 2/early or any other path that is read by services
+the network manager waits for.
+
+`/usr/local/` is the path that bites in practice:
+systemd's own services and `kmod` search `/usr/local/lib/` for configuration,
+and directories under `/usr/local/` come first in the default executable search path,
+so several early boot services look there whether or not anything is installed there.
+Automounting `/usr/local/` from a network file system can therefore deadlock boot
+if an early service accesses the active automount while the mount job waits for
+a network manager ordered after that service.
+This can occur with both `NetworkManager.service` and `systemd-networkd.service`,
+even when connectivity was already configured in the initrd.
+Like the rest of `/usr/` it falls into category 1/initrd (see above), and
+[`systemd.unit(5)`](https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html)
+already notes that a separate `/usr/local/` partition that may be missing in early boot
+must not be used for configuration.
+
+Without an automount, incidental accesses before the network file system is mounted
+see the underlying directory instead of triggering a mount and blocking.
+This avoids the access-triggered deadlock described above,
+but does not resolve explicit or implicit mount dependency cycles.
+Anything they expect below the path is missing at that point though,
+so this does not lift the requirements described above.
