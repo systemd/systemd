@@ -63,9 +63,9 @@
     <para>To be notified when the connection is fully established, use
     <citerefentry><refentrytitle>sd_bus_set_connected_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     install a match for the <function>Connected()</function> signal on the
-    <literal>org.freedesktop.DBus.Local</literal> interface. To be notified when the connection is torn down again,
+    <interfacename>org.freedesktop.DBus.Local</interfacename> interface. To be notified when the connection is torn down again,
     install a match for the <function>Disconnected()</function> signal on the
-    <literal>org.freedesktop.DBus.Local</literal> interface.</para>
+    <interfacename>org.freedesktop.DBus.Local</interfacename> interface.</para>
   </refsect1>
 
   <refsect1>
