@@ -29,23 +29,23 @@
 
       <funcprototype>
         <funcdef>int <function>sd_hwdb_new</function></funcdef>
-        <paramdef>sd_hwdb **<parameter>hwdb</parameter></paramdef>
+        <paramdef>sd_hwdb **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_hwdb_new_from_path</function></funcdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
-        <paramdef>sd_hwdb **<parameter>hwdb</parameter></paramdef>
+        <paramdef>sd_hwdb **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_hwdb* <function>sd_hwdb_ref</function></funcdef>
-        <paramdef>sd_hwdb *<parameter>hwdb</parameter></paramdef>
+        <paramdef>sd_hwdb *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_hwdb* <function>sd_hwdb_unref</function></funcdef>
-        <paramdef>sd_hwdb *<parameter>hwdb</parameter></paramdef>
+        <paramdef>sd_hwdb *<parameter>p</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -55,12 +55,12 @@
 
     <para><function>sd_hwdb_new()</function> creates a new hwdb object to access the binary hwdb
     database. Upon initialization, the file containing the binary representation of the hardware database is
-    located and opened. The new object is returned in <parameter>hwdb</parameter>.</para>
+    located and opened. The new object is returned in <parameter>ret</parameter>.</para>
 
     <para><function>sd_hwdb_new_from_path()</function> may be used to specify the path from which the binary
     hardware database should be opened.</para>
 
-    <para>The <parameter>hwdb</parameter> object is reference counted. <function>sd_hwdb_ref()</function> and
+    <para>The <structname>sd_hwdb</structname> object is reference counted. <function>sd_hwdb_ref()</function> and
     <function>sd_hwdb_unref()</function> may be used to get a new reference or destroy an existing reference
     to an object. The caller must dispose of the reference acquired with <function>sd_hwdb_new()</function>
     by calling <function>sd_hwdb_unref()</function> when done with the object.</para>

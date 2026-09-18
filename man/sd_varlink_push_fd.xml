@@ -28,13 +28,13 @@
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_push_fd</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_push_dup_fd</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
