@@ -30,7 +30,7 @@
 
     <para>It is assumed that those settings are global for the whole program, so a fixed object path is
     used. The interface should always be available under the path
-    <filename>/org/freedesktop/LogControl1</filename>.</para>
+    <literal>/org/freedesktop/LogControl1</literal>.</para>
   </refsect1>
 
   <refsect1>
