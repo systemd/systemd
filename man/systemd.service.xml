@@ -338,7 +338,7 @@
           might not have a specific main process. It is well suited for transient or automatically generated services,
           such as graphical applications inside of a desktop environment.</para>
 
-          <xi:include href="version-info.xml" xpointer="v250"/>
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 

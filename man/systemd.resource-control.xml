@@ -320,7 +320,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <varname>DefaultMemoryAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v208"/>
+          <xi:include href="version-info.xml" xpointer="v205"/>
         </listitem>
       </varlistentry>
 
@@ -1410,7 +1410,7 @@ DeviceAllow=/dev/loop-control
           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>, section
           "Default Dependencies" for details.</para>
 
-          <xi:include href="version-info.xml" xpointer="v208"/>
+          <xi:include href="version-info.xml" xpointer="v205"/>
 
         </listitem>
       </varlistentry>
