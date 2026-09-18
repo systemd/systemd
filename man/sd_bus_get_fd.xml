@@ -46,7 +46,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_get_timeout</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>timeout_usec</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -162,7 +162,7 @@
     <title>History</title>
     <para><function>sd_bus_get_fd()</function>,
     <function>sd_bus_get_events()</function>, and
-    <function>sd_bus_get_timeout()</function> were added in version 221.</para>
+    <function>sd_bus_get_timeout()</function> were added in version 209.</para>
   </refsect1>
 
   <refsect1>

@@ -159,8 +159,8 @@
 
     <para><function>sd_bus_emit_interfaces_added()</function> and
     <function>sd_bus_emit_interfaces_removed()</function> are used to implement the
-    <function>InterfacesAdded</function> and <function>InterfacesRemoved</function> signals of the
-    <constant>org.freedesktop.DBus.ObjectManager</constant> interface. They take a path whose
+    <function>InterfacesAdded()</function> and <function>InterfacesRemoved()</function> signals of the
+    <literal>org.freedesktop.DBus.ObjectManager</literal> interface. They take a path whose
     interfaces have been modified as an argument and a variable list of interfaces that have been
     added or removed, respectively. The final argument passed to
     <function>sd_bus_emit_interfaces_added()</function> and
@@ -172,8 +172,8 @@
     number of arguments.</para>
 
     <para><function>sd_bus_emit_properties_changed()</function> is used to implement the
-    <function>PropertiesChanged</function> signal of the
-    <constant>org.freedesktop.DBus.Properties</constant> interface. It takes an object path,
+    <function>PropertiesChanged()</function> signal of the
+    <literal>org.freedesktop.DBus.Properties</literal> interface. It takes an object path,
     interface and a variable list of property names as its arguments.  The final argument passed to
     <function>sd_bus_emit_properties_changed()</function> <emphasis>must</emphasis> be
     <constant>NULL</constant>. This allows it to safely determine the number of passed property
@@ -183,7 +183,7 @@
 
     <para><function>sd_bus_emit_object_added()</function> and
     <function>sd_bus_emit_object_removed()</function> are convenience functions for emitting the
-    <function>InterfacesAdded</function> or <function>InterfacesRemoved</function> signals for all
+    <function>InterfacesAdded()</function> or <function>InterfacesRemoved()</function> signals for all
     interfaces registered on a specific object path, respectively. This includes any parent fallback
     vtables if they are not overridden by a more applicable child vtable. It also includes all the
     standard D-Bus interfaces implemented by sd-bus itself on any registered object.</para>
@@ -213,7 +213,7 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>One of the required parameters is <constant>NULL</constant> or invalid. A
-          reserved D-Bus interface was passed as the <replaceable>interface</replaceable> parameter.
+          reserved D-Bus interface was passed as the <parameter>interface</parameter> parameter.
           </para></listitem>
         </varlistentry>
 
@@ -264,8 +264,8 @@
     <function>sd_bus_emit_interfaces_added_strv()</function>,
     <function>sd_bus_emit_interfaces_removed()</function>,
     <function>sd_bus_emit_interfaces_removed_strv()</function>,
-    <function>sd_bus_emit_properties_changed()</function>,
-    <function>sd_bus_emit_properties_changed_strv()</function>, were added in version 221.</para>
+    <function>sd_bus_emit_properties_changed()</function>, and
+    <function>sd_bus_emit_properties_changed_strv()</function> were added in version 209.</para>
     <para><function>sd_bus_emit_object_added()</function>, and
     <function>sd_bus_emit_object_removed()</function> were added in version 222.</para>
     <para><function>sd_bus_emit_signalv()</function> was added in version 246.</para>

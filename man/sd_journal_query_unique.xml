@@ -37,15 +37,15 @@
       <funcprototype>
         <funcdef>int <function>sd_journal_enumerate_available_unique</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
-        <paramdef>const void **<parameter>data</parameter></paramdef>
-        <paramdef>size_t *<parameter>length</parameter></paramdef>
+        <paramdef>const void **<parameter>ret_data</parameter></paramdef>
+        <paramdef>size_t *<parameter>ret_size</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_journal_enumerate_unique</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
-        <paramdef>const void **<parameter>data</parameter></paramdef>
-        <paramdef>size_t *<parameter>length</parameter></paramdef>
+        <paramdef>const void **<parameter>ret_data</parameter></paramdef>
+        <paramdef>size_t *<parameter>ret_size</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -57,7 +57,7 @@
         <funcdef><function>SD_JOURNAL_FOREACH_UNIQUE</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
         <paramdef>const void *<parameter>data</parameter></paramdef>
-        <paramdef>size_t <parameter>length</parameter></paramdef>
+        <paramdef>size_t <parameter>l</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -163,7 +163,7 @@
     <para><function>sd_journal_query_unique()</function>,
     <function>sd_journal_enumerate_unique()</function>,
     <function>sd_journal_restart_unique()</function>, and
-    <function>SD_JOURNAL_FOREACH_UNIQUE()</function> were added in version 195.</para>
+    <function>SD_JOURNAL_FOREACH_UNIQUE()</function> were added in version 38.</para>
     <para><function>sd_journal_enumerate_available_unique()</function> was added in version 246.</para>
   </refsect1>
 

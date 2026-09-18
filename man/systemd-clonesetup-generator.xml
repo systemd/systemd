@@ -27,13 +27,13 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-clonesetup-generator</filename> is a generator that translates
+    <para><command>systemd-clonesetup-generator</command> is a generator that translates
     <filename>/etc/clonetab</filename> into native systemd units early at boot and when
     configuration of the system manager is reloaded. This will create
     <citerefentry><refentrytitle>systemd-clonesetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     units as necessary.</para>
 
-    <para><filename>systemd-clonesetup-generator</filename> implements
+    <para><command>systemd-clonesetup-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 

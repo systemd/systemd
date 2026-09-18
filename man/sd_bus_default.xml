@@ -39,67 +39,67 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_default</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_default_user</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_default_system</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_with_description</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>description</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_user</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_user_with_description</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>description</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_user_machine</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>machine</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system_with_description</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>description</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system_remote</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>host</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system_machine</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>machine</parameter></paramdef>
       </funcprototype>
 
@@ -332,13 +332,13 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_default()</function>,
-    <function>sd_bus_default_user()</function>,
+    <para><function>sd_bus_default_user()</function>,
     <function>sd_bus_default_system()</function>,
-    <function>sd_bus_open()</function>,
     <function>sd_bus_open_user()</function>,
-    <function>sd_bus_open_system()</function>,
-    <function>sd_bus_open_system_remote()</function>, and
+    <function>sd_bus_open_system()</function>, and
+    <function>sd_bus_open_system_remote()</function> were added in version 209.</para>
+    <para><function>sd_bus_default()</function>,
+    <function>sd_bus_open()</function>, and
     <function>sd_bus_open_system_machine()</function> were added in version 221.</para>
     <para><function>sd_bus_open_with_description()</function>,
     <function>sd_bus_open_user_with_description()</function>, and

@@ -28,13 +28,13 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_set_watchdog</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
-        <paramdef>int b</paramdef>
+        <paramdef>sd_event *<parameter>e</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_get_watchdog</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>sd_event *<parameter>e</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -45,7 +45,7 @@
 
     <para><function>sd_event_set_watchdog()</function> may be used to
     enable or disable automatic watchdog notification support in the
-    event loop object specified in the <parameter>event</parameter>
+    event loop object specified in the <parameter>e</parameter>
     parameter. Specifically, depending on the <parameter>b</parameter>
     boolean argument this will make sure the event loop wakes up in
     regular intervals and sends watchdog notification messages to the
@@ -126,7 +126,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_event_set_watchdog()</function> and
-    <function>sd_event_get_watchdog()</function> were added in version 229.</para>
+    <function>sd_event_get_watchdog()</function> were added in version 209.</para>
   </refsect1>
 
   <refsect1>

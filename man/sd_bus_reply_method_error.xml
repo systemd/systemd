@@ -57,7 +57,7 @@
         <funcdef>int sd_bus_reply_method_errno</funcdef>
         <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
         <paramdef>int <parameter>error</parameter></paramdef>
-        <paramdef>const sd_bus_error *<parameter>p</parameter></paramdef>
+        <paramdef>const sd_bus_error *<parameter>e</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>

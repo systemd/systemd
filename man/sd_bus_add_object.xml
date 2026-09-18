@@ -52,7 +52,7 @@
         <paramdef>const char *<parameter>property</parameter></paramdef>
         <paramdef>sd_bus_message *<parameter>reply</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -63,22 +63,23 @@
         <paramdef>const char *<parameter>property</parameter></paramdef>
         <paramdef>sd_bus_message *<parameter>value</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>typedef int (*<function>sd_bus_object_find_t</function>)</funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
         <paramdef>void **<parameter>ret_found</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_add_object</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
@@ -87,8 +88,8 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_add_fallback</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
-        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
+        <paramdef>const char *<parameter>prefix</parameter></paramdef>
         <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
@@ -96,7 +97,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_add_object_vtable</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const sd_bus_vtable *<parameter>vtable</parameter></paramdef>
@@ -106,7 +107,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_add_fallback_vtable</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>const char *<parameter>prefix</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const sd_bus_vtable *<parameter>vtable</parameter></paramdef>
@@ -117,7 +118,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_add_filter</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
@@ -254,7 +255,7 @@
     <constant>SD_BUS_METHOD_WITH_OFFSET()</constant>, or
     <constant>SD_BUS_METHOD_WITH_NAMES_OFFSET()</constant>, and signal declarations using
     <constant>SD_BUS_SIGNAL_WITH_NAMES()</constant> or <constant>SD_BUS_SIGNAL()</constant>, see
-    below. The <replaceable>userdata</replaceable> parameter contains a pointer that will be passed
+    below. The <parameter>userdata</parameter> parameter contains a pointer that will be passed
     to various callback functions. It may be specified as <constant>NULL</constant> if no value is
     necessary. An interface can have any number of vtables attached to it.</para>
 
@@ -266,12 +267,12 @@
     slash-separated components successively removed. This allows the vtable to be used for an
     arbitrary number of dynamically created objects.</para>
 
-    <para>Parameter <replaceable>find</replaceable> is a function which is used to locate the target
-    object based on the bus object path <replaceable>path</replaceable>. It must return
+    <para>Parameter <parameter>find</parameter> is a function which is used to locate the target
+    object based on the bus object path <parameter>path</parameter>. It must return
     <constant>1</constant> and set the <parameter>ret_found</parameter> output parameter if the
     object is found, return <constant>0</constant> if the object was not found, and return a
     negative errno-style error code or initialize the error structure
-    <replaceable>ret_error</replaceable> on error. The pointer passed in
+    <parameter>reterr_error</parameter> on error. The pointer passed in
     <parameter>ret_found</parameter> will be used as the <parameter>userdata</parameter> parameter
     for the callback functions (offset by the <parameter>offset</parameter> offsets as specified in
     the vtable entries).</para>
@@ -309,21 +310,21 @@
     <citerefentry><refentrytitle>sd_bus_reply_method_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     was called. Additionally, all callbacks take a <structname>sd_bus_error</structname> output
     parameter that can be used to provide more detailed error information. If
-    <parameter>ret_error</parameter> is set when the callback finishes, the corresponding D-Bus
+    <parameter>reterr_error</parameter> is set when the callback finishes, the corresponding D-Bus
     error is sent back to the caller as if
     <citerefentry><refentrytitle>sd_bus_reply_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    was called. Any error stored in <parameter>ret_error</parameter> takes priority over any
+    was called. Any error stored in <parameter>reterr_error</parameter> takes priority over any
     negative values returned by the same callback when determining which error to send back to
     the caller. Use
     <citerefentry><refentrytitle>sd_bus_error_set</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    or one of its variants to set <parameter>ret_error</parameter> and return a negative integer
+    or one of its variants to set <parameter>reterr_error</parameter> and return a negative integer
     from a callback with a single function call. To send an error reply after a callback has already
     finished, use
     <citerefentry><refentrytitle>sd_bus_reply_method_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     or one of its variants.</para>
 
     <para>For all functions, a match slot is created internally. If the output parameter
-    <replaceable>slot</replaceable> is <constant>NULL</constant>, a "floating" slot object is
+    <parameter>ret_slot</parameter> is <constant>NULL</constant>, a "floating" slot object is
     created, see
     <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     Otherwise, a pointer to the slot object is returned. In that case, the reference to the slot
@@ -485,7 +486,7 @@
           <term><constant>SD_BUS_VTABLE_DEPRECATED</constant></term>
 
           <listitem><para>Mark this vtable entry as deprecated using the
-          <constant>org.freedesktop.DBus.Deprecated</constant> annotation in introspection data. If
+          <literal>org.freedesktop.DBus.Deprecated</literal> annotation in introspection data. If
           specified for <constant>SD_BUS_VTABLE_START()</constant>, the annotation is applied to the
           enclosing interface.</para></listitem>
         </varlistentry>
@@ -502,7 +503,7 @@
           <term><constant>SD_BUS_VTABLE_METHOD_NO_REPLY</constant></term>
 
           <listitem><para>Mark this vtable entry as a method that will not return a reply using the
-          <constant>org.freedesktop.DBus.Method.NoReply</constant> annotation in introspection data.
+          <literal>org.freedesktop.DBus.Method.NoReply</literal> annotation in introspection data.
           </para></listitem>
         </varlistentry>
 
@@ -512,16 +513,16 @@
           <term><constant>SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION</constant></term>
 
           <listitem><para>Those three flags correspond to different values of the
-          <constant>org.freedesktop.DBus.Property.EmitsChangedSignal</constant> annotation, which
+          <literal>org.freedesktop.DBus.Property.EmitsChangedSignal</literal> annotation, which
           specifies whether the
-          <constant>org.freedesktop.DBus.Properties.PropertiesChanged</constant> signal is emitted
+          <literal>org.freedesktop.DBus.Properties.PropertiesChanged</literal> signal is emitted
           whenever the property changes. <constant>SD_BUS_VTABLE_PROPERTY_CONST</constant>
-          corresponds to <constant>const</constant> and means that the property never changes during
+          corresponds to <literal>const</literal> and means that the property never changes during
           the lifetime of the object it belongs to, so no signal needs to be emitted.
           <constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant> corresponds to
-          <constant>true</constant> and means that the signal is emitted.
+          <literal>true</literal> and means that the signal is emitted.
           <constant>SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION</constant> corresponds to
-          <constant>invalidates</constant> and means that the signal is emitted, but the value is
+          <literal>invalidates</literal> and means that the signal is emitted, but the value is
           not included in the signal.</para></listitem>
         </varlistentry>
 
@@ -532,7 +533,7 @@
           value to be shown (generally because the value is large or slow to calculate). This entry
           cannot be combined with <constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant>, and will
           not be shown in property listings by default (e.g. <command>busctl introspect</command>).
-          This corresponds to the <constant>org.freedesktop.systemd1.Explicit</constant> annotation
+          This corresponds to the <literal>org.freedesktop.systemd1.Explicit</literal> annotation
           in introspection data.</para></listitem>
         </varlistentry>
 
@@ -586,7 +587,7 @@
           </para>
 
           <para>When <emphasis>not</emphasis> specified, the
-          <constant>org.freedesktop.systemd1.Privileged</constant> annotation with value
+          <literal>org.freedesktop.systemd1.Privileged</literal> annotation with value
           <literal>true</literal> will be shown in introspection data.</para>
 
           <para><constant>SD_BUS_VTABLE_UNPRIVILEGED</constant> may not be applied to read-only properties,
@@ -611,7 +612,7 @@
       <programlisting><xi:include href="vtable-example.c" parse="text" /></programlisting>
 
       <para>This creates a simple client on the bus (the user bus, when run as normal user). We may
-      use the D-Bus <constant>org.freedesktop.DBus.Introspectable.Introspect</constant> call to
+      use the D-Bus <literal>org.freedesktop.DBus.Introspectable.Introspect</literal> call to
       acquire the XML description of the interface:</para>
 
       <programlisting><xi:include href="vtable-example.xml" parse="text" /></programlisting>
