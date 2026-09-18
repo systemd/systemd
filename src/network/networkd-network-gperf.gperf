@@ -321,8 +321,8 @@ DHCPv6.MUDURL,                                   config_parse_mud_url,          
 DHCPv6.SendHostname,                             config_parse_dhcp_send_hostname,                AF_INET6,                               0
 DHCPv6.Hostname,                                 config_parse_hostname,                          0,                                      offsetof(Network, dhcp6_hostname)
 DHCPv6.RequestOptions,                           config_parse_dhcp_request_options,              AF_INET6,                               0
-DHCPv6.UserClass,                                config_parse_dhcp6_user_or_vendor_class,        0,                                      offsetof(Network, dhcp6_user_class)
-DHCPv6.VendorClass,                              config_parse_dhcp6_user_or_vendor_class,        0,                                      offsetof(Network, dhcp6_vendor_class)
+DHCPv6.UserClass,                                config_parse_dhcp6_user_class,                  0,                                      offsetof(Network, dhcp6_user_class)
+DHCPv6.VendorClass,                              config_parse_dhcp6_vendor_class,                0,                                      offsetof(Network, dhcp6_vendor_class)
 DHCPv6.SendVendorOption,                         config_parse_dhcp6_send_option,                 0,                                      offsetof(Network, dhcp6_client_send_vendor_options)
 DHCPv6.PrefixDelegationHint,                     config_parse_dhcp6_pd_prefix_hint,              0,                                      0
 DHCPv6.UnassignedSubnetPolicy,                   config_parse_dhcp_pd_prefix_route_type,         0,                                      offsetof(Network, dhcp6_pd_prefix_route_type)
