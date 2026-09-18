@@ -1,0 +1,97 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="report-geoip.conf" conditional="HAVE_LIBCURL"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>report-geoip.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>report-geoip.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>report-geoip.conf</refname>
+    <refname>report-geoip.conf.d</refname>
+    <refpurpose>GeoIP report metrics configuration file</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/report-geoip.conf</filename></member>
+      <member><filename>/run/systemd/report-geoip.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/report-geoip.conf</filename></member>
+      <member><filename>/usr/lib/systemd/report-geoip.conf</filename></member>
+      <member><filename>/etc/systemd/report-geoip.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/report-geoip.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/report-geoip.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/report-geoip.conf.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>This file configures the behavior of
+    <citerefentry><refentrytitle>systemd-report-geoip@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    a metrics source for
+    <citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    reporting the approximate geographic location of the system.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>All options are configured in the [GeoIP] section:</para>
+
+    <variablelist class='config-directives'>
+
+      <varlistentry>
+        <term><varname>Endpoint=</varname></term>
+
+        <listitem><para>The HTTP or HTTPS URL of the geolocation web service to query. The service must
+        answer a GET request with a JSON object in the format of the
+        <ulink url="https://reallyfreegeoip.org/">reallyfreegeoip.org</ulink> service, describing the
+        location of the address the request originates from. If assigned the empty string, the default is
+        restored. The default is chosen at compile time.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RefreshSec=</varname></term>
+
+        <listitem><para>Controls how often the geolocation data is refreshed from the endpoint, at most.
+        Takes a time span, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details. The acquired data is cached locally, and the endpoint is only contacted again once the
+        cached data is older than the specified time. If set to zero, the endpoint is contacted on every
+        request. If set to <literal>infinity</literal>, the endpoint is contacted only once, and the cached
+        data is used from then on. Defaults to <literal>30min</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Use <programlisting>systemd-analyze cat-config systemd/report-geoip.conf</programlisting>
+    to display the full config.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-report-geoip@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
