@@ -2681,6 +2681,19 @@ int terminal_get_size(
         return r;
 }
 
+static int fd_is_vc(int fd) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(fd >= 0);
+
+        r = getttyname_malloc(fd, &name);
+        if (r < 0)
+                return r;
+
+        return tty_is_vc_resolve(name);
+}
+
 int terminal_fix_size(int input_fd, int output_fd) {
         unsigned rows, columns;
         int r;
@@ -2696,6 +2709,16 @@ int terminal_fix_size(int input_fd, int output_fd) {
         struct winsize ws = {};
         if (ioctl(output_fd, TIOCGWINSZ, &ws) < 0)
                 return log_debug_errno(errno, "Failed to query terminal dimensions, ignoring: %m");
+
+        /* Don't ask a virtual console at all. There is no intermediary here that could be wrong about the
+         * dimensions: the kernel renders the screen itself, so the winsize we just read is authoritative. */
+        r = fd_is_vc(input_fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether terminal is a virtual console, assuming it is not: %m");
+        else if (r > 0) {
+                log_debug("Not querying dimensions of a virtual console, kernel dimensions are authoritative.");
+                return 0;
+        }
 
         r = terminal_get_size(input_fd, output_fd, &rows, &columns, /* try_dsr= */ true, /* try_csi18= */ true);
         if (r < 0)
