@@ -50,15 +50,19 @@ int clock_is_localtime(const char *adjtime_path) {
         return streq(line, "LOCAL");
 }
 
-int clock_set_timezone(int *ret_minutesdelta) {
-        struct tm tm;
-        int r;
+int clock_set_timezone(bool is_localtime, int *ret_minutesdelta) {
+        int minutesdelta = 0;
 
-        r = localtime_or_gmtime_usec(now(CLOCK_REALTIME), /* utc= */ false, &tm);
-        if (r < 0)
-                return r;
+        if (is_localtime) {
+                struct tm tm;
+                int r;
 
-        int minutesdelta = tm.tm_gmtoff / 60;
+                r = localtime_or_gmtime_usec(now(CLOCK_REALTIME), /* utc= */ false, &tm);
+                if (r < 0)
+                        return r;
+
+                minutesdelta = tm.tm_gmtoff / 60;
+        }
 
         struct timezone tz = {
                 .tz_minuteswest = -minutesdelta,
