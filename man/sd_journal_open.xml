@@ -219,9 +219,9 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_journal_open()</function>,
-    <function>sd_journal_open_directory()</function>, and
-    <function>sd_journal_close()</function> were added in version 187.</para>
+    <para><function>sd_journal_open()</function> and
+    <function>sd_journal_close()</function> were added in version 38.</para>
+    <para><function>sd_journal_open_directory()</function> was added in version 187.</para>
     <para><function>sd_journal_open_files()</function> was added in version 205.</para>
     <para><function>sd_journal_open_directory_fd()</function> and
     <function>sd_journal_open_files_fd()</function> were added in version 230.</para>
