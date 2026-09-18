@@ -77,34 +77,26 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para><parameter>m</parameter> or <parameter>ret</parameter> are <constant>NULL</constant>.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The message is not sealed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The message is not sealed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EBADMSG</constant></term>
 
-          <listitem><para>The message cannot be parsed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The message cannot be parsed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENXIO</constant></term>
 
           <listitem><para>The message "read pointer" is not right before an array of the appropriate type.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+          </para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

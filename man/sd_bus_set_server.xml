@@ -147,25 +147,19 @@
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus connection has been created in a different process, library or module instance.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus connection has been created in a different process, library or module instance.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The bus connection has already been started.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus connection has already been started.</para></listitem>
         </varlistentry>
 
          <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
-          <listitem><para>The bus cannot be resolved.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus cannot be resolved.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -173,17 +167,13 @@
 
           <listitem><para>A required parameter was <constant>NULL</constant> or
           <parameter>b</parameter> was zero and <parameter>server_id</parameter> did not equal
-          <constant>SD_ID128_NULL</constant>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <constant>SD_ID128_NULL</constant>.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOTCONN</constant></term>
 
-          <listitem><para>The bus is not connected.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus is not connected.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
