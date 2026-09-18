@@ -68,18 +68,14 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The <parameter>m</parameter> parameter is <constant>NULL</constant>.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
          <varlistentry>
           <term><constant>-EBADMSG</constant></term>
 
           <listitem><para>The D-Bus message <parameter>m</parameter> has open containers.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -87,9 +83,7 @@
 
           <listitem><para>The D-Bus message <parameter>m</parameter> is a reply but its type
           signature does not match the return type signature of its corresponding member in the
-          object vtable.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          object vtable.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
