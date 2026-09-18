@@ -1322,8 +1322,6 @@ DeviceAllow=/dev/loop-control
 …</programlisting></para>
 
           <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
-
-          <xi:include href="version-info.xml" xpointer="v208"/>
         </listitem>
       </varlistentry>
 
