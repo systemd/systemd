@@ -3030,9 +3030,25 @@ static EFI_STATUS call_image_start(
                  * assign arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here
                  * is unverified. */
                 if (entry->devicetree && !secure_boot_enabled()) {
-                        err = devicetree_install(&dtstate, image_root, entry->devicetree);
+                        _cleanup_(iovec_done) struct iovec dtb = {};
+
+                        err = devicetree_install(&dtstate, image_root, entry->devicetree, &dtb);
                         if (err != EFI_SUCCESS)
                                 return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
+
+                        err = tpm_log_tagged_event(
+                                        TPM2_PCR_KERNEL_CONFIG,
+                                        POINTER_TO_PHYSICAL_ADDRESS(dtb.iov_base),
+                                        dtb.iov_len,
+                                        DEVICETREE_EVENT_TAG_ID,
+                                        entry->devicetree,
+                                        NULL);
+                        if (err != EFI_SUCCESS)
+                                log_error_status(
+                                                err,
+                                                "Unable to extend PCR %i with DTB '%ls': %m",
+                                                TPM2_PCR_KERNEL_CONFIG,
+                                                entry->devicetree);
                 }
 
                 switch (entry->type) {
