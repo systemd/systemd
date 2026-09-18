@@ -6334,7 +6334,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
 
         self.assertRegex(output, 'qdisc ets 3a: root')
         self.assertRegex(output, 'bands 10 strict 3')
-        self.assertRegex(output, 'quanta 1 2 3 4 5')
+        self.assertRegex(output, 'quanta 1001 1002 1003 1004 1005')
         self.assertRegex(output, 'priomap 3 4 5 6 7')
 
     @expectedFailureIfModuleIsNotAvailable('sch_fq')
