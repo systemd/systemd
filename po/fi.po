@@ -10,8 +10,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-08-26 10:57+0100\n"
 "PO-Revision-Date: 2026-09-18 19:18+0000\n"
-"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
-"memory@weblate.org>\n"
+"Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "main/fi/>\n"
 "Language: fi\n"
@@ -879,13 +878,13 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
-msgstr "Hallitse paikallisia virtuaalikoneita ja kontteja"
+msgstr "Tarkastele paikallisia virtuaalikoneita ja kontteja"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to inspect local virtual machines and containers."
 msgstr ""
-"Todennus vaaditaan paikallisten virtuaalikoneiden ja konttien hallintaan."
+"Todennus vaaditaan paikallisten virtuaalikoneiden ja konttien tarkasteluun."
 
 #: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
@@ -920,7 +919,7 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
-msgstr "Hallitse paikallisia virtuaalikoneita ja konttilevykuvia"
+msgstr "Tarkastele paikallisia virtuaalikoneita ja konttilevykuvia"
 
 #: src/machine/org.freedesktop.machine1.policy:138
 msgid ""
@@ -928,7 +927,7 @@ msgid ""
 "images."
 msgstr ""
 "Todennus vaaditaan paikallisten virtuaalikoneiden ja konttilevykuvien "
-"hallintaan."
+"tarkasteluun."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1201,19 +1200,19 @@ msgstr "Todennus vaaditaan tilastojen nollaamiseen."
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "Tyhjennä DNS-välimuistit"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr "Todennus vaaditaan välimuistin tyhjentämiseen."
+msgstr "Todennus vaaditaan DNS-välimuistien tyhjentämiseen."
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "Palauta palvelinominaisuudet"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
-msgstr "Todennus vaaditaan DNS-palvelimien asettamiseen."
+msgstr "Palvelinominaisuuksien nollaaminen edellyttää tunnistautumista."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
@@ -1225,11 +1224,13 @@ msgstr "Todennus vaaditaan järjestelmäpäivitysten tarkistamiseen."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr "Tarkista, onko järjestelmäpäivityksiä"
+msgstr "Peruuta järjestelmäpäivitysten tarkistus"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
-msgstr "Todennus vaaditaan järjestelmäpäivitysten tarkistamiseen."
+msgstr ""
+"Järjestelmäpäivitysten tarkistamisen peruuttaminen edellyttää "
+"tunnistautumista."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
@@ -1241,11 +1242,12 @@ msgstr "Todennus vaaditaan järjestelmäpäivitysten asentamiseen."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "Peruuta järjestelmäpäivitysten asentaminen"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
-msgstr "Todennus vaaditaan järjestelmäpäivitysten asentamiseen."
+msgstr ""
+"Järjestelmäpäivitysten asennuksen peruuttaminen edellyttää tunnistautumista."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
@@ -1261,15 +1263,15 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
-msgstr "Asenna tietty järjestelmäversio"
+msgstr "Peruuta tietyn järjestelmäversion asentaminen"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:89
 msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
 msgstr ""
-"Todennus vaaditaan järjestelmän päivittämiseen tiettyyn, mahdollisesti "
-"vanhaan versioon."
+"Järjestelmän päivittämisen tiettyyn (mahdollisesti vanhaan) versioon "
+"peruuttaminen edellyttää tunnistautumista."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
@@ -1281,11 +1283,13 @@ msgstr "Todennus vaaditaan vanhojen järjestelmäpäivitysten puhdistamiseen."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr "Puhdista vanhat järjestelmäpäivitykset"
+msgstr "Peruuta vanhojen järjestelmäpäivitysten siivous"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
-msgstr "Todennus vaaditaan vanhojen järjestelmäpäivitysten puhdistamiseen."
+msgstr ""
+"Vanhojen järjestelmäpäivitysten siivouksen peruuttaminen edellyttää "
+"tunnistautumista."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
@@ -1392,21 +1396,24 @@ msgstr ""
 
 #: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
 msgid "Please confirm presence on security token to unlock."
-msgstr "Vahvista käyttäjän %s suojaustunnuksen olemassaolo."
+msgstr "Vahvista turvatunnisteen olemassaolo lukituksen avaamiseksi."
 
 #: src/shared/libfido2-util.c:510
 msgid "Please verify user on security token to unlock."
-msgstr "Vahvista käyttäjä käyttäjän %s suojaustunnuksella."
+msgstr ""
+"Vahvista käyttäjän henkilöllisyys suojaustunnisteella lukituksen avaamiseksi."
 
 #: src/shared/libfido2-util.c:944
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
 msgstr ""
+"Syötä suojausavaimen PIN-koodi (jäljellä olevat yritykset ennen "
+"lukittumista: %d):"
 
 #: src/shared/libfido2-util.c:955
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "Syötä suojausavaimen PIN-koodi:"
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Puhdista vanhat järjestelmäpäivitykset"
