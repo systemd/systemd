@@ -1830,7 +1830,7 @@ node /org/freedesktop/systemd1 {
           <ulink url="https://systemd.io/THE_CASE_FOR_THE_USR_MERGE">The Case for the /usr Merge</ulink>.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1848,7 +1848,7 @@ node /org/freedesktop/systemd1 {
           <listitem><para><filename>/run/</filename> does not exist or <filename>/var/run</filename> is not a
           symlink to <filename>/run/</filename>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v236"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1856,7 +1856,7 @@ node /org/freedesktop/systemd1 {
 
           <listitem><para>The system is using the deprecated cgroup v1 hierarchy.</para>
 
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1865,7 +1865,7 @@ node /org/freedesktop/systemd1 {
           <listitem><para>The local hardware clock (RTC) is configured to be in local time rather than
           UTC.</para>
 
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v183"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1885,7 +1885,7 @@ node /org/freedesktop/systemd1 {
           <listitem><para>The system is running a kernel version that is older than the minimum supported by
           this version of systemd.</para>
 
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1894,7 +1894,7 @@ node /org/freedesktop/systemd1 {
 
           <listitem><para>The kernel overflow UID or GID have a value other than 65534.</para>
 
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v236"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1904,7 +1904,7 @@ node /org/freedesktop/systemd1 {
           <listitem><para>The UID or GID range assigned to the running systemd instance covers less than
           0…65534.</para>
 
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
         </varlistentry>
       </variablelist>
 
