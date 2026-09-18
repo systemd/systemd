@@ -156,7 +156,7 @@
         enabled on a link only if the per-link and the
         global setting is on.</para>
 
-        <xi:include href="version-info.xml" xpointer="v234"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
       <varlistentry>
