@@ -52,6 +52,13 @@
         _describe -t architectures 'architectures' _architectures || compadd "$@"
     }
 
+(( $+functions[_systemd-analyze_cpu-features] )) ||
+    _systemd-analyze_cpu-features() {
+        local -a _features
+        _features=( $(systemd-analyze --quiet --no-pager --no-legend cpu-features 2>/dev/null | { while read -r a b; do echo " $a"; done; }) )
+        _describe -t features 'cpu features' _features || compadd "$@"
+    }
+
 (( $+functions[_systemd-analyze_plot] )) ||
     _systemd-analyze_plot() {
         local -a _options
@@ -95,6 +102,7 @@
             'has-tpm2:Report whether TPM2 support is available'
             'transient-settings:List transient settings for unit types'
             'architectures:List known architectures'
+            'cpu-features:List known CPU features'
             'smbios11:List strings passed via SMBIOS Type #11'
             'chid:List local CHIDs'
             'compare-versions:Compare two version strings'
