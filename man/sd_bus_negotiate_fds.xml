@@ -44,13 +44,13 @@
         <funcdef>int <function>sd_bus_negotiate_creds</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>int <parameter>b</parameter></paramdef>
-        <paramdef>uint64_t <parameter>mask</parameter></paramdef>
+        <paramdef>uint64_t <parameter>creds_mask</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_get_creds_mask</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>mask</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -89,7 +89,7 @@
     enabled. In fact, these two credential fields are always sent along and cannot be turned off.</para>
 
     <para><function>sd_bus_get_creds_mask()</function> returns the set of sender credentials that was
-    negotiated to be attached to all incoming messages in <parameter>mask</parameter>. This value is an
+    negotiated to be attached to all incoming messages in <parameter>ret</parameter>. This value is an
     upper boundary only. Hence, always make sure to explicitly check which credentials are attached to a
     specific message before using it.</para>
 

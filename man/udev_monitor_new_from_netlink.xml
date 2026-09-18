@@ -39,12 +39,12 @@
 
       <funcprototype>
         <funcdef>struct udev_monitor *<function>udev_monitor_ref</function></funcdef>
-        <paramdef>struct udev_monitor *<parameter>udev_monitor</parameter></paramdef>
+        <paramdef>struct udev_monitor *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>struct udev_monitor *<function>udev_monitor_unref</function></funcdef>
-        <paramdef>struct udev_monitor *<parameter>udev_monitor</parameter></paramdef>
+        <paramdef>struct udev_monitor *<parameter>p</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>

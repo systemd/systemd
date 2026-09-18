@@ -28,18 +28,18 @@
 
       <funcprototype>
         <funcdef>const char* <function>sd_bus_message_get_signature</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>int <parameter>complete</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_is_empty</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_has_signature</function></funcdef>
-        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>const char *<parameter>signature</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
@@ -50,7 +50,7 @@
     <title>Description</title>
 
     <para><function>sd_bus_message_get_signature()</function> returns the signature of message
-    <parameter>message</parameter>. If <parameter>complete</parameter> is true, the signature of the
+    <parameter>m</parameter>. If <parameter>complete</parameter> is true, the signature of the
     whole message is returned, and just the signature of the currently open container otherwise.
     </para>
 
@@ -58,7 +58,7 @@
     i.e. when its signature is empty.</para>
 
     <para><function>sd_bus_message_has_signature()</function> returns true if the signature of the
-    message <parameter>message</parameter> matches given <parameter>signature</parameter>. Parameter
+    message <parameter>m</parameter> matches given <parameter>signature</parameter>. Parameter
     <parameter>signature</parameter> may be <constant>NULL</constant>, this is treated the same as
     an empty string, which is equivalent to calling <function>sd_bus_message_is_empty()</function>.
     </para>
@@ -82,14 +82,14 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The <parameter>message</parameter> parameter is <constant>NULL</constant>.
+          <listitem><para>The <parameter>m</parameter> parameter is <constant>NULL</constant>.
           </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>NULL</constant></term>
 
-          <listitem><para>The <parameter>message</parameter> parameter is <constant>NULL</constant>.
+          <listitem><para>The <parameter>m</parameter> parameter is <constant>NULL</constant>.
           </para></listitem>
         </varlistentry>
       </variablelist>

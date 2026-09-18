@@ -28,13 +28,13 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_run</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
-        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
+        <paramdef>sd_event *<parameter>e</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_loop</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>sd_event *<parameter>e</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -44,9 +44,9 @@
 
     <para><function>sd_event_run()</function> may be used to run a single
     iteration of the event loop specified in the
-    <parameter>event</parameter> parameter. The function waits until an event to
+    <parameter>e</parameter> parameter. The function waits until an event to
     process is available, and dispatches the registered handler for
-    it. The <parameter>usec</parameter> parameter specifies the
+    it. The <parameter>timeout</parameter> parameter specifies the
     maximum time (in microseconds) to wait for an event. Use
     <constant>(uint64_t) -1</constant> to specify an infinite
     timeout.</para>
@@ -57,7 +57,7 @@
     requested using
     <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
-    <para>The event loop object <parameter>event</parameter> is
+    <para>The event loop object <parameter>e</parameter> is
     created with
     <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     Events sources to wait for and their handlers may be registered
@@ -106,7 +106,7 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The <parameter>event</parameter> parameter is invalid or
+          <listitem><para>The <parameter>e</parameter> parameter is invalid or
           <constant>NULL</constant>.</para></listitem>
         </varlistentry>
 
