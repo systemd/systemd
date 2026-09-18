@@ -7,9 +7,11 @@
 #include "journald-context.h"
 #include "log.h"
 #include "nulstr-util.h"
+#include "path-util.h"
 #include "pcre2-util.h"
 #include "set.h"
 #include "strv.h"
+#include "syslog-util.h"
 
 /* This consumes both `allow_list` and `deny_list` arguments. Hence, those arguments are not owned by the
  * caller anymore and should not be freed. */
@@ -101,6 +103,45 @@ int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup
         client_set_filtering_patterns(c, TAKE_PTR(allow_list), TAKE_PTR(deny_list));
 
         return 0;
+}
+
+void client_context_read_log_level_max(ClientContext *c, const char *cgroup) {
+        int level = -1;
+
+        assert(c);
+        assert(cgroup);
+
+        /* Like client_context_read_log_filter_patterns() above, but for LogLevelMax=: the level is
+         * exported as an xattr by the manager that owns the unit, PID 1 for system units and the
+         * user manager for user units. Check the xattr on the sender's cgroup and on every cgroup
+         * above it, up to the root of the tree, and apply the lowest limit found: a limit set on an
+         * enclosing cgroup, e.g. on user@<UID>.service for all units of a user session, cannot be
+         * loosened by a more permissive one on a cgroup below it. Unreadable or unparseable xattrs
+         * are ignored, so that they cannot defeat a limit set on some enclosing cgroup either. */
+        char prefix[strlen(cgroup) + 1];
+        PATH_FOREACH_PREFIX_MORE(prefix, cgroup) {
+                _cleanup_free_ char *value = NULL;
+                int r;
+
+                r = cg_get_xattr(prefix, "user.journald_log_level_max", &value, /* ret_size= */ NULL);
+                if (ERRNO_IS_NEG_XATTR_ABSENT(r))
+                        continue;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get user.journald_log_level_max xattr of %s, ignoring: %m", prefix);
+                        continue;
+                }
+
+                r = log_level_from_string(value);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse log level max xattr '%s' of %s, ignoring.", value, prefix);
+                        continue;
+                }
+
+                if (level < 0 || r < level)
+                        level = r;
+        }
+
+        c->log_level_max = level;
 }
 
 int client_context_check_keep_log(ClientContext *c, const char *message, size_t len) {
