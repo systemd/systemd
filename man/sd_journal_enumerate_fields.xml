@@ -29,7 +29,7 @@
       <funcprototype>
         <funcdef>int <function>sd_journal_enumerate_fields</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
-        <paramdef>const char **<parameter>field</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
