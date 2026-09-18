@@ -107,8 +107,8 @@
     <title>Description</title>
 
     <para>These functions set or query D-Bus properties. D-Bus properties are service fields exposed
-    via the <constant>org.freedesktop.DBus.Properties</constant> interface. Under the hood, these
-    functions call methods of the <constant>org.freedesktop.DBus.Properties</constant> interface and
+    via the <literal>org.freedesktop.DBus.Properties</literal> interface. Under the hood, these
+    functions call methods of the <literal>org.freedesktop.DBus.Properties</literal> interface and
     as a result their semantics are similar to
     <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
