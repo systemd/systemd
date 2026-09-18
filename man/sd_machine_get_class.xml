@@ -29,7 +29,7 @@
       <funcprototype>
         <funcdef>int <function>sd_machine_get_class</function></funcdef>
         <paramdef>const char* <parameter>machine</parameter></paramdef>
-        <paramdef>char **<parameter>class</parameter></paramdef>
+        <paramdef>char **<parameter>ret_clazz</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>

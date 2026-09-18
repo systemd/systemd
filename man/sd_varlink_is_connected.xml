@@ -28,12 +28,12 @@
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_is_connected</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_is_idle</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>

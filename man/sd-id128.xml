@@ -80,36 +80,36 @@
 
       <funcprototype>
         <funcdef>int <function>sd_id128_string_equal</function></funcdef>
-        <paramdef>const char *<parameter>a</parameter></paramdef>
-        <paramdef>sd_id128_t <parameter>b</parameter></paramdef>
+        <paramdef>const char *<parameter>s</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_id128_is_null</function></funcdef>
-        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>a</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_id128_is_allf</function></funcdef>
-        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>a</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_id128_in_setv</function></funcdef>
-        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>a</parameter></paramdef>
         <paramdef>va_list <parameter>ap</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_id128_in_set_sentinel</function></funcdef>
-        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>a</parameter></paramdef>
         <paramdef>…</paramdef>
         <paramdef><parameter><constant>SD_ID128_NULL</constant></parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_id128_in_set</function></funcdef>
-        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>a</parameter></paramdef>
         <paramdef>…</paramdef>
       </funcprototype>
     </funcsynopsis>
