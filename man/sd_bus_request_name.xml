@@ -40,7 +40,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_request_name_async</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>uint64_t <parameter>flags</parameter></paramdef>
         <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
@@ -56,7 +56,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_release_name_async</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
@@ -110,7 +110,7 @@
     enqueued. The specified <parameter>callback</parameter> will be called when the broker's response is received. If
     the parameter is specified as <constant>NULL</constant> a default implementation is used instead which will
     terminate the connection when the name cannot be acquired. The function returns a slot object in its
-    <parameter>slot</parameter> parameter — if it is passed as non-<constant>NULL</constant> — which may be used as a
+    <parameter>ret_slot</parameter> parameter — if it is passed as non-<constant>NULL</constant> — which may be used as a
     reference to the name request operation. Use
     <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry> to destroy
     this reference. Note that destroying the reference will not unregister the name, but simply ensure the specified
@@ -123,7 +123,7 @@
     <para><function>sd_bus_release_name_async()</function> is an asynchronous version of
     <function>sd_bus_release_name()</function>. The specified <parameter>callback</parameter> function is called when
     the name has been released successfully. If specified as <constant>NULL</constant> a generic implementation is used
-    that ignores the result of the operation. As above, the <parameter>slot</parameter> (if
+    that ignores the result of the operation. As above, the <parameter>ret_slot</parameter> (if
     non-<constant>NULL</constant>) is set to an object that may be used to reference the operation.</para>
 
     <para>These functions are supported only on bus connections, i.e. connections to a bus broker and not on direct

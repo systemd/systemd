@@ -38,25 +38,25 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_add_defer</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
-        <paramdef>sd_event_source **<parameter>source</parameter></paramdef>
-        <paramdef>sd_event_handler_t <parameter>handler</parameter></paramdef>
+        <paramdef>sd_event *<parameter>e</parameter></paramdef>
+        <paramdef>sd_event_source **<parameter>ret</parameter></paramdef>
+        <paramdef>sd_event_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_add_post</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
-        <paramdef>sd_event_source **<parameter>source</parameter></paramdef>
-        <paramdef>sd_event_handler_t <parameter>handler</parameter></paramdef>
+        <paramdef>sd_event *<parameter>e</parameter></paramdef>
+        <paramdef>sd_event_source **<parameter>ret</parameter></paramdef>
+        <paramdef>sd_event_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_add_exit</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
-        <paramdef>sd_event_source **<parameter>source</parameter></paramdef>
-        <paramdef>sd_event_handler_t <parameter>handler</parameter></paramdef>
+        <paramdef>sd_event *<parameter>e</parameter></paramdef>
+        <paramdef>sd_event_source **<parameter>ret</parameter></paramdef>
+        <paramdef>sd_event_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -67,14 +67,14 @@
     <title>Description</title>
 
     <para>These three functions add new static event sources to an event loop. The event loop object is
-    specified in the <parameter>event</parameter> parameter, the event source object is returned in the
-    <parameter>source</parameter> parameter. The event sources are enabled statically and will "fire" when
+    specified in the <parameter>e</parameter> parameter, the event source object is returned in the
+    <parameter>ret</parameter> parameter. The event sources are enabled statically and will "fire" when
     the event loop is run and the conditions described below are met.</para>
 
-    <para>The <parameter>handler</parameter> is a function to call or <constant>NULL</constant>. The handler
+    <para>The <parameter>callback</parameter> is a function to call or <constant>NULL</constant>. The handler
     function will be passed the <parameter>userdata</parameter> pointer, which may be chosen freely by the
     caller. The handler may return negative to signal an error (see below), other return values are
-    ignored. If <parameter>handler</parameter> is <constant>NULL</constant>, a default handler that calls
+    ignored. If <parameter>callback</parameter> is <constant>NULL</constant>, a default handler that calls
     <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry> will be
     used.</para>
 
@@ -125,7 +125,7 @@
     the event source object is returned. In this case, the event source is considered "floating", and will be
     destroyed implicitly when the event loop itself is destroyed.</para>
 
-    <para>If the <parameter>handler</parameter> parameter to <function>sd_event_add_defer()</function> or
+    <para>If the <parameter>callback</parameter> parameter to <function>sd_event_add_defer()</function> or
     <function>sd_event_add_post()</function> is <constant>NULL</constant>, and the event source fires, this
     will be considered a request to exit the event loop. In this case, the <parameter>userdata</parameter>
     parameter, cast to an integer, is passed as the exit code parameter to
