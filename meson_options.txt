@@ -596,3 +596,7 @@ option('oss-fuzz', type : 'boolean', value : false,
        description : 'build against oss-fuzz')
 option('llvm-fuzz', type : 'boolean', value : false,
        description : 'build against LLVM libFuzzer')
+
+option('geoip-endpoint', type : 'string',
+       description : 'default URL of the IP geolocation web service queried by systemd-report-geoip',
+       value : 'https://reallyfreegeoip.org/json/')
