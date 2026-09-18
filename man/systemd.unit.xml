@@ -575,7 +575,7 @@
 
       <listitem><para>The unit is currently starting, running, reloading or stopping.</para></listitem>
 
-      <listitem><para>The unit is currently in the <constant>failed</constant> state. (But see below.)</para></listitem>
+      <listitem><para>The unit is currently in the <literal>failed</literal> state. (But see below.)</para></listitem>
 
       <listitem><para>A job for the unit is pending.</para></listitem>
 
@@ -589,7 +589,7 @@
     </orderedlist>
 
     <para>The garbage collection logic may be altered with the <varname>CollectMode=</varname> option, which allows
-    configuration whether automatic unloading of units that are in <constant>failed</constant> state is permissible,
+    configuration whether automatic unloading of units that are in <literal>failed</literal> state is permissible,
     see below.</para>
 
     <para>Note that when a unit's configuration and state is unloaded, all execution results, such as exit codes, exit
@@ -1067,8 +1067,8 @@
         <term><varname>SurviveFinalKillSignal=</varname></term>
 
         <listitem><para>Takes a boolean argument. Defaults to <option>no</option>. If <option>yes</option>,
-        processes belonging to this unit will not be sent the final <literal>SIGTERM</literal> and
-        <literal>SIGKILL</literal> signals during the final phase of the system shutdown process.
+        processes belonging to this unit will not be sent the final <constant>SIGTERM</constant> and
+        <constant>SIGKILL</constant> signals during the final phase of the system shutdown process.
         This functionality replaces the older mechanism that allowed a program to set
         <literal>argv[0][0] = '@'</literal> as described at
         <ulink url="https://systemd.io/ROOT_STORAGE_DAEMONS">systemd and Storage Daemons for the Root File
@@ -1082,12 +1082,12 @@
 
         <listitem><para>Tweaks the "garbage collection" algorithm for this unit. Takes one of <option>inactive</option>
         or <option>inactive-or-failed</option>. If set to <option>inactive</option> the unit will be unloaded if it is
-        in the <constant>inactive</constant> state and is not referenced by clients, jobs or other units — however it
-        is not unloaded if it is in the <constant>failed</constant> state. In <option>failed</option> mode, failed
+        in the <literal>inactive</literal> state and is not referenced by clients, jobs or other units — however it
+        is not unloaded if it is in the <literal>failed</literal> state. In <option>failed</option> mode, failed
         units are not unloaded until the user invoked <command>systemctl reset-failed</command> on them to reset the
-        <constant>failed</constant> state, or an equivalent command. This behaviour is altered if this option is set to
+        <literal>failed</literal> state, or an equivalent command. This behaviour is altered if this option is set to
         <option>inactive-or-failed</option>: in this case, the unit is unloaded even if the unit is in a
-        <constant>failed</constant> state, and thus an explicitly resetting of the <constant>failed</constant> state is
+        <literal>failed</literal> state, and thus an explicitly resetting of the <literal>failed</literal> state is
         not necessary. Note that if this mode is used unit results (such as exit codes, exit signals, consumed
         resources, …) are flushed out immediately after the unit completed, except for what is stored in the logging
         subsystem. Defaults to <option>inactive</option>.</para>
@@ -1116,7 +1116,7 @@
         <option>exit-force</option> are allowed. Both options default to <option>none</option>.</para>
 
         <para>These actions are tied to the unit's state transitions and fire only when the unit actually
-        transitions out of an <constant>active</constant> or <constant>activating</constant> state. As a
+        transitions out of an <literal>active</literal> or <literal>activating</literal> state. As a
         consequence, <varname>Condition…=</varname> and <varname>Assert…=</varname> directives that fail do
         <emphasis>not</emphasis> trigger <varname>SuccessAction=</varname> or
         <varname>FailureAction=</varname>: they prevent activation in the first place, so no state transition
@@ -1685,7 +1685,7 @@
           service manager (i.e. this does not check whether capability is actually available in the permitted
           or effective sets, see
           <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-          for details). Pass a capability name such as <literal>CAP_MKNOD</literal>, possibly prefixed with
+          for details). Pass a capability name such as <constant>CAP_MKNOD</constant>, possibly prefixed with
           an exclamation mark to negate the check.</para>
 
           <xi:include href="version-info.xml" xpointer="v244"/>
@@ -2477,7 +2477,7 @@
                  reference onto our own man page, which would make the rendered version self-referential. -->
             <entry><literal>%a</literal></entry>
             <entry>Architecture</entry>
-            <entry>A short string identifying the architecture of the local system. A string such as <constant>x86</constant>, <constant>x86-64</constant> or <constant>arm64</constant>. See the architectures defined for <varname>ConditionArchitecture=</varname> above for a full list.</entry>
+            <entry>A short string identifying the architecture of the local system. A string such as <literal>x86</literal>, <literal>x86-64</literal> or <literal>arm64</literal>. See the architectures defined for <varname>ConditionArchitecture=</varname> above for a full list.</entry>
           </row>
           <xi:include href="standard-specifiers.xml" xpointer="A"/>
           <xi:include href="standard-specifiers.xml" xpointer="b"/>

@@ -359,7 +359,7 @@
         <listitem>
           <para>Specifies the policy for <command>systemd-networkd</command> managing the link
           administrative state. Specifically, this controls how <command>systemd-networkd</command>
-          changes the network device's <literal>IFF_UP</literal> flag, which is sometimes
+          changes the network device's <constant>IFF_UP</constant> flag, which is sometimes
           controlled by system administrators by running e.g.,
           <command>ip link set dev eth0 up</command> or <command>ip link set dev eth0 down</command>,
           and can also be changed with <command>networkctl up eth0</command> or
@@ -4330,7 +4330,7 @@ ServerAddress=192.168.0.1/24</programlisting>
           addresses of the lease. The hostnames are suffixed with the specified domain name.</para>
 
           <para>Note that this purely about hostname resolution on the local system, i.e. from programs with
-          access to the same <filename>systemd-resolved</filename> instances via D-Bus IPC, Varlink IPC, or
+          access to the same <command>systemd-resolved</command> instances via D-Bus IPC, Varlink IPC, or
           the local DNS stub.</para>
           <xi:include href="version-info.xml" xpointer="v259"/>
         </listitem>

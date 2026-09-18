@@ -417,8 +417,8 @@ node /org/freedesktop/import1/transfer/_1 {
 
       <para>The <function>Cancel()</function> method may be used to cancel the transfer. It takes no
       parameters. This method is pretty much equivalent to the <function>CancelTransfer()</function> method
-      on the <structname>Manager</structname> interface (see above), but is exposed on the
-      <structname>Transfer</structname> object itself instead of taking a transfer ID.</para>
+      on the <interfacename>Manager</interfacename> interface (see above), but is exposed on the
+      <interfacename>Transfer</interfacename> object itself instead of taking a transfer ID.</para>
     </refsect2>
 
     <refsect2>
