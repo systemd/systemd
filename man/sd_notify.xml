@@ -544,9 +544,7 @@
           file descriptors that may be passed across <constant>AF_UNIX</constant> sockets at once is 253, see
           <citerefentry
           project='man-pages'><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-          details.</para>
-
-          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+          details.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
