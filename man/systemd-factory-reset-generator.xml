@@ -27,12 +27,12 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-factory-reset-generator</filename> is a generator that pulls
+    <para><command>systemd-factory-reset-generator</command> is a generator that pulls
     <filename>factory-reset-now.target</filename> into the initial boot transaction when the factory reset
     operation has been requested, either via the <varname>systemd.factory_reset=</varname> kernel command
     line option or via the <varname>FactoryResetRequest</varname> EFI variable.</para>
 
-    <para><filename>systemd-factory-reset-generator</filename> implements
+    <para><command>systemd-factory-reset-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 
