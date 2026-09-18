@@ -37,14 +37,14 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_set_priority</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
         <paramdef>int64_t <parameter>priority</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_priority</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
-        <paramdef>int64_t *<parameter>priority</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
+        <paramdef>int64_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -55,7 +55,7 @@
 
     <para><function>sd_event_source_set_priority()</function> may be
     used to set the priority for the event source object specified as
-    <parameter>source</parameter>. The priority is specified as an
+    <parameter>s</parameter>. The priority is specified as an
     arbitrary signed 64-bit integer. The priority is initialized to
     <constant>SD_EVENT_PRIORITY_NORMAL</constant> (0) when the event
     source is allocated with a call such as
@@ -100,7 +100,7 @@
 
     <para><function>sd_event_source_get_priority()</function> may be
     used to query the current priority assigned to the event source
-    object <parameter>source</parameter>.</para>
+    object <parameter>s</parameter>.</para>
   </refsect1>
 
   <refsect1>
@@ -119,7 +119,7 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para><parameter>source</parameter> is not a valid pointer to an
+          <listitem><para><parameter>s</parameter> is not a valid pointer to an
           <structname>sd_event_source</structname> object.</para></listitem>
         </varlistentry>
 
