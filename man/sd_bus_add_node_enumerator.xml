@@ -32,13 +32,13 @@
         <paramdef>const char *<parameter>prefix</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
         <paramdef>char ***<parameter>ret_nodes</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_add_node_enumerator</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>ret_slot</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>sd_bus_node_enumerator_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
@@ -61,9 +61,9 @@
     child object paths of the given path prefix in <parameter>ret_nodes</parameter> with a NULL
     terminator item. The callback should return a non-negative value on success.
     If an error occurs, it can either return a
-    negative integer, set <parameter>ret_error</parameter> to a non-empty error or do both. Any
+    negative integer, set <parameter>reterr_error</parameter> to a non-empty error or do both. Any
     errors returned by the callback are encoded as D-Bus errors and sent back to the caller. Errors
-    in <parameter>ret_error</parameter> take priority over negative return values.</para>
+    in <parameter>reterr_error</parameter> take priority over negative return values.</para>
 
     <para>Note that a node enumerator callback will only ever be called for a single  path prefix
     and hence, for normal operation, <parameter>prefix</parameter> can be ignored. Also, a node
@@ -73,7 +73,7 @@
     </para>
 
     <para>When <function>sd_bus_add_node_enumerator()</function> succeeds, a slot is created
-    internally. If the output parameter <replaceable>slot</replaceable> is <constant>NULL</constant>,
+    internally. If the output parameter <replaceable>ret_slot</replaceable> is <constant>NULL</constant>,
     a "floating" slot object is created, see
     <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     Otherwise, a pointer to the slot object is returned. In that case, the reference to the slot

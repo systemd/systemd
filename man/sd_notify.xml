@@ -82,14 +82,14 @@
       <funcprototype>
         <funcdef>int <function>sd_notify_barrier</function></funcdef>
         <paramdef>int <parameter>unset_environment</parameter></paramdef>
-        <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout_usec</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pid_notify_barrier</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
         <paramdef>int <parameter>unset_environment</parameter></paramdef>
-        <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout_usec</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -163,7 +163,7 @@
 
     <para><function>sd_notify_barrier()</function> allows the caller to synchronize against reception of
     previously sent notification messages and uses the <varname>BARRIER=1</varname> command. It takes a
-    relative <varname>timeout</varname> value in microseconds which is passed to
+    relative <varname>timeout_usec</varname> value in microseconds which is passed to
     <citerefentry><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum>
     </citerefentry>. A value of UINT64_MAX is interpreted as infinite timeout.</para>
 

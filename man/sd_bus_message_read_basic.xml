@@ -34,7 +34,7 @@
         <funcdef>int <function>sd_bus_message_read_basic</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
-        <paramdef>void *<parameter>p</parameter></paramdef>
+        <paramdef>void *<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -52,10 +52,10 @@
     </para>
 
     <para>
-      If <parameter>p</parameter> is not <constant>NULL</constant>, it should contain a pointer to an
+      If <parameter>ret</parameter> is not <constant>NULL</constant>, it should contain a pointer to an
       appropriate object. For example, if <parameter>type</parameter> is <constant>'y'</constant>, the object
-      passed in <parameter>p</parameter> should have type <type>uint8_t *</type>. If
-      <parameter>type</parameter> is <constant>'s'</constant>, the object passed in <parameter>p</parameter>
+      passed in <parameter>ret</parameter> should have type <type>uint8_t *</type>. If
+      <parameter>type</parameter> is <constant>'s'</constant>, the object passed in <parameter>ret</parameter>
       should have type <type>const char **</type>. Note that, if the basic type is a pointer (e.g.,
       <type>const char *</type> in the case of a string), the pointer is only borrowed and the contents must
       be copied if they are to be used after the end of the message's lifetime. Similarly, during the
