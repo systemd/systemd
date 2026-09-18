@@ -799,6 +799,14 @@ units = [
         { 'file' : 'systemd-report-hwmon.socket' },
         { 'file' : 'systemd-report-hwmon@.service.in' },
         {
+          'file' : 'systemd-report-geoip.socket',
+          'conditions' : ['HAVE_LIBCURL'],
+        },
+        {
+          'file' : 'systemd-report-geoip@.service.in',
+          'conditions' : ['HAVE_LIBCURL'],
+        },
+        {
           'file' : 'systemd-report-sign-plain.socket',
           'conditions' : ['HAVE_OPENSSL'],
         },
