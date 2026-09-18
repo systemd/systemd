@@ -579,6 +579,20 @@ static int reply_report(sd_varlink *link, const Tpm2Report *report, const struct
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cv = NULL;
         FOREACH_ARRAY(c, report->components, report->n_components) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *pcr_values = NULL;
+                if (c->type == TPM2_REPORT_TYPE_PCR) {
+                        FOREACH_ARRAY(p, c->pcr_values, c->n_pcr_values) {
+                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *value = NULL;
+                                r = tpm2_pcr_value_to_json(p, &value);
+                                if (r < 0)
+                                        return log_error_errno(r, "Cannot convert PCR value to JSON: %m");
+
+                                r = sd_json_variant_append_array(&pcr_values, value);
+                                if (r < 0)
+                                        return log_error_errno(r, "Cannot add PCR value to array: %m");
+                        }
+                }
+
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *nv_public = NULL;
                 if (c->type == TPM2_REPORT_TYPE_NVPCR) {
                         r = tpm2_tpms_nv_public_to_json(c->nv_public, &nv_public);
@@ -613,6 +627,7 @@ static int reply_report(sd_varlink *link, const Tpm2Report *report, const struct
                 r = sd_json_variant_append_arraybo(
                                 &cv,
                                 SD_JSON_BUILD_PAIR_STRING("type", tpm2_report_component_type_to_string(c->type)),
+                                JSON_BUILD_PAIR_VARIANT_NON_NULL("pcrValues", pcr_values),
                                 SD_JSON_BUILD_PAIR_CONDITION(c->type == TPM2_REPORT_TYPE_NVPCR, "nvpcrName", SD_JSON_BUILD_STRING(c->nv_pcr_name)),
                                 SD_JSON_BUILD_PAIR_CONDITION(c->type == TPM2_REPORT_TYPE_NVPCR, "nvPublic", SD_JSON_BUILD_VARIANT(nv_public)),
                                 SD_JSON_BUILD_PAIR_CONDITION(c->type != TPM2_REPORT_TYPE_SESSION_AUDIT && c->authenticated_data, "authenticatedData", SD_JSON_BUILD_STRING(c->authenticated_data)),
