@@ -99,8 +99,7 @@
         for more information.</para>
 
         <para>Defaults to <option>control-group</option>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -113,8 +112,6 @@
 
         <para>Note that, right after sending the signal specified in this setting, systemd will always send
         <constant>SIGCONT</constant>, to ensure that even suspended tasks can be terminated cleanly.</para>
-
-        <xi:include href="version-info.xml" xpointer="v187"/>
         </listitem>
       </varlistentry>
 
@@ -153,8 +150,7 @@
         processes from prior services exist within the control group.
         Takes a boolean value. Defaults to <literal>yes</literal>.
         </para>
-
-        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
