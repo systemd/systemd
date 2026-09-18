@@ -40,12 +40,12 @@
 
       <funcprototype>
         <funcdef>char *<function>sd_id128_to_string</function></funcdef>
-        <paramdef>sd_id128_t <parameter>id</parameter>, char <parameter>s</parameter>[static SD_ID128_STRING_MAX]</paramdef>
+        <paramdef>sd_id128_t <parameter>id</parameter>, char <parameter>ret</parameter>[static SD_ID128_STRING_MAX]</paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>char *<function>sd_id128_to_uuid_string</function></funcdef>
-        <paramdef>sd_id128_t <parameter>id</parameter>, char <parameter>s</parameter>[static SD_ID128_UUID_STRING_MAX]</paramdef>
+        <paramdef>sd_id128_t <parameter>id</parameter>, char <parameter>ret</parameter>[static SD_ID128_UUID_STRING_MAX]</paramdef>
       </funcprototype>
 
       <funcprototype>

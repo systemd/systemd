@@ -28,16 +28,16 @@
       <funcprototype>
         <funcdef>int <function>sd_journal_get_cutoff_realtime_usec</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>from</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>to</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret_from</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret_to</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_journal_get_cutoff_monotonic_usec</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
         <paramdef>sd_id128_t <parameter>boot_id</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>from</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>to</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret_from</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret_to</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -50,7 +50,7 @@
     retrieves the realtime (wallclock) timestamps of the first and
     last entries accessible in the journal. It takes three arguments:
     the journal context object <parameter>j</parameter> and two
-    pointers <parameter>from</parameter> and <parameter>to</parameter>
+    pointers <parameter>ret_from</parameter> and <parameter>ret_to</parameter>
     pointing at 64-bit unsigned integers to store the timestamps in.
     The timestamps are in microseconds since the epoch, i.e.
     <constant>CLOCK_REALTIME</constant>. Either one of the two
@@ -63,7 +63,7 @@
     context object <parameter>j</parameter>, a 128-bit identifier for
     the boot <parameter>boot_id</parameter>, and two pointers to
     64-bit unsigned integers to store the timestamps,
-    <parameter>from</parameter> and <parameter>to</parameter>. The
+    <parameter>ret_from</parameter> and <parameter>ret_to</parameter>. The
     timestamps are in microseconds since boot-up of the specific boot,
     i.e. <constant>CLOCK_MONOTONIC</constant>. Since the monotonic
     clock begins new with every reboot it only defines a well-defined
@@ -85,7 +85,7 @@
     or a negative errno-style error code.</para>
 
     <para>Locations pointed to by parameters
-    <parameter>from</parameter> and <parameter>to</parameter> will be
+    <parameter>ret_from</parameter> and <parameter>ret_to</parameter> will be
     set only if the return value is positive, and obviously, the
     parameters are non-null.</para>
   </refsect1>

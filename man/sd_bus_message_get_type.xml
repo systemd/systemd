@@ -34,11 +34,11 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_message_get_type</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
-        <paramdef>uint8_t *<parameter>type</parameter></paramdef>
+        <paramdef>uint8_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
-        <funcdef>sd_bus_error* <function>sd_bus_message_get_error</function></funcdef>
+        <funcdef>const sd_bus_error* <function>sd_bus_message_get_error</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
 
@@ -79,7 +79,7 @@
     <title>Description</title>
 
     <para><function>sd_bus_message_get_type()</function> returns the type of a message in the output
-    parameter <parameter>type</parameter>, one of <constant>SD_BUS_MESSAGE_METHOD_CALL</constant>,
+    parameter <parameter>ret</parameter>, one of <constant>SD_BUS_MESSAGE_METHOD_CALL</constant>,
     <constant>SD_BUS_MESSAGE_METHOD_RETURN</constant>, <constant>SD_BUS_MESSAGE_METHOD_ERROR</constant>,
     <constant>SD_BUS_MESSAGE_SIGNAL</constant>. This type is either specified as a parameter when the message
     is created using
