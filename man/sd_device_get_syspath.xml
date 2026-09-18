@@ -211,17 +211,13 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>A specified parameter is invalid.</para>
-
-          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+          <listitem><para>A specified parameter is invalid.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOENT</constant></term>
 
-          <listitem><para>The requested field is not present in the device record.</para>
-
-          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+          <listitem><para>The requested field is not present in the device record.</para></listitem>
         </varlistentry>
 
       </variablelist>
