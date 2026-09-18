@@ -12,6 +12,7 @@
 #include "dlopen-note.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "networkd.h"
 #include "networkd-conf.h"
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"
@@ -31,7 +32,7 @@ COMMAND(
                 "Bus introspection\0",
 );
 
-static int run(int argc, char *argv[]) {
+int run_networkd(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
@@ -128,5 +129,3 @@ static int run(int argc, char *argv[]) {
 
         return 0;
 }
-
-DEFINE_MAIN_FUNCTION(run);
