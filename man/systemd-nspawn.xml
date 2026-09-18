@@ -1673,38 +1673,40 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <para>Using <option>idmap</option>, <option>rootidmap</option> or <option>owneridmap</option> requires support
         by the source filesystem for user/group ID mapped mounts. Defaults to <option>noidmap</option>. With
         <option>x</option> being the container's UID range offset, <option>y</option> being the length of the
-        container's UID range, and <option>p</option> being the owner UID of the bind mount source inode on the host:
+        container's UID range, and <option>p</option> and <option>q</option> being the UID and GID of the bind mount
+        source inode on the host:
 
         <itemizedlist>
           <listitem><para>If <option>noidmap</option> is used, any user <option>z</option> in the range
           <option>0 … y</option> seen from inside of the container is mapped to <option>x + z</option> in the
-          <option>x … x + y</option> range on the host. Other host users are mapped to
+          <option>x … x + y</option> range on the host. Other host users and groups are mapped to
           <option>nobody</option> inside the container.</para></listitem>
 
           <listitem><para>If <option>idmap</option> is used, any user <option>z</option> in the UID range
           <option>0 … y</option> as seen from inside the container is mapped to the same <option>z</option>
-          in the same <option>0 … y</option> range on the host. Other host users are mapped to
+          in the same <option>0 … y</option> range on the host. Other host users and groups are mapped to
           <option>nobody</option> inside the container.</para></listitem>
 
           <listitem><para>If <option>rootidmap</option> is used, the user <option>0</option> seen from inside
-          of the container is mapped to <option>p</option> on the host. Other host users are mapped to
-          <option>nobody</option> inside the container.</para></listitem>
+          of the container is mapped to <option>p</option> on the host, and the group <option>0</option> to
+          <option>q</option>. Other host users and groups are mapped to <option>nobody</option> inside the
+          container.</para></listitem>
 
-          <listitem><para>If <option>owneridmap</option> is used, the owner of the target directory inside of the
-          container is mapped to <option>p</option> on the host. Other host users are mapped to
-          <option>nobody</option> inside the container.</para></listitem>
+          <listitem><para>If <option>owneridmap</option> is used, the user owning the target directory inside of
+          the container is mapped to <option>p</option> on the host, and the group owning that directory to
+          <option>q</option>. Other host users and groups are mapped to <option>nobody</option> inside the
+          container.</para></listitem>
         </itemizedlist></para>
 
-        <para>Whichever ID mapping option is used, the same mapping will be used for users and groups IDs. If
-        <option>rootidmap</option> or <option>owneridmap</option> are used, the group owning the bind mounted directory
-        will have no effect.</para>
+        <para>With <option>noidmap</option> and <option>idmap</option>, the same mapping is used for user and
+        group IDs.</para>
 
         <para>Note that when this option is used in combination with <option>--private-users</option>, the resulting
         mount points will be owned by the <constant>nobody</constant> user. That's because the mount and its files and
         directories continue to be owned by the relevant host users and groups, which do not exist in the container,
         and thus show up under the wildcard UID 65534 (nobody). If such bind mounts are created, it is recommended to
-        make them read-only, using <option>--bind-ro=</option>. Alternatively you can use the "idmap" mount option to
-        map the filesystem IDs.</para>
+        make them read-only, using <option>--bind-ro=</option>. Alternatively you can use the <option>idmap</option>,
+        <option>rootidmap</option> or <option>owneridmap</option> mount options to map the filesystem IDs.</para>
 
         <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
