@@ -540,9 +540,9 @@
     <function>sd_bus_creds_get_audit_session_id()</function>,
     <function>sd_bus_creds_get_audit_login_uid()</function>,
     <function>sd_bus_creds_get_unique_name()</function>,
-    <function>sd_bus_creds_get_well_known_names()</function>,
-    <function>sd_bus_creds_get_ppid()</function>,
-    <function>sd_bus_creds_get_uid()</function>,
+    <function>sd_bus_creds_get_well_known_names()</function>, and
+    <function>sd_bus_creds_get_uid()</function> were added in version 209.</para>
+    <para><function>sd_bus_creds_get_ppid()</function>,
     <function>sd_bus_creds_get_euid()</function>,
     <function>sd_bus_creds_get_suid()</function>,
     <function>sd_bus_creds_get_fsuid()</function>,

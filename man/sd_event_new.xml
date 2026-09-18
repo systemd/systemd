@@ -203,7 +203,7 @@
     <para><function>sd_event_new()</function>,
     <function>sd_event_default()</function>,
     <function>sd_event_ref()</function>, and
-    <function>sd_event_unref()</function> were added in version 213.</para>
+    <function>sd_event_unref()</function> were added in version 209.</para>
     <para><function>sd_event_unrefp()</function> and
     <function>sd_event_get_tid()</function> were added in version 229.</para>
   </refsect1>

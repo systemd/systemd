@@ -264,8 +264,8 @@
     <function>sd_bus_emit_interfaces_added_strv()</function>,
     <function>sd_bus_emit_interfaces_removed()</function>,
     <function>sd_bus_emit_interfaces_removed_strv()</function>,
-    <function>sd_bus_emit_properties_changed()</function>,
-    <function>sd_bus_emit_properties_changed_strv()</function>, were added in version 221.</para>
+    <function>sd_bus_emit_properties_changed()</function>, and
+    <function>sd_bus_emit_properties_changed_strv()</function> were added in version 209.</para>
     <para><function>sd_bus_emit_object_added()</function>, and
     <function>sd_bus_emit_object_removed()</function> were added in version 222.</para>
     <para><function>sd_bus_emit_signalv()</function> was added in version 246.</para>
