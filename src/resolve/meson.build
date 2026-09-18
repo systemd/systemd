@@ -154,6 +154,9 @@ executables += [
                 'sources' : files('test-dns-query.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-dns-server.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-resolved-stream.c'),
         },
         resolve_test_template + {
