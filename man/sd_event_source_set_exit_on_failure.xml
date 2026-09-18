@@ -74,9 +74,7 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para><parameter>s</parameter> is not a valid pointer to an
-          <structname>sd_event_source</structname> object.</para>
-
-          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+          <structname>sd_event_source</structname> object.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -84,9 +82,7 @@
 
           <listitem><para>The event source refers to an exit event source (as created with
           <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>),
-          for which this functionality is not supported.</para>
-
-          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+          for which this functionality is not supported.</para></listitem>
         </varlistentry>
 
       </variablelist>
