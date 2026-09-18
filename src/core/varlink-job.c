@@ -41,6 +41,12 @@ static int activation_details_build_json(sd_json_variant **ret, const char *name
 int job_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Job *j = ASSERT_PTR(userdata);
 
+        /* A job removed without ever completing (e.g. its unit got unloaded) has no result;
+         * report it as canceled so a finished notification always carries one. */
+        JobResult result = j->result;
+        if (j->state == JOB_FINISHED && result < 0)
+                result = JOB_CANCELED;
+
         /* "Unit" is omitted in StartTransient streaming notifications where the caller already knows the unit. */
         return sd_json_buildo(
                         ASSERT_PTR(ret),
@@ -48,7 +54,7 @@ int job_build_json(sd_json_variant **ret, const char *name, void *userdata) {
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Unit", j->unit ? j->unit->id : NULL),
                         JSON_BUILD_PAIR_ENUM("JobType", job_type_to_string(j->type)),
                         JSON_BUILD_PAIR_ENUM("State", job_state_to_string(j->state)),
-                        JSON_BUILD_PAIR_ENUM_NON_EMPTY("Result", job_result_to_string(j->result)),
+                        JSON_BUILD_PAIR_ENUM_NON_EMPTY("Result", job_result_to_string(result)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("ActivationDetails", activation_details_build_json, j));
 }
 

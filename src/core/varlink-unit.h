@@ -24,6 +24,13 @@ int varlink_unit_queue_job_one(
 int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 
 int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_subscribe_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+
+/* Values in Manager.varlink_job_subscribers; nonzero so hashmap lookups can distinguish absence. */
+typedef enum VarlinkJobSubscriberKind {
+        VARLINK_JOB_SUBSCRIBER_PLAIN = 1,
+        VARLINK_JOB_SUBSCRIBER_WITH_RUNTIME,
+} VarlinkJobSubscriberKind;
 
 void varlink_unit_send_change_signal(Unit *u);
 void varlink_job_send_change_signal(Job *j);
