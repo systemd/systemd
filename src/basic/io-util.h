@@ -29,7 +29,9 @@ _nonnull_if_nonzero_(1, 2) static inline int ppoll_usec(struct pollfd *fds, size
 
 int fd_wait_for_event(int fd, int event, usec_t timeout);
 
-ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length);
+/* Short writes in data runs are retried so that filesystem errors such as ENOSPC are surfaced instead of
+ * being converted to EIO. Returns 0 on success, and a negative errno on failure. */
+int sparse_write(int fd, const void *p, size_t sz, size_t run_length);
 
 static inline bool FILE_SIZE_VALID(uint64_t l) {
         /* ftruncate() and friends take an unsigned file size, but actually cannot deal with file sizes larger than
