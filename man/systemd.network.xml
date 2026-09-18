@@ -117,7 +117,7 @@
           by the udev property <literal>INTERFACE</literal>, or device's alternative names. If the
           list is prefixed with a "!", the test is inverted.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -359,7 +359,7 @@
         <listitem>
           <para>Specifies the policy for <command>systemd-networkd</command> managing the link
           administrative state. Specifically, this controls how <command>systemd-networkd</command>
-          changes the network device's <literal>IFF_UP</literal> flag, which is sometimes
+          changes the network device's <constant>IFF_UP</constant> flag, which is sometimes
           controlled by system administrators by running e.g.,
           <command>ip link set dev eth0 up</command> or <command>ip link set dev eth0 down</command>,
           and can also be changed with <command>networkctl up eth0</command> or
@@ -409,7 +409,7 @@
         <listitem>
           <para>A description of the device. This is only used for presentation purposes.</para>
 
-        <xi:include href="version-info.xml" xpointer="v211"/>
+        <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -432,7 +432,7 @@
           <para>See the [DHCPv4] or [DHCPv6] sections below for further configuration options for the
           DHCP client support.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -755,7 +755,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <para>If an empty string is specified, then the all previous assignments in both [Network] and
           [Address] sections are cleared.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -770,7 +770,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <para>If an empty string is specified, then the all previous assignments in both [Network] and
           [Route] sections are cleared.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -790,7 +790,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -868,7 +868,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v216"/>
+          <xi:include href="version-info.xml" xpointer="v213"/>
         </listitem>
       </varlistentry>
 
@@ -1300,7 +1300,7 @@ DuplicateAddressDetection=none</programlisting></para>
           option is only valid for following modes: <literal>active-backup</literal>,
           <literal>balance-alb</literal>, and <literal>balance-tlb</literal>. Defaults to false.</para>
 
-        <xi:include href="version-info.xml" xpointer="v235"/>
+        <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -1314,7 +1314,7 @@ DuplicateAddressDetection=none</programlisting></para>
           option is only valid for following modes: <literal>active-backup</literal>,
           <literal>balance-alb</literal>, and <literal>balance-tlb</literal>. Defaults to false.</para>
 
-          <xi:include href="version-info.xml" xpointer="v235"/>
+          <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -1396,7 +1396,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <command>systemd-networkd</command> is running in initrd, <literal>yes</literal> when the root
           filesystem is a network filesystem, and <literal>no</literal> otherwise.</para>
 
-          <xi:include href="version-info.xml" xpointer="v257"/>
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1415,7 +1415,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <para>As in the [Network] section. This setting is mandatory. Each [Address] section can
           contain one <varname>Address=</varname> setting.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -1438,7 +1438,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <varname>Address=</varname> setting. If set to false, then the broadcast address will not be
           set. Defaults to true, except for wireguard interfaces, where it defaults to false.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -1448,7 +1448,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <para>Specifies the label for the IPv4 address. The label must be a 7-bit ASCII string with
           a length of 1…15 characters. Defaults to unset.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -2097,7 +2097,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           acquired DHCPv4 address will be used as the preferred source address of the route, unless it is
           explicitly configured in <varname>PreferredSource=</varname>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v211"/>
+        <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -2119,7 +2119,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>The destination prefix of the route. Possibly followed by a slash and the prefix
           length. If omitted, a full-length host route is assumed.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -2697,7 +2697,7 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -2778,7 +2778,7 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           interfaces, please try to use <varname>IgnoreCarrierLoss=</varname> with a short timespan,
           e.g. <literal>3 seconds</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -2788,7 +2788,7 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           <para>When true (the default), the hostname received from the DHCP server will be set as the
           transient hostname of the system.</para>
 
-          <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -3096,7 +3096,7 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
           <literal>ipv4_addr</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v255"/>
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3241,7 +3241,7 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           <ulink url="https://tools.ietf.org/html/rfc3315#section-17.2.1">RFC 3315</ulink> for details.
           Defaults to true, and the two-message exchange will be used if the server support it.</para>
 
-          <xi:include href="version-info.xml" xpointer="v252"/>
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -3333,7 +3333,7 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           or <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
           <literal>ipv6_addr</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v255"/>
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
 
@@ -3470,7 +3470,7 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
           <literal>ipv6_addr</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v255"/>
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3887,7 +3887,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
           <literal>ipv6_addr</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v255"/>
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4330,7 +4330,7 @@ ServerAddress=192.168.0.1/24</programlisting>
           addresses of the lease. The hostnames are suffixed with the specified domain name.</para>
 
           <para>Note that this purely about hostname resolution on the local system, i.e. from programs with
-          access to the same <filename>systemd-resolved</filename> instances via D-Bus IPC, Varlink IPC, or
+          access to the same <command>systemd-resolved</command> instances via D-Bus IPC, Varlink IPC, or
           the local DNS stub.</para>
           <xi:include href="version-info.xml" xpointer="v259"/>
         </listitem>
@@ -4578,7 +4578,7 @@ ServerAddress=192.168.0.1/24</programlisting>
         in order to ease configuration.
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v234"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -4590,7 +4590,7 @@ ServerAddress=192.168.0.1/24</programlisting>
         prefixes since prefix lifetimes, address autoconfiguration and onlink status may differ from one
         prefix to another.</para>
 
-        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v234"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -4601,7 +4601,7 @@ ServerAddress=192.168.0.1/24</programlisting>
         <varname>PreferredLifetimeSec=</varname> defaults to 1800 seconds (30 minutes) and
         <varname>ValidLifetimeSec=</varname> defaults to 3600 seconds (one hour).</para>
 
-        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v234"/></listitem>
       </varlistentry>
 
       <varlistentry>

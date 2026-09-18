@@ -318,7 +318,7 @@
 
         <listitem>
           <para>When used with the <command>introspect</command> call, dump the XML description received from
-          the D-Bus <constant>org.freedesktop.DBus.Introspectable.Introspect</constant> call instead of the
+          the D-Bus <literal>org.freedesktop.DBus.Introspectable.Introspect</literal> call instead of the
           normal output.</para>
 
         <xi:include href="version-info.xml" xpointer="v243"/>

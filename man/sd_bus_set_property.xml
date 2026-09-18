@@ -38,7 +38,7 @@
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const char *<parameter>member</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
         <paramdef>const char *<parameter>type</parameter></paramdef>
         <paramdef>...</paramdef>
       </funcprototype>
@@ -50,7 +50,7 @@
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const char *<parameter>member</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
         <paramdef>const char *<parameter>type</parameter></paramdef>
         <paramdef>va_list <parameter>ap</parameter></paramdef>
       </funcprototype>
@@ -62,8 +62,8 @@
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const char *<parameter>member</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>reply</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>ret_reply</parameter></paramdef>
         <paramdef>const char *<parameter>type</parameter></paramdef>
       </funcprototype>
 
@@ -74,9 +74,9 @@
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const char *<parameter>member</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
-        <paramdef>void *<parameter>ret_ptr</parameter></paramdef>
+        <paramdef>void *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -86,7 +86,7 @@
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const char *<parameter>member</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
         <paramdef>char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
@@ -97,7 +97,7 @@
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const char *<parameter>member</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>reterr_error</parameter></paramdef>
         <paramdef>char ***<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
@@ -107,15 +107,15 @@
     <title>Description</title>
 
     <para>These functions set or query D-Bus properties. D-Bus properties are service fields exposed
-    via the <constant>org.freedesktop.DBus.Properties</constant> interface. Under the hood, these
-    functions call methods of the <constant>org.freedesktop.DBus.Properties</constant> interface and
+    via the <literal>org.freedesktop.DBus.Properties</literal> interface. Under the hood, these
+    functions call methods of the <literal>org.freedesktop.DBus.Properties</literal> interface and
     as a result their semantics are similar to
     <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
     <para><function>sd_bus_set_property()</function> sets a D-Bus property. If setting the property
     fails or an internal error occurs, an error is returned and an extended description of the error
-    is optionally stored in <parameter>ret_error</parameter> if it is not <constant>NULL</constant>.
+    is optionally stored in <parameter>reterr_error</parameter> if it is not <constant>NULL</constant>.
     <parameter>type</parameter> and the arguments that follow it describe the new value of the
     property and must follow the format described in
     <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
@@ -127,8 +127,8 @@
 
     <para><function>sd_bus_get_property()</function> queries a D-Bus property. If retrieving the
     property fails or an internal error occurs, an error is returned and an extended description of
-    the error is optionally stored in <parameter>ret_error</parameter> if it is not
-    <constant>NULL</constant>. On success, the property is stored in <parameter>reply</parameter>.
+    the error is optionally stored in <parameter>reterr_error</parameter> if it is not
+    <constant>NULL</constant>. On success, the property is stored in <parameter>ret_reply</parameter>.
     <parameter>type</parameter> describes the property type and must follow the format described in
     <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
@@ -163,11 +163,11 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_set_property()</function>,
-    <function>sd_bus_set_propertyv()</function>,
     <function>sd_bus_get_property()</function>,
     <function>sd_bus_get_property_trivial()</function>,
     <function>sd_bus_get_property_string()</function>, and
-    <function>sd_bus_get_property_strv()</function> were added in version 246.</para>
+    <function>sd_bus_get_property_strv()</function> were added in version 221.</para>
+    <para><function>sd_bus_set_propertyv()</function> was added in version 246.</para>
   </refsect1>
 
   <refsect1>

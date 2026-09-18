@@ -32,14 +32,14 @@
       <funcprototype>
         <funcdef>int sd_bus_message_new_method_error</funcdef>
         <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>m</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>ret</parameter></paramdef>
         <paramdef>const sd_bus_error *<parameter>e</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int sd_bus_message_new_method_errorf</funcdef>
         <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>m</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
         <paramdef>…</paramdef>
@@ -48,15 +48,15 @@
       <funcprototype>
         <funcdef>int sd_bus_message_new_method_errno</funcdef>
         <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>m</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>ret</parameter></paramdef>
         <paramdef>int <parameter>error</parameter></paramdef>
-        <paramdef>const sd_bus_error *<parameter>p</parameter></paramdef>
+        <paramdef>const sd_bus_error *<parameter>e</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int sd_bus_message_new_method_errnof</funcdef>
         <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>m</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>ret</parameter></paramdef>
         <paramdef>int <parameter>error</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
         <paramdef>…</paramdef>
@@ -70,7 +70,7 @@
     <para>The <function>sd_bus_message_new_method_error()</function> function creates
     a new bus message object that is an error reply to the
     <parameter>call</parameter> message, and returns it in the
-    <parameter>m</parameter> output parameter. The error information from error
+    <parameter>ret</parameter> output parameter. The error information from error
     <parameter>e</parameter> is appended: the <parameter>name</parameter> field of
     <parameter>e</parameter> is used as the error identifier in the reply header (for
     example an error name such as
@@ -97,10 +97,10 @@
     <para>The <function>sd_bus_message_new_method_errno()</function> function creates
     an error reply similarly to
     <function>sd_bus_message_new_method_error()</function>, but in addition to the
-    error structure <parameter>p</parameter>, it takes an
+    error structure <parameter>e</parameter>, it takes an
     <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     error value in parameter <parameter>error</parameter>. If the error
-    <parameter>p</parameter> is set (see
+    <parameter>e</parameter> is set (see
     <citerefentry><refentrytitle>sd_bus_error_is_set</refentrytitle><manvolnum>3</manvolnum></citerefentry>),
     it is used in the reply. Otherwise, <parameter>error</parameter> is translated to
     an error identifier and used to create a new error structure using
@@ -138,7 +138,7 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The call message <parameter>call</parameter> or the output
-          parameter <parameter>m</parameter> are <constant>NULL</constant>.</para>
+          parameter <parameter>ret</parameter> are <constant>NULL</constant>.</para>
 
           <para>Message <parameter>call</parameter> is not a method call
           message.</para>

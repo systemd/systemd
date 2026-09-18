@@ -211,17 +211,13 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>A specified parameter is invalid.</para>
-
-          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+          <listitem><para>A specified parameter is invalid.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOENT</constant></term>
 
-          <listitem><para>The requested field is not present in the device record.</para>
-
-          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+          <listitem><para>The requested field is not present in the device record.</para></listitem>
         </varlistentry>
 
       </variablelist>
@@ -240,9 +236,9 @@
     <function>sd_device_get_devtype()</function>,
     <function>sd_device_get_devname()</function>,
     <function>sd_device_get_devnum()</function>,
-    <function>sd_device_get_ifindex()</function>,
-    <function>sd_device_get_driver()</function>, and
-    <function>sd_device_get_diskseq()</function> were added in version 251.</para>
+    <function>sd_device_get_ifindex()</function>, and
+    <function>sd_device_get_driver()</function> were added in version 240.</para>
+    <para><function>sd_device_get_diskseq()</function> was added in version 250.</para>
     <para><function>sd_device_get_driver_subsystem()</function> and
     <function>sd_device_get_device_id()</function> were added in version 257.</para>
   </refsect1>
