@@ -71,8 +71,8 @@
     with
     <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     whose descriptive name is initialized to the signal's C constant
-    name (e.g. <literal>SIGINT</literal> or
-    <literal>SIGTERM</literal>).</para>
+    name (e.g. <constant>SIGINT</constant> or
+    <constant>SIGTERM</constant>).</para>
   </refsect1>
 
   <refsect1>

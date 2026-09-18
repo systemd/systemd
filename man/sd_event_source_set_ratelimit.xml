@@ -106,7 +106,7 @@
     <title>Return Value</title>
 
     <para>On success, <function>sd_event_source_set_ratelimit()</function>,
-    <function>sd_event_source_set_ratelimit_expire_callback</function> and
+    <function>sd_event_source_set_ratelimit_expire_callback()</function> and
     <function>sd_event_source_get_ratelimit()</function> return a non-negative integer. On failure, they
     return a negative errno-style error code. <function>sd_event_source_is_ratelimited()</function> returns
     zero if rate limiting is currently not in effect and greater than zero if it is in effect; it returns a

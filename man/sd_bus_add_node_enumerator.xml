@@ -52,8 +52,8 @@
     <para><function>sd_bus_add_node_enumerator()</function> adds a D-Bus node enumerator for the
     given path prefix. The given callback is called to enumerate all the available objects with
     the given path prefix when required (e.g. when
-    <constant>org.freedesktop.DBus.Introspectable.Introspect</constant> or
-    <constant>org.freedesktop.DBus.ObjectManager.GetManagedObjects</constant> are called on a
+    <literal>org.freedesktop.DBus.Introspectable.Introspect</literal> or
+    <literal>org.freedesktop.DBus.ObjectManager.GetManagedObjects</literal> are called on a
     D-Bus service managed by sd-bus).</para>
 
     <para><parameter>callback</parameter> is called with the path and userdata pointer registered
@@ -73,7 +73,7 @@
     </para>
 
     <para>When <function>sd_bus_add_node_enumerator()</function> succeeds, a slot is created
-    internally. If the output parameter <replaceable>ret_slot</replaceable> is <constant>NULL</constant>,
+    internally. If the output parameter <parameter>ret_slot</parameter> is <constant>NULL</constant>,
     a "floating" slot object is created, see
     <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     Otherwise, a pointer to the slot object is returned. In that case, the reference to the slot
