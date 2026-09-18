@@ -60,17 +60,13 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The <parameter>m</parameter> parameter is <constant>NULL</constant>.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The message is not sealed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The message is not sealed.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

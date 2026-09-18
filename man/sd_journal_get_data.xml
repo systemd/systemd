@@ -168,17 +168,13 @@
           are required non-<constant>NULL</constant>. For <function>sd_journal_enumerate_data()</function>
           and <function>sd_journal_enumerate_available_data()</function>,
           <parameter>ret_data</parameter> and <parameter>ret_size</parameter> are required as well.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry id='ECHILD'>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The journal object was created in a different process, library or module instance.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The journal object was created in a different process, library or module instance.</para></listitem>
         </varlistentry>
 
         <varlistentry id='EADDRNOTAVAIL'>
@@ -186,69 +182,53 @@
 
           <listitem><para>The read pointer is not positioned at a valid entry;
           <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-          or a related call has not been called at least once.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          or a related call has not been called at least once.</para></listitem>
         </varlistentry>
 
         <varlistentry id='ENOENT'>
           <term><constant>-ENOENT</constant></term>
 
           <listitem><para>The current entry does not include the specified field.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
 
         <varlistentry id='ENOMEM'>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
 
         <varlistentry id='ENOBUFS'>
           <term><constant>-ENOBUFS</constant></term>
 
-          <listitem><para>A compressed entry is too large.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>A compressed entry is too large.</para></listitem>
         </varlistentry>
 
         <varlistentry id='E2BIG'>
           <term><constant>-E2BIG</constant></term>
 
           <listitem><para>The data field is too large for this computer architecture (e.g. above 4 GB on a
-          32-bit architecture).</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          32-bit architecture).</para></listitem>
         </varlistentry>
 
         <varlistentry id='EPROTONOSUPPORT'>
           <term><constant>-EPROTONOSUPPORT</constant></term>
 
           <listitem><para>The journal is compressed with an unsupported method or the journal uses an
-          unsupported feature.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          unsupported feature.</para></listitem>
         </varlistentry>
 
         <varlistentry id='EBADMSG'>
           <term><constant>-EBADMSG</constant></term>
 
           <listitem><para>The journal is corrupted (possibly just the entry being iterated over).
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry id='EIO'>
           <term><constant>-EIO</constant></term>
 
-          <listitem><para>An I/O error was reported by the kernel.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>An I/O error was reported by the kernel.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
