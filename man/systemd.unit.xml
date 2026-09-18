@@ -575,7 +575,7 @@
 
       <listitem><para>The unit is currently starting, running, reloading or stopping.</para></listitem>
 
-      <listitem><para>The unit is currently in the <constant>failed</constant> state. (But see below.)</para></listitem>
+      <listitem><para>The unit is currently in the <literal>failed</literal> state. (But see below.)</para></listitem>
 
       <listitem><para>A job for the unit is pending.</para></listitem>
 
@@ -589,7 +589,7 @@
     </orderedlist>
 
     <para>The garbage collection logic may be altered with the <varname>CollectMode=</varname> option, which allows
-    configuration whether automatic unloading of units that are in <constant>failed</constant> state is permissible,
+    configuration whether automatic unloading of units that are in <literal>failed</literal> state is permissible,
     see below.</para>
 
     <para>Note that when a unit's configuration and state is unloaded, all execution results, such as exit codes, exit
@@ -626,8 +626,6 @@
         full sentence, or a phrase with a verb conjugated in the present continuous, or end in a full
         stop. Bad examples include <literal>exiting the container</literal>, <literal>updating the database
         once per day.</literal>, or <literal>OpenSSH server second instance daemon</literal>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/>
         </listitem>
       </varlistentry>
 
@@ -650,7 +648,7 @@
         and all prior assignments will have no
         effect.</para>
 
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v183"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -674,8 +672,7 @@
         configured with <varname>After=</varname> or <varname>Before=</varname>, then both units will be
         started simultaneously and without any delay between them if <filename>foo.service</filename> is
         activated.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -703,8 +700,7 @@
         propagated to units having a <varname>Requires=</varname> dependency. Use the <varname>BindsTo=</varname>
         dependency type together with <varname>After=</varname> to ensure that a unit may never be in active state
         without a specific other unit also in active state (see below).</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -722,8 +718,6 @@
         <varname>RequisiteOf=a.service</varname> in property listing of
         <filename>b.service</filename>. <varname>RequisiteOf=</varname>
         dependency cannot be specified directly.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/>
         </listitem>
       </varlistentry>
 
@@ -753,7 +747,7 @@
         <filename>b.service</filename>. <varname>BoundBy=</varname>
         dependency cannot be specified directly.</para>
 
-        <xi:include href="version-info.xml" xpointer="v201"/>
+        <xi:include href="version-info.xml" xpointer="v187"/>
         </listitem>
       </varlistentry>
 
@@ -773,7 +767,7 @@
         <filename>b.service</filename>. <varname>ConsistsOf=</varname>
         dependency cannot be specified directly.</para>
 
-        <xi:include href="version-info.xml" xpointer="v201"/>
+        <xi:include href="version-info.xml" xpointer="v188"/>
         </listitem>
       </varlistentry>
 
@@ -818,8 +812,7 @@
         that is not required will be removed, or in case both are
         not required, the unit that conflicts will be started and the
         unit that is conflicted is stopped.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -861,8 +854,7 @@
         <para>Note that <varname>Before=</varname> dependencies on device units have no effect and are not
         supported.  Devices generally become available as a result of an external hotplug event, and systemd
         creates the corresponding device unit without delay.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -870,8 +862,7 @@
 
         <listitem><para>A space-separated list of one or more units that are activated when this unit enters
         the <literal>failed</literal> state.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -892,7 +883,7 @@
         respectively. Issuing a reload request on a unit will automatically also enqueue reload requests on
         all units that are linked to it using these two settings.</para>
 
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -943,7 +934,7 @@
         but are still honored for the purposes of this option, i.e. they
         will be pulled in by this unit.</para>
 
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v183"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -989,8 +980,7 @@
         when isolating another unit. Defaults to <option>false</option> for service, target, socket, timer,
         and path units, and <option>true</option> for slice, scope, device, swap, mount, and automount
         units.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1004,8 +994,7 @@
         requested their shut down. If this option is set, a unit will
         be automatically cleaned up if no other active unit requires
         it. Defaults to <option>false</option>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1023,8 +1012,7 @@
         accidentally deactivate units that are not intended to be
         deactivated. These options default to
         <option>false</option>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1038,8 +1026,7 @@
         runlevels in SysV init systems, just as a precaution to avoid
         unusable system states. This option defaults to
         <option>false</option>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1059,16 +1046,15 @@
         set to <option>no</option>, this option does not disable
         all implicit dependencies, just non-essential
         ones.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>SurviveFinalKillSignal=</varname></term>
 
         <listitem><para>Takes a boolean argument. Defaults to <option>no</option>. If <option>yes</option>,
-        processes belonging to this unit will not be sent the final <literal>SIGTERM</literal> and
-        <literal>SIGKILL</literal> signals during the final phase of the system shutdown process.
+        processes belonging to this unit will not be sent the final <constant>SIGTERM</constant> and
+        <constant>SIGKILL</constant> signals during the final phase of the system shutdown process.
         This functionality replaces the older mechanism that allowed a program to set
         <literal>argv[0][0] = '@'</literal> as described at
         <ulink url="https://systemd.io/ROOT_STORAGE_DAEMONS">systemd and Storage Daemons for the Root File
@@ -1082,12 +1068,12 @@
 
         <listitem><para>Tweaks the "garbage collection" algorithm for this unit. Takes one of <option>inactive</option>
         or <option>inactive-or-failed</option>. If set to <option>inactive</option> the unit will be unloaded if it is
-        in the <constant>inactive</constant> state and is not referenced by clients, jobs or other units — however it
-        is not unloaded if it is in the <constant>failed</constant> state. In <option>failed</option> mode, failed
+        in the <literal>inactive</literal> state and is not referenced by clients, jobs or other units — however it
+        is not unloaded if it is in the <literal>failed</literal> state. In <option>failed</option> mode, failed
         units are not unloaded until the user invoked <command>systemctl reset-failed</command> on them to reset the
-        <constant>failed</constant> state, or an equivalent command. This behaviour is altered if this option is set to
+        <literal>failed</literal> state, or an equivalent command. This behaviour is altered if this option is set to
         <option>inactive-or-failed</option>: in this case, the unit is unloaded even if the unit is in a
-        <constant>failed</constant> state, and thus an explicitly resetting of the <constant>failed</constant> state is
+        <literal>failed</literal> state, and thus an explicitly resetting of the <literal>failed</literal> state is
         not necessary. Note that if this mode is used unit results (such as exit codes, exit signals, consumed
         resources, …) are flushed out immediately after the unit completed, except for what is stored in the logging
         subsystem. Defaults to <option>inactive</option>.</para>
@@ -1116,7 +1102,7 @@
         <option>exit-force</option> are allowed. Both options default to <option>none</option>.</para>
 
         <para>These actions are tied to the unit's state transitions and fire only when the unit actually
-        transitions out of an <constant>active</constant> or <constant>activating</constant> state. As a
+        transitions out of an <literal>active</literal> or <literal>activating</literal> state. As a
         consequence, <varname>Condition…=</varname> and <varname>Assert…=</varname> directives that fail do
         <emphasis>not</emphasis> trigger <varname>SuccessAction=</varname> or
         <varname>FailureAction=</varname>: they prevent activation in the first place, so no state transition
@@ -1207,7 +1193,7 @@
         the <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
         call.</para>
 
-        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1285,7 +1271,7 @@
         files. This functionality should not be used in normal
         units.</para>
 
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v183"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -1458,8 +1444,6 @@
           for a full list of known virtualization technologies and their identifiers. If multiple
           virtualization technologies are nested, only the innermost is considered. The test may be negated
           by prepending an exclamation mark.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1475,7 +1459,7 @@
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
           details about the machine ID. The test may be negated by prepending an exclamation mark.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/>
+          <xi:include href="version-info.xml" xpointer="v189"/>
           </listitem>
         </varlistentry>
 
@@ -1523,8 +1507,6 @@
           communicated to userspace via <filename>/proc/cmdline</filename>, except when the service manager
           is invoked as payload of a container manager, in which case the command line of <filename>PID
           1</filename> is used instead (i.e. <filename>/proc/1/cmdline</filename>).</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1546,7 +1528,7 @@
           is inherently unportable and should not be used for units which may be used on different
           distributions.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/>
+          <xi:include href="version-info.xml" xpointer="v237"/>
           </listitem>
         </varlistentry>
 
@@ -1673,8 +1655,6 @@
           </table>
 
           <para>The test may be negated by prepending an exclamation mark.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1685,10 +1665,8 @@
           service manager (i.e. this does not check whether capability is actually available in the permitted
           or effective sets, see
           <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-          for details). Pass a capability name such as <literal>CAP_MKNOD</literal>, possibly prefixed with
+          for details). Pass a capability name such as <constant>CAP_MKNOD</constant>, possibly prefixed with
           an exclamation mark to negate the check.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1702,7 +1680,7 @@
           condition will hold only if there is at least one AC connector known and all AC connectors are
           disconnected from a power source.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/>
+          <xi:include href="version-info.xml" xpointer="v197"/>
           </listitem>
         </varlistentry>
 
@@ -1741,7 +1719,7 @@
           should be used with other update mechanisms where such an immediate update does not
           happen.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v215"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1774,7 +1752,7 @@
           command line (taking a boolean), it will override the result of this condition check, taking
           precedence over <filename>/etc/machine-id</filename> existence checks.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/>
+          <xi:include href="version-info.xml" xpointer="v216"/>
           </listitem>
         </varlistentry>
 
@@ -1788,8 +1766,6 @@
           <varname>ConditionPathExists=</varname> is prefixed with an exclamation mark
           (<literal>!</literal>), the test is negated, and the unit is only started if the path does not
           exist.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1799,8 +1775,6 @@
           <listitem><para><varname>ConditionPathExistsGlob=</varname> is similar to
           <varname>ConditionPathExists=</varname>, but checks for the existence of at least one file or
           directory matching the specified globbing pattern.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1810,8 +1784,6 @@
           <listitem><para><varname>ConditionPathIsDirectory=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a
           directory.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1821,8 +1793,6 @@
           <listitem><para><varname>ConditionPathIsSymbolicLink=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a symbolic
           link.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1832,8 +1802,6 @@
           <listitem><para><varname>ConditionPathIsMountPoint=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a mount
           point.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1844,7 +1812,7 @@
           <varname>ConditionPathExists=</varname> but verifies that the underlying file system is readable
           and writable (i.e. not mounted read-only).</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/>
+          <xi:include href="version-info.xml" xpointer="v183"/>
           </listitem>
         </varlistentry>
 
@@ -1879,8 +1847,6 @@
           <listitem><para><varname>ConditionDirectoryNotEmpty=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a non-empty
           directory.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1891,7 +1857,7 @@
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and refers to a
           regular file with a non-zero size.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/>
+          <xi:include href="version-info.xml" xpointer="v196"/>
           </listitem>
         </varlistentry>
 
@@ -1901,8 +1867,6 @@
           <listitem><para><varname>ConditionFileIsExecutable=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists, is a regular file,
           and marked executable.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1916,7 +1880,7 @@
           range. This option is not useful for system services, as the system manager exclusively runs as the
           root user, and thus the test result is constant.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/>
+          <xi:include href="version-info.xml" xpointer="v234"/>
           </listitem>
         </varlistentry>
 
@@ -1928,7 +1892,7 @@
           match the specified group or GID. This setting does not support the special value
           <literal>@system</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/>
+          <xi:include href="version-info.xml" xpointer="v234"/>
           </listitem>
         </varlistentry>
 
@@ -1953,7 +1917,7 @@
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
           more information.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/>
+          <xi:include href="version-info.xml" xpointer="v237"/>
           </listitem>
         </varlistentry>
 
@@ -2472,7 +2436,7 @@
                  reference onto our own man page, which would make the rendered version self-referential. -->
             <entry><literal>%a</literal></entry>
             <entry>Architecture</entry>
-            <entry>A short string identifying the architecture of the local system. A string such as <constant>x86</constant>, <constant>x86-64</constant> or <constant>arm64</constant>. See the architectures defined for <varname>ConditionArchitecture=</varname> above for a full list.</entry>
+            <entry>A short string identifying the architecture of the local system. A string such as <literal>x86</literal>, <literal>x86-64</literal> or <literal>arm64</literal>. See the architectures defined for <varname>ConditionArchitecture=</varname> above for a full list.</entry>
           </row>
           <xi:include href="standard-specifiers.xml" xpointer="A"/>
           <xi:include href="standard-specifiers.xml" xpointer="b"/>

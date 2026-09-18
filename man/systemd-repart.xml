@@ -138,7 +138,7 @@
     to vendor defaults. This mode of operation is used when either the <option>--factory-reset=yes</option>
     switch is passed on the tool's command line, or the <option>systemd.factory_reset=yes</option> option is
     specified on the kernel command line, or the <varname>FactoryResetRequest</varname> EFI variable (vendor
-    UUID <constant>8cf2644b-4b0b-428f-9387-6d876050dc67</constant>) is set to "yes". It alters the algorithm
+    UUID <literal>8cf2644b-4b0b-428f-9387-6d876050dc67</literal>) is set to "yes". It alters the algorithm
     above slightly: between the 3rd and the 4th step above any partition marked explicitly via the
     <varname>FactoryReset=</varname> boolean is deleted, and the algorithm restarted, thus immediately
     re-creating these partitions anew empty.</para>
@@ -177,9 +177,9 @@
         <term><option>--dry-run=</option></term>
 
         <listitem><para>Takes a boolean. If this switch is not specified, <option>--dry-run=yes</option> is
-        the implied default. Controls whether <filename>systemd-repart</filename> executes the requested
+        the implied default. Controls whether <command>systemd-repart</command> executes the requested
         re-partition operations or whether it should only show what it would do. Unless
-        <option>--dry-run=no</option> is specified <filename>systemd-repart</filename> will not actually
+        <option>--dry-run=no</option> is specified <command>systemd-repart</command> will not actually
         touch the device's partition table. The short option <option>-n</option> is equivalent to
         <option>--dry-run=yes</option> and was added in version 262.</para>
 
@@ -318,7 +318,7 @@
       <varlistentry>
         <term><option>--seed=</option></term>
 
-        <listitem><para>Takes a UUID as argument or the special value <constant>random</constant>. If a UUID
+        <listitem><para>Takes a UUID as argument or the special value <literal>random</literal>. If a UUID
         is specified the UUIDs to assign to partitions and the partition table itself are derived via
         cryptographic hashing from it. If not specified, it is attempted to read the machine ID from the host
         (or more precisely, the root directory configured via <option>--root=</option>) and use it as seed

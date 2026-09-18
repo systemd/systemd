@@ -133,7 +133,7 @@
         <term><varname>timeout_signal=</varname></term>
 
         <listitem>
-          <para>Specifies a signal that <filename>systemd-udevd</filename> will send on worker
+          <para>Specifies a signal that <command>systemd-udevd</command> will send on worker
           timeouts. Note that both workers and spawned processes will be killed using this
           signal. Defaults to <option>SIGKILL</option>.</para>
 
@@ -143,7 +143,7 @@
     </variablelist>
 
     <para>
-      In addition, <filename>systemd-udevd</filename> can be configured
+      In addition, <command>systemd-udevd</command> can be configured
       by command line options and the kernel command line (see
       <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
     </para>

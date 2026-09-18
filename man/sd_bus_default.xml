@@ -39,67 +39,67 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_default</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_default_user</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_default_system</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_with_description</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>description</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_user</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_user_with_description</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>description</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_user_machine</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>machine</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system_with_description</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>description</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system_remote</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>host</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_open_system_machine</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
         <paramdef>const char *<parameter>machine</parameter></paramdef>
       </funcprototype>
 
@@ -263,7 +263,7 @@
     explicitly with
     <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     though usually floating bus slot objects are created by passing <constant>NULL</constant> as the
-    <parameter>slot</parameter> parameter of <function>sd_bus_add_match()</function> and related calls, thus indicating
+    <parameter>ret_slot</parameter> parameter of <function>sd_bus_add_match()</function> and related calls, thus indicating
     that the caller is not directly interested in referencing and managing the bus slot object.</para>
 
     <para>The life cycle of the default bus connection should be the
