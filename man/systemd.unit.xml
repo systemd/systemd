@@ -626,8 +626,6 @@
         full sentence, or a phrase with a verb conjugated in the present continuous, or end in a full
         stop. Bad examples include <literal>exiting the container</literal>, <literal>updating the database
         once per day.</literal>, or <literal>OpenSSH server second instance daemon</literal>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/>
         </listitem>
       </varlistentry>
 
@@ -674,8 +672,7 @@
         configured with <varname>After=</varname> or <varname>Before=</varname>, then both units will be
         started simultaneously and without any delay between them if <filename>foo.service</filename> is
         activated.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -703,8 +700,7 @@
         propagated to units having a <varname>Requires=</varname> dependency. Use the <varname>BindsTo=</varname>
         dependency type together with <varname>After=</varname> to ensure that a unit may never be in active state
         without a specific other unit also in active state (see below).</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -722,8 +718,6 @@
         <varname>RequisiteOf=a.service</varname> in property listing of
         <filename>b.service</filename>. <varname>RequisiteOf=</varname>
         dependency cannot be specified directly.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/>
         </listitem>
       </varlistentry>
 
@@ -818,8 +812,7 @@
         that is not required will be removed, or in case both are
         not required, the unit that conflicts will be started and the
         unit that is conflicted is stopped.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -861,8 +854,7 @@
         <para>Note that <varname>Before=</varname> dependencies on device units have no effect and are not
         supported.  Devices generally become available as a result of an external hotplug event, and systemd
         creates the corresponding device unit without delay.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -870,8 +862,7 @@
 
         <listitem><para>A space-separated list of one or more units that are activated when this unit enters
         the <literal>failed</literal> state.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -989,8 +980,7 @@
         when isolating another unit. Defaults to <option>false</option> for service, target, socket, timer,
         and path units, and <option>true</option> for slice, scope, device, swap, mount, and automount
         units.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1004,8 +994,7 @@
         requested their shut down. If this option is set, a unit will
         be automatically cleaned up if no other active unit requires
         it. Defaults to <option>false</option>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1023,8 +1012,7 @@
         accidentally deactivate units that are not intended to be
         deactivated. These options default to
         <option>false</option>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1038,8 +1026,7 @@
         runlevels in SysV init systems, just as a precaution to avoid
         unusable system states. This option defaults to
         <option>false</option>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1059,8 +1046,7 @@
         set to <option>no</option>, this option does not disable
         all implicit dependencies, just non-essential
         ones.</para>
-
-        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1458,8 +1444,6 @@
           for a full list of known virtualization technologies and their identifiers. If multiple
           virtualization technologies are nested, only the innermost is considered. The test may be negated
           by prepending an exclamation mark.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1523,8 +1507,6 @@
           communicated to userspace via <filename>/proc/cmdline</filename>, except when the service manager
           is invoked as payload of a container manager, in which case the command line of <filename>PID
           1</filename> is used instead (i.e. <filename>/proc/1/cmdline</filename>).</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1673,8 +1655,6 @@
           </table>
 
           <para>The test may be negated by prepending an exclamation mark.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1687,8 +1667,6 @@
           <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
           for details). Pass a capability name such as <constant>CAP_MKNOD</constant>, possibly prefixed with
           an exclamation mark to negate the check.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1788,8 +1766,6 @@
           <varname>ConditionPathExists=</varname> is prefixed with an exclamation mark
           (<literal>!</literal>), the test is negated, and the unit is only started if the path does not
           exist.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1799,8 +1775,6 @@
           <listitem><para><varname>ConditionPathExistsGlob=</varname> is similar to
           <varname>ConditionPathExists=</varname>, but checks for the existence of at least one file or
           directory matching the specified globbing pattern.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1810,8 +1784,6 @@
           <listitem><para><varname>ConditionPathIsDirectory=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a
           directory.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1821,8 +1793,6 @@
           <listitem><para><varname>ConditionPathIsSymbolicLink=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a symbolic
           link.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1832,8 +1802,6 @@
           <listitem><para><varname>ConditionPathIsMountPoint=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a mount
           point.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1879,8 +1847,6 @@
           <listitem><para><varname>ConditionDirectoryNotEmpty=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a non-empty
           directory.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1901,8 +1867,6 @@
           <listitem><para><varname>ConditionFileIsExecutable=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists, is a regular file,
           and marked executable.</para>
-
-          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
