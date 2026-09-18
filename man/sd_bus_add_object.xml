@@ -486,7 +486,7 @@
           <term><constant>SD_BUS_VTABLE_DEPRECATED</constant></term>
 
           <listitem><para>Mark this vtable entry as deprecated using the
-          <constant>org.freedesktop.DBus.Deprecated</constant> annotation in introspection data. If
+          <literal>org.freedesktop.DBus.Deprecated</literal> annotation in introspection data. If
           specified for <constant>SD_BUS_VTABLE_START()</constant>, the annotation is applied to the
           enclosing interface.</para></listitem>
         </varlistentry>
@@ -503,7 +503,7 @@
           <term><constant>SD_BUS_VTABLE_METHOD_NO_REPLY</constant></term>
 
           <listitem><para>Mark this vtable entry as a method that will not return a reply using the
-          <constant>org.freedesktop.DBus.Method.NoReply</constant> annotation in introspection data.
+          <literal>org.freedesktop.DBus.Method.NoReply</literal> annotation in introspection data.
           </para></listitem>
         </varlistentry>
 
@@ -513,16 +513,16 @@
           <term><constant>SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION</constant></term>
 
           <listitem><para>Those three flags correspond to different values of the
-          <constant>org.freedesktop.DBus.Property.EmitsChangedSignal</constant> annotation, which
+          <literal>org.freedesktop.DBus.Property.EmitsChangedSignal</literal> annotation, which
           specifies whether the
-          <constant>org.freedesktop.DBus.Properties.PropertiesChanged</constant> signal is emitted
+          <literal>org.freedesktop.DBus.Properties.PropertiesChanged</literal> signal is emitted
           whenever the property changes. <constant>SD_BUS_VTABLE_PROPERTY_CONST</constant>
-          corresponds to <constant>const</constant> and means that the property never changes during
+          corresponds to <literal>const</literal> and means that the property never changes during
           the lifetime of the object it belongs to, so no signal needs to be emitted.
           <constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant> corresponds to
-          <constant>true</constant> and means that the signal is emitted.
+          <literal>true</literal> and means that the signal is emitted.
           <constant>SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION</constant> corresponds to
-          <constant>invalidates</constant> and means that the signal is emitted, but the value is
+          <literal>invalidates</literal> and means that the signal is emitted, but the value is
           not included in the signal.</para></listitem>
         </varlistentry>
 
@@ -533,7 +533,7 @@
           value to be shown (generally because the value is large or slow to calculate). This entry
           cannot be combined with <constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant>, and will
           not be shown in property listings by default (e.g. <command>busctl introspect</command>).
-          This corresponds to the <constant>org.freedesktop.systemd1.Explicit</constant> annotation
+          This corresponds to the <literal>org.freedesktop.systemd1.Explicit</literal> annotation
           in introspection data.</para></listitem>
         </varlistentry>
 
@@ -587,7 +587,7 @@
           </para>
 
           <para>When <emphasis>not</emphasis> specified, the
-          <constant>org.freedesktop.systemd1.Privileged</constant> annotation with value
+          <literal>org.freedesktop.systemd1.Privileged</literal> annotation with value
           <literal>true</literal> will be shown in introspection data.</para>
 
           <para><constant>SD_BUS_VTABLE_UNPRIVILEGED</constant> may not be applied to read-only properties,
@@ -612,7 +612,7 @@
       <programlisting><xi:include href="vtable-example.c" parse="text" /></programlisting>
 
       <para>This creates a simple client on the bus (the user bus, when run as normal user). We may
-      use the D-Bus <constant>org.freedesktop.DBus.Introspectable.Introspect</constant> call to
+      use the D-Bus <literal>org.freedesktop.DBus.Introspectable.Introspect</literal> call to
       acquire the XML description of the interface:</para>
 
       <programlisting><xi:include href="vtable-example.xml" parse="text" /></programlisting>

@@ -30,7 +30,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-gpt-auto-generator</filename> is a unit generator that automatically discovers
+    <para><command>systemd-gpt-auto-generator</command> is a unit generator that automatically discovers
     the root partition, <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename>,
     <filename>/var/tmp/</filename>, the EFI System Partition (ESP), the Extended Boot Loader Partition
     (XBOOTLDR), and swap partitions and creates mount and swap units for them, based on the partition type
@@ -73,7 +73,7 @@
       loopback block devices like this is only done if <literal>root=gpt-auto</literal> or
       <literal>root=dissect</literal> is specified explicitly on the kernel command line, unlike the
       discovery based on the boot loader reported ESP which is also enabled if no <literal>root=</literal>
-      parameter is specified at all. (The latter relies on <command>systemd-udevd.service</command>'s
+      parameter is specified at all. (The latter relies on <filename>systemd-udevd.service</filename>'s
       <filename>/dev/gpt-auto-root</filename> block device symlink generation).</para></listitem>
 
       <listitem><para>It will also generate a unit file mounting the EFI System Partition (ESP) to
@@ -100,7 +100,7 @@
     especially useful if the root mount has been replaced by some form of volatile file system
     (overlayfs).</para>
 
-    <para><filename>systemd-gpt-auto-generator</filename> is useful for centralizing file system
+    <para><command>systemd-gpt-auto-generator</command> is useful for centralizing file system
     configuration in the partition table and making configuration in <filename>/etc/fstab</filename> or on
     the kernel command line unnecessary.</para>
 
@@ -293,14 +293,14 @@
     <citerefentry><refentrytitle>systemd-validatefs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     for generated mounts.</para>
 
-    <para><filename>systemd-gpt-auto-generator</filename> implements
+    <para><command>systemd-gpt-auto-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para><filename>systemd-gpt-auto-generator</filename> understands the following kernel command line
+    <para><command>systemd-gpt-auto-generator</command> understands the following kernel command line
     parameters:</para>
 
     <variablelist class='kernel-commandline-options'>
