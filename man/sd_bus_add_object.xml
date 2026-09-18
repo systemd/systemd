@@ -515,14 +515,14 @@
           <listitem><para>Those three flags correspond to different values of the
           <constant>org.freedesktop.DBus.Property.EmitsChangedSignal</constant> annotation, which
           specifies whether the
-          <constant>org.freedesktop.DBus.Properties.PropertiesChanged</constant> signal is emitted
+          <function>org.freedesktop.DBus.Properties.PropertiesChanged()</function> signal is emitted
           whenever the property changes. <constant>SD_BUS_VTABLE_PROPERTY_CONST</constant>
-          corresponds to <constant>const</constant> and means that the property never changes during
+          corresponds to <literal>const</literal> and means that the property never changes during
           the lifetime of the object it belongs to, so no signal needs to be emitted.
           <constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant> corresponds to
-          <constant>true</constant> and means that the signal is emitted.
+          <literal>true</literal> and means that the signal is emitted.
           <constant>SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION</constant> corresponds to
-          <constant>invalidates</constant> and means that the signal is emitted, but the value is
+          <literal>invalidates</literal> and means that the signal is emitted, but the value is
           not included in the signal.</para></listitem>
         </varlistentry>
 
@@ -612,7 +612,7 @@
       <programlisting><xi:include href="vtable-example.c" parse="text" /></programlisting>
 
       <para>This creates a simple client on the bus (the user bus, when run as normal user). We may
-      use the D-Bus <constant>org.freedesktop.DBus.Introspectable.Introspect</constant> call to
+      use the D-Bus <function>org.freedesktop.DBus.Introspectable.Introspect()</function> call to
       acquire the XML description of the interface:</para>
 
       <programlisting><xi:include href="vtable-example.xml" parse="text" /></programlisting>

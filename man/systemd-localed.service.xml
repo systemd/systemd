@@ -32,7 +32,7 @@
     <para><filename>systemd-localed.service</filename> is a system service
     that may be used as mechanism to change the system locale
     settings, as well as the console key mapping and default X11 key
-    mapping. <filename>systemd-localed</filename> is automatically
+    mapping. <command>systemd-localed</command> is automatically
     activated on request and terminates itself when it is
     unused.</para>
 
