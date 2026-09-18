@@ -389,7 +389,7 @@
 
     <variablelist>
       <varlistentry>
-        <term><constant>io.systemd.DynamicUser</constant></term>
+        <term><interfacename>io.systemd.DynamicUser</interfacename></term>
 
         <listitem><para>This service is provided by the system service manager itself (i.e. PID 1) and
         makes all users (and their groups) synthesized through the <varname>DynamicUser=</varname> setting in
@@ -401,7 +401,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>io.systemd.Home</constant></term>
+        <term><interfacename>io.systemd.Home</interfacename></term>
 
         <listitem><para>This service is provided by
         <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -412,7 +412,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>io.systemd.Machine</constant></term>
+        <term><interfacename>io.systemd.Machine</interfacename></term>
 
         <listitem><para>This service is provided by
         <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -423,7 +423,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>io.systemd.Multiplexer</constant></term>
+        <term><interfacename>io.systemd.Multiplexer</interfacename></term>
 
         <listitem><para>This service is provided by
         <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -438,7 +438,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>io.systemd.NameServiceSwitch</constant></term>
+        <term><interfacename>io.systemd.NameServiceSwitch</interfacename></term>
 
         <listitem><para>This service is (also) provided by
         <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -455,7 +455,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>io.systemd.DropIn</constant></term>
+        <term><interfacename>io.systemd.DropIn</interfacename></term>
 
         <listitem><para>This service is (also) provided by
         <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -469,8 +469,8 @@
     </variablelist>
 
     <para>Note that <command>userdbctl</command> has internal support for NSS-based lookups too. This means
-    that if neither <constant>io.systemd.Multiplexer</constant> nor
-    <constant>io.systemd.NameServiceSwitch</constant> are running, look-ups into the basic user/group
+    that if neither <interfacename>io.systemd.Multiplexer</interfacename> nor
+    <interfacename>io.systemd.NameServiceSwitch</interfacename> are running, look-ups into the basic user/group
     databases will still work.</para>
   </refsect1>
 

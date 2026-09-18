@@ -85,7 +85,7 @@
     similar tools. In particular, this functionality is not suitable for managing system users (i.e. users
     with a UID below 1000) but is exclusive to regular ("human") users.</para>
 
-    <para>Note that users/home directories managed via <command>systemd-homed.service</command> do not show
+    <para>Note that users/home directories managed via <filename>systemd-homed.service</filename> do not show
     up in <filename>/etc/passwd</filename> and similar files, they are synthesized via glibc NSS during
     runtime. They are thus resolvable and may be enumerated via the <citerefentry
     project='man-pages'><refentrytitle>getent</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -1309,7 +1309,7 @@
 
         <listitem><para>Adopts one or more existing home directories on the local system. Takes one or more paths to
         <filename>*.home</filename> LUKS home directories or <filename>*.homedir/</filename> standalone home
-        directories or subvolumes previously created by <filename>systemd-homed</filename> and makes them
+        directories or subvolumes previously created by <command>systemd-homed</command> and makes them
         available locally for login. The referenced files are not moved. This is an alternative for moving
         such home directories into <filename>/home/</filename> (where they would be picked up
         automatically).</para>

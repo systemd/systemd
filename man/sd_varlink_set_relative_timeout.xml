@@ -27,8 +27,8 @@
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_set_relative_timeout</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
-        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -41,7 +41,7 @@
     on Varlink method calls. A default time-out of 45s (currently) applies, which may be changed with this
     call. Set to <constant>UINT64_MAX</constant> to disable the time-out, and to 0 to revert to revert back
     to the default time-out. The time-out begins whenever a method call is started, and if no response is
-    received by the time the time-out elapses a synthetic <constant>io.systemd.TimedOut</constant> error is
+    received by the time the time-out elapses a synthetic <literal>io.systemd.TimedOut</literal> error is
     raised as client-generated reply to the method call.</para>
 
     <para>This call is particularly useful for method calls issued via
