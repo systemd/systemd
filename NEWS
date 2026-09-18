@@ -156,6 +156,12 @@ CHANGES WITH 262 in spe:
 
         Changes in the system and service manager:
 
+        * PrivateUsers=yes/self now maps a unit's supplementary group IDs into
+          its user namespace. Previously those groups were present in the
+          process credentials but appeared as the kernel overflow group ID.
+          Explicit SupplementaryGroups= entries are mapped before groups from
+          the user database when kernel mapping limits are reached.
+
         * The manager now embeds a basic set of unit files (basic.target,
           sysinit.target, multi-user.target, reboot.target, shutdown.target,
           systemd-poweroff.service, etc.) and will use them if files cannot be
