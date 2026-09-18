@@ -13,6 +13,7 @@ import re
 import shlex
 import shutil
 import signal
+import struct
 import subprocess
 import sys
 import tempfile
@@ -516,6 +517,7 @@ def main() -> None:
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('--suppress-sync', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('--tap', action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument('--hide-hypervisor', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
@@ -692,6 +694,32 @@ def main() -> None:
             sys.exit(f'TEST_BIND_DIRS entry is not a directory: {bind_dir}')
         bind_dirs_args += [f'--bind-ro={os.fspath(path)}:/work/{path.name}']
 
+    smbios_type0 = None
+    if args.hide_hypervisor:
+        smbios_type0 = tempfile.NamedTemporaryFile(prefix='systemd-integration-test-smbios-')
+        smbios_type0.write(
+            struct.pack(
+                '<BBHBBHBBQBBBBBB',
+                0,  # Type 0: BIOS Information
+                24,  # Length of the formatted section
+                0,  # Handle
+                0,  # Vendor string
+                0,  # BIOS version string
+                0xE800,  # BIOS starting address segment
+                0,  # BIOS release date string
+                0,  # BIOS ROM size
+                0x08,  # BIOS characteristics: not supported
+                0,  # BIOS characteristics extension byte 1
+                0x0C,  # BIOS characteristics extension byte 2: TCD/SVVP and UEFI, but not VM
+                0,  # System BIOS major release
+                0,  # System BIOS minor release
+                0,  # Embedded controller major release
+                0,  # Embedded controller minor release
+            )
+            + b'\0\0'
+        )
+        smbios_type0.flush()
+
     # Tests that launch nested VMs need the mkosi-built images, which are build outputs rather than
     # installed test artifacts. Bind the output directory read-only into the boot-mode container at
     # /work/vm-images on request, instead of mounting the whole build tree via RuntimeBuildSources.
@@ -760,6 +788,11 @@ def main() -> None:
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
         '--runtime-network=none',
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
+        *(
+            [f'--qemu-args=-cpu max,hypervisor=off -smbios file={smbios_type0.name}']
+            if smbios_type0
+            else []
+        ),
         *args.mkosi_args,
         '--firmware', firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),

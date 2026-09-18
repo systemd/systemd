@@ -30,6 +30,7 @@ case "$REBOOT_COUNT" in
         cat >"$esp/loader/entries/$ENTRY_ID" <<EOF
 title systemd BLS DeviceTree measurement test
 linux $linux_path
+options selinux=0
 devicetree $DTB_REL
 EOF
 
