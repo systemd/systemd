@@ -44,7 +44,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_get_description</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>const char **<parameter>description</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -83,19 +83,19 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_get_scope</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>const char **<parameter>scope</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_get_tid</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>pid_t *<parameter>tid</parameter></paramdef>
+        <paramdef>pid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_get_unique_name</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>const char **<parameter>unique</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -110,7 +110,7 @@
     before the bus is started.</para>
 
     <para><function>sd_bus_get_description()</function> returns a description string in
-    <parameter>description</parameter>. This string may have been previously set with
+    <parameter>ret</parameter>. This string may have been previously set with
     <function>sd_bus_set_description()</function> or
     <citerefentry><refentrytitle>sd_bus_open_with_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     or similar. If not set this way, a default string like <literal>system</literal> or
@@ -148,12 +148,12 @@
     interactive authorization is allowed and false if not.</para>
 
     <para><function>sd_bus_get_scope()</function> stores the scope of the given bus object in
-    <parameter>scope</parameter>. The scope of the system bus is <literal>system</literal>. The
+    <parameter>ret</parameter>. The scope of the system bus is <literal>system</literal>. The
     scope of a user session bus is <literal>user</literal>. If the given bus object is not the
     system or a user session bus, <function>sd_bus_get_scope()</function> returns an error.</para>
 
     <para><function>sd_bus_get_tid()</function> stores the kernel thread id of the thread associated
-    with the given bus object in <parameter>tid</parameter>. If <parameter>bus</parameter> is a
+    with the given bus object in <parameter>ret</parameter>. If <parameter>bus</parameter> is a
     default bus object obtained by calling one of the functions of the
     <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     family of functions, it stores the thread id of the thread the bus object was created in.
@@ -163,10 +163,10 @@
     error.</para>
 
     <para><function>sd_bus_get_unique_name()</function> stores the unique name of the bus object on
-    the bus in <parameter>unique</parameter>. See
+    the bus in <parameter>ret</parameter>. See
     <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">
     The D-Bus specification</ulink> for more information on bus names. Note that the caller does not
-    own the string stored in <parameter>unique</parameter> and should not free it.</para>
+    own the string stored in <parameter>ret</parameter> and should not free it.</para>
   </refsect1>
 
   <refsect1>
