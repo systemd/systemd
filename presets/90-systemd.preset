@@ -35,6 +35,7 @@ enable systemd-nsresourced.socket
 enable systemd-pstore.service
 enable systemd-report-basic.socket
 enable systemd-report-cgroup.socket
+enable systemd-report-diskspace.socket
 enable systemd-report-files.socket
 enable systemd-report-hwmon.socket
 enable systemd-report-sign-plain.socket

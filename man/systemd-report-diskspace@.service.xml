@@ -1,0 +1,111 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-report-diskspace_.service" xmlns:xi="http://www.w3.org/2001/XInclude"
+          conditional='HAVE_LIBMOUNT'>
+
+  <refentryinfo>
+    <title>systemd-report-diskspace@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-report-diskspace@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-report-diskspace@.service</refname>
+    <refname>systemd-report-diskspace.socket</refname>
+    <refname>systemd-report-diskspace</refname>
+    <refpurpose>Report size and free disk space of mounted file systems as system report metrics</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-report-diskspace@.service</filename></para>
+    <para><filename>systemd-report-diskspace.socket</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-report-diskspace</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-report-diskspace@.service</command> is a metrics source for
+    <citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry>. It
+    reports the size of the mounted file systems and how much disk space is still available on them, by
+    implementing the <constant>io.systemd.Metrics</constant> Varlink interface on a socket linked into the
+    <filename>/run/systemd/report/</filename> directory.</para>
+
+    <para>All mount points of the system are enumerated. Mount points of file systems that are not backed by
+    a block device (i.e. pseudo file systems such as <literal>proc</literal>, <literal>sysfs</literal> or
+    <literal>tmpfs</literal>, network file systems, <literal>overlay</literal>, …) are skipped, as are
+    read-only mount points. For each remaining mount point two gauge metrics are reported, with the mount
+    point path as metric object:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>io.systemd.DiskSpace.SizeBytes</literal></term>
+        <listitem><para>The total size of the file system, in bytes. This matches the
+        <literal>1K-blocks</literal> column of
+        <citerefentry project='man-pages'><refentrytitle>df</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        (scaled to bytes).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskSpace.FreeBytes</literal></term>
+        <listitem><para>The disk space still available to unprivileged users on the file system, in
+        bytes. This matches the <literal>Avail</literal> column of
+        <citerefentry project='man-pages'><refentrytitle>df</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        i.e. space reserved for the superuser (as many file systems do) is not counted as
+        free.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The following metric fields are set on both metrics:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>fileSystemType</varname></term>
+        <listitem><para>The file system type, for example <literal>ext4</literal> or
+        <literal>btrfs</literal>. Always set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>source</varname></term>
+        <listitem><para>The mount source, typically the device node the file system is mounted from, for
+        example <literal>/dev/sda1</literal>. Omitted if unknown.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>originatingSource</varname></term>
+        <listitem><para>If the block device the file system is mounted from is a stacked one (for example a
+        LUKS or other device mapper volume), the device node of the block device it ultimately originates
+        from, for example <literal>/dev/sda2</literal> for a file system mounted from
+        <literal>/dev/mapper/root</literal>. Omitted if the source is not a stacked block device, or its
+        origin cannot be determined. Note that stacked devices backed by multiple block devices (e.g. RAID)
+        are not covered by this.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>A file system that is mounted multiple times (for example via bind mounts, or as multiple
+    subvolumes of the same volume) is reported only once, under the shortest of its mount point paths (and
+    among equally long ones, the alphabetically first). Mount points that are shadowed by another mount on
+    top of them, or that the service cannot access, are not considered.</para>
+  </refsect1>
+
+  <!-- Note: we do not document the command line switches here. The systemd-report-diskspace binary itself
+       should not be invoked by users, but only as a service. Use systemd-report(1) to acquire metrics. -->
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>df</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>statfs</refentrytitle><manvolnum>2</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
