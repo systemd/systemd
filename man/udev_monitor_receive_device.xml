@@ -99,7 +99,7 @@
     <function>udev_monitor_enable_receiving()</function>,
     <function>udev_monitor_set_receive_buffer_size()</function>,
     <function>udev_monitor_get_fd()</function>, and
-    <function>udev_monitor_get_udev()</function> were added in version 221.</para>
+    <function>udev_monitor_get_udev()</function> were added in version 183.</para>
   </refsect1>
 
   <refsect1>

@@ -28,13 +28,13 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_set_exit_on_failure</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
         <paramdef>int <parameter>b</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_exit_on_failure</function></funcdef>
-        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_source *<parameter>s</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -44,7 +44,7 @@
     <title>Description</title>
 
     <para><function>sd_event_source_set_exit_on_failure()</function> may be used to set/unset the
-    exit-on-failure flag of the event source object specified as <parameter>source</parameter>. The flag
+    exit-on-failure flag of the event source object specified as <parameter>s</parameter>. The flag
     defaults to off. If on and the callback function set for the event source returns a failure code (i.e. a
     negative value) the event loop is exited too, using the callback return code as the exit code for
     <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
@@ -54,7 +54,7 @@
     remain local and affect the event source, but not propagate further.</para>
 
     <para><function>sd_event_source_get_exit_on_failure()</function> may be used to query the flag currently
-    set for the event source object <parameter>source</parameter>.</para>
+    set for the event source object <parameter>s</parameter>.</para>
   </refsect1>
 
   <refsect1>
@@ -73,10 +73,8 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para><parameter>source</parameter> is not a valid pointer to an
-          <structname>sd_event_source</structname> object.</para>
-
-          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+          <listitem><para><parameter>s</parameter> is not a valid pointer to an
+          <structname>sd_event_source</structname> object.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -84,9 +82,7 @@
 
           <listitem><para>The event source refers to an exit event source (as created with
           <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>),
-          for which this functionality is not supported.</para>
-
-          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+          for which this functionality is not supported.</para></listitem>
         </varlistentry>
 
       </variablelist>

@@ -27,7 +27,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-run-generator</filename> is a generator
+    <para><command>systemd-run-generator</command> is a generator
     that reads the kernel command line and understands three
     options:</para>
 
@@ -47,7 +47,7 @@
     running after the command completes. For further details on supported arguments, see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-    <para><filename>systemd-run-generator</filename> implements
+    <para><command>systemd-run-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 

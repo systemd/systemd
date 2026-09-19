@@ -33,17 +33,17 @@
 
       <funcprototype>
         <funcdef>sd_device_enumerator* <function>sd_device_enumerator_ref</function></funcdef>
-        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+        <paramdef>sd_device_enumerator *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_device_enumerator* <function>sd_device_enumerator_unref</function></funcdef>
-        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+        <paramdef>sd_device_enumerator *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>void <function>sd_device_enumerator_unrefp</function></funcdef>
-        <paramdef>sd_device_enumerator **<parameter>enumerator</parameter></paramdef>
+        <paramdef>sd_device_enumerator **<parameter>p</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -60,10 +60,10 @@
     or a negative errno-style error code on failure.</para>
 
     <para><function>sd_device_enumerator_ref()</function> increases the reference count of the
-    specified <parameter>enumerator</parameter> by one.</para>
+    specified <parameter>p</parameter> by one.</para>
 
     <para><function>sd_device_enumerator_unref()</function> decreases the reference count of the
-    <parameter>enumerator</parameter> by one. When the reference count reaches zero, the enumerator
+    <parameter>p</parameter> by one. When the reference count reaches zero, the enumerator
     object is destroyed and cannot be used anymore, so further calls to <function>sd_device_enumerator_unref()
     </function> or <function>sd_device_enumerator_unrefp()</function> are illegal.</para>
 
@@ -88,7 +88,7 @@
 }</programlisting>
 
     <para><function>sd_device_enumerator_ref()</function> and <function>sd_device_enumerator_unref()</function>
-    execute no operation if the <parameter>enumerator</parameter> is <constant>NULL</constant>.
+    execute no operation if the <parameter>p</parameter> is <constant>NULL</constant>.
     <function>sd_device_enumerator_unrefp()</function> will first dereference
     its argument, which must not be <constant>NULL</constant>, and will execute no operation if
     <emphasis>that</emphasis> is <constant>NULL</constant>.</para>

@@ -3293,7 +3293,7 @@ _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
         return sd_journal_process(j);
 }
 
-_public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, uint64_t *to) {
+_public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *ret_from, uint64_t *ret_to) {
         JournalFile *f;
         bool first = true;
         uint64_t fmin = 0, tmax = 0;
@@ -3301,8 +3301,8 @@ _public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, 
 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(from || to, -EINVAL);
-        assert_return(from != to, -EINVAL);
+        assert_return(ret_from || ret_to, -EINVAL);
+        assert_return(ret_from != ret_to, -EINVAL);
 
         ORDERED_HASHMAP_FOREACH(f, j->files) {
                 usec_t fr, t;
@@ -3325,10 +3325,10 @@ _public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, 
                 }
         }
 
-        if (from)
-                *from = fmin;
-        if (to)
-                *to = tmax;
+        if (ret_from)
+                *ret_from = fmin;
+        if (ret_to)
+                *ret_to = tmax;
 
         return first ? 0 : 1;
 }
@@ -3814,12 +3814,12 @@ _public_ int sd_journal_set_data_threshold(sd_journal *j, size_t sz) {
         return 0;
 }
 
-_public_ int sd_journal_get_data_threshold(sd_journal *j, size_t *sz) {
+_public_ int sd_journal_get_data_threshold(sd_journal *j, size_t *ret) {
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(sz, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        *sz = j->data_threshold;
+        *ret = j->data_threshold;
         return 0;
 }
 
