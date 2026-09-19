@@ -2257,18 +2257,23 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <literal>identity</literal>, <literal>full</literal> or <literal>managed</literal>. Defaults to
         false. If enabled, sets up a new user namespace for the executed processes and configures a user and
         group mapping. If set to a true value or <literal>self</literal>, a minimal user and group mapping is
-        configured that maps the <literal>root</literal> user and group as well as the unit's own user and
-        group to themselves and everything else to the <literal>nobody</literal> user and group. This is
-        useful to securely detach the user and group databases used by the unit from the rest of the system,
-        and thus to create an effective sandbox environment. All files, directories, processes, IPC objects
-        and other resources owned by users/groups not equaling <literal>root</literal> or the unit's own will
-        stay visible from within the unit but appear owned by the <literal>nobody</literal> user and
-        group. </para>
+        configured that maps the <literal>root</literal> user and group and the unit's own user and group to
+        themselves. If the service manager has <constant>CAP_SETGID</constant> in the parent user namespace,
+        the unit's supplementary groups are mapped to themselves too. Without that capability they appear as
+        the kernel overflow group ID. The kernel limits the number and total size of ID mappings; if the
+        supplementary group list does not fit, the remaining groups also appear as the overflow group ID.
+        Explicitly configured <varname>SupplementaryGroups=</varname> take priority over groups obtained from
+        the user database when applying these limits. This is useful to securely detach the user and group
+        databases used by the unit from the rest of the system, and thus to create an effective sandbox
+        environment. All files,
+        directories, processes, IPC objects and other resources owned by users/groups not included in the
+        mapping stay visible from within the unit but appear owned by the kernel overflow user and group IDs.
+        </para>
 
         <para>If the parameter is <literal>identity</literal>, user namespacing is set up with an identity
-        mapping for the first 65536 UIDs/GIDs. Any UIDs/GIDs above 65536 will be mapped to the
-        <literal>nobody</literal> user and group, respectively. While this does not provide UID/GID isolation,
-        since all UIDs/GIDs are chosen identically it does provide process capability isolation, and hence is
+        mapping for the first 65536 UIDs/GIDs. Any UIDs/GIDs of 65536 or higher will be mapped to the kernel
+        overflow user and group IDs, respectively. While this does not provide UID/GID isolation, since all
+        mapped UIDs/GIDs are chosen identically it does provide process capability isolation, and hence is
         often a good choice if proper user namespacing with distinct UID maps is not appropriate.</para>
 
         <para>If the parameter is <literal>full</literal>, user namespacing is set up with an identity
@@ -2300,9 +2305,10 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         normally supported by the per-user instances of the service manager.</para>
 
         <para>This setting is particularly useful in conjunction with
-        <varname>RootDirectory=</varname>/<varname>RootImage=</varname>, as the need to synchronize the user and group
-        databases in the root directory and on the host is reduced, as the only users and groups who need to be matched
-        are <literal>root</literal>, <literal>nobody</literal> and the unit's own user and group.</para>
+        <varname>RootDirectory=</varname>/<varname>RootImage=</varname>, as the need to synchronize the user
+        and group databases in the root directory and on the host is reduced. In <literal>self</literal>
+        mode, only <literal>root</literal>, the kernel overflow user and group IDs, the unit's own user and
+        group, and mapped supplementary groups need to match.</para>
 
         <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
