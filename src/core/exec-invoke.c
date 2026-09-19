@@ -54,6 +54,7 @@
 #include "libmount-util.h"
 #include "manager.h"
 #include "memfd-util.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -886,12 +887,17 @@ static int get_supplementary_groups(
                 const ExecContext *c,
                 const char *user,
                 gid_t gid,
-                gid_t **ret_gids) {
+                gid_t **ret_gids,
+                gid_t **ret_configured_gids,
+                int *ret_n_configured_gids) {
 
-        int r;
+        _cleanup_free_ gid_t *gids = NULL, *configured_gids = NULL;
+        int n_gids = 0, n_configured = 0, r;
 
         assert(c);
         assert(ret_gids);
+        assert(ret_configured_gids);
+        assert(ret_n_configured_gids);
 
         /*
          * If user is given, then look up GID and supplementary groups list.
@@ -919,51 +925,43 @@ static int get_supplementary_groups(
 
         if (strv_isempty(c->supplementary_groups)) {
                 *ret_gids = NULL;
+                *ret_configured_gids = NULL;
+                *ret_n_configured_gids = 0;
                 return 0;
         }
 
         /* If SupplementaryGroups= was passed then NGROUPS_MAX has to be positive, otherwise fail. */
-        _cleanup_free_ gid_t *l_gids = NULL;
-
-        int k = 0;
-        if (keep_groups) {
-                /* Look up the list of groups that the user belongs to.
-                 * We avoid NSS lookups here too for gid=0. */
-
-                k = getgrouplist_malloc(user, gid, &l_gids);
-                if (k < 0)
-                        return k;
-        }
-
         int ngroups_max = sysconf_ngroups_max();
         if (ngroups_max < 0)
                 return ngroups_max;
 
+        if (keep_groups) {
+                /* Look up the list of groups that the user belongs to.
+                 * We avoid NSS lookups here too for gid=0. */
+                n_gids = getgrouplist_malloc(user, gid, &gids);
+                if (n_gids < 0)
+                        return n_gids;
+        }
+
         STRV_FOREACH(i, c->supplementary_groups) {
-                if (k >= ngroups_max)
+                if (n_gids >= ngroups_max)
                         return -E2BIG;
 
-                if (!GREEDY_REALLOC(l_gids, k + 1))
+                if (!GREEDY_REALLOC(gids, n_gids + 1) ||
+                    !GREEDY_REALLOC(configured_gids, n_configured + 1))
                         return -ENOMEM;
 
-                r = get_group_creds(*i, /* flags= */ 0, /* ret_name= */ NULL, l_gids + k);
+                r = get_group_creds(*i, /* flags= */ 0, /* ret_name= */ NULL, gids + n_gids);
                 if (r < 0)
                         return r;
 
-                k++;
+                configured_gids[n_configured++] = gids[n_gids++];
         }
 
-        if (k == 0) {
-                *ret_gids = NULL;
-                return 0;
-        }
-
-        /* We *could* trim the array size with realloc(3), but right now the only caller frees the array
-         * quickly anyway, so this is not worth the trouble. If other users pop up, this should be
-         * reconsidered. */
-
-        *ret_gids = TAKE_PTR(l_gids);
-        return k;
+        *ret_gids = TAKE_PTR(gids);
+        *ret_configured_gids = TAKE_PTR(configured_gids);
+        *ret_n_configured_gids = n_configured;
+        return n_gids;
 }
 
 static int enforce_groups(gid_t gid, const gid_t *supplementary_gids, int ngids) {
@@ -2394,6 +2392,8 @@ static int setup_private_users(
                 gid_t *gid,                  /* unit gid (ditto)            [input+output] */
                 uid_t *outside_uid,          /* uid seen from the outside (which is the same as *uid, except of userns is used) */
                 gid_t *outside_gid,          /* gid seen from the outside (similar) */
+                const gid_t *self_supplementary_gids, /* supplementary gids to map in self mode */
+                int n_self_supplementary_gids,
                 bool allow_setgroups) {
 
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
@@ -2408,6 +2408,7 @@ static int setup_private_users(
         assert(gid);
         assert(outside_uid);
         assert(outside_gid);
+        assert(n_self_supplementary_gids >= 0);
 
         /* Set up a user namespace and map the original UID/GID (IDs from before any user or group changes, i.e.
          * the IDs from the user or system manager(s)) to itself, the selected UID/GID to itself, and everything else to
@@ -2515,20 +2516,76 @@ static int setup_private_users(
 
                 break;
 
-        case PRIVATE_USERS_SELF:
+        case PRIVATE_USERS_SELF: {
                 /* Can only set up multiple mappings with CAP_SETGID. */
-                if (gid_is_valid(*gid) && *gid != saved_gid && have_effective_cap(CAP_SETGID) > 0)
+                bool can_map_more = have_effective_cap(CAP_SETGID) > 0;
+                bool map_unit_gid = gid_is_valid(*gid) && *gid != saved_gid;
+
+                if (map_unit_gid && can_map_more)
                         r = asprintf(&gid_map,
                                      GID_FMT " " GID_FMT " 1\n"     /* Map $OGID → $OGID */
                                      GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
                                      saved_gid, saved_gid, *gid, *gid);
                 else
                         r = asprintf(&gid_map,
-                                     GID_FMT " " GID_FMT " 1\n",    /* Map $OGID -> $OGID */
+                                     GID_FMT " " GID_FMT " 1\n",    /* Map $OGID → $OGID */
                                      saved_gid, saved_gid);
                 if (r < 0)
                         return -ENOMEM;
+
+                /* Also map any supplementary GIDs to themselves, so the unit sees them inside the user
+                 * namespace rather than the kernel's overflow GID. Multi-line maps require CAP_SETGID in
+                 * the parent user namespace, so only extend the map when we have it. */
+                if (can_map_more && n_self_supplementary_gids > 0) {
+                        _cleanup_(uid_range_freep) UIDRange *parent_gid_range = NULL;
+
+                        r = uid_range_load_userns(NULL, GID_RANGE_USERNS_INSIDE, &parent_gid_range);
+                        if (r < 0)
+                                return log_debug_errno(
+                                                r, "Failed to read parent user namespace GID map: %m");
+
+                        size_t gid_map_len = strlen(gid_map), n_extents = map_unit_gid ? 2 : 1;
+                        size_t n_omitted = 0;
+                        bool allocated = false;
+
+                        FOREACH_ARRAY(g, self_supplementary_gids, n_self_supplementary_gids) {
+                                char line[2 * DECIMAL_STR_MAX(gid_t) + STRLEN("  1\n")];
+                                size_t line_len;
+
+                                if (!gid_is_valid(*g) || *g == saved_gid || (map_unit_gid && *g == *gid))
+                                        continue;
+                                if (!uid_range_contains(parent_gid_range, *g)) {
+                                        n_omitted++;
+                                        continue;
+                                }
+
+                                xsprintf(line, GID_FMT " " GID_FMT " 1\n", *g, *g);
+                                line_len = strlen(line);
+                                if (n_extents >= UID_GID_MAP_MAX_EXTENTS ||
+                                    gid_map_len + line_len >= page_size()) {
+                                        n_omitted++;
+                                        continue;
+                                }
+
+                                if (!allocated) {
+                                        if (!GREEDY_REALLOC(gid_map, page_size()))
+                                                return -ENOMEM;
+
+                                        allocated = true;
+                                }
+
+                                memcpy(gid_map + gid_map_len, line, line_len + 1);
+                                gid_map_len += line_len;
+                                n_extents++;
+                        }
+
+                        if (n_omitted > 0)
+                                log_debug("Could not map %zu supplementary GIDs in the user namespace; "
+                                          "they will appear as the kernel overflow GID.",
+                                          n_omitted);
+                }
                 break;
+        }
 
         default:
                 assert_not_reached();
@@ -5208,8 +5265,8 @@ int exec_invoke(
         uid_t uid = UID_INVALID, saved_uid = getuid(), outside_uid = UID_INVALID;
         gid_t gid = GID_INVALID, saved_gid = getgid(), outside_gid = GID_INVALID;
         int secure_bits;
-        _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
-        int ngids = 0, ngids_after_pam = 0;
+        _cleanup_free_ gid_t *gids = NULL, *configured_gids = NULL, *gids_after_pam = NULL;
+        int ngids = 0, n_configured_gids = 0, ngids_after_pam = 0;
         int named_iofds[3] = EBADF_TRIPLET;
         _cleanup_close_ int socket_fd = -EBADF, bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef bpffs_pidref = PIDREF_NULL;
@@ -5466,7 +5523,13 @@ int exec_invoke(
 
         if (exec_context_get_effective_private_users(context, params) != PRIVATE_USERS_MANAGED) {
                 /* Initialize user supplementary groups and get SupplementaryGroups= ones */
-                ngids = get_supplementary_groups(context, username, gid, &gids);
+                ngids = get_supplementary_groups(
+                                context,
+                                username,
+                                gid,
+                                &gids,
+                                &configured_gids,
+                                &n_configured_gids);
                 if (ngids < 0) {
                         *exit_status = EXIT_GROUP;
                         return log_error_errno(ngids, "Failed to determine supplementary groups: %m");
@@ -6002,6 +6065,80 @@ int exec_invoke(
                 }
         }
 
+        /* Keep the groups to enforce separate from the effective groups to map. In particular, an empty
+         * SupplementaryGroups= historically relies on initgroups() without a later setgroups() call. */
+        _cleanup_free_ gid_t *gids_to_enforce = NULL;
+        int ngids_to_enforce = 0;
+        if (needs_setuid) {
+                ngids_to_enforce = merge_gid_lists(
+                                gids,
+                                ngids,
+                                gids_after_pam,
+                                ngids_after_pam,
+                                &gids_to_enforce);
+                if (ngids_to_enforce < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return log_error_errno(ngids_to_enforce, "Failed to merge group lists. Group membership might be incorrect: %m");
+                }
+        }
+
+        PrivateUsers effective_private_users = exec_context_get_effective_private_users(context, params);
+        bool may_setup_private_users_self =
+                        needs_sandboxing &&
+                        (effective_private_users == PRIVATE_USERS_SELF ||
+                         (effective_private_users == PRIVATE_USERS_NO &&
+                          !have_cap_sys_admin && exec_needs_cap_sys_admin(context, params)));
+
+        _cleanup_free_ gid_t *gids_to_map = NULL;
+        int ngids_to_map = 0;
+        if (may_setup_private_users_self) {
+                if (needs_setuid && ngids_to_enforce > 0)
+                        /* enforce_groups() will replace the current supplementary credentials. Map only the
+                         * groups it will install, with explicitly configured groups first. */
+                        ngids_to_map = merge_gid_lists(
+                                        configured_gids,
+                                        n_configured_gids,
+                                        gids_to_enforce,
+                                        ngids_to_enforce,
+                                        &gids_to_map);
+                else {
+                        _cleanup_free_ gid_t *effective_gids = NULL;
+                        int n_effective_gids;
+
+                        if (gids_after_pam) {
+                                effective_gids = newdup(gid_t, gids_after_pam, ngids_after_pam);
+                                if (!effective_gids) {
+                                        *exit_status = EXIT_GROUP;
+                                        return log_oom();
+                                }
+
+                                n_effective_gids = ngids_after_pam;
+                        } else {
+                                n_effective_gids = getgroups_alloc(&effective_gids);
+                                if (n_effective_gids < 0) {
+                                        *exit_status = EXIT_GROUP;
+                                        return log_error_errno(
+                                                        n_effective_gids,
+                                                        "Failed to obtain effective supplementary groups: "
+                                                        "%m");
+                                }
+                        }
+
+                        /* With no explicit list, preserve the groups already installed by initgroups(). A
+                         * !-prefixed command skips enforce_groups() too, and hence follows the same rule. */
+                        ngids_to_map = merge_gid_lists(
+                                        effective_gids,
+                                        n_effective_gids,
+                                        /* list2= */ NULL,
+                                        /* size2= */ 0,
+                                        &gids_to_map);
+                }
+                if (ngids_to_map < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return log_error_errno(ngids_to_map, "Failed to merge groups to map: %m");
+                }
+        }
+
         if (context->private_bpf != PRIVATE_BPF_NO) {
                 /* To create a BPF token, the bpffs has to be mounted with the fsopen()/fsmount() API.
                  * More specifically, fsopen() must be called within the user namespace, then all the
@@ -6073,6 +6210,8 @@ int exec_invoke(
                                 &gid,
                                 &outside_uid,
                                 &outside_gid,
+                                gids_to_map,
+                                ngids_to_map,
                                 /* allow_setgroups= */ false);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
@@ -6115,19 +6254,6 @@ int exec_invoke(
          * This needs to be done after PrivateDevices=yes setup as device nodes should be owned by the host's root.
          * For non-root in a userns, devices will be owned by the user/group before the group change, and nobody. */
         if (needs_setuid) {
-                _cleanup_free_ gid_t *gids_to_enforce = NULL;
-                int ngids_to_enforce;
-
-                ngids_to_enforce = merge_gid_lists(gids,
-                                                   ngids,
-                                                   gids_after_pam,
-                                                   ngids_after_pam,
-                                                   &gids_to_enforce);
-                if (ngids_to_enforce < 0) {
-                        *exit_status = EXIT_GROUP;
-                        return log_error_errno(ngids_to_enforce, "Failed to merge group lists. Group membership might be incorrect: %m");
-                }
-
                 r = enforce_groups(gid, gids_to_enforce, ngids_to_enforce);
                 if (r < 0) {
                         *exit_status = EXIT_GROUP;
@@ -6169,6 +6295,8 @@ int exec_invoke(
                                 &gid,
                                 &outside_uid,
                                 &outside_gid,
+                                gids_to_map,
+                                ngids_to_map,
                                 /* allow_setgroups= */ pu == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
