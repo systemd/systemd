@@ -50,7 +50,7 @@ int polkit_check_authorization(sd_bus *bus, PolkitFlags flags, char **ret_tmpaut
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, /* usec = */ 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* timeout_usec = */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to check authorization: %s", bus_error_message(&error, r));
 
@@ -124,7 +124,7 @@ int polkit_revoke_temporary_authorization_by_id(sd_bus *bus, const char *id) {
                 return bus_log_create_error(r);
 
         log_debug("Revoking temporary authorization %s", id);
-        r = sd_bus_call(bus, m, /* usec = */ 0, &error, /* ret_reply= */ NULL);
+        r = sd_bus_call(bus, m, /* timeout_usec = */ 0, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to revoke temporary authorization %s: %s",
                                 id, bus_error_message(&error, r));
@@ -237,7 +237,7 @@ int polkit_revoke_temporary_authorizations(sd_bus *bus) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, /* usec = */ 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* timeout_usec = */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate temporary authorizations: %s",
                                 bus_error_message(&error, r));
