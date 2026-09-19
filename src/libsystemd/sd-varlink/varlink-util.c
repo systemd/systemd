@@ -372,7 +372,7 @@ ssize_t varlink_execute_directory(
 
                 assert(event);
 
-                r = sd_event_run(event, /* timeout= */ UINT64_MAX);
+                r = sd_event_run(event, /* timeout_usec= */ UINT64_MAX);
                 if (r < 0)
                         return r;
         }

@@ -660,14 +660,14 @@ _public_ int sd_json_variant_new_array_bytes(sd_json_variant **ret, const void *
         return 0;
 }
 
-_public_ int sd_json_variant_new_array_strv(sd_json_variant **ret, char **l) {
+_public_ int sd_json_variant_new_array_strv(sd_json_variant **ret, char **strv) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         size_t n;
         int r;
 
         assert_return(ret, -EINVAL);
 
-        n = strv_length(l);
+        n = strv_length(strv);
         if (n == 0) {
                 *ret = JSON_VARIANT_MAGIC_EMPTY_ARRAY;
                 return 0;
@@ -693,21 +693,21 @@ _public_ int sd_json_variant_new_array_strv(sd_json_variant **ret, char **l) {
                         .type = SD_JSON_VARIANT_STRING,
                 };
 
-                k = strlen(l[v->n_elements]);
+                k = strlen(strv[v->n_elements]);
 
                 if (k > INLINE_STRING_MAX) {
                         /* If string is too long, store it as reference. */
 
-                        r = sd_json_variant_new_string(&w->reference, l[v->n_elements]);
+                        r = sd_json_variant_new_string(&w->reference, strv[v->n_elements]);
                         if (r < 0)
                                 return r;
 
                         w->is_reference = true;
                 } else {
-                        if (!utf8_is_valid_n(l[v->n_elements], k)) /* JSON strings must be valid UTF-8 */
+                        if (!utf8_is_valid_n(strv[v->n_elements], k)) /* JSON strings must be valid UTF-8 */
                                 return -EUCLEAN;
 
-                        memcpy(w->string, l[v->n_elements], k+1);
+                        memcpy(w->string, strv[v->n_elements], k+1);
                 }
         }
 
@@ -2115,11 +2115,11 @@ _public_ int sd_json_variant_set_field_boolean(sd_json_variant **v, const char *
         return sd_json_variant_set_field(v, field, m);
 }
 
-_public_ int sd_json_variant_set_field_strv(sd_json_variant **v, const char *field, char **l) {
+_public_ int sd_json_variant_set_field_strv(sd_json_variant **v, const char *field, char **strv) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
-        r = sd_json_variant_new_array_strv(&m, l);
+        r = sd_json_variant_new_array_strv(&m, strv);
         if (r < 0)
                 return r;
 

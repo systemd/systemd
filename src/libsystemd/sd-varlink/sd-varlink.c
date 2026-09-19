@@ -1674,13 +1674,13 @@ _public_ int sd_varlink_get_current_parameters(sd_varlink *v, sd_json_variant **
         return 0;
 }
 
-_public_ int sd_varlink_wait(sd_varlink *v, uint64_t timeout) {
+_public_ int sd_varlink_wait(sd_varlink *v, uint64_t timeout_usec) {
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
-        return json_stream_wait(&v->stream, timeout);
+        return json_stream_wait(&v->stream, timeout_usec);
 }
 
 _public_ int sd_varlink_is_idle(sd_varlink *v) {
@@ -3010,11 +3010,11 @@ _public_ int sd_varlink_get_peer_pidfd(sd_varlink *v) {
         return json_stream_acquire_peer_pidfd(&v->stream);
 }
 
-_public_ int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t timeout) {
+_public_ int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t timeout_usec) {
         assert_return(v, -EINVAL);
 
         /* If set to 0, reset to default value */
-        json_stream_set_timeout(&v->stream, timeout == 0 ? VARLINK_DEFAULT_TIMEOUT_USEC : timeout);
+        json_stream_set_timeout(&v->stream, timeout_usec == 0 ? VARLINK_DEFAULT_TIMEOUT_USEC : timeout_usec);
         return 0;
 }
 
@@ -3056,17 +3056,17 @@ static int quit_callback(sd_event_source *event, void *userdata) {
         return 1;
 }
 
-_public_ int sd_varlink_attach_event(sd_varlink *v, sd_event *e, int64_t priority) {
+_public_ int sd_varlink_attach_event(sd_varlink *v, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(v, -EINVAL);
         assert_return(!json_stream_get_event(&v->stream), -EBUSY);
 
-        r = json_stream_attach_event(&v->stream, e, priority);
+        r = json_stream_attach_event(&v->stream, event, priority);
         if (r < 0)
                 return r;
 
-        sd_event *event = json_stream_get_event(&v->stream);
+        event = json_stream_get_event(&v->stream);
 
         r = sd_event_add_exit(event, &v->quit_event_source, quit_callback, v);
         if (r < 0)
@@ -3153,7 +3153,7 @@ _public_ int sd_varlink_push_dup_fd(sd_varlink *v, int fd) {
         return r;
 }
 
-_public_ int sd_varlink_peek_fd(sd_varlink *v, size_t i) {
+_public_ int sd_varlink_peek_fd(sd_varlink *v, size_t index) {
         assert_return(v, -EINVAL);
 
         /* Returns one of the file descriptors that were received along with the current message. This does
@@ -3162,20 +3162,20 @@ _public_ int sd_varlink_peek_fd(sd_varlink *v, size_t i) {
         if (!json_stream_flags_set(&v->stream, JSON_STREAM_ALLOW_FD_PASSING_INPUT))
                 return -EPERM;
 
-        return json_stream_peek_input_fd(&v->stream, i);
+        return json_stream_peek_input_fd(&v->stream, index);
 }
 
-_public_ int sd_varlink_peek_dup_fd(sd_varlink *v, size_t i) {
+_public_ int sd_varlink_peek_dup_fd(sd_varlink *v, size_t index) {
         int fd;
 
-        fd = sd_varlink_peek_fd(v, i);
+        fd = sd_varlink_peek_fd(v, index);
         if (fd < 0)
                 return fd;
 
         return RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
 }
 
-_public_ int sd_varlink_take_fd(sd_varlink *v, size_t i) {
+_public_ int sd_varlink_take_fd(sd_varlink *v, size_t index) {
         assert_return(v, -EINVAL);
 
         /* Similar to varlink_peek_fd() but the file descriptor's ownership is passed to the caller, and
@@ -3185,7 +3185,7 @@ _public_ int sd_varlink_take_fd(sd_varlink *v, size_t i) {
         if (!json_stream_flags_set(&v->stream, JSON_STREAM_ALLOW_FD_PASSING_INPUT))
                 return -EPERM;
 
-        return json_stream_take_input_fd(&v->stream, i);
+        return json_stream_take_input_fd(&v->stream, index);
 }
 
 _public_ int sd_varlink_get_n_fds(sd_varlink *v) {
@@ -3826,12 +3826,12 @@ _public_ void* sd_varlink_server_get_userdata(sd_varlink_server *s) {
         return s->userdata;
 }
 
-_public_ int sd_varlink_server_loop_auto(sd_varlink_server *server) {
+_public_ int sd_varlink_server_loop_auto(sd_varlink_server *s) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
 
-        assert_return(server, -EINVAL);
-        assert_return(!server->event, -EBUSY);
+        assert_return(s, -EINVAL);
+        assert_return(!s->event, -EBUSY);
 
         /* Runs a sd_varlink service event loop populated with a passed fd. Exits on the last connection. */
 
@@ -3839,27 +3839,27 @@ _public_ int sd_varlink_server_loop_auto(sd_varlink_server *server) {
         if (r < 0)
                 return r;
 
-        r = sd_varlink_server_set_exit_on_idle(server, true);
+        r = sd_varlink_server_set_exit_on_idle(s, true);
         if (r < 0)
                 return r;
 
-        if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_HANDLE_SIGINT)) {
+        if (FLAGS_SET(s->flags, SD_VARLINK_SERVER_HANDLE_SIGINT)) {
                 r = sd_event_add_signal(event, /* ret= */ NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
                 if (r < 0)
                         return r;
         }
 
-        if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_HANDLE_SIGTERM)) {
+        if (FLAGS_SET(s->flags, SD_VARLINK_SERVER_HANDLE_SIGTERM)) {
                 r = sd_event_add_signal(event, /* ret= */ NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
                 if (r < 0)
                         return r;
         }
 
-        r = sd_varlink_server_attach_event(server, event, 0);
+        r = sd_varlink_server_attach_event(s, event, 0);
         if (r < 0)
                 return r;
 
-        r = sd_varlink_server_listen_auto(server);
+        r = sd_varlink_server_listen_auto(s);
         if (r < 0)
                 return r;
 
@@ -3930,14 +3930,14 @@ int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSo
         return 0;
 }
 
-_public_ int sd_varlink_server_attach_event(sd_varlink_server *s, sd_event *e, int64_t priority) {
+_public_ int sd_varlink_server_attach_event(sd_varlink_server *s, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(s, -EINVAL);
         assert_return(!s->event, -EBUSY);
 
-        if (e)
-                s->event = sd_event_ref(e);
+        if (event)
+                s->event = sd_event_ref(event);
         else {
                 r = sd_event_default(&s->event);
                 if (r < 0)
