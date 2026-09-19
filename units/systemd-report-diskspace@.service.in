@@ -1,0 +1,43 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Disk Space Report Service
+Documentation=man:systemd-report-diskspace@.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+# Note that DynamicUser=, ProtectSystem=, ProtectHome= and PrivateTmp= are deliberately not used here: they
+# make the host's file systems appear read-only, or shadow them with private mounts, in the service's mount
+# namespace, and hence would hide from this service exactly what it is supposed to report on.
+CapabilityBoundingSet=
+DeviceAllow=
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateIPC=yes
+PrivateNetwork=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RuntimeMaxSec=1min
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+ExecStart={{LIBEXECDIR}}/systemd-report-diskspace
