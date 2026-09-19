@@ -14,6 +14,13 @@ typedef struct DnssdDiscoveredService DnssdDiscoveredService;
 typedef struct DnsQuery DnsQuery;
 typedef struct DnsScope DnsScope;
 typedef struct Manager Manager;
+
+typedef enum BrowseServiceUpdateEvent {
+        BROWSE_SERVICE_UPDATE_ADDED,
+        BROWSE_SERVICE_UPDATE_REMOVED,
+        _BROWSE_SERVICE_UPDATE_MAX,
+        _BROWSE_SERVICE_UPDATE_INVALID = -EINVAL,
+} BrowseServiceUpdateEvent;
 typedef enum DnsRecordTTLState DnsRecordTTLState;
 
 enum DnsRecordTTLState {
@@ -126,3 +133,9 @@ int dns_add_new_service(
 void mdns_querier_run_maintenance(DnsServiceQuerier *sq);
 bool mdns_goodbyes_hit_discovered(DnsServiceQuerier *sq, DnsAnswer *goodbyes, int ifindex, int family);
 uint64_t mdns_restrict_flags_to_family(uint64_t flags, int family);
+int browse_service_update_append(
+                sd_json_variant **array,
+                DnsResourceRecord *rr,
+                int family,
+                int ifindex,
+                BrowseServiceUpdateEvent event);
