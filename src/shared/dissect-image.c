@@ -1321,6 +1321,12 @@ static int dissect_image(
                         return log_debug_errno(SYNTHETIC_ERRNO(EOVERFLOW),
                                                "Partition size in LBA too large to convert to a byte offset, refusing.");
 
+                /* Also ensure start + size does not overflow when converted to bytes. If the sum of
+                 * LBAs would overflow the multiply-by-512 conversion, refuse as well. */
+                if ((uint64_t) start + (uint64_t) size >= UINT64_MAX/512)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOVERFLOW),
+                                               "Partition start+size LBA too large to convert to byte offsets, refusing.");
+
                 /* While probing we need the non-diskseq device node name to access the thing, hence mask off
                  * DISSECT_IMAGE_DISKSEQ_DEVNODE. */
                 r = make_partition_devname(devname, diskseq, nr, flags & ~DISSECT_IMAGE_DISKSEQ_DEVNODE, &node);
