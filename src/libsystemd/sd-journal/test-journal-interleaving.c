@@ -567,6 +567,85 @@ TEST(keep_linked_selected_file_error) {
         ASSERT_NOT_NULL(ordered_hashmap_get(j->files, strjoina(t, "/two.journal")));
 }
 
+static void assert_no_current_entry(sd_journal *j) {
+        _cleanup_free_ char *cursor = NULL;
+        sd_id128_t id;
+        const void *data;
+        uint64_t value;
+        size_t size;
+
+        ASSERT_ERROR(sd_journal_get_data(j, "NUMBER", &data, &size), EADDRNOTAVAIL);
+        ASSERT_ERROR(sd_journal_get_cursor(j, &cursor), EADDRNOTAVAIL);
+        ASSERT_ERROR(sd_journal_get_realtime_usec(j, &value), EADDRNOTAVAIL);
+        ASSERT_ERROR(sd_journal_get_monotonic_usec(j, &value, &id), EADDRNOTAVAIL);
+        ASSERT_ERROR(sd_journal_get_seqnum(j, &value, &id), EADDRNOTAVAIL);
+}
+
+TEST(reader_position_invalidation) {
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-position-XXXXXX", &t);
+        setup_sequential();
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        assert_no_current_entry(j);
+
+        ASSERT_OK(sd_journal_seek_head(j));
+        assert_no_current_entry(j);
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 1);
+        ASSERT_OK_ZERO(sd_journal_previous(j));
+        test_check_number(j, 1);
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 2);
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+        test_check_number(j, 1);
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 2);
+
+        ASSERT_OK(sd_journal_seek_tail(j));
+        assert_no_current_entry(j);
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+        test_check_number(j, 9);
+        ASSERT_OK_ZERO(sd_journal_next(j));
+        test_check_number(j, 9);
+
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 1);
+
+        ASSERT_OK(sd_journal_add_conjunction(j));
+        test_check_number(j, 1);
+        ASSERT_OK(sd_journal_add_disjunction(j));
+        test_check_number(j, 1);
+
+        ASSERT_OK(sd_journal_add_match(j, "NUMBER=2", SIZE_MAX));
+        assert_no_current_entry(j);
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 2);
+
+        ASSERT_OK(sd_journal_add_match(j, "NUMBER=2", SIZE_MAX));
+        test_check_number(j, 2);
+        ASSERT_OK(sd_journal_add_conjunction(j));
+        test_check_number(j, 2);
+        ASSERT_OK(sd_journal_add_disjunction(j));
+        test_check_number(j, 2);
+
+        ASSERT_OK(sd_journal_add_match(j, "LESS_THAN_FIVE=yes", SIZE_MAX));
+        assert_no_current_entry(j);
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 2);
+
+        sd_journal_flush_matches(j);
+        assert_no_current_entry(j);
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 1);
+}
+
 static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
         _cleanup_(test_donep) char *t = NULL;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
