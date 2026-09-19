@@ -37,6 +37,13 @@ executables += [
                 ),
         },
         libexec_template + {
+                'name' : 'systemd-report-hwmon',
+                'export' : files(
+                        'report-hwmon.c',
+                        'report-hwmon-server.c',
+                ),
+        },
+        libexec_template + {
                 'name' : 'systemd-report-sign-plain',
                 'export' : files(
                         'report-sign-plain.c',
