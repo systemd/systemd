@@ -690,6 +690,52 @@ time.sleep(3600)
     echo testcase_end
 }
 
+testcase_browse_type_enumeration() {
+    : "A browse of _services._dns-sd._udp must report the published types as types"
+
+    local out_file error_file unit_name ok id
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-enum-$SRANDOM.service"
+
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file" EXIT
+
+    # RFC 6763 section 9: the enumeration question is a PTR query like any browse, asked through
+    # the domain field, and its answers name types, not instances.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "$(browse_params _services._dns-sd._udp "${BRIDGE_INDEX:?}")"
+
+    # Every type the containers publish must arrive as the type it is, under an empty instance name.
+    ok=0
+    for _ in {0..14}; do
+        ok=1
+        for id in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
+            if ! grep -F '"updateFlag":"added"' "$out_file" | grep -F "\"name\":\"\",\"type\":\"_testService$id._udp\"" >/dev/null; then
+                ok=0
+                break
+            fi
+        done
+        [[ "$ok" -eq 1 ]] && break
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "The type enumeration did not report every published type under an empty name"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # And none as the enumeration name itself, which every answer used to be reported as.
+    if grep -F '"name":"_services","type":"_dns-sd._udp"' "$out_file" >/dev/null; then
+        echo >&2 "A type enumeration answer was reported as the enumeration question's own name:"
+        cat "$out_file" >&2
+        return 1
+    fi
+
+    echo testcase_end
+}
+
 testcase_browse_unrelated_scope_teardown() {
     : "Losing one link's mDNS scope must not withdraw services discovered on another link"
     resolvectl flush-caches
