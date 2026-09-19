@@ -1347,13 +1347,13 @@ static int target_get_appstream(Target *t, char ***ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to run 'systemd-sysupdate list': %m");
 
-        appstream_url_json = sd_json_variant_by_key(v, "appstreamUrls");
+        appstream_url_json = sd_json_variant_by_key(v, "appStreamUrls");
         if (!appstream_url_json)
-                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Missing key 'appstreamUrls'");
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Missing key 'appStreamUrls'");
 
         r = sd_json_variant_strv(appstream_url_json, ret);
         if (r < 0)
-                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Key 'appstreamUrls' should be strv");
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Key 'appStreamUrls' should be strv");
 
         return 0;
 }
