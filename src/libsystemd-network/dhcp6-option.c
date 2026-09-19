@@ -213,8 +213,9 @@ bool dhcp6_option_can_request(uint16_t option) {
         case SD_DHCP6_OPTION_REGISTERED_DOMAIN:
         case SD_DHCP6_OPTION_FORWARD_DIST_MANAGER:
         case SD_DHCP6_OPTION_REVERSE_DIST_MANAGER:
-        case SD_DHCP6_OPTION_ADDR_REG_ENABLE:
                 return true;
+        case SD_DHCP6_OPTION_ADDR_REG_ENABLE:
+                return false; /* Automatically set when RegisterAddresses is enabled. */
         default:
                 return false;
         }
