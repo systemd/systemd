@@ -142,10 +142,6 @@ static int follow_state_setup(sd_varlink *link, sd_journal *_j /* donated! */) {
         assert(link);
         assert(j);
 
-        /* The varlink connection already requested the follow mode. Refusing. */
-        if (sd_varlink_get_userdata(link))
-                return -EBUSY;
-
         sd_varlink_server *server = ASSERT_PTR(sd_varlink_get_server(link));
         sd_event *event = ASSERT_PTR(sd_varlink_server_get_event(server));
 

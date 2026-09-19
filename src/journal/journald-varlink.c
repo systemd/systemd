@@ -46,10 +46,6 @@ static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, 
 
         Manager *m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
-        /* The varlink connection already requested to sync journals. Refusing. */
-        if (sd_varlink_get_userdata(link))
-                return -EBUSY;
-
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &offline);
         if (r != 0)
                 return r;
@@ -186,7 +182,7 @@ int manager_open_varlink(Manager *m, const char *socket, int fd) {
 
         r = varlink_server_new(
                         &m->varlink_server,
-                        SD_VARLINK_SERVER_ACCOUNT_UID,
+                        SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY,
                         m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
