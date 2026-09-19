@@ -43,61 +43,54 @@ preferentially killing background tasks in out-of-memory situations
 or assigning different memory/CPU/IO priorities to ensure that the session
 runs smoothly under load.
 
-TODO: Will there be a default to place units into e.g. `app.slice` by default
-rather than the root slice?
-
-## XDG standardization for applications
+## XDG Unit Naming Convention for Apps
 
 To ensure cross-desktop compatibility and encourage sharing of good practices,
 desktop environments should adhere to the following conventions:
 
- * Application units should follow the scheme `app[-<launcher>]-<ApplicationID>[@<RANDOM>].service`
- or `app[-<launcher>]-<ApplicationID>-<RANDOM>.scope`
-   e.g:
+ * Apps should be placed in systemd units that adhere to the following naming
+   convention: `app-<AppID>[@<RANDOM>].service` or `app-<AppID>-<RANDOM>.scope`.
+   For example:
+    - `app-org.kde.amarok.service`
+    - `app-im.riot.Riot@12345.service`
+    - `app-org.gnome.Evince-12345.scope`
+
+ * For backwards-compatibility reasons, an alternative naming convention is also
+   allowed: `app-<launcher>-<AppID>[@<RANDOM>].service` or
+   `app-<launcher>-<AppID>-<RANDOM>.scope`. New code should not set a `<launcher>`
+   when creating units for apps, but new parsers should be able to parse and
+   ignore it. When this convention was first designed, the intent was for
+   `<launcher>` to reflect the user's desktop environment, so that different
+   desktops could have different drop-in overrides for apps. However, in practice
+   `<launcher>` only ever represented the library responsible for putting the
+   app into a systemd unit, which didn't necessarily correspond to the running desktop.
+   Examples:
     - `app-gnome-org.gnome.Evince@12345.service`
     - `app-flatpak-org.telegram.desktop@12345.service`
     - `app-KDE-org.kde.okular@12345.service`
-    - `app-org.kde.amarok.service`
-    - `app-org.gnome.Evince-12345.scope`
+    - `app-gnome-org.gnome.Evince-12345.scope`
 
- * Using `.service` units instead of `.scope` units, i.e. allowing systemd to
-   start the process on behalf of the caller,
-   instead of the caller starting the process and letting systemd know about it,
-   is encouraged.
+ * It is preferable to use `.service` units instead of `.scope` units. Static
+   configuration files are preferable to transient units. In other words, systemd
+   should be allowed to start and monitor the process on behalf of the caller
+   where possible.
 
- * `<RANDOM>` should be a string of random characters to ensure that multiple instances
-   of the application can be launched. This can be omitted for service files of
-   non-transient applications, which ensure multiple instances cannot be
-   spawned. For scope files `<RANDOM>` is mandatory, as the format would be
-   ambiguous otherwise.
+ * `<RANDOM>` should be a string of unique characters to ensure that multiple instances
+   of the application can be launched. This can be omitted for non-transient
+   single-instance service files, since we know that there will never be multiple
+   instances of such apps. For scope files, a `<RANDOM>` is mandatory because the
+   format would be ambiguous otherwise. A useful source of `<RANDOM>` could be
+   the pidfdid of the app's initial process.
 
  * If no application ID is available, the launcher should generate a reasonable
-   name when possible (e.g. using `basename(argv[0])`). This name must not
-   contain a `-` character.
+   name when possible (e.g. using the basename of the `.desktop` file, or ultimately
+   falling back to `basename(argv[0])`). This name must not contain a `-` character.
 
-This has the following advantages:
+ * Note that it is valid to adhere to this naming scheme within a unit alias, so
+   a parser should check the entire name array of the unit rather than just the
+   unit ID.
 
- * Using the `app-<launcher>-` prefix means that the unit defaults can be
-   adjusted using desktop environment specific drop-in files.
-
- * The application ID can be retrieved by stripping the prefix and postfix.
-   This in turn should map to the corresponding `.desktop` file when available.
-
-   Note that this naming scheme might be a unit alias, so runtime detection
-   must check the entire name-array of a unit, rather than just its unit ID.
-
-TODO: Define the name of slices that should be used.
-This could be `app-<launcher>-<ApplicationID>-<RANDOM>.slice`.
-
-TODO: Does it really make sense to insert the `<launcher>`? In GNOME I am
-currently using a drop-in to configure `BindTo=graphical-session.target`,
-`CollectMode=inactive-or-failed` and `TimeoutSec=5s`.
-I feel that such a policy makes sense, but it may make much more sense to just define a
-global default for all (graphical) applications.
-
- * Should application lifetime be bound to the session?
- * May the user have applications that do not belong to the graphical session (e.g. launched from SSH)?
- * Could we maybe add a default `app-.service.d` drop-in configuration?
+This has the advantage of making it possible to reliably identify the app.
 
 ## XDG autostart integration
 
