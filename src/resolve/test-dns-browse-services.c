@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "dns-answer.h"
 #include "dns-question.h"
@@ -30,6 +31,38 @@ static DnsResourceRecord *new_service_rr(const char *instance, uint32_t ttl) {
 
 static DnsResourceRecord *new_test_service_rr(uint32_t ttl) {
         return new_service_rr("Same Service._http._tcp.local", ttl);
+}
+
+/* What a browse reports for a record. An instance is split into its three parts. A service type
+ * enumeration answer (RFC 6763 §9) names a type with no instance in front: the type is reported,
+ * under an empty name, rather than the enumeration question's own name. */
+TEST(browse_service_update_append) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *instance = NULL, *enumerated = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        sd_json_variant *entry;
+
+        ASSERT_NOT_NULL(instance = new_test_service_rr(120));
+        ASSERT_OK_POSITIVE(browse_service_update_append(&array, instance, AF_INET, /* ifindex= */ 2,
+                                                        BROWSE_SERVICE_UPDATE_ADDED));
+
+        enumerated = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
+                                                  "_services._dns-sd._udp.local");
+        ASSERT_NOT_NULL(enumerated);
+        ASSERT_NOT_NULL(enumerated->ptr.name = strdup("_ipp._tcp.local"));
+        ASSERT_OK_POSITIVE(browse_service_update_append(&array, enumerated, AF_INET, /* ifindex= */ 2,
+                                                        BROWSE_SERVICE_UPDATE_ADDED));
+
+        ASSERT_EQ(sd_json_variant_elements(array), 2u);
+
+        entry = sd_json_variant_by_index(array, 0);
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(entry, "name")), "Same Service");
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(entry, "type")), "_http._tcp");
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(entry, "domain")), "local");
+
+        entry = sd_json_variant_by_index(array, 1);
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(entry, "name")), "");
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(entry, "type")), "_ipp._tcp");
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(entry, "domain")), "local");
 }
 
 /* The flags a scope-restricted emission carries: the goodbye rescue answers on the scope whose
