@@ -13,6 +13,7 @@
 #include "event-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -494,6 +495,10 @@ static void route_forget(Manager *manager, Route *route, const char *msg) {
 
         if (!route->manager && route_get(manager, route, &route) < 0)
                 return;
+
+        Link *link;
+        if (route_get_link(manager, route, &link) >= 0)
+                dhcp_pd_remove_prefix_by_route(link, route);
 
         route_enter_removed(route);
         log_route_debug(route, msg, manager);
