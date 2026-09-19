@@ -63,6 +63,10 @@ struct DnsServiceQuerier {
                                                  one-second floor is a property of the question, so
                                                  each of them checks it before adding to the wire */
         RateLimit goodbye_rescue_ratelimit;   /* caps a sustained §10.1 goodbye flood per querier */
+        sd_event_source *rescue_event;        /* a goodbye rescue the §5.2 floor deferred, armed for
+                                                 when the floor lifts */
+        int rescue_ifindex;                   /* where the deferred rescue goes: the scope that */
+        int rescue_family;                    /* admitted it, widened once a second scope asks */
         bool initial_query_done;              /* whether the schedule's first query has gone out; only
                                                  that one is cache-served on the schedule's behalf,
                                                  a joining subscriber's catch-up asks separately */
