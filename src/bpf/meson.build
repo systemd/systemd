@@ -365,6 +365,11 @@ bpf_programs = [
                 'condition' : 'HAVE_VMLINUX_H',
                 'depend_files' : vmlinux_h_depend_files,
         },
+        {
+                'source' : files('monitor-varlink.bpf.c'),
+                'condition' : 'HAVE_VMLINUX_H',
+                'depend_files' : vmlinux_h_depend_files,
+        },
 ]
 
 bpf_programs_by_name = {}
