@@ -42,7 +42,8 @@
 
     <orderedlist>
       <listitem><para>It prompts the user for the target disk to install the OS on. (Unless the block device
-      is already specified on the command line.)</para></listitem>
+      is already specified on the command line, or is picked automatically via
+      <option>--device-auto</option>.)</para></listitem>
 
       <listitem><para>It validates whether the disk is suitable (i.e. large enough, and with enough
       free/unpartitioned space) for an OS installation. If it is generally suitable the user is prompted if they
@@ -108,6 +109,39 @@
         <filename>/usr/lib/repart.sysinstall.d/</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--device-auto</option></term>
+
+        <listitem><para>Automatically pick the target disk instead of prompting for it or taking it from the
+        command line. The tool watches the block devices of the system (via udev) and waits for the list of
+        candidate disks to settle: the timeout configured with <option>--device-auto-timeout=</option>
+        starts at invocation and is restarted whenever a block device appears, disappears or changes. Once
+        it expires without further changes, the single candidate disk present at that moment is selected as
+        installation target. If no candidate disk is present when the timeout expires, or if at any time
+        more than one candidate disk is present, the installation fails. Candidate disks are those
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        would offer in the interactive prompt (i.e. that support partition scanning, are writable, not the
+        disk the running system is booted from, and contain a medium). If the disk the running system is
+        booted from cannot be determined – and hence cannot reliably be excluded from the candidate set –
+        the automatic selection is refused. Cannot be combined with an explicitly
+        specified block device. This is primarily useful together with <option>--confirm=no</option>,
+        <option>--erase=</option> and <option>--variables=</option>, for fully unattended
+        installations.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--device-auto-timeout=</option></term>
+
+        <listitem><para>Configures the settle timeout for <option>--device-auto</option>, i.e. for how long
+        the list of candidate disks must remain unchanged before a disk is selected. Takes a time span, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Defaults to 30s.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
