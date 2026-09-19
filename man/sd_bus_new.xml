@@ -34,17 +34,17 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_new</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_bus *<function>sd_bus_ref</function></funcdef>
-        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_bus *<function>sd_bus_unref</function></funcdef>
-        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -59,17 +59,17 @@
 
       <funcprototype>
         <funcdef>void <function>sd_bus_unrefp</function></funcdef>
-        <paramdef>sd_bus **<parameter>busp</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>void <function>sd_bus_close_unrefp</function></funcdef>
-        <paramdef>sd_bus **<parameter>busp</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>void <function>sd_bus_flush_close_unrefp</function></funcdef>
-        <paramdef>sd_bus **<parameter>busp</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>p</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -95,11 +95,11 @@
     start the connection to a well-known bus in a single function call.</para>
 
     <para><function>sd_bus_ref()</function> increases the reference
-    counter of <parameter>bus</parameter> by one.</para>
+    counter of <parameter>p</parameter> by one.</para>
 
     <para><function>sd_bus_unref()</function> decreases the reference
-    counter of <parameter>bus</parameter> by one. Once the reference
-    count has dropped to zero, <parameter>bus</parameter> is destroyed
+    counter of <parameter>p</parameter> by one. Once the reference
+    count has dropped to zero, <parameter>p</parameter> is destroyed
     and cannot be used anymore, so further calls to
     <function>sd_bus_ref()</function> or
     <function>sd_bus_unref()</function> are illegal.</para>

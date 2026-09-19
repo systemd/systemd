@@ -32,14 +32,14 @@
     <para><filename>systemd-timedated.service</filename> is a system service
     that may be used as a mechanism to change the system clock and
     timezone, as well as to enable/disable network time synchronization.
-    <filename>systemd-timedated</filename> is automatically activated
+    <command>systemd-timedated</command> is automatically activated
     on request and terminates itself when it is unused.</para>
 
     <para>The tool
     <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     is a command line client to this service.</para>
 
-    <para><filename>systemd-timedated</filename> currently offers access to
+    <para><command>systemd-timedated</command> currently offers access to
     the following four settings:
     <itemizedlist>
       <listitem><para>The system time</para></listitem>
