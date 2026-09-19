@@ -118,10 +118,11 @@ TEST(mdns_goodbyes_hit_discovered_matches_only_held_instances) {
         ASSERT_TRUE(mdns_goodbyes_hit_discovered(&unpinned_linkless, hit, /* ifindex= */ 3, AF_INET));
 }
 
-/* The rescue's spending discipline, observed through the budget counters: the gate and the
- * RFC 6762 §5.2 floor refuse before anything is spent, the querier's own budget is charged
- * before the scope's — so a querier refused by its own tier does not drain the shared one —
- * and an admitted rescue charges each tier exactly once. Whether the emitted query completes
+/* The rescue's spending discipline, observed through the budget counters: the gate refuses
+ * before anything is spent, the querier's own budget is charged before the scope's — so a
+ * querier refused by its own tier does not drain the shared one — and an admitted rescue
+ * charges each tier exactly once, whether it goes out at once or waits for the RFC 6762 §5.2
+ * floor to lift. Whether the emitted query completes
  * synchronously is deliberately not asserted, as in the maintenance tests; the emission's
  * scope restriction needs a live second publisher and is integration territory. */
 TEST(mdns_queriers_rescue_goodbyes_spends_budgets_in_order) {
@@ -129,7 +130,11 @@ TEST(mdns_queriers_rescue_goodbyes_spends_budgets_in_order) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *held = NULL, *other = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *goodbyes = NULL, *miss = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         Manager manager = {};
+
+        ASSERT_OK(sd_event_new(&event));
+        manager.event = event;
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "_http._tcp.local"));
         ASSERT_NOT_NULL(question = dns_question_new(1));
@@ -173,19 +178,62 @@ TEST(mdns_queriers_rescue_goodbyes_spends_budgets_in_order) {
         ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 0u);
         ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 0u);
 
-        /* The §5.2 floor: this question went to the wire less than a second ago, so the answer
-         * already on its way refreshes the record and the rescue is refused before either
-         * budget is consulted. */
+        /* The §5.2 floor: this question went to the wire less than a second ago. The rescue is
+         * admitted and charged like any other, but waits for the floor to lift, on the scope
+         * that admitted it. */
         sq.last_wire_query_usec = now(CLOCK_BOOTTIME);
-        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
-        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 0u);
-        ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 0u);
-
-        /* Admitted: exactly one charge on each tier. */
-        sq.last_wire_query_usec = 0;
         mdns_queriers_rescue_goodbyes(&scope, goodbyes);
         ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 1u);
         ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_NOT_NULL(sq.rescue_event);
+        ASSERT_NULL(sq.in_flight_query);
+        ASSERT_EQ(sq.rescue_family, AF_INET);
+
+        /* A repeat on the same scope rides on the waiting rescue and spends nothing. */
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 1u);
+
+        /* One from another scope widens it, on that scope's budget alone -- and only once: a
+         * widened rescue reaches every scope, so later goodbyes there ride on it for free. */
+        DnssdDiscoveredService service6 = {
+                .rr = held,
+                .family = AF_INET6,
+                .ifindex = 2,
+                .until = 100,
+        };
+        service.dns_services_next = &service6;
+        service6.dns_services_prev = &service;
+        DnsScope other_scope = {
+                .manager = &manager,
+                .family = AF_INET6,
+                .goodbye_rescue_ratelimit = { MDNS_RESCUE_RATELIMIT_INTERVAL_USEC,
+                                              MDNS_RESCUE_RATELIMIT_SCOPE_BURST },
+        };
+        mdns_queriers_rescue_goodbyes(&other_scope, goodbyes);
+        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_EQ(other_scope.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_EQ(sq.rescue_family, AF_UNSPEC);
+        mdns_queriers_rescue_goodbyes(&other_scope, goodbyes);
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        ASSERT_EQ(other_scope.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 1u);
+
+        /* And it fires once the floor lifts, releasing the timer. */
+        ASSERT_OK_POSITIVE(sd_event_run(event, 3 * USEC_PER_SEC));
+        ASSERT_NULL(sq.rescue_event);
+        if (sq.in_flight_query)
+                dns_query_complete(sq.in_flight_query, DNS_TRANSACTION_ABORTED);
+        ASSERT_NULL(sq.in_flight_query);
+
+        /* Admitted with the floor clear: exactly one charge on each tier, and nothing deferred. */
+        sq.last_wire_query_usec = 0;
+        sq.goodbye_rescue_ratelimit.num = 0;
+        scope.goodbye_rescue_ratelimit.num = 0;
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_NULL(sq.rescue_event);
         if (sq.in_flight_query)
                 dns_query_complete(sq.in_flight_query, DNS_TRANSACTION_ABORTED);
         ASSERT_NULL(sq.in_flight_query);

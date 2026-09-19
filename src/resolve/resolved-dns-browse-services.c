@@ -380,9 +380,10 @@ static int mdns_querier_send_question(DnsServiceQuerier *sq, bool cache_ok, int 
 
 /* RFC 6762 §5.2: successive queries for one question are at least a second apart. The floor is a
  * property of the question, so every emitter asks before adding to the wire -- the ladder, the
- * continuous schedule, the goodbye rescue and a joining subscriber's catch-up. Nothing is lost by
- * skipping a query in that window: the one already in flight is the same question on the same
- * scopes, so an answer to it refreshes the record well inside the §10.1 grace. */
+ * continuous schedule, the goodbye rescue and a joining subscriber's catch-up. The first two and
+ * the last lose nothing by skipping: the query already out is the same question on the same scopes.
+ * The rescue cannot rely on that -- the answers to that query may have arrived before the goodbye
+ * did -- so it waits for the floor to lift instead, see mdns_queriers_rescue_goodbyes(). */
 static bool mdns_querier_may_query_now(DnsServiceQuerier *sq) {
         assert(sq);
 
@@ -960,6 +961,24 @@ bool mdns_goodbyes_hit_discovered(DnsServiceQuerier *sq, DnsAnswer *goodbyes, in
  * as soon as a goodbye matches it: a surviving publisher's answer then
  * refreshes the record inside the one-second grace and no removal is ever
  * reported. If nobody answers, the goodbye takes effect exactly as before. */
+static int on_mdns_querier_deferred_rescue(sd_event_source *s, uint64_t usec, void *userdata) {
+        _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq =
+                dns_service_querier_ref(ASSERT_PTR(userdata));
+        int r;
+
+        sq->rescue_event = sd_event_source_disable_unref(sq->rescue_event);
+
+        /* Whoever asked in the meantime asked after the goodbye, so that answer is the rescue. */
+        if (!mdns_querier_may_query_now(sq))
+                return 0;
+
+        r = mdns_querier_send_question(sq, /* cache_ok= */ false, sq->rescue_ifindex, sq->rescue_family);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send deferred mDNS rescue query, ignoring: %m");
+
+        return 0;
+}
+
 void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *goodbyes) {
         DnsServiceQuerier *sq;
         int r;
@@ -993,29 +1012,61 @@ void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *goodbyes) {
                 if (!mdns_goodbyes_hit_discovered(sq, goodbyes, dns_scope_ifindex(scope), scope->family))
                         continue;
 
-                /* The §5.2 floor, shared with the ladder and the continuous schedule: a goodbye
-                 * arriving just after either of them put this same question on the wire needs no
-                 * rescue of its own, since the answer to that query refreshes the record inside the
-                 * §10.1 grace just the same. Checked before the budgets, so a rescue that would be
-                 * a duplicate does not spend one. */
-                if (!mdns_querier_may_query_now(sq))
-                        continue;
+                /* A rescue already waiting for the floor covers this goodbye too, provided it reaches
+                 * this scope: widen it if not, on this scope's budget. The querier has one query in
+                 * flight, so widening means its whole coverage, like a ladder query -- and once
+                 * that wide it reaches every scope, so nothing further is charged. */
+                if (sq->rescue_event) {
+                        if ((sq->rescue_ifindex == 0 && sq->rescue_family == AF_UNSPEC) ||
+                            (sq->rescue_ifindex == dns_scope_ifindex(scope) &&
+                             sq->rescue_family == scope->family) ||
+                            !ratelimit_below(&scope->goodbye_rescue_ratelimit))
+                                continue;
 
-                /* What the floor above does not bound is the long run, so two budgets remain: the
-                 * querier's own, and the scope's, which is what stops one received packet matching
-                 * many queriers from multiplying into as many multicasts. The querier's is spent
-                 * first, so a querier about to be refused by its own budget does not spend from the
-                 * shared one. (There is no burst tier: with the one-second floor ahead of this, a
-                 * sub-second second rescue can never reach a budget at all.)
+                        sq->rescue_ifindex = 0;
+                        sq->rescue_family = AF_UNSPEC;
+                        continue;
+                }
+
+                /* Two budgets bound the long run: the querier's own, and the scope's, which is what
+                 * stops one received packet matching many queriers from multiplying into as many
+                 * multicasts. The querier's is spent first, so a querier about to be refused by its
+                 * own budget does not spend from the shared one.
                  *
-                 * The emission below is restricted to this scope -- the one whose budget was just
-                 * charged. The goodbye rewrote this scope's cache entry and a surviving publisher's
-                 * answer must land back in it, so this link and family are where the rescue has
-                 * value; on every other scope the querier covers it would be an unaccounted
-                 * multicast rescuing nothing. */
+                 * The emission is restricted to this scope -- the one whose budget was just charged.
+                 * The goodbye rewrote this scope's cache entry and a surviving publisher's answer
+                 * must land back in it, so this link and family are where the rescue has value; on
+                 * every other scope the querier covers it would be an unaccounted multicast rescuing
+                 * nothing. */
                 if (!ratelimit_below(&sq->goodbye_rescue_ratelimit) ||
                     !ratelimit_below(&scope->goodbye_rescue_ratelimit))
                         continue;
+
+                /* The §5.2 floor. The query that went out less than a second ago does not make this
+                 * rescue redundant: its answers may have arrived before the goodbye did, and then
+                 * nothing refreshes the record before the §10.1 second runs out. So defer to the
+                 * moment the floor lifts, which is still inside that second, rather than drop it. */
+                if (!mdns_querier_may_query_now(sq)) {
+                        sq->rescue_ifindex = dns_scope_ifindex(scope);
+                        sq->rescue_family = scope->family;
+
+                        r = event_reset_time(
+                                        sq->manager->event,
+                                        &sq->rescue_event,
+                                        CLOCK_BOOTTIME,
+                                        usec_add(sq->last_wire_query_usec, USEC_PER_SEC),
+                                        /* accuracy= */ 0,
+                                        on_mdns_querier_deferred_rescue,
+                                        sq,
+                                        /* priority= */ 0,
+                                        "mdns-querier-deferred-rescue",
+                                        /* force_reset= */ true);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to defer mDNS rescue query, ignoring: %m");
+                                sq->rescue_event = sd_event_source_disable_unref(sq->rescue_event);
+                        }
+                        continue;
+                }
 
                 r = mdns_querier_send_question(sq, /* cache_ok= */ false,
                                                dns_scope_ifindex(scope), scope->family);
@@ -1262,6 +1313,7 @@ static void dns_service_querier_detach(DnsServiceQuerier *sq, DnsServiceBrowser 
         hashmap_remove(sq->manager->dns_service_queriers, sq);
         sq->schedule_event = sd_event_source_disable_unref(sq->schedule_event);
         sq->maintenance_event = sd_event_source_disable_unref(sq->maintenance_event);
+        sq->rescue_event = sd_event_source_disable_unref(sq->rescue_event);
 
         /* An in-flight maintenance query holds a reference that would keep the orphaned querier
          * alive until the query completed on its own. */
@@ -1487,6 +1539,7 @@ static DnsServiceQuerier* dns_service_querier_free(DnsServiceQuerier *sq) {
 
         sq->schedule_event = sd_event_source_disable_unref(sq->schedule_event);
         sq->maintenance_event = sd_event_source_disable_unref(sq->maintenance_event);
+        sq->rescue_event = sd_event_source_disable_unref(sq->rescue_event);
 
         sq->question_idna = dns_question_unref(sq->question_idna);
         sq->question_utf8 = dns_question_unref(sq->question_utf8);
