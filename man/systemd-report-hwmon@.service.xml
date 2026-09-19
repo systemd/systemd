@@ -1,0 +1,82 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-report-hwmon_.service" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-report-hwmon@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-report-hwmon@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-report-hwmon@.service</refname>
+    <refname>systemd-report-hwmon.socket</refname>
+    <refname>systemd-report-hwmon</refname>
+    <refpurpose>Report hardware monitoring temperature sensor readings as system report metrics</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-report-hwmon@.service</filename></para>
+    <para><filename>systemd-report-hwmon.socket</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-report-hwmon</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-report-hwmon@.service</command> is a metrics source for
+    <citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry>. It
+    reports the current readings of the temperature sensors exposed by the kernel's hardware monitoring
+    (<literal>hwmon</literal>) subsystem, by implementing the <constant>io.systemd.Metrics</constant> Varlink
+    interface on a socket linked into the <filename>/run/systemd/report/</filename> directory.</para>
+
+    <para>All devices of the <literal>hwmon</literal> subsystem are enumerated, and for each of their
+    <filename>temp<replaceable>N</replaceable>_input</filename> attributes one
+    <literal>io.systemd.Hwmon.Temperature</literal> gauge metric is reported, with the current temperature in
+    degrees Celsius as value. The metric object is the name of the device the hwmon chip belongs to (for
+    example <literal>coretemp.0</literal>, <literal>nvme0</literal> or <literal>thermal_zone0</literal>. The
+    following metric fields are set:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>chip</varname></term>
+        <listitem><para>The name of the hwmon chip, i.e. the contents of its <filename>name</filename>
+        attribute, for example <literal>coretemp</literal> or <literal>nvme</literal>. Omitted if the
+        attribute cannot be read.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>sensor</varname></term>
+        <listitem><para>The sensor name within the chip, i.e.
+        <literal>temp<replaceable>N</replaceable></literal>. Always set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>label</varname></term>
+        <listitem><para>The human readable sensor label, i.e. the contents of the
+        <filename>temp<replaceable>N</replaceable>_label</filename> attribute, for example
+        <literal>Package id 0</literal>. Omitted if the sensor carries no label.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <!-- Note: we do not document the command line switches here. The systemd-report-hwmon binary itself should
+       not be invoked by users, but only as a service. Use systemd-report(1) to acquire metrics. -->
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://docs.kernel.org/hwmon/sysfs-interface.html">Naming and data format standards for sysfs files</ulink></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
