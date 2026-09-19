@@ -26,13 +26,6 @@ struct DnsServiceBrowser {
         LIST_FIELDS(DnsServiceBrowser, subscribers);
 };
 
-typedef enum BrowseServiceUpdateEvent {
-        BROWSE_SERVICE_UPDATE_ADDED,
-        BROWSE_SERVICE_UPDATE_REMOVED,
-        _BROWSE_SERVICE_UPDATE_MAX,
-        _BROWSE_SERVICE_UPDATE_INVALID = -EINVAL,
-} BrowseServiceUpdateEvent;
-
 static const char * const browse_service_update_event_table[_BROWSE_SERVICE_UPDATE_MAX] = {
         [BROWSE_SERVICE_UPDATE_ADDED]   = "added",
         [BROWSE_SERVICE_UPDATE_REMOVED] = "removed",
@@ -61,7 +54,7 @@ static int browse_service_notify(sd_varlink *link, sd_json_variant *array) {
 /* Split the service name out of a PTR record, falling back to the record's key for a target that
  * names no type, and append one browserServiceData entry to the array. Returns > 0 when an entry
  * was appended, 0 when the record describes no service. */
-static int browse_service_update_append(
+int browse_service_update_append(
                 sd_json_variant **array,
                 DnsResourceRecord *rr,
                 int family,
@@ -90,8 +83,9 @@ static int browse_service_update_append(
         if (r < 0)
                 return 0;
 
-        if (!name) {
-                type = mfree(type);
+        /* A target with a type but no instance is a service type enumeration answer (RFC 6763 §9):
+         * the type is the finding, so it must not be traded for the question's own name. */
+        if (!type) {
                 domain = mfree(domain);
 
                 r = dns_service_split(dns_resource_key_name(rr->key), &name, &type, &domain);
