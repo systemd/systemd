@@ -135,3 +135,8 @@ foreach unit : units
                 endforeach
         endif
 endforeach
+
+install_data('app-.service.d/10-defaults.conf',
+             install_dir: userunitdir + '/app-.service.d')
+install_data('app-.scope.d/10-defaults.conf',
+             install_dir: userunitdir + '/app-.scope.d')
