@@ -62,6 +62,36 @@ net_metrics="$(varlinkctl call --more --json=short /run/systemd/report/io.system
 echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' | grep '"value":"192.0.2.1/32"' | grep '"family":"ipv4"' >/dev/null
 ip address del 192.0.2.1/32 dev lo
 
+# test io.systemd.Hwmon Metrics
+systemctl start systemd-report-hwmon.socket
+varlinkctl info /run/systemd/report/io.systemd.Hwmon
+varlinkctl list-methods /run/systemd/report/io.systemd.Hwmon
+hwmon_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Hwmon io.systemd.Metrics.Describe {})"
+echo "$hwmon_describe" | jq --seq -r 'select(.name == "io.systemd.Hwmon.Temperature") | .type' | grep -wx gauge >/dev/null
+# An empty result set is signalled through the io.systemd.Metrics.NoSuchMetric sentinel error, which is what
+# VMs without any hwmon devices produce, hence treat it as success.
+hwmon_metrics="$(varlinkctl call --more --graceful=io.systemd.Metrics.NoSuchMetric /run/systemd/report/io.systemd.Hwmon io.systemd.Metrics.List {})"
+# One row per readable, non-faulted temp<N>_input attribute in sysfs. VMs typically expose no hwmon devices
+# at all, in which case both counts are zero.
+hwmon_expected=0
+for f in /sys/class/hwmon/hwmon*/temp*_input; do
+    hwmon_fault="${f%_input}_fault"
+    if [[ -f "$hwmon_fault" ]] && [[ "$(cat "$hwmon_fault")" == 1 ]]; then
+        continue
+    fi
+    if cat "$f" >/dev/null 2>&1; then
+        hwmon_expected=$((hwmon_expected + 1))
+    fi
+done
+hwmon_reported="$(echo "$hwmon_metrics" | jq --seq -r 'select(.name == "io.systemd.Hwmon.Temperature") | .fields.sensor' | wc -l)"
+[[ "$hwmon_expected" == "$hwmon_reported" ]]
+if [[ "$hwmon_reported" -gt 0 ]]; then
+    # Every row must carry a numeric value, an object and a sensor field of the form temp<N>
+    [[ "$(echo "$hwmon_metrics" | jq --seq -r 'select(.name == "io.systemd.Hwmon.Temperature") | ((.value | type) == "number") and ((.object | type) == "string") and (.fields.sensor | test("^temp[0-9]+$")) | tostring' | sort -u)" == "true" ]]
+fi
+"$REPORT" describe io.systemd.Hwmon
+"$REPORT" metrics io.systemd.Hwmon
+
 # test io.systemd.Basic Metrics
 # ensure the socket is running, as some distros don't enable it by default
 systemctl start systemd-report-basic.socket
