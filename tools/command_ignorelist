@@ -588,3 +588,8 @@ systemd.network.xml ./refsect1[title="[ModemManager] Section Options"]/variablel
 systemd-report-hwmon@.service.xml ./refsect1[title="Description"]/variablelist/varlistentry[term="chip"]
 systemd-report-hwmon@.service.xml ./refsect1[title="Description"]/variablelist/varlistentry[term="sensor"]
 systemd-report-hwmon@.service.xml ./refsect1[title="Description"]/variablelist/varlistentry[term="label"]
+systemd-report-diskspace@.service.xml ./refsect1[title="Description"]/variablelist[1]/varlistentry[term="io.systemd.DiskSpace.SizeBytes"]
+systemd-report-diskspace@.service.xml ./refsect1[title="Description"]/variablelist[1]/varlistentry[term="io.systemd.DiskSpace.FreeBytes"]
+systemd-report-diskspace@.service.xml ./refsect1[title="Description"]/variablelist[2]/varlistentry[term="source"]
+systemd-report-diskspace@.service.xml ./refsect1[title="Description"]/variablelist[2]/varlistentry[term="originatingSource"]
+systemd-report-diskspace@.service.xml ./refsect1[title="Description"]/variablelist[2]/varlistentry[term="fileSystemType"]

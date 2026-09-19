@@ -12,6 +12,7 @@
 
 DLSYM_PROTOTYPE(mnt_free_iter) = NULL;
 DLSYM_PROTOTYPE(mnt_free_table) = NULL;
+DLSYM_PROTOTYPE(mnt_fs_get_devno) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_fs_options) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_fstype) = NULL;
 DLSYM_PROTOTYPE(mnt_fs_get_id) = NULL;
@@ -154,6 +155,7 @@ int dlopen_libmount(int log_level) {
                         log_level,
                         DLSYM_ARG(mnt_free_iter),
                         DLSYM_ARG(mnt_free_table),
+                        DLSYM_ARG(mnt_fs_get_devno),
                         DLSYM_ARG(mnt_fs_get_fs_options),
                         DLSYM_ARG(mnt_fs_get_fstype),
                         DLSYM_ARG(mnt_fs_get_id),
