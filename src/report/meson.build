@@ -30,6 +30,15 @@ executables += [
                 ),
         },
         libexec_template + {
+                'name' : 'systemd-report-diskspace',
+                'export' : files(
+                        'report-diskspace.c',
+                        'report-diskspace-server.c',
+                ),
+                'dependencies' : libmount_cflags,
+                'conditions' : ['HAVE_LIBMOUNT'],
+        },
+        libexec_template + {
                 'name' : 'systemd-report-files',
                 'export' : files(
                         'report-files.c',

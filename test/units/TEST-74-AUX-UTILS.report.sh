@@ -62,6 +62,84 @@ net_metrics="$(varlinkctl call --more --json=short /run/systemd/report/io.system
 echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' | grep '"value":"192.0.2.1/32"' | grep '"family":"ipv4"' >/dev/null
 ip address del 192.0.2.1/32 dev lo
 
+# test io.systemd.DiskSpace Metrics
+systemctl start systemd-report-diskspace.socket
+varlinkctl info /run/systemd/report/io.systemd.DiskSpace
+varlinkctl list-methods /run/systemd/report/io.systemd.DiskSpace
+# varlinkctl emits a JSON-SEQ stream for --more; strip the record separators so that plain jq can consume it
+diskspace_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.DiskSpace io.systemd.Metrics.Describe {} | tr -d '\036')"
+echo "$diskspace_describe" | jq -r 'select(.name == "io.systemd.DiskSpace.FreeBytes") | .type' | grep -wx gauge >/dev/null
+echo "$diskspace_describe" | jq -r 'select(.name == "io.systemd.DiskSpace.SizeBytes") | .type' | grep -wx gauge >/dev/null
+
+# Mount a scratch ext4 file system and check that it is reported with plausible numbers, that a tmpfs next to
+# it is not, that additional bind mounts of it do not result in additional rows but the shortest writable
+# mount path wins, and that it disappears from the report once remounted read-only.
+DISKSPACE_WORK="$(mktemp -d /var/tmp/report-diskspace.XXXXXX)"
+diskspace_cleanup() {
+    set +e
+    umount "$DISKSPACE_WORK/tmpfs" "$DISKSPACE_WORK/a" "$DISKSPACE_WORK/b" "$DISKSPACE_WORK/ext4" "$DISKSPACE_WORK/dm"
+    dmsetup remove report-diskspace
+    systemd-dissect --detach "$DISKSPACE_WORK/scratch.raw"
+    rm -rf "$DISKSPACE_WORK"
+}
+trap diskspace_cleanup EXIT
+mkdir "$DISKSPACE_WORK/ext4" "$DISKSPACE_WORK/a" "$DISKSPACE_WORK/b" "$DISKSPACE_WORK/dm" "$DISKSPACE_WORK/tmpfs"
+truncate -s 64M "$DISKSPACE_WORK/scratch.raw"
+mkfs.ext4 -q "$DISKSPACE_WORK/scratch.raw"
+DISKSPACE_LOOP="$(systemd-dissect --attach --loop-ref=report-diskspace "$DISKSPACE_WORK/scratch.raw")"
+mount "$DISKSPACE_LOOP" "$DISKSPACE_WORK/ext4"
+# "a" sorts before "b" and is just as short, but is read-only, hence "b" must be picked
+mount --bind -o ro "$DISKSPACE_WORK/ext4" "$DISKSPACE_WORK/a"
+mount --bind "$DISKSPACE_WORK/ext4" "$DISKSPACE_WORK/b"
+mount -t tmpfs tmpfs "$DISKSPACE_WORK/tmpfs"
+dd if=/dev/urandom of="$DISKSPACE_WORK/ext4/fill" bs=1M count=8
+sync -f "$DISKSPACE_WORK/ext4"
+
+diskspace_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.DiskSpace io.systemd.Metrics.List {} | tr -d '\036')"
+# Exactly one row per metric for the scratch file system, reported under the shortest writable mount path
+[[ "$(echo "$diskspace_metrics" | jq -r --arg s "$DISKSPACE_LOOP" 'select(.name == "io.systemd.DiskSpace.SizeBytes" and .fields.source == $s) | .object')" == "$DISKSPACE_WORK/b" ]]
+[[ "$(echo "$diskspace_metrics" | jq -r --arg s "$DISKSPACE_LOOP" 'select(.name == "io.systemd.DiskSpace.FreeBytes" and .fields.source == $s) | .object')" == "$DISKSPACE_WORK/b" ]]
+diskspace_size="$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/b" 'select(.name == "io.systemd.DiskSpace.SizeBytes" and .object == $o) | .value')"
+diskspace_free="$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/b" 'select(.name == "io.systemd.DiskSpace.FreeBytes" and .object == $o) | .value')"
+# The file system cannot be larger than the image, and at least the 8M we wrote must be missing from the
+# free space.
+[[ "$diskspace_size" -gt 0 ]]
+[[ "$diskspace_size" -le $((64 * 1024 * 1024)) ]]
+[[ "$diskspace_free" -gt 0 ]]
+[[ $((diskspace_free + 8 * 1024 * 1024)) -le "$diskspace_size" ]]
+# df(1) derives the same two numbers from statfs(), hence they must match exactly.
+read -r diskspace_df_size diskspace_df_avail < <(df -B1 --output=size,avail "$DISKSPACE_WORK/ext4" | sed 1d)
+[[ "$diskspace_size" == "$diskspace_df_size" ]]
+[[ "$diskspace_free" == "$diskspace_df_avail" ]]
+# Both rows must carry the file system type as field, and no originating source, as a loop device is not
+# stacked on anything
+[[ "$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/b" 'select(.object == $o) | .fields.fstype' | sort -u)" == "ext4" ]]
+[[ "$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/b" 'select(.object == $o) | .fields | has("originatingSource") | tostring' | sort -u)" == "false" ]]
+# The tmpfs may not be reported
+(! echo "$diskspace_metrics" | jq -r '.object' | grep -Fx "$DISKSPACE_WORK/tmpfs" >/dev/null)
+
+# Once remounted read-only the file system must no longer be reported, regardless of the mount path
+mount -o remount,ro "$DISKSPACE_WORK/ext4"
+diskspace_metrics="$(varlinkctl call --more --graceful=io.systemd.Metrics.NoSuchMetric /run/systemd/report/io.systemd.DiskSpace io.systemd.Metrics.List {} | tr -d '\036')"
+(! echo "$diskspace_metrics" | jq -r '.fields.source' | grep -Fx "$DISKSPACE_LOOP" >/dev/null)
+
+# Now stack a (linear) device mapper device on top of the loop device, and mount the file system through
+# that: the DM device must be reported as source, and the loop device it sits on as originating source. The
+# loop device must be unmounted first, as DM needs exclusive access to it.
+umount "$DISKSPACE_WORK/a" "$DISKSPACE_WORK/b" "$DISKSPACE_WORK/ext4"
+dmsetup create report-diskspace --table "0 $(blockdev --getsz "$DISKSPACE_LOOP") linear $DISKSPACE_LOOP 0"
+udevadm wait --timeout=30 --settle /dev/mapper/report-diskspace
+mount /dev/mapper/report-diskspace "$DISKSPACE_WORK/dm"
+diskspace_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.DiskSpace io.systemd.Metrics.List {} | tr -d '\036')"
+[[ "$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/dm" 'select(.object == $o) | .fields.source' | sort -u)" == "/dev/mapper/report-diskspace" ]]
+[[ "$(echo "$diskspace_metrics" | jq -r --arg o "$DISKSPACE_WORK/dm" 'select(.object == $o) | .fields.originatingSource' | sort -u)" == "$DISKSPACE_LOOP" ]]
+
+"$REPORT" describe io.systemd.DiskSpace
+"$REPORT" metrics io.systemd.DiskSpace
+
+diskspace_cleanup
+trap - EXIT
+
 # test io.systemd.Basic Metrics
 # ensure the socket is running, as some distros don't enable it by default
 systemctl start systemd-report-basic.socket
