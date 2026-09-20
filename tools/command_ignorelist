@@ -585,3 +585,8 @@ loader.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="secu
 loader.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="secure-boot-enroll-action"]/listitem/variablelist/varlistentry[term="shutdown"]
 varlinkctl.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--system"]
 systemd.network.xml ./refsect1[title="[ModemManager] Section Options"]/variablelist/varlistentry[term="SimpleConnectProperties="]
+systemd-report-diskspace@.service.xml ./refsect1[title="Description"]/variablelist[1]/varlistentry[term="io.systemd.DiskSpace.SizeBytes"]
+systemd-report-diskspace@.service.xml ./refsect1[title="Description"]/variablelist[1]/varlistentry[term="io.systemd.DiskSpace.FreeBytes"]
+systemd-report-diskspace@.service.xml ./refsect1[title="Description"]/variablelist[2]/varlistentry[term="fstype"]
+systemd-report-diskspace@.service.xml ./refsect1[title="Description"]/variablelist[2]/varlistentry[term="source"]
+systemd-report-diskspace@.service.xml ./refsect1[title="Description"]/variablelist[2]/varlistentry[term="originatingSource"]
