@@ -53,7 +53,7 @@
     returns zero if not, positive otherwise.</para>
 
     <para>The <function>Connected()</function> signal message is generated from the
-    <literal>org.freedesktop.DBus.Local</literal> service and interface, and
+    <interfacename>org.freedesktop.DBus.Local</interfacename> service and interface, and
     <literal>/org/freedesktop/DBus/Local</literal> object path. Use
     <citerefentry><refentrytitle>sd_bus_match_signal_async</refentrytitle><manvolnum>3</manvolnum></citerefentry> to
     match on this signal.</para>

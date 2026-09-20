@@ -35,32 +35,32 @@
 
       <funcprototype>
         <funcdef>int <function>sd_event_new</function></funcdef>
-        <paramdef>sd_event **<parameter>event</parameter></paramdef>
+        <paramdef>sd_event **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_default</function></funcdef>
-        <paramdef>sd_event **<parameter>event</parameter></paramdef>
+        <paramdef>sd_event **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_event *<function>sd_event_ref</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>sd_event *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_event *<function>sd_event_unref</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>sd_event *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>void <function>sd_event_unrefp</function></funcdef>
-        <paramdef>sd_event **<parameter>event</parameter></paramdef>
+        <paramdef>sd_event **<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_event_get_tid</function></funcdef>
-        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>sd_event *<parameter>e</parameter></paramdef>
         <paramdef>pid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
@@ -72,7 +72,7 @@
 
     <para><function>sd_event_new()</function> allocates a new event
     loop object. The event loop object is returned in the
-    <parameter>event</parameter> parameter. After use, drop
+    <parameter>ret</parameter> parameter. After use, drop
     the returned reference with
     <function>sd_event_unref()</function>. When the last reference is
     dropped, the object is freed.</para>
@@ -203,7 +203,7 @@
     <para><function>sd_event_new()</function>,
     <function>sd_event_default()</function>,
     <function>sd_event_ref()</function>, and
-    <function>sd_event_unref()</function> were added in version 213.</para>
+    <function>sd_event_unref()</function> were added in version 221.</para>
     <para><function>sd_event_unrefp()</function> and
     <function>sd_event_get_tid()</function> were added in version 229.</para>
   </refsect1>

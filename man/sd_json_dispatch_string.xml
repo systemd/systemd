@@ -49,7 +49,7 @@
         <funcdef>int <function>sd_json_dispatch_string</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -57,7 +57,7 @@
         <funcdef>int <function>sd_json_dispatch_const_string</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -65,7 +65,7 @@
         <funcdef>int <function>sd_json_dispatch_strv</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -73,7 +73,7 @@
         <funcdef>int <function>sd_json_dispatch_stdbool</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -81,7 +81,7 @@
         <funcdef>int <function>sd_json_dispatch_intbool</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -89,7 +89,7 @@
         <funcdef>int <function>sd_json_dispatch_tristate</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -97,7 +97,7 @@
         <funcdef>int <function>sd_json_dispatch_variant</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -105,7 +105,7 @@
         <funcdef>int <function>sd_json_dispatch_variant_noref</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -113,7 +113,7 @@
         <funcdef>int <function>sd_json_dispatch_int64</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -121,7 +121,7 @@
         <funcdef>int <function>sd_json_dispatch_int32</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -129,7 +129,7 @@
         <funcdef>int <function>sd_json_dispatch_int16</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -137,7 +137,7 @@
         <funcdef>int <function>sd_json_dispatch_int8</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -145,7 +145,7 @@
         <funcdef>int <function>sd_json_dispatch_uint64</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -153,7 +153,7 @@
         <funcdef>int <function>sd_json_dispatch_uint32</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -161,7 +161,7 @@
         <funcdef>int <function>sd_json_dispatch_uint16</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -169,7 +169,7 @@
         <funcdef>int <function>sd_json_dispatch_uint8</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -177,7 +177,7 @@
         <funcdef>int <function>sd_json_dispatch_double</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -185,7 +185,7 @@
         <funcdef>int <function>sd_json_dispatch_uid_gid</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -193,7 +193,7 @@
         <funcdef>int <function>sd_json_dispatch_id128</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -201,7 +201,7 @@
         <funcdef>int <function>sd_json_dispatch_signal</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -209,7 +209,7 @@
         <funcdef>int <function>sd_json_dispatch_unsupported</function></funcdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
-        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_dispatch_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
@@ -296,8 +296,8 @@
     the JSON null value is passed, the all-zero ID is assigned.</para>
 
     <para><function>sd_json_dispatch_signal()</function> decodes a UNIX process signal specification. It
-    expects either an JSON string containing a signal name such as <literal>SIGINT</literal> or
-    <literal>SIGTERM</literal>, or an unsigned JSON integer value with the signal number (in the Linux
+    expects either an JSON string containing a signal name such as <constant>SIGINT</constant> or
+    <constant>SIGTERM</constant>, or an unsigned JSON integer value with the signal number (in the Linux
     definition). The indicated memory must point to an <type>int</type> variable to write the signal number
     to. If the JSON null value is passed a negative value will be written to the memory.</para>
 
