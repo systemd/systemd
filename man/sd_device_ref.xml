@@ -28,26 +28,26 @@
 
       <funcprototype>
         <funcdef>sd_device* <function>sd_device_ref</function></funcdef>
-        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>sd_device *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_device* <function>sd_device_unref</function></funcdef>
-        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>sd_device *<parameter>p</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>void <function>sd_device_unrefp</function></funcdef>
-        <paramdef>sd_device **<parameter>device</parameter></paramdef>
+        <paramdef>sd_device **<parameter>p</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
 
     <para><function>sd_device_ref()</function> increases the internal reference counter of
-    <parameter>device</parameter> by one.</para>
+    <parameter>p</parameter> by one.</para>
 
     <para><function>sd_device_unref()</function> decreases the internal reference counter of
-    <parameter>device</parameter> by one. Once the reference count has dropped to zero,
-    <parameter>device</parameter> is destroyed and cannot be used anymore, so further calls to
+    <parameter>p</parameter> by one. Once the reference count has dropped to zero,
+    <parameter>p</parameter> is destroyed and cannot be used anymore, so further calls to
     <function>sd_device_ref()</function> or <function>sd_device_unref()</function> are illegal.</para>
 
     <para><function>sd_device_unrefp()</function> is similar to <function>sd_device_unref()</function> but

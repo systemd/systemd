@@ -29,13 +29,13 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_message_read_strv</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
-        <paramdef>char ***<parameter>l</parameter></paramdef>
+        <paramdef>char ***<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_read_strv_extend</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
-        <paramdef>char ***<parameter>l</parameter></paramdef>
+        <paramdef>char ***<parameter>strv</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -48,14 +48,14 @@
     strings (D-Bus type <literal>as</literal>), object paths (D-Bus type <literal>ao</literal>), or
     signatures (D-Bus type <literal>ag</literal>). On success, a pointer to a
     <constant>NULL</constant>-terminated array of strings (strv) is returned in the output parameter
-    <parameter>l</parameter>. Note that ownership of this array is transferred to the caller. Hence, the
+    <parameter>ret</parameter>. Note that ownership of this array is transferred to the caller. Hence, the
     caller is responsible for freeing this array and its contents. Also note that as a matter of
     optimization, if an empty array is encountered a <constant>NULL</constant> pointer might be returned
     here, and should be considered equivalent to an array with zero entries.</para>
 
     <para><function>sd_bus_message_read_strv_extend()</function> is similar, but the second parameter is an
-    input-output parameter. If <parameter>*l</parameter> is <constant>NULL</constant>, if behaves identically
-    to <function>sd_bus_message_read_strv()</function>. Otherwise, <parameter>*l</parameter> must point to a
+    input-output parameter. If <parameter>*strv</parameter> is <constant>NULL</constant>, if behaves identically
+    to <function>sd_bus_message_read_strv()</function>. Otherwise, <parameter>*strv</parameter> must point to a
     strv, which will be reallocated and extended with additional strings. This function is particularly
     useful when combining multiple lists of strings in a message or messages into a single array of strings.
     </para>
@@ -76,35 +76,27 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para><parameter>m</parameter> or <parameter>l</parameter> are <constant>NULL</constant>.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para><parameter>m</parameter> or <parameter>ret</parameter> are <constant>NULL</constant>.
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The message is not sealed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The message is not sealed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EBADMSG</constant></term>
 
-          <listitem><para>The message cannot be parsed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The message cannot be parsed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENXIO</constant></term>
 
           <listitem><para>The message "read pointer" is not right before an array of the appropriate type.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+          </para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -114,7 +106,7 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_message_read_strv()</function> was added in version 246.</para>
+    <para><function>sd_bus_message_read_strv()</function> was added in version 221.</para>
     <para><function>sd_bus_message_read_strv_extend()</function> was added in version 252.</para>
   </refsect1>
 

@@ -19,42 +19,42 @@
 #include "string-util.h"
 #include "user-util.h"
 
-_public_ char *sd_id128_to_string(sd_id128_t id, char s[static SD_ID128_STRING_MAX]) {
+_public_ char *sd_id128_to_string(sd_id128_t id, char ret[static SD_ID128_STRING_MAX]) {
         size_t k = 0;
 
-        assert_return(s, NULL);
+        assert_return(ret, NULL);
 
         for (size_t n = 0; n < sizeof(sd_id128_t); n++) {
-                s[k++] = hexchar(id.bytes[n] >> 4);
-                s[k++] = hexchar(id.bytes[n] & 0xF);
+                ret[k++] = hexchar(id.bytes[n] >> 4);
+                ret[k++] = hexchar(id.bytes[n] & 0xF);
         }
 
         assert(k == SD_ID128_STRING_MAX - 1);
-        s[k] = 0;
+        ret[k] = 0;
 
-        return s;
+        return ret;
 }
 
-_public_ char *sd_id128_to_uuid_string(sd_id128_t id, char s[static SD_ID128_UUID_STRING_MAX]) {
+_public_ char *sd_id128_to_uuid_string(sd_id128_t id, char ret[static SD_ID128_UUID_STRING_MAX]) {
         size_t k = 0;
 
-        assert_return(s, NULL);
+        assert_return(ret, NULL);
 
         /* Similar to sd_id128_to_string() but formats the result as UUID instead of plain hex chars */
 
         for (size_t n = 0; n < sizeof(sd_id128_t); n++) {
 
                 if (IN_SET(n, 4, 6, 8, 10))
-                        s[k++] = '-';
+                        ret[k++] = '-';
 
-                s[k++] = hexchar(id.bytes[n] >> 4);
-                s[k++] = hexchar(id.bytes[n] & 0xF);
+                ret[k++] = hexchar(id.bytes[n] >> 4);
+                ret[k++] = hexchar(id.bytes[n] & 0xF);
         }
 
         assert(k == SD_ID128_UUID_STRING_MAX - 1);
-        s[k] = 0;
+        ret[k] = 0;
 
-        return s;
+        return ret;
 }
 
 _public_ int sd_id128_from_string(const char *s, sd_id128_t *ret) {

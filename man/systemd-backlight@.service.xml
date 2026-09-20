@@ -52,7 +52,7 @@
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para><filename>systemd-backlight</filename> understands the
+    <para><command>systemd-backlight</command> understands the
     following kernel command line parameter:</para>
 
     <variablelist class='kernel-commandline-options'>

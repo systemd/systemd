@@ -80,8 +80,8 @@
 
       <funcprototype>
         <funcdef>int <function>sd_id128_string_equal</function></funcdef>
-        <paramdef>const char *<parameter>a</parameter></paramdef>
-        <paramdef>sd_id128_t <parameter>b</parameter></paramdef>
+        <paramdef>const char *<parameter>s</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
