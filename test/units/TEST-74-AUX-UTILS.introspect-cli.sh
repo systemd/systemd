@@ -110,6 +110,7 @@ INTROSPECTABLE=(
     systemd-report-basic
     systemd-report-cgroup
     systemd-report-files
+    systemd-report-hwmon
     systemd-report-sign-plain
     systemd-report-sign-tpm2
     systemd-report-sign-tsm
