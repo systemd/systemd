@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <poll.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #if HAVE_VALGRIND_VALGRIND_H
@@ -14,6 +17,7 @@
 #include "argv-util.h"
 #include "chattr-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "hashmap.h"
 #include "iovec-util.h"
 #include "journal-file-util.h"
@@ -23,6 +27,8 @@
 #include "logs-show.h"
 #include "lookup3.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
 #include "sigbus.h"
@@ -583,6 +589,20 @@ static void assert_no_current_entry(sd_journal *j) {
         ASSERT_ERROR(sd_journal_get_seqnum(j, &value, &id), EADDRNOTAVAIL);
 }
 
+static unsigned count_journal_entries(sd_journal *j) {
+        unsigned n = 0;
+        int r;
+
+        ASSERT_OK(sd_journal_seek_head(j));
+        for (;;) {
+                ASSERT_OK(r = sd_journal_next(j));
+                if (r == 0)
+                        return n;
+
+                n++;
+        }
+}
+
 TEST(reader_position_invalidation) {
         _cleanup_(test_donep) char *t = NULL;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -774,6 +794,125 @@ TEST(cursor_and_data_lifetime) {
                 n_fields++;
         }
         ASSERT_EQ(n_fields, 2U);
+}
+
+TEST(open_and_follow_edge_cases) {
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_free_ char *bad = NULL, *moved = NULL, *one = NULL, *renamed = NULL, *two = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *writer = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close_ int directory_fd = -EBADF, failure_fd = -EBADF;
+        int owned_directory_fd, r;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-open-XXXXXX", &t);
+        setup_sequential();
+
+        ASSERT_NOT_NULL(bad = path_join(t, "bad.journal"));
+        ASSERT_NOT_NULL(moved = path_join(t, "moved.journal"));
+        ASSERT_NOT_NULL(one = path_join(t, "one.journal"));
+        ASSERT_NOT_NULL(renamed = strjoin(t, ".renamed"));
+        ASSERT_NOT_NULL(two = path_join(t, "two.journal"));
+        ASSERT_OK(write_string_file(bad, "not a journal", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_EQ(count_journal_entries(j), 9U);
+        sd_journal_close(j);
+        j = NULL;
+
+        const char *bad_paths[] = { bad, NULL };
+        ASSERT_FAIL(sd_journal_open_files(&j, bad_paths, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_NULL(j);
+
+        const char *paths[] = { one, two, NULL };
+        ASSERT_OK(sd_journal_open_files(&j, paths, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_EQ(count_journal_entries(j), 6U);
+        sd_journal_close(j);
+        j = NULL;
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, 0));
+        ASSERT_OK_POSITIVE(sd_journal_get_fd(j));
+        ASSERT_EQ(sd_journal_get_events(j), POLLIN);
+        uint64_t timeout;
+        ASSERT_OK_ZERO(sd_journal_get_timeout(j, &timeout));
+        ASSERT_EQ(timeout, UINT64_MAX);
+        ASSERT_OK_POSITIVE(sd_journal_reliable_fd(j));
+        ASSERT_OK_ZERO(sd_journal_process(j));
+
+        writer = test_open("one.journal");
+        append_number(writer, 10, NULL, NULL, NULL);
+        ASSERT_OK(r = sd_journal_wait(j, 5 * USEC_PER_SEC));
+        ASSERT_TRUE(IN_SET(r, SD_JOURNAL_APPEND, SD_JOURNAL_INVALIDATE));
+        sd_journal_flush_matches(j);
+        ASSERT_OK(sd_journal_add_match(j, "NUMBER=10", SIZE_MAX));
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 10);
+        writer = journal_file_offline_close(writer);
+        sd_journal_close(j);
+        j = NULL;
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_get_fd(j), EUNATCH));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_get_events(j), EUNATCH));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_get_timeout(j, &timeout), EUNATCH));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_wait(j, 0), EUNATCH));
+        ASSERT_OK_POSITIVE(sd_journal_reliable_fd(j));
+
+        r = pidref_safe_fork("(journal-fork-test)", FORK_WAIT|FORK_LOG, NULL);
+        if (r == 0) {
+                ASSERT_RETURN_EXPECTED_SE(sd_journal_next(j) == -ECHILD);
+                ASSERT_RETURN_EXPECTED_SE(sd_journal_get_fd(j) == -ECHILD);
+                sd_journal_close(j);
+                _exit(EXIT_SUCCESS);
+        }
+        ASSERT_OK(r);
+        sd_journal_close(j);
+        j = NULL;
+
+        directory_fd = open(t, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        ASSERT_OK_ERRNO(directory_fd);
+        owned_directory_fd = directory_fd;
+        ASSERT_OK(sd_journal_open_directory_fd(
+                        &j,
+                        TAKE_FD(directory_fd),
+                        SD_JOURNAL_TAKE_DIRECTORY_FD|SD_JOURNAL_ASSUME_IMMUTABLE));
+
+        ASSERT_OK_ERRNO(rename(t, renamed));
+        ASSERT_OK_ERRNO(mkdir(t, 0755));
+        ASSERT_EQ(count_journal_entries(j), 10U);
+        sd_journal_close(j);
+        j = NULL;
+        ASSERT_ERROR_ERRNO(fcntl(owned_directory_fd, F_GETFD), EBADF);
+        ASSERT_OK_ERRNO(rmdir(t));
+        ASSERT_OK_ERRNO(rename(renamed, t));
+
+        failure_fd = open(one, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        ASSERT_OK_ERRNO(failure_fd);
+        int failure_fds[] = { failure_fd, -EBADF };
+        ASSERT_ERROR(sd_journal_open_files_fd(
+                             &j,
+                             failure_fds,
+                             ELEMENTSOF(failure_fds),
+                             SD_JOURNAL_ASSUME_IMMUTABLE), EBADF);
+        ASSERT_NULL(j);
+        ASSERT_OK_ERRNO(fcntl(failure_fd, F_GETFD));
+
+        int fds[] = {
+                open(one, O_RDONLY|O_CLOEXEC|O_NONBLOCK),
+                open(two, O_RDONLY|O_CLOEXEC|O_NONBLOCK),
+        };
+        ASSERT_OK_ERRNO(fds[0]);
+        ASSERT_OK_ERRNO(fds[1]);
+        ASSERT_OK_ERRNO(rename(one, moved));
+        ASSERT_OK(sd_journal_open_files_fd(&j, fds, ELEMENTSOF(fds), SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK_ERRNO(unlink(moved));
+        ASSERT_OK_ERRNO(unlink(two));
+        ASSERT_EQ(count_journal_entries(j), 7U);
+        sd_journal_flush_matches(j);
+        ASSERT_OK(sd_journal_add_match(j, "NUMBER=10", SIZE_MAX));
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 10);
 }
 
 static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
