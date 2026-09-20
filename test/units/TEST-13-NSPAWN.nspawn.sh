@@ -1539,6 +1539,29 @@ testcase_unpriv_dir() {
     rm -rf "$root"
 }
 
+testcase_managed_userns_released() {
+    # The user namespace a managed container gets is released once the container is gone: nothing but the
+    # container references it, and nsresourced's reclamation relies on that.
+    if ! can_do_rootless_nspawn; then
+        echo "Skipping managed user namespace test..."
+        return 0
+    fi
+
+    local root pid
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.managed.XXX)"
+    create_dummy_container "$root"
+    systemd-dissect --shift "$root" foreign
+
+    # The registry names the namespace nspawn-<pid>-<machine>; a machine name this short is not mangled.
+    systemd-nspawn --pipe --register=no -D "$root" --machine=mreap --private-users=managed --private-network bash -c 'sleep 3' &
+    pid=$!
+    timeout 20 bash -c 'until compgen -G "/run/systemd/nsresource/registry/nnspawn-*-mreap.userns" >/dev/null; do sleep .2; done'
+    wait "$pid"
+    timeout 20 bash -c 'while compgen -G "/run/systemd/nsresource/registry/nnspawn-*-mreap.userns" >/dev/null; do sleep .2; done'
+
+    rm -rf "$root"
+}
+
 testcase_link_journal_host() {
     local root hoge i
 
