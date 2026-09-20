@@ -5078,7 +5078,7 @@ static void pids_max_restore(PidsMaxRestore *p) {
         p->cgroup_path = NULL;
 }
 
-int unit_kill_context(Unit *u, KillOperation k) {
+static int unit_kill_context_full(Unit *u, KillOperation k, bool main_pid_only) {
         bool wait_for_exit = false, send_sighup;
         cg_kill_log_func_t log_func = NULL;
         int sig, r;
@@ -5106,14 +5106,22 @@ int unit_kill_context(Unit *u, KillOperation k) {
         bool is_alien;
         PidRef *main_pid = unit_main_pid_full(u, &is_alien);
         r = unit_kill_context_one(u, main_pid, "main", is_alien, sig, send_sighup, log_func);
+        if (main_pid_only)
+                return r;
         wait_for_exit = wait_for_exit || r > 0;
 
         r = unit_kill_context_one(u, unit_control_pid(u), "control", /* is_alien= */ false, sig, send_sighup, log_func);
         wait_for_exit = wait_for_exit || r > 0;
 
+        /* With KillMode=mixed the main process is the one that shall take its children down. Once it is
+         * gone nobody will, hence from then on treat the rest of the cgroup like KillMode=control-group
+         * does: the same signal first, SIGKILL only after the stop timeout. Otherwise helpers such as
+         * (sd-pam), which needs its parent to be gone before it may close the PAM session, would be
+         * killed the moment they get to do their job. */
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt && crt->cgroup_path &&
-            (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
+            (c->kill_mode == KILL_CONTROL_GROUP ||
+             (c->kill_mode == KILL_MIXED && (k == KILL_KILL || !pidref_is_set(main_pid))))) {
                 _cleanup_(pids_max_restore) PidsMaxRestore state = {
                         .unit = u,
                 };
@@ -5176,6 +5184,16 @@ int unit_kill_context(Unit *u, KillOperation k) {
         }
 
         return wait_for_exit;
+}
+
+int unit_kill_context(Unit *u, KillOperation k) {
+        return unit_kill_context_full(u, k, /* main_pid_only= */ false);
+}
+
+int unit_kill_main_pid(Unit *u, KillOperation k) {
+        /* For when the main process changed after unit_kill_context() ran, e.g. the pid namespace child
+         * setup_private_pids() hands over. */
+        return unit_kill_context_full(u, k, /* main_pid_only= */ true);
 }
 
 int unit_add_mounts_for(Unit *u, const char *path, UnitDependencyMask mask, UnitMountDependencyType type) {
