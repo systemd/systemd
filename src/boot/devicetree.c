@@ -91,11 +91,10 @@ EFI_STATUS devicetree_install(
                 /* 32MB device tree blob doesn't seem right */
                 return EFI_INVALID_PARAMETER;
 
-        len = info->FileSize;
-        err = file_handle_read(handle, /* offset= */ 0, len, &dtb, &len);
+        err = file_handle_read(handle, /* offset= */ 0, info->FileSize, &dtb, &len);
         if (err != EFI_SUCCESS)
                 return err;
-        if (len < FDT_V1_SIZE)
+        if (len != info->FileSize)
                 return EFI_INVALID_PARAMETER;
 
         err = devicetree_install_from_memory(state, dtb, len);

@@ -182,7 +182,9 @@ a tagged event after it is read and installed successfully.
 
 → **Event Tag** `0x6c46f751`
 
-→ **Description** is the DeviceTree path from the Type #1 entry, in UTF-16.
+→ **Description** is the DeviceTree path from the Type #1 entry, in UTF-16,
+normalized to an EFI-style path with backslash separators and duplicate
+separators collapsed.
 
 → **Measured hash** covers the content of the DeviceTree exactly as read from
 disk, before any firmware fixups are applied.

@@ -3042,11 +3042,11 @@ static EFI_STATUS call_image_start(
                                         dtb.iov_len,
                                         DEVICETREE_EVENT_TAG_ID,
                                         entry->devicetree,
-                                        NULL);
+                                        /* ret_measured= */ NULL);
                         if (err != EFI_SUCCESS)
-                                log_error_status(
+                                log_warning_status(
                                                 err,
-                                                "Unable to extend PCR %i with DTB '%ls': %m",
+                                                "Unable to extend PCR %i with DTB '%ls', ignoring: %m",
                                                 TPM2_PCR_KERNEL_CONFIG,
                                                 entry->devicetree);
                 }
