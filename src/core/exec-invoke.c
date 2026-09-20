@@ -2685,6 +2685,14 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
                                 &IOVEC_MAKE(&pidref.pid, sizeof(pidref.pid)),
                                 /* iovlen= */ 1,
                                 /* flags= */ 0);
+
+                /* Drop our copy of exec_fd before we let the child go on: the child has its own, and the
+                 * service manager takes the EOF on it as the child's execve(). If we kept ours until we
+                 * exit, a child that execve()s and dies before we get to run again would be reaped with
+                 * the EOF still pending, and a Type=exec service would fail to start instead of having
+                 * started and failed. */
+                p->exec_fd = safe_close(p->exec_fd);
+
                 /* Send error code to child process. */
                 (void) write(errno_pipe[1], &q, sizeof(q));
                 /* Exit here so we only go through the destructors in exec_invoke only once - in the child - as
