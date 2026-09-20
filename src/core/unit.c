@@ -5078,6 +5078,29 @@ static void pids_max_restore(PidsMaxRestore *p) {
         p->cgroup_path = NULL;
 }
 
+int unit_kill_main_pid(Unit *u, KillOperation k) {
+        assert(u);
+
+        /* Sends the signal of the operation to the main process only. For when the main process changed
+         * after unit_kill_context() ran, e.g. the pid namespace child setup_private_pids() hands over. */
+
+        KillContext *c = unit_get_kill_context(u);
+        if (!c || c->kill_mode == KILL_NONE)
+                return 0;
+
+        bool noteworthy;
+        int sig = operation_to_signal(c, k, &noteworthy);
+
+        bool send_sighup =
+                c->send_sighup &&
+                IN_SET(k, KILL_TERMINATE, KILL_TERMINATE_AND_LOG) &&
+                sig != SIGHUP;
+
+        bool is_alien;
+        PidRef *main_pid = unit_main_pid_full(u, &is_alien);
+        return unit_kill_context_one(u, main_pid, "main", is_alien, sig, send_sighup, noteworthy ? log_kill : NULL);
+}
+
 int unit_kill_context(Unit *u, KillOperation k) {
         bool wait_for_exit = false, send_sighup;
         cg_kill_log_func_t log_func = NULL;
@@ -5111,9 +5134,15 @@ int unit_kill_context(Unit *u, KillOperation k) {
         r = unit_kill_context_one(u, unit_control_pid(u), "control", /* is_alien= */ false, sig, send_sighup, log_func);
         wait_for_exit = wait_for_exit || r > 0;
 
+        /* With KillMode=mixed the main process is the one that shall take its children down. Once it is
+         * gone nobody will, hence from then on treat the rest of the cgroup like KillMode=control-group
+         * does: the same signal first, SIGKILL only after the stop timeout. Otherwise helpers such as
+         * (sd-pam), which needs its parent to be gone before it may close the PAM session, would be
+         * killed the moment they get to do their job. */
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt && crt->cgroup_path &&
-            (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
+            (c->kill_mode == KILL_CONTROL_GROUP ||
+             (c->kill_mode == KILL_MIXED && (k == KILL_KILL || !pidref_is_set(main_pid))))) {
                 _cleanup_(pids_max_restore) PidsMaxRestore state = {
                         .unit = u,
                 };

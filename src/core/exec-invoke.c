@@ -1297,13 +1297,13 @@ static int setup_pam(
         };
 
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
+        _cleanup_(pidref_done) PidRef parent_pidref = PIDREF_NULL;
         _cleanup_strv_free_ char **e = NULL;
         _cleanup_free_ char *tty = NULL;
         pam_handle_t *pamh = NULL;
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS, r;
         bool close_session = false;
-        pid_t parent_pid;
         int flags = 0;
 
         assert(context);
@@ -1371,11 +1371,15 @@ static int setup_pam(
                 goto fail;
         }
 
-        /* Block SIGTERM, so that we know that it won't get lost in the child */
+        /* Take a pidfd of ourselves for the child: it becomes readable once we are gone, which is when the
+         * child shall close the session. */
+        r = pidref_set_self(&parent_pidref);
+        if (r < 0)
+                goto fail;
 
+        /* Block SIGTERM. The child inherits the mask and keeps it, so that the SIGTERM the service manager
+         * sends to the whole cgroup with KillMode=control-group does not end it before we are gone. */
         assert_se(sigprocmask_many(SIG_BLOCK, &old_ss, SIGTERM) >= 0);
-
-        parent_pid = getpid_cached();
 
         r = pidref_safe_fork("(sd-pam)", /* flags= */ 0, /* ret= */ NULL);
         if (r < 0)
@@ -1404,47 +1408,39 @@ static int setup_pam(
                  * we'd never signal completion. */
                 exec_fd = safe_close(exec_fd);
 
-                /* Drop privileges - we don't need any to pam_close_session and this will make
-                 * PR_SET_PDEATHSIG work in most cases.  If this fails, ignore the error - but expect sd-pam
-                 * threads to fail to exit normally */
-
+                /* Drop privileges - we don't need any to pam_close_session. If this fails, ignore the error. */
                 r = fully_set_uid_gid(uid, gid, /* supplementary_gids= */ NULL, /* n_supplementary_gids= */ 0);
                 if (r < 0)
                         log_warning_errno(r, "Failed to drop privileges in sd-pam: %m");
 
                 (void) ignore_signals(SIGPIPE);
 
-                /* Wait until our parent died. This will only work if the above setresuid() succeeds,
-                 * otherwise the kernel will not allow unprivileged parents kill their privileged children
-                 * this way. We rely on the control groups kill logic to do the rest for us. */
-                r = prctl_safe(PR_SET_PDEATHSIG, SIGTERM, 0, 0, 0);
-                if (r < 0)
-                        goto child_finish;
-
-                /* Tell the parent that our setup is done. This is especially important regarding dropping
-                 * privileges. Otherwise, unit setup might race against our setresuid(2) call.
+                /* Tell the parent that our setup is done, most importantly that we closed exec_fd: from now
+                 * on the EOF the service manager waits for with Type=exec is the parent's execve() alone.
                  *
                  * If the parent aborted, we'll detect this below, hence ignore return failure here. */
                 (void) barrier_place(&barrier);
 
-                /* Check if our parent process might already have died? */
-                if (getppid() == parent_pid) {
-                        sigset_t ss;
-                        int sig;
-
-                        assert_se(sigemptyset(&ss) >= 0);
-                        assert_se(sigaddset(&ss, SIGTERM) >= 0);
-
-                        assert_se(sigwait(&ss, &sig) == 0);
-                        assert(sig == SIGTERM);
-                }
-
-                /* If our parent died we'll end the session */
-                if (getppid() != parent_pid) {
-                        pam_code = pam_close_session_and_delete_credentials(pamh, flags);
-                        if (pam_code != PAM_SUCCESS)
+                /* Wait until our parent is gone. The pidfd we inherited refers to it whatever its PID is
+                 * reused for, and becomes readable once it exited. SIGTERM stays blocked: with
+                 * KillMode=control-group the service manager sends it to us together with the parent, but
+                 * it's the parent's death that ends the session. SIGKILL will still get us. */
+                for (;;) {
+                        r = fd_wait_for_event(parent_pidref.fd, POLLIN, USEC_INFINITY);
+                        if (r == -EINTR || r == 0)
+                                continue;
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to wait for parent process, not closing PAM session: %m");
                                 goto child_finish;
+                        }
+
+                        break;
                 }
+
+                /* Our parent is gone, end the session */
+                pam_code = pam_close_session_and_delete_credentials(pamh, flags);
+                if (pam_code != PAM_SUCCESS)
+                        goto child_finish;
 
                 ret = 0;
 
@@ -1456,6 +1452,7 @@ static int setup_pam(
         }
 
         barrier_set_role(&barrier, BARRIER_PARENT);
+        pidref_done(&parent_pidref);
 
         /* If the child was forked off successfully it will do all the cleanups, so forget about the handle
          * here. */
@@ -2688,6 +2685,14 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
                                 &IOVEC_MAKE(&pidref.pid, sizeof(pidref.pid)),
                                 /* iovlen= */ 1,
                                 /* flags= */ 0);
+
+                /* Drop our copy of exec_fd before we let the child go on: the child has its own, and the
+                 * service manager takes the EOF on it as the child's execve(). If we kept ours until we
+                 * exit, a child that execve()s and dies before we get to run again would be reaped with
+                 * the EOF still pending, and a Type=exec service would fail to start instead of having
+                 * started and failed. */
+                p->exec_fd = safe_close(p->exec_fd);
+
                 /* Send error code to child process. */
                 (void) write(errno_pipe[1], &q, sizeof(q));
                 /* Exit here so we only go through the destructors in exec_invoke only once - in the child - as
