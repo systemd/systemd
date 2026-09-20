@@ -21,10 +21,12 @@
 #include "journal-vacuum.h"
 #include "log.h"
 #include "logs-show.h"
+#include "lookup3.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
 #include "sigbus.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
@@ -644,6 +646,134 @@ TEST(reader_position_invalidation) {
         ASSERT_OK(sd_journal_seek_head(j));
         ASSERT_OK_POSITIVE(sd_journal_next(j));
         test_check_number(j, 1);
+}
+
+TEST(cursor_and_data_lifetime) {
+        static const uint8_t binary[] = { 'B', 'I', 'N', 'A', 'R', 'Y', '=', 'a', 0, 'b' };
+        static const char small[] = "SMALL=x";
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ char *cursor = NULL, *expected = NULL, *with_unknown = NULL;
+        struct iovec iovec[] = {
+                IOVEC_MAKE_STRING(small),
+                IOVEC_MAKE((void*) binary, sizeof(binary)),
+        };
+        uint64_t seqnum = 0, value, expected_xor;
+        sd_id128_t seqnum_id, boot_id, id;
+        dual_timestamp ts;
+        const void *data;
+        size_t size;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-cursor-XXXXXX", &t);
+        ASSERT_OK(sd_id128_randomize(&seqnum_id));
+        ASSERT_OK(sd_id128_randomize(&boot_id));
+        ASSERT_NOT_NULL(dual_timestamp_now(&ts));
+
+        f = test_open_internal("test.journal", 0);
+        ASSERT_OK(journal_file_append_entry(
+                        f,
+                        &ts,
+                        &boot_id,
+                        iovec,
+                        ELEMENTSOF(iovec),
+                        &seqnum,
+                        &seqnum_id,
+                        NULL,
+                        NULL));
+        ASSERT_EQ(seqnum, 1U);
+        f = journal_file_offline_close(f);
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+
+        expected_xor = jenkins_hash64(small, strlen(small)) ^ jenkins_hash64(binary, sizeof(binary));
+        ASSERT_OK(asprintf(
+                        &expected,
+                        "s=%s;i=1;b=%s;m=%" PRIx64 ";t=%" PRIx64 ";x=%" PRIx64,
+                        SD_ID128_TO_STRING(seqnum_id),
+                        SD_ID128_TO_STRING(boot_id),
+                        ts.monotonic,
+                        ts.realtime,
+                        expected_xor));
+        ASSERT_OK(sd_journal_get_cursor(j, &cursor));
+        ASSERT_STREQ(cursor, expected);
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, cursor));
+        ASSERT_OK_ZERO(sd_journal_test_cursor(j, "i=0"));
+        ASSERT_ERROR(sd_journal_test_cursor(j, "broken"), EINVAL);
+
+        ASSERT_NOT_NULL(with_unknown = strjoin(cursor, ";q=ignored"));
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, with_unknown));
+        ASSERT_ERROR(sd_journal_test_cursor(j, "provider=ignored"), EINVAL);
+        ASSERT_OK(sd_journal_seek_cursor(j, with_unknown));
+        assert_no_current_entry(j);
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, cursor));
+
+        ASSERT_ERROR(sd_journal_seek_cursor(j, "provider=ignored"), EINVAL);
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, cursor));
+        ASSERT_ERROR(sd_journal_seek_cursor(j, "i=not-a-number"), EINVAL);
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, cursor));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_seek_cursor(j, ""), EINVAL));
+
+        ASSERT_OK(sd_journal_set_data_threshold(j, 4));
+        ASSERT_OK(sd_journal_get_data_threshold(j, &size));
+        ASSERT_EQ(size, 4U);
+        ASSERT_OK(sd_journal_get_data(j, "BINARY", &data, &size));
+        ASSERT_EQ(size, sizeof(binary));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+
+        ASSERT_OK(sd_journal_get_realtime_usec(j, &value));
+        ASSERT_EQ(value, ts.realtime);
+        ASSERT_OK(sd_journal_get_monotonic_usec(j, &value, &id));
+        ASSERT_EQ(value, ts.monotonic);
+        ASSERT_EQ_ID128(id, boot_id);
+        ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, cursor));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_ERROR(sd_journal_get_data(j, "MISSING", &data, &size), ENOENT);
+
+        ASSERT_OK(sd_journal_set_data_threshold(j, 0));
+        sd_journal_restart_data(j);
+        ASSERT_OK_POSITIVE(sd_journal_enumerate_data(j, &data, &size));
+        ASSERT_EQ(size, strlen(small));
+        ASSERT_EQ(memcmp(data, small, size), 0);
+        ASSERT_OK(sd_journal_get_seqnum(j, &value, &id));
+        ASSERT_EQ(value, seqnum);
+        ASSERT_EQ_ID128(id, seqnum_id);
+        ASSERT_EQ(memcmp(data, small, size), 0);
+        ASSERT_OK_POSITIVE(sd_journal_enumerate_data(j, &data, &size));
+        ASSERT_EQ(size, sizeof(binary));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_OK_ZERO(sd_journal_enumerate_data(j, &data, &size));
+
+        ASSERT_OK(sd_journal_query_unique(j, "BINARY"));
+        ASSERT_OK_POSITIVE(sd_journal_enumerate_unique(j, &data, &size));
+        ASSERT_EQ(size, sizeof(binary));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_OK(sd_journal_get_realtime_usec(j, &value));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_OK_ZERO(sd_journal_enumerate_unique(j, &data, &size));
+        sd_journal_restart_unique(j);
+        ASSERT_OK_POSITIVE(sd_journal_enumerate_unique(j, &data, &size));
+        ASSERT_EQ(size, sizeof(binary));
+        ASSERT_EQ(memcmp(data, binary, size), 0);
+
+        unsigned n_fields = 0;
+        sd_journal_restart_fields(j);
+        for (;;) {
+                const char *field;
+                int r;
+
+                ASSERT_OK(r = sd_journal_enumerate_fields(j, &field));
+                if (r == 0)
+                        break;
+
+                ASSERT_OK(sd_journal_get_realtime_usec(j, &value));
+                ASSERT_TRUE(STR_IN_SET(field, "BINARY", "SMALL"));
+                n_fields++;
+        }
+        ASSERT_EQ(n_fields, 2U);
 }
 
 static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
