@@ -42,6 +42,29 @@ ExecStart=false
 '''
 
 
+SMBIOS_TYPE0 = (
+    struct.pack(
+        '<BBHBBHBBQBBBBBB',
+        0,  # Type 0: BIOS Information
+        24,  # Length of the formatted section
+        0,  # Handle
+        0,  # Vendor string
+        0,  # BIOS version string
+        0xE800,  # BIOS starting address segment
+        0,  # BIOS release date string
+        0,  # BIOS ROM size
+        0x08,  # BIOS characteristics: not supported
+        0,  # BIOS characteristics extension byte 1
+        0x0C,  # BIOS characteristics extension byte 2: TCD/SVVP and UEFI, but not VM
+        0,  # System BIOS major release
+        0,  # System BIOS minor release
+        0,  # Embedded controller major release
+        0,  # Embedded controller minor release
+    )
+    + b'\0\0'
+)
+
+
 @dataclasses.dataclass(frozen=True)
 class Summary:
     distribution: str
@@ -626,27 +649,7 @@ def main() -> None:
     smbios_type0 = None
     if args.hide_hypervisor:
         smbios_type0 = tempfile.NamedTemporaryFile(prefix='systemd-integration-test-smbios-')
-        smbios_type0.write(
-            struct.pack(
-                '<BBHBBHBBQBBBBBB',
-                0,  # Type 0: BIOS Information
-                24,  # Length of the formatted section
-                0,  # Handle
-                0,  # Vendor string
-                0,  # BIOS version string
-                0xE800,  # BIOS starting address segment
-                0,  # BIOS release date string
-                0,  # BIOS ROM size
-                0x08,  # BIOS characteristics: not supported
-                0,  # BIOS characteristics extension byte 1
-                0x0C,  # BIOS characteristics extension byte 2: TCD/SVVP and UEFI, but not VM
-                0,  # System BIOS major release
-                0,  # System BIOS minor release
-                0,  # Embedded controller major release
-                0,  # Embedded controller minor release
-            )
-            + b'\0\0'
-        )
+        smbios_type0.write(SMBIOS_TYPE0)
         smbios_type0.flush()
 
     # Tests that launch nested VMs need the mkosi-built images, which are build outputs rather than
