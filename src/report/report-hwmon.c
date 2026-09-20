@@ -40,16 +40,12 @@ static int parse_temperature_index(const char *attr, unsigned *ret) {
         if (!idx)
                 return -ENOMEM;
 
-        r = safe_atou(idx, &n);
+        r = safe_atou_full(idx, SAFE_ATO_REFUSE_PLUS_MINUS|SAFE_ATO_REFUSE_LEADING_ZERO|SAFE_ATO_REFUSE_LEADING_WHITESPACE, &n);
         if (r < 0)
                 return 0;
 
         *ret = n;
         return 1;
-}
-
-static int compare_unsigned(const unsigned *a, const unsigned *b) {
-        return CMP(*a, *b);
 }
 
 static int hwmon_temperature_sensor_send(
@@ -149,7 +145,7 @@ static int hwmon_device_send(const MetricFamily *mf, sd_varlink *link, sd_device
         if (n_indices == 0)
                 return 0;
 
-        typesafe_qsort(indices, n_indices, compare_unsigned);
+        typesafe_qsort(indices, n_indices, cmp_unsigned);
 
         /* Identify the sensor by the device the hwmon chip belongs to (e.g. "coretemp.0", "nvme0",
          * "thermal_zone0"), as the hwmon<N> names are assigned in probe order and hence not stable across
@@ -210,7 +206,7 @@ static int hwmon_temperature_generate(const MetricFamily *mf, sd_varlink *link, 
 static const MetricFamily hwmon_metric_family_table[] = {
         /* Keep metrics ordered alphabetically */
         {
-                "io.systemd.Hwmon.Temperature",
+                "io.systemd.HWMon.TemperatureCelsius",
                 "Per hwmon sensor metric: current temperature in degrees Celsius "
                 "(object=parent device, chip=hwmon chip name, sensor=temp<N>, label=sensor label if any)",
                 METRIC_FAMILY_TYPE_GAUGE,

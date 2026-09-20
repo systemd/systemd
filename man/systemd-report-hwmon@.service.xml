@@ -39,10 +39,10 @@
 
     <para>All devices of the <literal>hwmon</literal> subsystem are enumerated, and for each of their
     <filename>temp<replaceable>N</replaceable>_input</filename> attributes one
-    <literal>io.systemd.Hwmon.Temperature</literal> gauge metric is reported, with the current temperature in
-    degrees Celsius as value. The metric object is the name of the device the hwmon chip belongs to (for
-    example <literal>coretemp.0</literal>, <literal>nvme0</literal> or <literal>thermal_zone0</literal>. The
-    following metric fields are set:</para>
+    <literal>io.systemd.HWMon.TemperatureCelsius</literal> gauge metric is reported, with the current
+    temperature in degrees Celsius as value. The metric object is the name of the device the hwmon chip
+    belongs to (for example <literal>coretemp.0</literal>, <literal>nvme0</literal> or
+    <literal>thermal_zone0</literal>). The following metric fields are set:</para>
 
     <variablelist>
       <varlistentry>

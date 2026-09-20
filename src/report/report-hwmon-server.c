@@ -14,6 +14,7 @@
 COMMAND(
         "systemd-report-hwmon\0",
         "Report hwmon sensor metrics.",
+        .man_pages = "systemd-report-hwmon@.service(8)\0",
 );
 
 static int vl_server(void) {

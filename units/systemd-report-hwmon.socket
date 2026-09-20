@@ -9,12 +9,13 @@
 
 [Unit]
 Description=Hardware Monitor Report Varlink Socket
+Documentation=man:systemd-report-hwmon@.service(8)
 DefaultDependencies=no
 Before=sockets.target shutdown.target
 Conflicts=shutdown.target
 
 [Socket]
-ListenStream=/run/systemd/report/io.systemd.Hwmon
+ListenStream=/run/systemd/report/io.systemd.HWMon
 FileDescriptorName=varlink
 SocketMode=0666
 Accept=yes

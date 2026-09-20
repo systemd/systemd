@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Hardware Monitor Report Service
-Documentation=man:systemd-report(1)
+Documentation=man:systemd-report-hwmon@.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=shutdown.target
