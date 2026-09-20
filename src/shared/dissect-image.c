@@ -3437,8 +3437,14 @@ static int verity_partition(
 
                 /* The symlink to the device node does not exist yet. Assume not activated, and let's activate it. */
                 r = do_crypt_activate_verity(cd, root, name, verity, flags, policy_flags);
-                if (r >= 0)
-                        goto try_open; /* The device is activated. Let's open it. */
+                if (r >= 0) {
+                        /* The device is activated. Let's open it. If that fails, let the device go again. */
+                        restore_deferred_remove = strdup(name);
+                        if (!restore_deferred_remove)
+                                return log_oom_debug();
+
+                        goto try_open;
+                }
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
                  * There's no way to distinguish this situation from a genuine error due to invalid
                  * parameters, so immediately fall back to activating the device with a unique name.
