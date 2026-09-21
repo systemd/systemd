@@ -535,6 +535,21 @@ TEST(config_parse_dhcp6_vendor_option_identity) {
         ASSERT_EQ(enterprise_identifiers[1], 456u);
 }
 
+TEST(config_parse_dhcp_request_options) {
+        Network network = {};
+
+        ASSERT_OK(config_parse_dhcp_request_options(
+                          "network", "filename", 1, "section", 1, "RequestOptions", AF_INET6,
+                          "256", &network.dhcp6_request_options, &network));
+        ASSERT_TRUE(set_contains(network.dhcp6_request_options, UINT32_TO_PTR(256)));
+
+        network.dhcp6_request_options = set_free(network.dhcp6_request_options);
+        ASSERT_OK(config_parse_dhcp_request_options(
+                          "network", "filename", 2, "section", 1, "RequestOptions", AF_INET6,
+                          "65536", &network.dhcp6_request_options, &network));
+        ASSERT_NULL(network.dhcp6_request_options);
+}
+
 TEST(config_parse_stacked_netdev) {
         _cleanup_hashmap_free_ Hashmap *netdevs = NULL;
         ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VLAN", NETDEV_KIND_VLAN, "foo bar baz invalid:name", &netdevs, NULL));

@@ -1162,9 +1162,10 @@ int config_parse_dhcp_request_options(
                         continue;
                 }
 
-                if (i < 1 || i >= UINT8_MAX) {
+                if (i < 1 || (ltype == AF_INET ? i >= UINT8_MAX : i > UINT16_MAX)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "DHCP request option is invalid, valid range is 1-254, ignoring assignment: %s", n);
+                                   "DHCP request option is invalid, valid range is %s, ignoring assignment: %s",
+                                   ltype == AF_INET ? "1-254" : "1-65535", n);
                         continue;
                 }
 
