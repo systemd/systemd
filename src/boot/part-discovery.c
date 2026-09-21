@@ -170,7 +170,10 @@ static EFI_STATUS try_gpt(
                 if (!efi_guid_equal(&entry->PartitionTypeGUID, type))
                         continue;
 
-                if (entry->EndingLBA < entry->StartingLBA) /* Bogus? */
+                if (entry->EndingLBA < entry->StartingLBA ||
+                    entry->StartingLBA < gpt.FirstUsableLBA ||
+                    entry->EndingLBA > gpt.LastUsableLBA ||
+                    entry->EndingLBA == UINT64_MAX)
                         continue;
 
                 *ret_hd = (HARDDRIVE_DEVICE_PATH) {
