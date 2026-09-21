@@ -257,7 +257,7 @@ DECLARE_STRING_TABLE_LOOKUP(bpf_delegate_prog_type, uint64_t);
 
 DECLARE_STRING_TABLE_LOOKUP(bpf_delegate_attach_type, uint64_t);
 
-char* bpf_delegate_to_string(uint64_t u, const char * (*parser)(uint64_t) _const_);
+char* bpf_delegate_to_string(uint64_t u, const char* (*parser)(uint64_t));
 int bpf_delegate_from_string(const char *s, uint64_t *ret, uint64_t (*parser)(const char *));
 
 static inline int bpf_delegate_commands_from_string(const char *s, uint64_t *ret) {
