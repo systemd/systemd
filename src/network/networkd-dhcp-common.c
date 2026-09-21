@@ -751,11 +751,10 @@ int config_parse_dhcp6_send_option(
                 const char *lvalue,
                 int ltype,
                 const char *rvalue,
-                void *data,
-                void *userdata) {
+        void *data,
+        void *userdata) {
 
         _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *opt6 = NULL;
-        _unused_ _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *old6 = NULL;
         uint32_t uint32_data, enterprise_identifier = 0;
         _cleanup_free_ char *word = NULL, *q = NULL;
         OrderedHashmap **dhcp6_options = ASSERT_PTR(data);
@@ -794,6 +793,12 @@ int config_parse_dhcp6_send_option(
                                    "Failed to parse DHCPv6 enterprise identifier data, ignoring assignment: %s", p);
                         return 0;
                 }
+                if (enterprise_identifier < 1 || enterprise_identifier >= UINT32_MAX) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "DHCPv6 enterprise identifier is out of range, valid range is 1-4294967294, ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
                 word = mfree(word);
         }
 
@@ -812,7 +817,7 @@ int config_parse_dhcp6_send_option(
                            "Invalid DHCP option, ignoring assignment: %s", rvalue);
                 return 0;
         }
-        if (u16 < 1 || u16 >= UINT16_MAX) {
+        if (u16 < 1) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid DHCP option, valid range is 1-65535, ignoring assignment: %s", rvalue);
                 return 0;
@@ -928,9 +933,7 @@ int config_parse_dhcp6_send_option(
         if (r < 0)
                 return log_oom();
 
-        /* Overwrite existing option */
-        old6 = ordered_hashmap_get(*dhcp6_options, UINT_TO_PTR(u16));
-        r = ordered_hashmap_replace(*dhcp6_options, UINT_TO_PTR(u16), opt6);
+        r = ordered_hashmap_put(*dhcp6_options, opt6, opt6);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
@@ -1159,9 +1162,10 @@ int config_parse_dhcp_request_options(
                         continue;
                 }
 
-                if (i < 1 || i >= UINT8_MAX) {
+                if (i < 1 || (ltype == AF_INET ? i >= UINT8_MAX : i > UINT16_MAX)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "DHCP request option is invalid, valid range is 1-254, ignoring assignment: %s", n);
+                                   "DHCP request option is invalid, valid range is %s, ignoring assignment: %s",
+                                   ltype == AF_INET ? "1-254" : "1-65535", n);
                         continue;
                 }
 

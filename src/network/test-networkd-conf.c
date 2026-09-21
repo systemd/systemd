@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "conf-parser.h"
+#include "dhcp6-option.h"
 #include "hexdecoct.h"
 #include "net-condition.h"
+#include "networkd-dhcp-common.h"
 #include "networkd-address.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -464,6 +466,100 @@ TEST(config_parse_multipath_route) {
         test_config_parse_multipath_route_one("@wg0 257", 0, 0); /* Weight > 256 */
         test_config_parse_multipath_route_one("@wg0 -1", 0, 0);  /* Negative */
         test_config_parse_multipath_route_one("@wg0 abc", 0, 0); /* Non-numeric */
+}
+
+TEST(config_parse_dhcp6_enterprise_identifier) {
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *options = NULL;
+        sd_dhcp6_option *option;
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "1:1:uint8:1", &options, NULL));
+        ASSERT_EQ(ordered_hashmap_size(options), 1u);
+        ASSERT_NOT_NULL(option = ordered_hashmap_first(options));
+        ASSERT_EQ(option->enterprise_identifier, 1u);
+
+        options = ordered_hashmap_free(options);
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "0:1:uint8:1", &options, NULL));
+        ASSERT_NULL(options);
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "4294967295:1:uint8:1", &options, NULL));
+        ASSERT_NULL(options);
+}
+
+TEST(config_parse_dhcp6_vendor_option_range) {
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *options = NULL;
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "1:254:uint8:1", &options, NULL));
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "1:255:uint8:1", &options, NULL));
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "1:65535:uint8:1", &options, NULL));
+        ASSERT_EQ(ordered_hashmap_size(options), 3u);
+
+        options = ordered_hashmap_free(options);
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "1:0:uint8:1", &options, NULL));
+        ASSERT_NULL(options);
+}
+
+TEST(config_parse_dhcp6_vendor_option_identity) {
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *options = NULL;
+        sd_dhcp6_option *option;
+        uint32_t enterprise_identifiers[2] = {};
+        size_t n = 0;
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "123:1:uint8:1", &options, NULL));
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 2, "section", 1, "SendVendorOption", 0,
+                          "456:1:uint8:2", &options, NULL));
+        ASSERT_EQ(ordered_hashmap_size(options), 2u);
+
+        ORDERED_HASHMAP_FOREACH(option, options)
+                assert_se(n < ELEMENTSOF(enterprise_identifiers) &&
+                          (enterprise_identifiers[n++] = option->enterprise_identifier));
+
+        ASSERT_EQ(n, 2u);
+        ASSERT_EQ(enterprise_identifiers[0], 123u);
+        ASSERT_EQ(enterprise_identifiers[1], 456u);
+}
+
+TEST(config_parse_dhcp_request_options) {
+        Network network = {};
+
+        ASSERT_OK(config_parse_dhcp_request_options(
+                          "network", "filename", 1, "section", 1, "RequestOptions", AF_INET6,
+                          "256", &network.dhcp6_request_options, &network));
+        ASSERT_TRUE(set_contains(network.dhcp6_request_options, UINT32_TO_PTR(256)));
+
+        network.dhcp6_request_options = set_free(network.dhcp6_request_options);
+        ASSERT_OK(config_parse_dhcp_request_options(
+                          "network", "filename", 2, "section", 1, "RequestOptions", AF_INET6,
+                          "65536", &network.dhcp6_request_options, &network));
+        ASSERT_NULL(network.dhcp6_request_options);
+}
+
+TEST(config_parse_dhcp6_send_option_maximum) {
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *options = NULL;
+        sd_dhcp6_option *option;
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendOption", 0,
+                          "65535:uint8:1", &options, NULL));
+        ASSERT_EQ(ordered_hashmap_size(options), 1u);
+        ASSERT_NOT_NULL(option = ordered_hashmap_first(options));
+        ASSERT_EQ(option->option, UINT16_MAX);
 }
 
 TEST(config_parse_stacked_netdev) {
