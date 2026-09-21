@@ -54,11 +54,11 @@ TEST(compress_decompress_blob) {
 
                         ASSERT_OK(compress_blob(c, input, input_len, compressed, sizeof(compressed), &csize, -1));
 
-                        ASSERT_OK_ZERO(decompress_blob(c, compressed, csize, (void **) &decompressed, &csize, 0));
+                        ASSERT_OK_ZERO(decompress_blob(c, compressed, csize, (void **) &decompressed, &csize, /* dst_max= */ 0));
                         ASSERT_NOT_NULL(decompressed);
                         ASSERT_EQ(memcmp(decompressed, input, input_len), 0);
 
-                        ASSERT_FAIL(decompress_blob(c, "garbage", 7, (void **) &decompressed, &csize, 0));
+                        ASSERT_FAIL(decompress_blob(c, "garbage", 7, (void **) &decompressed, &csize, /* dst_max= */ 0));
                 }
         }
 }
@@ -102,13 +102,13 @@ TEST(decompress_blob_zstd_frame_at_buffer_boundary) {
         ASSERT_OK(loop_write(src, input, input_size));
         ASSERT_EQ(lseek(src, 0, SEEK_SET), (off_t) 0);
         ASSERT_OK(dst = mkostemp_safe(dst_pattern));
-        ASSERT_OK(compress_stream(COMPRESSION_ZSTD, src, dst, UINT64_MAX, NULL));
+        ASSERT_OK(compress_stream(COMPRESSION_ZSTD, src, dst, UINT64_MAX, /* ret_uncompressed_size= */ NULL));
 
         ASSERT_OK_ERRNO(fstat(dst, &st));
         _cleanup_free_ uint8_t *compressed = malloc(st.st_size);
         ASSERT_NOT_NULL(compressed);
         ASSERT_EQ(lseek(dst, 0, SEEK_SET), (off_t) 0);
-        ASSERT_EQ(loop_read(dst, compressed, st.st_size, true), (ssize_t) st.st_size);
+        ASSERT_EQ(loop_read(dst, compressed, st.st_size, /* do_poll= */ true), (ssize_t) st.st_size);
 
         /* This relies on compress_stream() emitting a content checksum (bit 2 of the frame header
          * descriptor, with a 4-byte trailer). Assert that assumption rather than silently dropping
@@ -118,7 +118,7 @@ TEST(decompress_blob_zstd_frame_at_buffer_boundary) {
 
         _cleanup_free_ void *decompressed = NULL;
         size_t dsize = 0;
-        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, compressed, st.st_size - 4, &decompressed, &dsize, 0));
+        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, compressed, st.st_size - 4, &decompressed, &dsize, /* dst_max= */ 0));
         ASSERT_EQ(dsize, input_size);
         ASSERT_EQ(memcmp(decompressed, input, input_size), 0);
 }
@@ -152,19 +152,19 @@ TEST(decompress_blob_zstd_unknown_size) {
 
         /* compress_stream() never records the content size in the frame header. */
         ASSERT_OK(dst = mkostemp_safe(pattern));
-        ASSERT_OK(compress_stream(COMPRESSION_ZSTD, src, dst, UINT64_MAX, NULL));
+        ASSERT_OK(compress_stream(COMPRESSION_ZSTD, src, dst, UINT64_MAX, /* ret_uncompressed_size= */ NULL));
 
         ASSERT_OK_ERRNO(fstat(dst, &st));
 
         _cleanup_free_ void *compressed = NULL;
         ASSERT_NOT_NULL(compressed = malloc(st.st_size));
         ASSERT_EQ(lseek(dst, 0, SEEK_SET), (off_t) 0);
-        ASSERT_EQ(loop_read(dst, compressed, st.st_size, true), (ssize_t) st.st_size);
+        ASSERT_EQ(loop_read(dst, compressed, st.st_size, /* do_poll= */ true), (ssize_t) st.st_size);
 
         /* Full blob decompression must reconstruct the input exactly. */
         _cleanup_free_ void *decompressed = NULL;
         size_t dsize = 0;
-        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, compressed, st.st_size, &decompressed, &dsize, 0));
+        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, compressed, st.st_size, &decompressed, &dsize, /* dst_max= */ 0));
         ASSERT_EQ(dsize, input_size);
         ASSERT_EQ(memcmp(decompressed, input, input_size), 0);
 
@@ -190,7 +190,7 @@ TEST(decompress_blob_zstd_unknown_size) {
 
         decompressed = mfree(decompressed);
         dsize = 0;
-        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, multiframe, csize * 2, &decompressed, &dsize, 0));
+        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, multiframe, csize * 2, &decompressed, &dsize, /* dst_max= */ 0));
         ASSERT_EQ(dsize, input_size * 2);
         ASSERT_EQ(memcmp(decompressed, input, input_size), 0);
         ASSERT_EQ(memcmp((uint8_t*) decompressed + input_size, input, input_size), 0);
@@ -202,7 +202,7 @@ TEST(decompress_blob_zstd_unknown_size) {
         ((uint8_t*) compressed)[4] &= ~0x04;
         decompressed = mfree(decompressed);
         dsize = 0;
-        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, compressed, csize - 4, &decompressed, &dsize, 0));
+        ASSERT_OK_ZERO(decompress_blob(COMPRESSION_ZSTD, compressed, csize - 4, &decompressed, &dsize, /* dst_max= */ 0));
         ASSERT_EQ(dsize, input_size);
         ASSERT_EQ(memcmp(decompressed, input, input_size), 0);
 
@@ -219,13 +219,13 @@ TEST(decompress_blob_zstd_unknown_size) {
         ASSERT_OK(loop_write(short_src, short_text, sizeof(short_text)));
         ASSERT_EQ(lseek(short_src, 0, SEEK_SET), (off_t) 0);
         ASSERT_OK(short_dst = mkostemp_safe(short_pattern));
-        ASSERT_OK(compress_stream(COMPRESSION_ZSTD, short_src, short_dst, UINT64_MAX, NULL));
+        ASSERT_OK(compress_stream(COMPRESSION_ZSTD, short_src, short_dst, UINT64_MAX, /* ret_uncompressed_size= */ NULL));
         ASSERT_OK_ERRNO(fstat(short_dst, &short_st));
 
         _cleanup_free_ void *short_compressed = malloc(short_st.st_size);
         ASSERT_NOT_NULL(short_compressed);
         ASSERT_EQ(lseek(short_dst, 0, SEEK_SET), (off_t) 0);
-        ASSERT_EQ(loop_read(short_dst, short_compressed, short_st.st_size, true), (ssize_t) short_st.st_size);
+        ASSERT_EQ(loop_read(short_dst, short_compressed, short_st.st_size, /* do_poll= */ true), (ssize_t) short_st.st_size);
 
         _cleanup_free_ void *short_buf = NULL;
         ASSERT_OK_ZERO(decompress_startswith(COMPRESSION_ZSTD, short_compressed, short_st.st_size, &short_buf,
@@ -367,7 +367,7 @@ TEST(compress_decompress_stream) {
                 if (!cat)
                         continue;
 
-                int r = find_executable(cat, NULL);
+                int r = find_executable(cat, /* ret_filename= */ NULL);
                 if (r < 0) {
                         log_error_errno(r, "Skipping %s, could not find %s binary: %m",
                                         compression_to_string(c), cat);

@@ -30,7 +30,7 @@ static int make_pid_name(char **ret) {
         assert(ret);
 
         _cleanup_free_ char *comm = NULL;
-        r = pid_get_comm(0, &comm);
+        r = pid_get_comm(/* pid= */ 0, &comm);
         if (r < 0)
                 return r;
 

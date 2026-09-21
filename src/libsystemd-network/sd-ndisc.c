@@ -52,7 +52,7 @@ int sd_ndisc_is_running(sd_ndisc *nd) {
         if (!nd)
                 return false;
 
-        return sd_event_source_get_enabled(nd->recv_event_source, NULL) > 0;
+        return sd_event_source_get_enabled(nd->recv_event_source, /* ret= */ NULL) > 0;
 }
 
 int sd_ndisc_set_callback(
@@ -443,7 +443,7 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
                              CLOCK_BOOTTIME,
                              time_now + nd->retransmit_time, 10 * USEC_PER_MSEC,
                              ndisc_timeout, nd,
-                             nd->event_priority, "ndisc-timeout-no-ra", true);
+                             nd->event_priority, "ndisc-timeout-no-ra", /* force_reset= */ true);
         if (r < 0)
                 goto fail;
 
@@ -472,7 +472,7 @@ static int ndisc_timeout_no_ra(sd_event_source *s, uint64_t usec, void *userdata
         /* Also stop sending RS here, by disabling timeout_event_source. */
         (void) event_source_disable(nd->timeout_event_source);
         (void) event_source_disable(nd->timeout_no_ra);
-        ndisc_callback(nd, SD_NDISC_EVENT_TIMEOUT, NULL);
+        ndisc_callback(nd, SD_NDISC_EVENT_TIMEOUT, /* message= */ NULL);
 
         return 0;
 }
@@ -528,7 +528,7 @@ static int ndisc_setup_timer(sd_ndisc *nd) {
                                       CLOCK_BOOTTIME,
                                       USEC_PER_SEC / 2, 1 * USEC_PER_SEC, /* See RFC 8415 sec. 18.2.1 */
                                       ndisc_timeout, nd,
-                                      nd->event_priority, "ndisc-timeout", true);
+                                      nd->event_priority, "ndisc-timeout", /* force_reset= */ true);
         if (r < 0)
                 return r;
 
@@ -536,7 +536,7 @@ static int ndisc_setup_timer(sd_ndisc *nd) {
                                       CLOCK_BOOTTIME,
                                       NDISC_TIMEOUT_NO_RA_USEC, 10 * USEC_PER_MSEC,
                                       ndisc_timeout_no_ra, nd,
-                                      nd->event_priority, "ndisc-timeout-no-ra", true);
+                                      nd->event_priority, "ndisc-timeout-no-ra", /* force_reset= */ true);
         if (r < 0)
                 return r;
 

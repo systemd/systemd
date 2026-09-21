@@ -80,7 +80,7 @@ static int apply_file(const char *filename, bool ignore_enoent) {
 
         assert(filename);
 
-        r = search_and_fopen(filename, "re", NULL, (const char**) CONF_PATHS_STRV("binfmt.d"), &f, &pp);
+        r = search_and_fopen(filename, "re", /* root= */ NULL, (const char**) CONF_PATHS_STRV("binfmt.d"), &f, &pp);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
@@ -113,7 +113,7 @@ static int apply_file(const char *filename, bool ignore_enoent) {
 static int cat_config(char **files) {
         pager_open(arg_pager_flags);
 
-        return cat_files(NULL, files, arg_cat_flags);
+        return cat_files(/* file= */ NULL, files, arg_cat_flags);
 }
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
@@ -196,7 +196,7 @@ static int run(int argc, char *argv[]) {
                         return r;
 
                 STRV_FOREACH(f, args)
-                        RET_GATHER(r, apply_file(*f, false));
+                        RET_GATHER(r, apply_file(*f, /* ignore_enoent= */ false));
 
         } else {
                 _cleanup_strv_free_ char **files = NULL;
@@ -220,7 +220,7 @@ static int run(int argc, char *argv[]) {
                         log_debug("Flushed all binfmt_misc rules.");
 
                 STRV_FOREACH(f, files)
-                        RET_GATHER(r, apply_file(*f, true));
+                        RET_GATHER(r, apply_file(*f, /* ignore_enoent= */ true));
         }
 
         return r;

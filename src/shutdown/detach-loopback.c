@@ -58,7 +58,7 @@ static int loopback_list_get(LoopbackDevice **head) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
         if (r < 0)
                 return r;
 
@@ -66,7 +66,7 @@ static int loopback_list_get(LoopbackDevice **head) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_sysattr(e, "loop/backing_file", NULL, true);
+        r = sd_device_enumerator_add_match_sysattr(e, "loop/backing_file", /* value= */ NULL, /* match= */ true);
         if (r < 0)
                 return r;
 

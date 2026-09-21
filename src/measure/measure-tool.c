@@ -405,7 +405,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, ascii_strlower(b), (uint32_t) TPM2_PCR_KERNEL_BOOT) < 0)
                         return log_oom();
 
-                r = read_virtual_file(p, 4096, &s, NULL);
+                r = read_virtual_file(p, 4096, &s, /* ret_size= */ NULL);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -461,7 +461,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                 if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                         pager_open(arg_pager_flags);
 
-                sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
         }
 
         return 0;
@@ -519,7 +519,7 @@ static int pcr_state_extend(PcrState *pcr_state, const void *data, size_t sz) {
         if (!mc)
                 return log_oom();
 
-        if (sym_EVP_DigestInit_ex(mc, pcr_state->md, NULL) != 1)
+        if (sym_EVP_DigestInit_ex(mc, pcr_state->md, /* impl= */ NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", pcr_state->bank);
 
         /* First thing we do, is hash the old PCR value */
@@ -559,7 +559,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                         if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%i", pcr_states[i].bank, TPM2_PCR_KERNEL_BOOT) < 0)
                                 return log_oom();
 
-                        r = read_virtual_file(p, 4096, &s, NULL);
+                        r = read_virtual_file(p, 4096, &s, /* ret_size= */ NULL);
                         if (r == -ENOENT && access("/sys/class/tpm/tpm0/", F_OK) >= 0)
                                 return log_error_errno(r, "TPM device exists, but cannot open '%s'; either the kernel is too old, or selected PCR bank is not supported: %m", p);
                         if (r < 0)
@@ -602,7 +602,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                         if (!mdctx[i])
                                 return log_oom();
 
-                        if (sym_EVP_DigestInit_ex(mdctx[i], pcr_states[i].md, NULL) != 1)
+                        if (sym_EVP_DigestInit_ex(mdctx[i], pcr_states[i].md, /* impl= */ NULL) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to initialize data %s context.", pcr_states[i].bank);
                 }
@@ -637,7 +637,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                                 return log_oom();
 
                         /* Measure name of section */
-                        if (sym_EVP_Digest(unified_sections[c], strlen(unified_sections[c]) + 1, data_hash, &data_hash_size, pcr_states[i].md, NULL) != 1)
+                        if (sym_EVP_Digest(unified_sections[c], strlen(unified_sections[c]) + 1, data_hash, &data_hash_size, pcr_states[i].md, /* impl= */ NULL) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to hash section name with %s.", pcr_states[i].bank);
 
                         assert(data_hash_size == (unsigned) pcr_states[i].value_size);
@@ -696,7 +696,7 @@ static int measure_phase(PcrState *pcr_states, size_t n, const char *phase) {
                                 return log_oom();
 
                         /* First hash the word itself */
-                        if (sym_EVP_Digest(*word, wl, b, NULL, pcr_states[i].md, NULL) != 1)
+                        if (sym_EVP_Digest(*word, wl, b, /* size= */ NULL, pcr_states[i].md, /* impl= */ NULL) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash word '%s'.", *word);
 
                         /* And then extend the PCR with the resulting hash */
@@ -871,7 +871,7 @@ static int verb_calculate(int argc, char *argv[], uintptr_t _data, void *userdat
                 if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                         pager_open(arg_pager_flags);
 
-                sd_json_variant_dump(w, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(w, arg_json_format_flags, stdout, /* prefix= */ NULL);
         }
 
         return 0;
@@ -955,7 +955,7 @@ static int build_policy_digest(bool sign) {
                 if (!pubkeyf)
                         return log_error_errno(errno, "Failed to open public key file '%s': %m", arg_public_key);
 
-                pubkey = sym_PEM_read_PUBKEY(pubkeyf, NULL, NULL, NULL);
+                pubkey = sym_PEM_read_PUBKEY(pubkeyf, NULL, /* cb= */ NULL, NULL);
                 if (!pubkey)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key '%s'.", arg_public_key);
         } else if (certificate) {
@@ -1070,7 +1070,7 @@ static int build_policy_digest(bool sign) {
         if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                 pager_open(arg_pager_flags);
 
-        sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
 
         return 0;
 }

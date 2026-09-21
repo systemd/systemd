@@ -61,7 +61,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 
         } else if (is_gateway_hostname(name)) {
 
-                n_addresses = local_gateways(NULL, 0, AF_UNSPEC, &addresses);
+                n_addresses = local_gateways(/* context= */ NULL, /* ifindex= */ 0, AF_UNSPEC, &addresses);
                 if (n_addresses <= 0)
                         goto not_found;
 
@@ -69,7 +69,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 
         } else if (is_outbound_hostname(name)) {
 
-                n_addresses = local_outbounds(NULL, 0, AF_UNSPEC, &addresses);
+                n_addresses = local_outbounds(/* context= */ NULL, /* ifindex= */ 0, AF_UNSPEC, &addresses);
                 if (n_addresses <= 0)
                         goto not_found;
 
@@ -88,7 +88,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 if (!streq(name, hn) && !streq_ptr(startswith(name, hn), "."))
                         goto not_found;
 
-                n_addresses = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
+                n_addresses = local_addresses(/* context= */ NULL, /* ifindex= */ 0, AF_UNSPEC, &addresses);
                 if (n_addresses < 0)
                         n_addresses = 0;
 
@@ -369,7 +369,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
 
         } else if (is_gateway_hostname(name)) {
 
-                n_addresses = local_gateways(NULL, 0, af, &addresses);
+                n_addresses = local_gateways(/* context= */ NULL, /* ifindex= */ 0, af, &addresses);
                 if (n_addresses <= 0)
                         goto not_found;
 
@@ -377,7 +377,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
 
         } else if (is_outbound_hostname(name)) {
 
-                n_addresses = local_outbounds(NULL, 0, af, &addresses);
+                n_addresses = local_outbounds(/* context= */ NULL, /* ifindex= */ 0, af, &addresses);
                 if (n_addresses <= 0)
                         goto not_found;
 
@@ -395,7 +395,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 if (!streq(name, hn) && !streq_ptr(startswith(name, hn), "."))
                         goto not_found;
 
-                n_addresses = local_addresses(NULL, 0, af, &addresses);
+                n_addresses = local_addresses(/* context= */ NULL, /* ifindex= */ 0, af, &addresses);
                 if (n_addresses < 0)
                         n_addresses = 0;
 
@@ -488,14 +488,14 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 }
         }
 
-        n_addresses = local_addresses(NULL, 0, af, &addresses);
+        n_addresses = local_addresses(/* context= */ NULL, /* ifindex= */ 0, af, &addresses);
         for (a = addresses, n = 0; (int) n < n_addresses; n++, a++)
                 if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0)
                         goto found;
 
         addresses = mfree(addresses);
 
-        n_addresses = local_gateways(NULL, 0, af, &addresses);
+        n_addresses = local_gateways(/* context= */ NULL, /* ifindex= */ 0, af, &addresses);
         for (a = addresses, n = 0; (int) n < n_addresses; n++, a++)
                 if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0) {
                         canonical = "_gateway";
@@ -533,7 +533,7 @@ found:
                         buffer, buflen,
                         errnop, h_errnop,
                         ttlp,
-                        NULL);
+                        /* canonp= */ NULL);
 }
 
 NSS_GETHOSTBYNAME_FALLBACKS(myhostname);

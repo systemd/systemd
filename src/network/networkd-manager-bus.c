@@ -222,7 +222,7 @@ static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_err
         if (manager->reloading > 0)
                 return 1; /* Will reply later. */
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int bus_method_describe_link(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -242,7 +242,7 @@ static int bus_method_describe(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
 
-        r = sd_json_variant_format(v, 0, &text);
+        r = sd_json_variant_format(v, /* flags= */ 0, &text);
         if (r < 0)
                 return log_error_errno(r, "Failed to format JSON data: %m");
 

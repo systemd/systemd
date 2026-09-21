@@ -89,7 +89,7 @@ int bpf_restrict_ifaces_supported(void) {
         if (dlopen_bpf(LOG_WARNING) < 0)
                 return (supported = false);
 
-        r = prepare_restrict_ifaces_bpf(NULL, true, NULL, &obj);
+        r = prepare_restrict_ifaces_bpf(NULL, /* is_allow_list= */ true, /* restrict_network_interfaces= */ NULL, &obj);
         if (r < 0) {
                 log_debug_errno(r, "restrict-interfaces: Failed to load BPF object: %m");
                 return (supported = false);

@@ -431,7 +431,7 @@ static int job_start(Job *j) {
                 return log_error_errno(stdout_fd, "Failed to create memfd: %m");
 
         r = pidref_safe_fork_full("(sd-sysupdate)",
-                                  (int[]) { -EBADF, stdout_fd, STDERR_FILENO }, NULL, 0,
+                                  (int[]) { -EBADF, stdout_fd, STDERR_FILENO }, /* except_fds= */ NULL, /* n_except_fds= */ 0,
                                   FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|
                                   FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG, &pid);
         if (r < 0)
@@ -460,7 +460,7 @@ static int job_start(Job *j) {
                 if (getenv_bool("SYSTEMD_SYSUPDATE_NO_VERIFY") > 0)
                         cmd[k++] = "--verify=no"; /* For testing */
 
-                r = setenv_systemd_exec_pid(true);
+                r = setenv_systemd_exec_pid(/* update_only= */ true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to update $SYSTEMD_EXEC_PID, ignoring: %m");
 
@@ -538,7 +538,7 @@ static int job_start(Job *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add child process to event loop: %m");
 
-        r = sd_event_source_set_child_process_own(j->child, true);
+        r = sd_event_source_set_child_process_own(j->child, /* own= */ true);
         if (r < 0)
                 return log_error_errno(r, "Event loop failed to take ownership of child process: %m");
         pidref_done(&pid); /* disarm sigkill_wait */
@@ -557,7 +557,7 @@ static int job_cancel(Job *j) {
         assert(j);
 
         r = sd_event_source_send_child_signal(j->child, j->n_cancelled < 3 ? SIGTERM : SIGKILL,
-                                              NULL, 0);
+                                              /* si= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -616,7 +616,7 @@ static int job_method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(msg, NULL);
+        return sd_bus_reply_method_return(msg, /* types= */ NULL);
 }
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(job_property_get_type, job_type, JobType);
@@ -776,7 +776,7 @@ static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
 
         r = pidref_safe_fork_full("(sd-sysupdate)",
                                   (int[]) { -EBADF, pipe[1], STDERR_FILENO },
-                                  NULL, 0,
+                                  /* except_fds= */ NULL, /* n_except_fds= */ 0,
                                   FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|
                                   FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG,
                                   &pid);
@@ -948,7 +948,7 @@ static int target_method_describe_finish(
 
         assert(json);
 
-        r = sd_json_variant_format(json, 0, &text);
+        r = sd_json_variant_format(json, /* flags= */ 0, &text);
         if (r < 0)
                 return r;
 
@@ -1508,7 +1508,7 @@ static int target_method_set_feature_enabled(sd_bus_message *msg, void *userdata
         if (enabled < 0) { /* Reset -> delete the drop-in file */
                 _cleanup_free_ char *path = NULL;
 
-                r = drop_in_file(SYSCONF_DIR "/sysupdate.d", feature, 50, FEATURES_DROPIN_NAME, NULL, &path);
+                r = drop_in_file(SYSCONF_DIR "/sysupdate.d", feature, 50, FEATURES_DROPIN_NAME, /* ret_unit_dir= */ NULL, &path);
                 if (r < 0)
                         return r;
 
@@ -1524,7 +1524,7 @@ static int target_method_set_feature_enabled(sd_bus_message *msg, void *userdata
                         return r;
         }
 
-        return sd_bus_reply_method_return(msg, NULL);
+        return sd_bus_reply_method_return(msg, /* types= */ NULL);
 }
 
 static int target_list_components(Target *t, char ***ret_components, bool *ret_have_default) {
@@ -1820,12 +1820,12 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK,
-                                sigrtmin18_handler, NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK,
+                                sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        r = sd_event_add_memory_pressure(m->event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
@@ -1851,7 +1851,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
         Image *image;
         int r;
 
-        r = image_discover(m->runtime_scope, (ImageClass) class, NULL, &images);
+        r = image_discover(m->runtime_scope, (ImageClass) class, /* root= */ NULL, &images);
         if (r < 0)
                 return r;
 
@@ -1870,7 +1870,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                         return r;
                 t->image_type = image->type;
 
-                r = target_list_components(t, NULL, &have);
+                r = target_list_components(t, /* ret_components= */ NULL, &have);
                 if (r < 0)
                         return r;
                 if (!have) {
@@ -2123,11 +2123,11 @@ static int manager_add_bus_objects(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.sysupdate1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(m->bus, /* ret_slot= */ NULL, "org.freedesktop.sysupdate1", /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(m->bus, m->event, 0);
+        r = sd_bus_attach_event(m->bus, m->event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 

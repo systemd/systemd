@@ -404,7 +404,7 @@ static void print_status_info(
                 on = off = "";
 
         path = i->source_path ?: i->fragment_path;
-        if (path && terminal_urlify_path(path, NULL, &formatted_path) >= 0)
+        if (path && terminal_urlify_path(path, /* text= */ NULL, &formatted_path) >= 0)
                 path = formatted_path;
 
         if (!isempty(i->load_error))
@@ -612,7 +612,7 @@ static void print_status_info(
                 _cleanup_free_ char *formatted = NULL;
                 const char *q;
 
-                if (terminal_urlify(*t, NULL, &formatted) >= 0)
+                if (terminal_urlify(*t, /* text= */ NULL, &formatted) >= 0)
                         q = formatted;
                 else
                         q = *t;
@@ -646,7 +646,7 @@ static void print_status_info(
                 argv = strv_join(p->argv, " ");
                 printf("    Process: "PID_FMT" %s=%s ", p->pid, p->name, strna(argv));
 
-                good = is_clean_exit(p->code, p->status, EXIT_CLEAN_DAEMON, NULL);
+                good = is_clean_exit(p->code, p->status, EXIT_CLEAN_DAEMON, /* success_status= */ NULL);
                 if (!good) {
                         on = p->ignore ? ansi_highlight_yellow() : ansi_highlight_red();
                         off = ansi_normal();
@@ -985,7 +985,7 @@ static void show_unit_help(UnitStatusInfo *i) {
                         _cleanup_free_ char *t = NULL;
 
                         if ((p = startswith(*doc, "file://")))
-                                (void) terminal_urlify_path(p, NULL, &t);
+                                (void) terminal_urlify_path(p, /* text= */ NULL, &t);
 
                         printf("Additional documentation: %s\n", t ?: p ?: *doc);
                 }
@@ -1245,7 +1245,7 @@ static int print_property(
                         if (u > 0)
                                 bus_print_property_valuef(name, expected_value, flags, "%"PRIu32, u);
                         else
-                                bus_print_property_value(name, expected_value, flags, NULL);
+                                bus_print_property_value(name, expected_value, flags, /* value= */ NULL);
 
                         return 1;
 
@@ -1270,7 +1270,7 @@ static int print_property(
                         if (!isempty(a) || !isempty(b))
                                 bus_print_property_valuef(name, expected_value, flags, "%s \"%s\"", strempty(a), strempty(b));
                         else
-                                bus_print_property_value(name, expected_value, flags, NULL);
+                                bus_print_property_value(name, expected_value, flags, /* value= */ NULL);
 
                         return 1;
 
@@ -1329,7 +1329,7 @@ static int print_property(
                         if (!isempty(s))
                                 bus_print_property_valuef(name, expected_value, flags, "%s%s", ignore ? "-" : "", s);
                         else
-                                bus_print_property_value(name, expected_value, flags, NULL);
+                                bus_print_property_value(name, expected_value, flags, /* value= */ NULL);
 
                         return 1;
 
@@ -1837,7 +1837,7 @@ static int print_property(
                                 if (!eq)
                                         continue;
 
-                                if (!journal_field_valid(p, eq - (const char*) p, false))
+                                if (!journal_field_valid(p, eq - (const char*) p, /* allow_protected= */ false))
                                         continue;
 
                                 str = malloc(sz + 1);
@@ -2395,7 +2395,7 @@ static int show_one(
                 return 0;
         }
 
-        r = sd_bus_message_rewind(reply, true);
+        r = sd_bus_message_rewind(reply, /* complete= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
 
@@ -2426,7 +2426,7 @@ static int show_all(
         unsigned c;
         int r, ret = 0;
 
-        r = get_unit_list(bus, NULL, NULL, &unit_infos, 0, &reply);
+        r = get_unit_list(bus, /* machine= */ NULL, /* patterns= */ NULL, &unit_infos, 0, &reply);
         if (r < 0)
                 return r;
 
@@ -2473,7 +2473,7 @@ static int show_system_status(sd_bus *bus) {
                         machine_info_property_map,
                         BUS_MAP_STRDUP,
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         &mi);
         if (r < 0)
                 return log_error_errno(r, "Failed to read server status: %s", bus_error_message(&error, r));
@@ -2556,7 +2556,7 @@ int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (!arg_states && !arg_types) {
                         if (show_mode == SYSTEMCTL_SHOW_PROPERTIES)
                                 /* systemctl show --all → show properties of the manager */
-                                return show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
+                                return show_one(bus, "/org/freedesktop/systemd1", /* unit= */ NULL, show_mode, &new_line, &ellipsized);
 
                         r = show_system_status(bus);
                         if (r < 0)
@@ -2603,7 +2603,7 @@ int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (!strv_isempty(patterns)) {
                         _cleanup_strv_free_ char **names = NULL;
 
-                        r = expand_unit_names(bus, patterns, NULL, &names, NULL);
+                        r = expand_unit_names(bus, patterns, /* suffix= */ NULL, &names, /* ret_expanded= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to expand names: %m");
 

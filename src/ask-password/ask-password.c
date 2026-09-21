@@ -83,7 +83,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 /* Empty argument or explicit string "masked" for default behaviour. */
                                 arg_flags &= ~(ASK_PASSWORD_ECHO|ASK_PASSWORD_SILENT);
                         else {
-                                r = parse_boolean_argument("--echo=", opts.arg, NULL);
+                                r = parse_boolean_argument("--echo=", opts.arg, /* ret= */ NULL);
                                 if (r < 0)
                                         return r;
 
@@ -144,7 +144,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (isempty(emoji) || streq(emoji, "auto"))
                 SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, FLAGS_SET(arg_flags, ASK_PASSWORD_ECHO));
         else {
-                r = parse_boolean_argument("--emoji=", emoji, NULL);
+                r = parse_boolean_argument("--emoji=", emoji, /* ret= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -284,9 +284,9 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
         _cleanup_strv_free_erase_ char **l = NULL;
         r = ask_password_auto(&req, ask_flags, &l);
         if (r == -EUNATCH)
-                return sd_varlink_error(link, "io.systemd.AskPassword.NoPasswordAvailable", NULL);
+                return sd_varlink_error(link, "io.systemd.AskPassword.NoPasswordAvailable", /* parameters= */ NULL);
         if (r == -ETIME)
-                return sd_varlink_error(link, "io.systemd.AskPassword.TimeoutReached", NULL);
+                return sd_varlink_error(link, "io.systemd.AskPassword.TimeoutReached", /* parameters= */ NULL);
         if (r == -ECONNRESET) { /* POLLHUP on the varlink fd we passed in via .hup_fd */
                 sd_varlink_close(link);
                 return 1;

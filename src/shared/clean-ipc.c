@@ -440,9 +440,9 @@ int clean_ipc_internal(uid_t uid, gid_t gid, bool rm) {
 }
 
 int clean_ipc_by_uid(uid_t uid) {
-        return clean_ipc_internal(uid, GID_INVALID, true);
+        return clean_ipc_internal(uid, GID_INVALID, /* rm= */ true);
 }
 
 int clean_ipc_by_gid(gid_t gid) {
-        return clean_ipc_internal(UID_INVALID, gid, true);
+        return clean_ipc_internal(UID_INVALID, gid, /* rm= */ true);
 }

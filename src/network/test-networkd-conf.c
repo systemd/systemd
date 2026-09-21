@@ -16,30 +16,30 @@
 static void test_config_parse_duid_type_one(const char *rvalue, DUIDType expected, usec_t expected_time) {
         DUID actual = {};
 
-        ASSERT_OK(config_parse_duid_type("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL));
+        ASSERT_OK(config_parse_duid_type("network", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &actual, /* userdata= */ NULL));
         ASSERT_EQ(actual.type, expected);
         if (expected == DUID_TYPE_LLT)
                 ASSERT_EQ(actual.llt_time, expected_time);
 }
 
 TEST(config_parse_duid_type) {
-        test_config_parse_duid_type_one("", 0, 0);
-        test_config_parse_duid_type_one("link-layer-time", DUID_TYPE_LLT, 0);
+        test_config_parse_duid_type_one("", /* expected= */ 0, /* expected_time= */ 0);
+        test_config_parse_duid_type_one("link-layer-time", DUID_TYPE_LLT, /* expected_time= */ 0);
         test_config_parse_duid_type_one("link-layer-time:2000-01-01 00:00:00 UTC", DUID_TYPE_LLT, (usec_t) 946684800000000);
-        test_config_parse_duid_type_one("vendor", DUID_TYPE_EN, 0);
-        test_config_parse_duid_type_one("vendor:2000-01-01 00:00:00 UTC", 0, 0);
-        test_config_parse_duid_type_one("link-layer", DUID_TYPE_LL, 0);
-        test_config_parse_duid_type_one("link-layer:2000-01-01 00:00:00 UTC", 0, 0);
-        test_config_parse_duid_type_one("uuid", DUID_TYPE_UUID, 0);
-        test_config_parse_duid_type_one("uuid:2000-01-01 00:00:00 UTC", 0, 0);
-        test_config_parse_duid_type_one("foo", 0, 0);
-        test_config_parse_duid_type_one("foo:2000-01-01 00:00:00 UTC", 0, 0);
+        test_config_parse_duid_type_one("vendor", DUID_TYPE_EN, /* expected_time= */ 0);
+        test_config_parse_duid_type_one("vendor:2000-01-01 00:00:00 UTC", /* expected= */ 0, /* expected_time= */ 0);
+        test_config_parse_duid_type_one("link-layer", DUID_TYPE_LL, /* expected_time= */ 0);
+        test_config_parse_duid_type_one("link-layer:2000-01-01 00:00:00 UTC", /* expected= */ 0, /* expected_time= */ 0);
+        test_config_parse_duid_type_one("uuid", DUID_TYPE_UUID, /* expected_time= */ 0);
+        test_config_parse_duid_type_one("uuid:2000-01-01 00:00:00 UTC", /* expected= */ 0, /* expected_time= */ 0);
+        test_config_parse_duid_type_one("foo", /* expected= */ 0, /* expected_time= */ 0);
+        test_config_parse_duid_type_one("foo:2000-01-01 00:00:00 UTC", /* expected= */ 0, /* expected_time= */ 0);
 }
 
 static void test_config_parse_duid_rawdata_one(const char *rvalue, const DUID* expected) {
         DUID actual = {};
 
-        ASSERT_OK(config_parse_duid_rawdata("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL));
+        ASSERT_OK(config_parse_duid_rawdata("network", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &actual, /* userdata= */ NULL));
         if (expected) {
                 _cleanup_free_ char *d = NULL, *e = NULL;
                 d = hexmem(actual.raw_data, actual.raw_data_len);
@@ -51,7 +51,7 @@ static void test_config_parse_duid_rawdata_one(const char *rvalue, const DUID* e
 static void test_config_parse_ether_addr_one(const char *rvalue, const struct ether_addr* expected) {
         _cleanup_free_ struct ether_addr *actual = NULL;
 
-        ASSERT_OK(config_parse_ether_addr("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL));
+        ASSERT_OK(config_parse_ether_addr("network", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &actual, /* userdata= */ NULL));
         if (expected) {
                 ASSERT_NOT_NULL(actual);
                 ASSERT_STREQ(ETHER_ADDR_TO_STR(actual), ETHER_ADDR_TO_STR(expected));
@@ -62,7 +62,7 @@ static void test_config_parse_ether_addr_one(const char *rvalue, const struct et
 static void test_config_parse_ether_addrs_one(const char *rvalue, const struct ether_addr* list, size_t n) {
         _cleanup_set_free_ Set *s = NULL;
 
-        ASSERT_OK(config_parse_ether_addrs("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &s, NULL));
+        ASSERT_OK(config_parse_ether_addrs("network", "filename", 1, "section", 1, "lvalue", /* ltype= */ 0, rvalue, &s, /* userdata= */ NULL));
         ASSERT_EQ(set_size(s), n);
 
         for (size_t m = 0; m < n; m++) {
@@ -127,18 +127,18 @@ TEST(config_parse_ether_addr) {
                 { .ether_addr_octet = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab } },
         };
 
-        test_config_parse_ether_addr_one("", NULL);
-        test_config_parse_ether_addr_one("no:ta:ma:ca:dd:re", NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:fx", NULL);
+        test_config_parse_ether_addr_one("", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("no:ta:ma:ca:dd:re", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:fx", /* expected= */ NULL);
         test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff", &t[0]);
-        test_config_parse_ether_addr_one(" aa:bb:cc:dd:ee:ff", NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff \t\n", NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff \t\nxxx", NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc: dd:ee:ff", NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:d d:ee:ff", NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee", NULL);
-        test_config_parse_ether_addr_one("9:aa:bb:cc:dd:ee:ff", NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff:gg", NULL);
+        test_config_parse_ether_addr_one(" aa:bb:cc:dd:ee:ff", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff \t\n", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff \t\nxxx", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc: dd:ee:ff", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:d d:ee:ff", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("9:aa:bb:cc:dd:ee:ff", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff:gg", /* expected= */ NULL);
         test_config_parse_ether_addr_one("aa:Bb:CC:dd:ee:ff", &t[0]);
         test_config_parse_ether_addr_one("01:23:45:67:89:aB", &t[1]);
         test_config_parse_ether_addr_one("1:23:45:67:89:aB", &t[1]);
@@ -147,11 +147,11 @@ TEST(config_parse_ether_addr) {
         test_config_parse_ether_addr_one("01-23-45-67-89-ab", &t[1]);
         test_config_parse_ether_addr_one("aabb.ccdd.eeff", &t[0]);
         test_config_parse_ether_addr_one("0123.4567.89ab", &t[1]);
-        test_config_parse_ether_addr_one("123.4567.89ab.", NULL);
-        test_config_parse_ether_addr_one("aabbcc.ddeeff", NULL);
-        test_config_parse_ether_addr_one("aabbccddeeff", NULL);
-        test_config_parse_ether_addr_one("aabbccddee:ff", NULL);
-        test_config_parse_ether_addr_one("012345.6789ab", NULL);
+        test_config_parse_ether_addr_one("123.4567.89ab.", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("aabbcc.ddeeff", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("aabbccddeeff", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("aabbccddee:ff", /* expected= */ NULL);
+        test_config_parse_ether_addr_one("012345.6789ab", /* expected= */ NULL);
         test_config_parse_ether_addr_one("123.4567.89ab", &t[1]);
 
         test_config_parse_ether_addrs_one("", t, 0);
@@ -195,7 +195,7 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
         network->manager = manager;
         assert_se(network->filename = strdup("hogehoge.network"));
 
-        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match.ifname, network) == 0);
+        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "*", &network->match.ifname, network) == 0);
         assert_se(config_parse_address_section("network", "filename", 1, "section", 1, "Address", ADDRESS_ADDRESS, rvalue, network, network) == 0);
         assert_se(ordered_hashmap_size(network->addresses_by_section) == 1);
         assert_se(network_verify(network) >= 0);
@@ -212,38 +212,38 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
 }
 
 TEST(config_parse_address) {
-        test_config_parse_address_one("", AF_INET, 0, NULL, 0);
-        test_config_parse_address_one("/", AF_INET, 0, NULL, 0);
-        test_config_parse_address_one("/8", AF_INET, 0, NULL, 0);
+        test_config_parse_address_one("", AF_INET, /* n_addresses= */ 0, NULL, /* prefixlen= */ 0);
+        test_config_parse_address_one("/", AF_INET, /* n_addresses= */ 0, NULL, /* prefixlen= */ 0);
+        test_config_parse_address_one("/8", AF_INET, /* n_addresses= */ 0, NULL, /* prefixlen= */ 0);
         test_config_parse_address_one("1.2.3.4", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 32);
-        test_config_parse_address_one("1.2.3.4/0", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 0);
+        test_config_parse_address_one("1.2.3.4/0", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, /* prefixlen= */ 0);
         test_config_parse_address_one("1.2.3.4/1", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 1);
         test_config_parse_address_one("1.2.3.4/2", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 2);
         test_config_parse_address_one("1.2.3.4/32", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 32);
-        test_config_parse_address_one("1.2.3.4/33", AF_INET, 0, NULL, 0);
-        test_config_parse_address_one("1.2.3.4/-1", AF_INET, 0, NULL, 0);
+        test_config_parse_address_one("1.2.3.4/33", AF_INET, /* n_addresses= */ 0, NULL, /* prefixlen= */ 0);
+        test_config_parse_address_one("1.2.3.4/-1", AF_INET, /* n_addresses= */ 0, NULL, /* prefixlen= */ 0);
 
-        test_config_parse_address_one("", AF_INET6, 0, NULL, 0);
-        test_config_parse_address_one("/", AF_INET6, 0, NULL, 0);
-        test_config_parse_address_one("/8", AF_INET6, 0, NULL, 0);
+        test_config_parse_address_one("", AF_INET6, /* n_addresses= */ 0, NULL, /* prefixlen= */ 0);
+        test_config_parse_address_one("/", AF_INET6, /* n_addresses= */ 0, NULL, /* prefixlen= */ 0);
+        test_config_parse_address_one("/8", AF_INET6, /* n_addresses= */ 0, NULL, /* prefixlen= */ 0);
         test_config_parse_address_one("::1", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128);
-        test_config_parse_address_one("::1/0", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0);
+        test_config_parse_address_one("::1/0", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, /* prefixlen= */ 0);
         test_config_parse_address_one("::1/1", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 1);
         test_config_parse_address_one("::1/2", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 2);
         test_config_parse_address_one("::1/32", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 32);
         test_config_parse_address_one("::1/33", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 33);
         test_config_parse_address_one("::1/64", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 64);
         test_config_parse_address_one("::1/128", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128);
-        test_config_parse_address_one("::1/129", AF_INET6, 0, NULL, 0);
-        test_config_parse_address_one("::1/-1", AF_INET6, 0, NULL, 0);
+        test_config_parse_address_one("::1/129", AF_INET6, /* n_addresses= */ 0, NULL, /* prefixlen= */ 0);
+        test_config_parse_address_one("::1/-1", AF_INET6, /* n_addresses= */ 0, NULL, /* prefixlen= */ 0);
 }
 
 TEST(config_parse_match_ifnames) {
         _cleanup_strv_free_ char **names = NULL;
 
-        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "!hoge hogehoge foo", &names, NULL) == 0);
-        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "!baz", &names, NULL) == 0);
-        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "aaa bbb ccc", &names, NULL) == 0);
+        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!hoge hogehoge foo", &names, /* userdata= */ NULL) == 0);
+        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!baz", &names, /* userdata= */ NULL) == 0);
+        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "aaa bbb ccc", &names, /* userdata= */ NULL) == 0);
 
         assert_se(strv_equal(names, STRV_MAKE("!hoge", "!hogehoge", "!foo", "!baz", "aaa", "bbb", "ccc")));
 }
@@ -251,10 +251,10 @@ TEST(config_parse_match_ifnames) {
 TEST(config_parse_match_strv) {
         _cleanup_strv_free_ char **names = NULL;
 
-        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", 0, "!hoge hogehoge foo", &names, NULL) == 0);
-        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", 0, "!baz", &names, NULL) == 0);
-        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", 0,
-                                          "KEY=val \"KEY2=val with space\" \"KEY3=val with \\\"quotation\\\"\"", &names, NULL) == 0);
+        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!hoge hogehoge foo", &names, /* userdata= */ NULL) == 0);
+        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!baz", &names, /* userdata= */ NULL) == 0);
+        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0,
+                                          "KEY=val \"KEY2=val with space\" \"KEY3=val with \\\"quotation\\\"\"", &names, /* userdata= */ NULL) == 0);
 
         assert_se(strv_equal(names,
                              STRV_MAKE("!hoge",
@@ -268,7 +268,7 @@ TEST(config_parse_match_strv) {
 
 static int parse_mpr(const char *rvalue, OrderedSet **nexthops) {
         return config_parse_multipath_route(
-                        "network", "filename", 1, "section", 1, "MultiPathRoute", 0, rvalue, nexthops, NULL);
+                        "network", "filename", 1, "section", 1, "MultiPathRoute", /* ltype= */ 0, rvalue, nexthops, /* userdata= */ NULL);
 }
 
 static void test_config_parse_multipath_route_one(const char *rvalue, int expected_ret, size_t expected_size) {
@@ -353,25 +353,25 @@ TEST(config_parse_multipath_route) {
         _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
 
         /* Device only routes */
-        test_config_parse_multipath_route_verify("@wg0", AF_UNSPEC, NULL, "wg0", 0, 0);
-        test_config_parse_multipath_route_verify("@wg0 10", AF_UNSPEC, NULL, "wg0", 0, 9);
-        test_config_parse_multipath_route_verify("@eth0 255", AF_UNSPEC, NULL, "eth0", 0, 254);
-        test_config_parse_multipath_route_verify("@1 15", AF_UNSPEC, NULL, NULL, 1, 14);
+        test_config_parse_multipath_route_verify("@wg0", AF_UNSPEC, /* expected_gw= */ NULL, "wg0", /* expected_ifindex= */ 0, /* expected_weight= */ 0);
+        test_config_parse_multipath_route_verify("@wg0 10", AF_UNSPEC, /* expected_gw= */ NULL, "wg0", /* expected_ifindex= */ 0, 9);
+        test_config_parse_multipath_route_verify("@eth0 255", AF_UNSPEC, /* expected_gw= */ NULL, "eth0", /* expected_ifindex= */ 0, 254);
+        test_config_parse_multipath_route_verify("@1 15", AF_UNSPEC, /* expected_gw= */ NULL, /* expected_ifname= */ NULL, 1, 14);
 
         /* Gateway with device */
-        test_config_parse_multipath_route_verify("10.0.0.1@eth0", AF_INET, "10.0.0.1", "eth0", 0, 0);
-        test_config_parse_multipath_route_verify("10.0.0.1@eth0 20", AF_INET, "10.0.0.1", "eth0", 0, 19);
-        test_config_parse_multipath_route_verify("2001:db8::1@wg0 15", AF_INET6, "2001:db8::1", "wg0", 0, 14);
+        test_config_parse_multipath_route_verify("10.0.0.1@eth0", AF_INET, "10.0.0.1", "eth0", /* expected_ifindex= */ 0, /* expected_weight= */ 0);
+        test_config_parse_multipath_route_verify("10.0.0.1@eth0 20", AF_INET, "10.0.0.1", "eth0", /* expected_ifindex= */ 0, 19);
+        test_config_parse_multipath_route_verify("2001:db8::1@wg0 15", AF_INET6, "2001:db8::1", "wg0", /* expected_ifindex= */ 0, 14);
 
         /* Gateway without device */
-        test_config_parse_multipath_route_verify("192.168.1.1", AF_INET, "192.168.1.1", NULL, 0, 0);
-        test_config_parse_multipath_route_verify("192.168.1.1 100", AF_INET, "192.168.1.1", NULL, 0, 99);
-        test_config_parse_multipath_route_verify("fe80::1", AF_INET6, "fe80::1", NULL, 0, 0);
+        test_config_parse_multipath_route_verify("192.168.1.1", AF_INET, "192.168.1.1", /* expected_ifname= */ NULL, /* expected_ifindex= */ 0, /* expected_weight= */ 0);
+        test_config_parse_multipath_route_verify("192.168.1.1 100", AF_INET, "192.168.1.1", /* expected_ifname= */ NULL, /* expected_ifindex= */ 0, 99);
+        test_config_parse_multipath_route_verify("fe80::1", AF_INET6, "fe80::1", /* expected_ifname= */ NULL, /* expected_ifindex= */ 0, /* expected_weight= */ 0);
 
         /* Interface index instead of name */
-        test_config_parse_multipath_route_verify("10.0.0.1@5", AF_INET, "10.0.0.1", NULL, 5, 0);
-        test_config_parse_multipath_route_verify("@10", AF_UNSPEC, NULL, NULL, 10, 0);
-        test_config_parse_multipath_route_verify("@10 50", AF_UNSPEC, NULL, NULL, 10, 49);
+        test_config_parse_multipath_route_verify("10.0.0.1@5", AF_INET, "10.0.0.1", /* expected_ifname= */ NULL, 5, /* expected_weight= */ 0);
+        test_config_parse_multipath_route_verify("@10", AF_UNSPEC, /* expected_gw= */ NULL, /* expected_ifname= */ NULL, 10, /* expected_weight= */ 0);
+        test_config_parse_multipath_route_verify("@10 50", AF_UNSPEC, /* expected_gw= */ NULL, /* expected_ifname= */ NULL, 10, 49);
 
         /* Empty value clears nexthops */
         ASSERT_OK_EQ(parse_mpr("@wg0 15", &nexthops), 1);
@@ -455,21 +455,21 @@ TEST(config_parse_multipath_route) {
         /* Invalid input should be rejected */
 
         /* Invalid gateway addresses */
-        test_config_parse_multipath_route_one("999.999.999.999", 0, 0);
-        test_config_parse_multipath_route_one("not-an-ip", 0, 0);
-        test_config_parse_multipath_route_one("10", 0, 0);
+        test_config_parse_multipath_route_one("999.999.999.999", /* expected_ret= */ 0, /* expected_size= */ 0);
+        test_config_parse_multipath_route_one("not-an-ip", /* expected_ret= */ 0, /* expected_size= */ 0);
+        test_config_parse_multipath_route_one("10", /* expected_ret= */ 0, /* expected_size= */ 0);
 
         /* Invalid weights */
-        test_config_parse_multipath_route_one("@wg0 0", 0, 0);   /* Weight 0 */
-        test_config_parse_multipath_route_one("@wg0 257", 0, 0); /* Weight > 256 */
-        test_config_parse_multipath_route_one("@wg0 -1", 0, 0);  /* Negative */
-        test_config_parse_multipath_route_one("@wg0 abc", 0, 0); /* Non-numeric */
+        test_config_parse_multipath_route_one("@wg0 0", /* expected_ret= */ 0, /* expected_size= */ 0);   /* Weight 0 */
+        test_config_parse_multipath_route_one("@wg0 257", /* expected_ret= */ 0, /* expected_size= */ 0); /* Weight > 256 */
+        test_config_parse_multipath_route_one("@wg0 -1", /* expected_ret= */ 0, /* expected_size= */ 0);  /* Negative */
+        test_config_parse_multipath_route_one("@wg0 abc", /* expected_ret= */ 0, /* expected_size= */ 0); /* Non-numeric */
 }
 
 TEST(config_parse_stacked_netdev) {
         _cleanup_hashmap_free_ Hashmap *netdevs = NULL;
-        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VLAN", NETDEV_KIND_VLAN, "foo bar baz invalid:name", &netdevs, NULL));
-        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VXLAN", NETDEV_KIND_VXLAN, "aaa 321 foo bbb", &netdevs, NULL));
+        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VLAN", NETDEV_KIND_VLAN, "foo bar baz invalid:name", &netdevs, /* userdata= */ NULL));
+        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VXLAN", NETDEV_KIND_VXLAN, "aaa 321 foo bbb", &netdevs, /* userdata= */ NULL));
 
         static const struct {
                 const char *name;
@@ -488,7 +488,7 @@ TEST(config_parse_stacked_netdev) {
                 ASSERT_EQ(PTR_TO_INT(p), i->kind);
         }
 
-        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VXLAN", NETDEV_KIND_VXLAN, "", &netdevs, NULL));
+        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VXLAN", NETDEV_KIND_VXLAN, "", &netdevs, /* userdata= */ NULL));
         ASSERT_NULL(netdevs);
 }
 

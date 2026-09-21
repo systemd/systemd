@@ -306,7 +306,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("verity-data", "PATH",
                             "Specify data file with hash tree for verity if it is not embedded in IMAGE"):
-                        r = parse_path_argument(opts.arg, false, &arg_verity_settings.data_path);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_verity_settings.data_path);
                         if (r < 0)
                                 return r;
                         break;
@@ -495,7 +495,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path as only argument.");
 
-                r = parse_image_path_argument(args[0], NULL, &arg_image);
+                r = parse_image_path_argument(args[0], /* ret_root= */ NULL, &arg_image);
                 if (r < 0)
                         return r;
 
@@ -508,7 +508,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path and mount point path as only arguments.");
 
-                r = parse_image_path_argument(args[0], NULL, &arg_image);
+                r = parse_image_path_argument(args[0], /* ret_root= */ NULL, &arg_image);
                 if (r < 0)
                         return r;
 
@@ -534,7 +534,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path as only argument.");
 
-                r = parse_image_path_argument(args[0], NULL, &arg_image);
+                r = parse_image_path_argument(args[0], /* ret_root= */ NULL, &arg_image);
                 if (r < 0)
                         return r;
                 break;
@@ -544,7 +544,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path or loopback device as only argument.");
 
-                r = parse_image_path_argument(args[0], NULL, &arg_image);
+                r = parse_image_path_argument(args[0], /* ret_root= */ NULL, &arg_image);
                 if (r < 0)
                         return r;
                 break;
@@ -614,7 +614,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path and an optional command line.");
 
-                r = parse_image_path_argument(args[0], NULL, &arg_image);
+                r = parse_image_path_argument(args[0], /* ret_root= */ NULL, &arg_image);
                 if (r < 0)
                         return r;
 
@@ -637,7 +637,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path as only argument.");
 
-                r = parse_image_path_argument(args[0], NULL, &arg_image);
+                r = parse_image_path_argument(args[0], /* ret_root= */ NULL, &arg_image);
                 if (r < 0)
                         return r;
 
@@ -1013,7 +1013,7 @@ static int action_dissect(
                 return log_oom();
 
         table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 9), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, /* row= */ 0, 9), 100);
 
         /* Hide the device path if this is a loopback device that is not relinquished, since that means the
          * device node is not going to be useful the instant our command exits */
@@ -1034,9 +1034,9 @@ static int action_dissect(
                         return table_log_add_error(r);
 
                 if (sd_id128_is_null(p->uuid))
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 else
-                        r = table_add_cell(t, NULL, TABLE_UUID, &p->uuid);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_UUID, &p->uuid);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -1049,13 +1049,13 @@ static int action_dissect(
                         return table_log_add_error(r);
 
                 if (arg_verity_settings.data_path)
-                        r = table_add_cell(t, NULL, TABLE_STRING, "external");
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_STRING, "external");
                 else if (dissected_image_verity_candidate(m, i))
-                        r = table_add_cell(t, NULL, TABLE_STRING,
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_STRING,
                                            dissected_image_verity_sig_ready(m, i) ? "signed" :
                                            yes_no(dissected_image_verity_ready(m, i)));
                 else
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -1064,17 +1064,17 @@ static int action_dissect(
                         return table_log_add_error(r);
 
                 if (p->partno < 0) /* no partition table, naked file system */ {
-                        r = table_add_cell(t, NULL, TABLE_PATH_BASENAME, arg_image);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_PATH_BASENAME, arg_image);
                         if (r < 0)
                                 return table_log_add_error(r);
 
-                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 } else {
-                        r = table_add_cell(t, NULL, TABLE_STRING, p->node);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_STRING, p->node);
                         if (r < 0)
                                 return table_log_add_error(r);
 
-                        r = table_add_cell(t, NULL, TABLE_INT, &p->partno);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_INT, &p->partno);
                 }
                 if (r < 0)
                         return table_log_add_error(r);
@@ -1097,7 +1097,7 @@ static int action_dissect(
                 if (r < 0)
                         return log_oom();
 
-                sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
         }
 
         return 0;
@@ -1327,7 +1327,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 assert(m);
 
                 if (userns_fd < 0)
-                        r = detach_mount_namespace_harder(0, 0);
+                        r = detach_mount_namespace_harder(/* target_uid= */ 0, /* target_gid= */ 0);
                 else
                         r = detach_mount_namespace_userns(userns_fd);
                 if (r < 0)
@@ -1370,7 +1370,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
         case ACTION_COPY_FROM: {
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
 
-                source_fd = chase_and_open(arg_source, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                source_fd = chase_and_open(arg_source, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path= */ NULL);
                 if (source_fd < 0)
                         return log_error_errno(source_fd, "Failed to open source path '%s' in image '%s': %m", arg_source, arg_image);
 
@@ -1411,11 +1411,11 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to '%s': %m", arg_source, arg_image, arg_target);
 
-                (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
+                (void) copy_xattr(source_fd, /* from= */ NULL, target_fd, /* to= */ NULL, /* copy_flags= */ 0);
                 (void) copy_access(source_fd, target_fd);
                 if (arg_copy_ownership > 0)
                         (void) copy_owner(source_fd, target_fd);
-                (void) copy_times(source_fd, target_fd, 0);
+                (void) copy_times(source_fd, target_fd, /* flags= */ 0);
 
                 return 0;
         }
@@ -1433,7 +1433,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         return log_error_errno(r, "Failed to extract filename from target path '%s': %m", arg_target);
                 is_dir = r == O_DIRECTORY;
 
-                r = chase(dn, root, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &dfd);
+                r = chase(dn, root, CHASE_PREFIX_ROOT|CHASE_WARN, /* ret_path= */ NULL, &dfd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open '%s': %m", dn);
 
@@ -1509,11 +1509,11 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 
-                (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
+                (void) copy_xattr(source_fd, /* from= */ NULL, target_fd, /* to= */ NULL, /* copy_flags= */ 0);
                 (void) copy_access(source_fd, target_fd);
                 if (arg_copy_ownership > 0)
                         (void) copy_owner(source_fd, target_fd);
-                (void) copy_times(source_fd, target_fd, 0);
+                (void) copy_times(source_fd, target_fd, /* flags= */ 0);
 
                 return 0;
         }
@@ -1529,9 +1529,15 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 pager_open(arg_pager_flags);
 
                 if (arg_action == ACTION_LIST)
-                        r = recurse_dir(dfd, NULL, 0, UINT_MAX, RECURSE_DIR_SORT, list_print_item, NULL);
+                        r = recurse_dir(dfd, /* path= */ NULL, /* statx_mask= */ 0, UINT_MAX, RECURSE_DIR_SORT, list_print_item, /* userdata= */ NULL);
                 else if (arg_action == ACTION_MTREE)
-                        r = recurse_dir(dfd, ".", STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID|STATX_SIZE, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL, mtree_print_item, NULL);
+                        r = recurse_dir(dfd,
+                                        ".",
+                                        STATX_TYPE | STATX_MODE | STATX_UID | STATX_GID | STATX_SIZE,
+                                        UINT_MAX,
+                                        RECURSE_DIR_SORT | RECURSE_DIR_INODE_FD | RECURSE_DIR_TOPLEVEL,
+                                        mtree_print_item,
+                                        /* userdata= */ NULL);
                 else
                         assert_not_reached();
                 if (r < 0)
@@ -1600,13 +1606,13 @@ static int action_umount(const char *path) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
-        fd = chase_and_open(path, NULL, 0, O_DIRECTORY, &canonical);
+        fd = chase_and_open(path, /* root= */ NULL, /* chase_flags= */ 0, O_DIRECTORY, &canonical);
         if (fd == -ENOTDIR)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "'%s' is not a directory", path);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to resolve path '%s': %m", path);
 
-        r = is_mount_point_at(fd, NULL, 0);
+        r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "'%s' is not a mount point", canonical);
         if (r < 0)
@@ -1629,7 +1635,7 @@ static int action_umount(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
 
-        r = loop_device_open(dev, 0, LOCK_EX, &d);
+        r = loop_device_open(dev, /* open_flags= */ 0, LOCK_EX, &d);
         if (r < 0) {
                 if (!ERRNO_IS_PRIVILEGE(r))
                         return log_device_error_errno(dev, r, "Failed to open loopback block device: %m");
@@ -1641,7 +1647,7 @@ static int action_umount(const char *path) {
          * to close the O_PATH fd we opened earlier. */
         fd = safe_close(fd);
 
-        r = umount_recursive(canonical, 0);
+        r = umount_recursive(canonical, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unmount '%s': %m", canonical);
 
@@ -1744,7 +1750,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
                         log_warning_errno(r, "Failed to lock loopback block device, ignoring: %m");
         }
 
-        r = umount_recursive(mounted_dir, 0);
+        r = umount_recursive(mounted_dir, /* flags= */ 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to unmount '%s', ignoring: %m", mounted_dir);
         else if (d)
@@ -1765,7 +1771,7 @@ static int action_discover(void) {
         int r;
 
         for (ImageClass cl = 0; cl < _IMAGE_CLASS_MAX; cl++) {
-                r = image_discover(arg_runtime_scope, cl, NULL, &images);
+                r = image_discover(arg_runtime_scope, cl, /* root= */ NULL, &images);
                 if (r < 0)
                         return log_error_errno(r, "Failed to discover images: %m");
         }
@@ -1779,7 +1785,7 @@ static int action_discover(void) {
         if (!t)
                 return log_oom();
 
-        table_set_align_percent(t, table_get_cell(t, 0, 6), 100);
+        table_set_align_percent(t, table_get_cell(t, /* row= */ 0, 6), 100);
         table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
 
         Image *img;
@@ -1815,7 +1821,7 @@ static int action_attach(DissectedImage *m, LoopDevice *d) {
         assert(m);
         assert(d);
 
-        r = loop_device_set_autoclear(d, false);
+        r = loop_device_set_autoclear(d, /* autoclear= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to disable auto-clear logic on loopback device: %m");
 
@@ -1858,7 +1864,7 @@ static int action_detach(const char *path) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate enumerator: %m");
 
-                r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+                r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to match block devices: %m");
 
@@ -1903,7 +1909,7 @@ static int action_detach(const char *path) {
                         return log_error_errno(r, "Failed to upgrade device lock: %m");
         }
 
-        r = loop_device_set_autoclear(loop, true);
+        r = loop_device_set_autoclear(loop, /* autoclear= */ true);
         if (r < 0)
                 log_warning_errno(r, "Failed to enable autoclear logic on '%s', ignoring: %m", loop->node);
 

@@ -783,7 +783,7 @@ static int independent_netdev_create(NetDev *netdev) {
         if (r < 0)
                 return r;
 
-        r = netdev_create_message(netdev, NULL, m);
+        r = netdev_create_message(netdev, /* link= */ NULL, m);
         if (r < 0)
                 return r;
 
@@ -952,7 +952,7 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
                                     trivial_hash_func, trivial_compare_func,
                                     stacked_netdev_process_request,
                                     &link->create_stacked_netdev_messages,
-                                    create_stacked_netdev_handler, NULL);
+                                    create_stacked_netdev_handler, /* ret= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request stacked netdev '%s': %m",
                                             netdev->ifname);
@@ -989,7 +989,7 @@ static int independent_netdev_process_request(Request *req, Link *link, void *us
                    LINK_STATE_LINGER)) /* Already removed; wait for the stale information to be cleared. */
                 return 0;
 
-        r = netdev_is_ready_to_create(netdev, NULL);
+        r = netdev_is_ready_to_create(netdev, /* link= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -1018,7 +1018,7 @@ static int netdev_request_to_create(NetDev *netdev) {
         if (netdev->state != NETDEV_STATE_LOADING)
                 return 0; /* Already configured (at least tried previously). Not necessary to reconfigure. */
 
-        r = netdev_queue_request(netdev, independent_netdev_process_request, NULL);
+        r = netdev_queue_request(netdev, independent_netdev_process_request, /* ret= */ NULL);
         if (r < 0)
                 return log_netdev_warning_errno(netdev, r, "Failed to request to create netdev: %m");
 
@@ -1069,7 +1069,7 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
                 return r; /* config_parse_many() logs internally. */
 
         /* skip out early if configuration does not match the environment */
-        if (!condition_test_list_net(netdev_raw->conditions, environ, NULL, NULL, NULL))
+        if (!condition_test_list_net(netdev_raw->conditions, environ, /* to_string= */ NULL, /* logger= */ NULL, /* userdata= */ NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "%s: Conditions in the file do not match the system environment, skipping.", filename);
 
         if (netdev_raw->kind == _NETDEV_KIND_INVALID)

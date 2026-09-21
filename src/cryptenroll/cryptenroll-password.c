@@ -31,7 +31,7 @@ int load_volume_key_empty(
                         ret_vk->iov_base,
                         &ret_vk->iov_len,
                         "",
-                        0);
+                        /* passphrase_size= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Provided empty password did not work: %m");
 
@@ -57,7 +57,7 @@ int load_volume_key_keyfile(
                         UINT64_MAX,
                         4U * U64_MB, /* safety net */
                         READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET|READ_FULL_FILE_FAIL_WHEN_LARGER,
-                        NULL,
+                        /* bind_name= */ NULL,
                         &password,
                         &password_len);
         if (r < 0)
@@ -282,7 +282,7 @@ int enroll_password(
                 }
         }
 
-        r = check_password_quality(new_password, /* old= */ NULL, /* user= */ NULL, &error);
+        r = check_password_quality(new_password, /* old= */ NULL, /* username= */ NULL, &error);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 log_warning("Password quality check is not supported, proceeding anyway.");
         else if (r < 0)

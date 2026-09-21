@@ -491,7 +491,7 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 
                         j += r;
                 } else if (i > s) {
-                        const char *tt = find_previous_unichar(s, i, NULL);
+                        const char *tt = find_previous_unichar(s, i, /* ret_c= */ NULL);
                         if (!tt)
                                 return NULL;
 

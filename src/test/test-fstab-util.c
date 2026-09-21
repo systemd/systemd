@@ -34,7 +34,7 @@ static void do_fstab_filter_options(const char *opts,
 
         /* test mode which returns the last value */
 
-        r = fstab_filter_options(opts, remove, &name, &value, NULL, &filtered);
+        r = fstab_filter_options(opts, remove, &name, &value, /* ret_values= */ NULL, &filtered);
         log_info("1: \"%s\" → %d, \"%s\", \"%s\", \"%s\", expected %d, \"%s\", \"%s\", \"%s\"",
                  opts, r, strnull(name), value, filtered,
                  r_expected, strnull(name_expected), strnull(value_expected), filtered_expected ?: opts);
@@ -45,7 +45,7 @@ static void do_fstab_filter_options(const char *opts,
 
         /* test mode which returns all the values */
 
-        r = fstab_filter_options(opts, remove, &name, NULL, &values, NULL);
+        r = fstab_filter_options(opts, remove, &name, /* ret_value= */ NULL, &values, /* ret_filtered= */ NULL);
         assert_se(joined = strv_join(values, ":"));
         log_info("2: \"%s\" → %d, \"%s\", \"%s\", expected %d, \"%s\", \"%s\"",
                  opts, r, strnull(name), joined,
@@ -55,7 +55,7 @@ static void do_fstab_filter_options(const char *opts,
         ASSERT_STREQ(joined, values_expected);
 
         /* also test the malloc-less mode */
-        r = fstab_filter_options(opts, remove, &name, NULL, NULL, NULL);
+        r = fstab_filter_options(opts, remove, &name, /* ret_value= */ NULL, /* ret_values= */ NULL, /* ret_filtered= */ NULL);
         log_info("3: \"%s\" → %d, \"%s\", expected %d, \"%s\"\n-",
                  opts, r, strnull(name),
                  r_expected, strnull(name_expected));
@@ -66,37 +66,61 @@ static void do_fstab_filter_options(const char *opts,
 TEST(fstab_filter_options) {
         do_fstab_filter_options("opt=0", "opt\0x-opt\0", 1, 1, "opt", "0", "0", "");
         do_fstab_filter_options("opt=0", "x-opt\0opt\0", 1, 1, "opt", "0", "0", "");
-        do_fstab_filter_options("opt", "opt\0x-opt\0", 1, 0, "opt", NULL, "", "");
-        do_fstab_filter_options("opt", "x-opt\0opt\0", 1, 0, "opt", NULL, "", "");
-        do_fstab_filter_options("x-opt", "x-opt\0opt\0", 1, 0, "x-opt", NULL, "", "");
+        do_fstab_filter_options("opt", "opt\0x-opt\0", 1, /* r_values_expected= */ 0, "opt", /* value_expected= */ NULL, "", "");
+        do_fstab_filter_options("opt", "x-opt\0opt\0", 1, /* r_values_expected= */ 0, "opt", /* value_expected= */ NULL, "", "");
+        do_fstab_filter_options("x-opt", "x-opt\0opt\0", 1, /* r_values_expected= */ 0, "x-opt", /* value_expected= */ NULL, "", "");
 
         do_fstab_filter_options("opt=0,other", "opt\0x-opt\0", 1, 1, "opt", "0", "0", "other");
         do_fstab_filter_options("opt=0,other", "x-opt\0opt\0", 1, 1, "opt", "0", "0", "other");
-        do_fstab_filter_options("opt,other", "opt\0x-opt\0", 1, 0, "opt", NULL, "", "other");
-        do_fstab_filter_options("opt,other", "x-opt\0opt\0", 1, 0, "opt", NULL, "", "other");
-        do_fstab_filter_options("x-opt,other", "opt\0x-opt\0", 1, 0, "x-opt", NULL, "", "other");
+        do_fstab_filter_options("opt,other", "opt\0x-opt\0", 1, /* r_values_expected= */ 0, "opt", /* value_expected= */ NULL, "", "other");
+        do_fstab_filter_options("opt,other", "x-opt\0opt\0", 1, /* r_values_expected= */ 0, "opt", /* value_expected= */ NULL, "", "other");
+        do_fstab_filter_options("x-opt,other", "opt\0x-opt\0", 1, /* r_values_expected= */ 0, "x-opt", /* value_expected= */ NULL, "", "other");
 
         do_fstab_filter_options("opt=0\\,1,other", "opt\0x-opt\0", 1, 1, "opt", "0,1", "0,1", "other");
         do_fstab_filter_options("opt=0,other,x-opt\\,foobar", "x-opt\0opt\0", 1, 1, "opt", "0", "0", "other,x-opt\\,foobar");
-        do_fstab_filter_options("opt,other,x-opt\\,part", "opt\0x-opt\0", 1, 0, "opt", NULL, "", "other,x-opt\\,part");
-        do_fstab_filter_options("opt,other,part\\,x-opt", "x-opt\0opt\0", 1, 0, "opt", NULL, "", "other,part\\,x-opt");
-        do_fstab_filter_options("opt,other\\,\\,\\,opt,x-part", "opt\0x-opt\0", 1, 0, "opt", NULL, "", "other\\,\\,\\,opt,x-part");
+        do_fstab_filter_options("opt,other,x-opt\\,part", "opt\0x-opt\0", 1, /* r_values_expected= */ 0, "opt", /* value_expected= */ NULL, "", "other,x-opt\\,part");
+        do_fstab_filter_options("opt,other,part\\,x-opt", "x-opt\0opt\0", 1, /* r_values_expected= */ 0, "opt", /* value_expected= */ NULL, "", "other,part\\,x-opt");
+        do_fstab_filter_options("opt,other\\,\\,\\,opt,x-part", "opt\0x-opt\0", 1, /* r_values_expected= */ 0, "opt", /* value_expected= */ NULL, "", "other\\,\\,\\,opt,x-part");
 
-        do_fstab_filter_options("opto=0,other", "opt\0x-opt\0", 0, 0, NULL, NULL, "", NULL);
-        do_fstab_filter_options("opto,other", "opt\0x-opt\0", 0, 0, NULL, NULL, "", NULL);
-        do_fstab_filter_options("x-opto,other", "opt\0x-opt\0", 0, 0, NULL, NULL, "", NULL);
+        do_fstab_filter_options(
+                        "opto=0,other",
+                        "opt\0x-opt\0",
+                        /* r_expected= */ 0,
+                        /* r_values_expected= */ 0,
+                        /* name_expected= */ NULL,
+                        /* value_expected= */ NULL,
+                        "",
+                        /* filtered_expected= */ NULL);
+        do_fstab_filter_options(
+                        "opto,other",
+                        "opt\0x-opt\0",
+                        /* r_expected= */ 0,
+                        /* r_values_expected= */ 0,
+                        /* name_expected= */ NULL,
+                        /* value_expected= */ NULL,
+                        "",
+                        /* filtered_expected= */ NULL);
+        do_fstab_filter_options(
+                        "x-opto,other",
+                        "opt\0x-opt\0",
+                        /* r_expected= */ 0,
+                        /* r_values_expected= */ 0,
+                        /* name_expected= */ NULL,
+                        /* value_expected= */ NULL,
+                        "",
+                        /* filtered_expected= */ NULL);
 
         do_fstab_filter_options("first,opt=0", "opt\0x-opt\0", 1, 1, "opt", "0", "0", "first");
         do_fstab_filter_options("first=1,opt=0", "opt\0x-opt\0", 1, 1, "opt", "0", "0", "first=1");
         do_fstab_filter_options("first,opt=", "opt\0x-opt\0", 1, 1, "opt", "", "", "first");
-        do_fstab_filter_options("first=1,opt", "opt\0x-opt\0", 1, 0, "opt", NULL, "", "first=1");
-        do_fstab_filter_options("first=1,x-opt", "opt\0x-opt\0", 1, 0, "x-opt", NULL, "", "first=1");
+        do_fstab_filter_options("first=1,opt", "opt\0x-opt\0", 1, /* r_values_expected= */ 0, "opt", /* value_expected= */ NULL, "", "first=1");
+        do_fstab_filter_options("first=1,x-opt", "opt\0x-opt\0", 1, /* r_values_expected= */ 0, "x-opt", /* value_expected= */ NULL, "", "first=1");
 
         do_fstab_filter_options("first,opt=0,last=1", "opt\0x-opt\0", 1, 1, "opt", "0", "0", "first,last=1");
         do_fstab_filter_options("first=1,opt=0,last=2", "x-opt\0opt\0", 1, 1, "opt", "0", "0", "first=1,last=2");
-        do_fstab_filter_options("first,opt,last", "opt\0", 1, 0, "opt", NULL, "", "first,last");
-        do_fstab_filter_options("first=1,opt,last", "x-opt\0opt\0", 1, 0, "opt", NULL, "", "first=1,last");
-        do_fstab_filter_options("first=,opt,last", "opt\0noopt\0", 1, 0, "opt", NULL, "", "first=,last");
+        do_fstab_filter_options("first,opt,last", "opt\0", 1, /* r_values_expected= */ 0, "opt", /* value_expected= */ NULL, "", "first,last");
+        do_fstab_filter_options("first=1,opt,last", "x-opt\0opt\0", 1, /* r_values_expected= */ 0, "opt", /* value_expected= */ NULL, "", "first=1,last");
+        do_fstab_filter_options("first=,opt,last", "opt\0noopt\0", 1, /* r_values_expected= */ 0, "opt", /* value_expected= */ NULL, "", "first=,last");
 
         /* check repeated options */
         do_fstab_filter_options("first,opt=0,noopt=1,last=1", "opt\0noopt\0", 1, 1, "noopt", "1", "0:1", "first,last=1");
@@ -107,17 +131,33 @@ TEST(fstab_filter_options) {
 
         /* check that semicolons are not misinterpreted */
         do_fstab_filter_options("opt=0;", "opt\0", 1, 1, "opt", "0;", "0;", "");
-        do_fstab_filter_options("opt;=0", "x-opt\0opt\0noopt\0x-noopt\0", 0, 0, NULL, NULL, "", NULL);
-        do_fstab_filter_options("opt;", "opt\0x-opt\0", 0, 0, NULL, NULL, "", NULL);
+        do_fstab_filter_options(
+                        "opt;=0",
+                        "x-opt\0opt\0noopt\0x-noopt\0",
+                        /* r_expected= */ 0,
+                        /* r_values_expected= */ 0,
+                        /* name_expected= */ NULL,
+                        /* value_expected= */ NULL,
+                        "",
+                        /* filtered_expected= */ NULL);
+        do_fstab_filter_options("opt;", "opt\0x-opt\0", /* r_expected= */ 0, /* r_values_expected= */ 0, /* name_expected= */ NULL, /* value_expected= */ NULL, "", /* filtered_expected= */ NULL);
 
         /* check that spaces are not misinterpreted */
         do_fstab_filter_options("opt=0 ", "opt\0", 1, 1, "opt", "0 ", "0 ", "");
-        do_fstab_filter_options("opt =0", "x-opt\0opt\0noopt\0x-noopt\0", 0, 0, NULL, NULL, "", NULL);
-        do_fstab_filter_options(" opt ", "opt\0x-opt\0", 0, 0, NULL, NULL, "", NULL);
+        do_fstab_filter_options(
+                        "opt =0",
+                        "x-opt\0opt\0noopt\0x-noopt\0",
+                        /* r_expected= */ 0,
+                        /* r_values_expected= */ 0,
+                        /* name_expected= */ NULL,
+                        /* value_expected= */ NULL,
+                        "",
+                        /* filtered_expected= */ NULL);
+        do_fstab_filter_options(" opt ", "opt\0x-opt\0", /* r_expected= */ 0, /* r_values_expected= */ 0, /* name_expected= */ NULL, /* value_expected= */ NULL, "", /* filtered_expected= */ NULL);
 
         /* check function with NULL args */
-        do_fstab_filter_options(NULL, "opt\0", 0, 0, NULL, NULL, "", NULL);
-        do_fstab_filter_options("", "opt\0", 0, 0, NULL, NULL, "", "");
+        do_fstab_filter_options(/* opts= */ NULL, "opt\0", /* r_expected= */ 0, /* r_values_expected= */ 0, /* name_expected= */ NULL, /* value_expected= */ NULL, "", /* filtered_expected= */ NULL);
+        do_fstab_filter_options("", "opt\0", /* r_expected= */ 0, /* r_values_expected= */ 0, /* name_expected= */ NULL, /* value_expected= */ NULL, "", "");
 
         /* unnecessary comma separators */
         do_fstab_filter_options("opt=x,,,,", "opt\0", 1, 1, "opt", "x", "x", "");

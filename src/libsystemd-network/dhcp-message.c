@@ -432,7 +432,7 @@ static int dhcp_message_append_option_fqdn(sd_dhcp_message *message, uint8_t fla
         buf[1] = is_client ? 0 : 255;
         buf[2] = is_client ? 0 : 255;
 
-        r = dns_name_to_wire_format(fqdn, buf + 3, sizeof(buf) - 3, false);
+        r = dns_name_to_wire_format(fqdn, buf + 3, sizeof(buf) - 3, /* canonical= */ false);
         if (r <= 0)
                 return r;
 

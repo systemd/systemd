@@ -175,7 +175,7 @@ static bool bridge_mdb_is_ready_to_configure(Link *link) {
 
         assert(link);
 
-        if (!link_is_ready_to_configure(link, false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return false;
 
         if (!link->master_set)
@@ -236,13 +236,13 @@ int link_request_static_bridge_mdb(Link *link) {
 
         HASHMAP_FOREACH(mdb, link->network->bridge_mdb_entries_by_section) {
                 r = link_queue_request_full(link, REQUEST_TYPE_BRIDGE_MDB,
-                                            mdb, NULL,
+                                            mdb, /* free_func= */ NULL,
                                             trivial_hash_func,
                                             trivial_compare_func,
                                             bridge_mdb_process_request,
                                             &link->static_bridge_mdb_messages,
                                             bridge_mdb_configure_handler,
-                                            NULL);
+                                            /* ret= */ NULL);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to request MDB entry to multicast group database: %m");
         }

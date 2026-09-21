@@ -278,7 +278,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        n = sd_listen_fds(false);
+        n = sd_listen_fds(/* unset_environment= */ false);
         if (n < 0)
                 return log_error_errno(n, "Failed to determine whether we got any file descriptors passed: %m");
         if (n > 1)
@@ -313,7 +313,7 @@ static int run(int argc, char *argv[]) {
                         if (!ready) {
                                 /* Notify manager that we are now finished with processing whatever was
                                  * queued */
-                                r = sd_notify(false, "READY=1");
+                                r = sd_notify(/* unset_environment= */ false, "READY=1");
                                 if (r < 0)
                                         log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 

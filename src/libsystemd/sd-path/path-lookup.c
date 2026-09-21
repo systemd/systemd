@@ -486,7 +486,7 @@ static char** user_unit_search_dirs(
         if (strv_extend_strv_consume(&paths, TAKE_PTR(data_dirs), /* filter_duplicates= */ false) < 0)
                 return NULL;
 
-        if (strv_extend_strv(&paths, (char* const*) user_data_unit_paths, false) < 0)
+        if (strv_extend_strv(&paths, (char* const*) user_data_unit_paths, /* filter_duplicates= */ false) < 0)
                 return NULL;
 
         if (strv_extend(&paths, generator_late) < 0)
@@ -525,7 +525,7 @@ int lookup_paths_init(
                 if (scope == RUNTIME_SCOPE_USER)
                         return -EINVAL;
 
-                r = is_dir(root_dir, true);
+                r = is_dir(root_dir, /* follow= */ true);
                 if (r < 0)
                         return r;
                 if (r == 0)

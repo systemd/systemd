@@ -214,7 +214,7 @@ int config_parse_net_condition(
         if (negate)
                 rvalue++;
 
-        c = condition_new(cond, rvalue, false, negate);
+        c = condition_new(cond, rvalue, /* trigger= */ false, negate);
         if (!c)
                 return log_oom();
 
@@ -256,7 +256,7 @@ int config_parse_match_strv(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -311,7 +311,7 @@ int config_parse_match_ifnames(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)
@@ -372,7 +372,7 @@ int config_parse_match_property(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == 0)
                         return 0;
                 if (r == -ENOMEM)

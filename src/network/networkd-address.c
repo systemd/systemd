@@ -1307,7 +1307,7 @@ int address_remove(Address *address, Link *link) {
 
         /* The operational state is determined by address state and carrier state. Hence, if we remove
          * an address, the operational state may be changed. */
-        link_update_operstate(link, true);
+        link_update_operstate(link, /* also_update_master= */ true);
         return 0;
 }
 
@@ -1397,11 +1397,11 @@ int link_drop_ipv6ll_addresses(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(link->manager->rtnl, req, 0, &reply);
+        r = sd_netlink_call(link->manager->rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
@@ -1433,7 +1433,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
                         continue;
                 }
 
-                if (sd_netlink_message_read_in6_addr(addr, IFA_LOCAL, NULL) >= 0)
+                if (sd_netlink_message_read_in6_addr(addr, IFA_LOCAL, /* ret= */ NULL) >= 0)
                         /* address with peer, ignoring. */
                         continue;
 
@@ -1677,7 +1677,7 @@ static int address_requeue_request(Request *req, Link *link, const Address *addr
 
         tmp->in_addr = a;
 
-        r = link_requeue_request(link, req, tmp, NULL);
+        r = link_requeue_request(link, req, tmp, /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1696,7 +1696,7 @@ static int address_process_request(Request *req, Link *link, Address *address) {
         assert(link);
         assert(address);
 
-        if (!link_is_ready_to_configure(link, false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return 0;
 
         /* Refuse adding more than the limit */
@@ -1760,7 +1760,7 @@ int link_request_address(
                 /* The requested address is outdated. Let's ignore the request. */
                 return 0;
 
-        if (address_get_request(link, address, NULL) >= 0)
+        if (address_get_request(link, address, /* ret= */ NULL) >= 0)
                 return 0; /* already requested, skipping. */
 
         r = address_dup(address, &tmp);
@@ -1822,7 +1822,7 @@ int link_request_static_address(Link *link, const Address *address) {
         assert(address->source == NETWORK_CONFIG_SOURCE_STATIC);
 
         return link_request_address(link, address, &link->static_address_messages,
-                                    static_address_handler, NULL);
+                                    static_address_handler, /* ret= */ NULL);
 }
 
 int link_request_static_addresses(Link *link) {

@@ -286,6 +286,13 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   ```
 
   This guidance should be applied tree-wide, including in test files.
+  `tools/check-argument-comments.py` enforces it for every bare `NULL`, `0`,
+  `true` and `false` passed for a parameter with a telling name (single-letter
+  names, `argN` and calls produced by macro bodies are exempt) and checks that
+  an existing comment names the right parameter. `meson test -C build
+  --suite=argument-comments` checks the whole tree, `tools/check-argument-comments.py
+  --diff main src` only what a branch changed, and `--fix` inserts the missing
+  comments.
 
 - Please do not introduce new circular dependencies between header files.
   Effectively this means that if a.h includes b.h, then b.h cannot include a.h,

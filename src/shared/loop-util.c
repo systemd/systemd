@@ -814,7 +814,7 @@ int loop_device_make(
         assert(ret);
 
         return loop_device_make_internal(
-                        NULL,
+                        /* path= */ NULL,
                         fd,
                         open_flags,
                         offset,
@@ -937,7 +937,7 @@ int loop_device_make_by_path_memory(
 
         fd = safe_close(fd); /* Let's close the original early */
 
-        return loop_device_make_internal(NULL, mfd, open_flags, 0, 0, sector_size, loop_flags, lock_op, ret);
+        return loop_device_make_internal(/* path= */ NULL, mfd, open_flags, /* offset= */ 0, /* size= */ 0, sector_size, loop_flags, lock_op, ret);
 }
 
 static LoopDevice* loop_device_free(LoopDevice *d) {
@@ -1149,7 +1149,7 @@ int loop_device_open_from_fd(
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
-        r = block_device_new_from_fd(ASSERT_FD(fd), 0, &dev);
+        r = block_device_new_from_fd(ASSERT_FD(fd), /* flags= */ 0, &dev);
         if (r < 0)
                 return r;
 
@@ -1167,7 +1167,7 @@ int loop_device_open_from_path(
 
         assert(path);
 
-        r = block_device_new_from_path(path, 0, &dev);
+        r = block_device_new_from_path(path, /* flags= */ 0, &dev);
         if (r < 0)
                 return r;
 
@@ -1234,7 +1234,7 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         if (r < 0)
                 return r;
 
-        whole_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, NULL);
+        whole_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, /* ret_devname= */ NULL);
         if (r < 0)
                 return r;
 

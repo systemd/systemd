@@ -87,10 +87,10 @@ bool path_is_valid_search_path(const char *path) _pure_;
 
 int generator_binary_paths_internal(RuntimeScope scope, bool env_generator, char ***ret);
 static inline int generator_binary_paths(RuntimeScope runtime_scope, char ***ret) {
-        return generator_binary_paths_internal(runtime_scope, false, ret);
+        return generator_binary_paths_internal(runtime_scope, /* env_generator= */ false, ret);
 }
 static inline int env_generator_binary_paths(RuntimeScope runtime_scope, char ***ret) {
-        return generator_binary_paths_internal(runtime_scope, true, ret);
+        return generator_binary_paths_internal(runtime_scope, /* env_generator= */ true, ret);
 }
 
 static inline int credential_store_path(RuntimeScope runtime_scope, char ***ret) {

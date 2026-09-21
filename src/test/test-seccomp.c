@@ -166,7 +166,7 @@ TEST(architecture_table) {
 }
 
 TEST(syscall_filter_set_find) {
-        assert_se(!syscall_filter_set_find(NULL));
+        assert_se(!syscall_filter_set_find(/* name= */ NULL));
         assert_se(!syscall_filter_set_find(""));
         assert_se(!syscall_filter_set_find("quux"));
         assert_se(!syscall_filter_set_find("@quux"));
@@ -200,7 +200,7 @@ TEST(filter_sets) {
 
                 log_info("Testing %s", syscall_filter_sets[i].name);
 
-                r = ASSERT_OK(pidref_safe_fork("(filter_sets)", FORK_LOG|FORK_WAIT, NULL));
+                r = ASSERT_OK(pidref_safe_fork("(filter_sets)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
                 if (r == 0) {
                         int fd;
 
@@ -208,9 +208,9 @@ TEST(filter_sets) {
                         if (IN_SET(i, SYSCALL_FILTER_SET_DEFAULT,
                                       SYSCALL_FILTER_SET_SYSTEM_SERVICE,
                                       SYSCALL_FILTER_SET_KNOWN))
-                                r = seccomp_load_syscall_filter_set(SCMP_ACT_ERRNO(EUCLEAN), syscall_filter_sets + i, SCMP_ACT_ALLOW, true);
+                                r = seccomp_load_syscall_filter_set(SCMP_ACT_ERRNO(EUCLEAN), syscall_filter_sets + i, SCMP_ACT_ALLOW, /* log_missing= */ true);
                         else
-                                r = seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + i, SCMP_ACT_ERRNO(EUCLEAN), true);
+                                r = seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + i, SCMP_ACT_ERRNO(EUCLEAN), /* log_missing= */ true);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
 
@@ -269,7 +269,7 @@ TEST(restrict_namespace) {
         if (!have_namespaces())
                 return (void) log_tests_skipped("Testing without namespaces");
 
-        assert_se(namespace_flags_to_string(0, &s) == 0 && isempty(s));
+        assert_se(namespace_flags_to_string(/* flags= */ 0, &s) == 0 && isempty(s));
         s = mfree(s);
         assert_se(namespace_flags_to_string(CLONE_NEWNS, &s) == 0 && streq(s, "mnt"));
         s = mfree(s);
@@ -279,7 +279,7 @@ TEST(restrict_namespace) {
         s = mfree(s);
 
         assert_se(namespace_flags_from_string("mnt", &ul) == 0 && ul == CLONE_NEWNS);
-        assert_se(namespace_flags_from_string(NULL, &ul) == 0 && ul == 0);
+        assert_se(namespace_flags_from_string(/* name= */ NULL, &ul) == 0 && ul == 0);
         assert_se(namespace_flags_from_string("", &ul) == 0 && ul == 0);
         assert_se(namespace_flags_from_string("uts", &ul) == 0 && ul == CLONE_NEWUTS);
         assert_se(namespace_flags_from_string("mnt uts ipc", &ul) == 0 && ul == (CLONE_NEWNS|CLONE_NEWUTS|CLONE_NEWIPC));
@@ -298,7 +298,7 @@ TEST(restrict_namespace) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        r = ASSERT_OK(pidref_safe_fork("(restrict-namespace)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(restrict-namespace)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
 
                 assert_se(seccomp_restrict_namespaces(CLONE_NEWNS|CLONE_NEWNET) >= 0);
@@ -360,7 +360,7 @@ TEST(protect_sysctl) {
         if (!streq(seccomp, "0"))
                 log_warning("Warning: seccomp filter detected, results may be unreliable for %s", __func__);
 
-        r = ASSERT_OK(pidref_safe_fork("(protect-sysctl)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(protect-sysctl)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
 #if defined __NR__sysctl && __NR__sysctl >= 0
                 assert_se(syscall(__NR__sysctl, NULL) < 0);
@@ -391,7 +391,7 @@ TEST(protect_syslog) {
         /* in containers syslog() is likely missing anyway */
         CHECK_SECCOMP(/* skip_container= */ true);
 
-        r = ASSERT_OK(pidref_safe_fork("(protect-syslog)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(protect-syslog)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
 #if defined __NR_syslog && __NR_syslog >= 0
                 assert_se(syscall(__NR_syslog, -1, NULL, 0) < 0);
@@ -414,7 +414,7 @@ TEST(restrict_address_families) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        r = ASSERT_OK(pidref_safe_fork("(restrict-address-families)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(restrict-address-families)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 int fd;
                 Set *s;
@@ -431,10 +431,10 @@ TEST(restrict_address_families) {
                 assert_se(fd >= 0);
                 safe_close(fd);
 
-                assert_se(s = set_new(NULL));
+                assert_se(s = set_new(/* hash_ops= */ NULL));
                 ASSERT_OK(set_put(s, INT_TO_PTR(AF_UNIX)));
 
-                assert_se(seccomp_restrict_address_families(s, false) >= 0);
+                assert_se(seccomp_restrict_address_families(s, /* allow_list= */ false) >= 0);
 
                 fd = socket(AF_INET, SOCK_DGRAM, 0);
                 assert_se(fd >= 0);
@@ -457,7 +457,7 @@ TEST(restrict_address_families) {
 
                 ASSERT_OK(set_put(s, INT_TO_PTR(AF_INET)));
 
-                assert_se(seccomp_restrict_address_families(s, true) >= 0);
+                assert_se(seccomp_restrict_address_families(s, /* allow_list= */ true) >= 0);
 
                 fd = socket(AF_INET, SOCK_DGRAM, 0);
                 assert_se(fd >= 0);
@@ -491,7 +491,7 @@ TEST(restrict_realtime) {
         /* in containers RT privs are likely missing anyway */
         CHECK_SECCOMP(/* skip_container= */ true);
 
-        r = ASSERT_OK(pidref_safe_fork("(restrict-realtime)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(restrict-realtime)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 /* On some CI environments, the restriction may be already enabled. */
                 if (sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }) < 0) {
@@ -545,7 +545,7 @@ TEST(memory_deny_write_execute_mmap) {
         return;
 #endif
 
-        r = ASSERT_OK(pidref_safe_fork("(memory_deny_write_execute_mmap)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(memory_deny_write_execute_mmap)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 void *p;
 
@@ -609,7 +609,7 @@ TEST(memory_deny_write_execute_shmat) {
         shmid = shmget(IPC_PRIVATE, page_size(), 0);
         assert_se(shmid >= 0);
 
-        r = ASSERT_OK(pidref_safe_fork("(memory-deny-write-execute)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(memory-deny-write-execute)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 void *p;
 
@@ -651,7 +651,7 @@ TEST(restrict_ptrace) {
 
         CHECK_SECCOMP(/* refuse_container= */ false);
 
-        r = ASSERT_OK(pidref_safe_fork("(restrict-ptrace)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(restrict-ptrace)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 void *addr = (void*) (uintptr_t) &ptrace;
                 int status;
@@ -708,13 +708,13 @@ TEST(restrict_archs) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        r = ASSERT_OK(pidref_safe_fork("(restrict-archs)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(restrict-archs)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 _cleanup_set_free_ Set *s = NULL;
 
                 assert_se(access("/", F_OK) >= 0);
 
-                assert_se(s = set_new(NULL));
+                assert_se(s = set_new(/* hash_ops= */ NULL));
 
 #ifdef __x86_64__
                 ASSERT_OK(set_put(s, UINT32_TO_PTR(SCMP_ARCH_X86+1)));
@@ -722,7 +722,7 @@ TEST(restrict_archs) {
                 assert_se(seccomp_restrict_archs(s) >= 0);
 
                 assert_se(access("/", F_OK) >= 0);
-                assert_se(seccomp_restrict_archs(NULL) >= 0);
+                assert_se(seccomp_restrict_archs(/* archs= */ NULL) >= 0);
 
                 assert_se(access("/", F_OK) >= 0);
 
@@ -735,18 +735,18 @@ TEST(load_syscall_filter_set_raw) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        r = ASSERT_OK(pidref_safe_fork("(load-filter)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(load-filter)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 _cleanup_hashmap_free_ Hashmap *s = NULL;
 
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, SCMP_ACT_KILL_PROCESS, true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, /* filter= */ NULL, SCMP_ACT_KILL_PROCESS, /* log_missing= */ true) >= 0);
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                assert_se(s = hashmap_new(NULL));
+                assert_se(s = hashmap_new(/* hash_ops= */ NULL));
 #if defined __NR_access && __NR_access >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(-1)) >= 0);
                 log_debug("has access()");
@@ -761,7 +761,7 @@ TEST(load_syscall_filter_set_raw) {
 #endif
 
                 assert_se(!hashmap_isempty(s));
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), /* log_missing= */ true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EUCLEAN);
@@ -779,7 +779,7 @@ TEST(load_syscall_filter_set_raw) {
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat2 + 1), INT_TO_PTR(EILSEQ)) >= 0);
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), /* log_missing= */ true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EILSEQ);
@@ -801,7 +801,7 @@ TEST(load_syscall_filter_set_raw) {
 #endif
 
                 assert_se(!hashmap_isempty(s));
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), /* log_missing= */ true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EILSEQ);
@@ -820,7 +820,7 @@ TEST(load_syscall_filter_set_raw) {
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll_time64 + 1), INT_TO_PTR(EILSEQ)) >= 0);
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), /* log_missing= */ true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EILSEQ);
@@ -837,13 +837,13 @@ TEST(native_syscalls_filtered) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        r = ASSERT_OK(pidref_safe_fork("(native-syscalls)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(native-syscalls)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 _cleanup_set_free_ Set *arch_s = NULL;
                 _cleanup_hashmap_free_ Hashmap *s = NULL;
 
                 /* Passing "native" or an empty set is equivalent, just do both here. */
-                assert_se(arch_s = set_new(NULL));
+                assert_se(arch_s = set_new(/* hash_ops= */ NULL));
                 assert_se(seccomp_restrict_archs(arch_s) >= 0);
                 ASSERT_OK(set_put(arch_s, (void*) SCMP_ARCH_NATIVE));
                 assert_se(seccomp_restrict_archs(arch_s) >= 0);
@@ -851,11 +851,11 @@ TEST(native_syscalls_filtered) {
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, SCMP_ACT_KILL_PROCESS, true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, /* filter= */ NULL, SCMP_ACT_KILL_PROCESS, /* log_missing= */ true) >= 0);
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                assert_se(s = hashmap_new(NULL));
+                assert_se(s = hashmap_new(/* hash_ops= */ NULL));
 #if defined __NR_access && __NR_access >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(-1)) >= 0);
                 log_debug("has access()");
@@ -870,7 +870,7 @@ TEST(native_syscalls_filtered) {
 #endif
 
                 assert_se(!hashmap_isempty(s));
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), /* log_missing= */ true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EUCLEAN);
@@ -890,7 +890,7 @@ TEST(lock_personality) {
         log_info("current personality=0x%lX", (unsigned long) safe_personality(PERSONALITY_INVALID));
         log_info("current opinionated personality=0x%lX", current_opinionated);
 
-        r = ASSERT_OK(pidref_safe_fork("(lock-personality)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(lock-personality)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 unsigned long current;
 
@@ -960,7 +960,7 @@ TEST(restrict_suid_sgid) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        r = ASSERT_OK(pidref_safe_fork("(suid-sgid)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(suid-sgid)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 char path[] = "/tmp/suidsgidXXXXXX", dir[] = "/tmp/suidsgiddirXXXXXX";
                 int fd = -EBADF, k = -EBADF;
@@ -987,10 +987,10 @@ TEST(restrict_suid_sgid) {
                 assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) >= 0);
                 assert_se(fchmodat(AT_FDCWD, path, 0755, 0) >= 0);
 
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISUID, 0) >= 0);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID, 0) >= 0);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) >= 0);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755, 0) >= 0);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISUID, /* flags= */ 0) >= 0);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID, /* flags= */ 0) >= 0);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, /* flags= */ 0) >= 0);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755, /* flags= */ 0) >= 0);
 
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID);
                 k = safe_close(k);
@@ -1093,10 +1093,10 @@ TEST(restrict_suid_sgid) {
                 assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) < 0 && errno == EPERM);
                 assert_se(fchmodat(AT_FDCWD, path, 0755, 0) >= 0);
 
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISUID, 0) < 0 && errno == EPERM);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID, 0) < 0 && errno == EPERM);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) < 0 && errno == EPERM);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755, 0) >= 0);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISUID, /* flags= */ 0) < 0 && errno == EPERM);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID, /* flags= */ 0) < 0 && errno == EPERM);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, /* flags= */ 0) < 0 && errno == EPERM);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755, /* flags= */ 0) >= 0);
 
                 assert_se(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID) < 0 && errno == EPERM);
                 assert_se(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID) < 0 && errno == EPERM);
@@ -1154,7 +1154,7 @@ static void test_seccomp_suppress_sync_child(void) {
         _cleanup_(unlink_and_freep) char *path = NULL;
         _cleanup_close_ int fd = -EBADF;
 
-        ASSERT_OK(tempfn_random("/tmp/seccomp_suppress_sync", NULL, &path));
+        ASSERT_OK(tempfn_random("/tmp/seccomp_suppress_sync", /* extra= */ NULL, &path));
         fd = open(path, O_RDWR | O_CREAT | O_SYNC | O_CLOEXEC, 0666);
         /* We might be running in an environment where sync() is already suppressed. */
         if (fd >= 0) {
@@ -1187,7 +1187,7 @@ TEST(seccomp_suppress_sync) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        r = ASSERT_OK(pidref_safe_fork("(suppress-sync)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(suppress-sync)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 test_seccomp_suppress_sync_child();
                 _exit(EXIT_SUCCESS);

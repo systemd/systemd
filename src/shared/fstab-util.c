@@ -367,7 +367,7 @@ int fstab_find_pri(const char *opts, int *ret) {
 
         assert(ret);
 
-        r = fstab_filter_options(opts, "pri\0", NULL, &v, NULL, NULL);
+        r = fstab_filter_options(opts, "pri\0", /* ret_namefound= */ NULL, &v, /* ret_values= */ NULL, /* ret_filtered= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0 || !v)

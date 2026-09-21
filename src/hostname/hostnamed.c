@@ -1384,7 +1384,7 @@ static int validate_and_substitute_hostname(const char *name, char **ret_substit
         if (r < 0)
                 return log_error_errno(r, "Failed to substitute wildcards in hostname: %m");
 
-        if (!hostname_is_valid(substituted, 0))
+        if (!hostname_is_valid(substituted, /* flags= */ 0))
                 return -EUCLEAN;
 
         *ret_substituted = TAKE_PTR(substituted);
@@ -1450,7 +1450,7 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
                                                       "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
                                                       "Hostname", "HostnameSource", NULL);
 
-        return sd_bus_reply_method_return(m, NULL);
+        return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
 static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -1469,7 +1469,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         context_read_etc_hostname(c);
 
         if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
-                return sd_bus_reply_method_return(m, NULL);
+                return sd_bus_reply_method_return(m, /* types= */ NULL);
 
         _cleanup_free_ char *substituted = NULL;
         r = bus_validate_and_substitute_hostname(name, &substituted, error);
@@ -1513,7 +1513,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
                                               "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
                                               "StaticHostname", "Hostname", "HostnameSource", NULL);
 
-        return sd_bus_reply_method_return(m, NULL);
+        return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
 static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_message_handler_t cb, sd_bus_error *error) {
@@ -1533,7 +1533,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
         context_read_machine_info(c);
 
         if (streq_ptr(name, c->data[prop]))
-                return sd_bus_reply_method_return(m, NULL);
+                return sd_bus_reply_method_return(m, /* types= */ NULL);
 
         if (!isempty(name)) {
                 /* The icon name might ultimately be used as file
@@ -1596,7 +1596,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
                         prop == PROP_LOCATION ? "Location" :
                         prop == PROP_CHASSIS ? "Chassis" : "IconName" , NULL);
 
-        return sd_bus_reply_method_return(m, NULL);
+        return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
 static int method_set_pretty_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -1696,7 +1696,7 @@ static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *erro
                 return log_error_errno(r, "Failed to parse current machine tags: %m");
 
         if (strv_equal(current, tags))
-                return sd_bus_reply_method_return(m, NULL);
+                return sd_bus_reply_method_return(m, /* types= */ NULL);
 
         r = bus_verify_polkit_async_full(
                         m,
@@ -1716,7 +1716,7 @@ static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (r < 0)
                 return bus_error_from_tags_write(error, r);
 
-        return sd_bus_reply_method_return(m, NULL);
+        return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
 static int machine_tags_add_remove(char * const *base, char * const *add, char * const *remove, char ***ret) {
@@ -1786,7 +1786,7 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
                 return log_oom();
 
         if (strv_equal(current, tags))
-                return sd_bus_reply_method_return(m, NULL);
+                return sd_bus_reply_method_return(m, /* types= */ NULL);
 
         r = bus_verify_polkit_async_full(
                         m,
@@ -1806,7 +1806,7 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
         if (r < 0)
                 return bus_error_from_tags_write(error, r);
 
-        return sd_bus_reply_method_return(m, NULL);
+        return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
 static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -2092,7 +2092,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (r < 0)
                 return r;
 
-        r = sd_json_variant_format(v, 0, &text);
+        r = sd_json_variant_format(v, /* flags= */ 0, &text);
         if (r < 0)
                 return log_error_errno(r, "Failed to format JSON data: %m");
 
@@ -2227,11 +2227,11 @@ static int connect_bus(Context *c) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(c->bus, NULL, "org.freedesktop.hostname1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(c->bus, /* ret_slot= */ NULL, "org.freedesktop.hostname1", /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(c->bus, c->event, 0);
+        r = sd_bus_attach_event(c->bus, c->event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
@@ -2336,7 +2336,7 @@ static int vl_method_set_hostname(sd_varlink *link, sd_json_variant *parameters,
                                                       "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
                                                       "Hostname", "HostnameSource", NULL);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_set_static_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -2362,7 +2362,7 @@ static int vl_method_set_static_hostname(sd_varlink *link, sd_json_variant *para
         context_read_etc_hostname(c);
 
         if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
-                return sd_varlink_reply(link, NULL);
+                return sd_varlink_reply(link, /* parameters= */ NULL);
 
         _cleanup_free_ char *substituted = NULL;
         r = vl_validate_and_substitute_hostname(link, name, &substituted);
@@ -2396,7 +2396,7 @@ static int vl_method_set_static_hostname(sd_varlink *link, sd_json_variant *para
                                               "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
                                               "StaticHostname", "Hostname", "HostnameSource", NULL);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_set_machine_info(sd_varlink *link, sd_json_variant *parameters, void *userdata, HostProperty prop) {
@@ -2469,7 +2469,7 @@ static int vl_set_machine_info(sd_varlink *link, sd_json_variant *parameters, vo
         context_read_machine_info(c);
 
         if (streq_ptr(name, c->data[prop]))
-                return sd_varlink_reply(link, NULL);
+                return sd_varlink_reply(link, /* parameters= */ NULL);
 
         r = varlink_verify_polkit_async(
                         link,
@@ -2497,7 +2497,7 @@ static int vl_set_machine_info(sd_varlink *link, sd_json_variant *parameters, vo
                         bus_property,
                         NULL);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_set_pretty_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -2583,7 +2583,7 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
                 return r;
 
         if (strv_equal(tags, current))
-                return sd_varlink_reply(link, NULL);
+                return sd_varlink_reply(link, /* parameters= */ NULL);
 
         r = varlink_verify_polkit_async(
                         link,
@@ -2598,7 +2598,7 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int connect_varlink(Context *c) {
@@ -2734,7 +2734,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = sd_notify(false, NOTIFY_READY_MESSAGE);
+        r = sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 

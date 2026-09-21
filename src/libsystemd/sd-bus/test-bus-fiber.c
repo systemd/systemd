@@ -39,13 +39,13 @@ static int method_concurrent(sd_bus_message *m, void *userdata, sd_bus_error *re
                 c->waiter = sd_fiber_get_current();
                 ASSERT_OK(sd_fiber_suspend());
         } else {
-                ASSERT_OK(sd_fiber_resume(TAKE_PTR(c->waiter), 0));
+                ASSERT_OK(sd_fiber_resume(TAKE_PTR(c->waiter), /* result= */ 0));
                 ASSERT_OK(sd_fiber_yield());
         }
 
         c->in_flight--;
 
-        return sd_bus_reply_method_return(m, NULL);
+        return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
 static int method_fail_errno(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
@@ -95,14 +95,14 @@ static int attach_pair(Setup *s, sd_bus **ret_server, sd_bus **ret_client) {
         ASSERT_OK(sd_bus_set_description(server, "server"));
         ASSERT_OK(sd_bus_set_fd(server, s->fds[0], s->fds[0]));
         ASSERT_OK(sd_bus_set_server(server, true, id));
-        ASSERT_OK(sd_bus_attach_event(server, sd_fiber_get_event(), 0));
-        ASSERT_OK(sd_bus_add_object_vtable(server, NULL, "/test", "test.Fiber", vtable, s->c));
+        ASSERT_OK(sd_bus_attach_event(server, sd_fiber_get_event(), /* priority= */ 0));
+        ASSERT_OK(sd_bus_add_object_vtable(server, /* ret_slot= */ NULL, "/test", "test.Fiber", vtable, s->c));
         ASSERT_OK(sd_bus_start(server));
 
         ASSERT_OK(sd_bus_new(&client));
         ASSERT_OK(sd_bus_set_description(client, "client"));
         ASSERT_OK(sd_bus_set_fd(client, s->fds[1], s->fds[1]));
-        ASSERT_OK(sd_bus_attach_event(client, sd_fiber_get_event(), 0));
+        ASSERT_OK(sd_bus_attach_event(client, sd_fiber_get_event(), /* priority= */ 0));
         ASSERT_OK(sd_bus_start(client));
 
         *ret_server = TAKE_PTR(server);
@@ -116,8 +116,8 @@ static int call_concurrent_fiber(void *userdata) {
         /* A plain suspending sd_bus_call() — on a fiber this goes through sd_bus_call_suspend()
          * which multiplexes onto the single client connection, so multiple caller fibers can have
          * calls in flight at the same time. */
-        return sd_bus_call_method(client, NULL, "/test", "test.Fiber", "Concurrent",
-                                  NULL, NULL, NULL);
+        return sd_bus_call_method(client, /* destination= */ NULL, "/test", "test.Fiber", "Concurrent",
+                                  /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL);
 }
 
 static int concurrency_fiber(void *userdata) {
@@ -171,15 +171,15 @@ static int errors_fiber(void *userdata) {
         /* A fiber handler that returns a negative errno gets turned into a matching sd_bus error
          * reply (bus_maybe_reply_error → sd_bus_reply_method_errno). */
         _cleanup_(sd_bus_error_free) sd_bus_error e1 = SD_BUS_ERROR_NULL;
-        ASSERT_ERROR(sd_bus_call_method(client, NULL, "/test", "test.Fiber", "FailErrno",
-                                        &e1, NULL, NULL),
+        ASSERT_ERROR(sd_bus_call_method(client, /* destination= */ NULL, "/test", "test.Fiber", "FailErrno",
+                                        &e1, /* ret_reply= */ NULL, /* types= */ NULL),
                      EACCES);
         ASSERT_TRUE(sd_bus_error_has_name(&e1, SD_BUS_ERROR_ACCESS_DENIED));
 
         /* A fiber handler that populates sd_bus_error directly propagates both name and message. */
         _cleanup_(sd_bus_error_free) sd_bus_error e2 = SD_BUS_ERROR_NULL;
-        ASSERT_FAIL(sd_bus_call_method(client, NULL, "/test", "test.Fiber", "FailError",
-                                       &e2, NULL, NULL));
+        ASSERT_FAIL(sd_bus_call_method(client, /* destination= */ NULL, "/test", "test.Fiber", "FailError",
+                                       &e2, /* ret_reply= */ NULL, /* types= */ NULL));
         ASSERT_TRUE(sd_bus_error_has_name(&e2, SD_BUS_ERROR_INVALID_ARGS));
         ASSERT_STREQ(e2.message, "bad arguments from fiber");
 

@@ -103,7 +103,7 @@ int feature_read_definition(Feature *f, const char *root, const char *path, cons
                         CONFIG_PARSE_WARN,
                         (void *) root,
                         /* ret_stats_by_path= */ NULL,
-                        /* ret_drop_in_files= */ NULL);
+                        /* ret_dropin_files= */ NULL);
         if (r < 0)
                 return r;
 

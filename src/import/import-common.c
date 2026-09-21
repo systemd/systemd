@@ -85,7 +85,7 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
                 if (unshare(CLONE_NEWNET) < 0)
                         log_debug_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
 
-                r = capability_bounding_set_drop(retain, true);
+                r = capability_bounding_set_drop(retain, /* right_now= */ true);
                 if (r < 0)
                         log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
@@ -161,7 +161,7 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
                 if (hardlink_db_fd < 0)
                         log_debug_errno(hardlink_db_fd, "Failed to allocate hardlink db, ignoring: %m");
 
-                r = capability_bounding_set_drop(retain, true);
+                r = capability_bounding_set_drop(retain, /* right_now= */ true);
                 if (r < 0)
                         log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
@@ -388,8 +388,8 @@ int import_allocate_event_with_signals(sd_event **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        (void) sd_event_add_signal(event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler,  NULL);
-        (void) sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler, NULL);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler,  /* userdata= */ NULL);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler, /* userdata= */ NULL);
 
         *ret = TAKE_PTR(event);
         return 0;

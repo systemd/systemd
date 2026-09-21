@@ -202,7 +202,7 @@ static int ipv4acd_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void
                 .ether = *mac,
         };
 
-        return link_get_by_hw_addr(m, &hw_addr, NULL) >= 0;
+        return link_get_by_hw_addr(m, &hw_addr, /* ret= */ NULL) >= 0;
 }
 
 static int ipv4acd_start_one(Link *link, sd_ipv4acd *acd) {
@@ -255,7 +255,7 @@ int ipv4acd_configure(Link *link, const Address *address) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_attach_event(acd, link->manager->event, 0);
+        r = sd_ipv4acd_attach_event(acd, link->manager->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 

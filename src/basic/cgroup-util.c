@@ -270,7 +270,7 @@ int cg_kill(
          * When sending SIGKILL, prefer cg_kill_kernel_sigkill(), which is fully atomic. */
 
         if (!killed_pids) {
-                killed_pids = allocated_set = set_new(NULL);
+                killed_pids = allocated_set = set_new(/* hash_ops= */ NULL);
                 if (!killed_pids)
                         return -ENOMEM;
         }
@@ -366,7 +366,7 @@ int cg_kill_recursive(
         assert(sig >= 0);
 
         if (!killed_pids) {
-                killed_pids = allocated_set = set_new(NULL);
+                killed_pids = allocated_set = set_new(/* hash_ops= */ NULL);
                 if (!killed_pids)
                         return -ENOMEM;
         }
@@ -858,7 +858,7 @@ int cg_pid_get_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup) {
         int r;
 
         _cleanup_free_ char *cgroup = NULL;
-        r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
+        r = cg_pid_get_path_shifted(pid, /* cached_root= */ NULL, &cgroup);
         if (r < 0)
                 return r;
 
@@ -950,7 +950,7 @@ static const char* skip_user_manager(const char *p) {
         /* Note that user manager services never need unescaping, since they cannot conflict with the
          * kernel's own names, hence we don't need to call cg_unescape() here.  Prudently check validity of
          * instance names, they should be always valid as we validate them upon unit start. */
-        if (!(startswith(unit_name, "user@") && parse_uid(i, NULL) >= 0) &&
+        if (!(startswith(unit_name, "user@") && parse_uid(i, /* ret_uid= */ NULL) >= 0) &&
             !(startswith(unit_name, "capsule@") && capsule_name_is_valid(i) > 0))
                 return NULL;
 
@@ -992,7 +992,7 @@ int cg_pid_get_user_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup) {
         int r;
 
         _cleanup_free_ char *cgroup = NULL;
-        r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
+        r = cg_pid_get_path_shifted(pid, /* cached_root= */ NULL, &cgroup);
         if (r < 0)
                 return r;
 
@@ -1040,7 +1040,7 @@ int cg_pid_get_machine_name(pid_t pid, char **ret_machine) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
-        r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
+        r = cg_pid_get_path_shifted(pid, /* cached_root= */ NULL, &cgroup);
         if (r < 0)
                 return r;
 
@@ -1079,7 +1079,7 @@ int cg_pid_get_session(pid_t pid, char **ret_session) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
-        r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
+        r = cg_pid_get_path_shifted(pid, /* cached_root= */ NULL, &cgroup);
         if (r < 0)
                 return r;
 
@@ -1138,7 +1138,7 @@ int cg_pid_get_owner_uid(pid_t pid, uid_t *ret_uid) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
-        r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
+        r = cg_pid_get_path_shifted(pid, /* cached_root= */ NULL, &cgroup);
         if (r < 0)
                 return r;
 
@@ -1202,7 +1202,7 @@ int cg_pid_get_slice(pid_t pid, char **ret_slice) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
-        r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
+        r = cg_pid_get_path_shifted(pid, /* cached_root= */ NULL, &cgroup);
         if (r < 0)
                 return r;
 
@@ -1226,7 +1226,7 @@ int cg_pid_get_user_slice(pid_t pid, char **ret_slice) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
-        r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
+        r = cg_pid_get_path_shifted(pid, /* cached_root= */ NULL, &cgroup);
         if (r < 0)
                 return r;
 
@@ -1384,13 +1384,13 @@ int cg_is_threaded(const char *path) {
         if (r < 0)
                 return r;
 
-        r = read_full_virtual_file(fs, &contents, NULL);
+        r = read_full_virtual_file(fs, &contents, /* ret_size= */ NULL);
         if (r == -ENOENT)
                 return false; /* Assume no. */
         if (r < 0)
                 return r;
 
-        v = strv_split(contents, NULL);
+        v = strv_split(contents, /* separators= */ NULL);
         if (!v)
                 return -ENOMEM;
 
@@ -1646,7 +1646,7 @@ int cg_mask_from_string(const char *s, CGroupMask *ret) {
                 CGroupController v;
                 int r;
 
-                r = extract_first_word(&s, &n, NULL, 0);
+                r = extract_first_word(&s, &n, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)

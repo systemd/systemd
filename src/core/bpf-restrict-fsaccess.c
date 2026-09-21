@@ -264,7 +264,7 @@ static int restrict_fsaccess_load_variant(
         }
 
         r = sym_bpf_program__set_autoload(compat ? obj->progs.restrict_fsaccess_bdev_setintegrity
-                                                 : obj->progs.restrict_fsaccess_bdev_setintegrity_compat, false);
+                                                 : obj->progs.restrict_fsaccess_bdev_setintegrity_compat, /* autoload= */ false);
         if (r < 0) {
                 *reterr_load_failed = false;
                 return log_error_errno(r, "bpf-restrict-fsaccess: Failed to disable %s bdev_setintegrity program: %m",

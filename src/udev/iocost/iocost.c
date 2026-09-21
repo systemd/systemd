@@ -33,15 +33,15 @@ static int parse_config(void) {
         int r;
 
         r = config_parse(
-                        NULL,
+                        /* unit= */ NULL,
                         "/etc/udev/iocost.conf",
                         NULL,
                         "IOCost\0",
                         config_item_table_lookup,
                         items,
                         CONFIG_PARSE_WARN,
-                        NULL,
-                        NULL);
+                        /* userdata= */ NULL,
+                        /* ret_stat= */ NULL);
         if (r < 0)
                 return r;
 

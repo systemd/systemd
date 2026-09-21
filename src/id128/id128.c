@@ -46,7 +46,7 @@ static int print_id(sd_id128_t id) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create JSON: %m");
 
-        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, /* prefix= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to print JSON: %m");
 
@@ -167,7 +167,7 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
                 if (!*table)
                         return log_oom();
 
-                table_set_width(*table, 0);
+                table_set_width(*table, /* width= */ 0);
         }
 
         return table_add_many(*table,

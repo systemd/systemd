@@ -141,11 +141,11 @@ static int map_string_field_internal(
 }
 
 static int map_string_field(const char *field, const char **p, struct iovec *iovec, size_t *n) {
-        return map_string_field_internal(field, p, iovec, n, false);
+        return map_string_field_internal(field, p, iovec, n, /* filter_printable= */ false);
 }
 
 static int map_string_field_printable(const char *field, const char **p, struct iovec *iovec, size_t *n) {
-        return map_string_field_internal(field, p, iovec, n, true);
+        return map_string_field_internal(field, p, iovec, n, /* filter_printable= */ true);
 }
 
 static int map_generic_field(
@@ -306,7 +306,7 @@ static int map_all_fields(
                                 if (!c)
                                         return -ENOMEM;
 
-                                return map_all_fields(c, map_fields_userspace, "AUDIT_FIELD_", false, iovec, n, m);
+                                return map_all_fields(c, map_fields_userspace, "AUDIT_FIELD_", /* handle_msg= */ false, iovec, n, m);
                         }
                 }
 
@@ -405,11 +405,11 @@ void process_audit_string(Manager *m, int type, const char *data, size_t size) {
 
         z = n;
 
-        map_all_fields(p, map_fields_kernel, "_AUDIT_FIELD_", true, iovec, &n, n + N_IOVEC_AUDIT_FIELDS);
+        map_all_fields(p, map_fields_kernel, "_AUDIT_FIELD_", /* handle_msg= */ true, iovec, &n, n + N_IOVEC_AUDIT_FIELDS);
 
         manager_dispatch_message(m, iovec, n, ELEMENTSOF(iovec), NULL,
                                  TIMEVAL_STORE((usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC),
-                                 LOG_NOTICE, 0);
+                                 LOG_NOTICE, /* object_pid= */ 0);
 
         /* free() all entries that map_all_fields() added. All others are allocated on the stack, constant,
          * or freed by their _cleanup_ attributes. */
@@ -551,9 +551,9 @@ int manager_open_audit(Manager *m) {
                         return 0;
                 }
         } else
-                (void) fd_nonblock(m->audit_fd, true);
+                (void) fd_nonblock(m->audit_fd, /* nonblock= */ true);
 
-        r = setsockopt_int(m->audit_fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = setsockopt_int(m->audit_fd, SOL_SOCKET, SO_PASSCRED, /* value= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to set SO_PASSCRED on audit socket: %m");
 

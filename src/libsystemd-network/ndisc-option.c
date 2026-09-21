@@ -961,7 +961,7 @@ static int ndisc_option_parse_dnssl(Set **options, size_t offset, size_t len, co
                                 _cleanup_free_ char *normalized = NULL;
 
                                 e[n] = 0;
-                                r = dns_name_normalize(e, 0, &normalized);
+                                r = dns_name_normalize(e, /* flags= */ 0, &normalized);
                                 if (r < 0)
                                         return r;
 
@@ -1172,7 +1172,7 @@ int ndisc_option_add_prefix64_internal(
         assert(options);
         assert(prefix);
 
-        r = pref64_prefix_length_to_plc(prefixlen, NULL);
+        r = pref64_prefix_length_to_plc(prefixlen, /* ret= */ NULL);
         if (r < 0)
                 return r;
 

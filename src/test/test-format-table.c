@@ -374,7 +374,7 @@ TEST(json) {
                                  TABLE_HEADER, "asdf",
                                  TABLE_SET_JSON_FIELD_NAME, "asdf-custom"));
         ASSERT_OK(table_set_json_field_name(t, 2, "ZZZ"));
-        ASSERT_OK(table_set_json_field_name(t, 2, NULL));
+        ASSERT_OK(table_set_json_field_name(t, 2, /* name= */ NULL));
         ASSERT_OK(table_set_json_field_name(t, 2, "zzz"));
 
         ASSERT_OK(table_add_many(t,
@@ -590,9 +590,9 @@ TEST(mixed_type_sort) {
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         ASSERT_OK(table_add_many(table, TABLE_UINT, 1U));
-        ASSERT_OK(table_add_cell(table, NULL, TABLE_STRING, "b"));
-        ASSERT_OK(table_add_cell(table, NULL, TABLE_STRING, NULL));
-        ASSERT_OK(table_add_cell(table, NULL, TABLE_STRING, "a"));
+        ASSERT_OK(table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, "b"));
+        ASSERT_OK(table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, /* data= */ NULL));
+        ASSERT_OK(table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, "a"));
         ASSERT_OK(table_set_sort(table, (size_t) 0));
         ASSERT_OK(table_format(table, &formatted));
 
@@ -603,7 +603,7 @@ TEST(mixed_type_sort) {
                      "-\n");
 
         formatted = mfree(formatted);
-        ASSERT_OK(table_set_reverse(table, 0, true));
+        ASSERT_OK(table_set_reverse(table, /* column= */ 0, true));
         ASSERT_OK(table_format(table, &formatted));
 
         ASSERT_STREQ(formatted,
@@ -706,7 +706,7 @@ TEST(signed_integers) {
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((t = table_new("int", "int8", "int16", "int32", "int64")));
-        table_set_width(t, 0);
+        table_set_width(t, /* width= */ 0);
 
         ASSERT_OK(table_add_many(t,
                                  TABLE_INT, -1,
@@ -761,7 +761,7 @@ TEST(signed_integers) {
                                     SD_JSON_BUILD_PAIR_INTEGER("int16", INT16_MIN),
                                     SD_JSON_BUILD_PAIR_INTEGER("int32", INT32_MIN),
                                     SD_JSON_BUILD_PAIR_INTEGER("int64", INT64_MIN)))));
-        sd_json_variant_dump(b, SD_JSON_FORMAT_NEWLINE, stdout, NULL);
+        sd_json_variant_dump(b, SD_JSON_FORMAT_NEWLINE, stdout, /* prefix= */ NULL);
 
         ASSERT_TRUE(sd_json_variant_equal(a, b));
 }
@@ -771,7 +771,7 @@ TEST(unsigned_integers) {
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((t = table_new("uint", "uint8", "uint16", "uint32", "uhex32", "uint64", "uhex64")));
-        table_set_width(t, 0);
+        table_set_width(t, /* width= */ 0);
 
         ASSERT_OK(table_add_many(t,
                                  TABLE_UINT, 0,
@@ -821,7 +821,7 @@ TEST(unsigned_integers) {
                                     SD_JSON_BUILD_PAIR_UNSIGNED("uhex32", UINT32_MAX),
                                     SD_JSON_BUILD_PAIR_UNSIGNED("uint64", UINT64_MAX),
                                     SD_JSON_BUILD_PAIR_UNSIGNED("uhex64", UINT64_MAX)))));
-        sd_json_variant_dump(b, SD_JSON_FORMAT_NEWLINE, stdout, NULL);
+        sd_json_variant_dump(b, SD_JSON_FORMAT_NEWLINE, stdout, /* prefix= */ NULL);
 
         ASSERT_TRUE(sd_json_variant_equal(a, b));
 }
@@ -839,7 +839,7 @@ TEST(vertical) {
                                  TABLE_FIELD, "lllllllllllo", TABLE_STRING, "jjjjjjjjjjjjjjjjj"));
 
         ASSERT_OK(table_set_json_field_name(t, 1, "DIMPFELMOSER"));
-        ASSERT_OK(table_set_json_field_name(t, 1, NULL));
+        ASSERT_OK(table_set_json_field_name(t, 1, /* name= */ NULL));
         ASSERT_OK(table_set_json_field_name(t, 1, "dimpfelmoser"));
 
         ASSERT_OK(table_format(t, &formatted));
@@ -912,7 +912,7 @@ TEST(dup_cell) {
                                  TABLE_PATH_BASENAME, "../"));
 
         for (size_t i = 6; i < table_get_columns(t); i++)
-                ASSERT_OK(table_dup_cell(t, table_get_cell(t, 2, 0)));
+                ASSERT_OK(table_dup_cell(t, table_get_cell(t, 2, /* column= */ 0)));
 
         ASSERT_OK(table_format(t, &formatted));
         printf("%s\n", formatted);

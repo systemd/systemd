@@ -310,7 +310,7 @@ void dev_kmsg_record(Manager *m, char *p, size_t l) {
         if (cunescape_length_with_prefix(p, pl, "MESSAGE=", UNESCAPE_RELAX, &message) >= 0)
                 iovec[n++] = IOVEC_MAKE_STRING(message);
 
-        manager_dispatch_message(m, iovec, n, ELEMENTSOF(iovec), c, NULL, priority, 0);
+        manager_dispatch_message(m, iovec, n, ELEMENTSOF(iovec), c, /* tv= */ NULL, priority, /* object_pid= */ 0);
 
         if (saved_log_max_level != INT_MAX)
                 log_set_max_level(saved_log_max_level);

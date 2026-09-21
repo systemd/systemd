@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
                 assert_se(umask(000) == 0123);
                 n++;
 
-                assert_se(get_process_umask(0, &t) == 0);
+                assert_se(get_process_umask(/* pid= */ 0, &t) == 0);
                 assert_se(t == 000);
         }
 
@@ -31,14 +31,14 @@ int main(int argc, char *argv[]) {
                 assert_se(umask(000) == 0135);
                 n++;
 
-                assert_se(get_process_umask(0, &t) == 0);
+                assert_se(get_process_umask(/* pid= */ 0, &t) == 0);
                 assert_se(t == 000);
         }
 
         assert_se(n == 2);
         assert_se(umask(0111) == u);
 
-        assert_se(get_process_umask(0, &t) == 0);
+        assert_se(get_process_umask(/* pid= */ 0, &t) == 0);
         assert_se(t == 0111);
 
         WITH_UMASK(0315) {
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
         assert_se(n == 3);
         assert_se(umask(u) == 0111);
 
-        assert_se(get_process_umask(0, &t) == 0);
+        assert_se(get_process_umask(/* pid= */ 0, &t) == 0);
         assert_se(t == u);
 
         return EXIT_SUCCESS;

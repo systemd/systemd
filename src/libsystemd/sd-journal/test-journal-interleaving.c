@@ -40,7 +40,7 @@ static JournalFile* test_open_internal(const char *name, JournalFileFlags flags)
         JournalFile *f;
 
         ASSERT_NOT_NULL((m = mmap_cache_new()));
-        ASSERT_OK(journal_file_open(-EBADF, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, NULL, m, NULL, &f));
+        ASSERT_OK(journal_file_open(-EBADF, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &f));
         return f;
 }
 
@@ -61,7 +61,7 @@ static char* test_done(char *t) {
         if (arg_keep)
                 log_info("Not removing %s", t);
         else {
-                journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
+                journal_directory_vacuum(".", 3000000, /* n_max_files= */ 0, /* max_retention_usec= */ 0, /* oldest_usec= */ NULL, /* verbose= */ true);
 
                 ASSERT_OK(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
         }
@@ -99,7 +99,7 @@ static void append_number(JournalFile *f, unsigned n, const sd_id128_t *boot_id,
                 iovec[n_iov++] = IOVEC_MAKE_STRING(q);
         }
 
-        ASSERT_OK(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, seqnum, NULL, NULL, ret_offset));
+        ASSERT_OK(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, seqnum, /* seqnum_id= */ NULL, /* ret_object= */ NULL, ret_offset));
 }
 
 static void append_unreferenced_data(JournalFile *f, const sd_id128_t *boot_id) {
@@ -115,7 +115,7 @@ static void append_unreferenced_data(JournalFile *f, const sd_id128_t *boot_id) 
         ASSERT_NOT_NULL((q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id))));
         iovec = IOVEC_MAKE_STRING(q);
 
-        ASSERT_ERROR(journal_file_append_entry(f, &ts, boot_id, &iovec, 1, NULL, NULL, NULL, NULL), EREMCHG);
+        ASSERT_ERROR(journal_file_append_entry(f, &ts, boot_id, &iovec, 1, /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL), EREMCHG);
 }
 
 static void test_check_number(sd_journal *j, unsigned expected) {
@@ -123,7 +123,7 @@ static void test_check_number(sd_journal *j, unsigned expected) {
         const void *d;
         size_t l;
 
-        ASSERT_OK(sd_journal_get_monotonic_usec(j, NULL, &boot_id));
+        ASSERT_OK(sd_journal_get_monotonic_usec(j, /* ret_monotonic= */ NULL, &boot_id));
         ASSERT_OK(sd_journal_get_data(j, "NUMBER", &d, &l));
 
         _cleanup_free_ char *k = NULL;
@@ -164,19 +164,19 @@ static void setup_sequential(void) {
         f3 = test_open("three.journal");
         ASSERT_OK(sd_id128_randomize(&id));
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f1, 1, &id, NULL, NULL);
-        append_number(f1, 2, &id, NULL, NULL);
-        append_number(f1, 3, &id, NULL, NULL);
-        append_number(f2, 4, &id, NULL, NULL);
+        append_number(f1, 1, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f1, 2, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f1, 3, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f2, 4, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
         ASSERT_OK(sd_id128_randomize(&id));
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f2, 5, &id, NULL, NULL);
-        append_number(f2, 6, &id, NULL, NULL);
-        append_number(f3, 7, &id, NULL, NULL);
-        append_number(f3, 8, &id, NULL, NULL);
+        append_number(f2, 5, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f2, 6, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f3, 7, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f3, 8, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
         ASSERT_OK(sd_id128_randomize(&id));
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f3, 9, &id, NULL, NULL);
+        append_number(f3, 9, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
 }
 
 static void setup_interleaved(void) {
@@ -188,15 +188,15 @@ static void setup_interleaved(void) {
         f3 = test_open("three.journal");
         ASSERT_OK(sd_id128_randomize(&id));
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f1, 1, &id, NULL, NULL);
-        append_number(f2, 2, &id, NULL, NULL);
-        append_number(f3, 3, &id, NULL, NULL);
-        append_number(f1, 4, &id, NULL, NULL);
-        append_number(f2, 5, &id, NULL, NULL);
-        append_number(f3, 6, &id, NULL, NULL);
-        append_number(f1, 7, &id, NULL, NULL);
-        append_number(f2, 8, &id, NULL, NULL);
-        append_number(f3, 9, &id, NULL, NULL);
+        append_number(f1, 1, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f2, 2, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f3, 3, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f1, 4, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f2, 5, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f3, 6, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f1, 7, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f2, 8, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f3, 9, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
 }
 
 static void setup_unreferenced_data(void) {
@@ -210,21 +210,21 @@ static void setup_unreferenced_data(void) {
         f3 = test_open_strict("three.journal");
         ASSERT_OK(sd_id128_randomize(&id));
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f1, 1, &id, NULL, NULL);
-        append_number(f1, 2, &id, NULL, NULL);
-        append_number(f1, 3, &id, NULL, NULL);
+        append_number(f1, 1, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f1, 2, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f1, 3, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
         ASSERT_OK(sd_id128_randomize(&id));
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
         append_unreferenced_data(f1, &id);
-        append_number(f2, 4, &id, NULL, NULL);
-        append_number(f2, 5, &id, NULL, NULL);
-        append_number(f2, 6, &id, NULL, NULL);
+        append_number(f2, 4, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f2, 5, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f2, 6, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
         ASSERT_OK(sd_id128_randomize(&id));
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
         append_unreferenced_data(f2, &id);
-        append_number(f3, 7, &id, NULL, NULL);
-        append_number(f3, 8, &id, NULL, NULL);
-        append_number(f3, 9, &id, NULL, NULL);
+        append_number(f3, 7, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f3, 8, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f3, 9, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
 }
 
 static void mkdtemp_chdir_chattr(const char *template, char **ret) {
@@ -650,12 +650,12 @@ static void test_sequence_numbers_one(void) {
         mkdtemp_chdir_chattr("/var/tmp/journal-seq-XXXXXX", &t);
 
         ASSERT_OK(journal_file_open(-EBADF, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
-                                    UINT64_MAX, NULL, m, NULL, &one));
+                                    UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &one));
 
-        append_number(one, 1, NULL, &seqnum, NULL);
+        append_number(one, 1, /* boot_id= */ NULL, &seqnum, /* ret_offset= */ NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         ASSERT_EQ(seqnum, UINT64_C(1));
-        append_number(one, 2, NULL, &seqnum, NULL);
+        append_number(one, 2, /* boot_id= */ NULL, &seqnum, /* ret_offset= */ NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         ASSERT_EQ(seqnum, UINT64_C(2));
 
@@ -667,7 +667,7 @@ static void test_sequence_numbers_one(void) {
         memcpy(&seqnum_id, &one->header->seqnum_id, sizeof(sd_id128_t));
 
         ASSERT_OK(journal_file_open(-EBADF, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
-                                    UINT64_MAX, NULL, m, one, &two));
+                                    UINT64_MAX, /* metrics= */ NULL, m, one, &two));
 
         ASSERT_EQ(two->header->state, STATE_ONLINE);
         ASSERT_NE_ID128(two->header->file_id, one->header->file_id);
@@ -675,38 +675,38 @@ static void test_sequence_numbers_one(void) {
         ASSERT_EQ_ID128(two->header->tail_entry_boot_id, SD_ID128_NULL); /* Not written yet. */
         ASSERT_EQ_ID128(two->header->seqnum_id, one->header->seqnum_id);
 
-        append_number(two, 3, NULL, &seqnum, NULL);
+        append_number(two, 3, /* boot_id= */ NULL, &seqnum, /* ret_offset= */ NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         ASSERT_EQ(seqnum, UINT64_C(3));
-        append_number(two, 4, NULL, &seqnum, NULL);
+        append_number(two, 4, /* boot_id= */ NULL, &seqnum, /* ret_offset= */ NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         ASSERT_EQ(seqnum, UINT64_C(4));
 
         /* Verify tail_entry_boot_id. */
         ASSERT_EQ_ID128(two->header->tail_entry_boot_id, one->header->tail_entry_boot_id);
 
-        append_number(one, 5, NULL, &seqnum, NULL);
+        append_number(one, 5, /* boot_id= */ NULL, &seqnum, /* ret_offset= */ NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         ASSERT_EQ(seqnum, UINT64_C(5));
 
-        append_number(one, 6, NULL, &seqnum, NULL);
+        append_number(one, 6, /* boot_id= */ NULL, &seqnum, /* ret_offset= */ NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         ASSERT_EQ(seqnum, UINT64_C(6));
 
         /* If the machine-id is not initialized, the header file verification
          * (which happens when reopening a journal file) will fail. */
-        if (sd_id128_get_machine(NULL) >= 0) {
+        if (sd_id128_get_machine(/* ret= */ NULL) >= 0) {
                 two = journal_file_offline_close(two);
 
                 /* emulate a system restart */
                 seqnum = 0;
 
-                ASSERT_OK(journal_file_open(-EBADF, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0,
-                                            UINT64_MAX, NULL, m, NULL, &two));
+                ASSERT_OK(journal_file_open(-EBADF, "two.journal", O_RDWR, JOURNAL_COMPRESS, /* mode= */ 0,
+                                            UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &two));
 
                 ASSERT_EQ_ID128(two->header->seqnum_id, seqnum_id);
 
-                append_number(two, 7, NULL, &seqnum, NULL);
+                append_number(two, 7, /* boot_id= */ NULL, &seqnum, /* ret_offset= */ NULL);
                 printf("seqnum=%"PRIu64"\n", seqnum);
                 ASSERT_EQ(seqnum, UINT64_C(5));
 
@@ -803,13 +803,13 @@ static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offse
         /* by seqnum (sequential) */
         for (uint64_t i = 0; i < n + 2; i++) {
                 p = 0;
-                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_DOWN, NULL, &p);
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_DOWN, /* ret_object= */ NULL, &p);
                 e = expected_result(i, seqnum, offset, n, DIRECTION_DOWN, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_UP, NULL, &p);
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_UP, /* ret_object= */ NULL, &p);
                 e = expected_result(i, seqnum, offset, n, DIRECTION_UP, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
@@ -820,7 +820,7 @@ static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offse
                 uint64_t i = random_u64_range(n + 2);
 
                 p = 0;
-                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_DOWN, NULL, &p);
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_DOWN, /* ret_object= */ NULL, &p);
                 e = expected_result(i, seqnum, offset, n, DIRECTION_DOWN, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
@@ -829,7 +829,7 @@ static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offse
                 uint64_t i = random_u64_range(n + 2);
 
                 p = 0;
-                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_UP, NULL, &p);
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_UP, /* ret_object= */ NULL, &p);
                 e = expected_result(i, seqnum, offset, n, DIRECTION_UP, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
@@ -838,37 +838,37 @@ static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offse
         /* by offset (sequential) */
         for (size_t i = 0; i < n; i++) {
                 p = 0;
-                r = journal_file_move_to_entry_by_offset(f, offset[i] - 1, DIRECTION_DOWN, NULL, &p);
+                r = journal_file_move_to_entry_by_offset(f, offset[i] - 1, DIRECTION_DOWN, /* ret_object= */ NULL, &p);
                 e = expected_result(offset[i] - 1, offset, offset, n, DIRECTION_DOWN, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_move_to_entry_by_offset(f, offset[i], DIRECTION_DOWN, NULL, &p);
+                r = journal_file_move_to_entry_by_offset(f, offset[i], DIRECTION_DOWN, /* ret_object= */ NULL, &p);
                 e = expected_result(offset[i], offset, offset, n, DIRECTION_DOWN, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_move_to_entry_by_offset(f, offset[i] + 1, DIRECTION_DOWN, NULL, &p);
+                r = journal_file_move_to_entry_by_offset(f, offset[i] + 1, DIRECTION_DOWN, /* ret_object= */ NULL, &p);
                 e = expected_result(offset[i] + 1, offset, offset, n, DIRECTION_DOWN, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_move_to_entry_by_offset(f, offset[i] - 1, DIRECTION_UP, NULL, &p);
+                r = journal_file_move_to_entry_by_offset(f, offset[i] - 1, DIRECTION_UP, /* ret_object= */ NULL, &p);
                 e = expected_result(offset[i] - 1, offset, offset, n, DIRECTION_UP, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_move_to_entry_by_offset(f, offset[i], DIRECTION_UP, NULL, &p);
+                r = journal_file_move_to_entry_by_offset(f, offset[i], DIRECTION_UP, /* ret_object= */ NULL, &p);
                 e = expected_result(offset[i], offset, offset, n, DIRECTION_UP, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_move_to_entry_by_offset(f, offset[i] + 1, DIRECTION_UP, NULL, &p);
+                r = journal_file_move_to_entry_by_offset(f, offset[i] + 1, DIRECTION_UP, /* ret_object= */ NULL, &p);
                 e = expected_result(offset[i] + 1, offset, offset, n, DIRECTION_UP, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
@@ -879,7 +879,7 @@ static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offse
                 uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
 
                 p = 0;
-                r = journal_file_move_to_entry_by_offset(f, i, DIRECTION_DOWN, NULL, &p);
+                r = journal_file_move_to_entry_by_offset(f, i, DIRECTION_DOWN, /* ret_object= */ NULL, &p);
                 e = expected_result(i, offset, offset, n, DIRECTION_DOWN, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
@@ -888,7 +888,7 @@ static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offse
                 uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
 
                 p = 0;
-                r = journal_file_move_to_entry_by_offset(f, i, DIRECTION_UP, NULL, &p);
+                r = journal_file_move_to_entry_by_offset(f, i, DIRECTION_UP, /* ret_object= */ NULL, &p);
                 e = expected_result(i, offset, offset, n, DIRECTION_UP, &q);
                 ASSERT_EQ(r, e);
                 ASSERT_EQ(p, q);
@@ -897,49 +897,49 @@ static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offse
         /* by journal_file_next_entry() */
         for (size_t i = 0; i < n; i++) {
                 p = 0;
-                r = journal_file_next_entry(f, offset[i] - 2, DIRECTION_DOWN, NULL, &p);
+                r = journal_file_next_entry(f, offset[i] - 2, DIRECTION_DOWN, /* ret_object= */ NULL, &p);
                 e = expected_result_next(offset[i] - 2, offset_candidates, offset, n, DIRECTION_DOWN, &q);
                 ASSERT_EQ(e == 0, r <= 0);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_next_entry(f, offset[i] - 1, DIRECTION_DOWN, NULL, &p);
+                r = journal_file_next_entry(f, offset[i] - 1, DIRECTION_DOWN, /* ret_object= */ NULL, &p);
                 e = expected_result_next(offset[i] - 1, offset_candidates, offset, n, DIRECTION_DOWN, &q);
                 ASSERT_EQ(e == 0, r <= 0);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_next_entry(f, offset[i], DIRECTION_DOWN, NULL, &p);
+                r = journal_file_next_entry(f, offset[i], DIRECTION_DOWN, /* ret_object= */ NULL, &p);
                 e = expected_result_next(offset[i], offset_candidates, offset, n, DIRECTION_DOWN, &q);
                 ASSERT_EQ(e == 0, r <= 0);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_next_entry(f, offset[i] + 1, DIRECTION_DOWN, NULL, &p);
+                r = journal_file_next_entry(f, offset[i] + 1, DIRECTION_DOWN, /* ret_object= */ NULL, &p);
                 e = expected_result_next(offset[i] + 1, offset_candidates, offset, n, DIRECTION_DOWN, &q);
                 ASSERT_EQ(e == 0, r <= 0);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_next_entry(f, offset[i] - 1, DIRECTION_UP, NULL, &p);
+                r = journal_file_next_entry(f, offset[i] - 1, DIRECTION_UP, /* ret_object= */ NULL, &p);
                 e = expected_result_next(offset[i] - 1, offset_candidates, offset, n, DIRECTION_UP, &q);
                 ASSERT_EQ(e == 0, r <= 0);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_next_entry(f, offset[i], DIRECTION_UP, NULL, &p);
+                r = journal_file_next_entry(f, offset[i], DIRECTION_UP, /* ret_object= */ NULL, &p);
                 e = expected_result_next(offset[i], offset_candidates, offset, n, DIRECTION_UP, &q);
                 ASSERT_EQ(e == 0, r <= 0);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_next_entry(f, offset[i] + 1, DIRECTION_UP, NULL, &p);
+                r = journal_file_next_entry(f, offset[i] + 1, DIRECTION_UP, /* ret_object= */ NULL, &p);
                 e = expected_result_next(offset[i] + 1, offset_candidates, offset, n, DIRECTION_UP, &q);
                 ASSERT_EQ(e == 0, r <= 0);
                 ASSERT_EQ(p, q);
 
                 p = 0;
-                r = journal_file_next_entry(f, offset[i] + 2, DIRECTION_UP, NULL, &p);
+                r = journal_file_next_entry(f, offset[i] + 2, DIRECTION_UP, /* ret_object= */ NULL, &p);
                 e = expected_result_next(offset[i] + 2, offset_candidates, offset, n, DIRECTION_UP, &q);
                 ASSERT_EQ(e == 0, r <= 0);
                 ASSERT_EQ(p, q);
@@ -948,7 +948,7 @@ static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offse
                 uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
 
                 p = 0;
-                r = journal_file_next_entry(f, i, DIRECTION_DOWN, NULL, &p);
+                r = journal_file_next_entry(f, i, DIRECTION_DOWN, /* ret_object= */ NULL, &p);
                 e = expected_result_next(i, offset_candidates, offset, n, DIRECTION_DOWN, &q);
                 ASSERT_EQ(e == 0, r <= 0);
                 ASSERT_EQ(p, q);
@@ -957,7 +957,7 @@ static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offse
                 uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
 
                 p = 0;
-                r = journal_file_next_entry(f, i, DIRECTION_UP, NULL, &p);
+                r = journal_file_next_entry(f, i, DIRECTION_UP, /* ret_object= */ NULL, &p);
                 e = expected_result_next(i, offset_candidates, offset, n, DIRECTION_UP, &q);
                 ASSERT_EQ(e == 0, r <= 0);
                 ASSERT_EQ(p, q);
@@ -977,13 +977,13 @@ static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
         mkdtemp_chdir_chattr("/var/tmp/journal-seq-XXXXXX", &t);
 
         ASSERT_OK(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
-                                    UINT64_MAX, NULL, m, NULL, &f));
+                                    UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &f));
 
         ASSERT_NOT_NULL((seqnum = new0(uint64_t, n)));
         ASSERT_NOT_NULL((offset = new0(uint64_t, n)));
 
         for (size_t i = 0; i < n; i++) {
-                append_number(f, i, NULL, seqnum + i, offset + i);
+                append_number(f, i, /* boot_id= */ NULL, seqnum + i, offset + i);
                 ASSERT_GT(seqnum[i], i == 0 ? 0 : seqnum[i-1]);
                 ASSERT_GT(offset[i], i == 0 ? 0 : offset[i-1]);
         }
@@ -993,7 +993,7 @@ static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
         verify(f, seqnum, offset_candidates, offset, n);
 
         /* Reset chain cache. */
-        ASSERT_OK_POSITIVE(journal_file_move_to_entry_by_offset(f, offset[0], DIRECTION_DOWN, NULL, NULL));
+        ASSERT_OK_POSITIVE(journal_file_move_to_entry_by_offset(f, offset[0], DIRECTION_DOWN, /* ret_object= */ NULL, /* ret_offset= */ NULL));
 
         /* make journal corrupted by clearing seqnum. */
         for (size_t i = n - num_corrupted; i < n; i++) {
@@ -1486,7 +1486,7 @@ static void append_number_at(
                 iovec[n_iov++] = IOVEC_MAKE_STRING(m);
         }
 
-        ASSERT_OK(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, NULL, NULL, NULL, NULL));
+        ASSERT_OK(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));
 }
 
 TEST(cursor_broken_rtc) {
@@ -1524,9 +1524,9 @@ TEST(cursor_broken_rtc) {
                 log_info("boot1: %s, boot2: %s",
                          SD_ID128_TO_STRING(boot1), SD_ID128_TO_STRING(boot2));
 
-                append_number_at(f1, 1, &boot1, NULL, 2 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
-                append_number_at(f2, 2, &boot2, NULL, 1 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
-                append_number_at(f2, 3, &boot2, NULL, 3 * USEC_PER_SEC, 200 * USEC_PER_MSEC);
+                append_number_at(f1, 1, &boot1, /* machine_id= */ NULL, 2 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f2, 2, &boot2, /* machine_id= */ NULL, 1 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f2, 3, &boot2, /* machine_id= */ NULL, 3 * USEC_PER_SEC, 200 * USEC_PER_MSEC);
         }
 
         ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));

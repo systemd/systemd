@@ -26,7 +26,7 @@ static void test_transient_settings_one(UnitType type, const char* const* lines)
 
                 if (t[0] == '-') {
                         _cleanup_free_ char *code = NULL;
-                        ASSERT_OK(extract_first_word(&t, &code, " ", 0));
+                        ASSERT_OK(extract_first_word(&t, &code, " ", /* flags= */ 0));
                         ASSERT_OK(r = errno_from_name(code + 1));
                         expect = -r;
                 }

@@ -81,7 +81,7 @@ static int user_mkdir_runtime_path(
         assert(uid_is_valid(uid));
         assert(gid_is_valid(gid));
 
-        r = mkdir_safe_label("/run/user", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label("/run/user", 0755, /* uid= */ 0, /* gid= */ 0, MKDIR_WARN_MODE);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/user: %m");
 
@@ -125,7 +125,7 @@ static int user_mkdir_runtime_path(
 
                 destroy = mfree(destroy); /* deactivate auto-destroy */
 
-                r = label_fix(runtime_path, 0);
+                r = label_fix(runtime_path, /* flags= */ 0);
                 if (r < 0)
                         log_warning_errno(r, "Failed to fix label of \"%s\", ignoring: %m", runtime_path);
         }
@@ -159,7 +159,7 @@ static int user_remove_runtime_path(const char *runtime_path) {
         assert(runtime_path);
         assert(path_is_absolute(runtime_path));
 
-        r = rm_rf(runtime_path, 0);
+        r = rm_rf(runtime_path, /* flags= */ 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to remove runtime directory %s (before unmounting), ignoring: %m", runtime_path);
 
@@ -184,7 +184,7 @@ static int do_umount(const char *user) {
         /* The user may be already removed. So, first try to parse the string by parse_uid(),
          * and if it fails, fall back to get_user_creds(). */
         if (parse_uid(user, &uid) < 0) {
-                r = get_user_creds(user, /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
+                r = get_user_creds(user, /* flags= */ 0, /* ret_username= */ NULL, &uid, /* ret_gid= */ NULL, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                 if (r < 0)
                         return log_error_errno(r,
                                                r == -ESRCH ? "No such user \"%s\"" :

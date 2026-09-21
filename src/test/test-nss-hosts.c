@@ -226,7 +226,7 @@ static void test_gethostbyname2_r(void *handle, const char *module, const char *
                  errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
-                print_struct_hostent(&host, NULL);
+                print_struct_hostent(&host, /* canon= */ NULL);
 }
 
 static void test_gethostbyname_r(void *handle, const char *module, const char *name) {
@@ -253,7 +253,7 @@ static void test_gethostbyname_r(void *handle, const char *module, const char *n
                  errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
-                print_struct_hostent(&host, NULL);
+                print_struct_hostent(&host, /* canon= */ NULL);
 }
 
 static void test_gethostbyaddr2_r(void *handle,
@@ -291,7 +291,7 @@ static void test_gethostbyaddr2_r(void *handle,
                  errno2, hstrerror(errno2),
                  ttl);
         if (status == NSS_STATUS_SUCCESS)
-                print_struct_hostent(&host, NULL);
+                print_struct_hostent(&host, /* canon= */ NULL);
 }
 
 static void test_gethostbyaddr_r(void *handle,
@@ -327,7 +327,7 @@ static void test_gethostbyaddr_r(void *handle,
                  errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
-                print_struct_hostent(&host, NULL);
+                print_struct_hostent(&host, /* canon= */ NULL);
 }
 
 static void test_byname(void *handle, const char *module, const char *name) {
@@ -371,7 +371,7 @@ static int make_addresses(struct local_address **addresses) {
         int n;
         _cleanup_free_ struct local_address *addrs = NULL;
 
-        n = local_addresses(NULL, 0, AF_UNSPEC, &addrs);
+        n = local_addresses(/* context= */ NULL, /* ifindex= */ 0, AF_UNSPEC, &addrs);
         if (n < 0)
                 log_info_errno(n, "Failed to query local addresses: %m");
 
@@ -509,7 +509,7 @@ static int run(int argc, char **argv) {
                 r = ASSERT_OK(pidref_safe_fork("(with-seccomp)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
                 if (r == 0) {
                         _cleanup_hashmap_free_ Hashmap *filter = NULL;
-                        ASSERT_NOT_NULL(filter = hashmap_new(NULL));
+                        ASSERT_NOT_NULL(filter = hashmap_new(/* hash_ops= */ NULL));
                         FOREACH_STRING(s, "uname", "olduname", "oldolduname", "sigprocmask", "rt_sigprocmask", "osf_sigprocmask")
                                 ASSERT_OK(seccomp_filter_set_add_by_name(filter, /* add= */ true, s));
                         ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, filter, SCMP_ACT_ERRNO(ENOSYS), /* log_missing= */ true));

@@ -117,7 +117,7 @@ static void test_drop_privileges_fail(void) {
         ASSERT_EQ(getgid(), test_gid);
 
         ASSERT_FAIL(drop_privileges(test_uid, test_gid, test_flags));
-        ASSERT_FAIL(drop_privileges(0, 0, test_flags));
+        ASSERT_FAIL(drop_privileges(/* uid= */ 0, /* gid= */ 0, test_flags));
 }
 
 TEST(drop_privileges) {
@@ -187,7 +187,7 @@ static void test_apply_ambient_caps_impl(void) {
 
         ASSERT_OK_EQ(prctl_safe(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0), 1);
 
-        ASSERT_OK(capability_ambient_set_apply(0, /* also_inherit= */ true));
+        ASSERT_OK(capability_ambient_set_apply(/* set= */ 0, /* also_inherit= */ true));
         ASSERT_OK_ZERO(have_inheritable_cap(CAP_CHOWN));
 
         ASSERT_OK_ZERO(prctl_safe(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0));

@@ -237,7 +237,7 @@ Table* table_new_vertical(void) {
         if (table_add_cell(t, &cell, TABLE_HEADER, "value") < 0)
                 return NULL;
 
-        if (table_set_align_percent(t, cell, 0) < 0)
+        if (table_set_align_percent(t, cell, /* percent= */ 0) < 0)
                 return NULL;
 
         return TAKE_PTR(t);
@@ -573,7 +573,7 @@ int table_fill_empty(Table *t, size_t until_column) {
                 return -EINVAL;
 
         do {
-                r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1623,7 +1623,7 @@ static char* format_strv_width(char **strv, size_t column_width) {
         }
 
         char *buf;
-        if (memstream_finalize(&m, &buf, NULL) < 0)
+        if (memstream_finalize(&m, &buf, /* ret_size= */ NULL) < 0)
                 return NULL;
 
         return buf;
@@ -2597,7 +2597,7 @@ int table_print_full(Table *t, FILE *f, bool flush) {
                                                     (!colors_enabled() || !table_data_color(d)) &&
                                                     (!underline_enabled() || !table_data_underline(d)) &&
                                                     (!urlify_enabled() || !d->url))
-                                                        delete_trailing_chars(aligned, NULL);
+                                                        delete_trailing_chars(aligned, /* bad= */ NULL);
 
                                                 free_and_replace(buffer, aligned);
                                                 field = buffer;
@@ -2686,7 +2686,7 @@ int table_format(Table *t, char **ret) {
         if (r < 0)
                 return r;
 
-        return memstream_finalize(&m, ret, NULL);
+        return memstream_finalize(&m, ret, /* ret_size= */ NULL);
 }
 
 size_t table_get_rows(Table *t) {
@@ -3186,7 +3186,7 @@ int table_print_json(Table *t, FILE *f, sd_json_format_flags_t flags) {
         if (r < 0)
                 return r;
 
-        sd_json_variant_dump(v, flags, f, NULL);
+        sd_json_variant_dump(v, flags, f, /* prefix= */ NULL);
 
         return fflush_and_check(f);
 }

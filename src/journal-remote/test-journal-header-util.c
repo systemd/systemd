@@ -13,8 +13,8 @@ TEST(header_put) {
         ASSERT_OK_POSITIVE(header_put(&headers, "Name", "Override"));
         ASSERT_OK_ZERO(header_put(&headers, "Name", "FirstName"));
         ASSERT_ERROR(header_put(&headers, "InvalidN@me", "test"), EINVAL);
-        ASSERT_ERROR(header_put(&headers, "Name", NULL), EINVAL);
-        ASSERT_ERROR(header_put(&headers, NULL, "Value"), EINVAL);
+        ASSERT_ERROR(header_put(&headers, "Name", /* value= */ NULL), EINVAL);
+        ASSERT_ERROR(header_put(&headers, /* name= */ NULL, "Value"), EINVAL);
         ASSERT_OK_POSITIVE(header_put(&headers, "Name", ""));
         ASSERT_ERROR(header_put(&headers, "", "Value"), EINVAL);
 }
@@ -33,12 +33,12 @@ TEST(compression_none_then_algorithm) {
                 return (void) log_tests_skipped("No compression algorithm supported");
 
         ASSERT_OK_POSITIVE(config_parse_compression(
-                        "test", "test.conf", 1, "Upload", 1, "Compression", false, "no", &configs, NULL));
+                        "test", "test.conf", 1, "Upload", 1, "Compression", /* ltype= */ false, "no", &configs, /* userdata= */ NULL));
         ASSERT_TRUE(ordered_hashmap_contains(configs, INT_TO_PTR(COMPRESSION_NONE)));
 
         ASSERT_OK_POSITIVE(config_parse_compression(
-                        "test", "test.conf", 2, "Upload", 1, "Compression", false,
-                        compression_to_string(compression), &configs, NULL));
+                        "test", "test.conf", 2, "Upload", 1, "Compression", /* ltype= */ false,
+                        compression_to_string(compression), &configs, /* userdata= */ NULL));
         ASSERT_FALSE(ordered_hashmap_contains(configs, INT_TO_PTR(COMPRESSION_NONE)));
         ASSERT_NOT_NULL(ordered_hashmap_get(configs, INT_TO_PTR(compression)));
 

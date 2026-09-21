@@ -384,7 +384,7 @@ static int node_get_current(const char *slink, int dirfd, char **ret_id, int *re
                 return -ENOMEM;
 
         if (ret_prio) {
-                r = stack_directory_read_one(dirfd, id, NULL, ret_prio);
+                r = stack_directory_read_one(dirfd, id, /* devnode= */ NULL, ret_prio);
                 if (r < 0)
                         return r;
         }
@@ -683,13 +683,13 @@ static int udev_node_apply_permissions_impl(
 
                 /* set the defaults */
                 if (!selinux)
-                        (void) mac_selinux_fix_full(node_fd, NULL, devnode, LABEL_IGNORE_ENOENT, /* label_context= */ NULL);
+                        (void) mac_selinux_fix_full(node_fd, /* inode_path= */ NULL, devnode, LABEL_IGNORE_ENOENT, /* label_context= */ NULL);
                 if (!smack)
-                        (void) mac_smack_apply_fd(node_fd, SMACK_ATTR_ACCESS, NULL);
+                        (void) mac_smack_apply_fd(node_fd, SMACK_ATTR_ACCESS, /* label= */ NULL);
         }
 
         /* always update timestamp when we re-use the node, like on media change events */
-        r = futimens_opath(node_fd, NULL);
+        r = futimens_opath(node_fd, /* ts= */ NULL);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to adjust timestamp of node %s: %m", devnode);
 
@@ -787,5 +787,5 @@ int static_node_apply_permissions(
                         return log_error_errno(errno, "Failed to create symlink %s -> %s: %m", p, devnode);
         }
 
-        return udev_node_apply_permissions_impl(NULL, node_fd, devnode, false, mode, uid, gid, NULL);
+        return udev_node_apply_permissions_impl(/* dev= */ NULL, node_fd, devnode, /* apply_mac= */ false, mode, uid, gid, /* seclabel_list= */ NULL);
 }

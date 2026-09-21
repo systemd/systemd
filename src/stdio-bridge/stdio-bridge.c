@@ -129,7 +129,7 @@ static int run(int argc, char *argv[]) {
 
         int priority = arg_quiet ? LOG_DEBUG : LOG_ERR;
 
-        r = sd_listen_fds(0);
+        r = sd_listen_fds(/* unset_environment= */ 0);
         if (r == 0) {
                 in_fd = STDIN_FILENO;
                 out_fd = STDOUT_FILENO;
@@ -141,8 +141,8 @@ static int run(int argc, char *argv[]) {
                                       "More than one file descriptor was passed.");
 
         is_unix =
-                sd_is_socket(in_fd, AF_UNIX, 0, 0) > 0 &&
-                sd_is_socket(out_fd, AF_UNIX, 0, 0) > 0;
+                sd_is_socket(in_fd, AF_UNIX, /* type= */ 0, /* listening= */ 0) > 0 &&
+                sd_is_socket(out_fd, AF_UNIX, /* type= */ 0, /* listening= */ 0) > 0;
 
         r = sd_bus_new(&a);
         if (r < 0)
@@ -204,7 +204,7 @@ static int run(int argc, char *argv[]) {
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected"))
                                 return 0;
 
-                        r = sd_bus_send(b, m, NULL);
+                        r = sd_bus_send(b, m, /* ret_cookie= */ NULL);
                         if (r < 0)
                                 return log_full_errno(priority, r, "Failed to send message: %m");
                 }
@@ -221,7 +221,7 @@ static int run(int argc, char *argv[]) {
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected"))
                                 return 0;
 
-                        r = sd_bus_send(a, m, NULL);
+                        r = sd_bus_send(a, m, /* ret_cookie= */ NULL);
                         if (r < 0)
                                 return log_full_errno(priority, r, "Failed to send message: %m");
                 }

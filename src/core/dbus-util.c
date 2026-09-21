@@ -151,11 +151,11 @@ static int bus_set_transient_usec_internal(
 }
 
 int bus_set_transient_usec(Unit *u, const char *name, usec_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *reterr_error) {
-        return bus_set_transient_usec_internal(u, name, p, false, message, flags, reterr_error);
+        return bus_set_transient_usec_internal(u, name, p, /* fix_0= */ false, message, flags, reterr_error);
 }
 
 int bus_set_transient_usec_fix_0(Unit *u, const char *name, usec_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *reterr_error) {
-        return bus_set_transient_usec_internal(u, name, p, true, message, flags, reterr_error);
+        return bus_set_transient_usec_internal(u, name, p, /* fix_0= */ true, message, flags, reterr_error);
 }
 
 int bus_verify_manage_units_async_impl(
@@ -206,7 +206,7 @@ int bus_verify_manage_units_async_full(Unit *u, const char *verb, const char *po
 }
 
 int bus_verify_manage_units_async(Manager *manager, sd_bus_message *call, sd_bus_error *reterr_error) {
-        return bus_verify_manage_units_async_impl(manager, NULL, NULL, NULL, call, reterr_error);
+        return bus_verify_manage_units_async_impl(manager, /* id= */ NULL, /* verb= */ NULL, /* polkit_message= */ NULL, call, reterr_error);
 }
 
 int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *reterr_error) {

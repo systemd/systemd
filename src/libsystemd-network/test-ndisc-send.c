@@ -280,25 +280,25 @@ static int send_icmp6(int fd, const struct icmp6_hdr *hdr) {
         assert(hdr);
 
         if (arg_set_source_mac) {
-                r = ndisc_option_add_link_layer_address(&options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, 0, &arg_source_mac);
+                r = ndisc_option_add_link_layer_address(&options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, /* offset= */ 0, &arg_source_mac);
                 if (r < 0)
                         return r;
         }
 
         if (arg_set_target_mac) {
-                r = ndisc_option_add_link_layer_address(&options, SD_NDISC_OPTION_TARGET_LL_ADDRESS, 0, &arg_target_mac);
+                r = ndisc_option_add_link_layer_address(&options, SD_NDISC_OPTION_TARGET_LL_ADDRESS, /* offset= */ 0, &arg_target_mac);
                 if (r < 0)
                         return r;
         }
 
         if (arg_redirected_header) {
-                r = ndisc_option_add_redirected_header(&options, 0, arg_redirected_header);
+                r = ndisc_option_add_redirected_header(&options, /* offset= */ 0, arg_redirected_header);
                 if (r < 0)
                         return r;
         }
 
         if (arg_set_mtu) {
-                r = ndisc_option_add_mtu(&options, 0, arg_mtu);
+                r = ndisc_option_add_mtu(&options, /* offset= */ 0, arg_mtu);
                 if (r < 0)
                         return r;
         }

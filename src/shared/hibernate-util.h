@@ -14,7 +14,7 @@ void hibernation_device_done(HibernationDevice *hibernation_device);
 
 int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_t *ret_size, uint64_t *ret_used);
 static inline int find_suitable_hibernation_device(HibernationDevice *ret) {
-        return find_suitable_hibernation_device_full(ASSERT_PTR(ret), NULL, NULL);
+        return find_suitable_hibernation_device_full(ASSERT_PTR(ret), /* ret_size= */ NULL, /* ret_used= */ NULL);
 }
 
 int hibernation_is_safe(void);

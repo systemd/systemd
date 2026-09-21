@@ -285,7 +285,7 @@ int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl, int ifindex
         soa->soa.expire = 1;
         soa->soa.minimum = ttl;
 
-        return dns_answer_add(a, soa, ifindex, DNS_ANSWER_AUTHENTICATED, NULL);
+        return dns_answer_add(a, soa, ifindex, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL);
 }
 
 int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key, DnsAnswerFlags *ret_flags) {
@@ -297,7 +297,7 @@ int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key, DnsAnswerFlags
         assert(key);
 
         DNS_ANSWER_FOREACH_FLAGS(i, i_flags, a) {
-                r = dns_resource_key_match_rr(key, i, NULL);
+                r = dns_resource_key_match_rr(key, i, /* search_domain= */ NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -438,7 +438,7 @@ int dns_answer_find_cname_or_dname(
                 return 0;
 
         DNS_ANSWER_FOREACH_FLAGS(rr, rr_flags, a) {
-                r = dns_resource_key_match_cname_or_dname(key, rr->key, NULL);
+                r = dns_resource_key_match_cname_or_dname(key, rr->key, /* search_domain= */ NULL);
                 if (r < 0)
                         return r;
                 if (r > 0) {

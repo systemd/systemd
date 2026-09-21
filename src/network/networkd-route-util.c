@@ -523,7 +523,7 @@ int config_parse_route_table_names(
                 uint32_t table;
                 char *num;
 
-                r = extract_first_word(&p, &name, NULL, 0);
+                r = extract_first_word(&p, &name, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -595,7 +595,7 @@ int config_parse_route_table_names(
                         /* The entry is duplicated. It should not be added to route_table_names_by_number hashmap. */
                         continue;
 
-                r = hashmap_ensure_put(&m->route_table_names_by_number, NULL, UINT32_TO_PTR(table), name);
+                r = hashmap_ensure_put(&m->route_table_names_by_number, /* hash_ops= */ NULL, UINT32_TO_PTR(table), name);
                 if (r < 0) {
                         hashmap_remove(m->route_table_numbers_by_name, name);
 

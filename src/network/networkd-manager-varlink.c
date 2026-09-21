@@ -192,7 +192,7 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
                         return log_warning_errno(r, "Failed to check if the persistent storage is writable: %m");
                 if (r > 0) {
                         log_warning("The persistent storage is on read-only filesystem.");
-                        return sd_varlink_error(vlink, "io.systemd.Network.StorageReadOnly", NULL);
+                        return sd_varlink_error(vlink, "io.systemd.Network.StorageReadOnly", /* parameters= */ NULL);
                 }
 
                 if (fstat(fd, &st) < 0)
@@ -205,11 +205,11 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
                 if (manager->persistent_storage_fd >= 0 &&
                     fstat(manager->persistent_storage_fd, &st_prev) >= 0 &&
                     stat_inode_same(&st, &st_prev))
-                        return sd_varlink_reply(vlink, NULL);
+                        return sd_varlink_reply(vlink, /* parameters= */ NULL);
 
         } else {
                 if (manager->persistent_storage_fd < 0)
-                        return sd_varlink_reply(vlink, NULL);
+                        return sd_varlink_reply(vlink, /* parameters= */ NULL);
         }
 
         r = varlink_verify_polkit_async(
@@ -234,7 +234,7 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
 
         manager_toggle_dhcp4_server_state(manager, ready);
 
-        return sd_varlink_reply(vlink, NULL);
+        return sd_varlink_reply(vlink, /* parameters= */ NULL);
 }
 
 static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -250,7 +250,7 @@ static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_v
         assert(vlink);
 
         if (m->reloading > 0)
-                return sd_varlink_error(vlink, "io.systemd.Network.AlreadyReloading", NULL);
+                return sd_varlink_error(vlink, "io.systemd.Network.AlreadyReloading", /* parameters= */ NULL);
 
         const char *method;
         r = sd_varlink_get_current_method(vlink, &method);
@@ -283,7 +283,7 @@ static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_v
         if (m->reloading > 0)
                 return 0; /* Reply will be sent asynchronously. */
 
-        return sd_varlink_reply(vlink, NULL);
+        return sd_varlink_reply(vlink, /* parameters= */ NULL);
 }
 
 int manager_varlink_init(Manager *m, int fd) {

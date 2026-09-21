@@ -92,7 +92,7 @@ static int acquire_credential_directory(ImportCredentialsContext *c, const char 
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to determine if %s is a mount point: %m", path);
 
-                r = mkdir_safe_label(path, 0700, 0, 0, MKDIR_WARN_MODE);
+                r = mkdir_safe_label(path, 0700, /* uid= */ 0, /* gid= */ 0, MKDIR_WARN_MODE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create %s mount point: %m", path);
 
@@ -100,7 +100,7 @@ static int acquire_credential_directory(ImportCredentialsContext *c, const char 
         }
         if (r > 0)
                 /* If already a mount point, then remount writable */
-                (void) mount_nofollow_verbose(LOG_WARNING, NULL, path, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ false), NULL);
+                (void) mount_nofollow_verbose(LOG_WARNING, /* what= */ NULL, path, /* fstype= */ NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ false), /* options= */ NULL);
         else if (with_mount)
                 /* If not a mount point yet, and the credentials are not encrypted, then let's try to mount a no-swap fs there */
                 (void) mount_credentials_fs(path);
@@ -160,7 +160,7 @@ static int finalize_credentials_dir(const char *dir, const char *envvar) {
         if (r < 0)
                 log_warning_errno(r, "Failed to make '%s' a mount point, ignoring: %m", dir);
         else
-                (void) mount_nofollow_verbose(LOG_WARNING, NULL, dir, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ true), NULL);
+                (void) mount_nofollow_verbose(LOG_WARNING, /* what= */ NULL, dir, /* fstype= */ NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ true), /* options= */ NULL);
 
         if (setenv(envvar, dir, /* overwrite= */ true) < 0)
                 return log_error_errno(errno, "Failed to set $%s environment variable: %m", envvar);
@@ -247,7 +247,7 @@ static int import_credentials_from_initrd_path(
                 if (nfd < 0)
                         return nfd;
 
-                r = copy_bytes(cfd, nfd, st.st_size, 0);
+                r = copy_bytes(cfd, nfd, st.st_size, /* copy_flags= */ 0);
                 if (r < 0) {
                         (void) unlinkat(c->target_dir_fd, n, 0);
                         return log_error_errno(r, "Failed to create credential '%s': %m", n);
@@ -404,7 +404,7 @@ static int import_credentials_proc_cmdline(ImportCredentialsContext *c) {
 
         assert(c);
 
-        r = proc_cmdline_parse(proc_cmdline_callback, c, 0);
+        r = proc_cmdline_parse(proc_cmdline_callback, c, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse /proc/cmdline: %m");
 
@@ -460,7 +460,7 @@ static int import_credentials_qemu(ImportCredentialsContext *c) {
                         continue;
                 }
 
-                r = read_virtual_file_at(vfd, "size", LINE_MAX, &szs, NULL);
+                r = read_virtual_file_at(vfd, "size", LINE_MAX, &szs, /* ret_size= */ NULL);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read '" QEMU_FWCFG_PATH "'/%s/size, ignoring: %m", d->d_name);
                         continue;
@@ -495,7 +495,7 @@ static int import_credentials_qemu(ImportCredentialsContext *c) {
                 if (nfd < 0)
                         return nfd;
 
-                r = copy_bytes(rfd, nfd, sz, 0);
+                r = copy_bytes(rfd, nfd, sz, /* copy_flags= */ 0);
                 if (r < 0) {
                         (void) unlinkat(c->target_dir_fd, d->d_name, 0);
                         return log_error_errno(r, "Failed to create credential '%s': %m", d->d_name);
@@ -725,7 +725,7 @@ static int import_credentials_initrd(ImportCredentialsContext *c) {
                 if (nfd < 0)
                         return nfd;
 
-                r = copy_bytes(cfd, nfd, st.st_size, 0);
+                r = copy_bytes(cfd, nfd, st.st_size, /* copy_flags= */ 0);
                 if (r < 0) {
                         (void) unlinkat(c->target_dir_fd, d->d_name, 0);
                         return log_error_errno(r, "Failed to create credential '%s': %m", d->d_name);

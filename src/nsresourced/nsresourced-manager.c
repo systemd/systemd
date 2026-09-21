@@ -115,11 +115,11 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        r = sd_event_add_memory_pressure(m->event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
@@ -127,7 +127,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 log_debug_errno(r, "Failed to enable watchdog handling, ignoring: %m");
 
-        r = sd_event_add_signal(m->event, NULL, SIGUSR2|SD_EVENT_SIGNAL_PROCMASK, on_sigusr2, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR2|SD_EVENT_SIGNAL_PROCMASK, on_sigusr2, m);
         if (r < 0)
                 return r;
 
@@ -187,7 +187,7 @@ static int start_one_worker(Manager *m) {
                 /* Child */
 
                 if (m->listen_fd == 3) {
-                        r = fd_cloexec(3, false);
+                        r = fd_cloexec(3, /* cloexec= */ false);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to turn off O_CLOEXEC for fd 3: %m");
                                 _exit(EXIT_FAILURE);
@@ -459,7 +459,7 @@ static int manager_scan_registry(Manager *m, Set **registry_inodes) {
                         continue;
                 }
 
-                if (set_ensure_put(registry_inodes, NULL, UINT32_TO_PTR(inode)) < 0)
+                if (set_ensure_put(registry_inodes, /* hash_ops= */ NULL, UINT32_TO_PTR(inode)) < 0)
                         return log_oom();
 
                 log_debug("Found user namespace %" PRIu64 " in registry directory", inode);
@@ -545,7 +545,7 @@ static int manager_scan_listen_fds(Manager *m, Set **fdstore_inodes) {
                                 continue;
                         }
 
-                        if (set_ensure_put(fdstore_inodes, NULL, UINT32_TO_PTR(inode)) < 0)
+                        if (set_ensure_put(fdstore_inodes, /* hash_ops= */ NULL, UINT32_TO_PTR(inode)) < 0)
                                 return log_oom();
 
                         continue;
@@ -603,7 +603,7 @@ static int on_ringbuf_io(sd_event_source *s, int fd, uint32_t revents, void *use
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
-        r = sym_ring_buffer__poll(m->userns_restrict_bpf_ring_buffer, 0);
+        r = sym_ring_buffer__poll(m->userns_restrict_bpf_ring_buffer, /* timeout_msec= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Got failure reading from BPF ring buffer: %m");
 
@@ -628,7 +628,7 @@ static int manager_setup_bpf(Manager *m) {
         if (rb_fd < 0)
                 return log_error_errno(rb_fd, "Failed to get fd of ring buffer: %m");
 
-        m->userns_restrict_bpf_ring_buffer = sym_ring_buffer__new(rb_fd, ringbuf_event, m, NULL);
+        m->userns_restrict_bpf_ring_buffer = sym_ring_buffer__new(rb_fd, ringbuf_event, m, /* opts= */ NULL);
         if (!m->userns_restrict_bpf_ring_buffer)
                 return log_error_errno(errno, "Failed to allocate BPF ring buffer object: %m");
 

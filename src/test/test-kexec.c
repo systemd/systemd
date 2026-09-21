@@ -119,7 +119,7 @@ TEST(gzip_round_trip) {
         /* Compress it with gzip */
         ASSERT_OK_ERRNO(lseek(src_fd, 0, SEEK_SET));
         ASSERT_OK(gz_fd = mkostemp_safe(gz_path));
-        ASSERT_OK(compress_stream(COMPRESSION_GZIP, src_fd, gz_fd, UINT64_MAX, NULL));
+        ASSERT_OK(compress_stream(COMPRESSION_GZIP, src_fd, gz_fd, UINT64_MAX, /* ret_uncompressed_size= */ NULL));
 
         /* Feed the gzip file to kexec_maybe_decompress_kernel */
         ASSERT_OK_ERRNO(lseek(gz_fd, 0, SEEK_SET));
@@ -159,7 +159,7 @@ TEST(zboot_synthetic) {
         ASSERT_OK_ERRNO(lseek(src_fd, 0, SEEK_SET));
 
         ASSERT_OK(gz_fd = mkostemp_safe(gz_path));
-        ASSERT_OK(compress_stream(COMPRESSION_GZIP, src_fd, gz_fd, UINT64_MAX, NULL));
+        ASSERT_OK(compress_stream(COMPRESSION_GZIP, src_fd, gz_fd, UINT64_MAX, /* ret_uncompressed_size= */ NULL));
 
         /* Read the compressed data */
         struct stat st;

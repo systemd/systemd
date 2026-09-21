@@ -295,13 +295,13 @@ int sd_ipv4ll_start(sd_ipv4ll *ll) {
         if (sd_ipv4ll_is_running(ll))
                 return 0;
 
-        return ipv4ll_start_internal(ll, true);
+        return ipv4ll_start_internal(ll, /* reset_generation= */ true);
 }
 
 int sd_ipv4ll_restart(sd_ipv4ll *ll) {
         ll->address = 0;
 
-        return ipv4ll_start_internal(ll, false);
+        return ipv4ll_start_internal(ll, /* reset_generation= */ false);
 }
 
 static void ipv4ll_client_notify(sd_ipv4ll *ll, int event) {

@@ -187,7 +187,7 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                         log_info("Spawned crash shell as PID "PID_FMT".", pid);
                         _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
                         (void) pidref_set_pid(&pidref, pid);
-                        (void) pidref_wait_for_terminate(&pidref, NULL);
+                        (void) pidref_wait_for_terminate(&pidref, /* ret_si= */ NULL);
                 }
         }
 

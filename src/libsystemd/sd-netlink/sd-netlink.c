@@ -90,11 +90,11 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         nl->fd = fd;
         nl->protocol = protocol;
 
-        r = setsockopt_int(fd, SOL_NETLINK, NETLINK_EXT_ACK, true);
+        r = setsockopt_int(fd, SOL_NETLINK, NETLINK_EXT_ACK, /* value= */ true);
         if (r < 0)
                 log_debug_errno(r, "sd-netlink: Failed to enable NETLINK_EXT_ACK option, ignoring: %m");
 
-        r = setsockopt_int(fd, SOL_NETLINK, NETLINK_GET_STRICT_CHK, true);
+        r = setsockopt_int(fd, SOL_NETLINK, NETLINK_GET_STRICT_CHK, /* value= */ true);
         if (r < 0)
                 log_debug_errno(r, "sd-netlink: Failed to enable NETLINK_GET_STRICT_CHK option, ignoring: %m");
 
@@ -135,7 +135,7 @@ static sd_netlink *netlink_free(sd_netlink *nl) {
 
         while ((s = nl->slots)) {
                 assert(s->floating);
-                netlink_slot_disconnect(s, true);
+                netlink_slot_disconnect(s, /* unref= */ true);
         }
         hashmap_free(nl->reply_callbacks);
         prioq_free(nl->reply_callbacks_prioq);
@@ -324,7 +324,7 @@ static int process_timeout(sd_netlink *nl) {
                                 slot->description ? "' " : "");
 
         if (slot->floating)
-                netlink_slot_disconnect(slot, true);
+                netlink_slot_disconnect(slot, /* unref= */ true);
 
         return 1;
 }
@@ -364,7 +364,7 @@ static int process_reply(sd_netlink *nl, sd_netlink_message *m) {
                                 slot->description ? "' " : "");
 
         if (slot->floating)
-                netlink_slot_disconnect(slot, true);
+                netlink_slot_disconnect(slot, /* unref= */ true);
 
         return 1;
 }
@@ -519,7 +519,7 @@ int sd_netlink_wait(sd_netlink *nl, uint64_t timeout_usec) {
         if (!ordered_set_isempty(nl->rqueue))
                 return 0;
 
-        r = netlink_poll(nl, false, timeout_usec);
+        r = netlink_poll(nl, /* need_more= */ false, timeout_usec);
         if (ERRNO_IS_NEG_TRANSIENT(r)) /* Convert EINTR to "something happened" and give user a chance to run some code before calling back into us */
                 return 1;
         return r;
@@ -665,7 +665,7 @@ int sd_netlink_read(
                 } else
                         left = USEC_INFINITY;
 
-                r = netlink_poll(nl, true, left);
+                r = netlink_poll(nl, /* need_more= */ true, left);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -726,7 +726,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         sd_netlink *nl = ASSERT_PTR(userdata);
         int r;
 
-        r = sd_netlink_process(nl, NULL);
+        r = sd_netlink_process(nl, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -737,7 +737,7 @@ static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_netlink *nl = ASSERT_PTR(userdata);
         int r;
 
-        r = sd_netlink_process(nl, NULL);
+        r = sd_netlink_process(nl, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -793,7 +793,7 @@ int sd_netlink_attach_event(sd_netlink *nl, sd_event *event, int64_t priority) {
                         return r;
         }
 
-        r = sd_event_add_io(nl->event, &nl->io_event_source, nl->fd, 0, io_callback, nl);
+        r = sd_event_add_io(nl->event, &nl->io_event_source, nl->fd, /* events= */ 0, io_callback, nl);
         if (r < 0)
                 goto fail;
 
@@ -809,7 +809,7 @@ int sd_netlink_attach_event(sd_netlink *nl, sd_event *event, int64_t priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_time(nl->event, &nl->time_event_source, CLOCK_MONOTONIC, 0, 0, time_callback, nl);
+        r = sd_event_add_time(nl->event, &nl->time_event_source, CLOCK_MONOTONIC, /* usec= */ 0, /* accuracy= */ 0, time_callback, nl);
         if (r < 0)
                 goto fail;
 
@@ -968,7 +968,7 @@ int sd_netlink_add_match(
                         return -EOPNOTSUPP;
         }
 
-        return netlink_add_match_internal(rtnl, ret_slot, groups, n_groups, type, 0, callback,
+        return netlink_add_match_internal(rtnl, ret_slot, groups, n_groups, type, /* cmd= */ 0, callback,
                                           destroy_callback, userdata, description);
 }
 

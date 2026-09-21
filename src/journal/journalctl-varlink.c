@@ -108,7 +108,7 @@ int action_vacuum(void) {
                 return r;
 
         HASHMAP_FOREACH(d, j->directories_by_path) {
-                r = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, NULL, !arg_quiet);
+                r = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, /* oldest_usec= */ NULL, !arg_quiet);
                 if (r < 0)
                         RET_GATHER(ret, log_error_errno(r, "Failed to vacuum %s: %m", d->path));
         }

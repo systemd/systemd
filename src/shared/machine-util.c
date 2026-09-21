@@ -236,7 +236,7 @@ int bind_volume_parse(const char *arg, BindVolume **ret) {
         for (;;) {
                 _cleanup_free_ char *kv = NULL, *key = NULL, *value = NULL;
 
-                r = extract_first_word(&p, &kv, ",", 0);
+                r = extract_first_word(&p, &kv, ",", /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)

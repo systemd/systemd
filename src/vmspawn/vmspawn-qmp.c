@@ -435,24 +435,24 @@ static int on_ephemeral_create_concluded(QmpClient *qmp, void *userdata) {
         };
         r = qmp_build_blockdev_add_format(&overlay_fmt_params, &fmt_args);
         if (r < 0)
-                return drive_info_add_fail(drive, r, NULL);
+                return drive_info_add_fail(drive, r, /* error_desc= */ NULL);
 
         slot_ref = drive_info_ref(drive);
         r = qmp_client_invoke(qmp, /* ret_slot= */ NULL, "blockdev-add", QMP_CLIENT_ARGS(fmt_args),
                               on_add_format_node_stage, slot_ref);
         if (r < 0)
-                return drive_info_add_fail(drive, r, NULL);
+                return drive_info_add_fail(drive, r, /* error_desc= */ NULL);
         TAKE_PTR(slot_ref);
 
         r = qmp_build_device_add(drive, &device_args);
         if (r < 0)
-                return drive_info_add_fail(drive, r, NULL);
+                return drive_info_add_fail(drive, r, /* error_desc= */ NULL);
 
         slot_ref = drive_info_ref(drive);
         r = qmp_client_invoke(qmp, /* ret_slot= */ NULL, "device_add", QMP_CLIENT_ARGS(device_args),
                               on_add_device_add_complete, slot_ref);
         if (r < 0)
-                return drive_info_add_fail(drive, r, NULL);
+                return drive_info_add_fail(drive, r, /* error_desc= */ NULL);
         TAKE_PTR(slot_ref);
 
         log_debug("Queued ephemeral drive completion for '%s'", drive->qmp_device_id);
@@ -635,7 +635,7 @@ static int reply_qmp_error(sd_varlink *link, const char *error_desc, int error) 
         assert(link);
 
         if (ERRNO_IS_DISCONNECT(error))
-                return sd_varlink_error(link, "io.systemd.MachineInstance.NotConnected", NULL);
+                return sd_varlink_error(link, "io.systemd.MachineInstance.NotConnected", /* parameters= */ NULL);
         if (error_desc)
                 log_warning("QMP error: %s", error_desc);
         return sd_varlink_error_errno(link, error < 0 ? error : -EIO);
@@ -839,7 +839,7 @@ static int on_add_device_add_complete(
                 return 0;
 
         if (d->link) {
-                (void) sd_varlink_reply(d->link, NULL);
+                (void) sd_varlink_reply(d->link, /* parameters= */ NULL);
                 d->link = sd_varlink_unref(d->link);
         }
 
@@ -887,7 +887,7 @@ static int qmp_setup_scsi_controller(VmspawnQmpBridge *bridge, const char *pcie_
                 return log_error_errno(r, "Failed to build SCSI controller JSON: %m");
 
         r = qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "device_add", QMP_CLIENT_ARGS(args),
-                              on_scsi_controller_complete, NULL);
+                              on_scsi_controller_complete, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to send SCSI controller device_add: %m");
 
@@ -1057,7 +1057,7 @@ static int on_remove_device_del_complete(
                 return reply_qmp_error(link, error_desc, error);
         }
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, const char *id) {
@@ -1069,9 +1069,9 @@ int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, 
 
         DriveInfo *drive = hashmap_get(bridge->block_devices, id);
         if (!drive)
-                return sd_varlink_error(link, "io.systemd.MachineInstance.NoSuchStorage", NULL);
+                return sd_varlink_error(link, "io.systemd.MachineInstance.NoSuchStorage", /* parameters= */ NULL);
         if (!FLAGS_SET(drive->flags, QMP_DRIVE_REMOVABLE))
-                return sd_varlink_error(link, "io.systemd.MachineInstance.StorageImmutable", NULL);
+                return sd_varlink_error(link, "io.systemd.MachineInstance.StorageImmutable", /* parameters= */ NULL);
         if (!FLAGS_SET(drive->state, BLOCK_DEVICE_STATE_BLOCKDEV_ADDED))
                 return reply_qmp_error(link, "Block device add pending", -EBUSY);
         if (drive->state & (BLOCK_DEVICE_STATE_REMOVE_PENDING|BLOCK_DEVICE_STATE_REPLACE_PENDING))
@@ -1266,7 +1266,7 @@ static int on_replace_old_blockdev_del_complete(
         drive->state &= ~BLOCK_DEVICE_STATE_REPLACE_PENDING;
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = TAKE_PTR(drive->link);
         if (link)
-                (void) sd_varlink_reply(link, NULL);
+                (void) sd_varlink_reply(link, /* parameters= */ NULL);
 
         log_info("Block device '%s' backing replaced", drive->id);
         return 0;
@@ -1322,7 +1322,7 @@ static int on_replace_blockdev_reopen_complete(
         drive->state &= ~BLOCK_DEVICE_STATE_REPLACE_PENDING;
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = TAKE_PTR(drive->link);
         if (link)
-                (void) sd_varlink_reply(link, NULL);
+                (void) sd_varlink_reply(link, /* parameters= */ NULL);
         return 0;
 }
 
@@ -1349,9 +1349,9 @@ int vmspawn_qmp_replace_block_device(
 
         DriveInfo *drive = hashmap_get(bridge->block_devices, id);
         if (!drive)
-                return sd_varlink_error(link, "io.systemd.MachineInstance.NoSuchStorage", NULL);
+                return sd_varlink_error(link, "io.systemd.MachineInstance.NoSuchStorage", /* parameters= */ NULL);
         if (!FLAGS_SET(drive->flags, QMP_DRIVE_REMOVABLE))
-                return sd_varlink_error(link, "io.systemd.MachineInstance.StorageImmutable", NULL);
+                return sd_varlink_error(link, "io.systemd.MachineInstance.StorageImmutable", /* parameters= */ NULL);
         /* QEMU's blockdev-reopen rejects RW->RO on a node with attached writers
          * (the guest device). For an RW drive the new backing must be writable. */
         if (!FLAGS_SET(drive->flags, QMP_DRIVE_READ_ONLY) && FLAGS_SET(fd_flags, QMP_DRIVE_READ_ONLY))

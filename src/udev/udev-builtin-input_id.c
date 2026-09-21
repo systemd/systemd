@@ -387,7 +387,7 @@ static int builtin_input_id(UdevEvent *event, int argc, char *argv[]) {
                 if (sd_device_get_sysattr_value(pdev, "capabilities/ev", /* ret= */ NULL) >= 0)
                         break;
 
-                if (sd_device_get_parent_with_subsystem_devtype(pdev, "input", NULL, &pdev) >= 0)
+                if (sd_device_get_parent_with_subsystem_devtype(pdev, "input", /* devtype= */ NULL, &pdev) >= 0)
                         continue;
 
                 pdev = NULL;

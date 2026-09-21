@@ -178,7 +178,7 @@ static int mount_array_add_swap(bool for_initrd, const char *str) {
         if (!isempty(str))
                 return -EINVAL;
 
-        return mount_array_add_internal(for_initrd, TAKE_PTR(what), NULL, "swap", TAKE_PTR(options));
+        return mount_array_add_internal(for_initrd, TAKE_PTR(what), /* in_where= */ NULL, "swap", TAKE_PTR(options));
 }
 
 static int write_options(FILE *f, const char *options) {
@@ -286,7 +286,7 @@ static int add_swap(
                 return log_error_errno(r, "Failed to write unit file %s: %m", name);
 
         /* use what as where, to have a nicer error message */
-        r = generator_write_device_timeout(arg_dest, what, options, NULL);
+        r = generator_write_device_timeout(arg_dest, what, options, /* filtered= */ NULL);
         if (r < 0)
                 return r;
 
@@ -351,7 +351,7 @@ static int write_dependency(
         assert(filter);
         assert(unit_settings);
 
-        r = fstab_filter_options(opts, filter, NULL, NULL, &unit_names, NULL);
+        r = fstab_filter_options(opts, filter, /* ret_namefound= */ NULL, /* ret_value= */ NULL, &unit_names, /* ret_filtered= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse options for '%s': %m", where);
         if (r == 0)
@@ -360,7 +360,7 @@ static int write_dependency(
         STRV_FOREACH(s, unit_names) {
                 _cleanup_free_ char *mangled = NULL;
 
-                r = unit_name_mangle_with_suffix(*s, "as dependency", 0, ".mount", &mangled);
+                r = unit_name_mangle_with_suffix(*s, "as dependency", /* flags= */ 0, ".mount", &mangled);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate dependency unit name for '%s': %m", where);
 
@@ -409,7 +409,7 @@ static int write_mounts_for(
         assert(filter);
         assert(unit_setting);
 
-        r = fstab_filter_options(opts, filter, NULL, NULL, &paths, NULL);
+        r = fstab_filter_options(opts, filter, /* ret_namefound= */ NULL, /* ret_value= */ NULL, &paths, /* ret_filtered= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse options for '%s': %m", where);
         if (r == 0)
@@ -420,7 +420,7 @@ static int write_mounts_for(
                 return log_error_errno(r, "Failed to escape paths for '%s': %m", where);
 
         fprintf(f, "%s=", unit_setting);
-        fputstrv(f, paths_escaped, NULL, NULL);
+        fputstrv(f, paths_escaped, /* separator= */ NULL, /* space= */ NULL);
         fputc('\n', f);
 
         return 0;
@@ -483,7 +483,7 @@ static int mandatory_mount_drop_unapplicable_options(
 
         *flags &= ~(MOUNT_NOAUTO|MOUNT_NOFAIL|MOUNT_AUTOMOUNT);
 
-        r = fstab_filter_options(options, "noauto\0nofail\0x-systemd.automount\0", NULL, NULL, NULL, ret_options);
+        r = fstab_filter_options(options, "noauto\0nofail\0x-systemd.automount\0", /* ret_namefound= */ NULL, /* ret_value= */ NULL, /* ret_values= */ NULL, ret_options);
         if (r < 0)
                 return r;
 
@@ -531,11 +531,11 @@ static int add_mount(
                 return true;
         }
 
-        r = fstab_filter_options(opts, "x-systemd.wanted-by\0", NULL, NULL, &wanted_by, NULL);
+        r = fstab_filter_options(opts, "x-systemd.wanted-by\0", /* ret_namefound= */ NULL, /* ret_value= */ NULL, &wanted_by, /* ret_filtered= */ NULL);
         if (r < 0)
                 return r;
 
-        r = fstab_filter_options(opts, "x-systemd.required-by\0", NULL, NULL, &required_by, NULL);
+        r = fstab_filter_options(opts, "x-systemd.required-by\0", /* ret_namefound= */ NULL, /* ret_value= */ NULL, &required_by, /* ret_filtered= */ NULL);
         if (r < 0)
                 return r;
 
@@ -800,7 +800,7 @@ static int do_daemon_reload(void) {
         FOREACH_STRING(unit, SPECIAL_INITRD_FS_TARGET, SPECIAL_SWAP_TARGET) {
                 log_info("Requesting %s/start/replace...", unit);
 
-                k = bus_call_method(bus, bus_systemd_mgr, "StartUnit", &error, NULL, "ss", unit, "replace");
+                k = bus_call_method(bus, bus_systemd_mgr, "StartUnit", &error, /* ret_reply= */ NULL, "ss", unit, "replace");
                 if (k < 0) {
                         log_error_errno(k, "Failed to (re)start %s: %s", unit, bus_error_message(&error, k));
                         RET_GATHER(r, k);
@@ -889,7 +889,7 @@ static int canonicalize_mount_path(const char *path, const char *type, bool pref
 
         // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
         // /sysroot on error below.
-        r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
+        r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, /* ret_fd= */ NULL);
         if (r < 0) {
                 log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
 
@@ -1664,11 +1664,11 @@ static int determine_device(
 }
 
 static int determine_root(void) {
-        return determine_device(&arg_root_what, &arg_root_rw, NULL, arg_root_hash, "root");
+        return determine_device(&arg_root_what, &arg_root_rw, /* options= */ NULL, arg_root_hash, "root");
 }
 
 static int determine_usr(void) {
-        return determine_device(&arg_usr_what, NULL, &arg_usr_options, arg_usr_hash, "usr");
+        return determine_device(&arg_usr_what, /* rw= */ NULL, &arg_usr_options, arg_usr_hash, "usr");
 }
 
 /* If arg_sysroot_check is false, run as generator in the usual fashion.
@@ -1679,7 +1679,7 @@ static int determine_usr(void) {
 static int run_generator(void) {
         int r;
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, /* flags= */ 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

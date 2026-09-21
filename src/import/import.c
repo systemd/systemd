@@ -71,7 +71,7 @@ static int normalize_local(const char *local, char **ret) {
                         local = "imported";
 
                 if (!FLAGS_SET(arg_import_flags, IMPORT_FORCE)) {
-                        r = image_find(arg_runtime_scope, arg_class, local, NULL, NULL);
+                        r = image_find(arg_runtime_scope, arg_class, local, /* root= */ NULL, /* ret= */ NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
@@ -314,7 +314,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("btrfs-subvol", "BOOL",
                             "Controls whether to create a btrfs subvolume instead of a directory"):
-                        r = parse_boolean_argument("--btrfs-subvol=", opts.arg, NULL);
+                        r = parse_boolean_argument("--btrfs-subvol=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_import_flags, IMPORT_BTRFS_SUBVOL, r);
@@ -322,7 +322,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("btrfs-quota", "BOOL",
                             "Controls whether to set up quota for btrfs subvolume"):
-                        r = parse_boolean_argument("--btrfs-quota=", opts.arg, NULL);
+                        r = parse_boolean_argument("--btrfs-quota=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_import_flags, IMPORT_BTRFS_QUOTA, r);
@@ -330,14 +330,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("convert-qcow2", "BOOL",
                             "Controls whether to convert QCOW2 images to regular disk images"):
-                        r = parse_boolean_argument("--convert-qcow2=", opts.arg, NULL);
+                        r = parse_boolean_argument("--convert-qcow2=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_import_flags, IMPORT_CONVERT_QCOW2, r);
                         break;
 
                 OPTION_LONG("sync", "BOOL", "Controls whether to sync() before completing"):
-                        r = parse_boolean_argument("--sync=", opts.arg, NULL);
+                        r = parse_boolean_argument("--sync=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_import_flags, IMPORT_SYNC, r);

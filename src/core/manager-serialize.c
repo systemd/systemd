@@ -374,7 +374,7 @@ static int manager_deserialize_one_unit(
         Unit *u;
         int r;
 
-        r = manager_load_unit(m, name, NULL, NULL, &u);
+        r = manager_load_unit(m, name, /* path= */ NULL, NULL, &u);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
@@ -751,7 +751,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_warning_errno(r, "Failed to parse handoff-timestamp fds: \"%s\", ignoring: %m", val);
 
                 } else if ((val = startswith(l, "dynamic-user=")))
-                        dynamic_user_deserialize_one(m, val, fds, NULL);
+                        dynamic_user_deserialize_one(m, val, fds, /* ret= */ NULL);
                 else if ((val = startswith(l, "destroy-ipc-uid=")))
                         manager_deserialize_uid_refs_one(m, val);
                 else if ((val = startswith(l, "destroy-ipc-gid=")))

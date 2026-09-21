@@ -54,7 +54,7 @@ static int create_disk(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(arg_dest, NULL, n, &f);
+        r = generator_open_unit_file(arg_dest, /* source= */ NULL, n, &f);
         if (r < 0)
                 return r;
 
@@ -68,7 +68,7 @@ static int create_disk(
         }
 
         if (options) {
-                r = parse_integrity_options(options, NULL, NULL, NULL, NULL, NULL);
+                r = parse_integrity_options(options, /* ret_activate_flags= */ NULL, /* ret_percent= */ NULL, /* ret_commit_time= */ NULL, /* ret_data_device= */ NULL, /* ret_integrity_alg= */ NULL);
                 if (r < 0)
                         return r;
         }

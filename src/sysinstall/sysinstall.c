@@ -345,7 +345,7 @@ static int connect_to_repart(sd_varlink **link) {
         if (*link) {
                 /* Reset the time-out to default here, since we are reusing the connection, but might enqueue
                  * a different operation */
-                r = sd_varlink_set_relative_timeout(*link, 0);
+                r = sd_varlink_set_relative_timeout(*link, /* timeout= */ 0);
                 if (r < 0)
                         return r;
 
@@ -674,9 +674,9 @@ static int sysinstall_context_invoke_repart_run(SysInstallContext *context) {
                         return log_error_errno(r, "Failed to wait for varlink connection events: %m");
         }
 
-        sd_varlink_set_userdata(context->repart_link, NULL);
+        sd_varlink_set_userdata(context->repart_link, /* userdata= */ NULL);
 
-        r = sd_varlink_bind_reply(context->repart_link, NULL);
+        r = sd_varlink_bind_reply(context->repart_link, /* reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to unbind repart reply callback: %m");
 
@@ -1571,7 +1571,7 @@ static int sysinstall_context_run(SysInstallContext *context) {
 
         assert(context);
 
-        (void) sysinstall_context_notify(context, PROGRESS_ENCRYPT_CREDENTIALS, NULL, UINT_MAX);
+        (void) sysinstall_context_notify(context, PROGRESS_ENCRYPT_CREDENTIALS, /* object= */ NULL, UINT_MAX);
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *creds_link = NULL;
         _cleanup_strv_free_ char **encrypted_credentials = NULL;
@@ -1579,7 +1579,7 @@ static int sysinstall_context_run(SysInstallContext *context) {
         if (r < 0)
                 return r;
 
-        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_PARTITIONS, NULL, UINT_MAX);
+        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_PARTITIONS, /* object= */ NULL, UINT_MAX);
 
         /* Do the main part of the installation */
 
@@ -1587,7 +1587,7 @@ static int sysinstall_context_run(SysInstallContext *context) {
         if (r < 0)
                 return r;
 
-        (void) sysinstall_context_notify(context, PROGRESS_MOUNT_PARTITIONS, NULL, UINT_MAX);
+        (void) sysinstall_context_notify(context, PROGRESS_MOUNT_PARTITIONS, /* object= */ NULL, UINT_MAX);
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *root_dir = NULL;
@@ -1610,20 +1610,20 @@ static int sysinstall_context_run(SysInstallContext *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to mount new image: %m");
 
-        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_KERNEL, NULL, UINT_MAX);
+        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_KERNEL, /* object= */ NULL, UINT_MAX);
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *bootctl_link = NULL;
         r = invoke_bootctl_link(&bootctl_link, root_dir, root_fd, context->kernel_filename, context->kernel_fd, encrypted_credentials);
         if (r < 0)
                 return r;
 
-        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_BOOTLOADER, NULL, UINT_MAX);
+        (void) sysinstall_context_notify(context, PROGRESS_INSTALL_BOOTLOADER, /* object= */ NULL, UINT_MAX);
 
         r = invoke_bootctl_install(&bootctl_link, context->touch_variables, root_dir, root_fd);
         if (r < 0)
                 return r;
 
-        (void) sysinstall_context_notify(context, PROGRESS_UNMOUNT_PARTITIONS, NULL, UINT_MAX);
+        (void) sysinstall_context_notify(context, PROGRESS_UNMOUNT_PARTITIONS, /* object= */ NULL, UINT_MAX);
 
         root_fd = safe_close(root_fd);
         r = umount_recursive(root_dir, /* flags= */ 0);
@@ -1681,7 +1681,7 @@ static void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *
         assert(server);
         assert(link);
 
-        list_candidate_devices_context_free(sd_varlink_set_userdata(link, NULL));
+        list_candidate_devices_context_free(sd_varlink_set_userdata(link, /* userdata= */ NULL));
 }
 
 typedef struct DevicesResponse {
@@ -1714,9 +1714,9 @@ static int fetch_candidate_devices_reply(
 
         if (error_id) {
                 if (streq(error_id, "io.systemd.Repart.NoCandidateDevices"))
-                        return sd_varlink_error(context->link, "io.systemd.SysInstall.NoCandidateDevices", NULL);
+                        return sd_varlink_error(context->link, "io.systemd.SysInstall.NoCandidateDevices", /* parameters= */ NULL);
 
-                return sd_varlink_error(context->link, error_id, NULL);
+                return sd_varlink_error(context->link, error_id, /* parameters= */ NULL);
         }
 
         static const sd_json_dispatch_field dispatch_table[] = {
@@ -2038,7 +2038,7 @@ static int vl_method_run(
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_server(void) {
@@ -2050,7 +2050,7 @@ static int vl_server(void) {
 
         r = varlink_server_new(
                         &varlink_server,
-                        0,
+                        /* flags= */ 0,
                         /* userdata= */ &polkit_registry);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");

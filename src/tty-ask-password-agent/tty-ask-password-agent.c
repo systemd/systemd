@@ -236,7 +236,7 @@ static int process_one_password_file(const char *filename, FILE *f) {
                               pid) < 0)
                          return log_oom();
 
-                 (void) wall(msg, NULL, NULL, wall_tty_match, NULL);
+                 (void) wall(msg, /* username= */ NULL, /* origin_tty= */ NULL, wall_tty_match, /* userdata= */ NULL);
                  return 0;
         }
         case ACTION_QUERY:
@@ -299,7 +299,7 @@ static int wall_tty_block(void) {
         dev_t devnr;
         int fd, r;
 
-        r = get_ctty_devnr(0, &devnr);
+        r = get_ctty_devnr(/* pid= */ 0, &devnr);
         if (r == -ENXIO) /* We have no controlling tty */
                 return -ENOTTY;
         if (r < 0)
@@ -631,7 +631,7 @@ static int ask_on_consoles(char *argv[]) {
                 return 0;
         }
 
-        pids = set_new(NULL);
+        pids = set_new(/* hash_ops= */ NULL);
         if (!pids)
                 return log_oom();
 
@@ -669,7 +669,7 @@ static int ask_on_consoles(char *argv[]) {
                         return log_error_errno(errno, "Failed to wait for console ask-password agent: %m");
                 }
 
-                if (!is_clean_exit(status.si_code, status.si_status, EXIT_CLEAN_DAEMON, NULL))
+                if (!is_clean_exit(status.si_code, status.si_status, EXIT_CLEAN_DAEMON, /* success_status= */ NULL))
                         log_error("Password agent failed with: %d", status.si_status);
 
                 set_remove(pids, PID_TO_PTR(status.si_pid));

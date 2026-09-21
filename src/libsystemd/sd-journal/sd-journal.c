@@ -690,7 +690,7 @@ static int next_for_match(
                 else
                         hash = m->hash;
 
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, &d, NULL);
+                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, &d, /* ret_offset= */ NULL);
                 if (r <= 0)
                         return r;
 
@@ -703,7 +703,7 @@ static int next_for_match(
                 LIST_FOREACH(matches, i, m->matches) {
                         uint64_t cp;
 
-                        r = next_for_match(j, i, f, after_offset, direction, NULL, &cp);
+                        r = next_for_match(j, i, f, after_offset, direction, /* ret= */ NULL, &cp);
                         if (r < 0)
                                 return r;
                         else if (r > 0) {
@@ -725,7 +725,7 @@ static int next_for_match(
                 if (!m->matches)
                         return 0;
 
-                r = next_for_match(j, m->matches, f, after_offset, direction, NULL, &np);
+                r = next_for_match(j, m->matches, f, after_offset, direction, /* ret= */ NULL, &np);
                 if (r <= 0)
                         return r;
 
@@ -735,7 +735,7 @@ static int next_for_match(
                 LIST_LOOP_BUT_ONE(matches, i, m->matches, last_moved) {
                         uint64_t cp;
 
-                        r = next_for_match(j, i, f, np, direction, NULL, &cp);
+                        r = next_for_match(j, i, f, np, direction, /* ret= */ NULL, &cp);
                         if (r <= 0)
                                 return r;
 
@@ -782,13 +782,13 @@ static int move_by_boot_for_data(
                 r = journal_file_move_to_entry_by_monotonic(f, boot_id,
                                                             direction == DIRECTION_DOWN ? USEC_INFINITY : 0,
                                                             direction == DIRECTION_DOWN ? DIRECTION_UP : DIRECTION_DOWN,
-                                                            NULL, &p);
+                                                            /* ret_object= */ NULL, &p);
                 if (r <= 0)
                         return r;
 
                 /* Then, move to the first entry of the next boot (or the last entry of the previous boot with DIRECTION_UP). */
                 Object *entry;
-                r = journal_file_next_entry(f, p, direction, &entry, NULL);
+                r = journal_file_next_entry(f, p, direction, &entry, /* ret_offset= */ NULL);
                 if (r <= 0) /* r == 0 means that no next (or previous) boot found. That is, we are at HEAD or TAIL now. */
                         return r;
 
@@ -872,7 +872,7 @@ static int find_location_for_match(
                 LIST_FOREACH(matches, i, m->matches) {
                         uint64_t cp;
 
-                        r = find_location_for_match(j, i, f, direction, NULL, &cp);
+                        r = find_location_for_match(j, i, f, direction, /* ret= */ NULL, &cp);
                         if (r < 0)
                                 return r;
                         else if (r > 0) {
@@ -909,7 +909,7 @@ static int find_location_for_match(
                 LIST_FOREACH(matches, i, m->matches) {
                         uint64_t cp;
 
-                        r = find_location_for_match(j, i, f, direction, NULL, &cp);
+                        r = find_location_for_match(j, i, f, direction, /* ret= */ NULL, &cp);
                         if (r <= 0)
                                 return r;
 
@@ -962,7 +962,7 @@ static int find_location_with_matches(
                 r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id,
                                                             direction == DIRECTION_DOWN ? USEC_INFINITY : 0,
                                                             direction == DIRECTION_DOWN ? DIRECTION_UP : DIRECTION_DOWN,
-                                                            NULL, &p);
+                                                            /* ret_object= */ NULL, &p);
                 if (r <= 0)
                         return r;
 
@@ -1138,7 +1138,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                 JournalFile *new_file = NULL, *exact_match = NULL;
                 Object *o;
 
-                r = iterated_cache_get(j->files_cache, NULL, &files, &n_files);
+                r = iterated_cache_get(j->files_cache, /* res_keys= */ NULL, &files, &n_files);
                 if (r < 0)
                         return r;
 
@@ -1641,7 +1641,7 @@ static int add_any_file(
                         goto error;
                 }
 
-                r = fd_nonblock(fd, false);
+                r = fd_nonblock(fd, /* nonblock= */ false);
                 if (r < 0) {
                         r = log_debug_errno(errno, "Failed to turn off O_NONBLOCK for %s: %m", path);
                         goto error;
@@ -1696,7 +1696,7 @@ static int add_any_file(
                 goto error;
         }
 
-        r = journal_file_open(fd, path, O_RDONLY, 0, 0, 0, NULL, j->mmap, NULL, &f);
+        r = journal_file_open(fd, path, O_RDONLY, /* file_flags= */ 0, /* mode= */ 0, /* compress_threshold_bytes= */ 0, /* metrics= */ NULL, j->mmap, /* template= */ NULL, &f);
         if (r < 0) {
                 log_debug_errno(r, "Failed to open journal file %s: %m", path ?: "from fd");
                 goto error;
@@ -1949,7 +1949,7 @@ static int directory_open(sd_journal *j, const char *path, DIR **ret) {
         else
                 /* Open the specified directory relative to the toplevel fd. Enforce that the path specified is
                  * relative, by dropping the initial slash */
-                d = xopendirat(j->toplevel_fd, skip_leading_slash(path), 0);
+                d = xopendirat(j->toplevel_fd, skip_leading_slash(path), /* flags= */ 0);
         if (!d)
                 return -errno;
 
@@ -2135,7 +2135,7 @@ static int add_directory(
         if (dirname &&
             (!(FLAGS_SET(j->flags, SD_JOURNAL_ALL_NAMESPACES) ||
                dirname_has_namespace(dirname, j->namespace) > 0 ||
-               (FLAGS_SET(j->flags, SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE) && dirname_has_namespace(dirname, NULL) > 0))))
+               (FLAGS_SET(j->flags, SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE) && dirname_has_namespace(dirname, /* namespace= */ NULL) > 0))))
                 return 0;
 
         r = directory_open(j, path, &d);
@@ -2263,10 +2263,10 @@ static int add_search_paths(sd_journal *j) {
          * what's actually accessible, and ignore the rest. */
 
         NULSTR_FOREACH(p, search_paths)
-                (void) add_root_directory(j, p, true);
+                (void) add_root_directory(j, p, /* missing_ok= */ true);
 
         if (!(j->flags & SD_JOURNAL_LOCAL_ONLY))
-                (void) add_root_directory(j, "/var/log/journal/remote", true);
+                (void) add_root_directory(j, "/var/log/journal/remote", /* missing_ok= */ true);
 
         return 0;
 }
@@ -2288,7 +2288,7 @@ static int add_current_paths(sd_journal *j) {
                 if (r < 0)
                         return r;
 
-                r = add_directory(j, dir, NULL);
+                r = add_directory(j, dir, /* dirname= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -2370,7 +2370,7 @@ _public_ int sd_journal_open_namespace(sd_journal **ret, const char *name_space,
         assert_return(ret, -EINVAL);
         assert_return((flags & ~OPEN_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        j = journal_new(flags, NULL, name_space);
+        j = journal_new(flags, /* path= */ NULL, name_space);
         if (!j)
                 return -ENOMEM;
 
@@ -2383,7 +2383,7 @@ _public_ int sd_journal_open_namespace(sd_journal **ret, const char *name_space,
 }
 
 _public_ int sd_journal_open(sd_journal **ret, int flags) {
-        return sd_journal_open_namespace(ret, NULL, flags);
+        return sd_journal_open_namespace(ret, /* name_space= */ NULL, flags);
 }
 
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \
@@ -2403,7 +2403,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         assert_return(machine, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return((flags & ~OPEN_CONTAINER_ALLOWED_FLAGS) == 0, -EINVAL);
-        assert_return(hostname_is_valid(machine, 0), -EINVAL);
+        assert_return(hostname_is_valid(machine, /* flags= */ 0), -EINVAL);
 
         p = strjoina("/run/systemd/machines/", machine);
         r = parse_env_file(NULL, p,
@@ -2419,7 +2419,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         if (!streq_ptr(class, "container"))
                 return -EIO;
 
-        j = journal_new(flags, root, NULL);
+        j = journal_new(flags, root, /* namespace= */ NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -2445,14 +2445,14 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         assert_return(path, -EINVAL);
         assert_return((flags & ~OPEN_DIRECTORY_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        j = journal_new(flags, path, NULL);
+        j = journal_new(flags, path, /* namespace= */ NULL);
         if (!j)
                 return -ENOMEM;
 
         if (flags & SD_JOURNAL_OS_ROOT)
                 r = add_search_paths(j);
         else
-                r = add_root_directory(j, path, false);
+                r = add_root_directory(j, path, /* missing_ok= */ false);
         if (r < 0)
                 return r;
 
@@ -2470,7 +2470,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         assert_return(ret, -EINVAL);
         assert_return((flags & ~OPEN_FILES_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        j = journal_new(flags, NULL, NULL);
+        j = journal_new(flags, /* path= */ NULL, /* namespace= */ NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -2507,7 +2507,7 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
                 return r;
 
         take_fd = FLAGS_SET(flags, SD_JOURNAL_TAKE_DIRECTORY_FD);
-        j = journal_new(flags & ~SD_JOURNAL_TAKE_DIRECTORY_FD, NULL, NULL);
+        j = journal_new(flags & ~SD_JOURNAL_TAKE_DIRECTORY_FD, /* path= */ NULL, /* namespace= */ NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -2516,7 +2516,7 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         if (flags & SD_JOURNAL_OS_ROOT)
                 r = add_search_paths(j);
         else
-                r = add_root_directory(j, NULL, false);
+                r = add_root_directory(j, NULL, /* missing_ok= */ false);
         if (r < 0)
                 return r;
 
@@ -2538,7 +2538,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
         assert_return(n_fds > 0, -EBADF);
         assert_return((flags & ~OPEN_FILES_FD_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        j = journal_new(flags, NULL, NULL);
+        j = journal_new(flags, /* path= */ NULL, /* namespace= */ NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -2985,7 +2985,7 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, siz
                 size_t l;
 
                 p = journal_file_entry_item_object_offset(f, o, j->current_field);
-                r = journal_file_data_payload(f, NULL, p, NULL, 0, j->data_threshold, &d, &l);
+                r = journal_file_data_payload(f, NULL, p, /* field= */ NULL, /* field_length= */ 0, j->data_threshold, &d, &l);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", j->current_field);
                         continue;
@@ -3035,10 +3035,10 @@ static int reiterate_all_paths(sd_journal *j) {
                 return add_search_paths(j);
 
         if (j->toplevel_fd >= 0)
-                return add_root_directory(j, NULL, false);
+                return add_root_directory(j, NULL, /* missing_ok= */ false);
 
         if (j->path)
-                return add_root_directory(j, j->path, true);
+                return add_root_directory(j, j->path, /* missing_ok= */ true);
 
         return add_search_paths(j);
 }
@@ -3478,7 +3478,7 @@ _public_ int sd_journal_enumerate_unique(
 
                 /* Proceed to next data object in the field's linked list */
                 if (j->unique_offset == 0) {
-                        r = journal_file_find_field_object(j->unique_file, j->unique_field, k, &o, NULL);
+                        r = journal_file_find_field_object(j->unique_file, j->unique_field, k, &o, /* ret_offset= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -3509,7 +3509,7 @@ _public_ int sd_journal_enumerate_unique(
                 if (r < 0)
                         return r;
 
-                r = journal_file_data_payload(j->unique_file, o, j->unique_offset, NULL, 0,
+                r = journal_file_data_payload(j->unique_file, o, j->unique_offset, /* field= */ NULL, /* field_length= */ 0,
                                               j->data_threshold, &odata, &ol);
                 if (r < 0)
                         return r;
@@ -3543,9 +3543,9 @@ _public_ int sd_journal_enumerate_unique(
                          * without keyed hashes. On new-style files we have to calculate the hash anew, to
                          * take the per-file hash seed into consideration. */
                         if (!JOURNAL_HEADER_KEYED_HASH(j->unique_file->header) && !JOURNAL_HEADER_KEYED_HASH(of->header))
-                                r = journal_file_find_data_object_with_hash(of, odata, ol, le64toh(o->data.hash), NULL, NULL);
+                                r = journal_file_find_data_object_with_hash(of, odata, ol, le64toh(o->data.hash), /* ret_object= */ NULL, /* ret_offset= */ NULL);
                         else
-                                r = journal_file_find_data_object(of, odata, ol, NULL, NULL);
+                                r = journal_file_find_data_object(of, odata, ol, /* ret_object= */ NULL, /* ret_offset= */ NULL);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
@@ -3694,9 +3694,9 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
 
                         if (!JOURNAL_HEADER_KEYED_HASH(f->header) && !JOURNAL_HEADER_KEYED_HASH(of->header))
                                 r = journal_file_find_field_object_with_hash(of, o->field.payload, sz,
-                                                                             le64toh(o->field.hash), NULL, NULL);
+                                                                             le64toh(o->field.hash), /* ret_object= */ NULL, /* ret_offset= */ NULL);
                         else
-                                r = journal_file_find_field_object(of, o->field.payload, sz, NULL, NULL);
+                                r = journal_file_find_field_object(of, o->field.payload, sz, /* ret_object= */ NULL, /* ret_offset= */ NULL);
                         if (r < 0)
                                 return r;
                         if (r > 0) {

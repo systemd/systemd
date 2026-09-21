@@ -273,7 +273,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                          * don't want to trigger reloads of daemon processes. Also we make sure to only send
                          * this after SIGTERM so that SIGTERM is always first in the queue. */
 
-                        if (get_ctty_devnr(pidref.pid, NULL) >= 0)
+                        if (get_ctty_devnr(pidref.pid, /* ret= */ NULL) >= 0)
                                 /* it's OK if the process is gone, just ignore the result */
                                 (void) pidref_kill(&pidref, SIGHUP);
                 }
@@ -294,7 +294,7 @@ int broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeo
          *  - Otherwise, the number of processes to which the specified signal was sent */
 
         if (wait_for_exit)
-                pids = set_new(NULL);
+                pids = set_new(/* hash_ops= */ NULL);
 
         assert_se(sigemptyset(&mask) == 0);
         assert_se(sigaddset(&mask, SIGCHLD) == 0);

@@ -16,7 +16,7 @@ TEST(make_lock_file) {
         _cleanup_close_ int tfd = -EBADF;
         _cleanup_(release_lock_file) LockFile lock1 = LOCK_FILE_INIT, lock2 = LOCK_FILE_INIT;
 
-        assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
+        assert_se((tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t)) >= 0);
 
         assert_se(make_lock_file_at(tfd, "lock", LOCK_EX, &lock1) >= 0);
         assert_se(faccessat(tfd, "lock", F_OK, 0) >= 0);
@@ -41,7 +41,7 @@ static void test_lock_generic_with_timeout_for_type(LockType type) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, tfd2 = -EBADF;
 
-        tfd = mkdtemp_open(NULL, 0, &t);
+        tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t);
         assert_se(tfd >= 0);
 
         tfd2 = fd_reopen(tfd, O_CLOEXEC|O_DIRECTORY);

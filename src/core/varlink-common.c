@@ -38,7 +38,7 @@ const char* varlink_error_id_from_bus_error(const sd_bus_error *e) {
 int varlink_reply_bus_error(sd_varlink *link, int r, const sd_bus_error *e) {
         const char *error_id = varlink_error_id_from_bus_error(e);
         if (error_id)
-                return sd_varlink_error(link, error_id, NULL);
+                return sd_varlink_error(link, error_id, /* parameters= */ NULL);
         return sd_varlink_error_errno(link, r);
 }
 

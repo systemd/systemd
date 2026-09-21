@@ -190,9 +190,9 @@ static int list_sessions_table_add(Table *table, sd_bus_message *reply) {
                         return table_log_add_error(r);
 
                 if (idle)
-                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE_MONOTONIC, &idle_timestamp_monotonic);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_TIMESTAMP_RELATIVE_MONOTONIC, &idle_timestamp_monotonic);
                 else
-                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -260,9 +260,9 @@ static int list_sessions_table_add_fallback(Table *table, sd_bus_message *reply,
                         return table_log_add_error(r);
 
                 if (i.idle_hint)
-                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE_MONOTONIC, &i.idle_hint_timestamp.monotonic);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_TIMESTAMP_RELATIVE_MONOTONIC, &i.idle_hint_timestamp.monotonic);
                 else
-                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -287,13 +287,13 @@ static int verb_list_sessions(int argc, char *argv[], uintptr_t _data, void *use
 
         assert(argv);
 
-        r = bus_call_method(bus, bus_login_mgr, "ListSessionsEx", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_login_mgr, "ListSessionsEx", &error, &reply, /* types= */ NULL);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
                         sd_bus_error_free(&error);
 
                         use_ex = false;
-                        r = bus_call_method(bus, bus_login_mgr, "ListSessions", &error, &reply, NULL);
+                        r = bus_call_method(bus, bus_login_mgr, "ListSessions", &error, &reply, /* types= */ NULL);
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to list sessions: %s", bus_error_message(&error, r));
@@ -365,7 +365,7 @@ static int prop_map_first_of_struct(sd_bus *bus, const char *member, sd_bus_mess
         assert(bus);
         assert(m);
 
-        r = sd_bus_message_peek_type(m, NULL, &contents);
+        r = sd_bus_message_peek_type(m, /* ret_type= */ NULL, &contents);
         if (r < 0)
                 return r;
 
@@ -473,7 +473,7 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (dual_timestamp_is_set(&i.timestamp)) {
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Since");
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Since");
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -495,7 +495,7 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
 
                 (void) pid_get_comm(i.leader, &name);
 
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Leader");
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Leader");
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -509,14 +509,14 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         }
 
         if (!isempty(i.seat)) {
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Seat");
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Seat");
                 if (r < 0)
                         return table_log_add_error(r);
 
                 if (i.vtnr > 0)
                         r = table_add_cell_stringf(table, NULL, "%s; vc%u", i.seat, i.vtnr);
                 else
-                        r = table_add_cell(table, NULL, TABLE_STRING, i.seat);
+                        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, i.seat);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -534,18 +534,18 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Remote");
+        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Remote");
         if (r < 0)
                 return table_log_add_error(r);
 
         if (i.remote_host && i.remote_user)
                 r = table_add_cell_stringf(table, NULL, "%s@%s", i.remote_user, i.remote_host);
         else if (i.remote_host)
-                r = table_add_cell(table, NULL, TABLE_STRING, i.remote_host);
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, i.remote_host);
         else if (i.remote_user)
                 r = table_add_cell_stringf(table, NULL, "user %s", i.remote_user);
         else
-                r = table_add_cell(table, NULL, TABLE_BOOLEAN, &i.remote);
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_BOOLEAN, &i.remote);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -581,7 +581,7 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
                         return table_log_add_error(r);
         }
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Idle");
+        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Idle");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -591,7 +591,7 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
                                            FORMAT_TIMESTAMP(i.idle_hint_timestamp.realtime),
                                            FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.idle_hint_timestamp.monotonic));
         else
-                r = table_add_cell(table, NULL, TABLE_BOOLEAN, &i.idle_hint);
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_BOOLEAN, &i.idle_hint);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -664,7 +664,7 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
         table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (dual_timestamp_is_set(&i.timestamp)) {
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Since");
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Since");
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -752,7 +752,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, 0, &error, &m, &i);
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, /* flags= */ 0, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
@@ -893,7 +893,7 @@ static int show_properties(sd_bus *bus, const char *path) {
                         print_property,
                         arg_property,
                         arg_print_flags,
-                        NULL);
+                        /* reterr_error= */ NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -1005,7 +1005,7 @@ static int verb_activate(int argc, char *argv[], uintptr_t _data, void *userdata
                                 streq(argv[0], "unlock-session")    ? "Unlock" :
                                 streq(argv[0], "terminate-session") ? "Terminate" :
                                                                       "Activate",
-                                &error, NULL, NULL);
+                                &error, /* ret_reply= */ NULL, /* types= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
@@ -1020,7 +1020,7 @@ static int verb_activate(int argc, char *argv[], uintptr_t _data, void *userdata
                                 streq(argv[0], "unlock-session")    ? "UnlockSession" :
                                 streq(argv[0], "terminate-session") ? "TerminateSession" :
                                                                       "ActivateSession",
-                                &error, NULL,
+                                &error, /* ret_reply= */ NULL,
                                 "s", argv[i]);
                 if (r < 0)
                         return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
@@ -1044,8 +1044,8 @@ static int verb_lock_sessions(int argc, char *argv[], uintptr_t _data, void *use
                         bus,
                         bus_login_mgr,
                         streq(argv[0], "lock-sessions") ? "LockSessions" : "UnlockSessions",
-                        &error, NULL,
-                        NULL);
+                        &error, /* ret_reply= */ NULL,
+                        /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not lock sessions: %s", bus_error_message(&error, r));
 
@@ -1075,7 +1075,7 @@ static int verb_kill_session(int argc, char *argv[], uintptr_t _data, void *user
                                 bus,
                                 bus_login_mgr,
                                 "KillSession",
-                                &error, NULL,
+                                &error, /* ret_reply= */ NULL,
                                 "ssi", argv[i], arg_kill_whom, arg_signal);
                 if (r < 0)
                         return log_error_errno(r, "Could not kill session: %s", bus_error_message(&error, r));
@@ -1103,7 +1103,7 @@ static int verb_list_users(int argc, char *argv[], uintptr_t _data, void *userda
 
         assert(argv);
 
-        r = bus_call_method(bus, bus_login_mgr, "ListUsers", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_login_mgr, "ListUsers", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list users: %s", bus_error_message(&error, r));
 
@@ -1192,7 +1192,7 @@ static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdat
                 const char *path;
                 uid_t uid;
 
-                r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
+                r = get_user_creds(argv[i], /* flags= */ 0, /* ret_username= */ NULL, &uid, /* ret_gid= */ NULL, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
 
@@ -1252,7 +1252,7 @@ static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *use
                 if (isempty(argv[i]))
                         uid = UID_INVALID;
                 else {
-                        r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
+                        r = get_user_creds(argv[i], /* flags= */ 0, /* ret_username= */ NULL, &uid, /* ret_gid= */ NULL, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
                 }
@@ -1261,7 +1261,7 @@ static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *use
                                 bus,
                                 bus_login_mgr,
                                 "SetUserLinger",
-                                &error, NULL,
+                                &error, /* ret_reply= */ NULL,
                                 "ubb", (uint32_t) uid, b, true);
                 if (r < 0)
                         return log_error_errno(r, "Could not enable linger: %s", bus_error_message(&error, r));
@@ -1287,12 +1287,12 @@ static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *us
                 if (isempty(argv[i]))
                         uid = getuid();
                 else {
-                        r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
+                        r = get_user_creds(argv[i], /* flags= */ 0, /* ret_username= */ NULL, &uid, /* ret_gid= */ NULL, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
                 }
 
-                r = bus_call_method(bus, bus_login_mgr, "TerminateUser", &error, NULL, "u", (uint32_t) uid);
+                r = bus_call_method(bus, bus_login_mgr, "TerminateUser", &error, /* ret_reply= */ NULL, "u", (uint32_t) uid);
                 if (r < 0)
                         return log_error_errno(r, "Could not terminate user: %s", bus_error_message(&error, r));
         }
@@ -1320,7 +1320,7 @@ static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdat
                 if (isempty(argv[i]))
                         uid = getuid();
                 else {
-                        r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
+                        r = get_user_creds(argv[i], /* flags= */ 0, /* ret_username= */ NULL, &uid, /* ret_gid= */ NULL, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
                 }
@@ -1329,7 +1329,7 @@ static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdat
                         bus,
                         bus_login_mgr,
                         "KillUser",
-                        &error, NULL,
+                        &error, /* ret_reply= */ NULL,
                         "ui", (uint32_t) uid, arg_signal);
                 if (r < 0)
                         return log_error_errno(r, "Could not kill user: %s", bus_error_message(&error, r));
@@ -1350,7 +1350,7 @@ static int verb_list_seats(int argc, char *argv[], uintptr_t _data, void *userda
 
         assert(argv);
 
-        r = bus_call_method(bus, bus_login_mgr, "ListSeats", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_login_mgr, "ListSeats", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list seats: %s", bus_error_message(&error, r));
 
@@ -1373,7 +1373,7 @@ static int verb_list_seats(int argc, char *argv[], uintptr_t _data, void *userda
                 if (r == 0)
                         break;
 
-                r = table_add_cell(table, NULL, TABLE_STRING, seat);
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, seat);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -1452,7 +1452,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         bus,
                         bus_login_mgr,
                         "AttachDevice",
-                        &error, NULL,
+                        &error, /* ret_reply= */ NULL,
                         "ssb", argv[1], argv[i], true);
                 if (r < 0)
                         return log_error_errno(r, "Could not attach device: %s", bus_error_message(&error, r));
@@ -1471,7 +1471,7 @@ static int verb_flush_devices(int argc, char *argv[], uintptr_t _data, void *use
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = bus_call_method(bus, bus_login_mgr, "FlushDevices", &error, NULL, "b", true);
+        r = bus_call_method(bus, bus_login_mgr, "FlushDevices", &error, /* ret_reply= */ NULL, "b", true);
         if (r < 0)
                 return log_error_errno(r, "Could not flush devices: %s", bus_error_message(&error, r));
 
@@ -1491,7 +1491,7 @@ static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *us
 
         for (int i = 1; i < argc; i++) {
 
-                r = bus_call_method(bus, bus_login_mgr, "TerminateSeat", &error, NULL, "s", argv[i]);
+                r = bus_call_method(bus, bus_login_mgr, "TerminateSeat", &error, /* ret_reply= */ NULL, "s", argv[i]);
                 if (r < 0)
                         return log_error_errno(r, "Could not terminate seat: %s", bus_error_message(&error, r));
         }

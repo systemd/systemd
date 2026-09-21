@@ -46,7 +46,7 @@ int collect_enrolled_slots(struct crypt_device *cd, EnrolledSlot **ret, size_t *
                 sd_json_variant *w, *z;
                 EnrollType et;
 
-                r = cryptsetup_get_token_as_json(cd, token, NULL, &v);
+                r = cryptsetup_get_token_as_json(cd, token, /* verify_type= */ NULL, &v);
                 if (IN_SET(r, -ENOENT, -EINVAL))
                         continue;
                 if (r < 0) {
@@ -120,7 +120,7 @@ int list_enrolled(struct crypt_device *cd) {
         if (!t)
                 return log_oom();
 
-        assert_se(cell = table_get_cell(t, 0, 0));
+        assert_se(cell = table_get_cell(t, /* row= */ 0, /* column= */ 0));
         (void) table_set_align_percent(t, cell, 100);
 
         FOREACH_ARRAY(s, slots, n_slots) {

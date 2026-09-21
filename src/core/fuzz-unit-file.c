@@ -20,7 +20,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         const char *name;
         long offset;
 
-        if (outside_size_range(size, 0, 65536))
+        if (outside_size_range(size, /* lower= */ 0, 65536))
                 return 0;
 
         f = data_to_file(data, size);
@@ -71,9 +71,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         name, name, f,
                         UNIT_VTABLE(u)->sections,
                         config_item_perf_lookup, load_fragment_gperf_lookup,
-                        0,
+                        /* flags= */ 0,
                         u,
-                        NULL);
+                        /* ret_stat= */ NULL);
 
         _cleanup_(memstream_done) MemStream ms = {};
         FILE *g;

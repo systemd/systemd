@@ -55,7 +55,7 @@ static int on_finished(CurlSlot *slot, CURL *curl, CURLcode code, void *userdata
         f->finished = true;
         f->result = code;
 
-        return sd_event_exit(f->event, 0);
+        return sd_event_exit(f->event, /* code= */ 0);
 }
 
 static int make_tmp_url(char **ret_path, char **ret_url, const char *body) {
@@ -220,7 +220,7 @@ static int concurrent_on_finished(CurlSlot *slot, CURL *curl, CURLcode code, voi
 
         (*cr->remaining)--;
         if (*cr->remaining == 0)
-                return sd_event_exit(cr->ctx.event, 0);
+                return sd_event_exit(cr->ctx.event, /* code= */ 0);
         return 0;
 }
 
@@ -252,11 +252,11 @@ TEST(curl_concurrent) {
         /* All three fire as floating slots; the only way the loop exits is through the
          * remaining-counter hitting zero, which means every callback fired with the right
          * userdata routed to its respective body. */
-        ASSERT_OK(curl_glue_perform_async(g, ea, concurrent_on_finished, &reqs[0], NULL));
+        ASSERT_OK(curl_glue_perform_async(g, ea, concurrent_on_finished, &reqs[0], /* ret_slot= */ NULL));
         TAKE_PTR(ea);
-        ASSERT_OK(curl_glue_perform_async(g, eb, concurrent_on_finished, &reqs[1], NULL));
+        ASSERT_OK(curl_glue_perform_async(g, eb, concurrent_on_finished, &reqs[1], /* ret_slot= */ NULL));
         TAKE_PTR(eb);
-        ASSERT_OK(curl_glue_perform_async(g, ec, concurrent_on_finished, &reqs[2], NULL));
+        ASSERT_OK(curl_glue_perform_async(g, ec, concurrent_on_finished, &reqs[2], /* ret_slot= */ NULL));
         TAKE_PTR(ec);
 
         ASSERT_OK(sd_event_loop(event));

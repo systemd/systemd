@@ -673,7 +673,7 @@ int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int 
 
         HASHMAP_FOREACH(sb, m->dns_service_browsers) {
 
-                r = dns_answer_match_key(answer, sb->key, NULL);
+                r = dns_answer_match_key(answer, sb->key, /* ret_flags= */ NULL);
                 if (r < 0)
                         return log_error_errno(
                                         r,
@@ -737,7 +737,7 @@ static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *use
                  * RFC 6762 Section 5.2 outlines timing requirements for continuous queries. */
                 sb->flags |= SD_RESOLVED_QUERY_CONTINUOUS;
 
-                r = dns_query_new(sb->manager, &q, sb->question_utf8, sb->question_idna, NULL, sb->ifindex, sb->flags);
+                r = dns_query_new(sb->manager, &q, sb->question_utf8, sb->question_idna, /* question_bypass= */ NULL, sb->ifindex, sb->flags);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create new DNS query: %m");
 
@@ -880,7 +880,7 @@ int dns_subscribe_browse_service(
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_put(&m->dns_service_browsers, NULL, link, sb);
+        r = hashmap_ensure_put(&m->dns_service_browsers, /* hash_ops= */ NULL, link, sb);
         if (r < 0)
                 return log_error_errno(r, "Failed to add service browser to the hashmap: %m");
 

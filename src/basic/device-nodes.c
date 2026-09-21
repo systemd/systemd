@@ -38,7 +38,7 @@ int encode_devnode_name(const char *str, char *str_enc, size_t len) {
                         j += seqlen;
                         i += (seqlen-1);
 
-                } else if (str[i] == '\\' || !allow_listed_char_for_devnode(str[i], NULL)) {
+                } else if (str[i] == '\\' || !allow_listed_char_for_devnode(str[i], /* additional= */ NULL)) {
 
                         if (len-j < 5)
                                 return -EINVAL;

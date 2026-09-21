@@ -61,7 +61,7 @@ static int push_one(const char *fdname, const char *content) {
                 return -errno;
         }
 
-        r = sd_pid_notify_with_fds(0, /* unset_environment= */ 0, msg, &fd, 1);
+        r = sd_pid_notify_with_fds(/* pid= */ 0, /* unset_environment= */ 0, msg, &fd, 1);
         if (r < 0) {
                 errno = -r;
                 fprintf(stderr, "sd_pid_notify_with_fds(%s) failed: %m\n", fdname);
@@ -86,7 +86,7 @@ static int do_store(void) {
 
         /* Wait for our supervisor to actually process the FDSTORE messages before we exit, otherwise
          * the cgroup-based pidref to unit lookup may fail once we're gone. */
-        r = sd_notify_barrier(0, 5 * 1000 * 1000);
+        r = sd_notify_barrier(/* unset_environment= */ 0, 5 * 1000 * 1000);
         if (r < 0) {
                 errno = -r;
                 fprintf(stderr, "sd_notify_barrier failed: %m\n");

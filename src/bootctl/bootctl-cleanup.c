@@ -81,7 +81,7 @@ static int cleanup_orphaned_files(
         if (!p)
                 return log_oom();
 
-        r = recurse_dir(dir_fd, p, 0, UINT_MAX, RECURSE_DIR_SORT, list_remove_orphaned_file, known_files);
+        r = recurse_dir(dir_fd, p, /* statx_mask= */ 0, UINT_MAX, RECURSE_DIR_SORT, list_remove_orphaned_file, known_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to cleanup %s: %m", full);
 

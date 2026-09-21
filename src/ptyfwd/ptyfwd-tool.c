@@ -182,11 +182,11 @@ static int run(int argc, char *argv[]) {
 
         peer_fd = safe_close(peer_fd);
 
-        r = event_add_child_pidref(event, &child, &pidref, WEXITED, helper_on_exit, NULL);
+        r = event_add_child_pidref(event, &child, &pidref, WEXITED, helper_on_exit, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add child event source: %m");
 
-        r = sd_event_source_set_child_process_own(child, true);
+        r = sd_event_source_set_child_process_own(child, /* own= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to take ownership of child process: %m");
 

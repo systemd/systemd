@@ -452,15 +452,15 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
         if (p.nvpcr) {
                 r = extend_nvpcr_now(p.nvpcr, extend_iovec, &p.secret, p.event_type);
                 if (IN_SET(r, -ENOENT, -ENODEV))
-                        return sd_varlink_error(link, "io.systemd.PCRExtend.NoSuchNvPCR", NULL);
+                        return sd_varlink_error(link, "io.systemd.PCRExtend.NoSuchNvPCR", /* parameters= */ NULL);
                 if (r == -ENOBUFS)
-                        return sd_varlink_error(link, "io.systemd.PCRExtend.NvPCRSpaceExhausted", NULL);
+                        return sd_varlink_error(link, "io.systemd.PCRExtend.NvPCRSpaceExhausted", /* parameters= */ NULL);
         } else
                 r = extend_pcr_now(INDEX_TO_MASK(uint32_t, p.pcr), extend_iovec, &p.secret, p.event_type);
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_server(void) {
@@ -513,7 +513,7 @@ static int run(int argc, char *argv[]) {
                 if (n_args != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
 
-                r = pcrextend_file_system_word(arg_file_system, &word, NULL);
+                r = pcrextend_file_system_word(arg_file_system, &word, /* ret_normalized_path= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -587,9 +587,9 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_nvpcr_name)
-                r = extend_nvpcr_now(arg_nvpcr_name, &IOVEC_MAKE(word, strlen(word)), NULL, event);
+                r = extend_nvpcr_now(arg_nvpcr_name, &IOVEC_MAKE(word, strlen(word)), /* secret= */ NULL, event);
         else
-                r = extend_pcr_now(arg_pcr_mask, &IOVEC_MAKE(word, strlen(word)), NULL, event);
+                r = extend_pcr_now(arg_pcr_mask, &IOVEC_MAKE(word, strlen(word)), /* secret= */ NULL, event);
         /* Both extend paths report "TPM cannot be used for this measurement" (no PCR bank, missing crypto,
          * no TPM device — see tpm2_context_new_for_measurement()) as -EOPNOTSUPP. Under --graceful we skip
          * those rather than fail and block boot. Genuine faults keep their own errno and are never

@@ -74,7 +74,7 @@ static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_lis
 
         /* errno is used here, on the assumption that if the log message uses %m, errno will be set to
          * something useful. Otherwise, it shouldn't matter, we may pass 0 or some bogus value. */
-        return log_internalv(LOG_DEBUG, errno, NULL, 0, NULL, fmt, ap);
+        return log_internalv(LOG_DEBUG, errno, /* file= */ NULL, /* line= */ 0, /* func= */ NULL, fmt, ap);
 }
 
 #endif

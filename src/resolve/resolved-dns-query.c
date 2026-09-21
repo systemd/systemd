@@ -169,7 +169,7 @@ static int dns_query_candidate_add_transaction(
 
                 t = dns_scope_find_transaction(c->scope, key, c->query->flags);
                 if (!t) {
-                        r = dns_transaction_new(&t, c->scope, key, NULL, c->query->flags);
+                        r = dns_transaction_new(&t, c->scope, key, /* bypass= */ NULL, c->query->flags);
                         if (r < 0)
                                 return r;
                 } else if (set_contains(c->transactions, t))
@@ -178,20 +178,20 @@ static int dns_query_candidate_add_transaction(
                 /* "Bypass" lookup with a query packet */
                 assert(bypass);
 
-                r = dns_transaction_new(&t, c->scope, NULL, bypass, c->query->flags);
+                r = dns_transaction_new(&t, c->scope, /* key= */ NULL, bypass, c->query->flags);
                 if (r < 0)
                         return r;
         }
 
-        r = set_ensure_allocated(&t->notify_query_candidates_done, NULL);
+        r = set_ensure_allocated(&t->notify_query_candidates_done, /* hash_ops= */ NULL);
         if (r < 0)
                 return r;
 
-        r = set_ensure_put(&t->notify_query_candidates, NULL, c);
+        r = set_ensure_put(&t->notify_query_candidates, /* hash_ops= */ NULL, c);
         if (r < 0)
                 return r;
 
-        r = set_ensure_put(&c->transactions, NULL, t);
+        r = set_ensure_put(&c->transactions, /* hash_ops= */ NULL, t);
         if (r < 0) {
                 (void) set_remove(t->notify_query_candidates, c);
                 return r;
@@ -301,7 +301,7 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
                 if (!dns_scope_good_key(c->scope, dns_question_first_key(c->query->question_bypass->question)))
                         return 0;
 
-                r = dns_query_candidate_add_transaction(c, NULL, c->query->question_bypass);
+                r = dns_query_candidate_add_transaction(c, /* key= */ NULL, c->query->question_bypass);
                 if (r < 0)
                         goto fail;
 
@@ -327,7 +327,7 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
                 if (!dns_scope_good_key(c->scope, qkey))
                         continue;
 
-                r = dns_query_candidate_add_transaction(c, qkey, NULL);
+                r = dns_query_candidate_add_transaction(c, qkey, /* bypass= */ NULL);
                 if (r < 0)
                         goto fail;
 
@@ -498,7 +498,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         sd_bus_track_unref(q->bus_track);
 
         if (q->varlink_request) {
-                sd_varlink_set_userdata(q->varlink_request, NULL);
+                sd_varlink_set_userdata(q->varlink_request, /* userdata= */ NULL);
                 sd_varlink_unref(q->varlink_request);
         }
 
@@ -996,8 +996,8 @@ static int dns_query_go_scopes(DnsQuery *q) {
                         &q->timeout_event_source,
                         CLOCK_BOOTTIME,
                         SD_RESOLVED_QUERY_TIMEOUT_USEC,
-                        0, on_query_timeout, q,
-                        0, "query-timeout", true);
+                        /* accuracy= */ 0, on_query_timeout, q,
+                        /* priority= */ 0, "query-timeout", /* force_reset= */ true);
         if (r < 0)
                 goto fail;
 

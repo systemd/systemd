@@ -36,7 +36,7 @@ TEST(script_get_shebang_interpreter) {
         ASSERT_STREQ(command, "/bin/script");
         command = mfree(command);
 
-        ASSERT_ERROR(script_get_shebang_interpreter("/bin/sh", NULL), EMEDIUMTYPE);
+        ASSERT_ERROR(script_get_shebang_interpreter("/bin/sh", /* ret= */ NULL), EMEDIUMTYPE);
 
         if (script_get_shebang_interpreter("/usr/bin/yum", &command) >= 0)
                 ASSERT_NOT_NULL(startswith(command, "/"));
@@ -107,11 +107,11 @@ TEST(write_string_stream) {
         ASSERT_OK(fd = mkostemp_safe(fn));
 
         ASSERT_NOT_NULL(f = fdopen(fd, "r"));
-        ASSERT_ERROR(write_string_stream(f, "boohoo", 0), EBADF);
+        ASSERT_ERROR(write_string_stream(f, "boohoo", /* flags= */ 0), EBADF);
         f = safe_fclose(f);
 
         ASSERT_NOT_NULL(f = fopen(fn, "r+"));
-        ASSERT_OK(write_string_stream(f, "boohoo", 0));
+        ASSERT_OK(write_string_stream(f, "boohoo", /* flags= */ 0));
         rewind(f);
 
         _cleanup_free_ char *buf = NULL;
@@ -146,10 +146,10 @@ TEST(write_string_file_no_create) {
         _cleanup_close_ int fd = -EBADF;
         char buf[64] = {};
 
-        ASSERT_ERROR(write_string_file("/a/file/which/does/not/exists/i/guess", "boohoo", 0), ENOENT);
+        ASSERT_ERROR(write_string_file("/a/file/which/does/not/exists/i/guess", "boohoo", /* flags= */ 0), ENOENT);
 
         ASSERT_OK(fd = mkostemp_safe(fn));
-        ASSERT_OK(write_string_file(fn, "boohoo", 0));
+        ASSERT_OK(write_string_file(fn, "boohoo", /* flags= */ 0));
         ASSERT_OK_EQ_ERRNO(read(fd, buf, sizeof buf), (ssize_t) strlen("boohoo\n"));
         ASSERT_STREQ(buf, "boohoo\n");
 }
@@ -164,9 +164,9 @@ TEST(write_string_file_verify) {
         ASSERT_OK(r);
         ASSERT_NOT_NULL(buf2 = strjoin(buf, "\n"));
 
-        r = write_string_file("/proc/version", buf, 0);
+        r = write_string_file("/proc/version", buf, /* flags= */ 0);
         ASSERT_TRUE(IN_SET(r, -EACCES, -EIO));
-        r = write_string_file("/proc/version", buf2, 0);
+        r = write_string_file("/proc/version", buf2, /* flags= */ 0);
         ASSERT_TRUE(IN_SET(r, -EACCES, -EIO));
 
         ASSERT_OK(write_string_file("/proc/version", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE));
@@ -192,21 +192,21 @@ TEST(search_and_fopen) {
         fd = safe_close(fd);
 
         ASSERT_OK(path_extract_filename(name, &bn));
-        ASSERT_OK(search_and_fopen(bn, "re", NULL, (const char**) dirs, &f, &p));
+        ASSERT_OK(search_and_fopen(bn, "re", /* root= */ NULL, (const char**) dirs, &f, &p));
         ASSERT_STREQ(bn, path_startswith(p, "/tmp/"));
         f = safe_fclose(f);
         p = mfree(p);
 
-        ASSERT_OK(search_and_fopen(bn, NULL, NULL, (const char**) dirs, NULL, &p));
+        ASSERT_OK(search_and_fopen(bn, /* mode= */ NULL, /* root= */ NULL, (const char**) dirs, /* ret_file= */ NULL, &p));
         ASSERT_STREQ(bn, path_startswith(p, "/tmp/"));
         p = mfree(p);
 
-        ASSERT_OK(search_and_fopen(name, "re", NULL, (const char**) dirs, &f, &p));
+        ASSERT_OK(search_and_fopen(name, "re", /* root= */ NULL, (const char**) dirs, &f, &p));
         ASSERT_TRUE(path_equal(name, p));
         f = safe_fclose(f);
         p = mfree(p);
 
-        ASSERT_OK(search_and_fopen(name, NULL, NULL, (const char**) dirs, NULL, &p));
+        ASSERT_OK(search_and_fopen(name, /* mode= */ NULL, /* root= */ NULL, (const char**) dirs, /* ret_file= */ NULL, &p));
         ASSERT_TRUE(path_equal(name, p));
         p = mfree(p);
 
@@ -215,19 +215,19 @@ TEST(search_and_fopen) {
         f = safe_fclose(f);
         p = mfree(p);
 
-        ASSERT_OK(search_and_fopen(bn, NULL, "/", (const char**) dirs, NULL, &p));
+        ASSERT_OK(search_and_fopen(bn, /* mode= */ NULL, "/", (const char**) dirs, /* ret_file= */ NULL, &p));
         ASSERT_STREQ(bn, path_startswith(p, "/tmp/"));
         p = mfree(p);
 
-        ASSERT_ERROR(search_and_fopen("/a/file/which/does/not/exist/i/guess", "re", NULL, (const char**) dirs, &f, &p), ENOENT);
-        ASSERT_ERROR(search_and_fopen("/a/file/which/does/not/exist/i/guess", NULL, NULL, (const char**) dirs, NULL, &p), ENOENT);
-        ASSERT_ERROR(search_and_fopen("afilewhichdoesnotexistiguess", "re", NULL, (const char**) dirs, &f, &p), ENOENT);
-        ASSERT_ERROR(search_and_fopen("afilewhichdoesnotexistiguess", NULL, NULL, (const char**) dirs, NULL, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen("/a/file/which/does/not/exist/i/guess", "re", /* root= */ NULL, (const char**) dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen("/a/file/which/does/not/exist/i/guess", /* mode= */ NULL, /* root= */ NULL, (const char**) dirs, /* ret_file= */ NULL, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen("afilewhichdoesnotexistiguess", "re", /* root= */ NULL, (const char**) dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen("afilewhichdoesnotexistiguess", /* mode= */ NULL, /* root= */ NULL, (const char**) dirs, /* ret_file= */ NULL, &p), ENOENT);
 
         ASSERT_OK_ERRNO(unlink(name));
 
-        ASSERT_ERROR(search_and_fopen(bn, "re", NULL, (const char**) dirs, &f, &p), ENOENT);
-        ASSERT_ERROR(search_and_fopen(bn, NULL, NULL, (const char**) dirs, NULL, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen(bn, "re", /* root= */ NULL, (const char**) dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen(bn, /* mode= */ NULL, /* root= */ NULL, (const char**) dirs, /* ret_file= */ NULL, &p), ENOENT);
 }
 
 TEST(search_and_fopen_nulstr) {
@@ -244,22 +244,22 @@ TEST(search_and_fopen_nulstr) {
         fd = safe_close(fd);
 
         ASSERT_OK(path_extract_filename(name, &bn));
-        ASSERT_OK(search_and_fopen_nulstr(bn, "re", NULL, dirs, &f, &p));
+        ASSERT_OK(search_and_fopen_nulstr(bn, "re", /* root= */ NULL, dirs, &f, &p));
         ASSERT_STREQ(bn, path_startswith(p, "/tmp/"));
         f = safe_fclose(f);
         p = mfree(p);
 
-        ASSERT_OK(search_and_fopen_nulstr(name, "re", NULL, dirs, &f, &p));
+        ASSERT_OK(search_and_fopen_nulstr(name, "re", /* root= */ NULL, dirs, &f, &p));
         ASSERT_TRUE(path_equal(name, p));
         f = safe_fclose(f);
         p = mfree(p);
 
-        ASSERT_ERROR(search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "re", NULL, dirs, &f, &p), ENOENT);
-        ASSERT_ERROR(search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "re", NULL, dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "re", /* root= */ NULL, dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "re", /* root= */ NULL, dirs, &f, &p), ENOENT);
 
         ASSERT_OK_ERRNO(unlink(name));
 
-        ASSERT_ERROR(search_and_fopen_nulstr(bn, "re", NULL, dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen_nulstr(bn, "re", /* root= */ NULL, dirs, &f, &p), ENOENT);
 }
 
 static const char chars[] =
@@ -359,7 +359,7 @@ static void test_read_line_one_file(FILE *f) {
         ASSERT_STREQ(line, "an empty line");
         line = mfree(line);
 
-        ASSERT_OK_EQ(read_line(f, SIZE_MAX, NULL), 16);
+        ASSERT_OK_EQ(read_line(f, SIZE_MAX, /* ret= */ NULL), 16);
 
         ASSERT_ERROR(read_line(f, 16, &line), ENOBUFS);
         line = mfree(line);
@@ -412,7 +412,7 @@ TEST(read_line_one_file_3) {
         } else
                 ASSERT_EQ((size_t) r, strlen(line) + 1);
 
-        ASSERT_OK_EQ(read_line(f, LINE_MAX, NULL), 0);
+        ASSERT_OK_EQ(read_line(f, LINE_MAX, /* ret= */ NULL), 0);
 }
 
 TEST(read_line_one_file_4) {
@@ -442,7 +442,7 @@ TEST(read_line_one_file_4) {
                 ASSERT_OK_EQ(read_line(f, SIZE_MAX, &s), (ssize_t) ending->length);
                 ASSERT_STREQ(s, "foo");
 
-                ASSERT_OK_EQ(read_line(f, SIZE_MAX, NULL), 0); /* Ensure we hit EOF */
+                ASSERT_OK_EQ(read_line(f, SIZE_MAX, /* ret= */ NULL), 0); /* Ensure we hit EOF */
         }
 }
 
@@ -498,7 +498,7 @@ TEST(read_full_file_socket) {
 
         ASSERT_OK(listener = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &z));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &z));
         ASSERT_NOT_NULL(j = strjoina(z, "/socket"));
 
         ASSERT_OK(sockaddr_un_set_path(&sa.un, j));
@@ -537,7 +537,7 @@ TEST(read_full_file_socket) {
                 _exit(EXIT_SUCCESS);
         }
 
-        ASSERT_ERROR(read_full_file_full(AT_FDCWD, jj, UINT64_MAX, SIZE_MAX, 0, NULL, &data, &size), ENXIO);
+        ASSERT_ERROR(read_full_file_full(AT_FDCWD, jj, UINT64_MAX, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, &data, &size), ENXIO);
         ASSERT_OK(read_full_file_full(AT_FDCWD, jj, UINT64_MAX, SIZE_MAX, READ_FULL_FILE_CONNECT_SOCKET, clientname, &data, &size));
         ASSERT_EQ(size, strlen(TEST_STR));
         ASSERT_STREQ(data, TEST_STR);
@@ -555,56 +555,56 @@ TEST(read_full_file_full) {
 
         random_bytes(buf, sizeof(buf));
 
-        ASSERT_OK(tempfn_random_child(NULL, NULL, &fn));
+        ASSERT_OK(tempfn_random_child(NULL, /* extra= */ NULL, &fn));
         ASSERT_NOT_NULL(f = fopen(fn, "we"));
         ASSERT_EQ(fwrite(buf, 1, sizeof(buf), f), sizeof(buf));
         ASSERT_OK(fflush_and_check(f));
 
-        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, SIZE_MAX, 0, NULL, &rbuf, &rbuf_size));
+        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, sizeof(buf));
         ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
         rbuf = mfree(rbuf);
 
-        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, 128, 0, NULL, &rbuf, &rbuf_size));
+        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, 128, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, 128U);
         ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
         rbuf = mfree(rbuf);
 
-        ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, 128, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size), E2BIG);
-        ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf)-1, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size), E2BIG);
-        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf), READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size));
+        ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, 128, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size), E2BIG);
+        ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf)-1, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size), E2BIG);
+        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf), READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, sizeof(buf));
         ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
         rbuf = mfree(rbuf);
 
-        ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, 47, 128, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size), E2BIG);
-        ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, 47, sizeof(buf)-47-1, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size), E2BIG);
-        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 47, sizeof(buf)-47, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size));
+        ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, 47, 128, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size), E2BIG);
+        ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, 47, sizeof(buf)-47-1, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size), E2BIG);
+        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 47, sizeof(buf)-47, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, sizeof(buf)-47);
         ASSERT_EQ(memcmp(buf+47, rbuf, rbuf_size), 0);
         rbuf = mfree(rbuf);
 
-        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf)+1, READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &rbuf, &rbuf_size));
+        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf)+1, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, sizeof(buf));
         ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
         rbuf = mfree(rbuf);
 
-        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 1234, SIZE_MAX, 0, NULL, &rbuf, &rbuf_size));
+        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 1234, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, sizeof(buf) - 1234);
         ASSERT_EQ(memcmp(buf + 1234, rbuf, rbuf_size), 0);
         rbuf = mfree(rbuf);
 
-        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 2345, 777, 0, NULL, &rbuf, &rbuf_size));
+        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 2345, 777, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, 777U);
         ASSERT_EQ(memcmp(buf + 2345, rbuf, rbuf_size), 0);
         rbuf = mfree(rbuf);
 
-        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 4700, 20, 0, NULL, &rbuf, &rbuf_size));
+        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 4700, 20, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, 11U);
         ASSERT_EQ(memcmp(buf + 4700, rbuf, rbuf_size), 0);
         rbuf = mfree(rbuf);
 
-        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 10000, 99, 0, NULL, &rbuf, &rbuf_size));
+        ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 10000, 99, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, 0U);
         rbuf = mfree(rbuf);
 }
@@ -640,7 +640,7 @@ static void test_read_virtual_file_one(size_t max_size) {
 }
 
 TEST(read_virtual_file) {
-        test_read_virtual_file_one(0);
+        test_read_virtual_file_one(/* max_size= */ 0);
         test_read_virtual_file_one(1);
         test_read_virtual_file_one(2);
         test_read_virtual_file_one(20);
@@ -723,7 +723,7 @@ TEST(write_data_file_atomic_at) {
         ASSERT_TRUE(iovec_equal(&a, &ra));
         ASSERT_OK_ERRNO(unlink(abs_wdfa));
 
-        ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, NULL, &a, /* flags= */ 0), EINVAL);
+        ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, /* path= */ NULL, &a, /* flags= */ 0), EINVAL);
         ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, "", &a, /* flags= */ 0), EINVAL);
         ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, "/", &a, /* flags= */ 0), EISDIR);
         ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, ".", &a, /* flags= */ 0), EISDIR);

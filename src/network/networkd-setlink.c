@@ -90,7 +90,7 @@ static int set_link_handler_internal(
 static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         int r;
 
-        r = set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, NULL);
+        r = set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, /* get_link_handler= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -104,11 +104,11 @@ static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m
 }
 
 static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, /* get_link_handler= */ NULL);
 }
 
 static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, /* get_link_handler= */ NULL);
 }
 
 static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
@@ -116,7 +116,7 @@ static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
         assert(link);
 
-        r = set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
+        r = set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, /* get_link_handler= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -125,11 +125,11 @@ static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m,
 }
 
 static int link_del_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, /* get_link_handler= */ NULL);
 }
 
 static int link_set_can_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, /* get_link_handler= */ NULL);
 }
 
 static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
@@ -137,11 +137,11 @@ static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Reque
 }
 
 static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, /* get_link_handler= */ NULL);
 }
 
 static int link_set_ipoib_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, /* get_link_handler= */ NULL);
 }
 
 static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
@@ -719,7 +719,7 @@ static int link_request_set_link(
 
         assert(link);
 
-        r = link_queue_request_full(link, type, NULL, NULL, NULL, NULL,
+        r = link_queue_request_full(link, type, /* userdata= */ NULL, /* free_func= */ NULL, /* hash_func= */ NULL, /* compare_func= */ NULL,
                                     link_process_set_link,
                                     &link->set_link_messages,
                                     netlink_handler,
@@ -791,7 +791,7 @@ int link_request_to_set_bond(Link *link) {
         }
 
         return link_request_set_link(link, REQUEST_TYPE_SET_LINK_BOND,
-                                     link_set_bond_handler, NULL);
+                                     link_set_bond_handler, /* ret= */ NULL);
 }
 
 int link_request_to_set_bridge(Link *link) {
@@ -813,7 +813,7 @@ int link_request_to_set_bridge(Link *link) {
 
         return link_request_set_link(link, REQUEST_TYPE_SET_LINK_BRIDGE,
                                      link_set_bridge_handler,
-                                     NULL);
+                                     /* ret= */ NULL);
 }
 
 int link_request_to_set_bridge_vlan(Link *link) {
@@ -844,13 +844,13 @@ int link_request_to_set_bridge_vlan(Link *link) {
 
         r = link_request_set_link(link, REQUEST_TYPE_SET_LINK_BRIDGE_VLAN,
                                   link_set_bridge_vlan_handler,
-                                  NULL);
+                                  /* ret= */ NULL);
         if (r < 0)
                 return r;
 
         r = link_request_set_link(link, REQUEST_TYPE_DEL_LINK_BRIDGE_VLAN,
                                   link_del_bridge_vlan_handler,
-                                  NULL);
+                                  /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -869,7 +869,7 @@ int link_request_to_set_can(Link *link) {
 
         return link_request_set_link(link, REQUEST_TYPE_SET_LINK_CAN,
                                      link_set_can_handler,
-                                     NULL);
+                                     /* ret= */ NULL);
 }
 
 int link_request_to_set_flags(Link *link) {
@@ -884,7 +884,7 @@ int link_request_to_set_flags(Link *link) {
 
         return link_request_set_link(link, REQUEST_TYPE_SET_LINK_FLAGS,
                                      link_set_flags_handler,
-                                     NULL);
+                                     /* ret= */ NULL);
 }
 
 int link_request_to_set_group(Link *link) {
@@ -896,7 +896,7 @@ int link_request_to_set_group(Link *link) {
 
         return link_request_set_link(link, REQUEST_TYPE_SET_LINK_GROUP,
                                      link_set_group_handler,
-                                     NULL);
+                                     /* ret= */ NULL);
 }
 
 int link_request_to_set_mac(Link *link, bool allow_retry) {
@@ -919,7 +919,7 @@ int link_request_to_set_mac(Link *link, bool allow_retry) {
 
         return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MAC,
                                      allow_retry ? link_set_mac_allow_retry_handler : link_set_mac_handler,
-                                     NULL);
+                                     /* ret= */ NULL);
 }
 
 int link_request_to_set_ipoib(Link *link) {
@@ -935,7 +935,7 @@ int link_request_to_set_ipoib(Link *link) {
 
         return link_request_set_link(link, REQUEST_TYPE_SET_LINK_IPOIB,
                                      link_set_ipoib_handler,
-                                     NULL);
+                                     /* ret= */ NULL);
 }
 
 int link_request_to_set_master(Link *link) {
@@ -951,14 +951,14 @@ int link_request_to_set_master(Link *link) {
                 link->master_set = false;
                 return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MASTER,
                                              link_set_master_handler,
-                                             NULL);
+                                             /* ret= */ NULL);
 
         } else if (link->master_ifindex != 0) {
                 /* Unset master only when it is set. */
                 link->master_set = false;
                 return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MASTER,
                                              link_unset_master_handler,
-                                             NULL);
+                                             /* ret= */ NULL);
 
         } else {
                 /* Nothing we need to do. */
@@ -1200,10 +1200,10 @@ int link_request_to_activate(Link *link) {
         link->activated = false;
 
         r = link_queue_request_full(link, REQUEST_TYPE_ACTIVATE_LINK,
-                                    INT_TO_PTR(up), NULL, NULL, NULL,
+                                    INT_TO_PTR(up), /* free_func= */ NULL, /* hash_func= */ NULL, /* compare_func= */ NULL,
                                     link_process_activation,
                                     &link->set_flags_messages,
-                                    link_up_or_down_handler, NULL);
+                                    link_up_or_down_handler, /* ret= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request to activate link: %m");
 
@@ -1267,10 +1267,10 @@ int link_request_to_bring_up_or_down(Link *link, bool up) {
         assert(link);
 
         r = link_queue_request_full(link, REQUEST_TYPE_UP_DOWN,
-                                    INT_TO_PTR(up), NULL, NULL, NULL,
+                                    INT_TO_PTR(up), /* free_func= */ NULL, /* hash_func= */ NULL, /* compare_func= */ NULL,
                                     link_process_up_or_down,
                                     &link->set_flags_messages,
-                                    link_up_or_down_handler, NULL);
+                                    link_up_or_down_handler, /* ret= */ NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request to bring link %s: %m",
                                               up_or_down(up));
@@ -1384,7 +1384,7 @@ static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_mess
                 (void) sd_varlink_error_errno(vlink, r);
                 log_link_message_warning_errno(link, m, r, "Could not bring %s interface", up_or_down(up));
         } else
-                (void) sd_varlink_reply(vlink, NULL);
+                (void) sd_varlink_reply(vlink, /* parameters= */ NULL);
 
         if (link->state == LINK_STATE_LINGER)
                 return 0;

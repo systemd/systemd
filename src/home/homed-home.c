@@ -192,7 +192,7 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         blob = path_join(home_system_blob_dir(), hr->user_name);
         if (!blob)
                 return -ENOMEM;
-        r = mkdir_safe(blob, 0755, 0, 0, MKDIR_IGNORE_EXISTING);
+        r = mkdir_safe(blob, 0755, /* uid= */ 0, /* gid= */ 0, MKDIR_IGNORE_EXISTING);
         if (r < 0)
                 log_warning_errno(r, "Failed to create blob dir for user '%s': %m", home->user_name);
 
@@ -484,7 +484,7 @@ static int home_on_retry_deactivate(sd_event_source *s, uint64_t usec, void *use
 
                 /* If we are not executing any operation, let's start deactivating now. Note that this will
                  * restart our timer again, we are gonna be called again if this doesn't work. */
-                (void) home_deactivate_internal(h, /* force= */ false, NULL);
+                (void) home_deactivate_internal(h, /* force= */ false, /* error= */ NULL);
         } else
                 /* if we are executing an operation (specifically, area already running a deactivation
                  * operation), then simply reque the timer, so that we retry again. */
@@ -544,7 +544,7 @@ static void home_set_state(Home *h, HomeState state) {
                 /* If we just finished executing some operation, process the queue of pending operations. And
                  * enqueue it for GC too. */
 
-                home_schedule_operation(h, NULL, NULL);
+                home_schedule_operation(h, NULL, /* error= */ NULL);
                 manager_reschedule_rebalance(h->manager);
                 manager_enqueue_gc(h->manager, h);
         }
@@ -579,7 +579,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
                         return log_error_errno(errno, "Failed to seek to beginning of memfd: %m");
 
                 _cleanup_free_ char *text = NULL;
-                r = read_full_stream(f, &text, NULL);
+                r = read_full_stream(f, &text, /* ret_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read from client: %m");
 
@@ -774,9 +774,9 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
 
         if (IN_SET(h->state, HOME_FIXATING_FOR_ACTIVATION, HOME_FIXATING_FOR_ACQUIRE)) {
 
-                r = home_start_work(h, "activate", h->record, secret, NULL, 0);
+                r = home_start_work(h, "activate", h->record, secret, /* blobs= */ NULL, /* flags= */ 0);
                 if (r < 0) {
-                        h->current_operation = operation_result_unref(h->current_operation, r, NULL);
+                        h->current_operation = operation_result_unref(h->current_operation, r, /* error= */ NULL);
                         home_set_state(h, _HOME_STATE_INVALID);
                 } else
                         home_set_state(h, h->state == HOME_FIXATING_FOR_ACTIVATION ? HOME_ACTIVATING : HOME_ACTIVATING_FOR_ACQUIRE);
@@ -786,7 +786,7 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
 
         log_debug("Fixation of %s completed.", h->user_name);
 
-        h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
+        h->current_operation = operation_result_unref(h->current_operation, /* ret= */ 0, /* error= */ NULL);
 
         /* Reset the state to "invalid", which makes home_get_state() test if the image exists and returns
          * HOME_ABSENT vs. HOME_INACTIVE as necessary. */
@@ -928,7 +928,7 @@ static void home_remove_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         log_debug("Removal of %s completed.", h->user_name);
-        h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
+        h->current_operation = operation_result_unref(h->current_operation, /* ret= */ 0, /* error= */ NULL);
 
         /* Unload this record from memory too now. */
         h = home_free(h);
@@ -976,7 +976,7 @@ static void home_create_finish(Home *h, int ret, UserRecord *hr) {
 
         log_debug("Creation of %s completed.", h->user_name);
 
-        h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
+        h->current_operation = operation_result_unref(h->current_operation, /* ret= */ 0, /* error= */ NULL);
         home_set_state(h, _HOME_STATE_INVALID);
 
         (void) manager_schedule_rebalance(h->manager, /* immediately= */ true);
@@ -1100,7 +1100,7 @@ static void home_locking_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         log_debug("Locking operation of %s completed.", h->user_name);
-        h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
+        h->current_operation = operation_result_unref(h->current_operation, /* ret= */ 0, /* error= */ NULL);
         home_set_state(h, HOME_LOCKED);
         return;
 
@@ -1109,7 +1109,7 @@ finish:
          * the error if we are executing a LockAllHomes() operation. */
 
         if (h->current_operation->type == OPERATION_LOCK_ALL && r == -ENOTTY)
-                h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
+                h->current_operation = operation_result_unref(h->current_operation, /* ret= */ 0, /* error= */ NULL);
         else
                 h->current_operation = operation_result_unref(h->current_operation, r, &error);
 
@@ -1147,7 +1147,7 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
 
         log_debug("Unlocking operation of %s completed.", h->user_name);
 
-        h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
+        h->current_operation = operation_result_unref(h->current_operation, /* ret= */ 0, /* error= */ NULL);
         home_set_state(h, _HOME_STATE_INVALID);
 }
 
@@ -1339,7 +1339,7 @@ static int home_start_work(
                 /* homework needs to be able to tell the difference between blobs being null
                  * (the fdmap field is completely missing) and it being empty (the field is an
                  * empty object) */
-                r = sd_json_variant_new_object(&fdmap, NULL, 0);
+                r = sd_json_variant_new_object(&fdmap, /* array= */ NULL, 0);
                 if (r < 0)
                         return r;
 
@@ -1358,7 +1358,7 @@ static int home_start_work(
                         return r;
         }
 
-        r = sd_json_variant_format(v, 0, &formatted);
+        r = sd_json_variant_format(v, /* flags= */ 0, &formatted);
         if (r < 0)
                 return r;
 
@@ -1420,7 +1420,7 @@ static int home_start_work(
                         _exit(EXIT_FAILURE);
                 }
 
-                r = setenv_systemd_exec_pid(true);
+                r = setenv_systemd_exec_pid(/* update_only= */ true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to update $SYSTEMD_EXEC_PID, ignoring: %m");
 
@@ -1497,7 +1497,7 @@ static int home_fixate_internal(
         assert(secret);
         assert(IN_SET(for_state, HOME_FIXATING, HOME_FIXATING_FOR_ACTIVATION, HOME_FIXATING_FOR_ACQUIRE));
 
-        r = home_start_work(h, "inspect", h->record, secret, NULL, 0);
+        r = home_start_work(h, "inspect", h->record, secret, /* blobs= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -1546,7 +1546,7 @@ static int home_activate_internal(Home *h, UserRecord *secret, HomeState for_sta
         assert(secret);
         assert(IN_SET(for_state, HOME_ACTIVATING, HOME_ACTIVATING_FOR_ACQUIRE));
 
-        r = home_start_work(h, "activate", h->record, secret, NULL, 0);
+        r = home_start_work(h, "activate", h->record, secret, /* blobs= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -1598,7 +1598,7 @@ static int home_authenticate_internal(Home *h, UserRecord *secret, HomeState for
         assert(secret);
         assert(IN_SET(for_state, HOME_AUTHENTICATING, HOME_AUTHENTICATING_WHILE_ACTIVE, HOME_AUTHENTICATING_FOR_ACQUIRE));
 
-        r = home_start_work(h, "inspect", h->record, secret, NULL, 0);
+        r = home_start_work(h, "inspect", h->record, secret, /* blobs= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -1643,7 +1643,7 @@ static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error) {
 
         home_unpin(h); /* unpin so that we can deactivate */
 
-        r = home_start_work(h, force ? "deactivate-force" : "deactivate", h->record, NULL, NULL, 0);
+        r = home_start_work(h, force ? "deactivate-force" : "deactivate", h->record, /* secret= */ NULL, /* blobs= */ NULL, /* flags= */ 0);
         if (r < 0)
                 /* Operation failed before it even started, reacquire pin fd, if state still dictates so */
                 home_update_pin_fd(h, _HOME_STATE_INVALID);
@@ -1753,7 +1753,7 @@ int home_remove(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Home %s is currently being used, or an operation on home %s is currently being executed.", h->user_name, h->user_name);
         }
 
-        r = home_start_work(h, "remove", h->record, NULL, NULL, 0);
+        r = home_start_work(h, "remove", h->record, /* secret= */ NULL, /* blobs= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -1901,7 +1901,7 @@ int home_update(Home *h, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_
         if (r < 0)
                 return r;
 
-        r = home_update_internal(h, "update", hr, NULL, blobs, flags, error);
+        r = home_update_internal(h, "update", hr, /* secret= */ NULL, blobs, flags, error);
         if (r < 0)
                 return r;
 
@@ -1973,7 +1973,7 @@ int home_resize(Home *h,
                 if (r < 0)
                         return r;
 
-                r = user_record_update_last_changed(c, false);
+                r = user_record_update_last_changed(c, /* with_password= */ false);
                 if (r == -ECHRNG)
                         return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_MISMATCH, "Record last change time of %s is newer than current time, cannot update.", h->user_name);
                 if (r < 0)
@@ -1987,7 +1987,7 @@ int home_resize(Home *h,
                 c = TAKE_PTR(signed_c);
         }
 
-        r = home_update_internal(h, "resize", c, secret, NULL, 0, error);
+        r = home_update_internal(h, "resize", c, secret, /* blobs= */ NULL, /* flags= */ 0, error);
         if (r < 0)
                 return r;
 
@@ -2085,7 +2085,7 @@ int home_passwd(Home *h,
                         return r;
         }
 
-        r = user_record_update_last_changed(c, true);
+        r = user_record_update_last_changed(c, /* with_password= */ true);
         if (r == -ECHRNG)
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_MISMATCH, "Record last change time of %s is newer than current time, cannot update.", h->user_name);
         if (r < 0)
@@ -2103,7 +2103,7 @@ int home_passwd(Home *h,
                         return r;
         }
 
-        r = home_update_internal(h, "passwd", signed_c, merged_secret, NULL, 0, error);
+        r = home_update_internal(h, "passwd", signed_c, merged_secret, /* blobs= */ NULL, /* flags= */ 0, error);
         if (r < 0)
                 return r;
 
@@ -2165,7 +2165,7 @@ int home_lock(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
         }
 
-        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
+        r = home_start_work(h, "lock", h->record, /* secret= */ NULL, /* blobs= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -2180,7 +2180,7 @@ static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state
         assert(secret);
         assert(IN_SET(for_state, HOME_UNLOCKING, HOME_UNLOCKING_FOR_ACQUIRE));
 
-        r = home_start_work(h, "unlock", h->record, secret, NULL, 0);
+        r = home_start_work(h, "unlock", h->record, secret, /* blobs= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -2325,7 +2325,7 @@ int home_killall(Home *h) {
         if (asprintf(&unit, "user-" UID_FMT ".slice", h->uid) < 0)
                 return log_oom();
 
-        r = bus_call_method(h->manager->bus, bus_systemd_mgr, "KillUnit", &error, NULL, "ssi", unit, "all", SIGKILL);
+        r = bus_call_method(h->manager->bus, bus_systemd_mgr, "KillUnit", &error, /* ret_reply= */ NULL, "ssi", unit, "all", SIGKILL);
         if (r < 0)
                 log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) ? LOG_DEBUG : LOG_WARNING,
                                r, "Failed to kill login processes of user, ignoring: %s", bus_error_message(&error, r));
@@ -2828,7 +2828,7 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
                 return 0;
         }
 
-        home_schedule_operation(h, o, NULL);
+        home_schedule_operation(h, o, /* error= */ NULL);
         return 0;
 }
 
@@ -2861,7 +2861,7 @@ int home_create_fifo(Home *h, bool please_suspend) {
                 if (ref_fd < 0)
                         return log_error_errno(errno, "Failed to open FIFO %s for reading: %m", fn);
 
-                r = sd_event_add_io(h->manager->event, ss, ref_fd, 0, on_home_ref_eof, h);
+                r = sd_event_add_io(h->manager->event, ss, ref_fd, /* events= */ 0, on_home_ref_eof, h);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate reference FIFO event source: %m");
 
@@ -2873,7 +2873,7 @@ int home_create_fifo(Home *h, bool please_suspend) {
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_io_fd_own(*ss, true);
+                r = sd_event_source_set_io_fd_own(*ss, /* own= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to pass ownership of FIFO event fd to event source: %m");
 
@@ -2990,7 +2990,7 @@ static int home_dispatch_release(Home *h, Operation *o) {
 
         case HOME_ACTIVE:
         case HOME_LINGERING:
-                r = home_deactivate_internal(h, false, &error);
+                r = home_deactivate_internal(h, /* force= */ false, &error);
                 break;
 
         default:
@@ -3080,7 +3080,7 @@ static int home_dispatch_deactivate_all(Home *h, Operation *o) {
         case HOME_ACTIVE:
         case HOME_LINGERING:
                 log_info("Deactivating home %s.", h->user_name);
-                r = home_deactivate_internal(h, false, &error);
+                r = home_deactivate_internal(h, /* force= */ false, &error);
                 break;
 
         default:
@@ -3125,7 +3125,7 @@ static int home_dispatch_pipe_eof(Home *h, Operation *o) {
 
         case HOME_ACTIVE:
         case HOME_LINGERING:
-                r = home_deactivate_internal(h, false, &error);
+                r = home_deactivate_internal(h, /* force= */ false, &error);
                 if (r < 0)
                         log_warning_errno(r, "Failed to deactivate %s, ignoring: %s", h->user_name, bus_error_message(&error, r));
                 break;
@@ -3167,7 +3167,7 @@ static int home_dispatch_deactivate_force(Home *h, Operation *o) {
         case HOME_ACTIVE:
         case HOME_LOCKED:
         case HOME_LINGERING:
-                r = home_deactivate_internal(h, true, &error);
+                r = home_deactivate_internal(h, /* force= */ true, &error);
                 if (r < 0)
                         log_warning_errno(r, "Failed to forcibly deactivate %s, ignoring: %s", h->user_name, bus_error_message(&error, r));
                 break;

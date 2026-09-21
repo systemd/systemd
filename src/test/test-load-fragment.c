@@ -54,7 +54,7 @@ TEST_RET(unit_file_get_list) {
         _cleanup_hashmap_free_ Hashmap *h = NULL;
         UnitFileList *p;
 
-        r = unit_file_get_list(RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL, &h);
+        r = unit_file_get_list(RUNTIME_SCOPE_SYSTEM, /* root_dir= */ NULL, /* states= */ NULL, /* patterns= */ NULL, &h);
         if (IN_SET(r, -EPERM, -EACCES))
                 return log_tests_skipped_errno(r, "unit_file_get_list");
 
@@ -125,220 +125,220 @@ TEST(config_parse_exec) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
 
         log_info("/* basic test */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 1, "section", 1,
-                                    "LValue", 0, "/RValue r1",
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 1, "section", 1,
+                                    "LValue", /* ltype= */ 0, "/RValue r1",
                                     &c, u));
-        check_execcommand(c, "/RValue", "/RValue", "r1", NULL, false);
+        check_execcommand(c, "/RValue", "/RValue", "r1", /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* test slashes */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 2, "section", 1,
-                                    "LValue", 0, "/RValue///slashes r1///",
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 2, "section", 1,
+                                    "LValue", /* ltype= */ 0, "/RValue///slashes r1///",
                                     &c, u));
         c1 = c->command_next;
-        check_execcommand(c1, "/RValue/slashes", "/RValue///slashes", "r1///", NULL, false);
+        check_execcommand(c1, "/RValue/slashes", "/RValue///slashes", "r1///", /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* trailing slash */");
-        ASSERT_ERROR(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                       "LValue", 0, "/RValue/ argv0 r1",
+        ASSERT_ERROR(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                       "LValue", /* ltype= */ 0, "/RValue/ argv0 r1",
                                        &c, u), ENOEXEC);
         ASSERT_NULL(c1->command_next);
 
         log_info("/* honour_argv0 */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 3, "section", 1,
-                                    "LValue", 0, "@/RValue///slashes2 ///argv0 r1",
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 3, "section", 1,
+                                    "LValue", /* ltype= */ 0, "@/RValue///slashes2 ///argv0 r1",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/RValue/slashes2", "///argv0", "r1", NULL, false);
+        check_execcommand(c1, "/RValue/slashes2", "///argv0", "r1", /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* honour_argv0, no args */");
-        ASSERT_ERROR(config_parse_exec(NULL, "fake", 3, "section", 1,
-                                       "LValue", 0, "@/RValue",
+        ASSERT_ERROR(config_parse_exec(/* unit= */ NULL, "fake", 3, "section", 1,
+                                       "LValue", /* ltype= */ 0, "@/RValue",
                                        &c, u), ENOEXEC);
         ASSERT_NULL(c1->command_next);
 
         log_info("/* no command, whitespace only, reset */");
-        ASSERT_OK_ZERO(config_parse_exec(NULL, "fake", 3, "section", 1,
-                                         "LValue", 0, "",
+        ASSERT_OK_ZERO(config_parse_exec(/* unit= */ NULL, "fake", 3, "section", 1,
+                                         "LValue", /* ltype= */ 0, "",
                                          &c, u));
         ASSERT_NULL(c);
 
         log_info("/* ignore && honour_argv0 */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                    "LValue", 0, "-@/RValue///slashes3 argv0a r1",
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                    "LValue", /* ltype= */ 0, "-@/RValue///slashes3 argv0a r1",
                                     &c, u));
         c1 = c;
-        check_execcommand(c1, "/RValue/slashes3", "argv0a", "r1", NULL, true);
+        check_execcommand(c1, "/RValue/slashes3", "argv0a", "r1", /* argv2= */ NULL, /* ignore= */ true);
 
         log_info("/* ignore && honour_argv0 */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                    "LValue", 0, "@-/RValue///slashes4 argv0b r1",
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                    "LValue", /* ltype= */ 0, "@-/RValue///slashes4 argv0b r1",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/RValue/slashes4", "argv0b", "r1", NULL, true);
+        check_execcommand(c1, "/RValue/slashes4", "argv0b", "r1", /* argv2= */ NULL, /* ignore= */ true);
 
         log_info("/* ignore && ignore */");
-        ASSERT_OK_ZERO(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                         "LValue", 0, "--/RValue argv0 r1",
+        ASSERT_OK_ZERO(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                         "LValue", /* ltype= */ 0, "--/RValue argv0 r1",
                                          &c, u));
         ASSERT_NULL(c1->command_next);
 
         log_info("/* ignore && ignore (2) */");
-        ASSERT_OK_ZERO(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                         "LValue", 0, "-@-/RValue argv0 r1",
+        ASSERT_OK_ZERO(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                         "LValue", /* ltype= */ 0, "-@-/RValue argv0 r1",
                                          &c, u));
         ASSERT_NULL(c1->command_next);
 
         log_info("/* semicolon */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "-@/RValue argv0 r1 ; "
                                     "/goo/goo boo",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
+        check_execcommand(c1, "/RValue", "argv0", "r1", /* argv2= */ NULL, /* ignore= */ true);
 
         c1 = c1->command_next;
-        check_execcommand(c1, "/goo/goo", NULL, "boo", NULL, false);
+        check_execcommand(c1, "/goo/goo", /* argv0= */ NULL, "boo", /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* two semicolons in a row */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "-@/RValue argv0 r1 ; ; "
                                     "/goo/goo boo",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
+        check_execcommand(c1, "/RValue", "argv0", "r1", /* argv2= */ NULL, /* ignore= */ true);
         c1 = c1->command_next;
-        check_execcommand(c1, "/goo/goo", "/goo/goo", "boo", NULL, false);
+        check_execcommand(c1, "/goo/goo", "/goo/goo", "boo", /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* trailing semicolon */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "-@/RValue argv0 r1 ; ",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
+        check_execcommand(c1, "/RValue", "argv0", "r1", /* argv2= */ NULL, /* ignore= */ true);
 
         ASSERT_NULL(c1->command_next);
 
         log_info("/* trailing semicolon, no whitespace */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "-@/RValue argv0 r1 ;",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
+        check_execcommand(c1, "/RValue", "argv0", "r1", /* argv2= */ NULL, /* ignore= */ true);
 
         ASSERT_NULL(c1->command_next);
 
         log_info("/* trailing semicolon in single quotes */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "-@/RValue argv0 r1 ';'",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/RValue", "argv0", "r1", ";", true);
+        check_execcommand(c1, "/RValue", "argv0", "r1", ";", /* ignore= */ true);
 
         log_info("/* escaped semicolon */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "/bin/find \\;",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/bin/find", NULL, ";", NULL, false);
+        check_execcommand(c1, "/bin/find", /* argv0= */ NULL, ";", /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* escaped semicolon with following arg */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "/sbin/find \\; /x",
                                     &c, u));
         c1 = c1->command_next;
         check_execcommand(c1,
-                          "/sbin/find", NULL, ";", "/x", false);
+                          "/sbin/find", /* argv0= */ NULL, ";", "/x", /* ignore= */ false);
 
         log_info("/* escaped semicolon as part of an expression */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "/sbin/find \\;x",
                                     &c, u));
         c1 = c1->command_next;
         check_execcommand(c1,
-                          "/sbin/find", NULL, "\\;x", NULL, false);
+                          "/sbin/find", /* argv0= */ NULL, "\\;x", /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* encoded semicolon */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "/bin/find \\073",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/bin/find", NULL, ";", NULL, false);
+        check_execcommand(c1, "/bin/find", /* argv0= */ NULL, ";", /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* quoted semicolon */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "/bin/find \";\"",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/bin/find", NULL, ";", NULL, false);
+        check_execcommand(c1, "/bin/find", /* argv0= */ NULL, ";", /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* quoted semicolon with following arg */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "/sbin/find \";\" /x",
                                     &c, u));
         c1 = c1->command_next;
         check_execcommand(c1,
-                          "/sbin/find", NULL, ";", "/x", false);
+                          "/sbin/find", /* argv0= */ NULL, ";", "/x", /* ignore= */ false);
 
         log_info("/* spaces in the filename */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "\"/PATH WITH SPACES/daemon\" -1 -2",
                                     &c, u));
         c1 = c1->command_next;
         check_execcommand(c1,
-                          "/PATH WITH SPACES/daemon", NULL, "-1", "-2", false);
+                          "/PATH WITH SPACES/daemon", /* argv0= */ NULL, "-1", "-2", /* ignore= */ false);
 
         log_info("/* spaces in the filename, no args */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "\"/PATH WITH SPACES/daemon -1 -2\"",
                                     &c, u));
         c1 = c1->command_next;
         check_execcommand(c1,
-                          "/PATH WITH SPACES/daemon -1 -2", NULL, NULL, NULL, false);
+                          "/PATH WITH SPACES/daemon -1 -2", /* argv0= */ NULL, /* argv1= */ NULL, /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* spaces in the filename, everything quoted */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "\"/PATH WITH SPACES/daemon\" \"-1\" '-2'",
                                     &c, u));
         c1 = c1->command_next;
         check_execcommand(c1,
-                          "/PATH WITH SPACES/daemon", NULL, "-1", "-2", false);
+                          "/PATH WITH SPACES/daemon", /* argv0= */ NULL, "-1", "-2", /* ignore= */ false);
 
         log_info("/* escaped spaces in the filename */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "\"/PATH\\sWITH\\sSPACES/daemon\" '-1 -2'",
                                     &c, u));
         c1 = c1->command_next;
         check_execcommand(c1,
-                          "/PATH WITH SPACES/daemon", NULL, "-1 -2", NULL, false);
+                          "/PATH WITH SPACES/daemon", /* argv0= */ NULL, "-1 -2", /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* escaped spaces in the filename (2) */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "\"/PATH\\x20WITH\\x20SPACES/daemon\" \"-1 -2\"",
                                     &c, u));
         c1 = c1->command_next;
         check_execcommand(c1,
-                          "/PATH WITH SPACES/daemon", NULL, "-1 -2", NULL, false);
+                          "/PATH WITH SPACES/daemon", /* argv0= */ NULL, "-1 -2", /* argv2= */ NULL, /* ignore= */ false);
 
         for (ccc = "abfnrtv\\\'\"x"; *ccc; ccc++) {
                 /* \\x is an incomplete hexadecimal sequence, invalid because of the slash */
@@ -346,55 +346,55 @@ TEST(config_parse_exec) {
                 path[sizeof(path) - 2] = *ccc;
 
                 log_info("/* invalid character: \\%c */", *ccc);
-                ASSERT_ERROR(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                               "LValue", 0, path,
+                ASSERT_ERROR(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                               "LValue", /* ltype= */ 0, path,
                                                &c, u), ENOEXEC);
                 ASSERT_NULL(c1->command_next);
         }
 
         log_info("/* valid character: \\s */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                    "LValue", 0, "/path\\s",
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                    "LValue", /* ltype= */ 0, "/path\\s",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/path ", NULL, NULL, NULL, false);
+        check_execcommand(c1, "/path ", /* argv0= */ NULL, /* argv1= */ NULL, /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* quoted backslashes */");
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0,
                                     "/bin/grep '\\w+\\K'",
                                     &c, u));
         c1 = c1->command_next;
-        check_execcommand(c1, "/bin/grep", NULL, "\\w+\\K", NULL, false);
+        check_execcommand(c1, "/bin/grep", /* argv0= */ NULL, "\\w+\\K", /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* trailing backslash: \\ */");
         /* backslash is invalid */
-        ASSERT_ERROR(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                       "LValue", 0, "/path\\",
+        ASSERT_ERROR(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                       "LValue", /* ltype= */ 0, "/path\\",
                                        &c, u), ENOEXEC);
         ASSERT_NULL(c1->command_next);
 
         log_info("/* missing ending ' */");
-        ASSERT_ERROR(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                       "LValue", 0, "/path 'foo",
+        ASSERT_ERROR(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                       "LValue", /* ltype= */ 0, "/path 'foo",
                                        &c, u), ENOEXEC);
         ASSERT_NULL(c1->command_next);
 
         log_info("/* missing ending ' with trailing backslash */");
-        ASSERT_ERROR(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                       "LValue", 0, "/path 'foo\\",
+        ASSERT_ERROR(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                       "LValue", /* ltype= */ 0, "/path 'foo\\",
                                        &c, u), ENOEXEC);
         ASSERT_NULL(c1->command_next);
 
         log_info("/* invalid space between modifiers */");
-        ASSERT_OK_ZERO(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                         "LValue", 0, "- /path",
+        ASSERT_OK_ZERO(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                         "LValue", /* ltype= */ 0, "- /path",
                                          &c, u));
         ASSERT_NULL(c1->command_next);
 
         log_info("/* only modifiers, no path */");
-        ASSERT_OK_ZERO(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                         "LValue", 0, "-",
+        ASSERT_OK_ZERO(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                         "LValue", /* ltype= */ 0, "-",
                                          &c, u));
         ASSERT_NULL(c1->command_next);
 
@@ -405,16 +405,16 @@ TEST(config_parse_exec) {
         memset(y, 'x', sizeof(x) - STRLEN("/bin/echo ") - 1);
         x[sizeof(x) - 1] = '\0';
 
-        ASSERT_OK(config_parse_exec(NULL, "fake", 5, "section", 1,
-                                    "LValue", 0, x,
+        ASSERT_OK(config_parse_exec(/* unit= */ NULL, "fake", 5, "section", 1,
+                                    "LValue", /* ltype= */ 0, x,
                                     &c, u));
         c1 = c1->command_next;
         check_execcommand(c1,
-                          "/bin/echo", NULL, y, NULL, false);
+                          "/bin/echo", /* argv0= */ NULL, y, /* argv2= */ NULL, /* ignore= */ false);
 
         log_info("/* empty argument, reset */");
-        ASSERT_OK_ZERO(config_parse_exec(NULL, "fake", 4, "section", 1,
-                                         "LValue", 0, "",
+        ASSERT_OK_ZERO(config_parse_exec(/* unit= */ NULL, "fake", 4, "section", 1,
+                                         "LValue", /* ltype= */ 0, "",
                                          &c, u));
         ASSERT_NULL(c);
 
@@ -435,7 +435,7 @@ TEST(config_parse_bind_paths) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
         ASSERT_OK_ZERO(unit_add_name(u, "foobar.service"));
@@ -444,8 +444,8 @@ TEST(config_parse_bind_paths) {
                 _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
 
                 set_log_syntax_callback(count_syntax_warnings, &n_syntax_warnings);
-                ASSERT_OK(config_parse_bind_paths(NULL, "fake", 1, "section", 1,
-                                                  "BindReadOnlyPaths", 0,
+                ASSERT_OK(config_parse_bind_paths(/* unit= */ NULL, "fake", 1, "section", 1,
+                                                  "BindReadOnlyPaths", /* ltype= */ 0,
                                                   "  /usr/bin  /usr/lib     /lib64   ",
                                                   &c, u));
         }
@@ -500,21 +500,21 @@ TEST(config_parse_log_extra_fields) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
 
         log_info("/* %s – basic test */", __func__);
-        ASSERT_OK(config_parse_log_extra_fields(NULL, "fake", 1, "section", 1,
-                                                "LValue", 0, "FOO=BAR \"QOOF=quux '  ' \"",
+        ASSERT_OK(config_parse_log_extra_fields(/* unit= */ NULL, "fake", 1, "section", 1,
+                                                "LValue", /* ltype= */ 0, "FOO=BAR \"QOOF=quux '  ' \"",
                                                 &c, u));
         ASSERT_EQ(c.n_log_extra_fields, 2U);
         ASSERT_STRNEQ(c.log_extra_fields[0].iov_base, "FOO=BAR", c.log_extra_fields[0].iov_len);
         ASSERT_STRNEQ(c.log_extra_fields[1].iov_base, "QOOF=quux '  ' ", c.log_extra_fields[1].iov_len);
 
         log_info("/* %s – add some */", __func__);
-        ASSERT_OK(config_parse_log_extra_fields(NULL, "fake", 1, "section", 1,
-                                                "LValue", 0, "FOO2=BAR2 QOOF2=quux '  '",
+        ASSERT_OK(config_parse_log_extra_fields(/* unit= */ NULL, "fake", 1, "section", 1,
+                                                "LValue", /* ltype= */ 0, "FOO2=BAR2 QOOF2=quux '  '",
                                                 &c, u));
         ASSERT_EQ(c.n_log_extra_fields, 4U);
         ASSERT_STRNEQ(c.log_extra_fields[0].iov_base, "FOO=BAR", c.log_extra_fields[0].iov_len);
@@ -525,8 +525,8 @@ TEST(config_parse_log_extra_fields) {
         exec_context_dump(&c, stdout, "    --> ");
 
         log_info("/* %s – reset */", __func__);
-        ASSERT_OK(config_parse_log_extra_fields(NULL, "fake", 1, "section", 1,
-                                                "LValue", 0, "",
+        ASSERT_OK(config_parse_log_extra_fields(/* unit= */ NULL, "fake", 1, "section", 1,
+                                                "LValue", /* ltype= */ 0, "",
                                                 &c, u));
         ASSERT_EQ(c.n_log_extra_fields, 0U);
 
@@ -547,12 +547,12 @@ TEST(install_printf, .sd_booted = true) {
 
         _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL;
 
-        if (sd_id128_get_machine(NULL) >= 0) {
-                ASSERT_OK(specifier_machine_id('m', NULL, NULL, NULL, &mid));
+        if (sd_id128_get_machine(/* ret= */ NULL) >= 0) {
+                ASSERT_OK(specifier_machine_id('m', /* data= */ NULL, /* root= */ NULL, /* userdata= */ NULL, &mid));
                 ASSERT_NOT_NULL(mid);
         }
         if (sd_booted() > 0) {
-                ASSERT_OK(specifier_boot_id('b', NULL, NULL, NULL, &bid));
+                ASSERT_OK(specifier_boot_id('b', /* data= */ NULL, /* root= */ NULL, /* userdata= */ NULL, &bid));
                 ASSERT_NOT_NULL(bid);
         }
         ASSERT_NOT_NULL(host = gethostname_malloc());
@@ -653,57 +653,57 @@ TEST(config_parse_capability_set) {
 
         uint64_t capability_bounding_set = 0;
 
-        ASSERT_OK(config_parse_capability_set(NULL, "fake", 1, "section", 1,
-                                              "CapabilityBoundingSet", 0, "CAP_NET_RAW",
-                                              &capability_bounding_set, NULL));
+        ASSERT_OK(config_parse_capability_set(/* unit= */ NULL, "fake", 1, "section", 1,
+                                              "CapabilityBoundingSet", /* ltype= */ 0, "CAP_NET_RAW",
+                                              &capability_bounding_set, /* userdata= */ NULL));
         ASSERT_EQ(capability_bounding_set, make_cap(CAP_NET_RAW));
 
-        ASSERT_OK(config_parse_capability_set(NULL, "fake", 1, "section", 1,
-                                              "CapabilityBoundingSet", 0, "CAP_NET_ADMIN",
-                                              &capability_bounding_set, NULL));
+        ASSERT_OK(config_parse_capability_set(/* unit= */ NULL, "fake", 1, "section", 1,
+                                              "CapabilityBoundingSet", /* ltype= */ 0, "CAP_NET_ADMIN",
+                                              &capability_bounding_set, /* userdata= */ NULL));
         ASSERT_EQ(capability_bounding_set, make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN));
 
-        ASSERT_OK(config_parse_capability_set(NULL, "fake", 1, "section", 1,
-                                              "CapabilityBoundingSet", 0, "~CAP_NET_ADMIN",
-                                              &capability_bounding_set, NULL));
+        ASSERT_OK(config_parse_capability_set(/* unit= */ NULL, "fake", 1, "section", 1,
+                                              "CapabilityBoundingSet", /* ltype= */ 0, "~CAP_NET_ADMIN",
+                                              &capability_bounding_set, /* userdata= */ NULL));
         ASSERT_EQ(capability_bounding_set, make_cap(CAP_NET_RAW));
 
-        ASSERT_OK(config_parse_capability_set(NULL, "fake", 1, "section", 1,
-                                              "CapabilityBoundingSet", 0, "",
-                                              &capability_bounding_set, NULL));
+        ASSERT_OK(config_parse_capability_set(/* unit= */ NULL, "fake", 1, "section", 1,
+                                              "CapabilityBoundingSet", /* ltype= */ 0, "",
+                                              &capability_bounding_set, /* userdata= */ NULL));
         ASSERT_EQ(capability_bounding_set, UINT64_C(0));
 
-        ASSERT_OK(config_parse_capability_set(NULL, "fake", 1, "section", 1,
-                                              "CapabilityBoundingSet", 0, "~",
-                                              &capability_bounding_set, NULL));
+        ASSERT_OK(config_parse_capability_set(/* unit= */ NULL, "fake", 1, "section", 1,
+                                              "CapabilityBoundingSet", /* ltype= */ 0, "~",
+                                              &capability_bounding_set, /* userdata= */ NULL));
         ASSERT_TRUE(cap_test_all(capability_bounding_set));
 
         capability_bounding_set = 0;
-        ASSERT_OK(config_parse_capability_set(NULL, "fake", 1, "section", 1,
-                                              "CapabilityBoundingSet", 0, "  'CAP_NET_RAW' WAT_CAP??? CAP_NET_ADMIN CAP'_trailing_garbage",
-                                              &capability_bounding_set, NULL));
+        ASSERT_OK(config_parse_capability_set(/* unit= */ NULL, "fake", 1, "section", 1,
+                                              "CapabilityBoundingSet", /* ltype= */ 0, "  'CAP_NET_RAW' WAT_CAP??? CAP_NET_ADMIN CAP'_trailing_garbage",
+                                              &capability_bounding_set, /* userdata= */ NULL));
         ASSERT_EQ(capability_bounding_set, make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN));
 }
 
 TEST(config_parse_rlimit) {
         struct rlimit * rl[_RLIMIT_MAX] = {};
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_NOFILE]);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_cur, 55U);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_cur, rl[RLIMIT_NOFILE]->rlim_max);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55:66", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55:66", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_NOFILE]);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_cur, 55U);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_max, 66U);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_NOFILE]);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_cur, RLIM_INFINITY);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_cur, rl[RLIMIT_NOFILE]->rlim_max);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity:infinity", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity:infinity", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_NOFILE]);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_cur, RLIM_INFINITY);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_cur, rl[RLIMIT_NOFILE]->rlim_max);
@@ -712,86 +712,86 @@ TEST(config_parse_rlimit) {
         rl[RLIMIT_NOFILE]->rlim_max = 20;
 
         /* Invalid values don't change rl */
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "10:20:30", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "10:20:30", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_NOFILE]);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_cur, 10U);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_max, 20U);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "wat:wat", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "wat:wat", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_NOFILE]);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_cur, 10U);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_max, 20U);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "66:wat", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "66:wat", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_NOFILE]);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_cur, 10U);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_max, 20U);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "200:100", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "200:100", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_NOFILE]);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_cur, 10U);
         ASSERT_EQ(rl[RLIMIT_NOFILE]->rlim_max, 20U);
 
         rl[RLIMIT_NOFILE] = mfree(rl[RLIMIT_NOFILE]);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "56", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "56", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_CPU]);
         ASSERT_EQ(rl[RLIMIT_CPU]->rlim_cur, 56U);
         ASSERT_EQ(rl[RLIMIT_CPU]->rlim_cur, rl[RLIMIT_CPU]->rlim_max);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "57s", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "57s", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_CPU]);
         ASSERT_EQ(rl[RLIMIT_CPU]->rlim_cur, 57U);
         ASSERT_EQ(rl[RLIMIT_CPU]->rlim_cur, rl[RLIMIT_CPU]->rlim_max);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "40s:1m", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "40s:1m", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_CPU]);
         ASSERT_EQ(rl[RLIMIT_CPU]->rlim_cur, 40U);
         ASSERT_EQ(rl[RLIMIT_CPU]->rlim_max, 60U);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "infinity", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "infinity", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_CPU]);
         ASSERT_EQ(rl[RLIMIT_CPU]->rlim_cur, RLIM_INFINITY);
         ASSERT_EQ(rl[RLIMIT_CPU]->rlim_cur, rl[RLIMIT_CPU]->rlim_max);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "1234ms", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "1234ms", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_CPU]);
         ASSERT_EQ(rl[RLIMIT_CPU]->rlim_cur, 2U);
         ASSERT_EQ(rl[RLIMIT_CPU]->rlim_cur, rl[RLIMIT_CPU]->rlim_max);
 
         rl[RLIMIT_CPU] = mfree(rl[RLIMIT_CPU]);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_RTTIME]);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, 58U);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, rl[RLIMIT_RTTIME]->rlim_max);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58:60", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58:60", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_RTTIME]);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, 58U);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_max, 60U);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_RTTIME]);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, 59 * USEC_PER_SEC);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, rl[RLIMIT_RTTIME]->rlim_max);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s:123s", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s:123s", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_RTTIME]);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, 59 * USEC_PER_SEC);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_max, 123 * USEC_PER_SEC);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_RTTIME]);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, RLIM_INFINITY);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, rl[RLIMIT_RTTIME]->rlim_max);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity:infinity", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity:infinity", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_RTTIME]);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, RLIM_INFINITY);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, rl[RLIMIT_RTTIME]->rlim_max);
 
-        ASSERT_OK(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "2345ms", rl, NULL));
+        ASSERT_OK(config_parse_rlimit(/* unit= */ NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "2345ms", rl, /* userdata= */ NULL));
         ASSERT_NOT_NULL(rl[RLIMIT_RTTIME]);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, 2345 * USEC_PER_MSEC);
         ASSERT_EQ(rl[RLIMIT_RTTIME]->rlim_cur, rl[RLIMIT_RTTIME]->rlim_max);
@@ -814,21 +814,21 @@ TEST(config_parse_pass_environ) {
 
         _cleanup_strv_free_ char **passenv = NULL;
 
-        ASSERT_OK(config_parse_pass_environ(NULL, "fake", 1, "section", 1,
-                                            "PassEnvironment", 0, "A B",
-                                            &passenv, NULL));
+        ASSERT_OK(config_parse_pass_environ(/* unit= */ NULL, "fake", 1, "section", 1,
+                                            "PassEnvironment", /* ltype= */ 0, "A B",
+                                            &passenv, /* userdata= */ NULL));
         ASSERT_EQ(strv_length(passenv), 2U);
         ASSERT_STREQ(passenv[0], "A");
         ASSERT_STREQ(passenv[1], "B");
 
-        ASSERT_OK(config_parse_pass_environ(NULL, "fake", 1, "section", 1,
-                                            "PassEnvironment", 0, "",
-                                            &passenv, NULL));
+        ASSERT_OK(config_parse_pass_environ(/* unit= */ NULL, "fake", 1, "section", 1,
+                                            "PassEnvironment", /* ltype= */ 0, "",
+                                            &passenv, /* userdata= */ NULL));
         ASSERT_TRUE(strv_isempty(passenv));
 
-        ASSERT_OK(config_parse_pass_environ(NULL, "fake", 1, "section", 1,
-                                            "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 'special_name$$' \\",
-                                            &passenv, NULL));
+        ASSERT_OK(config_parse_pass_environ(/* unit= */ NULL, "fake", 1, "section", 1,
+                                            "PassEnvironment", /* ltype= */ 0, "'invalid name' 'normal_name' A=1 'special_name$$' \\",
+                                            &passenv, /* userdata= */ NULL));
         ASSERT_EQ(strv_length(passenv), 1U);
         ASSERT_STREQ(passenv[0], "normal_name");
 }
@@ -858,35 +858,35 @@ TEST(config_parse_unit_env_file) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
         ASSERT_OK_ZERO(unit_add_name(u, "foobar.service"));
 
         ASSERT_OK_ZERO(config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
-                                                  "EnvironmentFile", 0, "not-absolute",
+                                                  "EnvironmentFile", /* ltype= */ 0, "not-absolute",
                                                   &files, u));
         ASSERT_TRUE(strv_isempty(files));
 
         ASSERT_OK_ZERO(config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
-                                                  "EnvironmentFile", 0, "/absolute1",
+                                                  "EnvironmentFile", /* ltype= */ 0, "/absolute1",
                                                   &files, u));
         ASSERT_EQ(strv_length(files), 1U);
 
         ASSERT_OK_ZERO(config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
-                                                  "EnvironmentFile", 0, "/absolute2",
+                                                  "EnvironmentFile", /* ltype= */ 0, "/absolute2",
                                                   &files, u));
         ASSERT_EQ(strv_length(files), 2U);
         ASSERT_STREQ(files[0], "/absolute1");
         ASSERT_STREQ(files[1], "/absolute2");
 
         ASSERT_OK_ZERO(config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
-                                                  "EnvironmentFile", 0, "",
+                                                  "EnvironmentFile", /* ltype= */ 0, "",
                                                   &files, u));
         ASSERT_TRUE(strv_isempty(files));
 
         ASSERT_OK_ZERO(config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
-                                                  "EnvironmentFile", 0, "/path/%n.conf",
+                                                  "EnvironmentFile", /* ltype= */ 0, "/path/%n.conf",
                                                   &files, u));
         ASSERT_EQ(strv_length(files), 1U);
         ASSERT_STREQ(files[0], "/path/foobar.service.conf");
@@ -941,9 +941,9 @@ TEST(config_parse_memory_limit) {
                 log_info("%s=%s\t%"PRIu64"==%"PRIu64,
                          test->limit, test->value,
                          *test->result, test->expected);
-                ASSERT_OK(config_parse_memory_limit(NULL, "fake", 1, "section", 1,
+                ASSERT_OK(config_parse_memory_limit(/* unit= */ NULL, "fake", 1, "section", 1,
                                                     test->limit, 1,
-                                                    test->value, &c, NULL));
+                                                    test->value, &c, /* userdata= */ NULL));
                 ASSERT_EQ(*test->result, test->expected);
         }
 }
@@ -965,7 +965,7 @@ TEST(config_parse_device_allow) {
         ASSERT_OK_ZERO(unit_add_name(u, "null.service"));
 
         ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 1, "Service", 1,
-                                                 "DeviceAllow", 0, "/dev/%N rw",
+                                                 "DeviceAllow", /* ltype= */ 0, "/dev/%N rw",
                                                  &c, u));
         ASSERT_EQ(cgroup_device_allow_count(&c), 1U);
         ASSERT_NOT_NULL(a = c.device_allow);
@@ -973,7 +973,7 @@ TEST(config_parse_device_allow) {
         ASSERT_EQ(a->permissions, CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
 
         ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 2, "Service", 1,
-                                                 "DeviceAllow", 0, "char-pts rwm",
+                                                 "DeviceAllow", /* ltype= */ 0, "char-pts rwm",
                                                  &c, u));
         ASSERT_EQ(cgroup_device_allow_count(&c), 2U);
         ASSERT_NOT_NULL(a = c.device_allow);
@@ -981,17 +981,17 @@ TEST(config_parse_device_allow) {
         ASSERT_EQ(a->permissions, CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE|CGROUP_DEVICE_MKNOD);
 
         ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 3, "Service", 1,
-                                                 "DeviceAllow", 0, "%Q rw",
+                                                 "DeviceAllow", /* ltype= */ 0, "%Q rw",
                                                  &c, u));
         ASSERT_EQ(cgroup_device_allow_count(&c), 2U);
 
         ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 4, "Service", 1,
-                                                 "DeviceAllow", 0, "/dev/zero invalid",
+                                                 "DeviceAllow", /* ltype= */ 0, "/dev/zero invalid",
                                                  &c, u));
         ASSERT_EQ(cgroup_device_allow_count(&c), 2U);
 
         ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 5, "Service", 1,
-                                                 "DeviceAllow", 0, "/dev/zero",
+                                                 "DeviceAllow", /* ltype= */ 0, "/dev/zero",
                                                  &c, u));
         ASSERT_EQ(cgroup_device_allow_count(&c), 3U);
         ASSERT_NOT_NULL(a = c.device_allow);
@@ -999,7 +999,7 @@ TEST(config_parse_device_allow) {
         ASSERT_EQ(a->permissions, _CGROUP_DEVICE_PERMISSIONS_ALL);
 
         ASSERT_OK_ZERO(config_parse_device_allow(u->id, "fake", 6, "Service", 1,
-                                                 "DeviceAllow", 0, "",
+                                                 "DeviceAllow", /* ltype= */ 0, "",
                                                  &c, u));
         ASSERT_NULL(c.device_allow);
 }
@@ -1038,7 +1038,7 @@ TEST(unit_is_recursive_template_dependency) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
         ASSERT_OK_ZERO(unit_add_name(u, "foobar@1.service"));
@@ -1102,8 +1102,8 @@ TEST(config_parse_log_filter_patterns) {
                 return (void) log_tests_skipped("PCRE2 support is not available");
 
         FOREACH_ELEMENT(test, regex_tests) {
-                ASSERT_OK(config_parse_log_filter_patterns(NULL, "fake", 1, "section", 1, "LogFilterPatterns", 1,
-                                                           test->regex, &c, NULL));
+                ASSERT_OK(config_parse_log_filter_patterns(/* unit= */ NULL, "fake", 1, "section", 1, "LogFilterPatterns", 1,
+                                                           test->regex, &c, /* userdata= */ NULL));
 
                 ASSERT_EQ(set_size(c.log_filter_allowed_patterns), test->allowed_patterns_count);
                 ASSERT_EQ(set_size(c.log_filter_denied_patterns), test->denied_patterns_count);
@@ -1132,13 +1132,13 @@ TEST(config_parse_open_file) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
         ASSERT_OK_ZERO(unit_add_name(u, "foobar.service"));
 
-        ASSERT_OK(config_parse_open_file(NULL, "fake", 1, "section", 1,
-                                         "OpenFile", 0, "/proc/1/ns/mnt:host-mount-namespace:read-only",
+        ASSERT_OK(config_parse_open_file(/* unit= */ NULL, "fake", 1, "section", 1,
+                                         "OpenFile", /* ltype= */ 0, "/proc/1/ns/mnt:host-mount-namespace:read-only",
                                          &of, u));
         ASSERT_NOT_NULL(of);
         ASSERT_STREQ(of->path, "/proc/1/ns/mnt");
@@ -1146,16 +1146,16 @@ TEST(config_parse_open_file) {
         ASSERT_EQ(of->flags, OPENFILE_READ_ONLY);
 
         of = open_file_free(of);
-        ASSERT_OK(config_parse_open_file(NULL, "fake", 1, "section", 1,
-                                         "OpenFile", 0, "/proc/1/ns/mnt::read-only",
+        ASSERT_OK(config_parse_open_file(/* unit= */ NULL, "fake", 1, "section", 1,
+                                         "OpenFile", /* ltype= */ 0, "/proc/1/ns/mnt::read-only",
                                          &of, u));
         ASSERT_NOT_NULL(of);
         ASSERT_STREQ(of->path, "/proc/1/ns/mnt");
         ASSERT_STREQ(of->fdname, "mnt");
         ASSERT_EQ(of->flags, OPENFILE_READ_ONLY);
 
-        ASSERT_OK(config_parse_open_file(NULL, "fake", 1, "section", 1,
-                                         "OpenFile", 0, "",
+        ASSERT_OK(config_parse_open_file(/* unit= */ NULL, "fake", 1, "section", 1,
+                                         "OpenFile", /* ltype= */ 0, "",
                                          &of, u));
         ASSERT_NULL(of);
 }
@@ -1191,7 +1191,7 @@ TEST(config_parse_service_refresh_on_reload) {
         }
 
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
         ASSERT_OK_ZERO(unit_add_name(u, "foobar.service"));
@@ -1199,49 +1199,49 @@ TEST(config_parse_service_refresh_on_reload) {
         ASSERT_FALSE(SERVICE(u)->refresh_on_reload_set);
 
         ASSERT_OK(config_parse_service_refresh_on_reload(
-                                NULL, "fake", 1, "section", 1,
-                                "RefreshOnReload", 0, "no",
-                                NULL, u));
+                                /* unit= */ NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", /* ltype= */ 0, "no",
+                                /* data= */ NULL, u));
         ASSERT_TRUE(SERVICE(u)->refresh_on_reload_set);
         ASSERT_EQ(SERVICE(u)->refresh_on_reload_flags, 0);
 
         ASSERT_OK(config_parse_service_refresh_on_reload(
-                                NULL, "fake", 1, "section", 1,
-                                "RefreshOnReload", 0, "yes",
-                                NULL, u));
+                                /* unit= */ NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", /* ltype= */ 0, "yes",
+                                /* data= */ NULL, u));
         ASSERT_TRUE(SERVICE(u)->refresh_on_reload_set);
         ASSERT_EQ(SERVICE(u)->refresh_on_reload_flags, _SERVICE_REFRESH_ON_RELOAD_ALL);
 
         ASSERT_OK(config_parse_service_refresh_on_reload(
-                                NULL, "fake", 1, "section", 1,
-                                "RefreshOnReload", 0, "~extensions",
-                                NULL, u));
+                                /* unit= */ NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", /* ltype= */ 0, "~extensions",
+                                /* data= */ NULL, u));
         ASSERT_TRUE(SERVICE(u)->refresh_on_reload_set);
         ASSERT_EQ(SERVICE(u)->refresh_on_reload_flags, _SERVICE_REFRESH_ON_RELOAD_ALL & ~SERVICE_RELOAD_EXTENSIONS);
 
         ASSERT_OK(config_parse_service_refresh_on_reload(
-                                NULL, "fake", 1, "section", 1,
-                                "RefreshOnReload", 0, "~extensions credentials",
-                                NULL, u));
+                                /* unit= */ NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", /* ltype= */ 0, "~extensions credentials",
+                                /* data= */ NULL, u));
         ASSERT_TRUE(SERVICE(u)->refresh_on_reload_set);
         ASSERT_EQ(SERVICE(u)->refresh_on_reload_flags, 0);
 
         ASSERT_OK(config_parse_service_refresh_on_reload(
-                                NULL, "fake", 1, "section", 1,
-                                "RefreshOnReload", 0, "",
-                                NULL, u));
+                                /* unit= */ NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", /* ltype= */ 0, "",
+                                /* data= */ NULL, u));
         ASSERT_FALSE(SERVICE(u)->refresh_on_reload_set);
 
         ASSERT_OK(config_parse_service_refresh_on_reload(
-                                NULL, "fake", 1, "section", 1,
-                                "RefreshOnReload", 0, "~extensions",
-                                NULL, u));
+                                /* unit= */ NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", /* ltype= */ 0, "~extensions",
+                                /* data= */ NULL, u));
         ASSERT_TRUE(SERVICE(u)->refresh_on_reload_set);
         ASSERT_EQ(SERVICE(u)->refresh_on_reload_flags, SERVICE_REFRESH_ON_RELOAD_DEFAULT & ~SERVICE_RELOAD_EXTENSIONS);
 }
 
 static int intro(void) {
-        if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
+        if (enter_cgroup_subroot(/* ret_cgroup= */ NULL) == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
         ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());

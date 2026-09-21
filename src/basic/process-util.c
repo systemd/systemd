@@ -1027,7 +1027,7 @@ int pidref_is_unwaited(PidRef *pid) {
         if (pid->pid == 1 || pidref_is_self(pid))
                 return true;
 
-        r = pidref_kill(pid, 0);
+        r = pidref_kill(pid, /* sig= */ 0);
         if (r == -ESRCH)
                 return false;
         if (r < 0)
@@ -1124,7 +1124,7 @@ int pidref_from_same_root_fs(PidRef *a, PidRef *b) {
         const char *roota = procfs_file_alloca(a->pid, "root");
         const char *rootb = procfs_file_alloca(b->pid, "root");
 
-        int result = inode_same(roota, rootb, 0);
+        int result = inode_same(roota, rootb, /* flags= */ 0);
         if (result == -ENOENT)
                 return proc_mounted() == 0 ? -ENOSYS : -ESRCH;
         if (result < 0)
@@ -1248,7 +1248,7 @@ void valgrind_summary_hack(void) {
                         log_info("Spawned valgrind helper as PID "PID_FMT".", pid);
                         _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
                         (void) pidref_set_pid(&pidref, pid);
-                        (void) pidref_wait_for_terminate(&pidref, NULL);
+                        (void) pidref_wait_for_terminate(&pidref, /* ret_si= */ NULL);
                 }
         }
 #endif
@@ -1680,7 +1680,7 @@ int pidref_safe_fork_full(
 
         if (FLAGS_SET(flags, FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE)) {
                 /* Optionally, make sure we never propagate mounts to the host. */
-                if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0) {
+                if (mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_SLAVE | MS_REC, /* data= */ NULL) < 0) {
                         log_full_errno(prio, errno, "Failed to remount root directory as MS_SLAVE: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -1748,7 +1748,7 @@ int pidref_safe_fork_full(
         }
 
         if (flags & FORK_CLOEXEC_OFF) {
-                r = fd_cloexec_many(except_fds, n_except_fds, false);
+                r = fd_cloexec_many(except_fds, n_except_fds, /* cloexec= */ false);
                 if (r < 0) {
                         log_full_errno(prio, r, "Failed to turn off O_CLOEXEC on file descriptors: %m");
                         _exit(EXIT_FAILURE);
@@ -1856,7 +1856,7 @@ int namespace_fork_full(
                 /* We mask a few flags here that either make no sense for the grandchild, or that we don't have to do again */
                 r = pidref_safe_fork_full(
                                 inner_name,
-                                NULL,
+                                /* stdio_fds= */ NULL,
                                 except_fds, n_except_fds,
                                 flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_REARRANGE_STDIO|FORK_FLUSH_STDIO|FORK_STDOUT_TO_STDERR),
                                 &pidref_inner);
@@ -1927,7 +1927,7 @@ int get_oom_score_adjust(int *ret) {
         _cleanup_free_ char *t = NULL;
         int r, a;
 
-        r = read_virtual_file("/proc/self/oom_score_adj", SIZE_MAX, &t, NULL);
+        r = read_virtual_file("/proc/self/oom_score_adj", SIZE_MAX, &t, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2003,7 +2003,7 @@ _noreturn_ void freeze(void) {
         /* Make sure nobody waits for us (i.e. on one of our sockets) anymore. Note that we use
          * close_all_fds_without_malloc() instead of plain close_all_fds() here, since we want this function
          * to be compatible with being called from signal handlers. */
-        (void) close_all_fds_without_malloc(NULL, 0);
+        (void) close_all_fds_without_malloc(/* except= */ NULL, /* n_except= */ 0);
 
         /* Let's not freeze right away, but keep reaping zombies. */
         for (;;) {

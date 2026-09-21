@@ -53,7 +53,7 @@ static int bus_future_handler(sd_bus_message *m, void *userdata, sd_bus_error *r
         bf->slot = sd_bus_slot_unref(bf->slot);
         bf->reply = sd_bus_message_ref(m);
 
-        r = sd_bus_message_is_method_error(m, NULL) ? -sd_bus_message_get_errno(m) : 0;
+        r = sd_bus_message_is_method_error(m, /* name= */ NULL) ? -sd_bus_message_get_errno(m) : 0;
         return sd_future_resolve(f, r);
 }
 
@@ -86,7 +86,7 @@ int future_get_bus_reply(sd_future *f, sd_bus_error *reterr_error, sd_bus_messag
         assert(sd_future_get_ops(f) == &bus_future_ops);
         assert(sd_future_state(f) == SD_FUTURE_RESOLVED);
 
-        if (sd_bus_message_is_method_error(reply, NULL)) {
+        if (sd_bus_message_is_method_error(reply, /* name= */ NULL)) {
                 if (reterr_error)
                         return sd_bus_error_copy(reterr_error, sd_bus_message_get_error(reply));
                 return -sd_bus_message_get_errno(reply);

@@ -20,12 +20,12 @@ TEST(utf8_n_is_valid) {
         assert_se( utf8_is_valid_n("ascii is valid unicode", 21));
         assert_se( utf8_is_valid_n("ascii is valid unicode", 22));
         assert_se(!utf8_is_valid_n("ascii is valid unicode", 23));
-        assert_se( utf8_is_valid_n("\342\204\242", 0));
+        assert_se( utf8_is_valid_n("\342\204\242", /* len_bytes= */ 0));
         assert_se(!utf8_is_valid_n("\342\204\242", 1));
         assert_se(!utf8_is_valid_n("\342\204\242", 2));
         assert_se( utf8_is_valid_n("\342\204\242", 3));
         assert_se(!utf8_is_valid_n("\342\204\242", 4));
-        assert_se( utf8_is_valid_n("<ZZ>", 0));
+        assert_se( utf8_is_valid_n("<ZZ>", /* len_bytes= */ 0));
         assert_se( utf8_is_valid_n("<ZZ>", 1));
         assert_se( utf8_is_valid_n("<ZZ>", 2));
         assert_se( utf8_is_valid_n("<ZZ>", 3));
@@ -52,7 +52,7 @@ TEST(ascii_is_valid_n) {
         assert_se(!ascii_is_valid_n("\342\204\242", 3));
         assert_se(!ascii_is_valid_n("\342\204\242", 2));
         assert_se(!ascii_is_valid_n("\342\204\242", 1));
-        assert_se( ascii_is_valid_n("\342\204\242", 0));
+        assert_se( ascii_is_valid_n("\342\204\242", /* len= */ 0));
 }
 
 static void test_utf8_to_ascii_one(const char *s, int r_expected, const char *expected) {
@@ -66,18 +66,18 @@ static void test_utf8_to_ascii_one(const char *s, int r_expected, const char *ex
 }
 
 TEST(utf8_to_ascii) {
-        test_utf8_to_ascii_one("asdf", 0, "asdf");
-        test_utf8_to_ascii_one("dąb", 0, "d*b");
-        test_utf8_to_ascii_one("żęśłą óźń", 0, "***** ***");
-        test_utf8_to_ascii_one("\342\204\242", 0, "*");
-        test_utf8_to_ascii_one("\342\204", -EINVAL, NULL); /* truncated */
-        test_utf8_to_ascii_one("\342", -EINVAL, NULL); /* truncated */
-        test_utf8_to_ascii_one("\302\256", 0, "*");
-        test_utf8_to_ascii_one("", 0, "");
-        test_utf8_to_ascii_one(" ", 0, " ");
-        test_utf8_to_ascii_one("\t", 0, "\t");
-        test_utf8_to_ascii_one("串", 0, "*");
-        test_utf8_to_ascii_one("…👊🔪💐…", 0, "*****");
+        test_utf8_to_ascii_one("asdf", /* r_expected= */ 0, "asdf");
+        test_utf8_to_ascii_one("dąb", /* r_expected= */ 0, "d*b");
+        test_utf8_to_ascii_one("żęśłą óźń", /* r_expected= */ 0, "***** ***");
+        test_utf8_to_ascii_one("\342\204\242", /* r_expected= */ 0, "*");
+        test_utf8_to_ascii_one("\342\204", -EINVAL, /* expected= */ NULL); /* truncated */
+        test_utf8_to_ascii_one("\342", -EINVAL, /* expected= */ NULL); /* truncated */
+        test_utf8_to_ascii_one("\302\256", /* r_expected= */ 0, "*");
+        test_utf8_to_ascii_one("", /* r_expected= */ 0, "");
+        test_utf8_to_ascii_one(" ", /* r_expected= */ 0, " ");
+        test_utf8_to_ascii_one("\t", /* r_expected= */ 0, "\t");
+        test_utf8_to_ascii_one("串", /* r_expected= */ 0, "*");
+        test_utf8_to_ascii_one("…👊🔪💐…", /* r_expected= */ 0, "*****");
 }
 
 TEST(utf8_encoded_valid_unichar) {
@@ -151,13 +151,13 @@ TEST(utf8_escape_non_printable_full) {
                         _cleanup_free_ char *p = NULL, *q = NULL;
                         size_t ew;
 
-                        p = utf8_escape_non_printable_full(s, cw, false);
+                        p = utf8_escape_non_printable_full(s, cw, /* force_ellipsis= */ false);
                         ew = utf8_console_width(p);
                         log_debug("%02zu \"%s\" (%zu wasted)", cw, p, cw - ew);
                         assert_se(utf8_is_valid(p));
                         assert_se(ew <= cw);
 
-                        q = utf8_escape_non_printable_full(s, cw, true);
+                        q = utf8_escape_non_printable_full(s, cw, /* force_ellipsis= */ true);
                         ew = utf8_console_width(q);
                         log_debug("   \"%s\" (%zu wasted)", q, cw - ew);
                         assert_se(utf8_is_valid(q));

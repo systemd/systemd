@@ -22,12 +22,12 @@ TEST(namespace_enter) {
         ASSERT_OK(r);
 
         _cleanup_close_ int mntns_fd = -EBADF, userns_fd = -EBADF, root_fd = -EBADF;
-        ASSERT_OK(pidref_namespace_open(&pidref, NULL, &mntns_fd, NULL, &userns_fd, &root_fd));
+        ASSERT_OK(pidref_namespace_open(&pidref, /* ret_pidns_fd= */ NULL, &mntns_fd, /* ret_netns_fd= */ NULL, &userns_fd, &root_fd));
 
         r = ASSERT_OK(pidref_safe_fork(
                         "test-ns-enter-2",
                         FORK_LOG|FORK_WAIT|FORK_DEATHSIG_SIGKILL,
-                        NULL));
+                        /* ret= */ NULL));
         if (r == 0) {
                 ASSERT_OK(namespace_enter(-EBADF, mntns_fd, -EBADF, userns_fd, root_fd));
                 _exit(EXIT_SUCCESS);
@@ -37,7 +37,7 @@ TEST(namespace_enter) {
         r = ASSERT_OK(pidref_safe_fork(
                         "test-ns-enter-3",
                         FORK_LOG|FORK_WAIT|FORK_DEATHSIG_SIGKILL,
-                        NULL));
+                        /* ret= */ NULL));
         if (r == 0) {
                 ASSERT_OK(drop_capability(CAP_SYS_ADMIN));
                 ASSERT_OK(namespace_enter(-EBADF, mntns_fd, -EBADF, userns_fd, root_fd));

@@ -478,7 +478,7 @@ static int manager_set_coredump_socket(Manager *manager, int fd) {
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "Received invalid coredump socket (%i), ignoring.", fd);
 
-        (void) fd_nonblock(fd, true);
+        (void) fd_nonblock(fd, /* nonblock= */ true);
 
         manager->coredump_socket = fd;
         return 0;

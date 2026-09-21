@@ -56,7 +56,7 @@ typedef enum SleepSupport {
 
 int sleep_supported_full(SleepOperation operation, SleepSupport *ret_support);
 static inline int sleep_supported(SleepOperation operation) {
-        return sleep_supported_full(operation, NULL);
+        return sleep_supported_full(operation, /* ret_support= */ NULL);
 }
 
 /* Only for test-sleep-config */

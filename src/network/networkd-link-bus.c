@@ -102,7 +102,7 @@ int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
@@ -145,7 +145,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 
 finalize:
         for (size_t i = 0; i < n; i++)
@@ -156,11 +156,11 @@ finalize:
 }
 
 int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, false);
+        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ false);
 }
 
 int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_link_method_set_dns_servers_internal(message, userdata, error, true);
+        return bus_link_method_set_dns_servers_internal(message, userdata, error, /* extended= */ true);
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -207,7 +207,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                 if (!route_only && dns_name_is_root(name))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
 
-                r = dns_name_normalize(name, 0, &str);
+                r = dns_name_normalize(name, /* flags= */ 0, &str);
                 if (r < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
 
@@ -242,7 +242,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -278,7 +278,7 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
                         return r;
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -324,7 +324,7 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
                         return r;
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -370,7 +370,7 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
                         return r;
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -416,7 +416,7 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
                         return r;
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -462,7 +462,7 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
                         return r;
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -518,7 +518,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_revert_ntp(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -547,7 +547,7 @@ int bus_link_method_revert_ntp(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_revert_dns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -577,7 +577,7 @@ int bus_link_method_revert_dns(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_force_renew(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -606,7 +606,7 @@ int bus_link_method_force_renew(sd_bus_message *message, void *userdata, sd_bus_
                         return r;
         }
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_renew(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -633,7 +633,7 @@ int bus_link_method_renew(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -657,7 +657,7 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
         if (r != 0)
                 return r; /* Will reply later when r > 0. */
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_link_method_describe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -673,7 +673,7 @@ int bus_link_method_describe(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to build JSON data: %m");
 
-        r = sd_json_variant_format(v, 0, &text);
+        r = sd_json_variant_format(v, /* flags= */ 0, &text);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to format JSON data: %m");
 

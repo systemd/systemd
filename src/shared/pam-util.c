@@ -169,7 +169,7 @@ void pam_bus_data_disconnectp(PamBusData **_d) {
 
         pamh = ASSERT_PTR(d->pam_handle); /* Keep a reference to the session even after 'd' might be invalidated */
 
-        r = sym_pam_set_data(pamh, ASSERT_PTR(d->cache_id), NULL, NULL);
+        r = sym_pam_set_data(pamh, ASSERT_PTR(d->cache_id), /* data= */ NULL, /* cleanup= */ NULL);
         if (r != PAM_SUCCESS)
                 pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to release PAM user record data, ignoring: @PAMERR@");
 
