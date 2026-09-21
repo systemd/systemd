@@ -21,6 +21,42 @@ if [[ -L /run/nextroot ]]; then
     rm -f /run/nextroot
 fi
 
+prepare_fd() {
+    local name=${1:?}
+    local path="/dev/shm/fdstore.$RANDOM"
+
+    echo "$name" >"$path"
+    systemd-notify --fd=3 --fdname="$name" --pid=parent 3<"$path"
+    rm "$path"
+}
+
+verify_fd() {
+    local num=${1:?}
+    local name=${2:?}
+
+    assert_eq "$LISTEN_FDS" "$num"
+
+    local -a fdnames
+    IFS=':' read -r -a fdnames <<< "$LISTEN_FDNAMES"
+
+    local found
+    for i in "${!fdnames[@]}"; do
+        if [[ "${fdnames[$i]}" == "$name" ]]; then
+            found=$((i + 3))
+            break
+        fi
+    done
+
+    if [[ -z "${found:-}" ]]; then
+        echo "Error: FD $name not found in LISTEN_FDNAMES: $LISTEN_FDNAMES"
+        exit 1
+    fi
+
+    local x
+    read -r x <&"$found"
+    assert_eq "$x" "$name"
+}
+
 trigger_uevent() {
     local rule=/run/udev/rules.d/99-softreboot.rules
 
@@ -84,9 +120,7 @@ if [ -f /run/TEST-82-SOFTREBOOT.touch3 ]; then
     rmdir /original-root /run/nextroot
 
     # Check that the fdstore entry still exists
-    test "$LISTEN_FDS" -eq 3
-    read -r x <&5
-    test "$x" = "oinkoink"
+    verify_fd 3 "oinkoink"
 
     # Check that the surviving services are still around
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive.service)" = "active"
@@ -118,15 +152,10 @@ elif [ -f /run/TEST-82-SOFTREBOOT.touch2 ]; then
     rm /run/TEST-82-SOFTREBOOT.touch2
 
     # Check that the fdstore entry still exists
-    test "$LISTEN_FDS" -eq 2
-    read -r x <&4
-    test "$x" = "miaumiau"
+    verify_fd 2 "miaumiau"
 
     # Upload another entry
-    T="/dev/shm/fdstore.$RANDOM"
-    echo "oinkoink" >"$T"
-    systemd-notify --fd=3 --pid=parent 3<"$T"
-    rm "$T"
+    prepare_fd "oinkoink"
 
     # Check that the surviving services are still around
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive.service)" = "active"
@@ -167,9 +196,10 @@ elif [ -f /run/TEST-82-SOFTREBOOT.touch ]; then
     rm /run/TEST-82-SOFTREBOOT.touch
 
     # Check that the fdstore entry still exists
-    test "$LISTEN_FDS" -eq 1
-    read -r x <&3
-    test "$x" = "wuffwuff"
+    verify_fd 1 "wuffwuff"
+
+    # Upload another entry
+    prepare_fd "miaumiau"
 
     # Check that we got a PrepareForShutdownWithMetadata signal with the right type
     cat /run/TEST-82-SOFTREBOOT.signal
@@ -177,12 +207,6 @@ elif [ -f /run/TEST-82-SOFTREBOOT.touch ]; then
 
     # Check that the system credentials survived the soft reboot.
     test "$(systemd-creds cat --system kernelcmdlinecred)" = "uff"
-
-    # Upload another entry
-    T="/dev/shm/fdstore.$RANDOM"
-    echo "miaumiau" >"$T"
-    systemd-notify --fd=3 --pid=parent 3<"$T"
-    rm "$T"
 
     # Check that the surviving services are still around
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive.service)" = "active"
@@ -244,10 +268,7 @@ else
     test "$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager SoftRebootsCount | jq -r '.data')" -eq 0
 
     # Let's upload an fd to the fdstore, so that we can verify fdstore passing works correctly
-    T="/dev/shm/fdstore.$RANDOM"
-    echo "wuffwuff" >"$T"
-    systemd-notify --fd=3 --pid=parent 3<"$T"
-    rm "$T"
+    prepare_fd "wuffwuff"
 
     survive_sigterm="/dev/shm/survive-sigterm-$RANDOM.sh"
     cat >"$survive_sigterm" <<EOF
