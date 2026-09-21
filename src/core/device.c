@@ -809,34 +809,77 @@ static int device_setup_devlink_unit_one(Manager *m, const char *devlink, Set **
         return set_ensure_put(not_ready_units, NULL, DEVICE(u));
 }
 
-static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_units, Set **not_ready_units) {
-        _cleanup_strv_free_ char **aliases = NULL;
-        const char *syspath, *devname = NULL;
-        Device *l;
+static int device_setup_units(Manager *m, sd_device *dev, Set **ret_ready_units, Set **ret_not_ready_units) {
+        _cleanup_set_free_ Set *ready_units = NULL, *not_ready_units = NULL;
         int r;
 
         assert(m);
         assert(dev);
-        assert(ready_units);
-        assert(not_ready_units);
+        assert(ret_ready_units);
+        assert(ret_not_ready_units);
 
+        const char *syspath;
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Couldn't get syspath from device: %m");
 
+        const char *devname = NULL;
         (void) sd_device_get_devname(dev, &devname);
 
-        /* devlink units */
+        bool ready = device_is_ready(dev);
+
+        /* First, process the main (that is, points to the syspath) and (real, not symlink) devnode units. */
+        if (device_for_action(dev, SD_DEVICE_REMOVE))
+                /* If the device is removed, the main and devnode units will be removed by
+                 * device_update_found_by_sysfs() in device_dispatch_io(). Hence, it is not necessary to
+                 * store them to not_ready_units, and we have nothing to do here.
+                 *
+                 * Note, still we need to process devlink units below, as a devlink previously points to this
+                 * device may still exist and now point to another device node. Do not return earlier. */
+                ;
+        else if (ready) {
+                /* Add the main unit named after the syspath. If this one fails, don't bother with the rest,
+                 * as this one shall be the main device unit the others just follow. (Compare with how
+                 * device_following() is implemented, see below, which looks for the sysfs device.) */
+                r = device_setup_unit(m, dev, syspath, &ready_units);
+                if (r < 0)
+                        return r;
+
+                /* Add an additional unit for the device node. */
+                if (devname)
+                        (void) device_setup_unit(m, dev, devname, &ready_units);
+
+        } else {
+                Unit *u;
+
+                /* If the device exists but not ready, then save the units and unset udev bits later. */
+
+                if (device_by_path(m, syspath, &u) >= 0) {
+                        r = set_ensure_put(&not_ready_units, NULL, DEVICE(u));
+                        if (r < 0)
+                                log_unit_debug_errno(u, r, "Failed to store unit, ignoring: %m");
+                }
+
+                if (devname && device_by_path(m, devname, &u) >= 0) {
+                        r = set_ensure_put(&not_ready_units, NULL, DEVICE(u));
+                        if (r < 0)
+                                log_unit_debug_errno(u, r, "Failed to store unit, ignoring: %m");
+                }
+        }
+
+        /* Setup/update devlink units. Note, this must be done also if the device is not ready. */
         FOREACH_DEVICE_DEVLINK(dev, devlink) {
                 /* These are a kind of special devlink. They should be always unique, but neither persistent
                  * nor predictable. Hence, let's refuse them. See also the comments for alias units below. */
                 if (PATH_STARTSWITH_SET(devlink, "/dev/block/", "/dev/char/"))
                         continue;
 
-                (void) device_setup_devlink_unit_one(m, devlink, ready_units, not_ready_units);
+                (void) device_setup_devlink_unit_one(m, devlink, &ready_units, &not_ready_units);
         }
 
-        if (device_is_ready(dev)) {
+        /* Setup alias units. */
+        _cleanup_strv_free_ char **aliases = NULL;
+        if (ready) {
                 const char *s;
 
                 r = sd_device_get_property_value(dev, "SYSTEMD_ALIAS", &s);
@@ -849,7 +892,6 @@ static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_unit
                 }
         }
 
-        /* alias units */
         STRV_FOREACH(alias, aliases) {
                 if (!path_is_absolute(*alias)) {
                         log_device_warning(dev, "The alias \"%s\" specified in SYSTEMD_ALIAS is not an absolute path, ignoring.", *alias);
@@ -865,10 +907,11 @@ static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_unit
                  * exist. To achieve that, they set the path to SYSTEMD_ALIAS. Hence, we cannot refuse
                  * aliases that start with /dev/, unfortunately. */
 
-                (void) device_setup_unit(m, dev, *alias, ready_units);
+                (void) device_setup_unit(m, dev, *alias, &ready_units);
         }
 
-        l = hashmap_get(m->devices_by_sysfs, syspath);
+        /* Update the existing units that point to the same sysfs. */
+        Device *l = hashmap_get(m->devices_by_sysfs, syspath);
         LIST_FOREACH(same_sysfs, d, l) {
                 if (!d->path)
                         continue;
@@ -887,72 +930,11 @@ static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_unit
 
                 if (path_startswith(d->path, "/dev/"))
                         /* This is a devlink unit. Check existence and update syspath. */
-                        (void) device_setup_devlink_unit_one(m, d->path, ready_units, not_ready_units);
+                        (void) device_setup_devlink_unit_one(m, d->path, &ready_units, &not_ready_units);
                 else
                         /* This is an alias unit of dropped or not ready device. */
-                        (void) set_ensure_put(not_ready_units, NULL, d);
+                        (void) set_ensure_put(&not_ready_units, NULL, d);
         }
-
-        return 0;
-}
-
-static int device_setup_units(Manager *m, sd_device *dev, Set **ret_ready_units, Set **ret_not_ready_units) {
-        _cleanup_set_free_ Set *ready_units = NULL, *not_ready_units = NULL;
-        const char *syspath, *devname = NULL;
-        int r;
-
-        assert(m);
-        assert(dev);
-        assert(ret_ready_units);
-        assert(ret_not_ready_units);
-
-        r = sd_device_get_syspath(dev, &syspath);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Couldn't get syspath from device, ignoring: %m");
-
-        /* First, process the main (that is, points to the syspath) and (real, not symlink) devnode units. */
-        if (device_for_action(dev, SD_DEVICE_REMOVE))
-                /* If the device is removed, the main and devnode units will be removed by
-                 * device_update_found_by_sysfs() in device_dispatch_io(). Hence, it is not necessary to
-                 * store them to not_ready_units, and we have nothing to do here.
-                 *
-                 * Note, still we need to process devlink units below, as a devlink previously points to this
-                 * device may still exist and now point to another device node. That is, do not forget to
-                 * call device_setup_extra_units(). */
-                ;
-        else if (device_is_ready(dev)) {
-                /* Add the main unit named after the syspath. If this one fails, don't bother with the rest,
-                 * as this one shall be the main device unit the others just follow. (Compare with how
-                 * device_following() is implemented, see below, which looks for the sysfs device.) */
-                r = device_setup_unit(m, dev, syspath, &ready_units);
-                if (r < 0)
-                        return r;
-
-                /* Add an additional unit for the device node */
-                if (sd_device_get_devname(dev, &devname) >= 0)
-                        (void) device_setup_unit(m, dev, devname, &ready_units);
-
-        } else {
-                Unit *u;
-
-                /* If the device exists but not ready, then save the units and unset udev bits later. */
-
-                if (device_by_path(m, syspath, &u) >= 0) {
-                        r = set_ensure_put(&not_ready_units, NULL, DEVICE(u));
-                        if (r < 0)
-                                log_unit_debug_errno(u, r, "Failed to store unit, ignoring: %m");
-                }
-
-                if (sd_device_get_devname(dev, &devname) >= 0 &&
-                    device_by_path(m, devname, &u) >= 0) {
-                        r = set_ensure_put(&not_ready_units, NULL, DEVICE(u));
-                        if (r < 0)
-                                log_unit_debug_errno(u, r, "Failed to store unit, ignoring: %m");
-                }
-        }
-
-        /* Next, add/update additional .device units point to aliases and symlinks. */
-        (void) device_setup_extra_units(m, dev, &ready_units, &not_ready_units);
 
         /* Safety check: no unit should be in ready_units and not_ready_units simultaneously. */
         Unit *u;
