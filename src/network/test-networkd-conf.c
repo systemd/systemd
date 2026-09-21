@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "conf-parser.h"
+#include "dhcp6-option.h"
 #include "hexdecoct.h"
 #include "net-condition.h"
+#include "networkd-dhcp-common.h"
 #include "networkd-address.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -464,6 +466,29 @@ TEST(config_parse_multipath_route) {
         test_config_parse_multipath_route_one("@wg0 257", 0, 0); /* Weight > 256 */
         test_config_parse_multipath_route_one("@wg0 -1", 0, 0);  /* Negative */
         test_config_parse_multipath_route_one("@wg0 abc", 0, 0); /* Non-numeric */
+}
+
+TEST(config_parse_dhcp6_enterprise_identifier) {
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *options = NULL;
+        sd_dhcp6_option *option;
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "1:1:uint8:1", &options, NULL));
+        ASSERT_EQ(ordered_hashmap_size(options), 1u);
+        ASSERT_NOT_NULL(option = ordered_hashmap_first(options));
+        ASSERT_EQ(option->enterprise_identifier, 1u);
+
+        options = ordered_hashmap_free(options);
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "0:1:uint8:1", &options, NULL));
+        ASSERT_NULL(options);
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "4294967295:1:uint8:1", &options, NULL));
+        ASSERT_NULL(options);
 }
 
 TEST(config_parse_stacked_netdev) {
