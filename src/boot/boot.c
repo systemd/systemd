@@ -543,6 +543,12 @@ static bool menu_run(
                 if (new_mode) {
                         console_query_mode(&x_max, &y_max);
 
+                        if (y_max < 3) {
+                                log_error("Console mode has insufficient height for the boot menu.");
+                                action = ACTION_QUIT;
+                                break;
+                        }
+
                         /* account for padding+status */
                         visible_max = y_max - 2;
 
