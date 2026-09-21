@@ -14,6 +14,7 @@
 #include "dhcp6-option.h"
 #include "escape.h"
 #include "extract-word.h"
+#include "hash-funcs.h"
 #include "hexdecoct.h"
 #include "in-addr-prefix-util.h"
 #include "iovec-util.h"
@@ -742,6 +743,15 @@ int config_parse_dhcp6_user_or_vendor_class(
         }
 }
 
+DEFINE_PRIVATE_HASH_OPS_FULL(
+                dhcp6_vendor_option_hash_ops,
+                uint64_t,
+                uint64_hash_func,
+                uint64_compare_func,
+                free,
+                sd_dhcp6_option,
+                sd_dhcp6_option_unref);
+
 int config_parse_dhcp6_send_option(
                 const char *unit,
                 const char *filename,
@@ -755,7 +765,7 @@ int config_parse_dhcp6_send_option(
                 void *userdata) {
 
         _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *opt6 = NULL;
-        _unused_ _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *old6 = NULL;
+        _cleanup_free_ uint64_t *vendor_key = NULL;
         uint32_t uint32_data, enterprise_identifier = 0;
         _cleanup_free_ char *word = NULL, *q = NULL;
         OrderedHashmap **dhcp6_options = ASSERT_PTR(data);
@@ -765,6 +775,7 @@ int config_parse_dhcp6_send_option(
         uint8_t uint8_data;
         const void *udata;
         const char *p;
+        bool vendor_option;
         ssize_t sz;
         int r;
 
@@ -772,13 +783,15 @@ int config_parse_dhcp6_send_option(
         assert(lvalue);
         assert(rvalue);
 
+        vendor_option = streq(lvalue, "SendVendorOption");
+
         if (isempty(rvalue)) {
                 *dhcp6_options = ordered_hashmap_free(*dhcp6_options);
                 return 0;
         }
 
         p = rvalue;
-        if (streq(lvalue, "SendVendorOption")) {
+        if (vendor_option) {
                 r = extract_first_word(&p, &word, ":", 0);
                 if (r == -ENOMEM)
                         return log_oom();
@@ -930,13 +943,37 @@ int config_parse_dhcp6_send_option(
                 return 0;
         }
 
-        r = ordered_hashmap_ensure_allocated(dhcp6_options, &dhcp6_option_hash_ops);
+        if (vendor_option) {
+                vendor_key = new(uint64_t, 1);
+                if (!vendor_key)
+                        return log_oom();
+
+                *vendor_key = ((uint64_t) enterprise_identifier << 16) | u16;
+        }
+
+        r = ordered_hashmap_ensure_allocated(
+                        dhcp6_options,
+                        vendor_option ? &dhcp6_vendor_option_hash_ops : &dhcp6_option_hash_ops);
         if (r < 0)
                 return log_oom();
 
-        /* Overwrite existing option */
-        old6 = ordered_hashmap_get(*dhcp6_options, UINT_TO_PTR(u16));
-        r = ordered_hashmap_replace(*dhcp6_options, UINT_TO_PTR(u16), opt6);
+        if (vendor_option) {
+                sd_dhcp6_option *old6;
+
+                old6 = ordered_hashmap_get(*dhcp6_options, vendor_key);
+                if (old6) {
+                        r = ordered_hashmap_update(*dhcp6_options, vendor_key, opt6);
+                        if (r >= 0)
+                                sd_dhcp6_option_unref(old6);
+                } else
+                        r = ordered_hashmap_put(*dhcp6_options, TAKE_PTR(vendor_key), opt6);
+        } else {
+                /* SendOption uses the option code as key so later entries overwrite earlier ones. */
+                _unused_ _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *old6 = NULL;
+
+                old6 = ordered_hashmap_get(*dhcp6_options, UINT_TO_PTR(u16));
+                r = ordered_hashmap_replace(*dhcp6_options, UINT_TO_PTR(u16), opt6);
+        }
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
