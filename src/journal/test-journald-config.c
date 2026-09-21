@@ -160,4 +160,35 @@ TEST(config_forward_to_socket) {
         forward_to_socket_parse_check_fails("ahh yes sockets, mmh");
 }
 
+static void keep_free_parse_check(const char *str, uint64_t expected_keep_free, uint64_t expected_permyriad) {
+        JournalMetrics m = {};
+
+        ASSERT_OK(config_parse_journal_keep_free("", "", 0, "", 0, "SystemKeepFree", 0, str, &m, NULL));
+        ASSERT_EQ(expected_keep_free, m.keep_free);
+        ASSERT_EQ(expected_permyriad, m.keep_free_permyriad);
+}
+
+TEST(config_keep_free) {
+        /* Absolute sizes */
+        keep_free_parse_check("1K", 1024, 0);
+        keep_free_parse_check("1M", 1024 * 1024, 0);
+        keep_free_parse_check("1G", 1024 * 1024 * 1024, 0);
+
+        /* Percentages are stored verbatim as permyriad, to be converted
+         * to bytes once the file system size is known. */
+        keep_free_parse_check("1%", 0, 100);
+        keep_free_parse_check("21%", 0, 2100);
+        keep_free_parse_check("100%", 0, 10000);
+
+        /* Empty means "pick automatically" */
+        keep_free_parse_check("", UINT64_MAX, 0);
+        keep_free_parse_check(NULL, UINT64_MAX, 0);
+
+        /* Invalid input is rejected and leaves the metrics untouched */
+        JournalMetrics m = { .keep_free = 42, .keep_free_permyriad = 7 };
+        ASSERT_FAIL(config_parse_journal_keep_free("", "", 0, "", 0, "SystemKeepFree", 0, "blah", &m, NULL));
+        ASSERT_EQ(42, m.keep_free);
+        ASSERT_EQ(7, m.keep_free_permyriad);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
