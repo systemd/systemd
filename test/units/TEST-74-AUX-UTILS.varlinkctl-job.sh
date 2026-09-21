@@ -6,8 +6,8 @@ set -o pipefail
 # test io.systemd.Job
 varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Job
 
-# List with no jobs pending — should return empty with --more
-varlinkctl --more call /run/systemd/io.systemd.Manager io.systemd.Job.List '{}' --graceful=io.systemd.Job.NoSuchJob
+# Listing all jobs must succeed, whether jobs are pending or not
+varlinkctl --more call /run/systemd/io.systemd.Manager io.systemd.Job.List '{}'
 
 # Without --more and no filter, must fail (streaming required)
 (! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Job.List '{}')
@@ -22,10 +22,23 @@ varlinkctl --more call /run/systemd/io.systemd.Manager io.systemd.Job.List '{}' 
 
 at_exit() {
     systemctl stop varlink-test-job.service 2>/dev/null || true
+    systemctl stop "user@$(id -u testuser).service" 2>/dev/null || true
     rm -f /run/systemd/system/varlink-test-job.service
     systemctl daemon-reload
 }
 trap at_exit EXIT
+
+# An idle service manager has an empty job queue, which must be reported as an empty stream (i.e. just the
+# empty terminator reply) rather than as io.systemd.Job.NoSuchJob. PID 1 always has our own start job
+# queued, so use the (otherwise idle) user manager of testuser for this.
+TESTUSER_UID="$(id -u testuser)"
+systemctl start "user@$TESTUSER_UID.service"
+USER_MANAGER="/run/user/$TESTUSER_UID/systemd/io.systemd.Manager"
+timeout 60 bash -c "until varlinkctl --more call $USER_MANAGER io.systemd.Job.List '{}' | jq --seq --slurp -e '. == [{}]' >/dev/null; do sleep .5; done"
+# ...while lookups of specific jobs keep failing with NoSuchJob
+(! varlinkctl call "$USER_MANAGER" io.systemd.Job.List '{"id": 999999}' 2>/tmp/varlinkctl-job.err)
+grep "io.systemd.Job.NoSuchJob" /tmp/varlinkctl-job.err
+rm -f /tmp/varlinkctl-job.err
 
 # Create a job by starting a slow service, then test List/Cancel
 cat >/run/systemd/system/varlink-test-job.service <<UNIT

@@ -277,6 +277,18 @@ systemctl status fake-report-server-tls
 # Test the systemd-report-files@.service metric provider: files dropped into one
 # of the report.files directories are exposed verbatim as io.systemd.Files.*
 # metrics, keyed by their file name.
+
+# With no files to report, the provider has nothing to report. That must be an empty stream (just the empty
+# terminator reply) rather than an error, and systemd-report must not count the terminator as invalid metric.
+systemctl start systemd-report-files.socket
+if [[ -z "$(find /etc/systemd/report.files /run/systemd/report.files /var/lib/systemd/report.files \
+                 /usr/local/lib/systemd/report.files /usr/lib/systemd/report.files \
+                 -mindepth 1 -print -quit 2>/dev/null)" ]]; then
+    varlinkctl --more call /run/systemd/report/io.systemd.Files io.systemd.Metrics.List {} | \
+        jq --seq --slurp -e '. == [{}]' >/dev/null
+    "$REPORT" metrics io.systemd.Files
+fi
+
 mkdir -p /run/systemd/report.files
 REPORT_FILE_CONTENT="hello from the report files metric provider"
 printf '%s' "$REPORT_FILE_CONTENT" >/run/systemd/report.files/testreportfile

@@ -153,6 +153,7 @@ simple_tests += files(
         'test-memory-util.c',
         'test-mempool.c',
         'test-memstream-util.c',
+        'test-metrics.c',
         'test-mkdir.c',
         'test-modhex.c',
         'test-mountpoint-util.c',

@@ -159,7 +159,9 @@ int vl_method_list_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlin
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        r = sd_varlink_set_sentinel(link, VARLINK_ERROR_JOB_NO_SUCH_JOB);
+        /* An empty job queue is a normal state, not an error: complete with an empty stream then.
+         * NoSuchJob is reserved for lookups by id or unit above. */
+        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
         if (r < 0)
                 return r;
 
