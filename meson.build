@@ -2042,6 +2042,15 @@ endif
 #
 # For executables matched by the install-standalone list, a .standalone variant
 # will be installed if install is true.
+#
+# The 'symlink' field, if present, is a dictionary describing an alias name for the
+# executable (for multicall binaries dispatching on argv[0]):
+#   'name'        : (required) the name of the symlink.
+#   'install_dir' : where to install the symlink. Defaults to the install directory
+#                   of the executable.
+#   'dbus', 'public' : same meaning as for the executable itself, but for the alias.
+# The symlink is also created in the build directory, pointing to the executable in
+# the build directory, so that the alias can be invoked by tests and tools.
 executable_template = {
         'include_directories' : includes,
         'link_with' : [libshared],
@@ -2313,7 +2322,7 @@ foreach dict : executables
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs', 'link_args_static']
+                           'bpf_programs', 'link_args_static', 'symlink']
                         continue
                 endif
 
@@ -2455,6 +2464,68 @@ foreach dict : executables
                         endif
                         if dict.get('public', false)
                                 public_programs += exe_static
+                        endif
+                endif
+        endif
+
+        if 'symlink' in dict
+                symlink = dict['symlink']
+                symlink_name = symlink['name']
+
+                if install == 'static'
+                        exe_primary = exe_static
+                        build_by_default_primary = build_by_default_static
+                        install_primary = install_static
+                else
+                        exe_primary = exe
+                        build_by_default_primary = build_by_default_shared
+                        install_primary = install_shared
+                endif
+
+                # Build-directory alias, e.g. build/systemd-networkd → networkctl, allowing
+                # the alias to be be run from the build tree.
+                link = custom_target(
+                        symlink_name,
+                        output : symlink_name,
+                        command : [ln, '-fs', name, '@OUTPUT@'],
+                        depends : exe_primary,
+                        build_by_default : build_by_default_primary)
+
+                if build_by_default_primary
+                        if symlink.get('dbus', false)
+                                dbus_programs += link
+                        endif
+                        if symlink.get('public', false)
+                                public_programs += link
+                        endif
+                endif
+
+                if install_primary
+                        exe_install_dir = kwargs.get('install_dir', bindir)
+                        symlink_dir = symlink.get('install_dir', exe_install_dir)
+
+                        # The symlink gets the install tag of the executable: the one that was specified,
+                        # or 'runtime', which is what meson assigns to executables by default.
+                        symlink_kwargs = { 'install_tag' : kwargs.get('install_tag', 'runtime') }
+
+                        if symlink_dir == exe_install_dir
+                                install_symlink(symlink_name,
+                                                pointing_to : name,
+                                                install_dir : symlink_dir,
+                                                kwargs : symlink_kwargs)
+                        elif meson.version().version_compare('>=1.3.0')
+                                install_symlink(symlink_name,
+                                                pointing_to : fs.relative_to(exe_install_dir / name, symlink_dir),
+                                                install_dir : symlink_dir,
+                                                kwargs : symlink_kwargs)
+                        else
+                                # fs.relative_to() is not available before meson 1.3
+                                install_emptydir(symlink_dir, kwargs : symlink_kwargs)
+
+                                meson.add_install_script(sh, '-c',
+                                                         ln_s.format(exe_install_dir / name,
+                                                                     symlink_dir / symlink_name),
+                                                         kwargs : symlink_kwargs)
                         endif
                 endif
         endif
