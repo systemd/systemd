@@ -9,10 +9,8 @@ executables += [
                 'name' : 'systemd-fstab-generator',
                 'sources' : files('fstab-generator.c'),
                 'dependencies' : libmount_cflags,
+                'symlinks' : [
+                        { 'name' : 'systemd-sysroot-fstab-check', 'install_dir' : libexecdir },
+                ],
         },
 ]
-
-assert(libexecdir / fs.name(systemgeneratordir) == systemgeneratordir)
-install_symlink('systemd-sysroot-fstab-check',
-                pointing_to : fs.name(systemgeneratordir) / 'systemd-fstab-generator',
-                install_dir : libexecdir)

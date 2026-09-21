@@ -92,6 +92,11 @@ executables += [
                         'resolvectl.c',
                 ),
                 'import' : ['systemd-resolved'],
+                'symlinks' : [
+                        { 'name' : 'resolvconf', 'install_dir' : sbindir },
+                        # for backwards compatibility after rename
+                        { 'name' : 'systemd-resolve' },
+                ],
         },
         resolve_test_template + {
                 'sources' : files('test-resolve-tables.c'),
@@ -182,15 +187,6 @@ install_data('org.freedesktop.resolve1.policy',
              install_dir : polkitpolicydir)
 install_data('resolv.conf',
                 install_dir : libexecdir)
-
-install_symlink('resolvconf',
-                pointing_to : sbin_to_bin + 'resolvectl',
-                install_dir : sbindir)
-
-# symlink for backwards compatibility after rename
-install_symlink('systemd-resolve',
-                pointing_to : 'resolvectl',
-                install_dir : bindir)
 
 custom_target(
         input : 'resolved.conf.in',

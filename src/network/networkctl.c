@@ -3,6 +3,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "build.h"
 #include "dlopen-note.h"
 #include "log.h"
@@ -16,6 +17,7 @@
 #include "networkctl-lldp.h"
 #include "networkctl-misc.h"
 #include "networkctl-status-link.h"
+#include "networkd.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -42,6 +44,7 @@ COMMAND(
         "networkctl\0",
         "Query and control the networking subsystem.",
         .man_pages = "networkctl(1)\0",
+        .option_namespace = "networkctl",
         .pager_flags = &arg_pager_flags,
 );
 
@@ -80,7 +83,7 @@ VERB_SCOPE(, verb_unmask,                     "unmask",             "FILES...\0"
 VERB_SCOPE(, verb_persistent_storage,         "persistent-storage", "BOOL\0",          2,        2,        0,
            "Notify systemd-networkd if persistent storage is ready");
 
-VERB_COMMON_HELP_AUTO_HIDDEN();
+VERB_COMMON_HELP_AUTO_PROGRAM_HIDDEN("networkctl");
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
@@ -89,13 +92,15 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argv);
         assert(remaining_args);
 
-        OptionParser opts = { argc, argv };
+        OptionParser opts = { argc, argv, .namespace = "networkctl" };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
+                OPTION_NAMESPACE("networkctl"): {}
+
                 OPTION_COMMON_HELP:
-                        return command_print_help();
+                        return command_print_help_name("networkctl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -193,6 +198,9 @@ static int run(int argc, char* argv[]) {
 
         COMPRESS_JOURNAL_NOTE;
         LIBSELINUX_NOTE(recommended);
+
+        if (invoked_as(argv, "networkd"))
+                return run_networkd(argc, argv);
 
         log_setup();
 
