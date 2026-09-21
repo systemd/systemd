@@ -751,11 +751,10 @@ int config_parse_dhcp6_send_option(
                 const char *lvalue,
                 int ltype,
                 const char *rvalue,
-                void *data,
-                void *userdata) {
+        void *data,
+        void *userdata) {
 
         _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *opt6 = NULL;
-        _unused_ _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *old6 = NULL;
         uint32_t uint32_data, enterprise_identifier = 0;
         _cleanup_free_ char *word = NULL, *q = NULL;
         OrderedHashmap **dhcp6_options = ASSERT_PTR(data);
@@ -934,9 +933,7 @@ int config_parse_dhcp6_send_option(
         if (r < 0)
                 return log_oom();
 
-        /* Overwrite existing option */
-        old6 = ordered_hashmap_get(*dhcp6_options, UINT_TO_PTR(u16));
-        r = ordered_hashmap_replace(*dhcp6_options, UINT_TO_PTR(u16), opt6);
+        r = ordered_hashmap_put(*dhcp6_options, opt6, opt6);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);

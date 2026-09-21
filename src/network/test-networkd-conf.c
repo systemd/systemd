@@ -512,6 +512,29 @@ TEST(config_parse_dhcp6_vendor_option_range) {
         ASSERT_NULL(options);
 }
 
+TEST(config_parse_dhcp6_vendor_option_identity) {
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *options = NULL;
+        sd_dhcp6_option *option;
+        uint32_t enterprise_identifiers[2] = {};
+        size_t n = 0;
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "123:1:uint8:1", &options, NULL));
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 2, "section", 1, "SendVendorOption", 0,
+                          "456:1:uint8:2", &options, NULL));
+        ASSERT_EQ(ordered_hashmap_size(options), 2u);
+
+        ORDERED_HASHMAP_FOREACH(option, options)
+                assert_se(n < ELEMENTSOF(enterprise_identifiers) &&
+                          (enterprise_identifiers[n++] = option->enterprise_identifier));
+
+        ASSERT_EQ(n, 2u);
+        ASSERT_EQ(enterprise_identifiers[0], 123u);
+        ASSERT_EQ(enterprise_identifiers[1], 456u);
+}
+
 TEST(config_parse_stacked_netdev) {
         _cleanup_hashmap_free_ Hashmap *netdevs = NULL;
         ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VLAN", NETDEV_KIND_VLAN, "foo bar baz invalid:name", &netdevs, NULL));
