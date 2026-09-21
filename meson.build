@@ -128,7 +128,6 @@ endif
 prefixdir_noslash = '/' + prefixdir.strip('/')
 bindir = prefixdir / get_option('bindir')
 sbindir = prefixdir / (split_bin ? 'sbin' : 'bin')
-sbin_to_bin = split_bin ? '../bin/' : ''
 libdir = prefixdir / get_option('libdir')
 sysconfdir = prefixdir / get_option('sysconfdir')
 includedir = prefixdir / get_option('includedir')
