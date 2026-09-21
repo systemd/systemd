@@ -4,8 +4,8 @@
 #include "dhcp6-option.h"
 #include "hexdecoct.h"
 #include "net-condition.h"
-#include "networkd-dhcp-common.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-common.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-route.h"
@@ -510,6 +510,54 @@ TEST(config_parse_dhcp6_vendor_option_range) {
                           "network", "filename", 1, "section", 1, "SendVendorOption", 0,
                           "1:0:uint8:1", &options, NULL));
         ASSERT_NULL(options);
+}
+
+TEST(config_parse_dhcp6_vendor_option_identity) {
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *options = NULL;
+        sd_dhcp6_option *option;
+        uint32_t enterprise_identifiers[2] = {};
+        uint8_t values[2] = {};
+        size_t n = 0;
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "123:1:uint8:1", &options, NULL));
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 2, "section", 1, "SendVendorOption", 0,
+                          "123:1:uint8:3", &options, NULL));
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 2, "section", 1, "SendVendorOption", 0,
+                          "456:1:uint8:2", &options, NULL));
+        ASSERT_EQ(ordered_hashmap_size(options), 2u);
+
+        ORDERED_HASHMAP_FOREACH(option, options) {
+                ASSERT_LT(n, ELEMENTSOF(enterprise_identifiers));
+                enterprise_identifiers[n] = option->enterprise_identifier;
+                values[n] = *(uint8_t*) option->data;
+                n++;
+        }
+
+        ASSERT_EQ(n, 2u);
+        ASSERT_EQ(enterprise_identifiers[0], 123u);
+        ASSERT_EQ(enterprise_identifiers[1], 456u);
+        ASSERT_EQ(values[0], 3u);
+        ASSERT_EQ(values[1], 2u);
+}
+
+TEST(config_parse_dhcp6_send_option_override) {
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *options = NULL;
+        sd_dhcp6_option *option;
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendOption", 0,
+                          "42:uint8:1", &options, NULL));
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 2, "section", 1, "SendOption", 0,
+                          "42:uint8:2", &options, NULL));
+        ASSERT_EQ(ordered_hashmap_size(options), 1u);
+        ASSERT_NOT_NULL(option = ordered_hashmap_first(options));
+        ASSERT_EQ(option->option, 42u);
+        ASSERT_EQ(*(uint8_t*) option->data, 2u);
 }
 
 TEST(config_parse_stacked_netdev) {
