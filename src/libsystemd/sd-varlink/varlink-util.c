@@ -51,6 +51,15 @@ int varlink_get_peer_pidref(sd_varlink *v, PidRef *ret) {
         return 1; /* got pidfd securely */
 }
 
+bool varlink_is_foreign_peer(sd_varlink *v) {
+        assert(v);
+
+        /* Returns true if the peer runs in a PID namespace we cannot see and was accepted as 'nobody' because
+         * $SYSTEMD_VARLINK_ALLOW_FOREIGN_PEERS is set. Its identity is synthesized and must never be trusted. */
+
+        return v->foreign_peer;
+}
+
 int varlink_call_and_log(
                 sd_varlink *v,
                 const char *method,

@@ -6,6 +6,7 @@
 #include "forward.h"
 
 int varlink_get_peer_pidref(sd_varlink *v, PidRef *ret);
+bool varlink_is_foreign_peer(sd_varlink *v);
 
 int varlink_call_and_log(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters);
 int varlink_callb_and_log(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, ...);

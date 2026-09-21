@@ -2,6 +2,7 @@
 
 #include <poll.h>
 #include <stdlib.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -3005,6 +3006,12 @@ _public_ int sd_varlink_get_peer_pid(sd_varlink *v, pid_t *ret) {
 _public_ int sd_varlink_get_peer_pidfd(sd_varlink *v) {
         assert_return(v, -EINVAL);
 
+        /* SO_PEERPIDFD would happily hand us a pidfd for a process outside of our PID namespace. Never do
+         * that for foreign peers, so that anything authenticating via pidfd (polkit, unit lookups, …)
+         * fails closed with a permission error. */
+        if (v->foreign_peer)
+                return -EPERM;
+
         return json_stream_acquire_peer_pidfd(&v->stream);
 }
 
@@ -3316,17 +3323,51 @@ _public_ int sd_varlink_server_set_info(
         return 0;
 }
 
-static int validate_connection(sd_varlink_server *server, const struct ucred *ucred) {
+static bool varlink_allow_foreign_peers(void) {
+        static thread_local int cached = -1;
+        int r;
+
+        if (cached < 0) {
+                /* Opt-in only: by default peers from PID namespaces we cannot see are refused, as before. */
+                r = secure_getenv_bool("SYSTEMD_VARLINK_ALLOW_FOREIGN_PEERS");
+                if (r < 0 && r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_VARLINK_ALLOW_FOREIGN_PEERS environment variable, ignoring: %m");
+
+                cached = r > 0;
+        }
+
+        return cached;
+}
+
+static int peer_is_foreign(int fd) {
+        struct ucred u;
+        socklen_t n = sizeof(u);
+
+        /* Returns > 0 if the peer of the AF_UNIX socket runs in a PID namespace we cannot see (i.e. an
+         * ancestor or sibling one): the kernel then reports pid 0, but still a valid (possibly overflow) UID.
+         * Non-AF_UNIX or unconnected sockets report pid 0 with an invalid UID instead, and don't qualify. */
+
+        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &u, &n) < 0)
+                return -errno;
+        if (n != sizeof(u))
+                return -EIO;
+
+        return u.pid == 0 && uid_is_valid(u.uid);
+}
+
+static int validate_connection(sd_varlink_server *server, const struct ucred *ucred, bool foreign_peer) {
         int allowed = -1;
 
         assert(server);
         assert(ucred);
 
+        /* The 'nobody' identity of foreign peers is synthesized, never match it against real UIDs */
+
         if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_ROOT_ONLY))
-                allowed = ucred->uid == 0;
+                allowed = !foreign_peer && ucred->uid == 0;
 
         if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_MYSELF_ONLY))
-                allowed = allowed > 0 || ucred->uid == getuid();
+                allowed = allowed > 0 || (!foreign_peer && ucred->uid == getuid());
 
         if (allowed == 0) { /* Allow access when it is explicitly allowed or when neither
                              * VARLINK_SERVER_ROOT_ONLY nor VARLINK_SERVER_MYSELF_ONLY are specified. */
@@ -3396,16 +3437,36 @@ _public_ int sd_varlink_server_add_connection_pair(
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         struct ucred ucred = UCRED_INVALID;
-        bool ucred_acquired;
+        bool ucred_acquired, foreign_peer = false;
         int r;
 
         assert_return(server, -EINVAL);
         assert_return(input_fd >= 0, -EBADF);
         assert_return(output_fd >= 0, -EBADF);
 
+        if (!override_ucred && input_fd == output_fd && varlink_allow_foreign_peers()) {
+                r = peer_is_foreign(input_fd);
+                if (r < 0)
+                        return varlink_server_log_errno(server, r, "Failed to acquire peer credentials of incoming socket, refusing: %m");
+                if (r > 0) {
+                        /* The peer runs in a PID namespace we can't see. We were told to accept such peers,
+                         * but we can't authenticate them, so never trust the identity they carry: treat them
+                         * as 'nobody' with no PID, regardless of which checks this server does. */
+                        varlink_server_log(server, "Accepting peer from foreign PID namespace as unprivileged user 'nobody'.");
+                        ucred = (struct ucred) {
+                                .pid = 0,
+                                .uid = UID_NOBODY,
+                                .gid = GID_NOBODY,
+                        };
+                        foreign_peer = true;
+                }
+        }
+
         if ((server->flags & (SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY|SD_VARLINK_SERVER_ACCOUNT_UID)) != 0) {
 
-                if (override_ucred)
+                if (foreign_peer)
+                        ; /* Already synthesized above */
+                else if (override_ucred)
                         ucred = *override_ucred;
                 else {
                         if (input_fd != output_fd)
@@ -3418,13 +3479,15 @@ _public_ int sd_varlink_server_add_connection_pair(
 
                 ucred_acquired = true;
 
-                r = validate_connection(server, &ucred);
+                r = validate_connection(server, &ucred, foreign_peer);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         return -EPERM;
         } else
-                ucred_acquired = false;
+                /* Pin the synthesized identity even if this server doesn't check credentials itself, so that
+                 * later lookups by method handlers see 'nobody' too, rather than failing. */
+                ucred_acquired = foreign_peer;
 
         r = varlink_new(&v);
         if (r < 0)
@@ -3438,6 +3501,7 @@ _public_ int sd_varlink_server_add_connection_pair(
          * reference on the connection is left dangling. It will be dropped when the connection is closed,
          * which happens in varlink_close(), including in the event loop quit callback. */
         v->server = sd_varlink_server_ref(server);
+        v->foreign_peer = foreign_peer;
         sd_varlink_ref(v);
 
         if (ucred_acquired)

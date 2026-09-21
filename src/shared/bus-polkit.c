@@ -861,6 +861,17 @@ int varlink_verify_polkit_async_full(
         /* This is the same as bus_verify_polkit_async_full(), but authenticates the peer of a varlink
          * connection rather than the sender of a bus message. */
 
+        /* Peers from foreign PID namespaces carry a synthesized identity and have no pidfd, so they can
+         * neither be matched against users nor be authenticated by polkit. Refuse them before anything
+         * else, including on builds without polkit where POLKIT_DEFAULT_ALLOW would let them pass. */
+        if (varlink_is_foreign_peer(link)) {
+                log_debug("Peer is from a foreign PID namespace, refusing '%s'.", action);
+                if (!FLAGS_SET(flags, POLKIT_DONT_REPLY))
+                        (void) sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+                return -EPERM;
+        }
+
         r = varlink_check_good_user(link, good_user, &admin);
         if (r != 0) {
                 if (r > 0 && ret_admin)
