@@ -187,11 +187,11 @@ executables += [
         executable_template + {
                 'name' : 'networkctl',
                 'public' : true,
-                'symlink' : {
+                'symlinks' : [{
                         'name' : 'systemd-networkd',
                         'install_dir' : libexecdir,
                         'dbus' : true,
-                },
+                }],
                 'conditions' : ['ENABLE_NETWORKD'],
                 'sources' : networkctl_sources,
                 'export' : networkctl_export_sources,

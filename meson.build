@@ -2043,14 +2043,16 @@ endif
 # For executables matched by the install-standalone list, a .standalone variant
 # will be installed if install is true.
 #
-# The 'symlink' field, if present, is a dictionary describing an alias name for the
-# executable (for multicall binaries dispatching on argv[0]):
+# The 'symlinks' field, if present, is a list of dictionaries, each describing an alias
+# name for the executable (for multicall binaries dispatching on argv[0]):
 #   'name'        : (required) the name of the symlink.
 #   'install_dir' : where to install the symlink. Defaults to the install directory
 #                   of the executable.
+#   'conditions'  : a list of config options that must all be enabled for the symlink
+#                   to be created.
 #   'dbus', 'public' : same meaning as for the executable itself, but for the alias.
-# The symlink is also created in the build directory, pointing to the executable in
-# the build directory, so that the alias can be invoked by tests and tools.
+# The symlinks are also created in the build directory, pointing to the executable in
+# the build directory, so that the aliases can be invoked by tests and tools.
 executable_template = {
         'include_directories' : includes,
         'link_with' : [libshared],
@@ -2298,11 +2300,24 @@ foreach dict : executables
         is_test = name.startswith('test-')
         is_fuzz = name.startswith('fuzz-')
 
-        build = true
-        foreach cond : dict.get('conditions', [])
-                if conf.get(cond) != 1
-                        build = false
-                        break
+        # Check the conditions of the executable itself, and then of each of its symlinks
+        build = false
+        symlinks = []
+        first = true
+        foreach item : [dict] + dict.get('symlinks', [])
+                enabled = true
+                foreach cond : item.get('conditions', [])
+                        if conf.get(cond) != 1
+                                enabled = false
+                                break
+                        endif
+                endforeach
+
+                if first
+                        build = enabled
+                        first = false
+                elif enabled
+                        symlinks += [item]
                 endif
         endforeach
         if not build
@@ -2322,7 +2337,7 @@ foreach dict : executables
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs', 'link_args_static', 'symlink']
+                           'bpf_programs', 'link_args_static', 'symlinks']
                         continue
                 endif
 
@@ -2468,10 +2483,7 @@ foreach dict : executables
                 endif
         endif
 
-        if 'symlink' in dict
-                symlink = dict['symlink']
-                symlink_name = symlink['name']
-
+        if symlinks.length() > 0
                 if install == 'static'
                         exe_primary = exe_static
                         build_by_default_primary = build_by_default_static
@@ -2482,31 +2494,37 @@ foreach dict : executables
                         install_primary = install_shared
                 endif
 
-                # Build-directory alias, e.g. build/systemd-networkd → networkctl, allowing
-                # the alias to be be run from the build tree.
-                link = custom_target(
-                        symlink_name,
-                        output : symlink_name,
-                        command : [ln, '-fs', name, '@OUTPUT@'],
-                        depends : exe_primary,
-                        build_by_default : build_by_default_primary)
+                exe_install_dir = kwargs.get('install_dir', bindir)
+                # The symlinks get the same install tag of the executable: whatever was specified,
+                # or 'runtime', which meson assigns to executables by default.
+                symlink_kwargs = { 'install_tag' : kwargs.get('install_tag', 'runtime') }
 
-                if build_by_default_primary
-                        if symlink.get('dbus', false)
-                                dbus_programs += link
-                        endif
-                        if symlink.get('public', false)
-                                public_programs += link
-                        endif
-                endif
+                foreach symlink : symlinks
+                        symlink_name = symlink['name']
 
-                if install_primary
-                        exe_install_dir = kwargs.get('install_dir', bindir)
+                        # Build-directory alias, e.g. build/systemd-networkd → networkctl, allowing
+                        # the alias to be run from the build tree.
+                        link = custom_target(
+                                symlink_name,
+                                output : symlink_name,
+                                command : [ln, '-fs', name, '@OUTPUT@'],
+                                depends : exe_primary,
+                                build_by_default : build_by_default_primary)
+
+                        if build_by_default_primary
+                                if symlink.get('dbus', false)
+                                        dbus_programs += link
+                                endif
+                                if symlink.get('public', false)
+                                        public_programs += link
+                                endif
+                        endif
+
+                        if not install_primary
+                                continue
+                        endif
+
                         symlink_dir = symlink.get('install_dir', exe_install_dir)
-
-                        # The symlink gets the install tag of the executable: the one that was specified,
-                        # or 'runtime', which is what meson assigns to executables by default.
-                        symlink_kwargs = { 'install_tag' : kwargs.get('install_tag', 'runtime') }
 
                         if symlink_dir == exe_install_dir
                                 install_symlink(symlink_name,
@@ -2521,13 +2539,12 @@ foreach dict : executables
                         else
                                 # fs.relative_to() is not available before meson 1.3
                                 install_emptydir(symlink_dir, kwargs : symlink_kwargs)
-
                                 meson.add_install_script(sh, '-c',
                                                          ln_s.format(exe_install_dir / name,
                                                                      symlink_dir / symlink_name),
                                                          kwargs : symlink_kwargs)
                         endif
-                endif
+                endforeach
         endif
 
         if is_test
