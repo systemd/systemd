@@ -17,7 +17,11 @@ typedef struct JournalMetrics {
         uint64_t min_size;     /* how large journal files grow at least */
         uint64_t max_use;      /* how much disk space to use in total at max, keep_free permitting */
         uint64_t min_use;      /* how much disk space to use in total at least, even if keep_free says not to */
-        uint64_t keep_free;    /* how much to keep free on disk */
+        uint64_t keep_free;    /* how much to keep free on disk (bytes). Ignored if keep_free_permyriad is set */
+        uint64_t keep_free_permyriad; /* how much to keep free on disk, as a fraction of the file system
+                                       * size, in permyriad (10000 = 100%). 0 when unused. Mutually exclusive
+                                       * with keep_free above. Applied (converted to bytes) when the journal
+                                       * files are opened and the file system size is known. */
         uint64_t n_max_files;  /* how many files to keep around at max */
 } JournalMetrics;
 
