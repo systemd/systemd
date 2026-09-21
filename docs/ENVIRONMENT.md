@@ -786,6 +786,14 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 * `$SYSTEMD_SSH` – the ssh binary to invoke when the `ssh:` transport is
   used. May be a filename (which is searched for in `$PATH`) or absolute path.
 
+* `$SYSTEMD_VARLINK_ALLOW_FOREIGN_PEERS` – takes a boolean, defaults to false. If
+  true, Varlink servers that check peer credentials accept connections from
+  processes in a PID namespace they cannot see (e.g. a host process connecting
+  to a socket of a container's service manager via `/proc/<pid>/root/…`). Such
+  peers are always treated as the unprivileged user `nobody` and never get a
+  PID or pidfd, so they cannot pass root-only, UID or polkit checks. By default
+  such connections are refused.
+
 * `$SYSTEMD_VARLINK_LISTEN` – interpreted by some tools that provide a Varlink
   service. Takes a file system path: if specified the tool will listen on an
   `AF_UNIX` stream socket on the specified path in addition to whatever else it

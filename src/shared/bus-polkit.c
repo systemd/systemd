@@ -908,6 +908,16 @@ int varlink_verify_polkit_async_full(
                 }
         }
 
+        /* Peers we refuse to hand out a pidfd for (i.e. peers from foreign PID namespaces) can never be
+         * authenticated by polkit, so don't bother talking to it. */
+        r = sd_varlink_get_peer_pidfd(link);
+        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                if (!FLAGS_SET(flags, POLKIT_DONT_REPLY))
+                        (void) sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+                return r;
+        }
+
         _cleanup_(sd_bus_unrefp) sd_bus *mybus = NULL;
         if (!bus) {
                 r = sd_bus_open_system(&mybus);
