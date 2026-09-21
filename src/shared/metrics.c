@@ -104,7 +104,8 @@ int metrics_method_describe(
         if (r != 0)
                 return r;
 
-        r = sd_varlink_set_sentinel(link, "io.systemd.Metrics.NoSuchMetric");
+        /* Nothing to report is a normal state, not an error: complete with an empty stream then. */
+        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
         if (r < 0)
                 return r;
 
@@ -134,7 +135,8 @@ int metrics_method_list(
         if (r != 0)
                 return r;
 
-        r = sd_varlink_set_sentinel(link, "io.systemd.Metrics.NoSuchMetric");
+        /* Nothing to report is a normal state, not an error: complete with an empty stream then. */
+        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
         if (r < 0)
                 return r;
 

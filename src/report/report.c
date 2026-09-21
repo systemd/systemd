@@ -247,10 +247,17 @@ static int on_query_reply(
                 else if (streq(error_id, SD_VARLINK_ERROR_TIMEOUT))
                         log_warning("Varlink connection to '%s' timed out, ignoring.", li->name);
                 else if (streq(error_id, "io.systemd.Metrics.NoSuchMetric"))
+                        /* Older services report an empty set of metrics this way */
                         log_debug("Varlink connection to '%s' reported no more metrics, ignoring.", li->name);
                 else
                         log_warning("Varlink error from '%s', ignoring: %s", li->name, error_id);
 
+                goto finish;
+        }
+
+        /* An empty final reply terminates a stream that had nothing (more) to report */
+        if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES) && sd_json_variant_is_blank_object(parameters)) {
+                log_debug("Varlink connection to '%s' reported no more metrics.", li->name);
                 goto finish;
         }
 
