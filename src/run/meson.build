@@ -5,12 +5,11 @@ executables += [
                 'name' : 'systemd-run',
                 'public' : true,
                 'sources' : files('run.c', 'run-polkit.c'),
+                'symlinks' : [
+                        { 'name' : 'run0' },
+                ],
         },
 ]
-
-install_symlink('run0',
-                pointing_to : 'systemd-run',
-                install_dir : bindir)
 
 custom_target(
         input : 'systemd-run0.in',
