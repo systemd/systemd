@@ -4185,7 +4185,7 @@ DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_map_type, uint64_t);
 DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_prog_type, uint64_t);
 DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_attach_type, uint64_t);
 
-char* bpf_delegate_to_string(uint64_t u, const char * (*parser)(uint64_t) _const_ ) {
+char* bpf_delegate_to_string(uint64_t u, const char* (*parser)(uint64_t)) {
         assert(parser);
 
         if (u == UINT64_MAX)
