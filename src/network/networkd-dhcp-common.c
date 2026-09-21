@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <inttypes.h>
 #include <linux/if_arp.h>
 #include <linux/rtnetlink.h>
 #include <netinet/in.h>
@@ -1184,7 +1185,7 @@ int config_parse_dhcp_request_options(
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *n = NULL;
-                uint32_t i;
+                uint32_t i, max;
 
                 r = extract_first_word(&p, &n, NULL, 0);
                 if (r == -ENOMEM)
@@ -1205,9 +1206,11 @@ int config_parse_dhcp_request_options(
                         continue;
                 }
 
-                if (i < 1 || i >= UINT8_MAX) {
+                max = ltype == AF_INET ? UINT8_MAX - 1 : UINT16_MAX;
+                if (i < 1 || i > max) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "DHCP request option is invalid, valid range is 1-254, ignoring assignment: %s", n);
+                                   "DHCP request option is invalid, valid range is 1-%" PRIu32 ", ignoring assignment: %s",
+                                   max, n);
                         continue;
                 }
 
