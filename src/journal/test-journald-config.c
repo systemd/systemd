@@ -160,4 +160,52 @@ TEST(config_forward_to_socket) {
         forward_to_socket_parse_check_fails("ahh yes sockets, mmh");
 }
 
+static void keep_free_parse_check(const char *str, uint64_t expected_keep_free, uint64_t expected_permyriad) {
+        JournalMetrics m = {};
+
+        ASSERT_OK(config_parse_journal_keep_free("", "", 0, "", 0, "SystemKeepFree", 0, str, &m, NULL));
+        ASSERT_EQ(expected_keep_free, m.keep_free);
+        ASSERT_EQ(expected_permyriad, m.keep_free_permyriad);
+}
+
+TEST(config_keep_free) {
+        /* Absolute sizes */
+        keep_free_parse_check("1K", 1024, 0);
+        keep_free_parse_check("1M", 1024 * 1024, 0);
+        keep_free_parse_check("1G", 1024 * 1024 * 1024, 0);
+
+        /* Percentages are stored verbatim as permyriad, to be converted
+         * to bytes once the file system size is known. Boundary values. */
+        keep_free_parse_check("0%", 0, 0);
+        keep_free_parse_check("1%", 0, 100);
+        keep_free_parse_check("21%", 0, 2100);
+        keep_free_parse_check("100%", 0, 10000);
+
+        /* Empty means "pick automatically" */
+        keep_free_parse_check("", UINT64_MAX, 0);
+        keep_free_parse_check(NULL, UINT64_MAX, 0);
+
+        /* Invalid input is rejected and leaves the metrics untouched.
+         * The two fields are mutually exclusive: a percentage keeps the
+         * absolute byte field as-is. */
+        JournalMetrics m = { .keep_free = UINT64_C(42), .keep_free_permyriad = UINT64_C(7) };
+        ASSERT_EQ(0, config_parse_journal_keep_free("", "", 0, "", 0, "SystemKeepFree", 0, "blah", &m, NULL));
+        ASSERT_EQ(UINT64_C(42), m.keep_free);
+        ASSERT_EQ(UINT64_C(7), m.keep_free_permyriad);
+
+        /* A percentage must not clobber the absolute byte value (mutual
+         * exclusion), and vice versa. */
+        m.keep_free = UINT64_C(42);
+        m.keep_free_permyriad = UINT64_C(7);
+        ASSERT_EQ(0, config_parse_journal_keep_free("", "", 0, "", 0, "SystemKeepFree", 0, "5%", &m, NULL));
+        ASSERT_EQ(UINT64_C(42), m.keep_free);          /* untouched */
+        ASSERT_EQ(UINT64_C(500), m.keep_free_permyriad);
+
+        m.keep_free = UINT64_C(42);
+        m.keep_free_permyriad = UINT64_C(7);
+        ASSERT_EQ(0, config_parse_journal_keep_free("", "", 0, "", 0, "SystemKeepFree", 0, "1G", &m, NULL));
+        ASSERT_EQ(UINT64_C(1073741824), m.keep_free);
+        ASSERT_EQ(UINT64_C(0), m.keep_free_permyriad); /* cleared */
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
