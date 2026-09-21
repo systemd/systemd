@@ -3005,6 +3005,12 @@ _public_ int sd_varlink_get_peer_pid(sd_varlink *v, pid_t *ret) {
 _public_ int sd_varlink_get_peer_pidfd(sd_varlink *v) {
         assert_return(v, -EINVAL);
 
+        /* SO_PEERPIDFD would happily hand us a pidfd for a process outside of our PID namespace. Never do
+         * that for foreign peers, so that anything authenticating via pidfd (polkit, unit lookups, …)
+         * fails closed with a permission error. */
+        if (v->foreign_peer)
+                return -EPERM;
+
         return json_stream_acquire_peer_pidfd(&v->stream);
 }
 
@@ -3316,6 +3322,23 @@ _public_ int sd_varlink_server_set_info(
         return 0;
 }
 
+static bool varlink_server_allow_foreign_peers(void) {
+        static int cached = -1;
+
+        if (cached < 0) {
+                int r;
+
+                /* Opt-in only: by default peers from PID namespaces we cannot see are refused, as before. */
+                r = secure_getenv_bool("SYSTEMD_VARLINK_ALLOW_FOREIGN_PEERS");
+                if (r < 0 && r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_VARLINK_ALLOW_FOREIGN_PEERS, ignoring: %m");
+
+                cached = r > 0;
+        }
+
+        return cached;
+}
+
 static int validate_connection(sd_varlink_server *server, const struct ucred *ucred) {
         int allowed = -1;
 
@@ -3396,7 +3419,7 @@ _public_ int sd_varlink_server_add_connection_pair(
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         struct ucred ucred = UCRED_INVALID;
-        bool ucred_acquired;
+        bool ucred_acquired, foreign_peer = false;
         int r;
 
         assert_return(server, -EINVAL);
@@ -3412,7 +3435,19 @@ _public_ int sd_varlink_server_add_connection_pair(
                                 return varlink_server_log_errno(server, SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot determine peer identity of connection with separate input/output, refusing.");
 
                         r = getpeercred(input_fd, &ucred);
-                        if (r < 0)
+                        if (r == -ENODATA && varlink_server_allow_foreign_peers()) {
+                                /* The kernel could not translate the peer's PID into our PID namespace, i.e.
+                                 * the peer runs in an ancestor or sibling namespace. We were told to accept
+                                 * such peers, but we can't authenticate them, so never trust the identity
+                                 * they carry: treat them as 'nobody' with no PID. */
+                                varlink_server_log(server, "Accepting peer from foreign PID namespace as unprivileged user 'nobody'.");
+                                ucred = (struct ucred) {
+                                        .pid = 0,
+                                        .uid = UID_NOBODY,
+                                        .gid = GID_NOBODY,
+                                };
+                                foreign_peer = true;
+                        } else if (r < 0)
                                 return varlink_server_log_errno(server, r, "Failed to acquire peer credentials of incoming socket, refusing: %m");
                 }
 
@@ -3438,6 +3473,7 @@ _public_ int sd_varlink_server_add_connection_pair(
          * reference on the connection is left dangling. It will be dropped when the connection is closed,
          * which happens in varlink_close(), including in the event loop quit callback. */
         v->server = sd_varlink_server_ref(server);
+        v->foreign_peer = foreign_peer;
         sd_varlink_ref(v);
 
         if (ucred_acquired)
