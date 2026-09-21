@@ -4107,7 +4107,26 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                                     JOURNAL_FILE_SIZE_MIN,
                                     m->max_size ?: UINT64_MAX);
 
-        if (m->keep_free == UINT64_MAX) {
+        if (m->keep_free_permyriad > 0) {
+                /* SystemKeepFree=NN% was configured. Convert the fraction of the file
+                 * system size into bytes now that we know the size. This overrides
+                 * keep_free, and is not subject to the KEEP_FREE_UPPER cap: an
+                 * explicit percentage is an explicit request that must be honored
+                 * verbatim. */
+                if (fs_size > 0) {
+                        /* Multiplication first, then division, to keep as much
+                         * precision as possible. fs_size comes from statvfs() and
+                         * is bounded by the file system type, so this cannot
+                         * overflow in practice; if it ever did (u64_multiply_safe
+                         * returns 0), fall back to the default rather than
+                         * silently disabling the limit. */
+                        uint64_t keep = u64_multiply_safe(m->keep_free_permyriad, fs_size) / 10000;
+                        m->keep_free = keep > 0 ? PAGE_ALIGN_U64(keep) : DEFAULT_KEEP_FREE;
+                } else
+                        m->keep_free = DEFAULT_KEEP_FREE;
+
+                m->keep_free_permyriad = 0;
+        } else if (m->keep_free == UINT64_MAX) {
                 if (fs_size > 0)
                         m->keep_free = MIN(PAGE_ALIGN_U64(fs_size / 20), /* 5% of file system size */
                                            KEEP_FREE_UPPER);
@@ -4581,6 +4600,7 @@ bool journal_metrics_equal(const JournalMetrics *x, const JournalMetrics *y) {
                 x->max_use == y->max_use &&
                 x->min_use == y->min_use &&
                 x->keep_free == y->keep_free &&
+                x->keep_free_permyriad == y->keep_free_permyriad &&
                 x->n_max_files == y->n_max_files;
 }
 
