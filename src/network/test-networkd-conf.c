@@ -550,6 +550,18 @@ TEST(config_parse_dhcp_request_options) {
         ASSERT_NULL(network.dhcp6_request_options);
 }
 
+TEST(config_parse_dhcp6_send_option_maximum) {
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *options = NULL;
+        sd_dhcp6_option *option;
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendOption", 0,
+                          "65535:uint8:1", &options, NULL));
+        ASSERT_EQ(ordered_hashmap_size(options), 1u);
+        ASSERT_NOT_NULL(option = ordered_hashmap_first(options));
+        ASSERT_EQ(option->option, UINT16_MAX);
+}
+
 TEST(config_parse_stacked_netdev) {
         _cleanup_hashmap_free_ Hashmap *netdevs = NULL;
         ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VLAN", NETDEV_KIND_VLAN, "foo bar baz invalid:name", &netdevs, NULL));
