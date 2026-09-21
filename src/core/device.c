@@ -1239,42 +1239,36 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
 
         assert(m);
         assert(node);
-        assert(!FLAGS_SET(mask, DEVICE_FOUND_UDEV));
+        assert(IN_SET(mask, DEVICE_FOUND_MOUNT, DEVICE_FOUND_SWAP));
+        assert(found == mask || found == DEVICE_NOT_FOUND);
+
+        /* This is called whenever we find a device referenced in /proc/swaps or /proc/self/mounts. Such a
+         * device might be mounted/enabled at a time where udev has not finished probing it yet, and we thus
+         * haven't learned about it yet. In this case we will set the device unit to "tentative" state. */
 
         if (!udev_available())
                 return;
 
-        if (mask == 0)
+        if (found == DEVICE_NOT_FOUND) {
+                device_update_found_by_name(m, node, found, mask);
                 return;
-
-        /* This is called whenever we find a device referenced in /proc/swaps or /proc/self/mounts. Such a device might
-         * be mounted/enabled at a time where udev has not finished probing it yet, and we thus haven't learned about
-         * it yet. In this case we will set the device unit to "tentative" state.
-         *
-         * This takes a pair of DeviceFound flags parameters. The 'mask' parameter is a bit mask that indicates which
-         * bits of 'found' to copy into the per-device DeviceFound flags field. Thus, this function may be used to set
-         * and unset individual bits in a single call, while merging partially with previous state. */
-
-        if ((found & mask) != 0) {
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-
-                /* If the device is known in the kernel and newly appeared, then we'll create a device unit for it,
-                 * under the name referenced in /proc/swaps or /proc/self/mountinfo. But first, let's validate if
-                 * everything is alright with the device node. Note that we're fine with missing device nodes,
-                 * but not with badly set up ones. */
-
-                r = sd_device_new_from_devname(&dev, node);
-                if (r == -ENODEV)
-                        log_debug("Could not find device for %s, continuing without device node", node);
-                else if (r < 0) {
-                        /* Reduce log noise from nodes which are not device nodes by skipping EINVAL. */
-                        if (r != -EINVAL)
-                                log_error_errno(r, "Failed to open %s device, ignoring: %m", node);
-                        return;
-                }
-
-                (void) device_setup_unit(m, dev, node, NULL); /* 'dev' may be NULL. */
         }
+
+        /* If the device is known in the kernel and newly appeared, then we'll create a device unit for it,
+         * under the name referenced in /proc/swaps or /proc/self/mountinfo. But first, let's validate if
+         * everything is alright with the device node. Note that we're fine with missing device nodes, but
+         * not with badly set up ones. */
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        r = sd_device_new_from_devname(&dev, node);
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                log_debug("Could not find device for '%s', continuing without device node.", node);
+        else if (r == -EINVAL)
+                return; /* Not a device node. */
+        else if (r < 0)
+                return (void) log_warning_errno(r, "Failed to open device node '%s', ignoring: %m", node);
+
+        (void) device_setup_unit(m, dev, node, NULL); /* 'dev' may be NULL. */
 
         /* Update the device unit's state, should it exist */
         device_update_found_by_name(m, node, found, mask);
