@@ -491,6 +491,27 @@ TEST(config_parse_dhcp6_enterprise_identifier) {
         ASSERT_NULL(options);
 }
 
+TEST(config_parse_dhcp6_vendor_option_range) {
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *options = NULL;
+
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "1:254:uint8:1", &options, NULL));
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "1:255:uint8:1", &options, NULL));
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "1:65535:uint8:1", &options, NULL));
+        ASSERT_EQ(ordered_hashmap_size(options), 3u);
+
+        options = ordered_hashmap_free(options);
+        ASSERT_OK(config_parse_dhcp6_send_option(
+                          "network", "filename", 1, "section", 1, "SendVendorOption", 0,
+                          "1:0:uint8:1", &options, NULL));
+        ASSERT_NULL(options);
+}
+
 TEST(config_parse_stacked_netdev) {
         _cleanup_hashmap_free_ Hashmap *netdevs = NULL;
         ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VLAN", NETDEV_KIND_VLAN, "foo bar baz invalid:name", &netdevs, NULL));
