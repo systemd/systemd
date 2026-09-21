@@ -544,6 +544,32 @@ TEST(config_parse_dhcp6_vendor_option_identity) {
         ASSERT_EQ(values[1], 2u);
 }
 
+TEST(config_parse_dhcp_request_options) {
+        Network network = {};
+
+        ASSERT_OK(config_parse_dhcp_request_options(
+                          "network", "filename", 1, "section", 1, "RequestOptions", AF_INET,
+                          "254", &network.dhcp_request_options, &network));
+        ASSERT_TRUE(set_contains(network.dhcp_request_options, UINT32_TO_PTR(254)));
+
+        network.dhcp_request_options = set_free(network.dhcp_request_options);
+        ASSERT_OK(config_parse_dhcp_request_options(
+                          "network", "filename", 2, "section", 1, "RequestOptions", AF_INET,
+                          "255", &network.dhcp_request_options, &network));
+        ASSERT_NULL(network.dhcp_request_options);
+
+        ASSERT_OK(config_parse_dhcp_request_options(
+                          "network", "filename", 3, "section", 1, "RequestOptions", AF_INET6,
+                          "65535", &network.dhcp6_request_options, &network));
+        ASSERT_TRUE(set_contains(network.dhcp6_request_options, UINT32_TO_PTR(65535)));
+
+        network.dhcp6_request_options = set_free(network.dhcp6_request_options);
+        ASSERT_OK(config_parse_dhcp_request_options(
+                          "network", "filename", 4, "section", 1, "RequestOptions", AF_INET6,
+                          "65536", &network.dhcp6_request_options, &network));
+        ASSERT_NULL(network.dhcp6_request_options);
+}
+
 TEST(config_parse_stacked_netdev) {
         _cleanup_hashmap_free_ Hashmap *netdevs = NULL;
         ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VLAN", NETDEV_KIND_VLAN, "foo bar baz invalid:name", &netdevs, NULL));
