@@ -265,7 +265,7 @@ CHANGES WITH 262 in spe:
 
         * Varlink socket inodes are tagged with an
           user.varlink= xattr where supported, indicating whether they are
-          entrypoint, listener or accepted sockets. This
+          entrypoint, listener or accepted sockets.
 
         * varlinkctl gained a command list-sockets to discover all tagged local
           Varlink entrypoints.
