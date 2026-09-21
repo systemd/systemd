@@ -13,9 +13,14 @@ DTB_BASE64=0A3+7QAAAHMAAAA4AAAAZAAAACgAAAARAAAAEAAAAAAAAAALAAAALAAAAAAAAAAAAAAAA
 
 case "$REBOOT_COUNT" in
     0)
+        if [[ ! -x /usr/lib/systemd/systemd-pcrlock ]]; then
+            echo "systemd-pcrlock not found, skipping BLS DeviceTree measurement test" | tee --append /skipped
+            exit 77
+        fi
+
+        # This test explicitly requests UEFI and a TPM, so failures here must not be skipped.
         [[ -d /sys/firmware/efi ]]
         systemd-analyze has-tpm2
-        [[ -x /usr/lib/systemd/systemd-pcrlock ]]
         bootctl status | grep -F "Secure Boot: disabled" >/dev/null
 
         esp="$(bootctl --print-esp-path)"
