@@ -280,6 +280,20 @@
         <command>systemd-journald</command> will respect both limits
         and use the smaller of the two values.</para>
 
+        <para><varname>SystemKeepFree=</varname> and
+        <varname>RuntimeKeepFree=</varname> accept either a size in
+        bytes (optionally suffixed with the usual K, M, G, T, P, E
+        units) or a percentage of the size of the respective file
+        system, specified as a number suffixed with <literal>%</literal>
+        (e.g. <literal>10%</literal>, meaning "leave ten percent of
+        the file system free"). The percentage form tracks the file
+        system size automatically, and is useful where the amount of
+        space that should be kept free needs to scale with the size of
+        the file system (e.g. to stay above a fixed proportion that
+        the file system itself reserves). An explicitly configured
+        percentage is not subject to the 4G cap that applies to the
+        calculated defaults described below.</para>
+
         <para>The first pair defaults to 10% and the second to 15% of
         the size of the respective file system, but each of the calculated default values is
         capped to 4G. If the file system is nearly full and either
