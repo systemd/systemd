@@ -146,6 +146,7 @@ static EFI_STATUS read_gpt_entries(
 
 static EFI_STATUS try_gpt(
                 const EFI_GUID *type,
+                const EFI_GUID *preferred_uuid,
                 EFI_DISK_IO_PROTOCOL *disk_io,
                 uint32_t media_id,
                 uint32_t block_size,
@@ -163,6 +164,7 @@ static EFI_STATUS try_gpt(
         if (err != EFI_SUCCESS)
                 return err;
 
+        bool found = false;
         for (size_t i = 0; i < gpt.NumberOfPartitionEntries; i++) {
                 EFI_PARTITION_ENTRY *entry =
                                 (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.SizeOfPartitionEntry * i);
@@ -171,6 +173,12 @@ static EFI_STATUS try_gpt(
                         continue;
 
                 if (entry->EndingLBA < entry->StartingLBA) /* Bogus? */
+                        continue;
+
+                /* Prefer the partition we were loaded from if it has the requested type. Otherwise,
+                 * retain the first match, e.g. when looking for the ESP from an image on XBOOTLDR. */
+                bool preferred = preferred_uuid && efi_guid_equal(&entry->UniquePartitionGUID, preferred_uuid);
+                if (found && !preferred)
                         continue;
 
                 *ret_hd = (HARDDRIVE_DEVICE_PATH) {
@@ -187,8 +195,14 @@ static EFI_STATUS try_gpt(
                 };
                 memcpy(ret_hd->Signature, &entry->UniquePartitionGUID, sizeof(ret_hd->Signature));
 
-                return EFI_SUCCESS;
+                if (preferred || !preferred_uuid)
+                        return EFI_SUCCESS;
+
+                found = true;
         }
+
+        if (found)
+                return EFI_SUCCESS;
 
         /* This GPT was fully valid, but we didn't find what we are looking for. This
          * means there's no reason to check the second copy of the GPT header */
@@ -220,6 +234,9 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
                 log_debug("No hard drive device path node found.");
                 return EFI_NOT_FOUND;
         }
+
+        const HARDDRIVE_DEVICE_PATH *partition = (const HARDDRIVE_DEVICE_PATH *) part_node;
+        EFI_GUID partition_uuid = partition->SignatureGuid;
 
         /* Chop off the partition part, leaving us with the full path to the disk itself. */
         _cleanup_free_ EFI_DEVICE_PATH *disk_path = NULL;
@@ -271,7 +288,8 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
                         continue;
 
                 HARDDRIVE_DEVICE_PATH hd;
-                err = try_gpt(type, disk_io, block_io->Media->MediaId, block_io->Media->BlockSize, lba,
+                err = try_gpt(type, partition->SignatureType == SIGNATURE_TYPE_GUID ? &partition_uuid : NULL,
+                        disk_io, block_io->Media->MediaId, block_io->Media->BlockSize, lba,
                         nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
                         &hd);
                 if (err != EFI_SUCCESS) {
