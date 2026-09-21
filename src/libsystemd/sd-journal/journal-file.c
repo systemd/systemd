@@ -4107,7 +4107,19 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                                     JOURNAL_FILE_SIZE_MIN,
                                     m->max_size ?: UINT64_MAX);
 
-        if (m->keep_free == UINT64_MAX) {
+        if (m->keep_free_permyriad > 0) {
+                /* SystemKeepFree=NN% was configured. Convert the fraction of the file
+                 * system size into bytes now that we know the size. This overrides
+                 * keep_free (which must be zero in this case), and is not subject to
+                 * the KEEP_FREE_UPPER cap: an explicit percentage is an explicit
+                 * request that must be honored verbatim. */
+                if (fs_size > 0)
+                        m->keep_free = PAGE_ALIGN_U64(u64_multiply_safe(m->keep_free_permyriad, fs_size) / 10000);
+                else
+                        m->keep_free = DEFAULT_KEEP_FREE;
+
+                m->keep_free_permyriad = 0;
+        } else if (m->keep_free == UINT64_MAX) {
                 if (fs_size > 0)
                         m->keep_free = MIN(PAGE_ALIGN_U64(fs_size / 20), /* 5% of file system size */
                                            KEEP_FREE_UPPER);
@@ -4581,6 +4593,7 @@ bool journal_metrics_equal(const JournalMetrics *x, const JournalMetrics *y) {
                 x->max_use == y->max_use &&
                 x->min_use == y->min_use &&
                 x->keep_free == y->keep_free &&
+                x->keep_free_permyriad == y->keep_free_permyriad &&
                 x->n_max_files == y->n_max_files;
 }
 
