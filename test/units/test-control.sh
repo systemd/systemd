@@ -83,6 +83,7 @@ _show_summary() {(
 
 _record_subtest_rc() {
     local subtest="${1:?}" rc="${2:?}"
+    subtest="${subtest##*/}"
 
     if [[ $rc -eq $_SUBTEST_SKIP_RC ]]; then
         echo "Subtest $subtest skipped"
