@@ -2513,8 +2513,8 @@ static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
  * deviate slightly from our own names for the same modes (cf. confidential_computing_to_string()):
  * "sev-snp" vs. "amd-sev-snp", and "tdx" vs. "intel-tdx". */
 static const char* const coco_firmware_feature_table[_COCO_MAX] = {
-        [COCO_AMD_SEV_SNP] = "amd-sev-snp",
-        [COCO_INTEL_TDX]   = "intel-tdx",
+        [COCO_SEV_SNP] = "amd-sev-snp",
+        [COCO_TDX]     = "intel-tdx",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(coco_firmware_feature, ConfidentialComputing);
@@ -2760,11 +2760,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        if (arg_confidential_computing == COCO_AMD_SEV_SNP) {
+        if (arg_confidential_computing == COCO_SEV_SNP) {
                 r = qemu_config_key(config_file, "confidential-guest-support", "snp0");
                 if (r < 0)
                         return r;
-        } else if (arg_confidential_computing == COCO_INTEL_TDX) {
+        } else if (arg_confidential_computing == COCO_TDX) {
                 r = qemu_config_key(config_file, "confidential-guest-support", "tdx0");
                 if (r < 0)
                         return r;
@@ -2962,7 +2962,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        if (arg_confidential_computing == COCO_AMD_SEV_SNP) {
+        if (arg_confidential_computing == COCO_SEV_SNP) {
                 /* SNP marks encrypted guest pages via the "C-bit" in the page table entry. On all
                  * SNP-capable processors (Milan and later) the C-bit lives at bit 51, which reduces
                  * the usable guest physical address space by one bit.
@@ -2976,7 +2976,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         "kernel-hashes", "on");
                 if (r < 0)
                         return r;
-        } else if (arg_confidential_computing == COCO_INTEL_TDX) {
+        } else if (arg_confidential_computing == COCO_TDX) {
                 r = qemu_config_section(config_file, "object", "tdx0",
                                         "qom-type", "tdx-guest");
                 if (r < 0)
@@ -3036,9 +3036,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * CPU model. */
         const char *cpu_model =
 #ifdef __x86_64__
-                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4" :
-                arg_confidential_computing == COCO_INTEL_TDX   ? "host"    :
-                                                                 "max,hv_relaxed,hv-vapic,hv-time";
+                arg_confidential_computing == COCO_SEV_SNP ? "EPYC-v4" :
+                arg_confidential_computing == COCO_TDX     ? "host"    :
+                                                             "max,hv_relaxed,hv-vapic,hv-time";
 #else
                 "max";
 #endif
@@ -3616,7 +3616,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * /.extra/system_credentials/, so we keep this scoped to SNP for now. Non-SNP guests
          * continue to use the SMBIOS path below, which works with older systemd versions too.
          * Must run after all credential-mutating calls above so the cpio captures the complete set. */
-        bool use_initrd_cpio = arg_confidential_computing == COCO_AMD_SEV_SNP &&
+        bool use_initrd_cpio = arg_confidential_computing == COCO_SEV_SNP &&
                                arg_credentials.n_credentials > 0;
 
         _cleanup_(unlink_and_freep) char *credentials_cpio_path = NULL;
@@ -4225,7 +4225,7 @@ static int verify_arguments(void) {
                                                "confidential computing firmware is stateless. Use 'off' or 'auto'.");
         }
 
-        if (arg_confidential_computing == COCO_AMD_SEV_SNP) {
+        if (arg_confidential_computing == COCO_SEV_SNP) {
                 if (native_architecture() != ARCHITECTURE_X86_64)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "--coco=sev-snp is only supported on x86_64.");
@@ -4248,7 +4248,7 @@ static int verify_arguments(void) {
                                                "so kernel, initrd and cmdline are covered by the launch measurement.");
         }
 
-        if (arg_confidential_computing == COCO_INTEL_TDX) {
+        if (arg_confidential_computing == COCO_TDX) {
                 if (native_architecture() != ARCHITECTURE_X86_64)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "--coco=tdx is only supported on x86_64.");
