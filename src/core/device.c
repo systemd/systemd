@@ -661,31 +661,30 @@ static void device_upgrade_mount_deps(Unit *u) {
 }
 
 static int device_setup_unit(Manager *m, sd_device *dev, const char *path, Set **units) {
-        _cleanup_(unit_freep) Unit *new_unit = NULL;
-        _cleanup_free_ char *e = NULL;
-        const char *sysfs = NULL;
-        Unit *u;
         int r;
 
         assert(m);
         assert(path);
 
+        const char *sysfs = NULL;
         if (dev) {
                 r = sd_device_get_syspath(dev, &sysfs);
                 if (r < 0)
-                        return log_device_debug_errno(dev, r, "Couldn't get syspath from device, ignoring: %m");
+                        return log_device_debug_errno(dev, r, "Couldn't get syspath from device: %m");
         }
 
+        _cleanup_free_ char *e = NULL;
         r = unit_name_from_path(path, ".device", &e);
         if (r < 0)
                 return log_struct_errno(
                                 LOG_WARNING, r,
                                 LOG_MESSAGE_ID(SD_MESSAGE_DEVICE_PATH_NOT_SUITABLE_STR),
                                 LOG_ITEM("DEVICE=%s", path),
-                                LOG_MESSAGE("Failed to generate valid unit name from device path '%s', ignoring device: %m",
+                                LOG_MESSAGE("Failed to generate valid unit name from device path '%s': %m",
                                             path));
 
-        u = manager_get_unit(m, e);
+        _cleanup_(unit_freep) Unit *new_unit = NULL;
+        Unit *u = manager_get_unit(m, e);
         if (u) {
                 /* The device unit can still be present even if the device was unplugged: a mount unit can reference it
                  * hence preventing the GC to have garbaged it. That's desired since the device unit may have a
