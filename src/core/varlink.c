@@ -332,6 +332,8 @@ static int vl_method_subscribe_managed_oom_cgroups(
         assert(link);
 
         r = varlink_get_peer_pidref(link, &pidref);
+        if (ERRNO_IS_NEG_PRIVILEGE(r)) /* e.g. peer from a foreign PID namespace */
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
         if (r < 0)
                 return r;
 

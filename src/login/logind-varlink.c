@@ -7,6 +7,7 @@
 #include "bus-error.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
@@ -47,6 +48,12 @@ static int manager_varlink_get_session_by_peer(
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = varlink_get_peer_pidref(link, &pidref);
+        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                /* e.g. peer from a foreign PID namespace, which can't be part of any of our sessions */
+                log_debug_errno(r, "Peer PID not available, assuming no session: %m");
+                *ret = NULL;
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire peer PID: %m");
 

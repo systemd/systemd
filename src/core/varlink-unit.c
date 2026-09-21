@@ -9,6 +9,7 @@
 #include "cgroup.h"
 #include "condition.h"
 #include "dbus-job.h"
+#include "errno-util.h"
 #include "execute.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -479,6 +480,8 @@ static int lookup_unit_by_parameters(
                 Unit *pid_unit;
 
                 r = lookup_unit_by_pidref(link, manager, &p->pidref, &pid_unit);
+                if (ERRNO_IS_NEG_PRIVILEGE(r)) /* e.g. peer from a foreign PID namespace */
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
                 if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, "pid");
                 if (r == -ESRCH)

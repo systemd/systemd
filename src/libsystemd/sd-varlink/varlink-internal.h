@@ -117,6 +117,11 @@ typedef struct sd_varlink {
         sd_event_source *defer_event_source;
 
         PidRef exec_pidref;
+
+        /* Peer lives in a PID namespace we cannot see (e.g. a host process talking to a container). Only
+         * ever set if explicitly allowed via $SYSTEMD_VARLINK_ALLOW_FOREIGN_PEERS. Such peers are treated as
+         * 'nobody' and never get a PID/pidfd, so they cannot pass privilege or polkit checks. */
+        bool foreign_peer;
 } sd_varlink;
 
 typedef struct VarlinkServerSocket VarlinkServerSocket;
