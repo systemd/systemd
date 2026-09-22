@@ -63,6 +63,7 @@ jobs:
       pull-requests: write
 
     outputs:
+      skip: ${{ steps.context.outputs.skip }}
       pr_number: ${{ steps.context.outputs.pr_number }}
       comment_id: ${{ steps.context.outputs.comment_id }}
       head_sha: ${{ steps.context.outputs.head_sha }}
@@ -131,6 +132,21 @@ jobs:
               github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: prNumber, per_page: 100 }),
               github.paginate(github.rest.pulls.listReviewComments, { owner, repo, pull_number: prNumber, per_page: 100 }),
             ]);
+
+            /* A README.md that still carries the AI review notice has not been
+             * looked at by its author yet, so there is nothing to review. */
+            const readme = await github.rest.repos.getContent({
+              owner,
+              repo,
+              path: "README.md",
+              ref: pr.data.head.sha,
+            });
+            if (Buffer.from(readme.data.content, "base64").toString()
+                .includes("Remove this line to confirm you've reviewed this PR before submitting.")) {
+              console.log("README.md still carries the review notice, skipping.");
+              core.setOutput("skip", "true");
+              return;
+            }
 
             /* Find or create tracking comment. */
             const existing = issueComments.find((c) =>
@@ -201,6 +217,7 @@ jobs:
   review:
     runs-on: ubuntu-latest
     needs: setup
+    if: needs.setup.outputs.skip != 'true'
     timeout-minutes: 55
 
     permissions:
@@ -496,7 +513,7 @@ jobs:
     needs: [setup, review]
     # Run unless setup never started, so a setup that dies after creating the
     # tracking comment cannot strand the transient banner on the pull request.
-    if: always() && needs.setup.result != 'skipped'
+    if: always() && needs.setup.result != 'skipped' && needs.setup.outputs.skip != 'true'
 
     permissions:
       pull-requests: write
