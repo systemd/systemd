@@ -11,6 +11,7 @@
 #include "capability-util.h"
 #include "cgroup.h"
 #include "conf-parser.h"
+#include "cpu-set-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "hashmap.h"
@@ -472,6 +473,54 @@ TEST(config_parse_bind_paths) {
         ASSERT_FALSE(c.bind_mounts[2].ignore_enoent);
 
         exec_context_done(&c);
+}
+
+TEST(unit_patch_contexts_cpuset_partition) {
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(unit_freep) Unit *u = NULL;
+        CGroupContext *cc;
+        int r;
+
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new() failed");
+
+        ASSERT_OK(r);
+
+        ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
+        ASSERT_OK_ZERO(unit_add_name(u, "cpuset-partition.service"));
+        ASSERT_NOT_NULL(cc = unit_get_cgroup_context(u));
+
+        /* CPUSetPartition= without AllowedCPUs= is ignored. */
+        cc->cpuset_partition = CPUSET_PARTITION_ISOLATED;
+        ASSERT_OK(unit_patch_contexts(u));
+        ASSERT_EQ(cc->cpuset_partition, _CPUSET_PARTITION_INVALID);
+
+        /* With AllowedCPUs= set, the partition type is kept. */
+        ASSERT_OK(config_parse_unit_cpu_set(u->id, "fake", 1, "Service", 1,
+                                            "AllowedCPUs", 0, "1",
+                                            &cc->cpuset_cpus, u));
+        cc->cpuset_partition = CPUSET_PARTITION_ISOLATED;
+        ASSERT_OK(unit_patch_contexts(u));
+        ASSERT_EQ(cc->cpuset_partition, CPUSET_PARTITION_ISOLATED);
+
+        /* StartupAllowedCPUs= satisfies the requirement, too. */
+        cpu_set_done(&cc->cpuset_cpus);
+        ASSERT_OK(config_parse_unit_cpu_set(u->id, "fake", 2, "Service", 1,
+                                            "StartupAllowedCPUs", 0, "2",
+                                            &cc->startup_cpuset_cpus, u));
+        cc->cpuset_partition = CPUSET_PARTITION_ROOT;
+        ASSERT_OK(unit_patch_contexts(u));
+        ASSERT_EQ(cc->cpuset_partition, CPUSET_PARTITION_ROOT);
+
+        /* AllowedMemoryNodes= does not satisfy the requirement. */
+        cpu_set_done(&cc->startup_cpuset_cpus);
+        ASSERT_OK(config_parse_unit_cpu_set(u->id, "fake", 3, "Service", 1,
+                                            "AllowedMemoryNodes", 0, "0",
+                                            &cc->cpuset_mems, u));
+        cc->cpuset_partition = CPUSET_PARTITION_ROOT;
+        ASSERT_OK(unit_patch_contexts(u));
+        ASSERT_EQ(cc->cpuset_partition, _CPUSET_PARTITION_INVALID);
 }
 
 TEST(config_parse_log_extra_fields) {
