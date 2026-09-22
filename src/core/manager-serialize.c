@@ -157,7 +157,7 @@ int manager_serialize(
 
         (void) serialize_item(f, "previous-objective", manager_objective_to_string(m->objective));
         (void) serialize_item_format(f, "soft-reboots-count", "%u", m->soft_reboots_count);
-        (void) serialize_item_format(f, "kexecs-count", "%u", m->kexecs_count);
+        (void) serialize_item_format(f, "kexec-count", "%u", m->kexec_count);
         (void) serialize_item_format(f, "fd-store-upstream-next-index", "%" PRIu64, m->fd_store_upstream_next_index);
 
         for (ManagerTimestamp q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
@@ -805,13 +805,13 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse soft reboots counter '%s', ignoring.", val);
                         else
                                 m->soft_reboots_count = n;
-                } else if ((val = startswith(l, "kexecs-count="))) {
+                } else if ((val = STARTSWITH_SET(l, "kexec-count=", "kexecs-count="))) {
                         unsigned n;
 
                         if (safe_atou(val, &n) < 0)
-                                log_notice("Failed to parse kexecs counter '%s', ignoring.", val);
+                                log_notice("Failed to parse kexec counter '%s', ignoring.", val);
                         else
-                                m->kexecs_count = n;
+                                m->kexec_count = n;
                 } else if ((val = startswith(l, "fd-store-upstream-next-index="))) {
                         if (safe_atou64(val, &m->fd_store_upstream_next_index) < 0)
                                 log_notice("Failed to parse fd-store-upstream-next-index '%s', ignoring.", val);
