@@ -205,8 +205,8 @@ EFI_STATUS devicetree_match(const void *uki_dtb, size_t uki_dtb_length) {
         if (!fw_dtb)
                 return EFI_UNSUPPORTED;
 
-        const FdtHeader *fw_header = ASSERT_PTR(fw_dtb);
-        const char *fw_compat = devicetree_get_compatible(fw_dtb, be32toh(fw_header->total_size));
+        /* The firmware DTB table has no externally known length. */
+        const char *fw_compat = devicetree_get_compatible(fw_dtb, SIZE_MAX);
         if (!fw_compat)
                 return EFI_UNSUPPORTED;
 
