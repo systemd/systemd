@@ -341,7 +341,12 @@
         <filename>/efi</filename> (or <filename>/boot</filename> as fallback) in case a directory by this name exists
         and is empty.</para>
 
-        <para>Partitions encrypted with LUKS are automatically decrypted. Also, on GPT images dm-verity data integrity
+        <para>Partitions encrypted with LUKS are automatically decrypted, via a TPM2 token enrolled in the LUKS2
+        header if one matches the local TPM2 (this may be turned off via the
+        <varname>$SYSTEMD_DISSECT_TPM2_UNLOCK</varname> environment variable), or otherwise by prompting for a
+        passphrase. Unlocking via TPM2 requires privileges: when invoked unprivileged, images are mounted via
+        <citerefentry><refentrytitle>systemd-mountfsd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        which does not currently support it. Also, on GPT images dm-verity data integrity
         hash partitions are set up if the root hash for them is specified using the <option>--root-hash=</option>
         option.</para>
 
