@@ -791,7 +791,7 @@ static int apply_tags(void) {
 VERB(verb_get_or_set_tags, "tags", "[TAG …]\0", VERB_ANY, VERB_ANY, 0, "Get/set machine tags for host");
 static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
+        sd_bus *bus = userdata; /* NULL if --apply is used, see run() */
         int r;
 
         if (arg_apply) {
@@ -800,6 +800,8 @@ static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *u
 
                 return apply_tags();
         }
+
+        assert(bus);
 
         if (argc == 1) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -982,9 +984,16 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
-        if (r < 0)
-                return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
+        /* "tags --apply" talks to systemd-hostnamed via Varlink only, hence needs no D-Bus connection. This
+         * allows it to be used early during boot, before D-Bus is available. */
+        if (arg_apply) {
+                if (strv_isempty(args) || !streq(args[0], "tags"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--apply is only supported with the 'tags' command.");
+        } else {
+                r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
+                if (r < 0)
+                        return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
+        }
 
         return dispatch_verb(args, bus);
 }
