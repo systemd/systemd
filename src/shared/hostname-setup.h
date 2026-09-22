@@ -20,7 +20,9 @@ int read_etc_hostname_stream(FILE *f, bool substitute_wildcards, char **ret);
 int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret);
 
 void hostname_update_source_hint(const char *hostname, HostnameSource source);
-bool hostname_was_set_to_default(const char *hostname);
+/* Returns > 0 if the hostname is the default we recorded in /run earlier, 0 if not (or if no default was
+ * recorded), and a negative errno if the recorded value could not be read. */
+int hostname_matches_default(const char *hostname);
 int hostname_setup(bool really);
 
 int hostname_pick_word(sd_id128_t mid, size_t pos, char **ret);
