@@ -2625,6 +2625,50 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_apply_tags(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        context_read_machine_info(c);
+
+        _cleanup_strv_free_ char **current = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &current);
+        if (r < 0)
+                return r;
+
+        /* Apply the additions and removals declared in the tags.d/ configuration files on top of the current
+         * tags. */
+        _cleanup_strv_free_ char **tags = NULL;
+        r = machine_tags_apply_config(/* root= */ NULL, current, &tags);
+        if (r < 0)
+                return r;
+
+        if (strv_equal(tags, current))
+                return sd_varlink_reply(link, NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.hostname1.set-machine-info",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_store_tags(c, tags);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int connect_varlink(Context *c) {
         int r;
 
@@ -2657,6 +2701,7 @@ static int connect_varlink(Context *c) {
                         "io.systemd.Hostname.SetDeployment",     vl_method_set_deployment,
                         "io.systemd.Hostname.SetLocation",       vl_method_set_location,
                         "io.systemd.Hostname.SetTags",           vl_method_set_tags,
+                        "io.systemd.Hostname.ApplyTags",         vl_method_apply_tags,
                         "io.systemd.service.Ping",               varlink_method_ping,
                         "io.systemd.service.SetLogLevel",        varlink_method_set_log_level,
                         "io.systemd.service.GetLogLevel",        varlink_method_get_log_level,

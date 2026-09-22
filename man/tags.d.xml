@@ -1,0 +1,139 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="tags.d" conditional='ENABLE_HOSTNAMED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>tags.d</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>tags.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>tags.d</refname>
+    <refpurpose>Configure machine tags</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/tags.d/*.tags</filename></member>
+      <member><filename>/run/tags.d/*.tags</filename></member>
+      <member><filename>/usr/local/lib/tags.d/*.tags</filename></member>
+      <member><filename>/usr/lib/tags.d/*.tags</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The files in the above directories declare machine tags to be added or removed from the list of
+    tags in the <varname>TAGS=</varname> field of
+    <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    See that page for the details of how tags are defined and used.</para>
+
+    <para>Those files are read and applied by
+    <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    when requested via <command>hostnamectl tags --apply</command>, see
+    <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, or
+    directly via the <function>io.systemd.Hostname.ApplyTags()</function> call. The resulting tag list is
+    stored in <filename>/etc/machine-info</filename>, thus applying the same configuration repeatedly has no
+    further effect.</para>
+
+    <para>This allows OS vendors, image builders and system extensions (see
+    <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>) to
+    declare tags in a drop-in directory hierarchy, instead of setting them imperatively.</para>
+
+    <xi:include href="version-info.xml" xpointer="v263"/>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration Format</title>
+
+    <para>Each file contains a list of entries separated by whitespace (spaces, tabs, or newlines). Empty
+    lines and comments (lines starting with <literal>#</literal> or <literal>;</literal>) are ignored.
+    </para>
+
+    <para>An entry without prefix (or, equivalently, prefixed with <literal>+</literal>) adds a tag.  An
+    entry prefixed with <literal>-</literal> removes matching tags. The pattern may be a literal tag value,
+    or a shell-style glob, see
+    <citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    For example, <literal>-vendor.install.*</literal> removes all tags starting with
+    <literal>vendor.install.</literal>, <literal>-company.role=*</literal> removes any value assigned to the
+    <literal>company.role</literal> key, and <literal>-*</literal> removes all tags. Removing a tag that is
+    not set has no effect.</para>
+
+    <para>Entries are applied in the order they appear, across all files in the order described below. A tag
+    may hence be removed by a glob and added back by a later entry. When a parameterized tag
+    <literal><replaceable>key</replaceable>=<replaceable>value</replaceable></literal> is added and a
+    different value is already assigned to the same key, the previous assignment is replaced.</para>
+
+    <para>Each tag must be a valid machine tag, see
+    <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    the syntax. Invalid entries are ignored with a warning, and the remaining entries are still applied.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration Directories and Precedence</title>
+
+    <para>Configuration files are read from directories in <filename>/etc/</filename>,
+    <filename>/run/</filename>, <filename>/usr/local/lib/</filename>, and <filename>/usr/lib/</filename>, in
+    order of precedence, as listed in the SYNOPSIS section above. Files must have the
+    <literal>.tags</literal> extension. Files in <filename>/etc/</filename> override files with the same name
+    in <filename>/run/</filename>, <filename>/usr/local/lib/</filename>, and
+    <filename>/usr/lib/</filename>. Files in <filename>/run/</filename> override files with the same name
+    under <filename>/usr/</filename>.</para>
+
+    <para>All configuration files are sorted by their filename in lexicographic order, regardless of which of
+    the directories they reside in, following the usual semantics of systemd configuration files. Empty
+    files and symlinks to <filename>/dev/null</filename> mask files in directories with lower priority.
+    </para>
+
+    <para>Note that masking or removing a file only affects future applications of the configuration. Tags
+    that were applied earlier remain configured until they are removed explicitly, for example with a
+    <literal>-</literal> entry in another file, or with <command>hostnamectl tags</command>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>/usr/lib/tags.d/20-vendor.tags example:</title>
+
+      <programlisting># Tags declared by the OS vendor
+vendor.role=webserver
+vendor.env=production
+vendor.region=eu</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/tags.d/70-local.tags example:</title>
+
+      <programlisting># Drop the vendor's environment and region tags, but keep the role, and add a local tag
+-vendor.env=* -vendor.region=*
+local.rack=7</programlisting>
+    </example>
+
+    <para>After <command>hostnamectl tags --apply</command>, the configured tags include
+    <literal>local.rack=7</literal> and <literal>vendor.role=webserver</literal>, in addition to any tags
+    that were configured before.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
