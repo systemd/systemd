@@ -81,6 +81,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH    = 1 << 27, /* Allow interactive authorization when going through mountfsd */
         DISSECT_IMAGE_FOREIGN_UID               = 1 << 28, /* Request a foreign UID range mapping */
         DISSECT_IMAGE_IDENTITY_UID              = 1 << 29, /* Explicitly request an identity UID range mapping */
+        DISSECT_IMAGE_TPM2_UNLOCK               = 1 << 30, /* Try unlocking LUKS partitions via a TPM2 token enrolled in the LUKS2 header, before falling back to any supplied passphrase */
 } DissectImageFlags;
 
 typedef struct DissectedImage {
