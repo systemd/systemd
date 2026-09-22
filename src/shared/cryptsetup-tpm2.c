@@ -419,3 +419,165 @@ int find_tpm2_auto_data(
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support not available.");
 #endif
 }
+
+int cryptsetup_tpm2_unlock_auto(
+                struct crypt_device *cd,
+                const char *device,
+                int *ret_keyslot,
+                char **ret_passphrase) {
+
+#if HAVE_LIBCRYPTSETUP && HAVE_TPM2
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+        _cleanup_free_ char *auto_device = NULL;
+        bool found_some = false, signature_load_failed = false;
+        int r;
+
+        assert(cd);
+        assert(ret_keyslot);
+        assert(ret_passphrase);
+
+        /* Non-interactive, debug-logging-only counterpart to acquire_tpm2_key(), for use from library
+         * code. Walks all "systemd-tpm2" tokens in the LUKS2 header and returns the first one that unseals
+         * against the local TPM2, as the base64-encoded keyslot passphrase (which is how systemd-cryptenroll
+         * and systemd-repart enroll the sealed secret) plus the keyslot it belongs to. PIN-protected tokens
+         * are skipped, we never prompt. Returns -ENXIO if no token could be used. */
+
+        for (int token = 0;; token++) {
+                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+                _cleanup_(iovec_done_erase) struct iovec secret = {};
+                _cleanup_(erase_and_freep) char *b64 = NULL;
+                _cleanup_free_ char *pubkey_policy_ref = NULL;
+                struct iovec *blobs = NULL, *policy_hash = NULL;
+                size_t n_blobs = 0, n_policy_hash = 0;
+                uint32_t hash_pcr_mask, pubkey_pcr_mask;
+                uint16_t pcr_bank, primary_alg;
+                TPM2Flags flags;
+                int keyslot;
+
+                CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
+                CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
+
+                r = find_tpm2_auto_data(
+                                cd,
+                                UINT32_MAX,
+                                token,
+                                LOG_DEBUG,
+                                &hash_pcr_mask,
+                                &pcr_bank,
+                                &pubkey,
+                                &pubkey_policy_ref,
+                                &pubkey_pcr_mask,
+                                &primary_alg,
+                                &blobs,
+                                &n_blobs,
+                                &policy_hash,
+                                &n_policy_hash,
+                                &salt,
+                                &srk,
+                                &pcrlock_nv,
+                                &flags,
+                                &keyslot,
+                                &token,
+                                /* ret_argon2id_params= */ NULL);
+                if (r == -ENXIO) /* No (more) TPM2 tokens in the header */
+                        break;
+                if (r < 0)
+                        return r;
+
+                if (flags & (TPM2_FLAGS_USE_PIN|TPM2_FLAGS_USE_ARGON2ID)) {
+                        log_debug("TPM2 token %i requires a PIN (or Argon2id), skipping.", token);
+                        continue;
+                }
+
+                if (pubkey_pcr_mask != 0) {
+                        /* The signature file is the same for all tokens, hence load it only once, and don't
+                         * retry if that failed. */
+                        if (!signature_json && !signature_load_failed) {
+                                r = tpm2_load_pcr_signature(/* path= */ NULL, &signature_json);
+                                if (r == -ENOMEM)
+                                        return r;
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to load PCR signature, cannot use TPM2 tokens bound to a public key: %m");
+                                        signature_load_failed = true;
+                                }
+                        }
+                        if (!signature_json) {
+                                found_some = true;
+                                continue;
+                        }
+                }
+
+                if (FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK)) {
+                        r = tpm2_pcrlock_policy_load(/* path= */ NULL, &pcrlock_policy);
+                        if (r == 0) /* Not found? Then search among passed credentials */
+                                r = tpm2_pcrlock_policy_from_credentials(&srk, &pcrlock_nv, &pcrlock_policy);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to load pcrlock policy for TPM2 token %i, skipping: %m", token);
+                        else if (r == 0)
+                                log_debug("No pcrlock policy found for TPM2 token %i, skipping.", token);
+                        if (r <= 0) {
+                                found_some = true;
+                                continue;
+                        }
+                }
+
+                found_some = true;
+
+                /* Only talk to the TPM2 once we know there's a token we could actually use */
+                if (!tpm2_context) {
+                        if (!device) {
+                                r = tpm2_find_device_auto(&auto_device);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to find TPM2 device: %m");
+
+                                device = auto_device;
+                        }
+
+                        r = tpm2_context_new(device, &tpm2_context);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to create TPM2 context: %m");
+                }
+
+                r = tpm2_unseal(tpm2_context,
+                                hash_pcr_mask,
+                                pcr_bank,
+                                &pubkey,
+                                pubkey_policy_ref,
+                                pubkey_pcr_mask,
+                                signature_json,
+                                /* pin= */ NULL,
+                                FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
+                                primary_alg,
+                                blobs,
+                                n_blobs,
+                                policy_hash,
+                                n_policy_hash,
+                                &srk,
+                                &secret);
+                if (ERRNO_IS_NEG_TPM2_TOKEN_MISMATCH(r)) {
+                        log_debug_errno(r, "TPM2 token %i does not match current system state, skipping: %m", token);
+                        continue;
+                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to unseal secret using TPM2: %m");
+
+                /* The sealed secret is enrolled base64-encoded as keyslot passphrase, for compat with homed */
+                if (base64mem(secret.iov_base, secret.iov_len, &b64) < 0)
+                        return -ENOMEM;
+
+                *ret_keyslot = keyslot;
+                *ret_passphrase = TAKE_PTR(b64);
+                return 0;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
+                               found_some ? "No TPM2 token matching the current system state found in LUKS2 header."
+                                          : "No TPM2 token usable without user interaction enrolled in LUKS2 header.");
+#else
+        return -EOPNOTSUPP;
+#endif
+}

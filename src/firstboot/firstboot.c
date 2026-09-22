@@ -1736,6 +1736,7 @@ static int run(int argc, char *argv[]) {
         LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
         PASSWORD_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
