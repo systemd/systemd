@@ -1066,6 +1066,18 @@ test ! -e "/dev/disk/by-loop-ref/$name"
 systemd-dissect --detach "$MINIMAL_IMAGE.raw"
 (! systemd-dissect --detach "$MINIMAL_IMAGE.raw")
 
+# --attach --relax also works on images that do not qualify as DDI, e.g. an entirely blank one
+BLANK_IMAGE="$(mktemp /var/tmp/blankXXX.raw)"
+truncate -s 16M "$BLANK_IMAGE"
+(! systemd-dissect --attach "$BLANK_IMAGE")
+LOOP="$(systemd-dissect --attach --relax "$BLANK_IMAGE")"
+test -b "$LOOP"
+systemd-dissect --detach "$LOOP"
+rm -f "$BLANK_IMAGE"
+
+# --relax makes no sense for the other verbs
+(! systemd-dissect --relax "$MINIMAL_IMAGE.raw")
+
 # check for confext functionality
 mkdir -p /run/confexts/test/etc/extension-release.d
 echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.test
