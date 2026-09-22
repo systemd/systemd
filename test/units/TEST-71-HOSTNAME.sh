@@ -609,6 +609,11 @@ EOF
     hostnamectl tags --apply
     assert_eq "$(hostnamectl tags)" "local.rack=7:manual:role=b"
 
+    # The boot-time service applies the configuration as well.
+    echo "from-service" >/etc/machine-tags.d/86-service-test71.tags
+    systemctl restart systemd-machine-tags.service
+    assert_eq "$(hostnamectl tags)" "from-service:local.rack=7:manual:role=b"
+
     # "-*" resets the list.
     echo "-* fresh" >/etc/machine-tags.d/90-reset-test71.tags
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.ApplyTags '{}'
