@@ -152,7 +152,14 @@
 
         <para>When the OS image contains LUKS encrypted or Verity integrity protected file systems
         appropriate volumes are automatically set up and marked for automatic disassembly when the image is
-        unmounted.</para>
+        unmounted. LUKS volumes carrying a TPM2 token (as enrolled via the <option>--tpm2-device=</option>
+        option of
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
+        are unlocked via the local TPM2 automatically, before a passphrase is requested. This may be turned
+        off via the <varname>$SYSTEMD_DISSECT_TPM2_UNLOCK</varname> environment variable. Note that this
+        requires privileges: when invoked unprivileged, images are mounted via
+        <citerefentry><refentrytitle>systemd-mountfsd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        which does not currently support unlocking via TPM2.</para>
 
         <para>The OS image may either be specified as path to an OS image stored in a regular file or may
         refer to block device node (in the latter case, the block device must be the "whole" device, i.e. not

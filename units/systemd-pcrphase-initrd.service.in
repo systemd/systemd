@@ -13,7 +13,9 @@ Documentation=man:systemd-pcrphase-initrd.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target initrd-switch-root.target
 After=tpm2.target
-Before=sysinit.target cryptsetup-pre.target cryptsetup.target shutdown.target initrd-switch-root.target systemd-sysext.service
+Before=sysinit.target cryptsetup-pre.target cryptsetup.target shutdown.target initrd-switch-root.target
+# Extension images might be unlocked via TPM2 policies bound to the "enter-initrd" phase measured here
+Before=systemd-sysext-initrd.service systemd-confext-initrd.service
 ConditionPathExists=/etc/initrd-release
 ConditionSecurity=measured-os
 FailureAction=reboot-force
