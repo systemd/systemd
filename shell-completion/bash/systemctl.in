@@ -132,7 +132,7 @@ _systemctl () {
     local -A OPTS=(
         [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
                       --help -h --no-ask-password --no-block --legend=no --no-pager --no-reload --no-wall --now
-                      --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
+                      --quiet -q --system --user --version --runtime --vendor --recursive -r --firmware-setup
                       --show-types --plain --failed --value --fail --dry-run --wait --no-warn --with-dependencies
                       --show-transaction -T --mkdir --read-only --kernel-cmdline-reuse'
         [ARG]='--host -H --kill-whom --property -p -P --signal -s --type -t --state --job-mode --root
