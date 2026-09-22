@@ -641,8 +641,15 @@ class SystemdSbSign(SignTool):
 
 
 def parse_banks(s: str) -> list[str]:
-    banks = re.split(r',|\s+', s)
-    # TODO: do some sanity checking here
+    banks = [bank for bank in re.split(r'[,\s]+', s) if bank]
+
+    if not banks:
+        raise argparse.ArgumentTypeError('At least one PCR bank must be specified')
+
+    for bank in banks:
+        if bank.lower() not in {'sha1', 'sha256', 'sha384', 'sha512', 'sm3'}:
+            raise argparse.ArgumentTypeError(f'Unknown PCR bank {bank!r}')
+
     return banks
 
 
