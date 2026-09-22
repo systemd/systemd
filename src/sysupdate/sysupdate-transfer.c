@@ -23,6 +23,9 @@
 #include "hexdecoct.h"
 #include "install-file.h"
 #include "json-util.h"
+#include "iovec-util.h"
+#include "memfd-util.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "notify-recv.h"
 #include "parse-helpers.h"
@@ -32,6 +35,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "sha256.h"
 #include "signal-util.h"
 #include "specifier.h"
 #include "stdio-util.h"
@@ -1474,6 +1478,7 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
 static int run_callout(
                 const char *name,
                 char *cmdline[],
+                int stdin_fd,
                 const Transfer *transfer,
                 const Instance *instance,
                 TransferProgress callback,
@@ -1513,7 +1518,13 @@ static int run_callout(
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
-        r = pidref_safe_fork(ctx->name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &ctx->pid);
+        /* Optionally connect the helper's stdin to the specified fd, otherwise it inherits ours */
+        r = pidref_safe_fork_full(
+                        ctx->name,
+                        stdin_fd >= 0 ? (int[]) { stdin_fd, STDOUT_FILENO, STDERR_FILENO } : NULL,
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG|(stdin_fd >= 0 ? FORK_REARRANGE_STDIO : 0),
+                        &ctx->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork process %s: %m", ctx->name);
         if (r == 0) {
@@ -1642,8 +1653,174 @@ static bool transfer_zero_fill(const Transfer *t) {
         return partition_designator_is_verity_sig(t->target.partition_type.designator);
 }
 
-int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
+static int literal_to_memfd(const struct iovec *data) {
+
+        assert(data);
+
+        /* Places inline data from the manifest in a sealed memory file descriptor, which we can hand to
+         * systemd-import as standard input. */
+
+        _cleanup_close_ int fd = memfd_new_and_seal("sysupdate-literal", data->iov_base, data->iov_len);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to allocate memory file for inline data: %m");
+
+        if (lseek(fd, 0, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to rewind memory file: %m");
+
+        return TAKE_FD(fd);
+}
+
+static int transfer_acquire_source(
+                Transfer *t,
+                Instance *i,
+                const Uapi16Contents *s,
+                const char *compression,
+                TransferProgress cb,
+                void *userdata) {
+
+        _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ char *digest = NULL;
+        _cleanup_close_ int literal_fd = -EBADF;
+        const char *from, *to;
+        int r;
+
+        assert(t);
+        assert(i);
+        assert(s);
+        assert(compression);
+        assert(RESOURCE_IS_URL(i->resource->type));
+
+        /* Acquires a URL backed resource instance from one of its sources: either downloads it from the URL,
+         * or takes the literal data the manifest carries. We run everything through systemd-pull or
+         * systemd-import, so that decompression, sparse file handling and sandboxing are the same regardless
+         * of where the data comes from. The compression algorithm is passed down explicitly, so that the
+         * tools strictly decode with what the manifest declares, instead of guessing from the data. */
+
+        bool tar = i->resource->type == RESOURCE_URL_TAR;
+
+        if (s->url) {
+                /* We require the SHA256 sum to be known so that we can validate the download. */
+                if (!iovec_is_set(&s->encoded_sha256))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 checksum not known for download '%s', refusing.", s->url);
+
+                digest = hexmem(s->encoded_sha256.iov_base, s->encoded_sha256.iov_len);
+                if (!digest)
+                        return log_oom();
+
+                from = s->url;
+                r = strv_extend_many(
+                                &cmdline,
+                                SYSTEMD_PULL_PATH,
+                                tar ? "tar" : "raw",
+                                "--direct",          /* just download the specified URL, don't download anything else */
+                                "--verify", digest); /* validate by explicit SHA256 sum */
+        } else {
+                struct iovec data = s->literal;
+
+                assert(iovec_is_set(&data));
+
+                /* Literal data: check it against its digest right here, cut out the part that makes up the
+                 * file, and pass it to systemd-import via a memory file descriptor as standard input. */
+
+                if (iovec_is_set(&s->encoded_sha256) &&
+                    memcmp_nn(SHA256_DIRECT(data.iov_base, data.iov_len), SHA256_DIGEST_SIZE,
+                              s->encoded_sha256.iov_base, s->encoded_sha256.iov_len) != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Inline data of '%s' does not match its SHA256 digest, refusing.", i->path);
+
+                if (s->encoding) {
+                        /* Encoded data we cannot cut into, and leave decoding to the importer */
+                        if (s->offset != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Inline data of '%s' is encoded and carries more than the file, refusing.", i->path);
+                } else {
+                        if (s->offset > data.iov_len)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Inline data of '%s' is shorter than the offset of the file in it, refusing.", i->path);
+
+                        data = IOVEC_MAKE((uint8_t*) data.iov_base + s->offset, data.iov_len - s->offset);
+
+                        if (i->metadata.size != UINT64_MAX) {
+                                if (data.iov_len < i->metadata.size)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Inline data of '%s' is shorter than the file, refusing.", i->path);
+
+                                data.iov_len = i->metadata.size;
+                        }
+
+                        if (i->metadata.sha256sum_set &&
+                            memcmp_nn(SHA256_DIRECT(data.iov_base, data.iov_len), SHA256_DIGEST_SIZE,
+                                      i->metadata.sha256sum, sizeof(i->metadata.sha256sum)) != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Inline data of '%s' does not match the file's SHA256 digest, refusing.", i->path);
+                }
+
+                literal_fd = literal_to_memfd(&data);
+                if (literal_fd < 0)
+                        return literal_fd;
+
+                from = "-"; /* i.e. read from stdin */
+                r = strv_extend_many(
+                                &cmdline,
+                                SYSTEMD_IMPORT_PATH,
+                                tar ? "tar" : "raw",
+                                "--direct");         /* just copy/unpack the specified file, don't do anything else */
+        }
+        if (r < 0)
+                return log_oom();
+
+        r = strv_extendf(&cmdline, "--compression=%s", compression);
+        if (r < 0)
+                return log_oom();
+
+        if (s->encoding && i->metadata.sha256sum_set) {
+                /* The digests checked so far cover the encoded data only, hence let the tool also check the
+                 * decoded data against the file's digest */
+                _cleanup_free_ char *decoded_digest = hexmem(i->metadata.sha256sum, sizeof(i->metadata.sha256sum));
+                if (!decoded_digest)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "--verify-decoded=%s", decoded_digest);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = strv_extend(&cmdline, t->context->sync ? "--sync=yes" : "--sync=no");
+        if (r < 0)
+                return log_oom();
+
+        if (tar) {
+                assert(IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
+
+                r = strv_extend(&cmdline, t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no");
+                if (r < 0)
+                        return log_oom();
+
+                to = t->temporary_partial_path;
+
+        } else if (t->target.type == RESOURCE_PARTITION) {
+                r = strv_extendf(&cmdline, "--offset=%" PRIu64, t->partition_info.start);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "--size-max=%" PRIu64, t->partition_info.size);
+                if (r < 0)
+                        return log_oom();
+
+                to = t->target.path;
+
+        } else {
+                assert(t->target.type == RESOURCE_REGULAR_FILE);
+                to = t->temporary_partial_path;
+        }
+
+        r = strv_extend_many(&cmdline, from, to);
+        if (r < 0)
+                return log_oom();
+
+        return run_callout(
+                        s->url ? (tar ? "(sd-pull-tar)" : "(sd-pull-raw)") : (tar ? "(sd-import-tar)" : "(sd-import-raw)"),
+                        cmdline,
+                        literal_fd,
+                        t, i, cb, userdata);
+}
+
+int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
         char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
         const char *where = NULL;
         Instance *existing;
@@ -1718,18 +1895,6 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 
         log_info("%s Acquiring %s %s %s...", glyph(GLYPH_DOWNLOAD), i->path, glyph(GLYPH_ARROW_RIGHT), where);
 
-        if (RESOURCE_IS_URL(i->resource->type)) {
-                /* For URL sources we require the SHA256 sum to be known so that we can validate the
-                 * download. */
-
-                if (!i->metadata.sha256sum_set)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 checksum not known for download '%s', refusing.", i->path);
-
-                digest = hexmem(i->metadata.sha256sum, sizeof(i->metadata.sha256sum));
-                if (!digest)
-                        return log_oom();
-        }
-
         switch (i->resource->type) { /* Source */
 
         case RESOURCE_REGULAR_FILE:
@@ -1751,7 +1916,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->temporary_partial_path),
-                                        t, i, cb, userdata);
+                                        /* stdin_fd= */ -EBADF, t, i, cb, userdata);
                         break;
 
                 case RESOURCE_PARTITION:
@@ -1769,7 +1934,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->target.path),
-                                        t, i, cb, userdata);
+                                        /* stdin_fd= */ -EBADF, t, i, cb, userdata);
                         break;
 
                 default:
@@ -1793,7 +1958,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
                                        t->temporary_partial_path),
-                                t, i, cb, userdata);
+                                /* stdin_fd= */ -EBADF, t, i, cb, userdata);
                 break;
 
         case RESOURCE_TAR:
@@ -1810,68 +1975,43 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
                                        t->temporary_partial_path),
-                                t, i, cb, userdata);
+                                /* stdin_fd= */ -EBADF, t, i, cb, userdata);
                 break;
 
         case RESOURCE_URL_FILE:
-
-                switch (t->target.type) {
-
-                case RESOURCE_REGULAR_FILE:
-
-                        /* url file → regular file */
-
-                        r = run_callout("(sd-pull-raw)",
-                                       STRV_MAKE(
-                                               SYSTEMD_PULL_PATH,
-                                               "raw",
-                                               "--direct",          /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,  /* validate by explicit SHA256 sum */
-                                               t->context->sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->temporary_partial_path),
-                                        t, i, cb, userdata);
-                        break;
-
-                case RESOURCE_PARTITION:
-
-                        /* url file → partition */
-
-                        r = run_callout("(sd-pull-raw)",
-                                        STRV_MAKE(
-                                               SYSTEMD_PULL_PATH,
-                                               "raw",
-                                               "--direct",              /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,      /* validate by explicit SHA256 sum */
-                                               "--offset", offset,
-                                               "--size-max", max_size,
-                                               transfer_zero_fill(t) ? "--zero-fill=yes" : "--zero-fill=no",
-                                               t->context->sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->target.path),
-                                        t, i, cb, userdata);
-                        break;
-
-                default:
-                        assert_not_reached();
-                }
-
-                break;
-
         case RESOURCE_URL_TAR:
-                assert(IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
 
-                r = run_callout("(sd-pull-tar)",
-                                STRV_MAKE(
-                                       SYSTEMD_PULL_PATH,
-                                       "tar",
-                                       "--direct",          /* just download the specified URL, don't download anything else */
-                                       "--verify", digest,  /* validate by explicit SHA256 sum */
-                                       t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
-                                       t->context->sync ? "--sync=yes" : "--sync=no",
-                                       i->path,
-                                       t->temporary_partial_path),
-                                t, i, cb, userdata);
+                if (i->n_sources == 0) {
+                        /* The manifest lists no sources for the file, hence acquire it by its name relative
+                         * to the source URL. */
+                        Uapi16Contents fallback = UAPI16_CONTENTS_NULL;
+
+                        fallback.url = i->path;
+                        fallback.offset = 0;
+                        if (i->metadata.sha256sum_set)
+                                fallback.encoded_sha256 = IOVEC_MAKE(i->metadata.sha256sum, sizeof(i->metadata.sha256sum));
+
+                        /* For SHA256SUMS manifests we know nothing about the compression, hence let the tool
+                         * figure it out, and decompress implicitly. UAPI.16 manifests declare encodings
+                         * explicitly, via "contents", hence a file without it is to be taken as is: its
+                         * digest is the one of the file as stored. */
+                        r = transfer_acquire_source(
+                                        t, i, &fallback,
+                                        i->resource->manifest_format == MANIFEST_FORMAT_UAPI16 ? "none" : "auto",
+                                        cb, userdata);
+                } else
+                        /* The manifest lists one or more alternative sources for the file, try them in order
+                         * until one works out. The manifest declares the encoding of each source, hence
+                         * insist on it (or on none) and don't let the tools guess. */
+                        FOREACH_ARRAY(s, i->sources, i->n_sources) {
+                                r = transfer_acquire_source(t, i, s, s->encoding ?: "none", cb, userdata);
+                                if (r >= 0)
+                                        break;
+
+                                if (s + 1 < i->sources + i->n_sources)
+                                        log_warning_errno(r, "Failed to acquire '%s', trying alternative source: %m", i->path);
+                        }
+
                 break;
 
         default:

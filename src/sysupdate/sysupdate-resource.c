@@ -10,6 +10,7 @@
 #include "blockdev-util.h"
 #include "build-path.h"
 #include "chase.h"
+#include "compress.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
@@ -42,6 +43,7 @@
 #include "time-util.h"
 #include "manifest-util.h"
 #include "uapi16-manifest.h"
+#include "web-util.h"
 
 void resource_destroy(Resource *rr) {
         assert(rr);
@@ -676,6 +678,104 @@ static int instance_copy_uapi16(Instance *instance, const Uapi16Object *object) 
         return 0;
 }
 
+static bool uapi16_encoding_is_supported(const char *encoding) {
+        /* The compression algorithms systemd-pull and systemd-import can decode, by their canonical names,
+         * which is what we pass on to them via --compression= */
+        Compression c = compression_from_string(encoding);
+        return c >= 0 && c != COMPRESSION_NONE && compression_supported(c);
+}
+
+static int uapi16_object_resolve_sources(Resource *rr, Uapi16Object *o) {
+        size_t n = 0;
+        int r;
+
+        assert(rr);
+        assert(o);
+
+        /* Validates the "contents" array of a file object, i.e. the list of alternative sources the file may
+         * be acquired from. Resolves relative "file" references into absolute URLs, and drops entries we
+         * cannot make use of. Returns > 0 if the object is usable (i.e. at least one source remains, or none
+         * was listed to begin with, in which case the file is acquired by its name), and 0 if it shall be
+         * skipped. */
+
+        for (size_t k = 0; k < o->n_contents; k++) {
+                Uapi16Contents *c = o->contents + k;
+                bool usable = true;
+
+                if (c->file) {
+                        if (!uapi16_name_is_valid(c->file)) {
+                                log_warning("File '%s' refers to invalid file name '%s' in its contents, ignoring source.", o->name, c->file);
+                                usable = false;
+                        } else {
+                                /* "file" references are relative to the location of the manifest file itself */
+                                _cleanup_free_ char *url = NULL;
+                                if (rr->manifest_path)
+                                        r = import_url_change_last_component(rr->manifest_path, c->file, &url);
+                                else
+                                        r = import_url_append_component(rr->path, c->file, &url);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to build URL for '%s': %m", c->file);
+
+                                free_and_replace(c->url, url);
+                                c->file = mfree(c->file);
+                        }
+
+                } else if (c->url) {
+                        if (!http_url_is_valid(c->url) && !file_url_is_valid(c->url)) {
+                                log_warning("File '%s' refers to invalid URL '%s' in its contents, ignoring source.", o->name, c->url);
+                                usable = false;
+                        }
+
+                } else if (!iovec_is_set(&c->literal)) {
+                        log_warning("File '%s' has a contents entry without any source, ignoring it.", o->name);
+                        usable = false;
+                }
+
+                if (usable && c->encoding && !uapi16_encoding_is_supported(c->encoding)) {
+                        log_warning("File '%s' has a source with unsupported encoding '%s', ignoring source.", o->name, c->encoding);
+                        usable = false;
+                }
+
+                if (usable && c->url) {
+                        /* We can only download sources as a whole, i.e. the source must consist of the file
+                         * and nothing else. (Literal data we can cut the file out of, hence no such
+                         * restriction there.) */
+                        if (c->offset != 0 || (c->original_size != UINT64_MAX && c->original_size != o->size)) {
+                                log_warning("File '%s' is only a part of source '%s', partial downloads are not supported, ignoring source.", o->name, c->url);
+                                usable = false;
+                        } else if (!iovec_is_set(&c->encoded_sha256)) {
+                                /* Without the digest of the downloaded bytes we cannot verify the download. If
+                                 * the source is not encoded it is identical to the file though, and we can
+                                 * use the file's digest. */
+                                if (c->encoding) {
+                                        log_warning("File '%s' has an encoded source without SHA256 digest, ignoring source.", o->name);
+                                        usable = false;
+                                } else if (!iovec_memdup(&o->sha256, &c->encoded_sha256))
+                                        return log_oom();
+                        }
+                }
+
+                if (!usable) {
+                        uapi16_contents_done(c);
+                        continue;
+                }
+
+                /* Keep the array compact */
+                if (n != k)
+                        o->contents[n] = *c;
+                n++;
+        }
+
+        if (o->n_contents > 0 && n == 0) {
+                log_warning("File '%s' has no usable source, skipping.", o->name);
+                o->n_contents = 0;
+                return 0;
+        }
+
+        o->n_contents = n;
+        return 1;
+}
+
 static int uapi16_process(
                 Resource *rr,
                 const struct iovec *manifest) {
@@ -779,6 +879,12 @@ static int uapi16_process(
                         continue;
                 }
 
+                r = uapi16_object_resolve_sources(rr, &object);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 r = pattern_match_many(rr->patterns, object.name, &extracted_fields);
                 if (r < 0)
@@ -800,6 +906,11 @@ static int uapi16_process(
                 r = instance_copy_uapi16(instance, &object);
                 if (r < 0)
                         return r;
+
+                /* And take possession of the list of sources, we'll need it when acquiring the file */
+                instance->sources = TAKE_PTR(object.contents);
+                instance->n_sources = object.n_contents;
+                object.n_contents = 0;
         }
 
         if (n_objects == 0)
