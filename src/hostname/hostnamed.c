@@ -34,6 +34,7 @@
 #include "json-util.h"
 #include "label-util.h"
 #include "log.h"
+#include "machine-tags.h"
 #include "main-func.h"
 #include "nulstr-util.h"
 #include "os-util.h"
