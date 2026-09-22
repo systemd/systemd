@@ -557,6 +557,11 @@ units = [
           'conditions' : ['ENABLE_HOSTNAMED'],
         },
         {
+          'file' : 'systemd-machine-tags.service',
+          'conditions' : ['ENABLE_HOSTNAMED'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-machined.service.in',
           'conditions' : ['ENABLE_MACHINED'],
           'symlinks' : ['dbus-org.freedesktop.machine1.service'],
