@@ -19,6 +19,7 @@
 #include "options.h"
 #include "parse-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -26,6 +27,7 @@
 static int arg_ifindex = 0;
 static int arg_icmp6_type = 0;
 static union in_addr_union arg_dest = IN_ADDR_NULL;
+static union in_addr_union arg_source = IN_ADDR_NULL;
 static uint8_t arg_hop_limit = 0;
 static uint8_t arg_ra_flags = 0;
 static uint8_t arg_preference = false;
@@ -107,6 +109,15 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!in6_addr_is_link_local(&arg_dest.in6))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "The destination address %s is not a link-local address.", opts.arg);
+                        break;
+
+                OPTION('s', "source", "ADDRESS", "Source address"):
+                        r = in_addr_from_string(AF_INET6, opts.arg, &arg_source);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse source address: %m");
+                        if (!in6_addr_is_link_local(&arg_source.in6))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "The source address %s is not a link-local address.", opts.arg);
                         break;
 
                 OPTION_GROUP("Router Advertisement"): {}
@@ -382,6 +393,22 @@ static int run(int argc, char *argv[]) {
         fd = icmp6_bind(arg_ifindex, /* is_router= */ false);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to bind socket to interface: %m");
+
+        if (!in6_addr_is_null(&arg_source.in6)) {
+                /* Allow sending from an arbitrary (possibly spoofed and not locally assigned) link-local
+                 * source address, so that a single interface can emulate many distinct on-link senders. */
+                r = socket_set_freebind(fd, AF_INET6, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable IPV6_FREEBIND: %m");
+
+                union sockaddr_union sa = {
+                        .in6.sin6_family = AF_INET6,
+                        .in6.sin6_addr = arg_source.in6,
+                        .in6.sin6_scope_id = arg_ifindex,
+                };
+                if (bind(fd, &sa.sa, sizeof(sa.in6)) < 0)
+                        return log_error_errno(errno, "Failed to bind socket to source address: %m");
+        }
 
         switch (arg_icmp6_type) {
         case ND_ROUTER_SOLICIT:
