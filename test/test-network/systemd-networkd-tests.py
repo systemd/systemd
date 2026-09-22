@@ -9586,6 +9586,38 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         check_json(networkctl_json())
 
+    def test_dhcp_client_ipv4_rfc3021(self):
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-dhcp-server-veth-peer.network',
+            '25-dhcp-client-ipv4-use-routes-use-gateway.network',
+            copy_dropins=False,
+        )
+
+        start_networkd()
+        self.wait_online('veth-peer:carrier')
+        # The lower address of a /31 network is a valid host address, see RFC 3021. Announce a classless
+        # static route for a larger network whose base address is the same as the acquired address.
+        start_dnsmasq(
+            '--dhcp-host=12:34:56:78:9a:bc,192.168.5.0',
+            '--dhcp-option=option:classless-static-route,192.168.5.0/25,192.168.5.1',
+            ipv4_range='192.168.5.0,192.168.5.1,255.255.255.254',
+        )
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = check_output('ip -4 address show dev veth99')
+        print(output)
+        self.assertIn('inet 192.168.5.0/31', output)
+
+        output = check_output('ip -4 route show dev veth99')
+        print(output)
+        # The acquired address only shadows a host route to itself, hence the gateway must be honored.
+        self.assertIn('192.168.5.0/25 via 192.168.5.1 proto dhcp src 192.168.5.0 metric 1024', output)
+        self.assertIn('192.168.5.1 proto dhcp scope link src 192.168.5.0 metric 1024', output)
+        self.assertNotIn('192.168.5.0/25 proto dhcp scope host', output)
+
+        check_json(networkctl_json())
+
     def test_dhcp_client_settings_anonymize(self):
         copy_network_unit(
             '25-veth.netdev',
