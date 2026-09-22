@@ -46,6 +46,9 @@
     stored in <filename>/etc/machine-info</filename>, thus applying the same configuration repeatedly has no
     further effect.</para>
 
+    <para>During boot, the configuration is applied automatically by
+    <citerefentry><refentrytitle>systemd-machine-tags.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
     <para>This allows OS vendors, image builders and system extensions (see
     <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>) to
     declare tags in a drop-in directory hierarchy, instead of setting them imperatively.</para>
@@ -132,6 +135,7 @@ local.rack=7</programlisting>
       <member><citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-machine-tags.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
