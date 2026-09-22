@@ -543,6 +543,12 @@ static bool menu_run(
                 if (new_mode) {
                         console_query_mode(&x_max, &y_max);
 
+                        if (y_max < 3) {
+                                log_error("Console mode has insufficient height for the boot menu.");
+                                action = ACTION_RUN;
+                                break;
+                        }
+
                         /* account for padding+status */
                         visible_max = y_max - 2;
 
@@ -2958,6 +2964,12 @@ static EFI_STATUS call_image_start(
         _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
         bool boot_policy;
         if (entry->url) {
+                assert(entry->device);
+
+                err = open_volume(entry->device, &image_root);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error opening entry root path: %m");
+
                 /* Generate a device path that only contains the URL */
                 err = make_url_device_path(entry->url, &path);
                 if (err != EFI_SUCCESS)
