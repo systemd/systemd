@@ -716,6 +716,22 @@
         manifests are currently not verified. Defaults to <constant>sha256sums</constant>. This option has no
         effect for other source resource types.</para>
 
+        <para>If a file object of a UAPI.16 manifest carries a <literal>contents</literal> array, the file
+        is acquired from the sources listed there, instead of by its name relative to
+        <varname>Path=</varname>. Each entry is an alternative location of the same data, tried in the listed
+        order until one works: entries with a <literal>file</literal> field are downloaded from that
+        (relative) file name resolved against the location of the manifest file itself, entries with a
+        <literal>url</literal> field from that URL, and entries with a <literal>literal</literal> field carry
+        the data inline. The <literal>encoding</literal> field may be one of <literal>gzip</literal>,
+        <literal>xz</literal>, <literal>zstd</literal>, <literal>bzip2</literal> or <literal>lz4</literal>,
+        in which case the data is decompressed on acquisition. The declared encoding is binding: the data is
+        strictly decoded with that algorithm (or taken as is, if none is declared), no detection of the
+        compression format from the data takes place. Downloaded sources must consist of the file and nothing else (i.e.
+        <literal>offset</literal> must be zero and the size must match), and must carry their
+        <literal>encodedSha256</literal> digest unless they are not encoded, in which case the file's
+        <literal>sha256</literal> digest is used. Inline data may carry more than the file, the part
+        starting at <literal>offset</literal> is used then and checked against the file's digest.</para>
+
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
