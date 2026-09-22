@@ -185,6 +185,11 @@
         and <literal>ooo</literal>. The prefix applies to the whole argument, i.e. to every tag listed within
         it. Prefixed and unprefixed arguments may not be combined in a single invocation.</para>
 
+        <para>If <option>--apply</option> is specified, no <replaceable>TAG</replaceable> arguments may be
+        given. Instead, <filename>systemd-hostnamed</filename> is asked to apply the tag configuration
+        declared in the <filename>tags.d/</filename> directories, see
+        <citerefentry><refentrytitle>tags.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
         <para>Machine tags are short labels that may be used to classify and group machines for management
         purposes, for example to identify the role a machine plays in a deployment, the fleet or
         organizational unit it belongs to, or any other administrator-defined attribute. Each individual tag
@@ -228,6 +233,20 @@
         <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--apply</option></term>
+
+        <listitem><para>When used with <command>tags</command>, ask <filename>systemd-hostnamed</filename>
+        to apply the tag configuration from the <filename>tags.d/</filename> directories instead of setting
+        the tags specified on the command line. See
+        <citerefentry><refentrytitle>tags.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> and the
+        description of the <command>tags</command> command above.</para>
+
+        <para>When this option is used, tags to apply cannot be listed on the command line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
@@ -253,6 +272,7 @@
       <member><citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>tags.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
