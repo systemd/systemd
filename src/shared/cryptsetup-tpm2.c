@@ -297,6 +297,7 @@ int find_tpm2_auto_data(
                 struct crypt_device *cd,
                 uint32_t search_pcr_mask,
                 int start_token,
+                int log_level,
                 uint32_t *ret_hash_pcr_mask,
                 uint16_t *ret_pcr_bank,
                 struct iovec *ret_pubkey,
@@ -355,7 +356,7 @@ int find_tpm2_auto_data(
                 if (ERRNO_IS_NEG_CRYPTSETUP_TOKEN_SKIP(r))
                         continue;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read JSON token data off disk: %m");
+                        return log_full_errno(log_level, r, "Failed to read JSON token data off disk: %m");
 
                 r = tpm2_parse_luks2_json(
                                 v,
@@ -378,13 +379,16 @@ int find_tpm2_auto_data(
                 if (r == -EUCLEAN) /* Gracefully handle issues in JSON fields not owned by us */
                         continue;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse TPM2 JSON data: %m");
+                        return log_full_errno(log_level, r, "Failed to parse TPM2 JSON data: %m");
 
                 if (search_pcr_mask == UINT32_MAX ||
                     search_pcr_mask == hash_pcr_mask) {
 
                         if (start_token <= 0)
-                                log_info("Automatically discovered security TPM2 token unlocks volume.");
+                                /* Syslog priorities count the other way round: the higher the number, the
+                                 * less severe. Hence MAX() keeps this at LOG_INFO for callers passing
+                                 * LOG_ERR, and lowers it to LOG_DEBUG for callers requesting quiet operation. */
+                                log_full(MAX(log_level, LOG_INFO), "Automatically discovered security TPM2 token unlocks volume.");
 
                         *ret_hash_pcr_mask = hash_pcr_mask;
                         *ret_pcr_bank = pcr_bank;
@@ -410,8 +414,8 @@ int find_tpm2_auto_data(
                 /* PCR mask doesn't match what is configured, ignore this entry, let's see next */
         }
 
-        return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No valid TPM2 token data found.");
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(ENXIO), "No valid TPM2 token data found.");
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support not available.");
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support not available.");
 #endif
 }
