@@ -791,14 +791,17 @@ int raw_pull_start(
                 const char *local,
                 uint64_t offset,
                 uint64_t size_max,
+                Compression compression,
                 ImportFlags flags,
                 ImportVerify verify,
-                const struct iovec *checksum) {
+                const struct iovec *checksum,
+                const struct iovec *decoded_checksum) {
 
         int r;
 
         assert(p);
         assert(url);
+        assert(compression < _COMPRESSION_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert((verify < 0) || !iovec_is_set(checksum));
@@ -839,6 +842,8 @@ int raw_pull_start(
 
         p->raw_job->on_finished = raw_pull_job_on_finished;
         p->raw_job->on_open_disk = raw_pull_job_on_open_disk_raw;
+        p->raw_job->compression = compression;
+        import_digest_init(&p->raw_job->decoded_digest, decoded_checksum);
 
         if (iovec_is_set(checksum)) {
                 if (!iovec_memdup(checksum, &p->raw_job->expected_checksum))
