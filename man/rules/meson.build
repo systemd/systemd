@@ -1389,6 +1389,7 @@ manpages = [
  ['sysupdate.d', '5', [], 'ENABLE_SYSUPDATE'],
  ['sysupdate.features', '5', [], 'ENABLE_SYSUPDATE'],
  ['sysusers.d', '5', [], 'ENABLE_SYSUSERS'],
+ ['tags.d', '5', [], 'ENABLE_HOSTNAMED'],
  ['timedatectl', '1', [], 'ENABLE_TIMEDATECTL'],
  ['timesyncd.conf', '5', ['timesyncd.conf.d'], 'ENABLE_TIMESYNCD'],
  ['tmpfiles.d', '5', [], ''],

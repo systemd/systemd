@@ -179,7 +179,10 @@
           <varname>ConditionMachineTag=</varname> and <varname>AssertMachineTag=</varname> unit settings, see
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. They may be queried and changed with the <command>tags</command> command of
-          <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+          <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+          Tags may also be declared in <filename>tags.d/</filename> drop-in directories, see
+          <citerefentry><refentrytitle>tags.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and
+          applied with <command>hostnamectl tags --apply</command>.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
@@ -252,6 +255,7 @@ TAGS=room=kitchen:company.location=berlin:company.role=personal</programlisting>
         <member><citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>tags.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       </simplelist></para>
   </refsect1>
