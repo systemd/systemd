@@ -1558,8 +1558,11 @@ DeviceAllow=/dev/loop-control
           <para>Overrides the default memory pressure limit set by
           <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
           the cgroup of this unit. Takes a percentage value between 0% and 100%, inclusive. Defaults to 0%,
-          which means to use the default set by
-          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          which means to inherit the limit from the closest ancestor with
+          <varname>ManagedOOMMemoryPressure=</varname> set to <option>kill</option>.
+          If no such ancestor exists, the default set in
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          is used.
           This property is ignored unless <varname>ManagedOOMMemoryPressure=</varname><option>kill</option>.
           </para>
 
@@ -1577,8 +1580,11 @@ DeviceAllow=/dev/loop-control
           <literal>μs</literal>, see
           <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
           for details on the permitted syntax. Must be set to either empty or a value of at least 1s. Defaults
-          to empty, which means to use the default set by
-          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          to empty, which means to inherit the duration from the closest ancestor with
+          <varname>ManagedOOMMemoryPressure=</varname> set to <option>kill</option>.
+          If no such ancestor exists, the default set in
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          is used.
           This property is ignored unless <varname>ManagedOOMMemoryPressure=</varname><option>kill</option>.
           </para>
 
