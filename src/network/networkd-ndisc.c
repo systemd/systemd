@@ -44,6 +44,11 @@
 /* Neither defined in the RFC. Just for safety. Otherwise, malformed messages can make clients trigger OOM.
  * Not sure if the threshold is high enough. Let's adjust later if not. */
 #define NDISC_PREF64_MAX 64U
+/* Not defined in the RFC either, but let's cap the number of routers, routes, and addresses we accept per
+ * link, for safety. */
+#define NDISC_ROUTER_MAX 64U
+#define NDISC_ROUTE_MAX 512U
+#define NDISC_ADDRESS_MAX 64U
 
 static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t timestamp_usec);
 
@@ -491,6 +496,39 @@ static void ndisc_set_route_priority(Link *link, Route *route) {
         }
 }
 
+static size_t ndisc_route_count(Link *link) {
+        Route *route;
+        size_t n = 0;
+
+        assert(link);
+        assert(link->manager);
+
+        SET_FOREACH(route, link->manager->routes) {
+                if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+                if (!route_is_bound_to_link(route, link))
+                        continue;
+                n++;
+        }
+
+        return n;
+}
+
+static size_t ndisc_address_count(Link *link) {
+        Address *address;
+        size_t n = 0;
+
+        assert(link);
+
+        SET_FOREACH(address, link->addresses) {
+                if (address->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+                n++;
+        }
+
+        return n;
+}
+
 static int ndisc_request_route(Route *route, Link *link) {
         int r;
 
@@ -571,6 +609,12 @@ static int ndisc_request_route(Route *route, Link *link) {
         ndisc_set_route_priority(link, route);
 
         bool is_new = route_get(link->manager, route, NULL) < 0;
+
+        if (is_new && ndisc_route_count(link) >= NDISC_ROUTE_MAX) {
+                log_link_warning(link, "Too many NDisc routes per link (%u), ignoring route %s.",
+                                 NDISC_ROUTE_MAX, IN6_ADDR_PREFIX_TO_STRING(&route->dst.in6, route->dst_prefixlen));
+                return 0;
+        }
 
         r = link_request_route(link, route, &link->ndisc_messages, ndisc_route_handler);
         if (r < 0)
@@ -730,6 +774,12 @@ static int ndisc_request_address(Address *address, Link *link) {
                 /* Conflicting static address is configured?? */
                 log_link_debug(link, "Conflicting address %s exists, ignoring request.",
                                IN_ADDR_PREFIX_TO_STRING(existing->family, &existing->in_addr, existing->prefixlen));
+                return 0;
+        }
+
+        if (is_new && ndisc_address_count(link) >= NDISC_ADDRESS_MAX) {
+                log_link_warning(link, "Too many NDisc addresses per link (%u), ignoring address %s.",
+                                 NDISC_ADDRESS_MAX, IN6_ADDR_TO_STRING(&address->in_addr.in6));
                 return 0;
         }
 
@@ -1148,6 +1198,12 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
 
+        /* Only remembered routers may be used as a default gateway. If this sender was refused above because
+         * the per-link router limit was reached (see ndisc_remember_router()), don't install a default route
+         * or gateway routes for it. */
+        if (!hashmap_contains(link->ndisc_routers_by_sender, &gateway))
+                return 0;
+
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
@@ -1288,6 +1344,12 @@ static int ndisc_remember_router(Link *link, sd_ndisc_router *rt) {
         r = sd_ndisc_router_get_lifetime(rt, NULL);
         if (r <= 0)
                 return r;
+
+        if (hashmap_size(link->ndisc_routers_by_sender) >= NDISC_ROUTER_MAX) {
+                log_link_warning(link, "Too many routers remembered per link (%u), ignoring RA from %s.",
+                                 NDISC_ROUTER_MAX, IN6_ADDR_TO_STRING(&rt->packet->sender_address));
+                return 0;
+        }
 
         r = hashmap_ensure_put(&link->ndisc_routers_by_sender, &ndisc_router_hash_ops, &rt->packet->sender_address, rt);
         if (r < 0)
