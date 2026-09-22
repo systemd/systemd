@@ -206,6 +206,8 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
                                                                      * disk to the max */
         }
 
+        import_digest_update(&j->decoded_digest, p, sz);
+
         if (j->disk_fd >= 0) {
 
                 if (S_ISREG(j->disk_stat.st_mode) && j->offset == UINT64_MAX) {
@@ -301,6 +303,9 @@ static int pull_job_open_disk(PullJob *j) {
                 }
         }
 
+        /* Start from scratch, in case we are restarted */
+        import_digest_reset(&j->decoded_digest);
+
         if (j->calc_checksum) {
                 r = dlopen_libcrypto(LOG_ERR);
                 if (r < 0)
@@ -351,9 +356,9 @@ static int pull_job_complete(PullJob *j) {
          * the size and checksum, and finishes off the target file. Returns 0 like pull_job_finish(). */
 
         if (j->state == PULL_JOB_ANALYZING) {
-                /* When the transfer finished while we were still looking for a compression magic header
-                 * the content isn't compressed but should be written out as is. */
-                r = decompressor_force_off(&j->compress);
+                /* When the transfer finished while we were still looking for a compression magic header, use
+                 * the configured algorithm, or assume the content isn't compressed and write it out as is. */
+                r = decompressor_force(&j->compress, j->compression >= 0 ? j->compression : COMPRESSION_NONE);
                 if (r < 0)
                         return pull_job_finish(j, r);
 
@@ -401,6 +406,10 @@ static int pull_job_complete(PullJob *j) {
                     !iovec_equal(&j->checksum, &j->expected_checksum))
                         return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes."));
         }
+
+        r = import_digest_verify(&j->decoded_digest);
+        if (r < 0)
+                return pull_job_finish(j, r);
 
         if (j->disk_fd >= 0 && j->zero_fill) {
                 r = import_zero_fill(j->disk_fd, j->offset, j->uncompressed_max, j->written_uncompressed);
@@ -547,10 +556,45 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
         return pull_job_complete(j);
 }
 
+static bool pull_job_http_status_ok(PullJob *j) {
+        long status;
+
+        assert(j);
+
+        /* Returns false if this is an HTTP transfer and the response so far isn't a 2xx one */
+
+        if (!j->slot)
+                return true;
+
+        if (sym_curl_easy_getinfo(curl_slot_get_easy(j->slot), CURLINFO_RESPONSE_CODE, &status) != CURLE_OK)
+                return true;
+
+        return status == 0 || http_status_ok(status);
+}
+
 static int pull_job_detect_compression(PullJob *j) {
         int r;
 
         assert(j);
+
+        if (j->compression >= 0) {
+                /* The body of an HTTP error response (e.g. a 404 page) is not encoded with the algorithm we
+                 * expect, hence don't feed it into the decompressor, but drop it. The job will fail with the
+                 * HTTP error once the transfer finished. */
+                if (!pull_job_http_status_ok(j)) {
+                        iovec_done(&j->payload);
+                        return 0;
+                }
+
+                /* We were told which algorithm to expect, hence don't guess from the data, but strictly use
+                 * that one. */
+                r = decompressor_force(&j->compress, j->compression);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize decompressor: %m");
+
+                log_debug("Using configured compression: %s", compression_to_string(j->compression));
+                return pull_job_begin_running(j);
+        }
 
         r = decompressor_detect(&j->compress, j->payload.iov_base, j->payload.iov_len);
         if (r < 0)
@@ -804,6 +848,7 @@ int pull_job_new(
         *j = (PullJob) {
                 .state = PULL_JOB_INIT,
                 .disk_fd = -EBADF,
+                .compression = _COMPRESSION_INVALID,
                 .close_disk_fd = true,
                 .provider_fd = -EBADF,
                 .userdata = userdata,

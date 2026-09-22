@@ -693,13 +693,16 @@ int tar_pull_start(
                 TarPull *p,
                 const char *url,
                 const char *local,
+                Compression compression,
                 ImportFlags flags,
                 ImportVerify verify,
-                const struct iovec *checksum) {
+                const struct iovec *checksum,
+                const struct iovec *decoded_checksum) {
 
         int r;
 
         assert(p);
+        assert(compression < _COMPRESSION_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert((verify < 0) || !iovec_is_set(checksum));
@@ -738,6 +741,8 @@ int tar_pull_start(
 
         p->tar_job->on_finished = tar_pull_job_on_finished;
         p->tar_job->on_open_disk = tar_pull_job_on_open_disk_tar;
+        p->tar_job->compression = compression;
+        import_digest_init(&p->tar_job->decoded_digest, decoded_checksum);
 
         if (iovec_is_set(checksum)) {
                 if (!iovec_memdup(checksum, &p->tar_job->expected_checksum))
@@ -747,7 +752,9 @@ int tar_pull_start(
         } else
                 p->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
 
-        if (!FLAGS_SET(flags, IMPORT_DIRECT)) {
+        /* A previously downloaded image is neither keyed by the compression algorithm nor was it
+         * necessarily verified against the decoded digest, hence don't reuse it if either is requested. */
+        if (!FLAGS_SET(flags, IMPORT_DIRECT) && compression < 0 && !iovec_is_set(decoded_checksum)) {
                 r = pull_find_old_etags(url, p->image_root, DT_DIR, ".tar-", NULL, &p->tar_job->old_etags);
                 if (r < 0)
                         return r;

@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "compress.h"
 #include "forward.h"
+#include "sha256.h"
 
 typedef enum ImportFlags {
         /* Public Flags (i.e. accessible via D-Bus, must stay stable! */
@@ -52,3 +54,19 @@ int import_make_foreign_userns(int *userns_fd);
 int import_remove_tree(const char *path, int *userns_fd, ImportFlags flags);
 
 int import_zero_fill(int fd, uint64_t offset, uint64_t size_max, uint64_t skip);
+
+/* Optionally verifies the SHA256 digest of the decoded (i.e. decompressed) data stream, as opposed to the
+ * encoded data as downloaded */
+typedef struct ImportDigest {
+        bool enabled;
+        uint8_t expected[SHA256_DIGEST_SIZE];
+        struct sha256_ctx ctx;
+} ImportDigest;
+
+void import_digest_init(ImportDigest *d, const struct iovec *expected);
+void import_digest_reset(ImportDigest *d);
+void import_digest_update(ImportDigest *d, const void *p, size_t sz);
+int import_digest_verify(ImportDigest *d);
+
+int import_parse_sha256_argument(const char *option, const char *s, struct iovec *checksum);
+int import_parse_compression_argument(const char *option, const char *s, Compression *ret);

@@ -4,6 +4,8 @@
 #include <sys/stat.h>
 #include <sys/uio.h>
 
+#include "compress.h"
+#include "import-common.h"
 #include "pull-forward.h"
 
 typedef enum PullJobState {
@@ -68,6 +70,7 @@ typedef struct PullJob {
         usec_t mtime;
         char *content_type;
 
+        Compression compression; /* the algorithm to decompress with, or _COMPRESSION_INVALID to detect it from the data */
         Compressor *compress;
 
         unsigned progress_percent;
@@ -79,6 +82,8 @@ typedef struct PullJob {
 
         struct iovec checksum;
         struct iovec expected_checksum;
+
+        ImportDigest decoded_digest; /* digest of the decoded data, to verify if enabled */
 
         bool sync;
         bool force_memory;
