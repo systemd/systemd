@@ -56,6 +56,7 @@
 #include "list.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "manifest-util.h"
 #include "mkdir.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
@@ -73,6 +74,7 @@
 #include "resize-fs.h"
 #include "rm-rf.h"
 #include "set.h"
+#include "sha256.h"
 #include "sort-util.h"
 #include "specifier.h"
 #include "string-table.h"
@@ -84,6 +86,7 @@
 #include "tmpfile-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
+#include "uapi16-manifest.h"
 #include "utf8.h"
 #include "varlink-io.systemd.Repart.h"
 #include "varlink-util.h"
@@ -196,6 +199,15 @@ static char *arg_tpm2_public_key_policyref = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
 static char *arg_tpm2_pcrlock = NULL;
 static bool arg_split = false;
+static bool arg_manifest = false;
+static bool arg_manifest_gpt = false;
+static ManifestField arg_manifest_fields = _MANIFEST_FIELD_DEFAULT;
+static char *arg_manifest_private_key = NULL;
+static KeySourceType arg_manifest_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
+static char *arg_manifest_private_key_source = NULL;
+static char *arg_manifest_certificate = NULL;
+static CertificateSourceType arg_manifest_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
+static char *arg_manifest_certificate_source = NULL;
 static GptPartitionType *arg_filter_partitions = NULL;
 static size_t arg_n_filter_partitions = 0;
 static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
@@ -232,6 +244,10 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_manifest_private_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_manifest_private_key_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_manifest_certificate, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_manifest_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
@@ -562,6 +578,12 @@ typedef struct Partition {
         char *split_name_format;
         char *split_path;
 
+        char *manifest_name_format;
+        char *manifest_path;
+        bool manifest_linked;    /* Whether we created the file at manifest_path, and hence shall remove it on failure */
+        int manifest_fd;
+        char *manifest_tmp_path; /* Only set if O_TMPFILE is not available */
+
         PartitionMountPoint *mountpoints;
         size_t n_mountpoints;
 
@@ -605,6 +627,7 @@ struct Context {
         struct fdisk_context *fdisk_context;
         int fdisk_context_fd;
         uint64_t sector_size, grain_size, default_fs_sector_size;
+        sd_id128_t disk_uuid;
 
         sd_id128_t seed;
 
@@ -618,9 +641,15 @@ struct Context {
         bool from_scratch;
 
 #if HAVE_OPENSSL
+        /* For signing verity signature partitions */
         X509 *certificate;
         OpenSSLAskPasswordUI *ui;
         EVP_PKEY *private_key;
+
+        /* For signing UAPI.16 manifests */
+        X509 *manifest_certificate;
+        OpenSSLAskPasswordUI *manifest_ui;
+        EVP_PKEY *manifest_private_key;
 #endif
 
         bool defer_partitions_empty;
@@ -806,6 +835,7 @@ static Partition *partition_new(Context *c) {
                 .partno = UINT64_MAX,
                 .offset = UINT64_MAX,
                 .copy_blocks_fd = -EBADF,
+                .manifest_fd = -EBADF,
                 .copy_blocks_offset = UINT64_MAX,
                 .copy_blocks_size = UINT64_MAX,
                 .no_auto = -1,
@@ -891,6 +921,14 @@ static Partition* partition_free(Partition *p) {
 
         free(p->split_name_format);
         unlink_and_free(p->split_path);
+
+        free(p->manifest_name_format);
+        if (p->manifest_linked)
+                unlink_and_free(p->manifest_path);
+        else
+                free(p->manifest_path);
+        safe_close(p->manifest_fd);
+        unlink_and_free(p->manifest_tmp_path);
         partition_mountpoint_free_many(p->mountpoints, p->n_mountpoints);
         p->mountpoints = NULL;
         p->n_mountpoints = 0;
@@ -1067,6 +1105,11 @@ static Context* context_free(Context *context) {
         openssl_ask_password_ui_free(context->ui);
         if (context->private_key)
                 sym_EVP_PKEY_free(context->private_key);
+        if (context->manifest_certificate)
+                sym_X509_free(context->manifest_certificate);
+        openssl_ask_password_ui_free(context->manifest_ui);
+        if (context->manifest_private_key)
+                sym_EVP_PKEY_free(context->manifest_private_key);
 #endif
 
         context->link = sd_varlink_unref(context->link);
@@ -1082,8 +1125,10 @@ static void context_disarm_auto_removal(Context *context) {
         /* Make sure automatic removal of half-written artifacts is disarmed */
         context->node = mfree(context->node);
 
-        LIST_FOREACH(partitions, p, context->partitions)
+        LIST_FOREACH(partitions, p, context->partitions) {
                 p->split_path = mfree(p->split_path);
+                p->manifest_path = mfree(p->manifest_path);
+        }
 }
 
 static int context_add_free_area(
@@ -3174,6 +3219,7 @@ static int partition_read_definition(
                 { "Partition", "NoAuto",                   config_parse_tristate,          0,                                  &p->no_auto                 },
                 { "Partition", "GrowFileSystem",           config_parse_tristate,          0,                                  &p->growfs                  },
                 { "Partition", "SplitName",                config_parse_string,            0,                                  &p->split_name_format       },
+                { "Partition", "ManifestName",             config_parse_string,            0,                                  &p->manifest_name_format    },
                 { "Partition", "Minimize",                 config_parse_minimize,          0,                                  &p->minimize                },
                 { "Partition", "Subvolumes",               config_parse_subvolumes,        0,                                  &p->subvolumes              },
                 { "Partition", "DefaultSubvolume",         config_parse_default_subvolume, 0,                                  &p->default_subvolume       },
@@ -3422,6 +3468,15 @@ static int partition_read_definition(
                 p->split_name_format = s;
         } else if (streq(p->split_name_format, "-"))
                 p->split_name_format = mfree(p->split_name_format);
+
+        if (!p->manifest_name_format) {
+                char *s = strdup("%t");
+                if (!s)
+                        return log_oom();
+
+                p->manifest_name_format = s;
+        } else if (streq(p->manifest_name_format, "-"))
+                p->manifest_name_format = mfree(p->manifest_name_format);
 
         r = partition_finalize_fstype(p, path);
         if (r < 0)
@@ -3672,6 +3727,10 @@ static int context_copy_from_one(Context *context, const char *src) {
 
                 np->split_name_format = strdup("%t");
                 if (!np->split_name_format)
+                        return log_oom();
+
+                np->manifest_name_format = strdup("%t");
+                if (!np->manifest_name_format)
                         return log_oom();
 
                 /* Pass grain size of 1 to disable rounding by grain as we don't know the grain size
@@ -4368,6 +4427,7 @@ add_initial_free_area:
         context->start = first_lba;
         context->end = last_lba;
         context->total = nsectors;
+        context->disk_uuid = disk_uuid;
         context->sector_size = secsz;
         context->default_fs_sector_size = fs_secsz;
         context->grain_size = grainsz;
@@ -4424,6 +4484,7 @@ static void context_unload_partition_table(Context *context) {
         context->start = UINT64_MAX;
         context->end = UINT64_MAX;
         context->total = UINT64_MAX;
+        context->disk_uuid = SD_ID128_NULL;
 
         if (context->fdisk_context) {
                 sym_fdisk_unref_context(context->fdisk_context);
@@ -4506,8 +4567,8 @@ static int context_dump_partitions(Context *context) {
         _cleanup_(table_unrefp) Table *t = NULL;
         uint64_t sum_padding = 0, sum_size = 0;
         int r;
-        const size_t roothash_col = 14, dropin_files_col = 15, split_path_col = 16;
-        bool has_roothash = false, has_dropin_files = false, has_split_path = false;
+        const size_t roothash_col = 14, dropin_files_col = 15, split_path_col = 16, manifest_path_col = 17;
+        bool has_roothash = false, has_dropin_files = false, has_split_path = false, has_manifest_path = false;
 
         if (context->n_partitions == 0 && !sd_json_format_enabled(arg_json_format_flags)) {
                 log_info("Empty partition table.");
@@ -4530,7 +4591,8 @@ static int context_dump_partitions(Context *context) {
                       "activity",
                       "roothash",
                       "drop-in files",
-                      "split path");
+                      "split path",
+                      "manifest path");
         if (!t)
                 return log_oom();
 
@@ -4545,12 +4607,12 @@ static int context_dump_partitions(Context *context) {
                 if (!sd_json_format_enabled(arg_json_format_flags))
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
                                                     (size_t) 8, (size_t) 9, (size_t) 12, roothash_col, dropin_files_col,
-                                                    split_path_col);
+                                                    split_path_col, manifest_path_col);
                 else
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
                                                     (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 8, (size_t) 10,
                                                     (size_t) 11, (size_t) 13, roothash_col, dropin_files_col,
-                                                    split_path_col);
+                                                    split_path_col, manifest_path_col);
         }
 
         (void) table_set_align_percent(t, table_get_cell(t, 0, 3), 100);
@@ -4627,13 +4689,15 @@ static int context_dump_partitions(Context *context) {
                                 TABLE_STRING, activity ?: "unchanged",
                                 TABLE_STRING, rh,
                                 TABLE_STRV, p->drop_in_files,
-                                TABLE_STRING, empty_to_null(p->split_path) ?: "-");
+                                TABLE_STRING, empty_to_null(p->split_path) ?: "-",
+                                TABLE_STRING, empty_to_null(p->manifest_path) ?: "-");
                 if (r < 0)
                         return table_log_add_error(r);
 
                 has_roothash = has_roothash || !isempty(rh);
                 has_dropin_files = has_dropin_files || !strv_isempty(p->drop_in_files);
                 has_split_path = has_split_path || !isempty(p->split_path);
+                has_manifest_path = has_manifest_path || !isempty(p->manifest_path);
         }
 
         if (!sd_json_format_enabled(arg_json_format_flags) && (sum_padding > 0 || sum_size > 0)) {
@@ -4660,6 +4724,7 @@ static int context_dump_partitions(Context *context) {
                                 TABLE_EMPTY,
                                 TABLE_EMPTY,
                                 TABLE_EMPTY,
+                                TABLE_EMPTY,
                                 TABLE_EMPTY);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -4679,6 +4744,12 @@ static int context_dump_partitions(Context *context) {
 
         if (!has_split_path) {
                 r = table_hide_column_from_display(t, split_path_col);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set columns to display: %m");
+        }
+
+        if (!has_manifest_path) {
+                r = table_hide_column_from_display(t, manifest_path_col);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set columns to display: %m");
         }
@@ -7463,6 +7534,90 @@ static int do_make_validatefs_xattrs(const Partition *p, const char *root) {
         return 0;
 }
 
+static bool partition_wants_manifest(const Partition *p) {
+        assert(p);
+
+        return arg_manifest && p->manifest_name_format;
+}
+
+static int partition_manifest_prepare(Context *context, Partition *p) {
+        assert(context);
+        assert(p);
+
+        /* Sets up the temporary file we collect the manifest of the partition's file system tree in. This
+         * must happen in the parent process, since the tree might be populated in a forked off child (see
+         * partition_populate_filesystem()), which shall write into the very same file.
+         *
+         * The final name of the manifest is only known late (see manifest_name_resolve()), but its
+         * directory is the one of the image. Hence create the file there right-away, so that we can
+         * link it into place under its final name once we know it.
+         *
+         * The manifest is only generated when the final tree is populated, which happens exactly once per
+         * partition: for passes that just determine the minimal size (Minimize=guess) no manifest is
+         * generated. */
+
+        if (!partition_wants_manifest(p))
+                return 0;
+
+        assert(p->manifest_fd < 0);
+        assert(!p->manifest_tmp_path);
+
+        p->manifest_fd = open_tmpfile_linkable(context->node, O_RDWR|O_CLOEXEC, &p->manifest_tmp_path);
+        if (p->manifest_fd < 0)
+                return log_error_errno(p->manifest_fd, "Failed to create temporary file for manifest: %m");
+
+        return 0;
+}
+
+static int partition_manifest_write(Context *context, Partition *p, const char *root) {
+        int r;
+
+        assert(context);
+        assert(p);
+        assert(root);
+
+        /* Generates a UAPI.16 manifest of the (fully populated) file system tree at 'root' into the temporary
+         * file set up by partition_manifest_prepare(). Called from whichever process populated the tree. */
+
+        if (!partition_wants_manifest(p))
+                return 0;
+
+        assert(p->manifest_fd >= 0);
+
+        log_info("Generating manifest of %s filesystem.", p->format);
+
+        _cleanup_close_ int dir_fd = open(root, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (dir_fd < 0)
+                return log_error_errno(errno, "Failed to open populated tree '%s': %m", root);
+
+        _cleanup_close_ int dup_fd = fcntl(p->manifest_fd, F_DUPFD_CLOEXEC, 3);
+        if (dup_fd < 0)
+                return log_error_errno(errno, "Failed to duplicate manifest file descriptor: %m");
+
+        _cleanup_fclose_ FILE *f = take_fdopen(&dup_fd, "w");
+        if (!f)
+                return log_error_errno(errno, "Failed to allocate FILE object for manifest: %m");
+
+        _cleanup_(manifest_context_done) ManifestContext c = MANIFEST_CONTEXT_NULL;
+        c.format = MANIFEST_FORMAT_UAPI16;
+        c.fields = arg_manifest_fields;
+        c.output = f;
+#if HAVE_OPENSSL
+        c.certificate = context->manifest_certificate;
+        c.private_key = context->manifest_private_key;
+#endif
+
+        r = manifest_make(&c, dir_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate manifest: %m");
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write manifest: %m");
+
+        return 0;
+}
+
 static int partition_populate_directory(Context *context, Partition *p, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         const char *vt;
@@ -7515,17 +7670,28 @@ static int partition_populate_directory(Context *context, Partition *p, char **r
         if (r < 0)
                 return r;
 
+        r = partition_manifest_prepare(context, p);
+        if (r < 0)
+                return r;
+
+        r = partition_manifest_write(context, p, root);
+        if (r < 0)
+                return r;
+
         log_info("Ready to populate %s filesystem.", p->format);
 
         *ret = TAKE_PTR(root);
         return 0;
 }
 
-static int partition_populate_filesystem(Context *context, Partition *p, const char *node) {
+static int partition_populate_filesystem(Context *context, Partition *p, const char *node, bool final) {
         int r;
 
         assert(p);
         assert(node);
+
+        /* If 'final' is false, the file system is only populated to determine its minimal size, and is not
+         * what ends up in the image. In that case no manifest is generated. */
 
         log_info("Populating %s filesystem.", p->format);
 
@@ -7534,6 +7700,12 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
          * detached mount propagation. */
 
         (void) dlopen_libmount(LOG_DEBUG);
+
+        if (final) {
+                r = partition_manifest_prepare(context, p);
+                if (r < 0)
+                        return r;
+        }
 
         r = pidref_safe_fork(
                         "(sd-copy)",
@@ -7570,6 +7742,9 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
                         _exit(EXIT_FAILURE);
 
                 if (set_default_subvolume(p, fs) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (final && partition_manifest_write(context, p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 r = syncfs_path(AT_FDCWD, fs);
@@ -7915,7 +8090,7 @@ static int context_mkfs(Context *context) {
                 if (partition_needs_populate(p) && !root) {
                         assert(t->loop || t->block_partition);
 
-                        r = partition_populate_filesystem(context, p, partition_target_path(t));
+                        r = partition_populate_filesystem(context, p, partition_target_path(t), /* final= */ true);
                         if (r < 0)
                                 return r;
                 }
@@ -8521,6 +8696,408 @@ static int context_split(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy to split partition %s: %m", p->split_path);
                 }
+        }
+
+        return 0;
+}
+
+
+static int manifest_name_printf(Partition *p, char **ret) {
+        assert(p);
+
+        const Specifier table[] = {
+                { 't', specifier_string, GPT_PARTITION_TYPE_UUID_TO_STRING_HARDER(p->type.uuid) },
+                { 'T', specifier_id128,  &p->type.uuid                                          },
+                { 'U', specifier_id128,  &p->new_uuid                                           },
+                { 'n', specifier_uint64, &p->partno                                             },
+
+                COMMON_SYSTEM_SPECIFIERS,
+                {}
+        };
+
+        return specifier_printf(p->manifest_name_format, NAME_MAX, table, arg_root, p, ret);
+}
+
+static int manifest_gpt_path(Context *context, char **ret) {
+        _cleanup_free_ char *parent = NULL, *base = NULL, *ext = NULL;
+        int r;
+
+        assert(context);
+        assert(ret);
+
+        /* The manifest of the partition table is placed next to the image, named like it, with a
+         * ".Uapi16Manifest" suffix (replacing a ".raw" suffix if there is one) */
+
+        r = path_extract_directory(context->node, &parent);
+        if (r < 0 && r != -EDESTADDRREQ)
+                return log_error_errno(r, "Failed to extract directory from %s: %m", context->node);
+
+        r = split_node(context->node, &base, &ext);
+        if (r < 0)
+                return r;
+
+        char *path = parent ? strjoin(parent, "/", base, "." UAPI16_MANIFEST_FILENAME) : strjoin(base, "." UAPI16_MANIFEST_FILENAME);
+        if (!path)
+                return log_oom();
+
+        *ret = path;
+        return 0;
+}
+
+static int manifest_name_resolve(Context *context) {
+        _cleanup_free_ char *parent = NULL, *base = NULL, *ext = NULL, *gpt_path = NULL;
+        int r;
+
+        assert(context);
+
+        /* Resolves the file names of the manifests of the partitions' file system trees, next to the image:
+         * named like the manifest of the partition table (see manifest_gpt_path()), but with the resolved
+         * ManifestName= in between. */
+
+        r = path_extract_directory(context->node, &parent);
+        if (r < 0 && r != -EDESTADDRREQ)
+                return log_error_errno(r, "Failed to extract directory from %s: %m", context->node);
+
+        r = split_node(context->node, &base, &ext);
+        if (r < 0)
+                return r;
+
+        /* Only needed to refuse collisions with the partition table manifest */
+        if (arg_manifest_gpt) {
+                r = manifest_gpt_path(context, &gpt_path);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_free_ char *resolved = NULL;
+
+                if (p->dropped)
+                        continue;
+
+                if (!partition_wants_manifest(p))
+                        continue;
+
+                r = manifest_name_printf(p, &resolved);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve specifiers in %s: %m", p->manifest_name_format);
+
+                if (parent)
+                        p->manifest_path = strjoin(parent, "/", base, ".", resolved, "." UAPI16_MANIFEST_FILENAME);
+                else
+                        p->manifest_path = strjoin(base, ".", resolved, "." UAPI16_MANIFEST_FILENAME);
+                if (!p->manifest_path)
+                        return log_oom();
+
+                if (gpt_path && streq(p->manifest_path, gpt_path))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                                               "%s resolves to the same manifest name \"%s\" as the partition table manifest, refusing.",
+                                               p->definition_path, p->manifest_path);
+        }
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (!p->manifest_path)
+                        continue;
+
+                LIST_FOREACH(partitions, q, context->partitions) {
+                        if (p == q)
+                                continue;
+
+                        if (!q->manifest_path)
+                                continue;
+
+                        if (!streq(p->manifest_path, q->manifest_path))
+                                continue;
+
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                                               "%s and %s have the same resolved manifest name \"%s\", refusing.",
+                                               p->definition_path, q->definition_path, p->manifest_path);
+                }
+        }
+
+        return 0;
+}
+
+static int manifest_dump_object(FILE *f, Uapi16Signer *signer, sd_json_variant *v) {
+        int r;
+
+        assert(f);
+        assert(v);
+
+        /* The specification recommends sorting fields alphabetically, recursively */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *n = sd_json_variant_ref(v);
+        r = sd_json_variant_normalize(&n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to sort manifest object: %m");
+
+        /* Format the record once, so that the signature covers exactly the bytes we write */
+        _cleanup_free_ char *text = NULL;
+        r = sd_json_variant_format(n, SD_JSON_FORMAT_SEQ, &text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format manifest object: %m");
+
+        if (signer) {
+                r = uapi16_signer_feed(signer, text, strlen(text));
+                if (r < 0)
+                        return r;
+        }
+
+        if (fputs(text, f) == EOF)
+                return log_error_errno(errno_or_else(EIO), "Failed to write manifest object: %m");
+
+        return 0;
+}
+
+static int hash_range(int fd, uint64_t offset, uint64_t size, uint8_t ret[static SHA256_DIGEST_SIZE]) {
+        struct sha256_ctx ctx;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        sha256_init_ctx(&ctx);
+
+        for (uint64_t pos = offset, end = offset + size; pos < end;) {
+                uint8_t buffer[64U * 1024U];
+                ssize_t n;
+
+                n = pread(fd, buffer, MIN(end - pos, sizeof(buffer)), pos);
+                if (n < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        return log_error_errno(errno, "Failed to read image contents: %m");
+                }
+                if (n == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Premature EOF while reading image contents.");
+
+                sha256_process_bytes(buffer, n, &ctx);
+                pos += n;
+        }
+
+        sha256_finish_ctx(&ctx, ret);
+        return 0;
+}
+
+static int partition_hash_contents(int fd, Partition *p, uint8_t ret[static SHA256_DIGEST_SIZE]) {
+        assert(fd >= 0);
+        assert(p);
+        assert(ret);
+        assert(p->offset != UINT64_MAX);
+        assert(p->new_size != UINT64_MAX);
+
+        return hash_range(fd, p->offset, p->new_size, ret);
+}
+
+static int context_manifest_gpt(Context *context) {
+        _cleanup_free_ char *image_name = NULL, *base = NULL, *ext = NULL, *path = NULL;
+        int fd, r;
+
+        assert(context);
+
+        if (!arg_manifest_gpt)
+                return 0;
+
+        /* Writes a UAPI.16 manifest describing the partition table: one object for the image as a whole,
+         * and one object per partition, carrying the GPT metadata, the partition's size and the hash of its
+         * contents, and referencing the partition's bytes inside the image by their offset as source. */
+
+        assert_se((fd = sym_fdisk_get_devfd(context->fdisk_context)) >= 0);
+        assert(context->total != UINT64_MAX);
+
+        r = manifest_gpt_path(context, &path);
+        if (r < 0)
+                return r;
+
+        r = path_extract_filename(context->node, &image_name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from %s: %m", context->node);
+
+        r = split_node(context->node, &base, &ext);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int fdt = xopenat_full(AT_FDCWD, path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0666);
+        if (fdt < 0)
+                return log_error_errno(fdt, "Failed to open partition table manifest file %s: %m", path);
+
+        _cleanup_fclose_ FILE *f = take_fdopen(&fdt, "w");
+        if (!f)
+                return log_error_errno(errno, "Failed to allocate FILE object for manifest: %m");
+
+        _cleanup_(uapi16_signer_freep) Uapi16Signer *signer = NULL;
+#if HAVE_OPENSSL
+        if (context->manifest_private_key) {
+                r = uapi16_signer_new(context->manifest_certificate, context->manifest_private_key, &signer);
+                if (r < 0)
+                        return r;
+        }
+#endif
+
+        /* The root object carries the fields of the GPT header */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("mediaType", JSON_BUILD_CONST_STRING(UAPI16_MANIFEST_MEDIA_TYPE)),
+                        SD_JSON_BUILD_PAIR_UUID("gptDiskUuid", context->disk_uuid));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object: %m");
+
+        r = manifest_dump_object(f, signer, v);
+        if (r < 0)
+                return r;
+
+        /* Then an object for the whole image, i.e. the complete disk including the partition table */
+        uint8_t image_hash[SHA256_DIGEST_SIZE];
+        r = hash_range(fd, 0, context->total, image_hash);
+        if (r < 0)
+                return r;
+
+        v = sd_json_variant_unref(v);
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("name", image_name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("size", context->total),
+                        SD_JSON_BUILD_PAIR_HEX("sha256", image_hash, sizeof(image_hash)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object: %m");
+
+        r = manifest_dump_object(f, signer, v);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *contents = NULL, *o = NULL;
+                _cleanup_free_ char *name = NULL;
+                uint8_t hash[SHA256_DIGEST_SIZE];
+
+                if (p->dropped)
+                        continue;
+
+                if (partition_defer(context, p))
+                        continue;
+
+                assert(p->offset != UINT64_MAX);
+                assert(p->new_size != UINT64_MAX);
+
+                /* Name the partition like its split-out file, whether or not that is actually generated */
+                if (p->split_path)
+                        r = path_extract_filename(p->split_path, &name);
+                else
+                        r = asprintf(&name, "%s.%" PRIu64 "%s", base, p->partno, strempty(ext)) < 0 ? -ENOMEM : 0;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine partition name: %m");
+
+                r = partition_hash_contents(fd, p, hash);
+                if (r < 0)
+                        return r;
+
+                /* The partition's bytes are found in the image at the partition offset.  */
+                r = sd_json_build(&contents, SD_JSON_BUILD_ARRAY(
+                                                  SD_JSON_BUILD_OBJECT(
+                                                                  SD_JSON_BUILD_PAIR_STRING("file", image_name),
+                                                                  SD_JSON_BUILD_PAIR_UNSIGNED("offset", p->offset),
+                                                                  SD_JSON_BUILD_PAIR_UNSIGNED("originalSize", context->total))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build JSON array: %m");
+
+                const char *label = p->new_label ?: p->current_label;
+                sd_id128_t uuid = p->new_uuid_is_set ? p->new_uuid : p->current_uuid;
+
+                r = sd_json_buildo(
+                                &o,
+                                SD_JSON_BUILD_PAIR_STRING("name", name),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("size", p->new_size),
+                                SD_JSON_BUILD_PAIR_HEX("sha256", hash, sizeof(hash)),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("gptLabel", label),
+                                SD_JSON_BUILD_PAIR_UUID("gptUuid", uuid),
+                                SD_JSON_BUILD_PAIR_UUID("gptTypeUuid", p->type.uuid),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("gptFlags", partition_merge_flags(p)),
+                                JSON_BUILD_PAIR_TRISTATE_NON_NULL("gptFlagNoAuto", p->no_auto),
+                                JSON_BUILD_PAIR_TRISTATE_NON_NULL("gptFlagGrowFileSystem", p->growfs),
+                                JSON_BUILD_PAIR_TRISTATE_NON_NULL("readOnly", p->read_only),
+                                SD_JSON_BUILD_PAIR_VARIANT("contents", contents));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build JSON object: %m");
+
+                r = manifest_dump_object(f, signer, o);
+                if (r < 0)
+                        return r;
+        }
+
+        v = sd_json_variant_unref(v);
+
+        if (signer) {
+                /* The signature object covers everything before it, hence is not fed to the signer itself */
+                r = uapi16_signer_finish(signer, &v);
+                if (r < 0)
+                        return r;
+
+                r = manifest_dump_object(f, /* signer= */ NULL, v);
+                if (r < 0)
+                        return r;
+
+                v = sd_json_variant_unref(v);
+        }
+
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("mediaType", JSON_BUILD_CONST_STRING(UAPI16_TRAILER_MEDIA_TYPE)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object: %m");
+
+        r = manifest_dump_object(f, /* signer= */ NULL, v);
+        if (r < 0)
+                return r;
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write partition table manifest %s: %m", path);
+
+        return 0;
+}
+
+static int context_manifest_files(Context *context) {
+        int r;
+
+        assert(context);
+
+        if (!arg_manifest)
+                return 0;
+
+        /* As with context_split(), resolution must happen late, since partition UUIDs of verity partitions
+         * are only known once they have been generated. */
+
+        r = manifest_name_resolve(context);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (p->dropped)
+                        continue;
+
+                if (!p->manifest_path)
+                        continue;
+
+                if (partition_defer(context, p))
+                        continue;
+
+                if (p->manifest_fd < 0) {
+                        /* No tree was populated for this partition in this run, hence nothing to write */
+                        p->manifest_path = mfree(p->manifest_path);
+                        continue;
+                }
+
+                r = fchmod_umask(p->manifest_fd, 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set access mode of manifest file: %m");
+
+                r = link_tmpfile(p->manifest_fd, p->manifest_tmp_path, p->manifest_path, /* flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to link manifest file %s into place: %m", p->manifest_path);
+
+                p->manifest_linked = true;
+
+                /* If we used a named temporary file, it has been renamed now */
+                p->manifest_tmp_path = mfree(p->manifest_tmp_path);
+                p->manifest_fd = safe_close(p->manifest_fd);
         }
 
         return 0;
@@ -10190,7 +10767,7 @@ static int context_minimize(Context *context) {
                 if (!root) {
                         assert(d);
 
-                        r = partition_populate_filesystem(context, p, d->node);
+                        r = partition_populate_filesystem(context, p, d->node, /* final= */ false);
                         if (r < 0)
                                 return r;
                 }
@@ -10253,7 +10830,7 @@ static int context_minimize(Context *context) {
                 if (!root) {
                         assert(d);
 
-                        r = partition_populate_filesystem(context, p, d->node);
+                        r = partition_populate_filesystem(context, p, d->node, /* final= */ true);
                         if (r < 0)
                                 return r;
                 }
@@ -10384,6 +10961,47 @@ static int context_load_keys(Context *context) {
                                 &context->ui);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+        }
+
+        if (arg_manifest_certificate) {
+                if (arg_manifest_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                        r = parse_path_argument(arg_manifest_certificate, /* suppress_root= */ false, &arg_manifest_certificate);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_x509_certificate(
+                                arg_manifest_certificate_source_type,
+                                arg_manifest_certificate_source,
+                                arg_manifest_certificate,
+                                &context->manifest_certificate);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_manifest_certificate);
+        }
+
+        if (arg_manifest_private_key) {
+                if (arg_manifest_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                        r = parse_path_argument(arg_manifest_private_key, /* suppress_root= */ false, &arg_manifest_private_key);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_private_key(
+                                arg_manifest_private_key_source_type,
+                                arg_manifest_private_key_source,
+                                arg_manifest_private_key,
+                                &(AskPasswordRequest) {
+                                        .tty_fd = -EBADF,
+                                        .id = "repart-manifest-private-key-pin",
+                                        .keyring = arg_manifest_private_key,
+                                        .credential = "repart.manifest-private-key-pin",
+                                        .until = USEC_INFINITY,
+                                        .hup_fd = -EBADF,
+                                },
+                                &context->manifest_private_key,
+                                &context->manifest_ui);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_manifest_private_key);
         }
 
 #endif
@@ -10629,6 +11247,73 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         arg_split = r;
+                        break;
+
+                OPTION_GROUP("Manifest Generation"): {}
+
+                OPTION_LONG("manifest", "BOOL",
+                            "Whether to generate UAPI.16 manifests of files and directories in populated partitions"):
+                        r = parse_boolean_argument("--manifest=", opts.arg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        arg_manifest = r;
+                        break;
+
+                OPTION_LONG("manifest-gpt", "BOOL",
+                            "Whether to generate a UAPI.16 manifest of the partition table"):
+                        r = parse_boolean_argument("--manifest-gpt=", opts.arg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        arg_manifest_gpt = r;
+                        break;
+
+                OPTION_LONG("manifest-fields", "FIELDS",
+                            "Fields to include in manifests of populated partitions (mode, uid, gid, size, hash, "
+                            "symlink, device, hardlink, mtime, user-xattr, all, default, none, or +/- prefixed to "
+                            "adjust)"):
+                        r = manifest_fields_from_string(opts.arg, &arg_manifest_fields);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse field list: %s", opts.arg);
+                        break;
+
+                OPTION_LONG("manifest-private-key", "PATH|URI",
+                            "Private key to sign generated manifests with"):
+                        r = free_and_strdup_warn(&arg_manifest_private_key, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("manifest-private-key-source", "SOURCE",
+                            "Specify how to use the private key from --manifest-private-key= "
+                            "(file, provider:PROVIDER, engine:ENGINE)"):
+                        r = parse_openssl_key_source_argument(
+                                        opts.arg,
+                                        &arg_manifest_private_key_source,
+                                        &arg_manifest_private_key_source_type);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("manifest-certificate", "PATH|URI",
+                            "PEM certificate to sign generated manifests with, or a provider-specific "
+                            "designation if --manifest-certificate-source= is used"):
+                        r = free_and_strdup_warn(&arg_manifest_certificate, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("manifest-certificate-source", "SOURCE",
+                            "Specify how to interpret the certificate from --manifest-certificate=. "
+                            "Allows the certificate to be loaded from an OpenSSL provider "
+                            "(file, provider:PROVIDER)"):
+                        r = parse_openssl_certificate_source_argument(
+                                        opts.arg,
+                                        &arg_manifest_certificate_source,
+                                        &arg_manifest_certificate_source_type);
+                        if (r < 0)
+                                return r;
                         break;
 
                 OPTION_GROUP("Output"): {}
@@ -11121,6 +11806,19 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_split && !arg_node)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "A path to an image file must be specified when --split is used.");
+
+        if ((arg_manifest || arg_manifest_gpt) && !arg_node)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "A path to an image file must be specified when --manifest= or --manifest-gpt= are used.");
+
+        /* Manifests are signed if (and only if) a private key for them is specified */
+        if (!!arg_manifest_private_key != !!arg_manifest_certificate)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--manifest-private-key= and --manifest-certificate= must be specified together.");
+
+        if (arg_manifest_private_key && !arg_manifest && !arg_manifest_gpt)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--manifest-private-key= requires --manifest= or --manifest-gpt=.");
 
         if (auto_pcrlock) {
                 assert(!arg_tpm2_pcrlock);
@@ -12185,6 +12883,14 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = context_split(context);
+        if (r < 0)
+                return r;
+
+        r = context_manifest_files(context);
+        if (r < 0)
+                return r;
+
+        r = context_manifest_gpt(context);
         if (r < 0)
                 return r;
 
