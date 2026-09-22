@@ -1962,6 +1962,16 @@ static void config_select_default_entry(Config *config) {
                 config->timeout_sec = 10;
 }
 
+static bool config_has_bootable_entries(const Config *config) {
+        assert(config);
+
+        for (size_t i = 0; i < config->n_entries; i++)
+                if (LOADER_TYPE_MAY_AUTO_SELECT(config->entries[i]->type))
+                        return true;
+
+        return false;
+}
+
 static bool entries_unique(BootEntry **entries, bool *unique, size_t n_entries) {
         bool is_unique = true;
 
@@ -3461,6 +3471,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
         (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
         (void) sysfail_process(&config);
+
+        if (!config_has_bootable_entries(&config))
+                printf("\nNo bootable entries found.\n"
+                       "Install a unified kernel image in \\\\EFI\\\\Linux\\\\ or a Boot Loader Specification entry in \\\\loader\\\\entries\\\\.\n\n");
 
         if (config.n_entries == 0)
                 return log_error_status(
