@@ -19,6 +19,7 @@
 #include "options.h"
 #include "parse-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -26,6 +27,7 @@
 static int arg_ifindex = 0;
 static int arg_icmp6_type = 0;
 static union in_addr_union arg_dest = IN_ADDR_NULL;
+static union in_addr_union arg_source = IN_ADDR_NULL;
 static uint8_t arg_hop_limit = 0;
 static uint8_t arg_ra_flags = 0;
 static uint8_t arg_preference = false;
@@ -42,6 +44,10 @@ static struct ether_addr arg_target_mac = {};
 static struct ip6_hdr *arg_redirected_header = NULL;
 static bool arg_set_mtu = false;
 static uint32_t arg_mtu = 0;
+static bool arg_set_route = false;
+static union in_addr_union arg_route_prefix = IN_ADDR_NULL;
+static uint8_t arg_route_prefixlen = 0;
+static usec_t arg_route_lifetime = USEC_INFINITY;
 
 STATIC_DESTRUCTOR_REGISTER(arg_redirected_header, freep);
 
@@ -107,6 +113,15 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!in6_addr_is_link_local(&arg_dest.in6))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "The destination address %s is not a link-local address.", opts.arg);
+                        break;
+
+                OPTION('s', "source", "ADDRESS", "Source address"):
+                        r = in_addr_from_string(AF_INET6, opts.arg, &arg_source);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse source address: %m");
+                        if (!in6_addr_is_link_local(&arg_source.in6))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "The source address %s is not a link-local address.", opts.arg);
                         break;
 
                 OPTION_GROUP("Router Advertisement"): {}
@@ -239,6 +254,19 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse MTU: %m");
                         arg_set_mtu = true;
                         break;
+
+                OPTION_LONG("route", "PREFIX/LEN", "Route Information option (RFC 4191)"):
+                        r = in_addr_prefix_from_string(opts.arg, AF_INET6, &arg_route_prefix, &arg_route_prefixlen);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse route prefix: %m");
+                        arg_set_route = true;
+                        break;
+
+                OPTION_LONG("route-lifetime", "SECS", "Lifetime of the Route Information option"):
+                        r = parse_sec(opts.arg, &arg_route_lifetime);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse route lifetime: %m");
+                        break;
                 }
 
         if (arg_ifindex <= 0)
@@ -299,6 +327,13 @@ static int send_icmp6(int fd, const struct icmp6_hdr *hdr) {
 
         if (arg_set_mtu) {
                 r = ndisc_option_add_mtu(&options, 0, arg_mtu);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_set_route) {
+                r = ndisc_option_add_route(&options, 0, arg_preference, arg_route_prefixlen,
+                                           &arg_route_prefix.in6, arg_route_lifetime);
                 if (r < 0)
                         return r;
         }
@@ -382,6 +417,22 @@ static int run(int argc, char *argv[]) {
         fd = icmp6_bind(arg_ifindex, /* is_router= */ false);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to bind socket to interface: %m");
+
+        if (!in6_addr_is_null(&arg_source.in6)) {
+                /* Allow sending from an arbitrary (possibly spoofed and not locally assigned) link-local
+                 * source address, so that a single interface can emulate many distinct on-link senders. */
+                r = socket_set_freebind(fd, AF_INET6, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable IPV6_FREEBIND: %m");
+
+                union sockaddr_union sa = {
+                        .in6.sin6_family = AF_INET6,
+                        .in6.sin6_addr = arg_source.in6,
+                        .in6.sin6_scope_id = arg_ifindex,
+                };
+                if (bind(fd, &sa.sa, sizeof(sa.in6)) < 0)
+                        return log_error_errno(errno, "Failed to bind socket to source address: %m");
+        }
 
         switch (arg_icmp6_type) {
         case ND_ROUTER_SOLICIT:
