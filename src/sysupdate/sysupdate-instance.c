@@ -58,5 +58,9 @@ Instance *instance_free(Instance *i) {
         free(i->path);
         partition_info_destroy(&i->partition_info);
 
+        FOREACH_ARRAY(s, i->sources, i->n_sources)
+                uapi16_contents_done(s);
+        free(i->sources);
+
         return mfree(i);
 }
