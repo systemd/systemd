@@ -2261,8 +2261,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - run0: maybe enable utmp for run0 sessions, so that they are easily visible.
 
 - **sd-boot:**
-  - do something useful if we find exactly zero entries (ignoring items
-    such as reboot/poweroff/factory reset). Show a help text or so.
   - optionally ask for confirmation before executing certain operations
     (e.g. factory resets, storagetm with world access, and so on)
   - for each installed OS, grey out older entries (i.e. all but the
