@@ -1113,6 +1113,7 @@ static int property_get_default_hostname(
 
 static void context_determine_hostname_source(Context *c) {
         _cleanup_free_ char *hostname = NULL;
+        int r;
 
         assert(c);
 
@@ -1121,12 +1122,16 @@ static void context_determine_hostname_source(Context *c) {
 
         (void) gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &hostname);
 
-        if (streq_ptr(hostname, c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]))
+        if (streq_ptr(hostname, c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS])) {
                 c->hostname_source = HOSTNAME_STATIC;
-        else if (hostname_was_set_to_default(hostname))
-                c->hostname_source = HOSTNAME_DEFAULT;
-        else
-                c->hostname_source = HOSTNAME_TRANSIENT;
+                return;
+        }
+
+        r = hostname_matches_default(hostname);
+        if (r < 0)
+                log_warning_errno(r, "Failed to check whether hostname is the recorded default, assuming not: %m");
+
+        c->hostname_source = r > 0 ? HOSTNAME_DEFAULT : HOSTNAME_TRANSIENT;
 }
 
 static int property_get_hostname_source(

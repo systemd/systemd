@@ -227,20 +227,23 @@ void hostname_update_source_hint(const char *hostname, HostnameSource source) {
                 (void) unlink_or_warn(path);
 }
 
-bool hostname_was_set_to_default(const char *hostname) {
+int hostname_matches_default(const char *hostname) {
         _cleanup_free_ char *recorded = NULL;
         int r;
 
         /* Compare the string rather than just checking for the file, since the hostname may have been set by
          * an older version with a different fallback, in the initrd, or before we reexecuted. */
 
-        const char *path = run_default_hostname_path();
+        if (!hostname)
+                return 0;
 
-        r = read_one_line_file(path, &recorded);
-        if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to read \"%s\", ignoring: %m", path);
+        r = read_one_line_file(run_default_hostname_path(), &recorded);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
 
-        return hostname && streq_ptr(recorded, hostname);
+        return streq(recorded, hostname);
 }
 
 int hostname_setup(bool really) {
@@ -270,22 +273,41 @@ int hostname_setup(bool really) {
         }
 
         if (!hn) {
-                /* Don't override the hostname if it is already set and not explicitly configured */
-
                 r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &hn);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r >= 0) {
-                        log_debug("No hostname configured, leaving existing hostname <%s> in place.", hn);
-                        goto finish;
+                        /* Don't override the hostname if it is already set and not explicitly configured,
+                         * unless it is the default we set ourselves earlier (e.g. in the initrd, from its
+                         * random machine ID): re-derive it then, so that '?' and '$' patterns are expanded
+                         * against the real machine ID. */
+                        r = hostname_matches_default(hn);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to check whether hostname <%s> is the recorded default, assuming not: %m", hn);
+                        if (r <= 0) {
+                                log_debug("No hostname configured, leaving existing hostname <%s> in place.", hn);
+                                goto finish;
+                        }
+
+                        _cleanup_free_ char *rederived = NULL;
+                        r = get_default_hostname(&rederived);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to re-derive default hostname, leaving existing hostname <%s> in place: %m", hn);
+                                goto finish;
+                        }
+
+                        log_debug("Existing hostname <%s> is the default we recorded earlier, re-derived it as <%s>.", hn, rederived);
+                        free_and_replace(hn, rederived);
+                } else {
+                        if (enoent)
+                                log_info("No hostname configured, using default hostname.");
+
+                        hn = get_default_hostname_or_fallback();
+                        if (!hn)
+                                return log_oom();
                 }
-
-                if (enoent)
-                        log_info("No hostname configured, using default hostname.");
-
-                hn = get_default_hostname_or_fallback();
-                if (!hn)
-                        return log_oom();
 
                 source = HOSTNAME_DEFAULT;
         }
@@ -577,8 +599,9 @@ int get_default_hostname(char **ret) {
 
 char* get_default_hostname_or_fallback(void) {
         _cleanup_free_ char *h = NULL;
+        int r;
 
-        int r = get_default_hostname(&h);
+        r = get_default_hostname(&h);
         if (r == -ENOMEM)
                 return NULL;
         if (r < 0) {
