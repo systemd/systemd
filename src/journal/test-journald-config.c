@@ -160,4 +160,53 @@ TEST(config_forward_to_socket) {
         forward_to_socket_parse_check_fails("ahh yes sockets, mmh");
 }
 
+static void keep_free_parse_check(const char *str, uint64_t expected_keep_free, uint64_t expected_permyriad) {
+        JournalMetrics m = { .keep_free = UINT64_MAX };
+
+        ASSERT_OK(config_parse_journal_keep_free("", "", 0, "", 0, "SystemKeepFree", 0, str, &m, NULL));
+        ASSERT_EQ(expected_keep_free, m.keep_free);
+        ASSERT_EQ(expected_permyriad, m.keep_free_permyriad);
+}
+
+TEST(config_keep_free) {
+        keep_free_parse_check("1K", 1024, 0);
+        keep_free_parse_check("1M", 1024 * 1024, 0);
+        keep_free_parse_check("1G", 1024 * 1024 * 1024, 0);
+
+        /* Percentages are stored verbatim as permyriad; they invalidate
+         * any absolute byte value, except 0% which means keep_free == 0. */
+        keep_free_parse_check("0%", 0, 0);
+        keep_free_parse_check("1%", UINT64_MAX, 100);
+        keep_free_parse_check("21%", UINT64_MAX, 2100);
+        keep_free_parse_check("100%", UINT64_MAX, 10000);
+
+        keep_free_parse_check("", UINT64_MAX, 0);
+        keep_free_parse_check(NULL, UINT64_MAX, 0);
+
+        /* Invalid input is ignored and leaves the metrics untouched. */
+        JournalMetrics m = { .keep_free = UINT64_C(42), .keep_free_permyriad = UINT64_C(7) };
+        ASSERT_EQ(0, config_parse_journal_keep_free("", "", 0, "", 0, "SystemKeepFree", 0, "blah", &m, NULL));
+        ASSERT_EQ(UINT64_C(42), m.keep_free);
+        ASSERT_EQ(UINT64_C(7), m.keep_free_permyriad);
+
+        /* The two fields are mutually exclusive. */
+        m.keep_free = UINT64_C(42);
+        m.keep_free_permyriad = UINT64_C(7);
+        ASSERT_EQ(0, config_parse_journal_keep_free("", "", 0, "", 0, "SystemKeepFree", 0, "5%", &m, NULL));
+        ASSERT_EQ(UINT64_MAX, m.keep_free);
+        ASSERT_EQ(UINT64_C(500), m.keep_free_permyriad);
+
+        m.keep_free = UINT64_C(42);
+        m.keep_free_permyriad = UINT64_C(7);
+        ASSERT_EQ(0, config_parse_journal_keep_free("", "", 0, "", 0, "SystemKeepFree", 0, "1G", &m, NULL));
+        ASSERT_EQ(UINT64_C(1073741824), m.keep_free);
+        ASSERT_EQ(UINT64_C(0), m.keep_free_permyriad);
+
+        /* Out-of-range and malformed percentages are ignored. */
+        keep_free_parse_check("101%", UINT64_MAX, 0);
+        keep_free_parse_check("-1%", UINT64_MAX, 0);
+        keep_free_parse_check("%", UINT64_MAX, 0);
+        keep_free_parse_check("1.5%", UINT64_MAX, 150);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
