@@ -583,8 +583,8 @@ EOF
     grep -E '^TAGS="?local.rack=7:manual:runtime:vendor.role=webserver"?$' /etc/machine-info >/dev/null
 
     # Applying again is a no-op, also via the Varlink method directly, and tags set by other means are
-    # retained.
-    hostnamectl tags --apply
+    # retained. Set a non-functional D-Bus address to verify that we're communicating over Varlink.
+    DBUS_SYSTEM_BUS_ADDRESS=unix:path=/nonexistent hostnamectl tags --apply
     assert_eq "$(hostnamectl tags)" "local.rack=7:manual:runtime:vendor.role=webserver"
     varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.ApplyTags '{}'
     assert_eq "$(hostnamectl tags)" "local.rack=7:manual:runtime:vendor.role=webserver"
