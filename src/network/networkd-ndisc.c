@@ -44,6 +44,9 @@
 /* Neither defined in the RFC. Just for safety. Otherwise, malformed messages can make clients trigger OOM.
  * Not sure if the threshold is high enough. Let's adjust later if not. */
 #define NDISC_PREF64_MAX 64U
+/* Not defined in the RFC either, but let's cap the number of routers we remember per link, for safety.
+ * Legitimate links have only a couple of routers, so this limit should be generous enough. */
+#define NDISC_ROUTER_MAX 64U
 
 static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t timestamp_usec);
 
@@ -2684,6 +2687,18 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         r = ndisc_drop_outdated(link, /* router= */ NULL, timestamp_usec);
         if (r < 0)
                 return r;
+
+        /* A zero-lifetime RA is not stored in ndisc_routers_by_sender, so don't count it against
+         * the routers-per-link cap. */
+        r = sd_ndisc_router_get_lifetime(rt, /* ret= */ NULL);
+        if (r < 0)
+                return r;
+        if (r > 0 &&
+            hashmap_size(link->ndisc_routers_by_sender) >= NDISC_ROUTER_MAX &&
+            !hashmap_contains(link->ndisc_routers_by_sender, &router)) {
+                log_link_warning(link, "Too many routers per link. Ignoring RA from %s.", IN6_ADDR_TO_STRING(&router));
+                return 0;
+        }
 
         r = ndisc_remember_router(link, rt);
         if (r < 0)
