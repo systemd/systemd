@@ -1,0 +1,32 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Apply Machine Tags Configuration
+Documentation=man:systemd-machine-tags.service(8) man:tags.d(5)
+DefaultDependencies=no
+ConditionPathExists=!/etc/initrd-release
+ConditionPathIsReadWrite=/etc
+ConditionDirectoryNotEmpty=|/etc/tags.d
+ConditionDirectoryNotEmpty=|/run/tags.d
+ConditionDirectoryNotEmpty=|/usr/local/lib/tags.d
+ConditionDirectoryNotEmpty=|/usr/lib/tags.d
+
+Requires=systemd-hostnamed.socket
+After=systemd-hostnamed.socket
+After=local-fs.target
+After=systemd-firstboot.service
+After=systemd-sysext.service systemd-confext.service
+Before=sysinit.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=hostnamectl tags --apply

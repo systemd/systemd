@@ -129,6 +129,10 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(remove, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_METHOD(
+                ApplyTags,
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Hostname,
                 "io.systemd.Hostname",
@@ -150,4 +154,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Sets the physical location of this system."),
                 &vl_method_SetLocation,
                 SD_VARLINK_SYMBOL_COMMENT("Edits the machine tag list: optionally resets it to 'set', then adds 'add' and removes 'remove'."),
-                &vl_method_SetTags);
+                &vl_method_SetTags,
+                SD_VARLINK_SYMBOL_COMMENT("Applies the additions and removals declared in the tags.d/ configuration files (see tags.d(5)) on top of the current machine tag list."),
+                &vl_method_ApplyTags);

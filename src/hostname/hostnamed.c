@@ -34,6 +34,7 @@
 #include "json-util.h"
 #include "label-util.h"
 #include "log.h"
+#include "machine-tags.h"
 #include "main-func.h"
 #include "nulstr-util.h"
 #include "os-util.h"
@@ -1685,7 +1686,10 @@ static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (!j)
                 return log_oom();
 
-        if (!machine_tag_list_is_valid(tags))
+        r = machine_tag_list_is_valid(tags);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags '%s'", j);
 
         context_read_machine_info(c);
@@ -1761,11 +1765,18 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        if (!machine_tag_list_is_valid(add)) {
+        r = machine_tag_list_is_valid(add);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 _cleanup_free_ char *j = strv_join(add, ":");
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to add '%s'", strna(j));
         }
-        if (!machine_tag_list_is_valid(remove)) {
+
+        r = machine_tag_list_is_valid(remove);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 _cleanup_free_ char *j = strv_join(remove, ":");
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to remove '%s'", strna(j));
         }
@@ -2559,11 +2570,24 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
          * check for the field's presence separately. */
         bool reset = sd_json_variant_by_key(parameters, "set");
 
-        if (reset && !machine_tag_list_is_valid(p.set))
-                return sd_varlink_error_invalid_parameter_name(link, "set");
-        if (!machine_tag_list_is_valid(p.add))
+        if (reset) {
+                r = machine_tag_list_is_valid(p.set);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "set");
+        }
+
+        r = machine_tag_list_is_valid(p.add);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "add");
-        if (!machine_tag_list_is_valid(p.remove))
+
+        r = machine_tag_list_is_valid(p.remove);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "remove");
 
         context_read_machine_info(c);
@@ -2579,6 +2603,50 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
         r = machine_tags_add_remove(reset ? p.set : current, p.add, p.remove, &tags);
         if (r == -E2BIG)
                 return sd_varlink_error_invalid_parameter_name(link, "add");
+        if (r < 0)
+                return r;
+
+        if (strv_equal(tags, current))
+                return sd_varlink_reply(link, NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.hostname1.set-machine-info",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_store_tags(c, tags);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_apply_tags(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        context_read_machine_info(c);
+
+        _cleanup_strv_free_ char **current = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &current);
+        if (r < 0)
+                return r;
+
+        /* Apply the additions and removals declared in the tags.d/ configuration files on top of the current
+         * tags. */
+        _cleanup_strv_free_ char **tags = NULL;
+        r = machine_tags_apply_config(/* root= */ NULL, current, &tags);
         if (r < 0)
                 return r;
 
@@ -2633,6 +2701,7 @@ static int connect_varlink(Context *c) {
                         "io.systemd.Hostname.SetDeployment",     vl_method_set_deployment,
                         "io.systemd.Hostname.SetLocation",       vl_method_set_location,
                         "io.systemd.Hostname.SetTags",           vl_method_set_tags,
+                        "io.systemd.Hostname.ApplyTags",         vl_method_apply_tags,
                         "io.systemd.service.Ping",               varlink_method_ping,
                         "io.systemd.service.SetLogLevel",        varlink_method_set_log_level,
                         "io.systemd.service.GetLogLevel",        varlink_method_get_log_level,
