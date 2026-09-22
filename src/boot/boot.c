@@ -2184,12 +2184,14 @@ static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *
 
         /* BitLocker key cannot be sealed without a TPM present. */
         if (!tpm_present())
-                return EFI_NOT_FOUND;
+                return call_image_start(entry, root_dir, parent_image);
 
         err = BS->LocateHandleBuffer(
                         ByProtocol, MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), NULL, &n_handles, &handles);
-        if (err != EFI_SUCCESS)
-                return err;
+        if (err != EFI_SUCCESS) {
+                log_debug_status(err, "Failed to locate block I/O handles, ignoring: %m");
+                return call_image_start(entry, root_dir, parent_image);
+        }
 
         /* Look for BitLocker magic string on all block drives. */
         bool found = false;
@@ -2219,7 +2221,7 @@ static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *
 
         /* If no BitLocker drive was found, we can just chainload bootmgfw.efi directly. */
         if (!found)
-                return EFI_NOT_FOUND;
+                return call_image_start(entry, root_dir, parent_image);
 
         _cleanup_free_ uint16_t *boot_order = NULL;
         size_t boot_order_size;
@@ -2227,8 +2229,14 @@ static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *
         /* There can be gaps in Boot#### entries. Instead of iterating over the full
          * EFI var list or uint16_t namespace, just look for "Windows Boot Manager" in BootOrder. */
         err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootOrder", (void**) &boot_order, &boot_order_size);
-        if (err != EFI_SUCCESS || boot_order_size % sizeof(uint16_t) != 0)
-                return err;
+        if (err != EFI_SUCCESS) {
+                log_debug_status(err, "Failed to read BootOrder, ignoring: %m");
+                return call_image_start(entry, root_dir, parent_image);
+        }
+        if (boot_order_size % sizeof(uint16_t) != 0) {
+                log_debug("BootOrder has invalid size, ignoring.");
+                return call_image_start(entry, root_dir, parent_image);
+        }
 
         for (size_t i = 0; i < boot_order_size / sizeof(uint16_t); i++) {
                 _cleanup_free_ char *buf = NULL;
@@ -2259,7 +2267,7 @@ static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *
                 }
         }
 
-        return EFI_NOT_FOUND;
+        return call_image_start(entry, root_dir, parent_image);
 }
 #endif
 
