@@ -7786,6 +7786,37 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         check_output('ip link set dev veth-peer mtu 1800')
         self.check_ndisc_mtu(1700)
 
+    def test_ndisc_router_limit(self):
+        if not os.path.exists(test_ndisc_send):
+            self.skipTest(f'{test_ndisc_send} does not exist.')
+
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-veth-peer-no-address.network',
+            '25-ipv6-prefix-veth-token-static.network',
+        )
+        start_networkd()
+        self.wait_online('veth-peer:degraded')
+        self.check_networkd_log('veth99: NDISC: Started IPv6 Router Solicitation client')
+
+        # See NDISC_ROUTER_MAX in networkd-ndisc.c
+        ndisc_router_max = 64
+        for i in range(ndisc_router_max + 16):
+            check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --source fe80::47:{i:x}') # fmt: skip
+
+        # Wait for the route table to settle
+        count = -1
+        for _ in range(20):
+            time.sleep(0.5)
+            output = check_output('ip -6 route show default dev veth99 proto ra')
+            new = len(re.findall(r'via fe80::47:', output))
+            if new == count:
+                break
+            count = new
+
+        print(output)
+        self.assertEqual(count, ndisc_router_max)
+
     def test_ipv6_token_prefixstable(self):
         copy_network_unit(
             '25-veth.netdev',
