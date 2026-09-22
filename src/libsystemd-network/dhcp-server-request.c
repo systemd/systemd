@@ -283,8 +283,14 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
         if (req->address == INADDR_ANY)
                 return -EADDRNOTAVAIL; /* no free addresses left */
 
+        /* RFC 8925 section 3.3:
+         * If a client includes both a Rapid Commit option and an IPv6-Only Preferred option in the
+         * DHCPDISCOVER message, the server SHOULD NOT honor the Rapid Commit option if the response to the
+         * client would contain the IPv6-Only Preferred option. */
         if (server->rapid_commit &&
-            dhcp_message_get_option_flag(req->message, SD_DHCP_OPTION_RAPID_COMMIT) >= 0)
+            dhcp_message_get_option_flag(req->message, SD_DHCP_OPTION_RAPID_COMMIT) >= 0 &&
+            !(server->ipv6_only_preferred_usec > 0 &&
+              set_contains(req->parameter_request_list, UINT_TO_PTR(SD_DHCP_OPTION_IPV6_ONLY_PREFERRED))))
                 return dhcp_server_ack(server, req);
 
         return dhcp_server_send_reply(server, req, DHCP_OFFER);
