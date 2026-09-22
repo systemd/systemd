@@ -192,7 +192,7 @@ static thread_local sd_event *default_event = NULL;
 static void source_disconnect(sd_event_source *s);
 static void event_gc_inode_data(sd_event *e, InodeData *d);
 
-static sd_event* event_resolve(sd_event *e) {
+sd_event* event_resolve(sd_event *e) {
         return e == SD_EVENT_DEFAULT ? default_event : e;
 }
 

@@ -3,6 +3,7 @@
 
 #include "forward.h"
 
+/* The bus must have an attached event loop; otherwise return -ENOPKG. */
 int bus_call_future(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_future **ret);
 int future_get_bus_reply(sd_future *f, sd_bus_error *reterr_error, sd_bus_message **ret_reply);
 
