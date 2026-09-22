@@ -801,9 +801,7 @@ static int run(int argc, char *argv[]) {
         LIBCRYPTO_NOTE(recommended);
         LIBCRYPTSETUP_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
-        LIBTSS2_ESYS_NOTE(suggested);
-        LIBTSS2_MU_NOTE(suggested);
-        LIBTSS2_RC_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         log_setup();
 
