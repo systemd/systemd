@@ -545,7 +545,7 @@ static bool menu_run(
 
                         if (y_max < 3) {
                                 log_error("Console mode has insufficient height for the boot menu.");
-                                action = ACTION_QUIT;
+                                action = ACTION_RUN;
                                 break;
                         }
 
