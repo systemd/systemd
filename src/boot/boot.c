@@ -2219,7 +2219,7 @@ static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *
 
         /* If no BitLocker drive was found, we can just chainload bootmgfw.efi directly. */
         if (!found)
-                return EFI_NOT_FOUND;
+                return call_image_start(entry, root_dir, parent_image);
 
         _cleanup_free_ uint16_t *boot_order = NULL;
         size_t boot_order_size;
