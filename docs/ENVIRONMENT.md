@@ -146,6 +146,14 @@ All tools:
   RootImage=/ExtensionImages=/MountImages= in unit files default to enabled,
   while other uses default to disabled for this.
 
+* `$SYSTEMD_DISSECT_TPM2_UNLOCK=` — takes a boolean. If set, overrides whether
+  LUKS encrypted partitions in disk images shall be unlocked via a TPM2 token
+  enrolled in the LUKS2 header (e.g. via `systemd-cryptenroll --tpm2-device=…`),
+  before falling back to a passphrase. The default for this depends on the
+  subsystem in question: `systemd-dissect`, `systemd-nspawn` and
+  `systemd-sysext`/`systemd-confext` default to enabled, while other uses
+  (including `systemd-mountfsd`) default to disabled.
+
 `systemctl`:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID 1's private D-Bus
