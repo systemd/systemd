@@ -493,7 +493,8 @@ static EFI_STATUS call_reboot_into_firmware(const BootEntry *entry, EFI_FILE *ro
 static bool menu_run(
                 Config *config,
                 BootEntry **chosen_entry,
-                char16_t *loaded_image_path) {
+                char16_t *loaded_image_path,
+                const char16_t *initial_status) {
 
         assert(config);
         assert(chosen_entry);
@@ -506,7 +507,8 @@ static bool menu_run(
         bool refresh = true, highlight = false;
         size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max;
         _cleanup_strv_free_ char16_t **lines = NULL;
-        _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
+        _cleanup_free_ char16_t *clearline = NULL, *separator = NULL,
+                *status = initial_status ? xstrdup16(initial_status) : NULL;
         uint64_t timeout_efivar_saved = config->timeout_sec_efivar,
                 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
@@ -651,8 +653,7 @@ static bool menu_run(
                         highlight = false;
                 }
 
-                if (timeout_remain > 0) {
-                        free(status);
+                if (timeout_remain > 0 && !status) {
                         status = xasprintf("Boot in %"PRIu64"s.", timeout_remain);
                 }
 
@@ -1960,6 +1961,16 @@ static void config_select_default_entry(Config *config) {
         config->idx_default = 0;
         if (config->timeout_sec == 0)
                 config->timeout_sec = 10;
+}
+
+static bool config_has_bootable_entries(const Config *config) {
+        assert(config);
+
+        for (size_t i = 0; i < config->n_entries; i++)
+                if (LOADER_TYPE_MAY_AUTO_SELECT(config->entries[i]->type))
+                        return true;
+
+        return false;
 }
 
 static bool entries_unique(BootEntry **entries, bool *unique, size_t n_entries) {
@@ -3462,6 +3473,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
         (void) sysfail_process(&config);
 
+        bool no_bootable_entries = !config_has_bootable_entries(&config);
+
         if (config.n_entries == 0)
                 return log_error_status(
                                 EFI_NOT_FOUND,
@@ -3491,7 +3504,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 entry = config.entries[config.idx_default];
                 if (menu) {
                         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeMenuUSec", 0);
-                        if (!menu_run(&config, &entry, loaded_image_path))
+                        if (!menu_run(&config, &entry, loaded_image_path,
+                                      no_bootable_entries ? u"No bootable entries found." : NULL))
                                 return EFI_SUCCESS;
                 }
 
