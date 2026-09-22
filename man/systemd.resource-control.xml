@@ -537,7 +537,9 @@ CPUWeight=20   DisableControllers=cpu              /          \
           control group attribute, see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">
           Control Groups v2</ulink>.</para>
 
-          <para>This setting requires <varname>AllowedCPUs=</varname> to also be set.</para>
+          <para>This setting requires <varname>AllowedCPUs=</varname> to also be set and has no
+          effect without it; if it is set anyway, a warning is logged when the unit is
+          loaded.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
