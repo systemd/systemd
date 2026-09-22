@@ -30,6 +30,7 @@ static int run(int argc, char *argv[]) {
         LIBCRYPTSETUP_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         setlocale(LC_ALL, "");
         log_setup();
