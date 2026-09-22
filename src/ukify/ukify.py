@@ -642,7 +642,11 @@ class SystemdSbSign(SignTool):
 
 def parse_banks(s: str) -> list[str]:
     banks = re.split(r',|\s+', s)
-    # TODO: do some sanity checking here
+
+    for bank in banks:
+        if bank.lower() not in {'sha1', 'sha256', 'sha384', 'sha512'}:
+            raise argparse.ArgumentTypeError(f'Unknown PCR bank {bank!r}')
+
     return banks
 
 

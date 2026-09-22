@@ -14,6 +14,7 @@
 # pylint: disable=consider-using-with,wrong-import-position,unspecified-encoding
 # pylint: disable=protected-access,redefined-outer-name
 
+import argparse
 import base64
 import glob
 import json
@@ -77,6 +78,12 @@ def test_guess_efi_arch():
 
 def test_shell_join():
     assert ukify.shell_join(['a', 'b', ' ']) == "a b ' '"
+
+
+@pytest.mark.parametrize('banks', ('', 'sha1,,sha256', 'sha1,sha999'))
+def test_parse_banks_invalid(banks):
+    with pytest.raises(argparse.ArgumentTypeError):
+        ukify.parse_banks(banks)
 
 
 def test_round_up():
