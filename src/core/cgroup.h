@@ -456,6 +456,7 @@ int unit_get_cpu_usage(Unit *u, nsec_t *ret);
 int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, uint64_t *ret);
 int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *ret);
 int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret);
+uint32_t unit_get_managed_oom_memory_pressure_limit(Unit *u);
 
 int unit_reset_accounting(Unit *u);
 
