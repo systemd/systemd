@@ -537,7 +537,7 @@ typedef struct Manager {
         unsigned soft_reboots_count;
 
         /* When LUO is enabled we can count consecutive kexec reboots. */
-        unsigned kexecs_count;
+        unsigned kexec_count;
 
         /* The number of successfully completed configuration reloads. */
         uint64_t reload_count;

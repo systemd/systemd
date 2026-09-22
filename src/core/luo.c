@@ -106,13 +106,13 @@ int manager_luo_restore_fd_stores(Manager *m) {
         }
 
         struct {
-                unsigned kexecs_count;
+                unsigned kexec_count;
                 dual_timestamp previous_shutdown_start, previous_shutdown_finish,
                                previous_shutdown_late_start, previous_shutdown_late_finish;
         } state_data = {};
 
         static const sd_json_dispatch_field state_dispatch_table[] = {
-                { "KExecsCount",                 SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        voffsetof(state_data, kexecs_count),                  0 },
+                { "KExecCount",                  SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        voffsetof(state_data, kexec_count),                   0 },
                 { "ShutdownStartTimestamp",      SD_JSON_VARIANT_OBJECT,   json_dispatch_dual_timestamp, voffsetof(state_data, previous_shutdown_start),       0 },
                 { "ShutdownFinishTimestamp",     SD_JSON_VARIANT_OBJECT,   json_dispatch_dual_timestamp, voffsetof(state_data, previous_shutdown_finish),      0 },
                 { "ShutdownLateStartTimestamp",  SD_JSON_VARIANT_OBJECT,   json_dispatch_dual_timestamp, voffsetof(state_data, previous_shutdown_late_start),  0 },
@@ -122,7 +122,7 @@ int manager_luo_restore_fd_stores(Manager *m) {
 
         r = sd_json_dispatch(q.state, state_dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG, &state_data);
         if (r >= 0) {
-                m->kexecs_count = state_data.kexecs_count;
+                m->kexec_count = state_data.kexec_count;
                 m->timestamps[MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_START]       = state_data.previous_shutdown_start;
                 m->timestamps[MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_FINISH]      = state_data.previous_shutdown_finish;
                 m->timestamps[MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_LATE_START]  = state_data.previous_shutdown_late_start;
@@ -130,7 +130,7 @@ int manager_luo_restore_fd_stores(Manager *m) {
         }
 
         /* If we found a LUO session then by definition we have just successfully kexec rebooted */
-        (void) INC_SAFE(&m->kexecs_count, 1);
+        (void) INC_SAFE(&m->kexec_count, 1);
 
         /* Retrieve all fds from the session and dispatch each to the named unit, eagerly loading the
          * unit if necessary. */
@@ -318,7 +318,7 @@ int manager_luo_serialize_fd_stores(Manager *m, FILE **ret_f, FDSet **ret_fds) {
                         SD_JSON_BUILD_PAIR_UNSIGNED("version", LUO_PROTOCOL_VERSION),
                         SD_JSON_BUILD_PAIR("state",
                                            SD_JSON_BUILD_OBJECT(
-                                                           SD_JSON_BUILD_PAIR_UNSIGNED("KExecsCount", m->kexecs_count),
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("KExecCount", m->kexec_count),
                                                            JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ShutdownStartTimestamp", &m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START]),
                                                            JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("ShutdownFinishTimestamp", &m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_FINISH]))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!units, "units", SD_JSON_BUILD_VARIANT(units)));
