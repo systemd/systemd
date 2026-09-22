@@ -162,6 +162,7 @@ typedef struct {
         secure_boot_enroll secure_boot_enroll;
         secure_boot_enroll_action secure_boot_enroll_action;
         uint64_t secure_boot_enroll_timeout_sec;
+        bool menu_on_failure;
         bool force_menu;
         bool use_saved_entry;
         bool use_saved_entry_efivar;
@@ -367,6 +368,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         printf("                 auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
         printf("                   auto-reboot: %ls\n", yes_no(config->auto_reboot));
         printf("                          beep: %ls\n", yes_no(config->beep));
+        printf("               menu-on-failure: %ls\n", yes_no(config->menu_on_failure));
         printf("          reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
         printf("               reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
         printf("            secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
@@ -505,6 +507,7 @@ static bool menu_run(
         size_t idx, idx_first = 0, idx_last = 0;
         bool new_mode = true, clear = true;
         bool refresh = true, highlight = false;
+        bool status_is_countdown = false;
         size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max;
         _cleanup_strv_free_ char16_t **lines = NULL;
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL,
@@ -653,8 +656,12 @@ static bool menu_run(
                         highlight = false;
                 }
 
-                if (timeout_remain > 0 && !status) {
-                        status = xasprintf("Boot in %"PRIu64"s.", timeout_remain);
+                if (timeout_remain > 0 && !status_is_countdown) {
+                        status = mfree(status);
+                        status = initial_status ?
+                                xasprintf("%ls Boot in %"PRIu64"s.", initial_status, timeout_remain) :
+                                xasprintf("Boot in %"PRIu64"s.", timeout_remain);
+                        status_is_countdown = true;
                 }
 
                 if (status) {
@@ -689,6 +696,10 @@ static bool menu_run(
                 if (err == EFI_TIMEOUT) {
                         assert(timeout_remain > 0);
                         timeout_remain--;
+                        if (status_is_countdown) {
+                                status = mfree(status);
+                                status_is_countdown = false;
+                        }
                         if (timeout_remain == 0) {
                                 action = ACTION_RUN;
                                 break;
@@ -1162,6 +1173,10 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                 } else if (streq8(key, "beep")) {
                         if (!parse_boolean(value, &config->beep))
                                 log_warning("Error parsing 'beep' config option, ignoring: %s", value);
+
+                } else if (streq8(key, "menu-on-failure")) {
+                        if (!parse_boolean(value, &config->menu_on_failure))
+                                log_warning("Error parsing 'menu-on-failure' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "reboot-for-bitlocker")) {
                         if (!parse_boolean(value, &config->reboot_for_bitlocker))
@@ -3472,6 +3487,16 @@ static EFI_STATUS run(EFI_HANDLE image) {
         (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
         (void) sysfail_process(&config);
+
+        if (config.menu_on_failure &&
+            !config.sysfail_occurred &&
+            !config.entry_oneshot &&
+            config.idx_default < config.n_entries &&
+            config.entries[config.idx_default]->tries_done > 0) {
+                config.force_menu = true;
+                if (config.timeout_sec == TIMEOUT_MENU_HIDDEN)
+                        config.timeout_sec = 10;
+        }
 
         bool no_bootable_entries = !config_has_bootable_entries(&config);
 
