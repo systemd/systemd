@@ -39,6 +39,7 @@ static const char* const managed_oom_mode_properties[] = {
 
 static int build_managed_oom_json_array_element(Unit *u, const char *property, sd_json_variant **ret_v) {
         bool use_limit = false, use_duration = false, use_rules = false;
+        uint32_t inherited_limit = 0;
         CGroupContext *c;
         const char *mode;
 
@@ -64,9 +65,14 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
         else if (streq(property, "ManagedOOMSwap"))
                 mode = managed_oom_mode_to_string(c->moom_swap);
         else if (streq(property, "ManagedOOMMemoryPressure")) {
+                uint32_t effective_limit;
+                usec_t effective_duration;
+
                 mode = managed_oom_mode_to_string(c->moom_mem_pressure);
-                use_limit = c->moom_mem_pressure_limit > 0;
-                use_duration = c->moom_mem_pressure_duration_usec != USEC_INFINITY;
+                unit_get_effective_managed_oom_mem_pressure(u, &effective_limit, &effective_duration);
+
+                use_limit = effective_limit > 0;
+                use_duration = effective_duration != USEC_INFINITY;
         } else if (streq(property, "OOMRules")) {
                 if (strv_isempty(c->moom_rules))
                         mode = managed_oom_mode_to_string(MANAGED_OOM_AUTO);
@@ -80,12 +86,12 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
         assert(mode);
 
         return sd_json_buildo(ret_v,
-                              JSON_BUILD_PAIR_ENUM("mode", mode),
-                              SD_JSON_BUILD_PAIR_STRING("path", crt->cgroup_path),
-                              SD_JSON_BUILD_PAIR_STRING("property", property),
-                              SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit)),
-                              SD_JSON_BUILD_PAIR_CONDITION(use_duration, "duration", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_duration_usec)),
-                              SD_JSON_BUILD_PAIR_CONDITION(use_rules, "rules", SD_JSON_BUILD_STRV(c->moom_rules)));
+            JSON_BUILD_PAIR_ENUM("mode", mode),
+            SD_JSON_BUILD_PAIR_STRING("path", crt->cgroup_path),
+            SD_JSON_BUILD_PAIR_STRING("property", property),
+            SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(effective_limit)),
+            SD_JSON_BUILD_PAIR_CONDITION(use_duration, "duration", SD_JSON_BUILD_UNSIGNED(effective_duration)),
+            SD_JSON_BUILD_PAIR_CONDITION(use_rules, "rules", SD_JSON_BUILD_STRV(c->moom_rules)));
 }
 
 static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_variant **ret) {
@@ -316,6 +322,18 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
                 r = sd_varlink_send(u->manager->managed_oom_varlink, "io.systemd.oom.ReportManagedOOMCGroups", v);
 
         return r;
+}
+
+void manager_varlink_send_managed_oom_update_recursive(Unit *u) {
+        Unit *member;
+
+        assert(u);
+
+        (void) manager_varlink_send_managed_oom_update(u);
+
+        if (u->type == UNIT_SLICE)
+                UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_SLICE_OF)
+                        manager_varlink_send_managed_oom_update_recursive(member);
 }
 
 static int vl_method_subscribe_managed_oom_cgroups(
