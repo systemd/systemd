@@ -1498,6 +1498,9 @@ EOF
     mkdir -p /run/verity.d
     ln -sf "$defs/verity.crt" /run/verity.d/ok.crt
 
+    # Manifests are signed with a key of their own, separate from the verity one
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$defs/manifest.key" -out "$defs/manifest.crt" -subj /CN=manifest -days 2 2>/dev/null
+
     output=$(systemd-repart --offline="$OFFLINE" \
                             --definitions="$defs" \
                             --seed="$seed" \
@@ -1505,6 +1508,11 @@ EOF
                             --empty=create \
                             --size=auto \
                             --split=yes \
+                            --manifest=yes \
+                            --manifest-gpt=yes \
+                            --manifest-fields=size,hash \
+                            --manifest-private-key="$defs/manifest.key" \
+                            --manifest-certificate="$defs/manifest.crt" \
                             --json=pretty \
                             --private-key="$defs/verity.key" \
                             --certificate="$defs/verity.crt" \
@@ -1523,6 +1531,31 @@ EOF
     assert_neq "$sig_split" ""
     assert_neq "$sig_split" "null"
     jq . "$sig_split" >/dev/null
+
+    # The manifest of the root partition's file system tree lists the files copied into it, and the manifest
+    # of the partition table describes the partitions, with the split artifacts as sources, hence it must
+    # verify against the directory the split artifacts are in.
+    root_manifest=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .manifest_path" <<<"$output")
+    assert_eq "$root_manifest" "$imgs/verity.root-${architecture}.Uapi16Manifest"
+    # CopyFiles= places the definitions directory at the same path inside the partition
+    jq --seq -s -e ".[] | select(.name == \"${defs#/}/verity-data.conf\")" <"$root_manifest" >/dev/null
+    # Only the requested fields are included
+    jq --seq -s -e ".[] | select(.name == \"${defs#/}/verity-data.conf\") | has(\"size\") and has(\"sha256\") and (has(\"mode\") | not)" <"$root_manifest" >/dev/null
+    # The manifest is signed with the manifest key, not the verity key
+    systemd-manifest verify --certificate="$defs/manifest.crt" / "$root_manifest"
+    (! systemd-manifest verify --certificate="$defs/verity.crt" / "$root_manifest")
+    assert_eq "$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .manifest_path" <<<"$output")" "-"
+
+    gpt_manifest="$imgs/verity.Uapi16Manifest"
+    jq --seq -s -e '.[] | select(.mediaType == "application/vnd.uapi.16.signature") | .mechanism == "pkcs7"' <"$gpt_manifest" >/dev/null
+    # The image as a whole is covered too
+    jq --seq -s -e ".[] | select(.name == \"verity\") | .size == $(stat -c %s "$imgs/verity") and .sha256 == \"$(sha256sum "$imgs/verity" | cut -d' ' -f1)\"" <"$gpt_manifest" >/dev/null
+    root_split=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .split_path" <<<"$output")
+    jq --seq -s -e ".[] | select(.name == \"$(basename "$root_split")\") | (.contents | length) == 1 and .contents[0].file == \"$(basename "$imgs/verity")\" and .contents[0].offset > 0 and .gptLabel != null" <"$gpt_manifest" >/dev/null
+    # The verity signature partition is described like its split artifact, i.e. without the NUL padding
+    jq --seq -s -e ".[] | select(.name == \"$(basename "$sig_split")\") | (.contents | length) == 1 and .size == $(stat -c %s "$sig_split")" <"$gpt_manifest" >/dev/null
+    systemd-manifest verify --certificate="$defs/manifest.crt" "$imgs" "$gpt_manifest"
+    (! systemd-manifest verify --certificate="$defs/verity.crt" "$imgs" "$gpt_manifest")
 
     # Check that offline signing works and the resulting image is valid
 
