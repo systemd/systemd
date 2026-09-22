@@ -21,6 +21,7 @@
 #include "constants.h"
 #include "copy.h"
 #include "crypto-util.h"
+#include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "device-private.h"
 #include "devnum-util.h"
@@ -47,6 +48,7 @@
 #include "json-util.h"
 #include "libmount-util.h"
 #include "loop-util.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -3020,7 +3022,7 @@ static int decrypt_partition(
         if (!streq(m->fstype, "crypto_LUKS"))
                 return 0;
 
-        if (!passphrase)
+        if (!passphrase && !FLAGS_SET(flags, DISSECT_IMAGE_TPM2_UNLOCK))
                 return -ENOKEY;
 
         if (!FLAGS_SET(policy_flags, PARTITION_POLICY_ENCRYPTED))
@@ -3054,9 +3056,42 @@ static int decrypt_partition(
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
-        r = sym_crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
-                                             ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) || on_verity ? CRYPT_ACTIVATE_READONLY : 0) |
-                                             ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) && !on_verity ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
+        uint32_t activate_flags = ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) || on_verity ? CRYPT_ACTIVATE_READONLY : 0) |
+                                   ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) && !on_verity ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
+
+        r = -ENOKEY;
+        if (FLAGS_SET(flags, DISSECT_IMAGE_TPM2_UNLOCK)) {
+                /* See if a TPM2 token enrolled in the LUKS2 header (e.g. via "systemd-cryptenroll
+                 * --tpm2-device=…") unseals against the local TPM2. This is tried before any supplied
+                 * passphrase, since within one image some partitions might be TPM2-enrolled while others are
+                 * passphrase-protected. Failure here — no TPM2, no token, policy mismatch — is not fatal, we
+                 * fall back to the passphrase (if any) below, exactly as if no TPM2 token existed. This also
+                 * means that interactive callers retrying with another passphrase redo the TPM2 attempt each
+                 * time, which is acceptable: a token either matches the system state or it doesn't. If the
+                 * unsealed secret is rejected by its keyslot we don't try the remaining tokens, matching what
+                 * systemd-cryptsetup does. */
+                _cleanup_(erase_and_freep) char *tpm2_passphrase = NULL;
+                int keyslot;
+
+                r = cryptsetup_tpm2_unlock_auto(cd, /* device= */ NULL, &keyslot, &tpm2_passphrase);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0)
+                        log_debug_errno(r, "Unable to unlock LUKS device via TPM2, ignoring: %m");
+                else {
+                        r = sym_crypt_activate_by_passphrase(cd, name, keyslot, tpm2_passphrase, strlen(tpm2_passphrase), activate_flags);
+                        if (r == -EPERM)
+                                log_debug_errno(r, "Secret unsealed via TPM2 does not unlock LUKS keyslot %i, token out of sync with keyslot, ignoring: %m", keyslot);
+                        else if (r < 0)
+                                return log_debug_errno(r, "Failed to activate LUKS device: %m");
+                }
+        }
+        if (r < 0) {
+                if (!passphrase)
+                        return -ENOKEY;
+
+                r = sym_crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase), activate_flags);
+        }
         if (r < 0) {
                 log_debug_errno(r, "Failed to activate LUKS device: %m");
                 return r == -EPERM ? -EKEYREJECTED : r;
@@ -3611,7 +3646,8 @@ int dissected_image_decrypt(
          *
          *      = 0           → There was nothing to decrypt/setup
          *      > 0           → Decrypted/setup successfully
-         *      -ENOKEY       → dm-crypt: there's something to decrypt but no decryption key was supplied
+         *      -ENOKEY       → dm-crypt: there's something to decrypt but no decryption key was supplied (or
+         *                      TPM2 unlocking was requested via DISSECT_IMAGE_TPM2_UNLOCK, but didn't succeed)
          *      -EKEYREJECTED → dm-crypt: Passed key was not correct
          *      -EDESTADDRREQ → dm-verity: there's something to setup but no signature was supplied
          *      -EBUSY        → dm-verity: Generic Verity error (kernel is not very explanatory)
@@ -3628,6 +3664,10 @@ int dissected_image_decrypt(
         r = secure_getenv_bool("SYSTEMD_VERITY_SHARING");
         if (r >= 0)
                 SET_FLAG(flags, DISSECT_IMAGE_VERITY_SHARE, r);
+
+        r = secure_getenv_bool("SYSTEMD_DISSECT_TPM2_UNLOCK");
+        if (r >= 0)
+                SET_FLAG(flags, DISSECT_IMAGE_TPM2_UNLOCK, r);
 
 #if HAVE_LIBCRYPTSETUP
         r = decrypted_image_new(&d);
