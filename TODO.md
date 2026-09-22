@@ -2277,8 +2277,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     to be configured on sd-boot cmdline + efi var. Use case: embed sd-boot in the
     UEFI firmware (for example, ovmf supports that via qemu cmdline option), and
     use it to load stuff from the ESP.
-  - optionally, show boot menu when previous default boot item has
-    non-zero "tries done" count
 
 - **sd-bus:**
   - EBADSLT handling
