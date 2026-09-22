@@ -238,7 +238,7 @@ static int resolve_default_node(const char *path, char **ret) {
         return strdup_to(ret, dp);
 }
 
-static int determine_default_node(void) {
+int determine_default_node(char **ret_node) {
         int r;
 
         /* If no device is specified we'll default to the backing device of /var/.
@@ -270,9 +270,9 @@ static int determine_default_node(void) {
                 candidates[n_candidates++] = "/var";
 
         FOREACH_ARRAY(path, candidates, n_candidates) {
-                r = resolve_default_node(*path, &arg_node);
+                r = resolve_default_node(*path, ret_node);
                 if (r >= 0) {
-                        log_info("No device specified, defaulting to '%s' (backing %s).", arg_node, *path);
+                        log_info("No device specified, defaulting to '%s' (backing %s).", *ret_node, *path);
                         return 0;
                 }
         }
@@ -777,7 +777,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg)
                 r = parse_path_argument(arg, false, &arg_node);
         else if (!wipe_requested())
-                r = determine_default_node();
+                r = determine_default_node(&arg_node);
         else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Wiping requested and no block device node specified, refusing.");
