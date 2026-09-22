@@ -183,7 +183,7 @@ static void device_set_state(Device *d, DeviceState state) {
 static void device_found_changed(Device *d, DeviceFound previous, DeviceFound now) {
         assert(d);
 
-        /* Didn't exist before, but does now? if so, generate a new invocation ID for it */
+        /* Didn't exist before, but does now? If so, generate a new invocation ID for it. */
         if (previous == DEVICE_NOT_FOUND && now != DEVICE_NOT_FOUND)
                 (void) unit_acquire_invocation_id(UNIT(d));
 
@@ -579,7 +579,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                         if (r < 0)
                                 return log_unit_error_errno(u, r, "Failed to build %s instance of template %s: %m", escaped, word);
                 } else {
-                        /* If this is not a template, then let's mangle it so, that it becomes a valid unit name. */
+                        /* If this is not a template, then let's mangle it so that it becomes a valid unit name. */
 
                         r = unit_name_mangle(word, UNIT_NAME_MANGLE_WARN, &k);
                         if (r < 0)
@@ -718,7 +718,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                         return log_oom();
         }
 
-        /* If this was created via some dependency and has not actually been seen yet ->sysfs will not be
+        /* If this was created via some dependency and has not actually been seen yet, ->sysfs will not be
          * initialized. Hence initialize it if necessary. */
         if (sysfs) {
                 r = device_set_sysfs(d, sysfs);
@@ -732,7 +732,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
 
         (void) device_update_description(u, dev, path);
 
-        /* So the user wants the mount units to be bound to the device but a mount unit might has been seen
+        /* So the user wants the mount units to be bound to the device but a mount unit might have been seen
          * by systemd before the device appears on its radar. In this case the device unit is partially
          * initialized and includes the deps on the mount unit but at that time the "bind mounts" flag wasn't
          * present. Fix this up now. */
@@ -862,9 +862,9 @@ static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_unit
                         continue;
                 }
 
-                /* Note, even if the devlink is not persistent, LVM expects /dev/block/ symlink units exist.
-                 * To achieve that, they set the path to SYSTEMD_ALIAS. Hence, we cannot refuse aliases start
-                 * with /dev/, unfortunately. */
+                /* Note, even if the devlink is not persistent, LVM expects /dev/block/ symlink units to
+                 * exist. To achieve that, they set the path to SYSTEMD_ALIAS. Hence, we cannot refuse
+                 * aliases that start with /dev/, unfortunately. */
 
                 (void) device_setup_unit(m, dev, *alias, /* main= */ false, ready_units);
         }
