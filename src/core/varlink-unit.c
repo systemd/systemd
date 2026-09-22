@@ -22,6 +22,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "selinux-access.h"
+#include "scope.h"
 #include "service.h"
 #include "set.h"
 #include "strv.h"
@@ -664,6 +665,7 @@ static void transient_exec_command_item_done(TransientExecCommandItem *i) {
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_service_type, ServiceType, service_type_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_collect_mode, CollectMode, collect_mode_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_oom_policy, OOMPolicy, oom_policy_from_string);
 
 typedef struct TransientWorkingDirectory {
         const char *path;
@@ -776,6 +778,34 @@ static void transient_service_parameters_init(TransientServiceParameters *p) {
         };
 }
 
+typedef struct TransientScopeParameters {
+        bool present;
+        OOMPolicy oom_policy;
+        usec_t runtime_max_usec;
+        usec_t runtime_rand_extra_usec;
+        usec_t timeout_stop_usec;
+        PidRef *pids;
+        size_t n_pids;
+} TransientScopeParameters;
+
+static DEFINE_ARRAY_FREE_FUNC(transient_pidref_array_free, PidRef, pidref_done);
+
+static void transient_scope_parameters_done(TransientScopeParameters *p) {
+        assert(p);
+
+        transient_pidref_array_free(p->pids, p->n_pids);
+}
+
+static void transient_scope_parameters_init(TransientScopeParameters *p) {
+        assert(p);
+        *p = (TransientScopeParameters) {
+                .oom_policy = _OOM_POLICY_INVALID,
+                .runtime_max_usec = USEC_INFINITY,
+                .runtime_rand_extra_usec = USEC_INFINITY,
+                .timeout_stop_usec = USEC_INFINITY,
+        };
+}
+
 static int dispatch_transient_exec_command(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field exec_command_dispatch[] = {
                 { "path",      SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(TransientExecCommandItem, path),      SD_JSON_MANDATORY },
@@ -813,16 +843,24 @@ typedef struct StartTransientContextParameters {
         const char *id;
         const char *description;
         CollectMode collect_mode;
+        char **dependencies[_UNIT_DEPENDENCY_MAX];
         TransientExecContextParameters exec;
         TransientServiceParameters service;
+        TransientScopeParameters scope;
         const char *bad_exec_field;    /* Set by inner Exec dispatcher to the unknown sub-property name */
         const char *bad_service_field;
+        const char *bad_scope_field;
 } StartTransientContextParameters;
 
 static void start_transient_context_parameters_done(StartTransientContextParameters *p) {
         assert(p);
+
+        FOREACH_ELEMENT(d, p->dependencies)
+                strv_free(*d);
+
         transient_exec_context_parameters_done(&p->exec);
         transient_service_parameters_done(&p->service);
+        transient_scope_parameters_done(&p->scope);
 }
 
 static void transient_exec_context_parameters_init(TransientExecContextParameters *p);
@@ -834,6 +872,7 @@ static void start_transient_context_parameters_init(StartTransientContextParamet
         };
         transient_exec_context_parameters_init(&p->exec);
         transient_service_parameters_init(&p->service);
+        transient_scope_parameters_init(&p->scope);
 }
 
 typedef struct StartTransientParameters {
@@ -975,15 +1014,102 @@ static int dispatch_transient_service(const char *name, sd_json_variant *variant
         return sd_json_dispatch_full(variant, service_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->service, &p->bad_service_field);
 }
 
+static int dispatch_pidref_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        TransientScopeParameters *p = ASSERT_PTR(userdata);
+        PidRef *pids = NULL;
+        size_t n = 0;
+        int r;
+
+        CLEANUP_ARRAY(pids, n, transient_pidref_array_free);
+
+        size_t n_pids = sd_json_variant_elements(variant);
+        if (n_pids == 0) {
+                p->pids = NULL;
+                p->n_pids = 0;
+                return 0;
+        }
+
+        pids = new(PidRef, n_pids);
+        if (!pids)
+                return -ENOMEM;
+
+        for (; n < n_pids; n++) {
+                pids[n] = PIDREF_NULL; /* Must be initialized, since dispatch_pidref calls pidref_done */
+
+                r = json_dispatch_pidref(NULL, sd_json_variant_by_index(variant, n), /* flags= */ 0, &pids[n]);
+                if (r < 0)
+                        return r;
+        }
+
+        p->pids = TAKE_PTR(pids);
+        p->n_pids = n;
+        return 0;
+}
+
+static int dispatch_transient_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field scope_dispatch[] = {
+                { "OOMPolicy",                  SD_JSON_VARIANT_STRING,        dispatch_oom_policy,     offsetof(TransientScopeParameters, oom_policy),              0 },
+                { "RuntimeMaxUSec",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(TransientScopeParameters, runtime_max_usec),        0 },
+                { "RuntimeRandomizedExtraUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(TransientScopeParameters, runtime_rand_extra_usec), 0 },
+                { "TimeoutStopUSec",            _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(TransientScopeParameters, timeout_stop_usec),       0 },
+                { "PIDs",                       SD_JSON_VARIANT_ARRAY,         dispatch_pidref_array,   0,                                                           0 },
+                {}
+        };
+
+        StartTransientContextParameters *p = ASSERT_PTR(userdata);
+        p->scope.present = true;
+        return sd_json_dispatch_full(variant, scope_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->scope, &p->bad_scope_field);
+}
+
+static int dispatch_dependency(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char ***dest = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **units = NULL;
+        int r;
+
+        r = sd_json_dispatch_strv(name, variant, /* flags= */ 0, &units);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(unit, units)
+                if (!unit_name_is_valid(*unit, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid unit name.", strna(name));
+
+        strv_free_and_replace(*dest, units);
+        return 0;
+}
+
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        static const sd_json_dispatch_field context_dispatch[] = {
+        static const sd_json_dispatch_field base_context_dispatch[] = {
                 { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name,   offsetof(StartTransientContextParameters, id),           SD_JSON_MANDATORY },
                 { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description),  0                 },
                 { "CollectMode", SD_JSON_VARIANT_STRING, dispatch_collect_mode,           offsetof(StartTransientContextParameters, collect_mode), 0                 },
                 { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                       0                 },
                 { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                       0                 },
-                {}
+                { "Scope",       SD_JSON_VARIANT_OBJECT, dispatch_transient_scope,        0,                                                       0                 },
         };
+        /* Build dispatch table only once, its constant. */
+        static sd_json_dispatch_field context_dispatch[ELEMENTSOF(base_context_dispatch) + _UNIT_DEPENDENCY_MAX + 1] = {};
+        static bool context_dispatch_set = false;
+
+        if (!context_dispatch_set) {
+                size_t i = 0;
+
+                FOREACH_ELEMENT(field, base_context_dispatch)
+                        context_dispatch[i++] = *field;
+
+                for (UnitDependency dep = 0; dep < _UNIT_DEPENDENCY_MAX; dep++) {
+                        if (!unit_dependency_can_be_transient(dep))
+                                continue;
+                        context_dispatch[i++] = (sd_json_dispatch_field) {
+                                .name = unit_dependency_to_string(dep),
+                                .type = SD_JSON_VARIANT_ARRAY,
+                                .callback = dispatch_dependency,
+                                .offset = offsetof(StartTransientContextParameters, dependencies[dep]),
+                                .flags = 0,
+                        };
+                }
+                context_dispatch_set = true;
+        }
 
         StartTransientParameters *p = ASSERT_PTR(userdata);
         const char *bad_field = NULL;
@@ -1001,6 +1127,8 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
                         p->unsupported_property = strjoin("Exec.", p->context.bad_exec_field);
                 else if (streq(bad_field, "Service") && !isempty(p->context.bad_service_field))
                         p->unsupported_property = strjoin("Service.", p->context.bad_service_field);
+                else if (streq(bad_field, "Scope") && !isempty(p->context.bad_scope_field))
+                        p->unsupported_property = strjoin("Scope.", p->context.bad_scope_field);
                 else
                         p->unsupported_property = strdup(bad_field);
                 if (!p->unsupported_property)
@@ -1009,7 +1137,18 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
         return r;
 }
 
-static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p) {
+static void transient_unit_apply_usec(Unit *u, const char *name, usec_t *p, usec_t v) {
+        assert(u);
+        assert(name);
+        assert(p);
+
+        *p = v;
+
+        char *n = strndupa_safe(name, strlen(name) - 4);
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, name, "%sSec=%s", n, FORMAT_TIMESPAN(v, USEC_PER_MSEC));
+}
+
+static int transient_unit_apply_properties(Unit *u, StartTransientContextParameters *p, const char **reterr_field) {
         int r;
 
         assert(u);
@@ -1025,6 +1164,26 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
         if (p->collect_mode >= 0) {
                 u->collect_mode = p->collect_mode;
                 unit_write_settingf(u, UNIT_RUNTIME, "CollectMode", "CollectMode=%s", collect_mode_to_string(p->collect_mode));
+        }
+
+        for (UnitDependency dep_type = 0; dep_type < _UNIT_DEPENDENCY_MAX; dep_type++) {
+                if (!unit_dependency_can_be_transient(dep_type))
+                        continue;
+
+                const char *dep_type_name = unit_dependency_to_string(dep_type);
+                STRV_FOREACH(dep, p->dependencies[dep_type]) {
+                        r = unit_add_dependency_by_name(u, dep_type, *dep, true, UNIT_DEPENDENCY_FILE);
+                        if (r < 0) {
+                                if (reterr_field)
+                                        *reterr_field = dep_type_name;
+                                return r;
+                        }
+
+                        _cleanup_free_ char *label = strjoin(dep_type_name, "-", *dep);
+                        if (!label)
+                                return -ENOMEM;
+                        unit_write_settingf(u, UNIT_RUNTIME, label, "%s=%s", dep_type_name, *dep);
+                }
         }
 
         return 0;
@@ -1629,6 +1788,40 @@ static int transient_service_apply_properties(Service *s, TransientServiceParame
         return 0;
 }
 
+static int transient_scope_apply_properties(Scope *s, TransientScopeParameters *sp, const char **reterr_field) {
+        Unit *u = UNIT(ASSERT_PTR(s));
+        int r;
+
+        assert(sp);
+
+        if (sp->oom_policy != _OOM_POLICY_INVALID) {
+                s->oom_policy = sp->oom_policy;
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "OOMPolicy", "OOMPolicy=%s", oom_policy_to_string(sp->oom_policy));
+        }
+
+        if (sp->runtime_max_usec != USEC_INFINITY)
+                transient_unit_apply_usec(u, "RuntimeMaxUSec", &s->runtime_max_usec, sp->runtime_max_usec);
+
+        if (sp->runtime_rand_extra_usec != USEC_INFINITY)
+                transient_unit_apply_usec(u, "RuntimeRandomizedExtraUSec", &s->runtime_rand_extra_usec, sp->runtime_rand_extra_usec);
+
+        if (sp->timeout_stop_usec != USEC_INFINITY)
+                transient_unit_apply_usec(u, "TimeoutStopUSec", &s->timeout_stop_usec, sp->timeout_stop_usec);
+
+        FOREACH_ARRAY(p, sp->pids, sp->n_pids) {
+                r = unit_pid_attachable(u, p, NULL);
+                if (r >= 0)
+                        r = unit_watch_pidref(u, p, /* exclusive= */ false);
+                if (r < 0) {
+                        if (reterr_field)
+                                *reterr_field = "Scope.PIDs";
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
 int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "context",            SD_JSON_VARIANT_OBJECT,  dispatch_transient_context, 0,                                                       SD_JSON_MANDATORY },
@@ -1703,9 +1896,10 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 return varlink_reply_bus_error(link, r, &bus_error);
 
         /* Apply unit-level properties from context */
-        r = transient_unit_apply_properties(u, &p.context);
+        bad_field = NULL;
+        r = transient_unit_apply_properties(u, &p.context, &bad_field);
         if (r == -EINVAL)
-                return sd_varlink_error_invalid_parameter_name(link, "context");
+                return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "context");
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
@@ -1726,16 +1920,27 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
         }
 
         /* Apply service-specific properties from context.Service */
-        Service *s = SERVICE(u);
-        if (s) {
+        Service *service = SERVICE(u);
+        if (service) {
                 bad_field = NULL;
-                r = transient_service_apply_properties(s, &p.context.service, &bad_field);
+                r = transient_service_apply_properties(service, &p.context.service, &bad_field);
                 if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Service");
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         } else if (p.context.service.present)
                 return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
+
+        Scope *scope = SCOPE(u);
+        if (scope) {
+                bad_field = NULL;
+                r = transient_scope_apply_properties(scope, &p.context.scope, &bad_field);
+                if (r == -EINVAL)
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Scope");
+                if (r < 0)
+                        return sd_varlink_error_errno(link, r);
+        } else if (p.context.scope.present)
+                  return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
 
         unit_add_to_load_queue(u);
         manager_dispatch_load_queue(manager);

@@ -1042,7 +1042,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#RuntimeRandomizedExtraSec="),
                 SD_VARLINK_DEFINE_FIELD(RuntimeRandomizedExtraUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#TimeoutStopSec="),
-                SD_VARLINK_DEFINE_FIELD(TimeoutStopUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(TimeoutStopUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of processes to move into the new scope. only settable at unit creation time via StartTransient()."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PIDs, ProcessId, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ScopeResult,
