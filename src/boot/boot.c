@@ -2958,6 +2958,12 @@ static EFI_STATUS call_image_start(
         _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
         bool boot_policy;
         if (entry->url) {
+                assert(entry->device);
+
+                err = open_volume(entry->device, &image_root);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error opening entry root path: %m");
+
                 /* Generate a device path that only contains the URL */
                 err = make_url_device_path(entry->url, &path);
                 if (err != EFI_SUCCESS)
