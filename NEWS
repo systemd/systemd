@@ -215,7 +215,7 @@ CHANGES WITH 262 in spe:
           Orchestrator sessions and pass them through the file descriptor
           store interface.
 
-        * PID 1 now exposes a new D-Bus property KExecsCount that indicates the
+        * PID 1 now exposes a new D-Bus property KExecCount that indicates the
           number of kexec reboots the system has undergone since the last real
           boot. It also exposes shutdown timestamps of the previous kexec
           cycle. (Only if LUO is available). 'systemd-analyze time' uses them
