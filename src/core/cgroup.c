@@ -572,8 +572,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, delegate_str,
                 prefix, managed_oom_mode_to_string(c->moom_swap),
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
-                prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
-                prefix, managed_oom_preference_to_string(c->moom_preference),
+                prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(unit_get_managed_oom_memory_pressure_limit(u))),                prefix, managed_oom_preference_to_string(c->moom_preference),
                 prefix, cgroup_pressure_watch_to_string(c->pressure[PRESSURE_MEMORY].watch),
                 prefix, cgroup_pressure_watch_to_string(c->pressure[PRESSURE_CPU].watch),
                 prefix, cgroup_pressure_watch_to_string(c->pressure[PRESSURE_IO].watch),
@@ -3772,6 +3771,24 @@ int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret) {
                 infimum = MIN(infimum, unit_get_effective_limit_one(slice, type));
 
         *ret = infimum;
+        return 0;
+}
+
+uint32_t unit_get_managed_oom_memory_pressure_limit(Unit *u) {
+        assert(u);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return 0;
+
+        for (Unit *slice = u; slice; slice = UNIT_GET_SLICE(slice)) {
+                CGroupContext *c = unit_get_cgroup_context(slice);
+                if (!c)
+                        continue;
+
+                if (c->moom_mem_pressure_limit != 0)
+                        return c->moom_mem_pressure_limit;
+        }
+
         return 0;
 }
 
