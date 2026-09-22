@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "compress.h"
 #include "forward.h"
 
 typedef enum ImportType {
@@ -20,6 +21,9 @@ typedef enum ImportVerify {
 } ImportVerify;
 
 int import_url_last_component(const char *url, char **ret);
+
+/* Parses the argument of a --compression= switch: "auto" selects detection from the data (i.e. _COMPRESSION_INVALID), otherwise the algorithm by name, including "none". */
+int parse_compression_argument(const char *option, const char *s, Compression *ret);
 
 int import_url_change_suffix(const char *url, size_t n_drop_components, const char *suffix, char **ret);
 

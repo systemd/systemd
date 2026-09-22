@@ -206,6 +206,8 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
                                                                      * disk to the max */
         }
 
+        import_digest_update(&j->decoded_digest, p, sz);
+
         if (j->disk_fd >= 0) {
 
                 if (S_ISREG(j->disk_stat.st_mode) && j->offset == UINT64_MAX) {
@@ -301,6 +303,9 @@ static int pull_job_open_disk(PullJob *j) {
                 }
         }
 
+        /* Start from scratch, in case we are restarted */
+        import_digest_reset(&j->decoded_digest);
+
         if (j->calc_checksum) {
                 r = dlopen_libcrypto(LOG_ERR);
                 if (r < 0)
@@ -353,7 +358,7 @@ static int pull_job_complete(PullJob *j) {
         if (j->state == PULL_JOB_ANALYZING) {
                 /* When the transfer finished while we were still looking for a compression magic header
                  * the content isn't compressed but should be written out as is. */
-                r = decompressor_force_off(&j->compress);
+                r = decompressor_force(&j->compress, j->compression >= 0 ? j->compression : COMPRESSION_NONE);
                 if (r < 0)
                         return pull_job_finish(j, r);
 
@@ -401,6 +406,10 @@ static int pull_job_complete(PullJob *j) {
                     !iovec_equal(&j->checksum, &j->expected_checksum))
                         return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes."));
         }
+
+        r = import_digest_verify(&j->decoded_digest);
+        if (r < 0)
+                return pull_job_finish(j, r);
 
         if (j->disk_fd >= 0 && j->zero_fill) {
                 r = import_zero_fill(j->disk_fd, j->offset, j->uncompressed_max, j->written_uncompressed);
@@ -551,6 +560,17 @@ static int pull_job_detect_compression(PullJob *j) {
         int r;
 
         assert(j);
+
+        if (j->compression >= 0) {
+                /* We were told which algorithm to expect, hence don't guess from the data, but strictly use
+                 * that one. */
+                r = decompressor_force(&j->compress, j->compression);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize decompressor: %m");
+
+                log_debug("Using configured compression: %s", compression_to_string(j->compression));
+                return pull_job_begin_running(j);
+        }
 
         r = decompressor_detect(&j->compress, j->payload.iov_base, j->payload.iov_len);
         if (r < 0)
@@ -804,6 +824,7 @@ int pull_job_new(
         *j = (PullJob) {
                 .state = PULL_JOB_INIT,
                 .disk_fd = -EBADF,
+                .compression = _COMPRESSION_INVALID,
                 .close_disk_fd = true,
                 .provider_fd = -EBADF,
                 .userdata = userdata,

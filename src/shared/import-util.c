@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "compress.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
 #include "errno-util.h"
@@ -251,5 +252,27 @@ int import_set_nocow_and_log(int fd, const char *path) {
                                 ERRNO_IS_IOCTL_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
                                 r, "Failed to set file attributes on %s: %m", path);
 
+        return 0;
+}
+
+int parse_compression_argument(const char *option, const char *s, Compression *ret) {
+        assert(option);
+        assert(s);
+        assert(ret);
+
+        if (streq(s, "auto")) {
+                *ret = _COMPRESSION_INVALID;
+                return 0;
+        }
+
+        /* The string table calls COMPRESSION_NONE "uncompressed" (for importd compatibility), accept the more
+         * natural "none" too. */
+        Compression c = streq(s, "none") ? COMPRESSION_NONE : compression_from_string_harder(s);
+        if (c < 0)
+                return log_error_errno(c, "Failed to parse %s argument, unknown compression algorithm: %s", option, s);
+        if (!compression_supported(c))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compression algorithm specified in %s argument not supported: %s", option, s);
+
+        *ret = c;
         return 0;
 }

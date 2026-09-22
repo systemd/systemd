@@ -51,7 +51,10 @@ typedef struct TarImport {
         int tree_fd;
         int userns_fd;
 
+        Compression compression;
         Compressor *compress;
+
+        ImportDigest decoded_digest;
 
         sd_event_source *input_event_source;
 
@@ -127,6 +130,7 @@ int tar_import_new(
                 .userdata = userdata,
                 .last_percent = UINT_MAX,
                 .image_root = TAKE_PTR(root),
+                .compression = _COMPRESSION_INVALID,
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
                 .tar_pid = PIDREF_NULL,
         };
@@ -198,6 +202,10 @@ static int tar_import_finish(TarImport *i) {
                 if (r != EXIT_SUCCESS)
                         return -EPROTO;
         }
+
+        r = import_digest_verify(&i->decoded_digest);
+        if (r < 0)
+                return r;
 
         assert_se(d = i->temp_path ?: i->local);
 
@@ -308,6 +316,8 @@ static int tar_import_write(const void *p, size_t sz, void *userdata) {
         TarImport *i = userdata;
         int r;
 
+        import_digest_update(&i->decoded_digest, p, sz);
+
         r = loop_write(i->tar_fd, p, sz);
         if (r < 0)
                 return r;
@@ -342,7 +352,14 @@ static int tar_import_process(TarImport *i) {
 
         if (!i->compress) {
 
-                if (l == 0) { /* EOF */
+                if (i->compression >= 0) {
+                        /* We were told which algorithm to expect, hence don't guess from the data */
+                        r = decompressor_force(&i->compress, i->compression);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to initialize decompressor: %m");
+                                goto finish;
+                        }
+                } else if (l == 0) { /* EOF */
                         log_debug("File too short to be compressed, as no compression signature fits in, thus assuming uncompressed.");
                         decompressor_force_off(&i->compress);
                 } else {
@@ -413,12 +430,13 @@ static int tar_import_on_defer(sd_event_source *s, void *userdata) {
         return tar_import_process(i);
 }
 
-int tar_import_start(TarImport *i, int fd, const char *local, ImportFlags flags) {
+int tar_import_start(TarImport *i, int fd, const char *local, Compression compression, const struct iovec *decoded_checksum, ImportFlags flags) {
         int r;
 
         assert(i);
         assert(fd >= 0);
         assert(local);
+        assert(compression < _COMPRESSION_MAX);
         assert(!(flags & ~IMPORT_FLAGS_MASK_TAR));
 
         if (!import_validate_local(local, flags))
@@ -436,6 +454,8 @@ int tar_import_start(TarImport *i, int fd, const char *local, ImportFlags flags)
                 return r;
 
         i->flags = flags;
+        i->compression = compression;
+        import_digest_init(&i->decoded_digest, decoded_checksum);
 
         if (fstat(fd, &i->input_stat) < 0)
                 return -errno;
