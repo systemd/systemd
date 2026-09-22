@@ -270,22 +270,38 @@ int hostname_setup(bool really) {
         }
 
         if (!hn) {
-                /* Don't override the hostname if it is already set and not explicitly configured */
-
                 r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &hn);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r >= 0) {
-                        log_debug("No hostname configured, leaving existing hostname <%s> in place.", hn);
-                        goto finish;
+                        /* Don't override the hostname if it is already set and not explicitly configured,
+                         * unless it is the default we set ourselves earlier (e.g. in the initrd, from its
+                         * random machine ID): re-derive it then, so that '?' and '$' patterns are expanded
+                         * against the real machine ID. */
+                        if (!hostname_was_set_to_default(hn)) {
+                                log_debug("No hostname configured, leaving existing hostname <%s> in place.", hn);
+                                goto finish;
+                        }
+
+                        _cleanup_free_ char *rederived = NULL;
+                        r = get_default_hostname(&rederived);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to re-derive default hostname, leaving existing hostname <%s> in place: %m", hn);
+                                goto finish;
+                        }
+
+                        log_debug("Existing hostname <%s> is the default we recorded earlier, re-derived it as <%s>.", hn, rederived);
+                        free_and_replace(hn, rederived);
+                } else {
+                        if (enoent)
+                                log_info("No hostname configured, using default hostname.");
+
+                        hn = get_default_hostname_or_fallback();
+                        if (!hn)
+                                return log_oom();
                 }
-
-                if (enoent)
-                        log_info("No hostname configured, using default hostname.");
-
-                hn = get_default_hostname_or_fallback();
-                if (!hn)
-                        return log_oom();
 
                 source = HOSTNAME_DEFAULT;
         }
