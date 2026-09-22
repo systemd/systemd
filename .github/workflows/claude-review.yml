@@ -715,11 +715,12 @@ jobs:
               }
               /* An unterminated fence would swallow everything after it, so cut
                * it off before anything else is measured or truncated. */
-              if ((c.body.match(/```/g) || []).length % 2 === 1) {
+              const fences = [...c.body.matchAll(/^```/gm)];
+              if (fences.length % 2 === 1) {
                 console.log(`  Dropping unterminated code fence in comment on ${c.path}:${c.line}.`);
-                c = { ...c, body: c.body.slice(0, c.body.lastIndexOf("```")).trimEnd() || "(empty)" };
+                c = { ...c, body: c.body.slice(0, fences.at(-1).index).trimEnd() || "(empty)" };
               }
-              const prose = c.body.replace(/```[\s\S]*?```/g, "");
+              const prose = c.body.replace(/^```[\s\S]*?^```[^\n]*/gm, "");
               if (prose.length > MAX_PROSE_LENGTH) {
                 console.log(`  Truncating comment on ${c.path}:${c.line}: ${prose.length} characters of prose exceeds ${MAX_PROSE_LENGTH}.`);
                 /* Cutting inside a fence would leave a suggestion missing code,
