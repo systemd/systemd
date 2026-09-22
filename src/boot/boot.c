@@ -162,6 +162,7 @@ typedef struct {
         secure_boot_enroll secure_boot_enroll;
         secure_boot_enroll_action secure_boot_enroll_action;
         uint64_t secure_boot_enroll_timeout_sec;
+        bool menu_on_failure;
         bool force_menu;
         bool use_saved_entry;
         bool use_saved_entry_efivar;
@@ -1161,6 +1162,10 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                 } else if (streq8(key, "beep")) {
                         if (!parse_boolean(value, &config->beep))
                                 log_warning("Error parsing 'beep' config option, ignoring: %s", value);
+
+                } else if (streq8(key, "menu-on-failure")) {
+                        if (!parse_boolean(value, &config->menu_on_failure))
+                                log_warning("Error parsing 'menu-on-failure' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "reboot-for-bitlocker")) {
                         if (!parse_boolean(value, &config->reboot_for_bitlocker))
@@ -3471,6 +3476,13 @@ static EFI_STATUS run(EFI_HANDLE image) {
         (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
         (void) sysfail_process(&config);
+
+        if (config.menu_on_failure &&
+            !config.sysfail_occurred &&
+            !config.entry_oneshot &&
+            config.idx_default < config.n_entries &&
+            config.entries[config.idx_default]->tries_done > 0)
+                config.force_menu = true;
 
         if (!config_has_bootable_entries(&config))
                 printf("\nNo bootable entries found.\n"
