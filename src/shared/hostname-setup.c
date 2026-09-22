@@ -203,6 +203,10 @@ int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret) {
         return read_etc_hostname_stream(f, substitute_wildcards, ret);
 }
 
+static const char* run_default_hostname_path(void) {
+        return secure_getenv("SYSTEMD_RUN_DEFAULT_HOSTNAME_PATH") ?: "/run/systemd/default-hostname";
+}
+
 void hostname_update_source_hint(const char *hostname, HostnameSource source) {
         int r;
 
@@ -212,13 +216,31 @@ void hostname_update_source_hint(const char *hostname, HostnameSource source) {
          * notice if somebody sets the hostname directly (not going through hostnamed).
          */
 
+        const char *path = run_default_hostname_path();
+
         if (source == HOSTNAME_DEFAULT) {
-                r = write_string_file("/run/systemd/default-hostname", hostname,
+                r = write_string_file(path, hostname,
                                       WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to create \"/run/systemd/default-hostname\", ignoring: %m");
+                        log_warning_errno(r, "Failed to create \"%s\", ignoring: %m", path);
         } else
-                (void) unlink_or_warn("/run/systemd/default-hostname");
+                (void) unlink_or_warn(path);
+}
+
+bool hostname_was_set_to_default(const char *hostname) {
+        _cleanup_free_ char *recorded = NULL;
+        int r;
+
+        /* Compare the string rather than just checking for the file, since the hostname may have been set by
+         * an older version with a different fallback, in the initrd, or before we reexecuted. */
+
+        const char *path = run_default_hostname_path();
+
+        r = read_one_line_file(path, &recorded);
+        if (r < 0 && r != -ENOENT)
+                log_warning_errno(r, "Failed to read \"%s\", ignoring: %m", path);
+
+        return streq_ptr(recorded, hostname);
 }
 
 int hostname_setup(bool really) {
