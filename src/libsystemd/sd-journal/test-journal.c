@@ -10,6 +10,8 @@
 #include "journal-file-util.h"
 #include "journal-vacuum.h"
 #include "log.h"
+#include "lookup3.h"
+#include "memory-util.h"
 #include "rm-rf.h"
 #include "stdio-util.h"
 #include "tests.h"
@@ -125,6 +127,79 @@ TEST(non_empty) {
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         test_non_empty_one();
+}
+
+TEST(duplicate_entry_storage) {
+        static const uint8_t binary[] = { 'B', 'I', 'N', 'A', 'R', 'Y', '=', 'a', 0, 'b' };
+        static const char duplicate[] = "DUPLICATE=value";
+        static const char empty[] = "EMPTY=";
+        static const char repeated_one[] = "REPEATED=one";
+        static const char repeated_two[] = "REPEATED=two";
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        unsigned n_binary = 0, n_duplicate = 0, n_empty = 0, n_repeated_one = 0, n_repeated_two = 0;
+        struct iovec iovec[] = {
+                IOVEC_MAKE((void*) binary, sizeof(binary)),
+                IOVEC_MAKE_STRING(duplicate),
+                IOVEC_MAKE_STRING(repeated_one),
+                IOVEC_MAKE_STRING(duplicate),
+                IOVEC_MAKE_STRING(empty),
+                IOVEC_MAKE_STRING(repeated_two),
+        };
+        char t[] = "/var/tmp/journal-XXXXXX";
+        uint64_t expected_xor = 0;
+        dual_timestamp ts;
+        Object *o;
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        mkdtemp_chdir_chattr(t);
+
+        ASSERT_OK(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, 0, 0666, UINT64_MAX, NULL, m, NULL, &f));
+
+        ASSERT_NOT_NULL(dual_timestamp_now(&ts));
+        FOREACH_ELEMENT(i, iovec)
+                expected_xor ^= jenkins_hash64(i->iov_base, i->iov_len);
+
+        ASSERT_OK(journal_file_append_entry(f, &ts, NULL, iovec, ELEMENTSOF(iovec), NULL, NULL, &o, NULL));
+        ASSERT_EQ(le64toh(o->entry.xor_hash), expected_xor);
+        ASSERT_EQ(journal_file_entry_n_items(f, o), 5U);
+
+        for (uint64_t i = 0; i < journal_file_entry_n_items(f, o); i++) {
+                const void *data;
+                size_t size;
+
+                ASSERT_OK_POSITIVE(journal_file_data_payload(
+                                f,
+                                NULL,
+                                journal_file_entry_item_object_offset(f, o, i),
+                                NULL,
+                                0,
+                                0,
+                                &data,
+                                &size));
+
+                if (memcmp_nn(data, size, binary, sizeof(binary)) == 0)
+                        n_binary++;
+                else if (memcmp_nn(data, size, duplicate, strlen(duplicate)) == 0)
+                        n_duplicate++;
+                else if (memcmp_nn(data, size, empty, strlen(empty)) == 0)
+                        n_empty++;
+                else if (memcmp_nn(data, size, repeated_one, strlen(repeated_one)) == 0)
+                        n_repeated_one++;
+                else if (memcmp_nn(data, size, repeated_two, strlen(repeated_two)) == 0)
+                        n_repeated_two++;
+                else
+                        assert_not_reached();
+        }
+
+        ASSERT_EQ(n_binary, 1U);
+        ASSERT_EQ(n_duplicate, 1U);
+        ASSERT_EQ(n_empty, 1U);
+        ASSERT_EQ(n_repeated_one, 1U);
+        ASSERT_EQ(n_repeated_two, 1U);
+
+        f = journal_file_offline_close(f);
+        ASSERT_OK(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
 }
 
 static void test_empty_one(void) {
