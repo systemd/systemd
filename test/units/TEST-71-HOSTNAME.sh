@@ -545,6 +545,76 @@ testcase_tags() {
     hostnamectl tags ""
 }
 
+testcase_tags_apply() {
+    if [[ -f /etc/machine-info ]]; then
+        cp /etc/machine-info /tmp/machine-info.bak
+    fi
+
+    trap 'restore_machine_info; rm -f /run/tags.d/*-test71.tags /etc/tags.d/*-test71.tags' RETURN
+
+    # Start from a known list.
+    hostnamectl tags manual vendor.env=old
+    assert_eq "$(hostnamectl tags)" "manual:vendor.env=old"
+
+    mkdir -p /run/tags.d /etc/tags.d
+    cat >/run/tags.d/10-vendor-test71.tags <<EOF
+# vendor tags
+vendor.role=webserver vendor.env=production
+; another comment
+vendor.region=eu
+EOF
+    echo "runtime" >/run/tags.d/30-runtime-test71.tags
+    cat >/etc/tags.d/70-local-test71.tags <<EOF
+-vendor.env=* -vendor.region=*
+local.rack=7
+EOF
+
+    # No arguments may be combined with --apply.
+    (! hostnamectl tags --apply foo)
+    assert_eq "$(hostnamectl tags)" "manual:vendor.env=old"
+
+    # The files are applied on top of the current tags, in order: the vendor file replaces the value of
+    # vendor.env, which the local file then removes together with vendor.region.
+    hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "local.rack=7:manual:runtime:vendor.role=webserver"
+    grep -E '^TAGS="?local.rack=7:manual:runtime:vendor.role=webserver"?$' /etc/machine-info >/dev/null
+
+    # Applying again is a no-op, also via the Varlink method directly, and tags set by other means are
+    # retained.
+    hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "local.rack=7:manual:runtime:vendor.role=webserver"
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.ApplyTags '{}'
+    assert_eq "$(hostnamectl tags)" "local.rack=7:manual:runtime:vendor.role=webserver"
+    hostnamectl tags +extra
+    hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "extra:local.rack=7:manual:runtime:vendor.role=webserver"
+
+    # A /dev/null symlink or an empty file in /etc/ masks a file of the same name in /run/. Masking does
+    # not remove tags that were applied earlier, so drop them first.
+    hostnamectl tags -- -runtime -vendor.role=webserver
+    ln -s /dev/null /etc/tags.d/10-vendor-test71.tags
+    : >/etc/tags.d/30-runtime-test71.tags
+    hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "extra:local.rack=7:manual"
+
+    # Assigning a key replaces a previous assignment, glob removal applies to existing tags too, and
+    # invalid entries are ignored without aborting.
+    echo "role=a" >/etc/tags.d/80-key-test71.tags
+    hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "extra:local.rack=7:manual:role=a"
+    printf 'in/valid role=b\n-e*\n' >/etc/tags.d/81-key-test71.tags
+    hostnamectl tags --apply
+    assert_eq "$(hostnamectl tags)" "local.rack=7:manual:role=b"
+
+    # "-*" resets the list.
+    echo "-* fresh" >/etc/tags.d/90-reset-test71.tags
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.ApplyTags '{}'
+    assert_eq "$(hostnamectl tags)" "fresh"
+    grep -E '^TAGS="?fresh"?$' /etc/machine-info >/dev/null
+
+    hostnamectl tags ""
+}
+
 testcase_varlink_setters() {
     local bus=/run/systemd/io.systemd.Hostname
 
