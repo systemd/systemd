@@ -286,8 +286,8 @@ int mountfsd_mount_image(sd_varlink *vl, const char *path, int userns_fd, const 
 int mountfsd_mount_directory_fd(sd_varlink *vl, int directory_fd, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
 int mountfsd_mount_directory(sd_varlink *vl, const char *path, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
 
-int mountfsd_make_directory_fd(sd_varlink *vl, int parent_fd, const char *name, mode_t mode, DissectImageFlags flags, int *ret_directory_fd);
-int mountfsd_make_directory(sd_varlink *vl, const char *path, mode_t mode, DissectImageFlags flags, int *ret_directory_fd);
+int mkdir_foreign_at(int parent_fd, const char *name, mode_t mode, int *ret_directory_fd);
+int mkdir_foreign(const char *path, mode_t mode, int *ret_directory_fd);
 
 int copy_tree_at_foreign(int source_fd, int target_fd, int userns_fd);
 int remove_tree_foreign(const char *path, int userns_fd);
