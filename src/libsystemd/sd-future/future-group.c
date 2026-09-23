@@ -32,6 +32,11 @@ typedef struct FutureGroup {
          * rejects with -ESTALE. */
         bool finalizing;
         int result;
+
+        /* Set while cancelling children. A cancellation that comes back around to the group,
+         * either through a child that cancels its own group or through a cycle of groups
+         * containing each other, would otherwise recurse until the stack overflows. */
+        bool cancelling;
 } FutureGroup;
 
 static void* future_group_alloc(void) {
@@ -57,6 +62,27 @@ static int future_group_parent_resolved(sd_future *parent, void *userdata) {
 
 static int future_group_check(sd_future *g);
 
+static int future_group_cancel_children(sd_future *g) {
+        FutureGroup *fg = ASSERT_PTR(sd_future_get_private(g));
+        int r = 0;
+
+        if (fg->cancelling)
+                return 0;
+
+        /* A cancellation error does not make a pending child safe to release. Keep waiting for its
+         * resolution even when cancellation is unsupported or fails; child implementations must still
+         * arrange completion before the group can finish draining. */
+        fg->cancelling = true;
+        FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots) {
+                sd_future *child = sd_future_slot_get_future(*slot_p);
+                if (sd_future_state(child) == SD_FUTURE_PENDING)
+                        RET_GATHER(r, sd_future_cancel(child));
+        }
+        fg->cancelling = false;
+
+        return r;
+}
+
 static int future_group_finalize(sd_future *g, int result, bool propagate_error) {
         FutureGroup *fg = ASSERT_PTR(sd_future_get_private(g));
         int r = 0;
@@ -69,14 +95,7 @@ static int future_group_finalize(sd_future *g, int result, bool propagate_error)
         fg->finalizing = true;
         fg->result = result;
 
-        /* A cancellation error does not make a pending child safe to release. Keep waiting for its
-         * resolution even when cancellation is unsupported or fails; child implementations must still
-         * arrange completion before the group can finish draining. */
-        FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots) {
-                sd_future *child = sd_future_slot_get_future(*slot_p);
-                if (sd_future_state(child) == SD_FUTURE_PENDING)
-                        RET_GATHER(r, sd_future_cancel(child));
-        }
+        RET_GATHER(r, future_group_cancel_children(g));
 
         /* If we're settling because of a child error (and the user hasn't opted into ignoring
          * errors), cancel the parent fiber so it notices the failure even if it hasn't
@@ -160,8 +179,21 @@ static int future_group_check(sd_future *g) {
 }
 
 static int future_group_cancel(sd_future *f) {
+        FutureGroup *fg = ASSERT_PTR(sd_future_get_private(f));
+        int r;
+
         /* Explicit group cancellation affects its children, not the fiber that created the group. */
-        return future_group_finalize(f, -ECANCELED, /* propagate_error= */ false);
+        if (!fg->finalizing)
+                return future_group_finalize(f, -ECANCELED, /* propagate_error= */ false);
+
+        /* The outcome is locked, but children that escalate on repeated cancellation still need to
+         * see every attempt, or sd_future_cancel_wait_unref() on the group could never drive them. */
+        r = future_group_cancel_children(f);
+
+        /* The last pending child may have settled synchronously, in which case the group can resolve
+         * now rather than after the next dispatch. */
+        RET_GATHER(r, future_group_check(f));
+        return r;
 }
 
 static int future_group_set_child_priority(sd_future *child, int64_t priority) {
