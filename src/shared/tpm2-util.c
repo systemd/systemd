@@ -4538,7 +4538,7 @@ static bool tpm2_is_audit_session(Tpm2Context *c, const Tpm2Handle *session) {
         return flags & TPMA_SESSION_AUDIT;
 }
 
-int tpm2_make_exclusive_audit_session(Tpm2Context *c, Tpm2Handle **ret_session) {
+int tpm2_make_exclusive_audit_session(Tpm2Context *c, TPMI_ALG_HASH hash, Tpm2Handle **ret_session) {
         TSS2_RC rc;
         int r;
 
@@ -4546,6 +4546,11 @@ int tpm2_make_exclusive_audit_session(Tpm2Context *c, Tpm2Handle **ret_session) 
         assert(ret_session);
 
         log_debug("Starting HMAC exclusive audit session.");
+
+        /* The caller can specify a hash algorithm, but we only support SHA-256 for now. */
+        if (hash != TPM2_ALG_SHA256)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported hash algorithm for audit session: only SHA-256 is supported");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
         r = tpm2_handle_new(c, &session);
@@ -4562,7 +4567,7 @@ int tpm2_make_exclusive_audit_session(Tpm2Context *c, Tpm2Handle **ret_session) 
                         /* nonceCaller= */ NULL,
                         TPM2_SE_HMAC,
                         &SESSION_TEMPLATE_SYM_NULL,
-                        TPM2_ALG_SHA256,
+                        hash,
                         &session->esys_handle);
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -10404,7 +10409,7 @@ int tpm2_tpmt_public_to_pem(const TPMT_PUBLIC *public, char **ret) {
 #endif
 }
 
-static const char* tpm2_hash_alg_to_string_tss2(TPMI_ALG_HASH alg) {
+const char* tpm2_hash_alg_to_string_tss2(TPMI_ALG_HASH alg) {
         /* Note that this is different to tpm2_hash_alg_to_string because it
          * returns a string that aligns with those produced by TSS2 and compatible
          * with the TCG TSS2 JSON format. The JSON format is actually not case
