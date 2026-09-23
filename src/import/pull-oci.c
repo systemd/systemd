@@ -474,14 +474,9 @@ static int oci_pull_job_on_open_disk(PullJob *j) {
                         return log_error_errno(r, "Failed to connect to mountfsd: %m");
 
                 _cleanup_close_ int directory_fd = -EBADF;
-                r = mountfsd_make_directory(
-                                mountfsd_link,
-                                st->temp_path,
-                                MODE_INVALID,
-                                /* flags= */ 0,
-                                &directory_fd);
+                r = mkdir_foreign(st->temp_path, MODE_INVALID, &directory_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make directory via mountfsd: %m");
+                        return log_error_errno(r, "Failed to make foreign UID range owned directory: %m");
 
                 r = mountfsd_mount_directory_fd(
                                 mountfsd_link,
@@ -1162,15 +1157,9 @@ static int oci_pull_save_mstack(OciPull *i) {
                         if (r < 0)
                                 return r;
 
-                        r = mountfsd_make_directory_fd(
-                                        /* vl= */ NULL,
-                                        dir_fd,
-                                        "rw",
-                                        0755,
-                                        /* flags= */ 0,
-                                        /* ret_directory_fd= */ NULL);
+                        r = mkdir_foreign_at(dir_fd, "rw", 0755, /* ret_directory_fd= */ NULL);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to create 'rw' layer: %m");
                 } else {
                         _cleanup_close_ int rw_fd = open_mkdir_at(dir_fd, "rw", O_EXCL|O_CLOEXEC, 0755);
                         if (rw_fd < 0)
