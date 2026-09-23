@@ -404,7 +404,7 @@ TEST(future_group_cancels_parent_on_child_error) {
         ASSERT_ERROR(s.group_result, EINVAL);
 }
 
-/* Awaiting a group must return the child's error instead of cancelling the waiting parent. */
+/* Awaiting a group must complete with the child's error instead of cancelling the waiting parent. */
 static int await_gets_error_driver(void *userdata) {
         _cleanup_(sd_future_unrefp) sd_future *group = NULL, *errorer = NULL;
         int *await_result = ASSERT_PTR(userdata);
@@ -413,7 +413,8 @@ static int await_gets_error_driver(void *userdata) {
         ASSERT_OK(sd_future_new_defer(sd_fiber_get_event(), -EINVAL, &errorer));
         ASSERT_OK(sd_future_group_add(group, errorer));
 
-        *await_result = sd_fiber_await(group);
+        ASSERT_OK_ZERO(sd_fiber_await(group));
+        *await_result = sd_future_result(group);
         ASSERT_OK_ZERO(sd_fiber_yield());
         return 0;
 }
@@ -462,10 +463,9 @@ typedef struct AddResolvedState {
 static int add_resolved_driver(void *userdata) {
         AddResolvedState *s = ASSERT_PTR(userdata);
 
-        /* Drive the pre-built child to completion. The defer resolves with -EINVAL, which
-         * makes sd_fiber_await return -EINVAL — we don't ASSERT_OK that. The child is now
-         * RESOLVED and we can add it to the group. */
-        (void) sd_fiber_await(s->child);
+        /* Drive the pre-built child to completion. The defer resolves with -EINVAL, but the wait
+         * itself succeeds. The child is now RESOLVED and we can add it to the group. */
+        ASSERT_OK_ZERO(sd_fiber_await(s->child));
         ASSERT_EQ(sd_future_state(s->child), SD_FUTURE_RESOLVED);
 
         s->add_result = sd_future_group_add(s->group, s->child);
@@ -473,7 +473,8 @@ static int add_resolved_driver(void *userdata) {
 
         /* Await drives the loop one more tick so the defer that wraps the RESOLVED child can
          * fire group_child_resolved and settle the group. */
-        s->await_result = sd_fiber_await(s->group);
+        ASSERT_OK_ZERO(sd_fiber_await(s->group));
+        s->await_result = sd_future_result(s->group);
         return 0;
 }
 
@@ -510,7 +511,8 @@ typedef struct AddManyState {
 static int add_many_driver(void *userdata) {
         AddManyState *s = ASSERT_PTR(userdata);
         ASSERT_OK(sd_future_group_add_many(s->group, s->a, s->b, s->c));
-        s->join_result = sd_fiber_await(s->group);
+        ASSERT_OK_ZERO(sd_fiber_await(s->group));
+        s->join_result = sd_future_result(s->group);
         return 0;
 }
 
@@ -744,12 +746,12 @@ static int parent_await_driver(void *userdata) {
         s->ready = true;
         ASSERT_EQ(sd_fiber_suspend(), s->result);
 
-        /* Parent cancellation does not replace the group's result. A later await of the resolved
-         * group returns that result, just like sd_future_result(). */
+        /* Parent cancellation does not replace the group's result, and a later await of the
+         * resolved group completes immediately. */
         if (s->result == -ECANCELED) {
                 ASSERT_EQ(sd_future_state(s->group), SD_FUTURE_RESOLVED);
                 ASSERT_ERROR(sd_future_result(s->group), EIO);
-                ASSERT_ERROR(sd_fiber_await(s->group), EIO);
+                ASSERT_OK_ZERO(sd_fiber_await(s->group));
         }
         return 0;
 }
@@ -830,7 +832,14 @@ TEST(future_group_external_cancel_leaves_parent_running) {
 }
 
 static int peer_await_driver(void *userdata) {
-        return sd_fiber_await(userdata);
+        sd_future *group = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_fiber_await(group);
+        if (r < 0)
+                return r;
+
+        return sd_future_result(group);
 }
 
 TEST(future_group_peer_await_does_not_suppress_parent_cancel) {

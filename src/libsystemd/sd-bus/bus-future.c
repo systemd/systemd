@@ -48,8 +48,7 @@ static int bus_future_handler(sd_bus_message *m, void *userdata, sd_bus_error *r
          * resolution value alone. The reply itself is always stashed in bf->reply so
          * future_get_bus_reply() can hand back the detailed sd_bus_error (name + message) on
          * top of the bare errno. Cancellation surfaces as -ECANCELED via bus_future_cancel(),
-         * with bf->reply left NULL — callers can distinguish "got an error reply" from "no reply
-         * will arrive" by whether future_get_bus_reply() can produce a message. */
+         * with bf->reply left NULL. */
         bf->slot = sd_bus_slot_unref(bf->slot);
         bf->reply = sd_bus_message_ref(m);
 
@@ -82,16 +81,24 @@ int bus_call_future(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_future **r
 
 int future_get_bus_reply(sd_future *f, sd_bus_error *reterr_error, sd_bus_message **ret_reply) {
         BusFuture *bf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
-        sd_bus_message *reply = ASSERT_PTR(bf->reply);
+        int r;
 
         assert(sd_future_get_ops(f) == &bus_future_ops);
-        assert(sd_future_state(f) == SD_FUTURE_RESOLVED);
 
-        if (sd_bus_message_is_method_error(reply, NULL)) {
-                if (reterr_error)
-                        return sd_bus_error_copy(reterr_error, sd_bus_message_get_error(reply));
-                return -sd_bus_message_get_errno(reply);
+        if (sd_future_state(f) != SD_FUTURE_RESOLVED)
+                return -EAGAIN;
+
+        r = sd_future_result(f);
+        if (r < 0) {
+                /* An error reply carries its name and message on top of the bare errno; a cancelled
+                 * call has no reply at all. */
+                if (bf->reply && reterr_error)
+                        return sd_bus_error_copy(reterr_error, sd_bus_message_get_error(bf->reply));
+
+                return sd_bus_error_set_errno(reterr_error, r);
         }
+
+        sd_bus_message *reply = ASSERT_PTR(bf->reply);
 
         if (reply->n_fds > 0 && !sd_bus_message_get_bus(reply)->accept_fd)
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INCONSISTENT_MESSAGE,
@@ -124,13 +131,9 @@ int bus_call_suspend(
                 return sd_bus_error_set_errno(reterr_error, r);
 
         r = sd_fiber_await(f);
-
-        /* If the future isn't resolved, the suspend was interrupted before a reply arrived (fiber
-         * cancelled, fiber-wide SD_FIBER_TIMEOUT scope expired, …). There's no reply to extract,
-         * so surface the resume error directly. When the future is resolved, future_get_bus_reply()
-         * recovers either the reply or the detailed sd_bus_error from the error reply. */
-        if (sd_future_state(f) != SD_FUTURE_RESOLVED)
+        if (r < 0)
                 return sd_bus_error_set_errno(reterr_error, r);
 
+        /* Recovers either the reply or the detailed sd_bus_error from the error reply. */
         return future_get_bus_reply(f, reterr_error, ret_reply);
 }

@@ -931,24 +931,28 @@ int qmp_client_call_future(
  * future's negative resume errno when no reply landed at all (transport failure / cancellation).
  */
 int future_get_qmp_reply(sd_future *f, sd_json_variant **ret_result, char **reterr_error_desc) {
+        int r;
+
         assert(f);
         assert(sd_future_get_ops(f) == &qmp_call_future_ops);
-        assert(sd_future_state(f) == SD_FUTURE_RESOLVED);
+
+        if (sd_future_state(f) != SD_FUTURE_RESOLVED)
+                return -EAGAIN;
 
         QmpFuture *qf = ASSERT_PTR(sd_future_get_private(f));
 
-        /* No reply at all: transport failure or cancellation — surface the future result. */
-        if (!qf->result && !qf->error_desc)
-                return sd_future_result(f);
-
-        if (qf->error_desc) {
-                if (reterr_error_desc) {
+        r = sd_future_result(f);
+        if (r < 0) {
+                /* A QMP-level error carries its description on top of the -EIO result; a transport
+                 * failure or cancellation has no reply at all. */
+                if (qf->error_desc && reterr_error_desc) {
                         char *desc = strdup(qf->error_desc);
                         if (!desc)
                                 return -ENOMEM;
                         *reterr_error_desc = desc;
                 }
-                return -EIO;
+
+                return r;
         }
 
         if (reterr_error_desc)
@@ -978,15 +982,11 @@ static int qmp_client_call_suspend(
                 return r;
 
         r = sd_fiber_await(call);
-
-        /* If the future isn't resolved, the suspend was interrupted before a reply arrived (fiber
-         * cancelled, fiber-wide SD_FIBER_TIMEOUT scope expired, …). There's no reply to extract,
-         * so surface the resume error directly. When the future is resolved, future_get_qmp_reply()
-         * already encodes success (1), QMP-level error (-EIO with the desc captured if asked for),
-         * and no-reply (negative future result) — pass it through. */
-        if (sd_future_state(call) != SD_FUTURE_RESOLVED)
+        if (r < 0)
                 return r;
 
+        /* future_get_qmp_reply() encodes success (1), QMP-level error (-EIO with the desc captured if
+         * asked for), and no-reply (negative future result) — pass it through. */
         return future_get_qmp_reply(call, ret_result, ret_error_desc);
 }
 

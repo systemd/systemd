@@ -81,6 +81,8 @@ int qmp_client_call_future(
                 QmpClientArgs *args,
                 sd_future **ret);
 
+/* -EAGAIN while the call is pending, the future's result if it is negative (with the QMP error's
+ * description in reterr_error_desc where there is one), and 1 with the result otherwise. */
 int future_get_qmp_reply(
                 sd_future *f,
                 sd_json_variant **ret_result,
