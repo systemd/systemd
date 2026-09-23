@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "appd-instance.h"
+#include "appd-instance-varlink.h"
 #include "appd-manager.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
@@ -50,6 +51,8 @@ static void app_instance_unmanage(AppInstance *instance) {
         assert(owned_instance == instance);
 
         instance->cg_inotify = sd_event_source_disable_unref(instance->cg_inotify);
+
+        (void) app_instance_notify(instance, APP_INSTANCE_DISAPPEARED, NULL, NULL);
 }
 
 static int app_instance_inotify(sd_event_source *s, const struct inotify_event *event, void *userdata) {
