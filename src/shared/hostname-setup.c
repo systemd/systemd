@@ -285,6 +285,8 @@ int hostname_setup(bool really) {
 
                         _cleanup_free_ char *rederived = NULL;
                         r = get_default_hostname(&rederived);
+                        if (r == -ENOMEM)
+                                return log_oom();
                         if (r < 0) {
                                 log_warning_errno(r, "Failed to re-derive default hostname, leaving existing hostname <%s> in place: %m", hn);
                                 goto finish;
