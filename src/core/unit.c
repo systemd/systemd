@@ -4583,6 +4583,15 @@ int unit_patch_contexts(Unit *u) {
                 }
         }
 
+        /* The cpuset controller is only enabled when AllowedCPUs= or AllowedMemoryNodes= is configured,
+         * hence CPUSetPartition= has no effect without them. */
+        if (cc &&
+            cc->cpuset_partition >= 0 &&
+            !cc->cpuset_cpus.set && !cc->startup_cpuset_cpus.set) {
+                log_unit_warning(u, "CPUSetPartition= requires AllowedCPUs= to also be set, ignoring.");
+                cc->cpuset_partition = _CPUSET_PARTITION_INVALID;
+        }
+
         return unit_verify_contexts(u);
 }
 
