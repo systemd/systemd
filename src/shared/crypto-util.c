@@ -1617,8 +1617,8 @@ int rsa_pkey_to_n_e(
         if (!n || !e)
                 return log_oom_debug();
 
-        assert(sym_BN_bn2bin(bn_n, n) == (int) n_size);
-        assert(sym_BN_bn2bin(bn_e, e) == (int) e_size);
+        assert_se(sym_BN_bn2bin(bn_n, n) == (int) n_size);
+        assert_se(sym_BN_bn2bin(bn_e, e) == (int) e_size);
 
         *ret_n = TAKE_PTR(n);
         *ret_n_size = n_size;
