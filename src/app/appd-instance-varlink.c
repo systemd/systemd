@@ -11,11 +11,15 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "varlink-util.h"
 #include "varlink-io.systemd.AppInstance.h"
+
+#define NOTIFY_TIMEOUT_USEC (5 * USEC_PER_SEC)
 
 typedef struct RegisterRequest {
         Manager *manager;
@@ -426,6 +430,17 @@ static void set_permissions_params_done(SetPermissionsParams *params) {
         sd_json_variant_unref(params->permissions);
 }
 
+static int set_permissions_notif_done(void *userdata) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_varlink_reply(link, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to reply to SetPermissions: %m");
+
+        return 0;
+}
+
 static int vl_method_instance_set_permissions(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -468,7 +483,12 @@ static int vl_method_instance_set_permissions(
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        r = app_instance_notify(target_instance, APP_INSTANCE_CHANGED, set_permissions_notif_done, link);
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+        sd_varlink_ref(link);
+
+        return 0;
 }
 
 int manager_instance_varlink_init(Manager *m) {
@@ -519,4 +539,110 @@ void manager_instance_varlink_done(Manager *m) {
         assert(m);
 
         m->varlink_instance_server = sd_varlink_server_unref(m->varlink_instance_server);
+}
+
+static const char* const app_instance_event_table[_APP_INSTANCE_EVENT_MAX] = {
+        [APP_INSTANCE_CHANGED] = "changed",
+        [APP_INSTANCE_DISAPPEARED] = "disappeared",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(app_instance_event, AppInstanceEvent);
+
+typedef struct AppInstanceNotifyContext {
+        app_instance_notify_finished_t done_cb;
+        void *userdata;
+} AppInstanceNotifyContext;
+
+static int app_instance_notify_reply(
+                sd_varlink *link,
+                sd_json_variant *reply,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        assert(link);
+
+        if (error_id)
+                log_debug("App instance monitor '%s' returned error, ignoring: %s",
+                          strna(sd_varlink_get_description(link)), error_id);
+
+        return 0;
+}
+
+static int app_instance_notify_done(void *userdata) {
+        _cleanup_free_ AppInstanceNotifyContext *ctx = ASSERT_PTR(userdata);
+        assert(ctx->done_cb);
+        return ctx->done_cb(ctx->userdata);
+}
+
+int app_instance_notify(AppInstance *instance, AppInstanceEvent event, app_instance_notify_finished_t done, void *userdata) {
+        int r;
+
+        if (!instance->ever_queried) {
+                /* We don't send any notifications for instances that have never been queried (i.e. have just
+                 * been registered), because we have no way of knowing that no more Register() calls are coming.
+                 * An instance may call Register() repeatedly as it starts up: once by the desktop environment,
+                 * again by the sandbox engine, and maybe again by the app itself. If we emit a notification
+                 * about an instance while the it is in between these Register() calls, we risk inducing some
+                 * service to Query() the instance and thus cause all future Register()s to fail! */
+                log_debug("App instance %s (cg_path: %s) never queried, skipping notification: %s",
+                          instance->app_id, instance->cg_path, app_instance_event_to_string(event));
+                if (done) {
+                        r = done(userdata);
+                        if (r < 0)
+                                log_debug("Done callback returned error, ignoring: %m");
+                }
+                return 0;
+        }
+
+        log_debug("Notifying app instance %s (cg_path: %s): %s", instance->app_id, instance->cg_path,
+                  app_instance_event_to_string(event));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
+        r = sd_json_buildo(
+                        &params,
+                        SD_JSON_BUILD_PAIR_STRING("event", app_instance_event_to_string(event)),
+                        SD_JSON_BUILD_PAIR_STRING("id", instance->app_id),
+                        SD_JSON_BUILD_PAIR_STRING("cgroup", instance->cg_path));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build notify params: %m");
+
+        _cleanup_free_ char *notify_dir_path = NULL;
+        r = xdg_user_runtime_dir("systemd/io.systemd.AppInstanceMonitor", &notify_dir_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to construct notify directory path: %m");
+
+        _cleanup_free_ AppInstanceNotifyContext *ctx = NULL;
+        if (done) {
+                ctx = new(AppInstanceNotifyContext, 1);
+                *ctx = (AppInstanceNotifyContext) {
+                        .done_cb = done,
+                        .userdata = userdata
+                };
+        }
+
+        r = varlink_execute_directory_async(
+                        instance->manager->event,
+                        notify_dir_path,
+                        "io.systemd.AppInstanceMonitor.Notify",
+                        params,
+                        /* more= */ false,
+                        NOTIFY_TIMEOUT_USEC,
+                        app_instance_notify_reply,
+                        ctx ? app_instance_notify_done : NULL,
+                        ctx);
+        if (r == -ENOENT) {
+                /* A missing notify_dir_path just means that nobody is registered for notifications */
+                if (done) {
+                        r = done(userdata);
+                        if (r < 0)
+                                log_debug("Done callback returned error, ignoring: %m");
+                }
+                return 0;
+        }
+        if (r < 0)
+                return r;
+        TAKE_PTR(ctx);
+
+        return 0;
 }

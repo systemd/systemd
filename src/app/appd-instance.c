@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "appd-instance.h"
+#include "appd-instance-varlink.h"
 #include "appd-manager.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
@@ -53,8 +54,10 @@ static int app_instance_inotify(sd_event_source *s, const struct inotify_event *
 
         log_debug("App %s (cg_path: %s) disappeared", instance->app_id, instance->cg_path);
 
-        app_instance_unref(hashmap_remove(instance->manager->instances, instance->cg_path));
+        assert_se(hashmap_remove(instance->manager->instances, instance->cg_path) == instance);
+        app_instance_unref(instance);
 
+        (void) app_instance_notify(instance, APP_INSTANCE_DISAPPEARED, NULL, NULL);
         return 0;
 }
 
