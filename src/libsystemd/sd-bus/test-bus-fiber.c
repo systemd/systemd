@@ -299,6 +299,7 @@ static int interrupted_calls_fiber(void *userdata) {
                 }
 
                 ASSERT_OK_ZERO(sd_fiber_await(caller));
+                ASSERT_OK_ZERO(sd_future_result(caller));
                 ASSERT_NULL(s->c->pending_call);
                 ASSERT_NULL(s->c->waiter);
         }

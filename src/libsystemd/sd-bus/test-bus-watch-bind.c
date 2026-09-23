@@ -189,6 +189,8 @@ static int request_exit(void *userdata) {
         /* Wait for all client fibers to complete before requesting exit */
         ASSERT_OK(sd_fiber_await(args->client1));
         ASSERT_OK(sd_fiber_await(args->client2));
+        ASSERT_OK(sd_future_result(args->client1));
+        ASSERT_OK(sd_future_result(args->client2));
 
         ASSERT_OK(sd_bus_new(&bus));
 

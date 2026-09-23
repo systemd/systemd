@@ -303,7 +303,7 @@ static int qmp_client_call_fiber(void *userdata) {
         sd_json_variant *status = ASSERT_NOT_NULL(sd_json_variant_by_key(result, "status"));
         ASSERT_STREQ(sd_json_variant_string(status), "running");
 
-        /* QMP-level error: future resolves with -EIO, sd_fiber_await() returns -EIO, and
+        /* QMP-level error: the wait completes, the future resolves with -EIO, and
          * future_get_qmp_reply() also returns -EIO (mirroring future_get_bus_reply()) — with the
          * detailed description captured via error_desc on top, and result left NULL. */
         f = sd_future_unref(f);
@@ -311,7 +311,7 @@ static int qmp_client_call_fiber(void *userdata) {
         error_desc = mfree(error_desc);
 
         ASSERT_OK(qmp_client_call_future(client, "stop", NULL, &f));
-        ASSERT_ERROR(sd_fiber_await(f), EIO);
+        ASSERT_OK_ZERO(sd_fiber_await(f));
         ASSERT_ERROR(sd_future_result(f), EIO);
         ASSERT_ERROR(future_get_qmp_reply(f, &result, &error_desc), EIO);
 
@@ -425,6 +425,7 @@ static int qmp_client_call_interrupted_fiber(void *userdata) {
         ASSERT_NOT_NULL(result);
         ASSERT_NULL(error_desc);
         ASSERT_OK_ZERO(sd_fiber_await(mock));
+        ASSERT_OK_ZERO(sd_future_result(mock));
         ASSERT_OK_ZERO(sd_fiber_yield());
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 0));
         return 0;
