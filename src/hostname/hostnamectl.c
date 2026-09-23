@@ -7,6 +7,7 @@
 #include "sd-bus.h"
 #include "sd-id128.h"
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -38,6 +39,7 @@ static const char *arg_host = NULL;
 static bool arg_transient = false;
 static bool arg_pretty = false;
 static bool arg_static = false;
+static bool arg_apply = false;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 COMMAND(
@@ -745,11 +747,61 @@ static int verb_get_or_set_location(int argc, char *argv[], uintptr_t _data, voi
                            set_simple_string(userdata, "location", "SetLocation", argv[1]);
 }
 
+static int apply_tags(void) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        /* Asks systemd-hostnamed to apply the tags.d/ configuration on top of the current tags. This is only
+         * available via Varlink, hence not for remote hosts or containers. */
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "--apply is not supported in combination with --host= or --machine=.");
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to /run/systemd/io.systemd.Hostname: %m");
+
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.Hostname.ApplyTags",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue io.systemd.Hostname.ApplyTags() varlink call: %m");
+        if (streq_ptr(error_id, SD_VARLINK_ERROR_METHOD_NOT_FOUND))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Installed version of systemd-hostnamed does not support applying the tags.d/ configuration.");
+        if (error_id) {
+                r = sd_varlink_error_to_errno(error_id, reply);
+                if (r != -EBADR)
+                        return log_error_errno(r, "Failed to apply tags.d/ configuration: %m");
+
+                return log_error_errno(r, "Failed to apply tags.d/ configuration: %s", error_id);
+        }
+
+        return 0;
+}
+
 VERB(verb_get_or_set_tags, "tags", "[TAG …]\0", VERB_ANY, VERB_ANY, 0, "Get/set machine tags for host");
 static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
+        sd_bus *bus = userdata; /* NULL if --apply is used, see run() */
         int r;
+
+        if (arg_apply) {
+                if (argc > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No arguments expected with --apply.");
+
+                return apply_tags();
+        }
+
+        assert(bus);
 
         if (argc == 1) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -898,6 +950,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_pretty = true;
                         break;
 
+                OPTION_LONG("apply", NULL, "Apply tags.d/ configuration to machine tags"):
+                        arg_apply = true;
+                        break;
+
                 OPTION_COMMON_JSON:
                         r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
@@ -928,9 +984,16 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
-        if (r < 0)
-                return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
+        /* "tags --apply" talks to systemd-hostnamed via Varlink only, hence needs no D-Bus connection. This
+         * allows it to be used early during boot, before D-Bus is available. */
+        if (arg_apply) {
+                if (strv_isempty(args) || !streq(args[0], "tags"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--apply is only supported with the 'tags' command.");
+        } else {
+                r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
+                if (r < 0)
+                        return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
+        }
 
         return dispatch_verb(args, bus);
 }

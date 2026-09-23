@@ -23,3 +23,8 @@ install_data('org.freedesktop.hostname1.service',
              install_dir : dbussystemservicedir)
 install_data('org.freedesktop.hostname1.policy',
              install_dir : polkitpolicydir)
+
+install_emptydir(prefixdir / 'lib/tags.d')
+if install_sysconfdir
+        install_emptydir(sysconfdir / 'tags.d')
+endif

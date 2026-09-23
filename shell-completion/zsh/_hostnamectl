@@ -94,6 +94,7 @@ _arguments -s \
     '--transient[Only set transient hostname]' \
     '--static[Only set static hostname]' \
     '--pretty[Only set pretty hostname]' \
+    '--apply[Apply tags.d/ configuration to machine tags]' \
     '--no-ask-password[Do not prompt for password]' \
     '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \

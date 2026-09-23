@@ -146,6 +146,7 @@ simple_tests += files(
         'test-log.c',
         'test-logarithm.c',
         'test-login-util.c',
+        'test-machine-tags.c',
         'test-machine-util.c',
         'test-macro.c',
         'test-main-func-fiber.c',
