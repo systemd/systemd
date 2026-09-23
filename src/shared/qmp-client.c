@@ -931,24 +931,28 @@ int qmp_client_call_future(
  * future's negative resume errno when no reply landed at all (transport failure / cancellation).
  */
 int future_get_qmp_reply(sd_future *f, sd_json_variant **ret_result, char **reterr_error_desc) {
+        int r;
+
         assert(f);
         assert(sd_future_get_ops(f) == &qmp_call_future_ops);
-        assert(sd_future_state(f) == SD_FUTURE_RESOLVED);
+
+        if (sd_future_state(f) != SD_FUTURE_RESOLVED)
+                return -EAGAIN;
 
         QmpFuture *qf = ASSERT_PTR(sd_future_get_private(f));
 
-        /* No reply at all: transport failure or cancellation — surface the future result. */
-        if (!qf->result && !qf->error_desc)
-                return sd_future_result(f);
-
-        if (qf->error_desc) {
-                if (reterr_error_desc) {
+        r = sd_future_result(f);
+        if (r < 0) {
+                /* A QMP-level error carries its description on top of the -EIO result; a transport
+                 * failure or cancellation has no reply at all. */
+                if (qf->error_desc && reterr_error_desc) {
                         char *desc = strdup(qf->error_desc);
                         if (!desc)
                                 return -ENOMEM;
                         *reterr_error_desc = desc;
                 }
-                return -EIO;
+
+                return r;
         }
 
         if (reterr_error_desc)

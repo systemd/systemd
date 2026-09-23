@@ -293,6 +293,7 @@ static int qmp_client_call_fiber(void *userdata) {
         /* Exercise qmp_client_call_future() + sd_fiber_await() + future_get_qmp_reply()
          * directly — success path. */
         ASSERT_OK(qmp_client_call_future(client, "query-status", NULL, &f));
+        ASSERT_ERROR(future_get_qmp_reply(f, &result, &error_desc), EAGAIN);
         ASSERT_OK(sd_fiber_await(f));
         ASSERT_OK(sd_future_result(f));
         ASSERT_OK(future_get_qmp_reply(f, &result, &error_desc));
