@@ -581,6 +581,33 @@ static const sd_future_ops cancel_failure_ops = {
         .cancel = failing_child_cancel,
 };
 
+TEST(future_group_cancel_forwards_repeats) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL, *stubborn = NULL, *sibling = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_future_new(e, &stubborn_child_ops, &stubborn));
+        ASSERT_OK(sd_future_group_new(e, &sibling));
+        ASSERT_OK(sd_future_group_add_many(group, stubborn, sibling));
+
+        ASSERT_OK(sd_future_cancel(group));
+        StubbornChild *sc = sd_future_get_private(stubborn);
+        ASSERT_EQ(sc->cancels, 1U);
+        ASSERT_EQ(sd_future_state(stubborn), SD_FUTURE_PENDING);
+        ASSERT_ERROR(sd_future_result(sibling), ECANCELED);
+        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+                ;
+        ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
+
+        /* A repeated cancel reaches the pending child only: the settled sibling is left alone. */
+        ASSERT_OK(sd_future_cancel(group));
+        ASSERT_EQ(sc->cancels, 2U);
+        ASSERT_ERROR(sd_future_result(stubborn), ECANCELED);
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_ERROR(sd_future_result(group), ECANCELED);
+}
+
 TEST(future_group_cancel_failure_still_drains) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_future_unrefp) sd_future *group = NULL, *failing = NULL, *sibling = NULL;
