@@ -7786,6 +7786,87 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         check_output('ip link set dev veth-peer mtu 1800')
         self.check_ndisc_mtu(1700)
 
+    def test_ndisc_router_limit(self):
+        if not os.path.exists(test_ndisc_send):
+            self.skipTest(f'{test_ndisc_send} does not exist.')
+
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-veth-peer-no-address.network',
+            '25-ipv6-prefix-veth-token-static.network',
+        )
+        start_networkd()
+        self.wait_online('veth-peer:degraded')
+        self.check_networkd_log('veth99: NDISC: Started IPv6 Router Solicitation client')
+
+        # See NDISC_ROUTER_MAX in networkd-ndisc.c
+        ndisc_router_max = 64
+        n_senders = ndisc_router_max + 16
+        for i in range(n_senders):
+            check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --source fe80::47:{i:x}')  # fmt: skip
+
+        # Wait for networkd to process all RAs (and refuse those that are over the limit).
+        self.check_networkd_log(f'Too many routers remembered per link ({ndisc_router_max}), ignoring RA from fe80::47:{n_senders - 1:x}.')  # fmt: skip
+        # Wait for the last to-be-accepted route.
+        self.wait_route(
+            'veth99',
+            rf'default nhid [0-9]* via fe80::47:{ndisc_router_max - 1:x}',
+            ipv='-6',
+            timeout_sec=10,
+        )
+
+        output = check_output('ip -6 route show default dev veth99 proto ra')
+        print(output)
+        self.assertEqual(len(re.findall(r'via fe80::47:', output)), ndisc_router_max)
+
+        # Resend the first RA with a different MTU - since it's already present in the router hashmap the
+        # existing entry should get updated instead of rejected.
+        check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --mtu 1442 --source fe80::47:0')  # fmt: skip
+        self.check_ndisc_mtu(1442)
+
+    def test_ndisc_route_limit(self):
+        if not os.path.exists(test_ndisc_send):
+            self.skipTest(f'{test_ndisc_send} does not exist.')
+
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-veth-peer-no-address.network',
+            '25-ipv6-prefix-veth-token-static.network',
+        )
+        start_networkd()
+        self.wait_online('veth-peer:degraded')
+        self.check_networkd_log('veth99: NDISC: Started IPv6 Router Solicitation client')
+
+        # A router-lifetime-zero RA is not remembered as a default router, but a Route Information Option it
+        # carries still installs a route whose gateway is the sender. NDisc routes are capped independently
+        # (NDISC_ROUTE_MAX), so this must be bounded too - otherwise the router cap could be bypassed with
+        # RIO-only RAs.
+        #
+        # See NDISC_ROUTE_MAX in networkd-ndisc.c
+        ndisc_route_max = 512
+        n_senders = ndisc_route_max + 16
+        for i in range(n_senders):
+            check_output(f'{test_ndisc_send} --interface veth-peer --type ra --route 2001:db8:47:{i:x}::/64 --route-lifetime 1hour --source fe80::47:1')  # fmt: skip
+
+        # Wait for networkd to process all RAs (and refuse those that are over the limit).
+        self.check_networkd_log(f'Too many NDisc routes per link ({ndisc_route_max}), ignoring route 2001:db8:47:{n_senders - 1:x}::/64.')  # fmt: skip
+        # Wait for the last to-be-accepted route.
+        self.wait_route(
+            'veth99',
+            rf'2001:db8:47:{ndisc_route_max - 1:x}::/64 .*via fe80::47:1',
+            ipv='-6',
+            timeout_sec=10,
+        )
+
+        output = check_output('ip -6 route show dev veth99 proto ra')
+        print(output)
+        self.assertEqual(len(re.findall(r'2001:db8:47:', output)), ndisc_route_max)
+
+        # Zero-lifetime RA with per-link parameters (MTU) from new sender must be honoured even when cap was
+        # already reached.
+        check_output(f'{test_ndisc_send} --interface veth-peer --type ra --mtu 1462 --source fe80::48:1')  # fmt: skip
+        self.check_ndisc_mtu(1462)
+
     def test_ipv6_token_prefixstable(self):
         copy_network_unit(
             '25-veth.netdev',
