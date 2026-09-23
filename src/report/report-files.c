@@ -12,6 +12,7 @@
 #include "metrics.h"
 #include "path-util.h"
 #include "report-files.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
@@ -68,13 +69,38 @@ static int file_metric_generate(const MetricFamily *mf, sd_varlink *link, void *
                 if (!path)
                         return log_oom();
 
+                /* Mirror what conf_files_list_strv() does when building the metric list: skip entries that
+                 * cannot be resolved or are not regular files, and stop at a mask, which hides the entries in
+                 * all later directories. The mask check is repeated here since the directories may have
+                 * changed since the list was built. */
                 _cleanup_free_ char *resolved = NULL;
-                _cleanup_close_ int fd = chase_and_open(path, /* root= */ NULL, CHASE_MUST_BE_REGULAR, O_RDONLY|O_CLOEXEC, &resolved);
-                if (fd == -ENOENT) /* Not in this directory (or dangling symlink): try the next one. */
+                _cleanup_close_ int pfd = -EBADF;
+                r = chase(path, /* root= */ NULL, /* flags= */ 0, &resolved, &pfd);
+                if (r == -ENOENT)
                         continue;
-                if (fd < 0) {
-                        log_warning_errno(fd, "Failed to open '%s', skipping: %m", path);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to resolve '%s', ignoring: %m", path);
+                        continue;
+                }
+
+                struct stat st;
+                if (fstat(pfd, &st) < 0) {
+                        log_warning_errno(errno, "Failed to stat '%s', ignoring: %m", path);
+                        continue;
+                }
+
+                if (stat_may_be_dev_null(&st)) {
+                        log_debug("File for metric '%s' is masked, skipping.", mf->name);
                         return 0;
+                }
+
+                if (!S_ISREG(st.st_mode))
+                        continue;
+
+                _cleanup_close_ int fd = fd_reopen(pfd, O_RDONLY|O_CLOEXEC);
+                if (fd < 0) {
+                        log_warning_errno(fd, "Failed to open '%s', ignoring: %m", path);
+                        continue;
                 }
 
                 r = read_full_file_full(
@@ -120,7 +146,12 @@ static int build_file_metrics(MetricFamily **ret) {
 
         /* Enumerate the files to report across all our directories, deduplicated by name. The entry name is
          * used as the metric field name. */
-        r = conf_files_list_strv(&files, /* suffix= */ NULL, /* root= */ NULL, CONF_FILES_REGULAR, report_files_dirs);
+        r = conf_files_list_strv(
+                        &files,
+                        /* suffix= */ NULL,
+                        /* root= */ NULL,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED_BY_SYMLINK,
+                        report_files_dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate report files: %m");
 
