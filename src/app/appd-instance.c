@@ -2,9 +2,11 @@
 
 #include "sd-event.h"
 #include "sd-json.h"
+#include "sd-future.h"
 
 #include "alloc-util.h"
 #include "appd-instance.h"
+#include "appd-instance-varlink.h"
 #include "appd-manager.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
@@ -14,6 +16,7 @@
 #include "log.h"
 #include "pidref.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "unit-name.h"
 #include "xattr-util.h"
@@ -34,6 +37,8 @@ static AppInstance* app_instance_free(AppInstance *a) {
         a->permissions = sd_json_variant_unref(a->permissions);
         a->entitlements = sd_json_variant_unref(a->entitlements);
 
+        a->last_notify = sd_future_unref(a->last_notify);
+
         return mfree(a);
 }
 
@@ -44,7 +49,12 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(instance_hash_ops,
                                               AppInstance, app_instance_unref);
 
 static void app_instance_unmanage(AppInstance *instance) {
-        log_debug("App instance %s disappeared", instance->unit);
+        assert(instance);
+
+        log_full(instance->published ? LOG_INFO : LOG_DEBUG, "App instance %s disappeared", instance->unit);
+        if (instance->published)
+                app_instance_notify_async(instance, APP_INSTANCE_FORGET);
+        instance->published = false;
 
         _cleanup_(app_instance_unrefp) AppInstance *owned_instance = NULL;
         owned_instance = hashmap_remove(instance->manager->instances, instance->cg_path);
@@ -234,4 +244,55 @@ bool app_instance_same_app(AppInstance *a, AppInstance *b) {
         return streq(a->app_id, b->app_id) &&
                 streq_ptr(a->collection, b->collection) &&
                 streq_ptr(a->sandbox, b->sandbox);
+}
+
+static const char* const app_instance_event_table[_APP_INSTANCE_EVENT_MAX] = {
+        [APP_INSTANCE_CHANGED] = "changed",
+        [APP_INSTANCE_FORGET] = "forget",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(app_instance_event, AppInstanceEvent);
+
+void app_instance_notify_async(AppInstance *instance, AppInstanceEvent event) {
+        int r;
+
+        assert(instance);
+
+        log_debug("Queueing async app instance notification: %s %s",
+                  instance->unit, app_instance_event_to_string(event));
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *notif = NULL;
+        r = app_instance_varlink_new_notification(instance, event, &notif);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to construct instance notification: %m");
+
+        r = sd_channel_try_push(instance->manager->varlink_instance_notifications, notif);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to enqueue instance notification: %m");
+        TAKE_PTR(notif);
+}
+
+int app_instance_notify(AppInstance *instance, AppInstanceEvent event) {
+        int r;
+
+        assert(instance);
+        assert(sd_fiber_is_running());
+
+        log_debug("Queueing sync app instance notification: %s %s",
+                  instance->unit, app_instance_event_to_string(event));
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *notif = NULL;
+        r = app_instance_varlink_new_notification(instance, event, &notif);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to construct instance notification: %m");
+
+        r = sd_channel_push(instance->manager->varlink_instance_notifications, sd_future_ref(notif));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enqueue instance notification: %m");
+
+        r = sd_fiber_await(notif);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to await instance notification: %m");
+
+        return 0;
 }

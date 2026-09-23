@@ -7,3 +7,5 @@
 
 typedef struct Manager Manager;
 typedef struct AppInstance AppInstance;
+
+typedef enum AppInstanceEvent AppInstanceEvent;
