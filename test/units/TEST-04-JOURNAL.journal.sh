@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Rotation/flush test, see https://github.com/systemd/systemd/issues/19895
 journalctl --relinquish-var
 [[ "$(systemd-detect-virt -v)" == "qemu" ]] && ITERATIONS=10 || ITERATIONS=50
@@ -115,6 +118,31 @@ journalctl --sync
 [[ -n "$(journalctl -b -q -u verbose-success.service -T systemd)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -T bash)" ]]
 [[ -z "$(journalctl -b -q -u verbose-success.service -T bash -T '(bash)' -T systemd -T '(systemd)')" ]]
+
+# Globs in -t/-T are matched against the identifiers present in the journal. Note that -T is only
+# honoured by the "short" output family, hence no -o cat below.
+GLOB_ID="globtest$RANDOM"
+echo "glob one" | systemd-cat -t "${GLOB_ID}-one"
+echo "glob two" | systemd-cat -t "${GLOB_ID}-two"
+echo "glob other" | systemd-cat -t "other-$GLOB_ID"
+journalctl --sync
+[[ "$(journalctl -b -q -o cat -t "$GLOB_ID-*" | sort | tr '\n' ' ')" == "glob one glob two " ]]
+# An exact identifier keeps working alongside a glob
+[[ "$(journalctl -b -q -o cat -t "${GLOB_ID}-one" -t "$GLOB_ID-tw*" | sort | tr '\n' ' ')" == "glob one glob two " ]]
+# Globs also work for the exclusion side
+assert_in "${GLOB_ID}-one" "$(journalctl -b -q -t "$GLOB_ID-*" -T "$GLOB_ID-two")"
+assert_not_in "${GLOB_ID}-two" "$(journalctl -b -q -t "$GLOB_ID-*" -T "$GLOB_ID-two")"
+assert_in "other-$GLOB_ID" "$(journalctl -b -q -t "*$GLOB_ID*" -T "$GLOB_ID-*")"
+assert_not_in "${GLOB_ID}-one" "$(journalctl -b -q -t "*$GLOB_ID*" -T "$GLOB_ID-*")"
+# An identifier that contains glob characters itself is still selectable and excludable literally
+echo "glob bracket" | systemd-cat -t "${GLOB_ID}[1]"
+journalctl --sync
+assert_eq "$(journalctl -b -q -o cat -t "${GLOB_ID}[1]")" "glob bracket"
+assert_not_in "glob bracket" "$(journalctl -b -q -o cat -t "*$GLOB_ID*" -T "${GLOB_ID}[1]")"
+# A glob matching nothing is an error rather than showing everything ...
+(! journalctl -b -q -t "this-identifier-should-not-exist-*")
+# ... but an exclusion glob matching nothing simply excludes nothing
+assert_in "${GLOB_ID}-one" "$(journalctl -b -q -t "$GLOB_ID-one" -T "this-identifier-should-not-exist-*")"
 
 # Exercise the matching machinery
 SYSTEMD_LOG_LEVEL=debug journalctl -b -n 1 /dev/null /dev/zero /dev/null /dev/null /dev/null
