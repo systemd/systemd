@@ -331,7 +331,7 @@ static int sd_nfnl_message_new_masq_rule(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(chain);
 
-        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, nft_table_name(), chain);
+        r = sd_nfnl_nft_message_new_rule(nfnl, &m, /* add= */ true, family, nft_table_name(), chain);
         if (r < 0)
                 return r;
 
@@ -386,7 +386,7 @@ static int sd_nfnl_message_new_dnat_rule_pre(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(chain);
 
-        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, nft_table_name(), chain);
+        r = sd_nfnl_nft_message_new_rule(nfnl, &m, /* add= */ true, family, nft_table_name(), chain);
         if (r < 0)
                 return r;
 
@@ -449,7 +449,7 @@ static int sd_nfnl_message_new_dnat_rule_out(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(chain);
 
-        r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, nft_table_name(), chain);
+        r = sd_nfnl_nft_message_new_rule(nfnl, &m, /* add= */ true, family, nft_table_name(), chain);
         if (r < 0)
                 return r;
 
@@ -548,7 +548,7 @@ static int nft_new_set(
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(set_name);
 
-        r = sd_nfnl_nft_message_new_set(nfnl, &m, family, nft_table_name(), set_name, set_id, klen);
+        r = sd_nfnl_nft_message_new_set(nfnl, &m, /* add= */ true, family, nft_table_name(), set_name, set_id, klen);
         if (r < 0)
                 return r;
 
@@ -734,23 +734,23 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         assert(IN_SET(family, AF_INET, AF_INET6));
 
         /* Set F_EXCL so table add fails if the table already exists. */
-        r = sd_nfnl_nft_message_new_table(nfnl, &messages[msgcnt++], family, nft_table_name());
+        r = sd_nfnl_nft_message_new_table(nfnl, &messages[msgcnt++], /* add= */ true, family, nft_table_name());
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, nft_table_name(),
+        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], /* add= */ true, family, nft_table_name(),
                                               "prerouting", "nat",
                                               NF_INET_PRE_ROUTING, NF_IP_PRI_NAT_DST + 1);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, nft_table_name(),
+        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], /* add= */ true, family, nft_table_name(),
                                               "output", "nat",
                                               NF_INET_LOCAL_OUT, NF_IP_PRI_NAT_DST + 1);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], family, nft_table_name(),
+        r = sd_nfnl_nft_message_new_basechain(nfnl, &messages[msgcnt++], /* add= */ true, family, nft_table_name(),
                                               "postrouting", "nat",
                                               NF_INET_POST_ROUTING, NF_IP_PRI_NAT_SRC + 1);
         if (r < 0)
@@ -797,6 +797,24 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         assert(msgcnt < ELEMENTSOF(messages));
         r = sd_nfnl_call_batch(nfnl, messages, msgcnt, NFNL_DEFAULT_TIMEOUT_USECS);
         if (r < 0 && r != -EEXIST)
+                return r;
+
+        return 0;
+}
+
+int fw_nftables_del_table(sd_netlink *nfnl, int family) {
+        int r;
+
+        assert(nfnl);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        r = sd_nfnl_nft_message_new_table(nfnl, &m, /* add= */ false, family, nft_table_name());
+        if (r < 0)
+                return r;
+
+        r = sd_nfnl_call_batch(nfnl, &m, /* n_messages= */ 1, NFNL_DEFAULT_TIMEOUT_USECS);
+        if (r < 0 && r != -ENOENT)
                 return r;
 
         return 0;

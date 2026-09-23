@@ -4,6 +4,8 @@
 #include "conf-parser-forward.h"
 #include "forward.h"
 
+int fw_nftables_del_table(sd_netlink *nfnl, int family);
+
 int fw_nftables_add_masquerade(
                 sd_netlink *nfnl,
                 bool add,
