@@ -687,7 +687,7 @@ CHANGES WITH 262:
           inspired by unit file's ConditionXYZ= settings, and allows marking
           components and features as suggested for installation under various
           conditions (such as architecture, used virtualization, host identity,
-          kernel command line, version, firmware properties and machine tag).
+          kernel command line, version, firmware properties and machine tags).
           All components currently suggested can be enabled via
           'systemd-sysupdate enable-component --component-suggested' (and
           similarly for features). Note that by providing hwdb files that match
