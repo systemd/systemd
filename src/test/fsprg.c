@@ -15,8 +15,6 @@
 #include <string.h>
 
 #include "fsprg.h"
-#include "gcrypt-util.h"
-#include "memory-util.h"
 
 #define ISVALID_SECPAR(secpar) (((secpar) % 16 == 0) && ((secpar) >= 16) && ((secpar) <= 16384))
 #define VALIDATE_SECPAR(secpar) assert(ISVALID_SECPAR(secpar));
@@ -27,6 +25,9 @@
 #define RND_GEN_X 0x03
 
 #if HAVE_GCRYPT
+
+#include "gcrypt-util.h"
+#include "memory-util.h"
 
 #pragma GCC diagnostic ignored "-Wpointer-arith"
 /* TODO: remove void* arithmetic and this work-around */
