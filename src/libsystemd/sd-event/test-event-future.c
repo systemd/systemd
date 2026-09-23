@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -8,6 +9,9 @@
 
 #include "event-future.h"
 #include "fd-util.h"
+#include "pidref.h"
+#include "process-util.h"
+#include "signal-util.h"
 #include "tests.h"
 #include "time-util.h"
 
@@ -33,6 +37,275 @@ static int new_event_future(EventFutureType type, sd_event *e, int fd, sd_future
         default:
                 assert_not_reached();
         }
+}
+
+/* Forks a child that exits with the given status, or that blocks forever if status is negative. */
+static int fork_child(int status, PidRef *ret) {
+        int r;
+
+        r = pidref_safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, ret);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                while (status < 0)
+                        pause();
+
+                _exit(status);
+        }
+
+        return 0;
+}
+
+/* Forks a child that ignores SIGTERM and blocks forever. Returns once the child has set that up. */
+static int fork_stubborn_child(PidRef *ret) {
+        _cleanup_close_pair_ int ready[2] = EBADF_PAIR;
+        char c;
+        int r;
+
+        if (pipe2(ready, O_CLOEXEC) < 0)
+                return -errno;
+
+        r = pidref_safe_fork("(stubborn-child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG, ret);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                (void) ignore_signals(SIGTERM);
+                (void) write(ready[1], "x", 1);
+                for (;;)
+                        pause();
+        }
+
+        ready[1] = safe_close(ready[1]);
+        if (read(ready[0], &c, 1) != 1)
+                return -EIO;
+
+        return 0;
+}
+
+TEST(future_child) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        siginfo_t si;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(fork_child(42, &pidref));
+        ASSERT_OK(future_new_child(e, &pidref, WEXITED, &f));
+        ASSERT_ERROR(future_child_get_siginfo(f, &si), EAGAIN);
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(f));
+        ASSERT_OK(future_child_get_siginfo(f, &si));
+        ASSERT_EQ(si.si_code, CLD_EXITED);
+        ASSERT_EQ(si.si_status, 42);
+        ASSERT_EQ(si.si_pid, pidref.pid);
+
+        /* The child was reaped along with the resolution. */
+        ASSERT_ERROR(pidref_kill(&pidref, 0), ESRCH);
+}
+
+TEST(future_child_cancel) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        siginfo_t si;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(fork_child(-1, &pidref));
+        ASSERT_OK(future_new_child(e, &pidref, WEXITED, &f));
+        ASSERT_OK(sd_future_cancel(f));
+        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_ERROR(sd_future_result(f), ECANCELED);
+        ASSERT_ERROR(future_child_get_siginfo(f, &si), ECANCELED);
+
+        /* Cancellation leaves the process alone: still running, and the caller's pidfd still usable. */
+        ASSERT_OK(pidref_kill(&pidref, 0));
+        ASSERT_OK(pidref_kill(&pidref, SIGKILL));
+        ASSERT_OK(pidref_wait_for_terminate(&pidref, &si));
+        ASSERT_EQ(si.si_code, CLD_KILLED);
+        ASSERT_EQ(si.si_status, SIGKILL);
+}
+
+TEST(future_child_process_own) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        siginfo_t si;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(fork_child(-1, &pidref));
+        ASSERT_OK(future_new_child(e, &pidref, WEXITED, &f));
+        ASSERT_OK(future_child_set_process_own(f, true));
+
+        /* Cancellation asks the process to terminate and keeps waiting for it. */
+        ASSERT_OK(sd_future_cancel(f));
+        ASSERT_EQ(sd_future_state(f), SD_FUTURE_PENDING);
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(sd_future_result(f), ECANCELED);
+        ASSERT_OK(future_child_get_siginfo(f, &si));
+        ASSERT_EQ(si.si_code, CLD_KILLED);
+        ASSERT_EQ(si.si_status, SIGTERM);
+        ASSERT_ERROR(pidref_kill(&pidref, 0), ESRCH);
+}
+
+TEST(future_child_process_own_escalates) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        siginfo_t si;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(fork_stubborn_child(&pidref));
+        ASSERT_OK(future_new_child(e, &pidref, WEXITED, &f));
+        ASSERT_OK(future_child_set_process_own(f, true));
+
+        /* SIGTERM is ignored, so the first attempt changes nothing. */
+        ASSERT_OK(sd_future_cancel(f));
+        ASSERT_OK_ZERO(sd_event_run(e, 10 * USEC_PER_MSEC));
+        ASSERT_EQ(sd_future_state(f), SD_FUTURE_PENDING);
+        ASSERT_OK(pidref_kill(&pidref, 0));
+
+        /* The second attempt escalates to SIGKILL. */
+        ASSERT_OK(sd_future_cancel(f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(sd_future_result(f), ECANCELED);
+        ASSERT_OK(future_child_get_siginfo(f, &si));
+        ASSERT_EQ(si.si_code, CLD_KILLED);
+        ASSERT_EQ(si.si_status, SIGKILL);
+        ASSERT_ERROR(pidref_kill(&pidref, 0), ESRCH);
+}
+
+TEST(future_child_process_own_kill_timeout) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        siginfo_t si;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(fork_stubborn_child(&pidref));
+        ASSERT_OK(future_new_child(e, &pidref, WEXITED, &f));
+        ASSERT_OK(future_child_set_process_own(f, true));
+        ASSERT_OK(future_child_set_kill_timeout(f, 10 * USEC_PER_MSEC));
+
+        /* A single cancellation suffices: the timer escalates to SIGKILL on its own. */
+        ASSERT_OK(sd_future_cancel(f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(sd_future_result(f), ECANCELED);
+        ASSERT_OK(future_child_get_siginfo(f, &si));
+        ASSERT_EQ(si.si_code, CLD_KILLED);
+        ASSERT_EQ(si.si_status, SIGKILL);
+        ASSERT_ERROR(pidref_kill(&pidref, 0), ESRCH);
+}
+
+static int child_cancel_wait_fiber(void *userdata) {
+        sd_future *f = ASSERT_PTR(userdata);
+
+        /* The timeout interrupts the wait after SIGTERM, which makes the cleanup loop cancel again
+         * and thereby escalate to SIGKILL. */
+        SD_FIBER_TIMEOUT(10 * USEC_PER_MSEC);
+        sd_future_cancel_wait_unref(sd_future_ref(f));
+        return 0;
+}
+
+TEST(future_child_process_own_cancel_wait) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL, *fiber = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        siginfo_t si;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(fork_stubborn_child(&pidref));
+        ASSERT_OK(future_new_child(e, &pidref, WEXITED, &f));
+        ASSERT_OK(future_child_set_process_own(f, true));
+        ASSERT_OK(sd_fiber_new(e, "child-cancel-wait", child_cancel_wait_fiber, f, /* destroy= */ NULL, &fiber));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(sd_future_result(f), ECANCELED);
+        ASSERT_OK(future_child_get_siginfo(f, &si));
+        ASSERT_EQ(si.si_code, CLD_KILLED);
+        ASSERT_EQ(si.si_status, SIGKILL);
+        ASSERT_ERROR(pidref_kill(&pidref, 0), ESRCH);
+}
+
+TEST(future_child_invalid) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL, *g = NULL, *defer = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        siginfo_t si;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_ERROR(future_new_child(e, &PIDREF_NULL, WEXITED, &f), ESRCH);
+        ASSERT_OK(fork_child(-1, &pidref));
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(future_new_child(e, &pidref, 0, &f)), EINVAL);
+        ASSERT_OK(future_new_child(e, &pidref, WEXITED, &f));
+        /* sd-event allows one child source per process. */
+        ASSERT_ERROR(future_new_child(e, &pidref, WEXITED, &g), EBUSY);
+
+        ASSERT_OK(sd_future_new_defer(e, 0, &defer));
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(future_child_get_siginfo(defer, &si)), EINVAL);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(future_child_set_process_own(defer, true)), EINVAL);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(future_child_set_kill_timeout(defer, 0)), EINVAL);
+}
+
+static int child_await_fiber(void *userdata) {
+        PidRef *pidref = ASSERT_PTR(userdata);
+        siginfo_t si;
+        int r;
+
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+        r = future_new_child(sd_fiber_get_event(), pidref, WEXITED, &f);
+        if (r < 0)
+                return r;
+
+        r = sd_fiber_await(f);
+        if (r < 0)
+                return r;
+
+        r = future_child_get_siginfo(f, &si);
+        if (r < 0)
+                return r;
+
+        return si.si_code == CLD_EXITED ? si.si_status : -EIO;
+}
+
+TEST(future_child_await) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(fork_child(7, &pidref));
+        ASSERT_OK(sd_fiber_new(e, "child-await", child_await_fiber, &pidref, /* destroy= */ NULL, &fiber));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(sd_future_result(fiber), 7);
+}
+
+TEST(future_group_add_child) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL;
+        _cleanup_(pidref_done) PidRef a = PIDREF_NULL, b = PIDREF_NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(fork_child(1, &a));
+        ASSERT_OK(fork_child(2, &b));
+        ASSERT_OK(future_group_add_child(group, &a, WEXITED));
+        ASSERT_OK(future_group_add_child(group, &b, WEXITED));
+        ASSERT_EQ(sd_future_group_size(group), 2U);
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(group));
+        ASSERT_ERROR(pidref_kill(&a, 0), ESRCH);
+        ASSERT_ERROR(pidref_kill(&b, 0), ESRCH);
 }
 
 typedef struct EventFuturePriorityData {
