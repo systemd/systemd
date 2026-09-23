@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-future.h"
+
 #include "alloc-util.h"
 #include "appd-instance.h"
 #include "appd-instance-varlink.h"
@@ -13,9 +15,12 @@
 #include "pidref.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "varlink-util.h"
 #include "varlink-io.systemd.AppInstance.h"
+
+#define NOTIFY_TIMEOUT_USEC (5 * USEC_PER_SEC)
 
 static int start_transient_scope(const char *unit_name, PidRef *peer) {
         int r;
@@ -177,10 +182,20 @@ static int vl_method_instance_register(
 
         /* Apps may register themselves repeatedly: by the launcher, and/or the sandbox engine, and/or the
          * app itself. This approach maximizes the likelihood that all apps get registered, but it also means
-         * that we have no way of knowing when an app is actually done registering itself. */
-        if (instance->ever_queried)
+         * that we have no way of knowing when an app is actually done registering itself. If someone has
+         * managed to query information about the instance before it finished registering, we spoof an app
+         * restart to maximize the chances that stale information isn't used anywhere. */
+        bool should_emit_appeared = false;
+        if (instance->ever_queried) {
                 log_warning("App instance %s is amending its registration, but has already been queried.",
                             instance->unit);
+
+                r = app_instance_notify(instance, APP_INSTANCE_DISAPPEARED);
+                if (r < 0)
+                        return sd_varlink_error_errno(link, r);
+
+                should_emit_appeared = true;
+        }
 
         if (params.sandbox) {
                 assert(!instance->sandbox);
@@ -204,6 +219,18 @@ static int vl_method_instance_register(
         r = app_instance_commit(instance);
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
+
+        if (!instance->published) {
+                log_info("App instance %s appeared via explicit registration", instance->unit);
+                instance->published = true;
+                should_emit_appeared = true;
+        }
+
+        if (should_emit_appeared) {
+                r = app_instance_notify(instance, APP_INSTANCE_APPEARED);
+                if (r < 0)
+                        return sd_varlink_error_errno(link, r);
+        }
 
         return sd_varlink_reply(link, NULL);
 }
@@ -345,6 +372,12 @@ static int vl_method_instance_query(
 
         target_instance->ever_queried = true;
 
+        if (!target_instance->published) {
+                log_info("App instance %s appeared, without explicit registration", target_instance->unit);
+                target_instance->published = true;
+                app_instance_notify_async(target_instance, APP_INSTANCE_APPEARED);
+        }
+
         r = app_instance_commit(target_instance);
         if (r < 0)
                 return r;
@@ -405,6 +438,9 @@ static int vl_method_instance_set_permissions(
         if (peer_instance && peer_instance->sandbox)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
+        if (!target_instance->published)
+                return sd_varlink_error(link, "io.systemd.AppInstance.NoSuchInstance", NULL);
+
         if (!target_instance->ever_queried || p.generation != target_instance->generation)
                 return sd_varlink_error(link, "io.systemd.AppInstance.Stale", NULL);
 
@@ -413,6 +449,10 @@ static int vl_method_instance_set_permissions(
         r = app_instance_commit(target_instance);
         if (r < 0)
                 return r;
+
+        r = app_instance_notify(target_instance, APP_INSTANCE_CHANGED);
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
 
         return sd_varlink_reply(link, NULL);
 }
@@ -465,4 +505,56 @@ void manager_instance_varlink_done(Manager *m) {
         assert(m);
 
         m->varlink_instance_server = sd_varlink_server_unref(m->varlink_instance_server);
+}
+
+static int notify_reply(
+                sd_varlink *link,
+                sd_json_variant *reply,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        assert(link);
+
+        if (error_id)
+                log_debug("App instance monitor '%s' returned error, ignoring: %s",
+                          strna(sd_varlink_get_description(link)), error_id);
+
+        return 0;
+}
+
+int app_instance_varlink_notify(AppInstance *instance, AppInstanceEvent event) {
+        int r;
+
+        assert(instance);
+        assert(sd_fiber_is_running());
+
+        log_debug("Notifying app instance %s: %s", instance->unit, app_instance_event_to_string(event));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
+        r = sd_json_buildo(
+                        &params,
+                        SD_JSON_BUILD_PAIR_STRING("event", app_instance_event_to_string(event)),
+                        SD_JSON_BUILD_PAIR_STRING("id", instance->app_id),
+                        SD_JSON_BUILD_PAIR_STRING("cgroup", instance->cg_path));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build notify params: %m");
+
+        _cleanup_free_ char *notify_dir_path = NULL;
+        r = xdg_user_runtime_dir("systemd/io.systemd.AppInstanceMonitor", &notify_dir_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to construct notify directory path: %m");
+
+        r = varlink_execute_directory(
+                        notify_dir_path,
+                        "io.systemd.AppInstanceMonitor.Notify",
+                        params,
+                        /* more= */ false,
+                        NOTIFY_TIMEOUT_USEC,
+                        notify_reply,
+                        /* userdata= */ NULL);
+        if (r < 0 && r != -ENOENT)
+                return log_debug_errno(r, "Failed to invoke app instance monitors: %m");
+
+        return 0;
 }

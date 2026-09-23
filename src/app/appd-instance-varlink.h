@@ -5,3 +5,5 @@
 
 int manager_instance_varlink_init(Manager *m);
 void manager_instance_varlink_done(Manager *m);
+
+int app_instance_varlink_notify(AppInstance *instance, AppInstanceEvent event);
