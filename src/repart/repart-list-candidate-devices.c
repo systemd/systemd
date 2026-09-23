@@ -157,6 +157,8 @@ int vl_method_list_candidate_devices(
         if (r != 0)
                 return r;
 
+        /* The filtering below should probably be kept in sync with the one done in src/sysinstall/sysinstall-auto-device.c! */
+
         const BlockDevListFlags listflags =
                 BLOCKDEV_LIST_SHOW_SYMLINKS|
                 BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|
