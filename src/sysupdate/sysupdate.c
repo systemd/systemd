@@ -1790,7 +1790,7 @@ static int context_notify_subscribers(Context *c, UpdateSet *us) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to build sysupdate notify parameters, skipping notification: %m");
 
-        ssize_t n = varlink_execute_directory(
+        r = varlink_execute_directory(
                         VARLINK_DIR_SYSUPDATE_NOTIFY_HOOK,
                         "io.systemd.SysUpdate.Notify.OnCompletedUpdate",
                         params,
@@ -1798,11 +1798,11 @@ static int context_notify_subscribers(Context *c, UpdateSet *us) {
                         /* timeout_usec= */ 5 * USEC_PER_MINUTE,
                         notify_subscribers_reply,
                         /* userdata= */ NULL);
-        if (n < 0)
-                log_debug_errno(n, "Failed to dispatch sysupdate notification to %s, ignoring: %m",
+        if (r < 0)
+                log_debug_errno(r, "Failed to dispatch sysupdate notification to %s, ignoring: %m",
                                 VARLINK_DIR_SYSUPDATE_NOTIFY_HOOK);
-        else if (n > 0)
-                log_debug("Dispatched sysupdate notification to %zi subscribers in %s.", n, VARLINK_DIR_SYSUPDATE_NOTIFY_HOOK);
+        else if (r > 0)
+                log_debug("Dispatched sysupdate notification to %i subscribers in %s.", r, VARLINK_DIR_SYSUPDATE_NOTIFY_HOOK);
 
         return 0;
 }
