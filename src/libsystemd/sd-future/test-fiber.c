@@ -1716,7 +1716,7 @@ TEST(fiber_await_last_reference) {
                 ASSERT_OK(sd_fiber_new(e, "await-borrowed", await_borrowed_fiber, target,
                                        /* destroy= */ NULL, &waiter));
 
-                /* Suspend in await, so the waiter's own reference and the wait's slot keep target alive. */
+                /* Suspend in await, so the waiter's own reference and the wait itself keep target alive. */
                 ASSERT_OK_POSITIVE(sd_event_run(e, 0));
                 ASSERT_EQ(sd_future_state(waiter), SD_FUTURE_PENDING);
 
@@ -1727,6 +1727,31 @@ TEST(fiber_await_last_reference) {
                 ASSERT_OK(sd_event_loop(e));
                 ASSERT_EQ(sd_future_result(waiter), result);
         }
+}
+
+static int await_unowned_fiber(void *userdata) {
+        return sd_fiber_await(ASSERT_PTR(userdata));
+}
+
+TEST(fiber_await_unowned) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *target = NULL, *waiter = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_future_new(e, &manual_future_ops, &target));
+        ASSERT_OK(sd_fiber_new(e, "await-unowned", await_unowned_fiber, target, /* destroy= */ NULL, &waiter));
+
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_EQ(sd_future_state(waiter), SD_FUTURE_PENDING);
+
+        /* The fiber holds no reference to target. After we drop ours, the reference that the wait holds
+         * is the last one. sd_fiber_await() must not drop it before it reads the target's state. */
+        ASSERT_OK(sd_future_resolve(target, 0));
+        target = sd_future_unref(target);
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(waiter));
 }
 
 typedef struct AwaitInvalidState {
@@ -1804,7 +1829,6 @@ TEST(fiber_get_awaiting) {
 
         /* Resolution only queues the wake-up; the fiber keeps awaiting until it actually runs. */
         ASSERT_OK(sd_future_resolve(target, 42));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
         ASSERT_PTR_EQ(sd_fiber_get_awaiting(waiter), target);
 
         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
@@ -1823,7 +1847,8 @@ TEST(fiber_await_resumed_before_completion) {
         ASSERT_EQ(sd_future_state(waiter), SD_FUTURE_PENDING);
 
         /* An unrelated successful resume is not completion of the target. The abandoned wait must
-         * unregister its callback, so resolving the target later cannot resume the finished fiber. */
+         * unlink the fiber from the target, so resolving the target later cannot resume the finished
+         * fiber. */
         ASSERT_OK(sd_fiber_resume(waiter, 42));
         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
         ASSERT_ERROR(sd_future_result(waiter), EBUSY);
