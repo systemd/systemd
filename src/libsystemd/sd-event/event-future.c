@@ -4,10 +4,13 @@
 #include "sd-future.h"
 
 #include "alloc-util.h"
+#include "constants.h"
 #include "errno-util.h"
 #include "event-future.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "pidref.h"
+#include "time-util.h"
 
 int event_source_inherit_fiber_priority(sd_event_source *s) {
         int64_t priority;
@@ -150,6 +153,220 @@ int future_group_add_io(sd_future *group, int fd, uint32_t events) {
 
         /* The group owns a reference now: release ours without cancelling the child. */
         io = sd_future_unref(io);
+        return 0;
+}
+
+typedef struct ChildFuture {
+        sd_event_source *source;
+        siginfo_t siginfo;
+        bool exited;
+        bool process_own;
+        int signal;                     /* Last signal sent by cancellation, 0 if none. */
+        usec_t kill_timeout;
+        sd_event_source *kill_timer;
+} ChildFuture;
+
+static void* child_future_alloc(void) {
+        return new0(ChildFuture, 1);
+}
+
+static void child_future_free(sd_future *f) {
+        ChildFuture *cf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        sd_event_source_unref(cf->source);
+        sd_event_source_unref(cf->kill_timer);
+        free(cf);
+}
+
+static int child_future_escalate(sd_future *f);
+
+static int child_kill_timer_handler(sd_event_source *s, usec_t usec, void *userdata) {
+        return child_future_escalate(ASSERT_PTR(userdata));
+}
+
+/* Each attempt escalates, and the handler resolves the future once the process is gone. */
+static int child_future_escalate(sd_future *f) {
+        ChildFuture *cf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        int r;
+
+        if (cf->signal == SIGKILL)
+                return 0;
+
+        cf->signal = cf->signal == SIGTERM ? SIGKILL : SIGTERM;
+
+        if (cf->signal == SIGKILL)
+                cf->kill_timer = sd_event_source_disable_unref(cf->kill_timer);
+        else if (cf->kill_timeout != USEC_INFINITY) {
+                int64_t priority;
+
+                r = sd_event_add_time_relative(
+                                sd_future_get_event(f),
+                                &cf->kill_timer,
+                                CLOCK_MONOTONIC,
+                                cf->kill_timeout,
+                                /* accuracy= */ 0,
+                                child_kill_timer_handler,
+                                f);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_get_priority(cf->source, &priority);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_priority(cf->kill_timer, priority);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_event_source_send_child_signal(cf->source, cf->signal, /* si= */ NULL, /* flags= */ 0);
+        if (r == -ESRCH) /* Already exited, the handler will pick it up. */
+                return 0;
+
+        return r;
+}
+
+static int child_future_cancel(sd_future *f) {
+        ChildFuture *cf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        int r;
+
+        if (cf->process_own)
+                return child_future_escalate(f);
+
+        r = sd_event_source_set_enabled(cf->source, SD_EVENT_OFF);
+        RET_GATHER(r, sd_future_resolve(f, -ECANCELED));
+        return r;
+}
+
+static int child_future_set_priority(sd_future *f, int64_t priority) {
+        ChildFuture *cf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
+        int r;
+
+        r = sd_event_source_set_priority(cf->source, priority);
+        if (r < 0)
+                return r;
+
+        if (cf->kill_timer)
+                return sd_event_source_set_priority(cf->kill_timer, priority);
+
+        return 0;
+}
+
+static const sd_future_ops child_future_ops = {
+        .size = sizeof(sd_future_ops),
+        .alloc = child_future_alloc,
+        .free = child_future_free,
+        .cancel = child_future_cancel,
+        .set_priority = child_future_set_priority,
+};
+
+static int child_handler(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        sd_future *f = ASSERT_PTR(userdata);
+        ChildFuture *cf = ASSERT_PTR(sd_future_get_private(f));
+
+        cf->siginfo = *ASSERT_PTR(si);
+        cf->exited = true;
+        cf->kill_timer = sd_event_source_disable_unref(cf->kill_timer);
+
+        return sd_future_resolve(f, cf->signal > 0 ? -ECANCELED : 0);
+}
+
+int future_new_child(sd_event *e, const PidRef *pidref, int options, sd_future **ret) {
+        int r;
+
+        assert(e);
+        assert(ret);
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+        if (pidref->fd < 0)
+                return -ENOMEDIUM;
+
+        if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
+                return -ECANCELED;
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(e, &child_future_ops, &f);
+        if (r < 0)
+                return r;
+
+        ChildFuture *cf = sd_future_get_private(f);
+        cf->kill_timeout = DEFAULT_TIMEOUT_USEC;
+
+        /* The source gets its own pidfd so the caller's PidRef stays untouched. */
+        _cleanup_close_ int pidfd = fcntl(pidref->fd, F_DUPFD_CLOEXEC, 3);
+        if (pidfd < 0)
+                return -errno;
+
+        r = sd_event_add_child_pidfd(e, &cf->source, pidfd, options, child_handler, f);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_child_pidfd_own(cf->source, true);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(pidfd);
+
+        r = event_source_inherit_fiber_priority(cf->source);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(f);
+        return 0;
+}
+
+int future_child_get_siginfo(sd_future *f, siginfo_t *ret) {
+        assert_return(f, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(sd_future_get_ops(f) == &child_future_ops, -EINVAL);
+
+        if (sd_future_state(f) != SD_FUTURE_RESOLVED)
+                return -EBUSY;
+
+        ChildFuture *cf = ASSERT_PTR(sd_future_get_private(f));
+        if (!cf->exited)
+                return sd_future_result(f);
+
+        *ret = cf->siginfo;
+        return 0;
+}
+
+int future_child_set_process_own(sd_future *f, int own) {
+        assert_return(f, -EINVAL);
+        assert_return(sd_future_get_ops(f) == &child_future_ops, -EINVAL);
+
+        ChildFuture *cf = ASSERT_PTR(sd_future_get_private(f));
+        cf->process_own = own;
+        return 0;
+}
+
+int future_child_set_kill_timeout(sd_future *f, uint64_t usec) {
+        assert_return(f, -EINVAL);
+        assert_return(sd_future_get_ops(f) == &child_future_ops, -EINVAL);
+
+        ChildFuture *cf = ASSERT_PTR(sd_future_get_private(f));
+        cf->kill_timeout = usec;
+        return 0;
+}
+
+int future_group_add_child(sd_future *group, const PidRef *pidref, int options) {
+        _cleanup_(sd_future_cancel_unrefp) sd_future *child = NULL;
+        int r;
+
+        assert(group);
+
+        r = future_new_child(sd_future_get_event(group), pidref, options, &child);
+        if (r < 0)
+                return r;
+
+        r = sd_future_group_add(group, child);
+        if (r < 0)
+                return r;
+
+        /* The group owns a reference now: release ours without cancelling the child. */
+        child = sd_future_unref(child);
         return 0;
 }
 
