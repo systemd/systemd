@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -34,11 +35,18 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "verbs.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
+
+/* Must admit the 64 MiB dictionary of xz preset 9 (see xz(1)), the largest that journal-upload can emit. */
+#define JOURNAL_REMOTE_DECOMPRESSOR_MEMORY_MAX (96U * 1024U * 1024U)
+#define JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT 32U
+#define JOURNAL_REMOTE_CONNECTION_TIMEOUT 30U
+#define JOURNAL_REMOTE_ENTRY_TIMEOUT_USEC (2 * USEC_PER_MINUTE)
 
 static char *arg_url = NULL;
 static char *arg_getter = NULL;
@@ -49,6 +57,8 @@ static char **arg_files = NULL;
 static bool arg_compress = true;
 static bool arg_seal = false;
 static int http_socket = -1, https_socket = -1;
+static unsigned connection_limit = JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT;
+static usec_t entry_timeout_usec = JOURNAL_REMOTE_ENTRY_TIMEOUT_USEC;
 static char **arg_gnutls_log = NULL;
 
 static JournalWriteSplitMode arg_split_mode = _JOURNAL_WRITE_SPLIT_INVALID;
@@ -207,6 +217,37 @@ static int spawn_getter(const char *getter) {
 static int null_timer_event_handler(sd_event_source *timer_event, uint64_t usec, void *userdata);
 static int dispatch_http_event(sd_event_source *event, int fd, uint32_t revents, void *userdata);
 
+static void parse_http_env(void) {
+        const char *e;
+        usec_t t;
+        int r;
+
+        e = secure_getenv("SYSTEMD_JOURNAL_REMOTE_MAX_CONNECTIONS");
+        if (e) {
+                unsigned u;
+
+                r = safe_atou(e, &u);
+                if (r < 0 || u == 0)
+                        log_warning_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
+                                          "Failed to parse $SYSTEMD_JOURNAL_REMOTE_MAX_CONNECTIONS value '%s', ignoring: %m", e);
+                else
+                        connection_limit = u;
+        }
+
+        e = secure_getenv("SYSTEMD_JOURNAL_REMOTE_ENTRY_TIMEOUT_SEC");
+        if (!e)
+                return;
+
+        r = parse_sec(e, &t);
+        if (r < 0 || t == 0) {
+                log_warning_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
+                                  "Failed to parse $SYSTEMD_JOURNAL_REMOTE_ENTRY_TIMEOUT_SEC value '%s', ignoring: %m", e);
+                return;
+        }
+
+        entry_timeout_usec = t;
+}
+
 static int build_accept_encoding(char **ret) {
         assert(ret);
 
@@ -277,62 +318,216 @@ static void request_meta_free(void *cls,
         }
 }
 
+static void shutdown_http_connection(struct MHD_Connection *connection) {
+        const union MHD_ConnectionInfo *ci;
+
+        ci = sym_MHD_get_connection_info(connection, MHD_CONNECTION_INFO_CONNECTION_FD);
+        if (ci && ci->connect_fd >= 0)
+                (void) shutdown(ci->connect_fd, SHUT_RDWR);
+}
+
+static int http_connection_deadline(sd_event_source *event, uint64_t usec, void *userdata) {
+        struct MHD_Connection *connection = ASSERT_PTR(userdata);
+
+        log_debug("Closing HTTP connection %p after no entry was stored for %s.",
+                  connection, FORMAT_TIMESPAN(entry_timeout_usec, USEC_PER_SEC));
+        shutdown_http_connection(connection);
+        return 0;
+}
+
+static int entry_deadline(sd_event *e, usec_t *ret) {
+        usec_t n;
+        int r;
+
+        assert(ret);
+
+        /* Saturates, so that an infinite or overlong timeout disables the timer rather than failing
+         * with -EOVERFLOW as the _relative() timer calls would. */
+        r = sd_event_now(e, CLOCK_MONOTONIC, &n);
+        if (r < 0)
+                return r;
+
+        *ret = usec_add(n, entry_timeout_usec);
+        return 0;
+}
+
+static void http_connection_notify(
+                void *cls,
+                struct MHD_Connection *connection,
+                void **socket_context,
+                enum MHD_ConnectionNotificationCode toe) {
+
+        RemoteServer *s = ASSERT_PTR(cls);
+        sd_event_source *deadline_event;
+        usec_t deadline;
+        int r;
+
+        assert(socket_context);
+
+        /* The socket context is the connection's entry deadline timer, whose userdata is the
+         * connection. */
+
+        if (toe == MHD_CONNECTION_NOTIFY_CLOSED) {
+                *socket_context = sd_event_source_unref(*socket_context);
+                return;
+        }
+
+        assert(toe == MHD_CONNECTION_NOTIFY_STARTED);
+
+        r = entry_deadline(s->event, &deadline);
+        if (r >= 0)
+                r = sd_event_add_time(s->event, &deadline_event, CLOCK_MONOTONIC, deadline, 0,
+                                      http_connection_deadline, connection);
+        if (r < 0) {
+                shutdown_http_connection(connection);
+                return;
+        }
+
+        *socket_context = deadline_event;
+}
+
+/* Per-callback state for storing decoded upload data. */
+typedef struct HttpUploadData {
+        struct MHD_Connection *connection;
+        sd_event_source *deadline_event;
+        RemoteSource *source;
+        size_t decoded_size;
+        int error;
+} HttpUploadData;
+
+static int http_upload_store(HttpUploadData *u, const void *data, size_t size) {
+        int r;
+
+        assert(u);
+
+        /* Bounds the decoded output of one MHD callback, not of the request, which may carry
+         * an unbounded stream of entries. */
+        if (size > DATA_SIZE_MAX - u->decoded_size)
+                return -EFBIG;
+        u->decoded_size += size;
+
+        r = journal_importer_push_data(&u->source->importer, data, size);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                r = process_source(u->source, journal_remote_server_global->file_flags);
+                if (r == -EAGAIN)
+                        return 0;
+                if (r == -ENOBUFS)
+                        return log_warning_errno(r, "Entry is above the maximum of %u, aborting connection %p.",
+                                                 DATA_SIZE_MAX, u->connection);
+                if (r == -E2BIG)
+                        return log_warning_errno(r, "Entry with more fields than the maximum of %u, aborting connection %p.",
+                                                 ENTRY_FIELD_COUNT_MAX, u->connection);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to process data, aborting connection %p: %m",
+                                                 u->connection);
+                if (r > 0 && u->deadline_event) {
+                        usec_t deadline;
+
+                        r = entry_deadline(sd_event_source_get_event(u->deadline_event), &deadline);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_event_source_set_time(u->deadline_event, deadline);
+                        if (r < 0)
+                                return r;
+                }
+        }
+}
+
+static int http_upload_decoded(const void *data, size_t size, void *userdata) {
+        HttpUploadData *u = ASSERT_PTR(userdata);
+        int r;
+
+        /* Record failures here so the caller can tell them from decompression errors. */
+        r = http_upload_store(u, data, size);
+        if (r < 0)
+                u->error = r;
+        return r;
+}
+
+static int http_upload_push_lz4_blob(HttpUploadData *u, const void *data, size_t size) {
+        _cleanup_free_ void *buf = NULL;
+        size_t buf_size;
+        int r;
+
+        assert(u);
+
+        if (size == 0)
+                return 0;
+
+        r = decompress_blob(COMPRESSION_LZ4, data, size, &buf, &buf_size, DATA_SIZE_MAX);
+        if (r < 0)
+                return r;
+
+        return http_upload_decoded(buf, buf_size, u);
+}
+
 static int process_http_upload(
                 struct MHD_Connection *connection,
                 const char *upload_data,
                 size_t *upload_data_size,
                 RemoteSource *source) {
 
-        bool finished = false;
+        const union MHD_ConnectionInfo *ci;
         size_t remaining;
         int r;
+        HttpUploadData data = {
+                .connection = connection,
+                .source = source,
+        };
 
         assert(source);
+
+        ci = sym_MHD_get_connection_info(connection, MHD_CONNECTION_INFO_SOCKET_CONTEXT);
+        if (ci)
+                data.deadline_event = ci->socket_context;
 
         log_trace("%s: connection %p, %zu bytes",
                   __func__, connection, *upload_data_size);
 
-        if (*upload_data_size) {
+        if (*upload_data_size > 0)
                 log_trace("Received %zu bytes", *upload_data_size);
 
-                if (source->compression != COMPRESSION_NONE) {
-                        _cleanup_free_ char *buf = NULL;
-                        size_t buf_size;
-
-                        r = decompress_blob(source->compression, upload_data, *upload_data_size, (void **) &buf, &buf_size, DATA_SIZE_MAX);
+        if (source->compression == COMPRESSION_LZ4)
+                /* systemd-journal-upload sends LZ4 as compress_blob() blobs rather than LZ4 frames.
+                 * Blobs do not record their compressed size and so cannot be decoded as a stream;
+                 * decode each callback's data as one blob. */
+                r = http_upload_push_lz4_blob(&data, upload_data, *upload_data_size);
+        else {
+                if (!source->decompressor) {
+                        /* COMPRESSION_NONE passes data through unchanged. */
+                        r = dlopen_compress(source->compression, LOG_DEBUG);
                         if (r < 0)
-                                return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob failed.");
+                                return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE, "Compression is unavailable.");
 
-                        r = journal_importer_push_data(&source->importer, buf, buf_size);
-                } else
-                        r = journal_importer_push_data(&source->importer, upload_data, *upload_data_size);
-                if (r < 0)
-                        return mhd_respond_oom(connection);
-
-                *upload_data_size = 0;
-        } else
-                finished = true;
-
-        for (;;) {
-                r = process_source(source, journal_remote_server_global->file_flags);
-                if (r == -EAGAIN)
-                        break;
-                if (r < 0) {
-                        if (r == -ENOBUFS)
-                                log_warning_errno(r, "Entry is above the maximum of %u, aborting connection %p.",
-                                                  DATA_SIZE_MAX, connection);
-                        else if (r == -E2BIG)
-                                log_warning_errno(r, "Entry with more fields than the maximum of %u, aborting connection %p.",
-                                                  ENTRY_FIELD_COUNT_MAX, connection);
-                        else
-                                log_warning_errno(r, "Failed to process data, aborting connection %p: %m",
-                                                  connection);
-                        return MHD_NO;
+                        r = decompressor_new_limited(&source->decompressor, source->compression,
+                                                     JOURNAL_REMOTE_DECOMPRESSOR_MEMORY_MAX);
+                        if (r < 0)
+                                return r == -ENOMEM ? mhd_respond_oom(connection) : MHD_NO;
                 }
-        }
 
-        if (!finished)
+                /* libmicrohttpd's final call has no data. Pushing nothing tells the decompressor the
+                 * upload is complete, and it fails if the compressed data was cut off. */
+                r = decompressor_push(source->decompressor, upload_data, *upload_data_size,
+                                      http_upload_decoded, &data);
+        }
+        if (r == -ENOMEM)
+                return mhd_respond_oom(connection);
+        if (r == -EFBIG)
+                return mhd_respond(connection, MHD_HTTP_CONTENT_TOO_LARGE,
+                                   "Decoded payload exceeds maximum size.");
+        if (r < 0 && data.error < 0)
+                return MHD_NO;
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob failed.");
+
+        if (*upload_data_size > 0) {
+                *upload_data_size = 0;
                 return MHD_YES;
+        }
 
         /* The upload is finished */
 
@@ -483,14 +678,17 @@ static int setup_microhttpd_server(RemoteServer *s,
         struct MHD_OptionItem opts[] = {
                 { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger},
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
+                { MHD_OPTION_NOTIFY_CONNECTION, (intptr_t) http_connection_notify, s},
                 { MHD_OPTION_LISTEN_SOCKET, fd},
                 { MHD_OPTION_CONNECTION_MEMORY_LIMIT, JOURNAL_SERVER_MEMORY_MAX},
+                { MHD_OPTION_CONNECTION_LIMIT, connection_limit},
+                { MHD_OPTION_CONNECTION_TIMEOUT, JOURNAL_REMOTE_CONNECTION_TIMEOUT},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END}};
-        int opts_pos = 4;
+        int opts_pos = 7;
         int flags =
                 MHD_USE_DEBUG |
                 MHD_USE_DUAL_STACK |
@@ -577,8 +775,10 @@ static int setup_microhttpd_server(RemoteServer *s,
         if (r < 0)
                 return log_error_errno(r, "Failed to set source name: %m");
 
+        /* MHD asks to run again immediately while request data is pending; the default
+         * 250ms accuracy would delay every such iteration. */
         r = sd_event_add_time(s->event, &d->timer_event,
-                              CLOCK_MONOTONIC, UINT64_MAX, 0,
+                              CLOCK_MONOTONIC, UINT64_MAX, 1,
                               null_timer_event_handler, d);
         if (r < 0)
                 return log_error_errno(r, "Failed to add timer_event: %m");
@@ -629,17 +829,22 @@ static int dispatch_http_event(sd_event_source *event,
                                void *userdata) {
         MHDDaemonWrapper *d = ASSERT_PTR(userdata);
         int r;
-        MHD_UNSIGNED_LONG_LONG timeout = ULLONG_MAX;
+        MHD_UNSIGNED_LONG_LONG timeout;
+        usec_t next = USEC_INFINITY;
 
         r = sym_MHD_run(d->daemon);
         if (r == MHD_NO)
                 // FIXME: unregister daemon
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "MHD_run failed!");
-        if (sym_MHD_get_timeout(d->daemon, &timeout) == MHD_NO)
-                timeout = ULLONG_MAX;
+        if (sym_MHD_get_timeout(d->daemon, &timeout) == MHD_YES) {
+                usec_t t = now(CLOCK_MONOTONIC);
 
-        r = sd_event_source_set_time(d->timer_event, timeout);
+                if (timeout <= (USEC_INFINITY - t) / USEC_PER_MSEC)
+                        next = t + timeout * USEC_PER_MSEC;
+        }
+
+        r = sd_event_source_set_time(d->timer_event, next);
         if (r < 0) {
                 log_warning_errno(r, "Unable to set event loop timeout: %m, this may result in indefinite blocking!");
                 return 1;
@@ -1169,6 +1374,8 @@ static int run(int argc, char **argv) {
         journal_browse_prepare();
 
 #if HAVE_MICROHTTPD
+        parse_http_env();
+
         if (arg_listen_http || arg_listen_https) {
                 r = setup_gnutls_logger(arg_gnutls_log);
                 if (r < 0)
