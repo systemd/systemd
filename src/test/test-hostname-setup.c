@@ -18,7 +18,8 @@
 #include "tmpfile-util.h"
 
 /* A path that does not exist, used to make hostname_setup() skip the files it would otherwise consult. */
-#define NO_SUCH_FILE "/tmp/test-hostname-setup-no-such-file"
+static char *no_such_dir = NULL;
+static char *no_such_file = NULL;
 
 TEST(read_etc_hostname) {
         _cleanup_(unlink_tempfilep) char path[] = "/tmp/hostname.XXXXXX";
@@ -193,13 +194,23 @@ TEST(hostname_setup_rederive_default) {
                 _cleanup_free_ char *recorded = NULL;
                 ASSERT_OK(read_one_line_file(hint, &recorded));
                 ASSERT_STREQ(recorded, h);
+                h = mfree(h);
+
+                /* Hint matches, but re-deriving fails (no word list for '$'): keep the current hostname. */
+                ASSERT_OK(sethostname_idempotent("ours-nolist"));
+                ASSERT_OK(write_string_file(hint, "ours-nolist", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+                ASSERT_OK(setenv("SYSTEMD_DEFAULT_HOSTNAME", "test-$", /* overwrite= */ true));
+                ASSERT_OK(setenv("SYSTEMD_HOSTNAME_WORDLIST_PATH", d, /* overwrite= */ true));
+                ASSERT_OK(hostname_setup(/* really= */ true));
+                ASSERT_NOT_NULL(h = gethostname_malloc());
+                ASSERT_STREQ(h, "ours-nolist");
 
                 _exit(EXIT_SUCCESS);
         }
 
         ASSERT_OK(unsetenv("SYSTEMD_PROC_CMDLINE"));
         ASSERT_OK(unsetenv("SYSTEMD_DEFAULT_HOSTNAME"));
-        ASSERT_OK(setenv("SYSTEMD_RUN_DEFAULT_HOSTNAME_PATH", NO_SUCH_FILE, /* overwrite= */ true));
+        ASSERT_OK(setenv("SYSTEMD_RUN_DEFAULT_HOSTNAME_PATH", no_such_file, /* overwrite= */ true));
 }
 
 TEST(hostname_setup_cmdline_wildcards) {
@@ -329,11 +340,22 @@ static int intro(void) {
         /* hostname_setup() consults /etc/hostname before falling back to the default hostname, and
          * /run/systemd/default-hostname to decide whether an already set hostname is the default it applied
          * earlier. Point both at paths that do not exist: otherwise which branch these tests take depends on
-         * whether the host running them happens to have those files. */
-        ASSERT_OK(setenv("SYSTEMD_ETC_HOSTNAME", NO_SUCH_FILE, /* overwrite= */ true));
-        ASSERT_OK(setenv("SYSTEMD_RUN_DEFAULT_HOSTNAME_PATH", NO_SUCH_FILE, /* overwrite= */ true));
+         * whether the host running them happens to have those files. The path lives in a directory of our
+         * own, so that nothing else can create it behind our back. */
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-hostname-setup.XXXXXX", &no_such_dir));
+        ASSERT_NOT_NULL(no_such_file = path_join(no_such_dir, "no-such-file"));
+
+        ASSERT_OK(setenv("SYSTEMD_ETC_HOSTNAME", no_such_file, /* overwrite= */ true));
+        ASSERT_OK(setenv("SYSTEMD_RUN_DEFAULT_HOSTNAME_PATH", no_such_file, /* overwrite= */ true));
 
         return EXIT_SUCCESS;
 }
 
-DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
+static int outro(void) {
+        no_such_file = mfree(no_such_file);
+        no_such_dir = rm_rf_physical_and_free(no_such_dir);
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_FULL(LOG_DEBUG, intro, outro);
