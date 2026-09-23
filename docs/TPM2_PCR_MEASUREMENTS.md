@@ -402,5 +402,5 @@ about activated Verity images before they are activated.
 → **Measured hash** covers the string `verity:`, followed by the Verity device
 name, followed by `:`, followed by a hexadecimal formatted string indicating
 the root hash of the Verity image, followed by `:`, followed by a comma
-separatec list of PKCS#7 signature key's serial (formatted in hexadecimal), `/`, and
+separated list of PKCS#7 signature key's serial (formatted in hexadecimal), `/`, and
 key issuer (formatted in Base64).

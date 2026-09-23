@@ -1171,6 +1171,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21N5*:pvrThinkBook16pG5IRX:*
  KEYBOARD_KEY_a1=!calc
  KEYBOARD_KEY_d7=unknown                                # Fn+F4 mic mute, also emitted by "Ideapad extra buttons", ignore
 
+# Lenovo ThinkBook 14 G7 ARP
+# Both mic mute events come from this device: 0x8 (ACPI) and 0x13e (WMI)
+evdev:name:Ideapad extra buttons:dmi:*:svnLENOVO:pn21MV:pvrThinkBook14G7ARP:*
+ KEYBOARD_KEY_13e=unknown                               # Fn+F4 mic mute, also emitted as scan code 0x8, ignore
+
 evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
  KEYBOARD_KEY_62=unknown                                # Touchpad on, also emitted by "Ideapad extra buttons", ignore
  KEYBOARD_KEY_63=unknown                                # Touchpad off, also emitted by "Ideapad extra buttons", ignore

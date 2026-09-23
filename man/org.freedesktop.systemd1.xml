@@ -33,7 +33,7 @@
     for each unit and for each queued job. The unit objects implement a generic
     <interfacename>Unit</interfacename> interface as well as a type-specific interface. For example, service units
     implement both <interfacename>org.freedesktop.systemd1.Unit</interfacename> and
-    <interfacename>org.freedesktop.system1.Service</interfacename>. The manager object can list
+    <interfacename>org.freedesktop.systemd1.Service</interfacename>. The manager object can list
     unit and job objects or directly convert a unit name or job identifier to a bus path of the corresponding
     D-Bus object.</para>
 
@@ -602,7 +602,7 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u SoftRebootsCount = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly u KExecsCount = ...;
+      readonly u KExecCount = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t ReloadCount = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1348,7 +1348,7 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="SoftRebootsCount"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="KExecsCount"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="KExecCount"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadCount"/>
 
@@ -1518,7 +1518,7 @@ node /org/freedesktop/systemd1 {
       <orderedlist>
         <listitem><para>Send a D-Bus message that will turn off status messages.</para></listitem>
         <listitem><para>Block until a reply to that message is received.</para></listitem>
-        <listitem><para>Print multiples lines without being interrupted by status messages.</para></listitem>
+        <listitem><para>Print multiple lines without being interrupted by status messages.</para></listitem>
         <listitem><para>Send a D-Bus message that will reset <varname>ShowStatus</varname> back to its
         original value.</para></listitem>
       </orderedlist>
@@ -1995,7 +1995,7 @@ node /org/freedesktop/systemd1 {
       <para><varname>SoftRebootsCount</varname> encodes how many soft-reboots were successfully completed
       since the last full boot. Starts at <literal>0</literal>.</para>
 
-      <para><varname>KExecsCount</varname> encodes how many kexec-based live updates were successfully
+      <para><varname>KExecCount</varname> encodes how many kexec-based live updates were successfully
       completed since the last full boot. Starts at <literal>0</literal>. The counter is preserved across the
       kexec through the Live Update Orchestrator (LUO), and is hence <literal>0</literal> when the kernel does
       not provide LUO support.</para>
@@ -2086,7 +2086,7 @@ node /org/freedesktop/systemd1 {
       operations are allowed through the polkit privilege system. Operations which modify unit state
       (<function>StartUnit()</function>, <function>StopUnit()</function>, <function>KillUnit()</function>,
       <function>KillUnitSubgroup()</function>, <function>QueueSignalUnit()</function>,
-      <function>RestartUnit()</function> and similar, <function>SetProperty()</function>) require
+      <function>RestartUnit()</function> and similar, <function>SetUnitProperties()</function>) require
       <interfacename>org.freedesktop.systemd1.manage-units</interfacename>. Operations which modify unit file
       enablement state (<function>EnableUnitFiles()</function>, <function>DisableUnitFiles()</function>,
       <function>EnableUnitFilesWithFlags()</function>, <function>DisableUnitFilesWithFlags()</function>,
@@ -5209,12 +5209,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       for more details on how to retrieve these file descriptors. Unlike the <varname>ExtraFileDescriptors</varname>
       input property, <varname>ExtraFileDescriptorNames</varname> only contains names and not the file descriptors.</para>
 
-      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> implement the destination parameter of the
+      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> implements the destination parameter of the
       unit file setting <varname>ManagedOOMMemoryPressureDurationSec=</varname> listed in
       <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       Note the time unit is expressed in <literal>μs</literal>.</para>
 
-      <para><varname>ProtectControlGroupsEx</varname> implement the destination parameter of the
+      <para><varname>ProtectControlGroupsEx</varname> implements the destination parameter of the
       unit file setting <varname>ProtectControlGroups=</varname> listed in
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       Unlike boolean <varname>ProtectControlGroups</varname>, <varname>ProtectControlGroupsEx</varname>
@@ -5225,7 +5225,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       Note <varname>PrivatePIDs</varname> is a string type to allow adding more values in the future.</para>
 
-      <para><varname>ProtectHostnameEx</varname> implement the destination parameter of the
+      <para><varname>ProtectHostnameEx</varname> implements the destination parameter of the
       unit file setting <varname>ProtectHostname=</varname> listed in
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       Unlike boolean <varname>ProtectHostname</varname>, <varname>ProtectHostnameEx</varname> is a pair of
@@ -12047,7 +12047,7 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
       <para>Most properties correspond directly with the matching settings in slice unit files.</para>
 
-      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> implement the destination parameter of the
+      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> implements the destination parameter of the
       unit file setting <varname>ManagedOOMMemoryPressureDurationSec=</varname> listed in
       <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       Note the time unit is expressed in <literal>μs</literal>.</para>
@@ -12726,10 +12726,10 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
       <para><varname>Controller</varname> contains the bus name (unique or well-known) that is notified when
       the scope unit is to be shut down via a <function>RequestStop()</function> signal (see below). This is
-      set when the scope is created. If not set, the scope's processes will terminated with
+      set when the scope is created. If not set, the scope's processes will be terminated with
       <constant>SIGTERM</constant> directly.</para>
 
-      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> implement the destination parameter of the
+      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> implements the destination parameter of the
       unit file setting <varname>ManagedOOMMemoryPressureDurationSec=</varname> listed in
       <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       Note the time unit is expressed in <literal>μs</literal>.</para>
@@ -12902,7 +12902,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ReloadCount</varname>,
       <varname>EventLoopRateLimitIntervalUSec</varname>, and
       <varname>EventLoopRateLimitBurst</varname> were added in version 261.</para>
-      <para><varname>KExecsCount</varname>,
+      <para><varname>KExecCount</varname>,
       <function>EnqueueUnitJobMany()</function>,
       <varname>ShutdownFinishTimestamp</varname>,
       <varname>ShutdownFinishTimestampMonotonic</varname>,

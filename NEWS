@@ -1,6 +1,12 @@
 systemd System and Service Manager
 
-CHANGES WITH 262 in spe:
+CHANGES WITH 263 in spe:
+
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        Feature Removals and Incompatible Changes:
+
+CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -40,13 +46,14 @@ CHANGES WITH 262 in spe:
 
         * Meson options '-Dlibiptc=' (deprecated in v259), '-Dlibidn=',
           '-Drc-local=', '-Dsysvinit-path=', and '-Dsysvrcnd-path=' (deprecated
-          in v260) have been removed.
+          and without effect since v260) have been removed.
 
         * Services of Type=notify-reload are now required to catch or block
           ReloadSignal= when they send READY=1. If they do neither at that
-          point, the service fails to start with a protocol error. Previously,
-          such services were allowed to start even though a later reload could
-          invoke the signal's default action and terminate the service.
+          point, the service will fail to start with a protocol error.
+          Previously, such services were allowed to start even though a later
+          reload could invoke the signal's default action and terminate the
+          service.
 
         * systemd-repart's MakeSymlinks= option now expands "%" specifiers in
           the symlink target. Previously, these were only expanded in the
@@ -58,7 +65,7 @@ CHANGES WITH 262 in spe:
           sections below a new "_profiles" array. Consumers that assumed each
           section name occurred at most once should be updated.
 
-        * systemd-repart no longer honors the legacy "FactoryReset" EFI
+        * systemd-repart no longer honours the legacy "FactoryReset" EFI
           variable in the initrd. The newer "FactoryResetRequest" EFI variable
           remains supported and should be used instead.
 
@@ -83,7 +90,7 @@ CHANGES WITH 262 in spe:
           hierarchy is protected with a PIN.
 
           TPM-bound credentials minted after this change are not recognized by
-          older systemd versions, however systemd continues to accept TPM-sealed
+          older systemd versions, however new systemd continues to accept
           credentials that were created before this change.
 
         * The "tpm2-measure-bank=" crypttab option of systemd-cryptsetup is
@@ -97,16 +104,16 @@ CHANGES WITH 262 in spe:
           /run/udev/control, which is sometimes used to check whether udevd is
           running, has been replaced with a symlink to the Varlink socket. This
           change does not mean the legacy protocol is supported on this path;
-          rather, the symlink is maintained to ensure the socket is bound under
-          the same conditions as before.
+          instead, the symlink is maintained to ensure the socket is bound
+          under the same conditions as before.
 
-        * UnsetEnvironment= is now applied after environment-variable
-          expansion of ExecStart= and related command lines. Variables listed
-          in UnsetEnvironment= can therefore still be used in Exec*= command
-          lines, while remaining absent from the environment passed to the
-          executed process. This fixes an unintended coupling between command
-          expansion and final environment cleanup, but units that relied on
-          whole-word $VAR references being dropped should be updated.
+        * UnsetEnvironment= is now applied after environment variable expansion
+          of ExecStart= and related command lines. Variables listed in
+          UnsetEnvironment= can therefore still be used in Exec*= command
+          lines, while being absent from the environment passed to the executed
+          process. This fixes an unintended coupling between command expansion
+          and final environment cleanup. Units that relied on whole-word $VAR
+          references being dropped should be updated.
 
         * Meson option compatibility changed for static/multicall builds:
           -Dbuild-executor-shared=single has been replaced by
@@ -114,13 +121,13 @@ CHANGES WITH 262 in spe:
           takes a comma-separated list of patterns naming binaries whose
           .standalone variant should be installed. The old true/false values
           are translated to the previous defaults but are deprecated. Existing
-          Meson build directories that used the old option types may need to be
+          Meson build directories that used the old options need to be
           recreated.
 
         * sd-event rate-limit timers, and thus manager timers such as
           StartLimitIntervalSec=, now use CLOCK_BOOTTIME instead of
-          CLOCK_MONOTONIC. Time spent suspended therefore counts toward rate
-          limit expiry. After upgrade/reexecution, already-serialized
+          CLOCK_MONOTONIC. Time spent suspended therefore counts toward
+          rate-limit expiry. After upgrade/reexecution, already-serialized
           rate-limit state from older managers may expire once earlier than it
           would have previously, because the stored timestamp is compared
           against the new clock base.
@@ -134,8 +141,24 @@ CHANGES WITH 262 in spe:
         * The systemd-sysupdate binary has been moved back from bindir to
           libexecdir, as more breaking changes are forthcoming and it is thus
           again marked as experimental. It will be stabilized in a future
-          release. The libexecdir path is the backwards compatible way to call
-          it.
+          release. The libexecdir path is the most compatible way to call it.
+
+        * The "extensions" field of "systemd-sysext status --json=" and
+          "systemd-confext status --json=" is now always an array. A hierarchy
+          that is not merged reports an empty array, instead of the string
+          "none" returned previously. In the human-readable table output a
+          hierarchy that is not merged is now shown as "-" instead of "none".
+
+        * The JSON payload returned by systemd-sysupdated's DescribeFeature()
+          method and by the "systemd-sysupdate features" command changed the
+          "name" key to "id". The "documentation" key is now an array of
+          strings. Consumers of this interface must update their JSON parsing
+          accordingly.
+
+        * The PrivateUsersOwnership= setting in .nspawn files now defaults to
+          "auto" when PrivateUsers= is "pick" or "managed", matching the
+          --private-users-ownership= command line switch. Previously "pick"
+          defaulted to "chown", and "managed" to "off".
 
         Changes in the system and service manager:
 
@@ -173,19 +196,19 @@ CHANGES WITH 262 in spe:
 
         * The io.systemd.Unit Varlink StartTransient() method now accepts a
           larger set of transient-unit properties, including more Exec context
-          settings for users/groups, credentials, root images/directories,
-          namespace paths, common sandboxing booleans, UMask=,
-          OOMScoreAdjust=, CollectMode=, and standard input/output/error file
-          descriptors passed with the Varlink call.
+          settings for users, groups, credentials, root images/directories,
+          namespace paths, common sandboxing booleans, UMask=, OOMScoreAdjust=,
+          CollectMode=, and standard input/output/error file descriptors passed
+          with the Varlink call.
 
-        * SecureBits= now recognizes no-cap-ambient-raise,
-          exec-restrict-file, exec-deny-interactive, and their -locked
+        * SecureBits= now recognizes "no-cap-ambient-raise",
+          "exec-restrict-file", "exec-deny-interactive", and their "-locked"
           variants.
 
-        * NUMAPolicy= now accepts preferred-many and weighted-interleave. The
-          former requires Linux 5.15 or newer, the latter requires Linux 6.9 or
-          newer and uses weights configured in the kernel's weighted_interleave
-          sysfs files.
+        * NUMAPolicy= now accepts "preferred-many" and "weighted-interleave".
+          The former requires Linux 5.15 or newer, the latter requires Linux
+          6.9 or newer and uses weights configured in the kernel's
+          weighted_interleave sysfs files.
 
         * ConditionCPUFeature= now supports arm64 features reported via ELF
           hwcaps, and CPU feature names may be prefixed as ARCH.FEATURE (for
@@ -198,11 +221,11 @@ CHANGES WITH 262 in spe:
           Orchestrator sessions and pass them through the file descriptor
           store interface.
 
-        * PID 1 now exposes a new D-Bus property KExecsCount that indicates
-          the number of kexec reboots the system has gone since the last real
+        * PID 1 now exposes a new D-Bus property KExecCount that indicates the
+          number of kexec reboots the system has undergone since the last real
           boot. It also exposes shutdown timestamps of the previous kexec
-          cycle. (Only if LUO is available). systemd-analyze time uses them to
-          report kexec/live-update timing.
+          cycle. (Only if LUO is available). 'systemd-analyze time' uses them
+          to report kexec/live-update timing.
 
         * RestrictFileSystemAccess= now permits execution from overlayfs
           mounts whose file data resides on a signed and verified
@@ -216,15 +239,15 @@ CHANGES WITH 262 in spe:
           listening and accepted sockets. This requires socket inode xattr
           support available since Linux kernel 7.0.
 
-        * The common io.systemd.service Varlink interface gained
-          GetLogLevel(), matching the existing SetLogLevel() method. It is
-          exposed by systemd's service daemons, and 'resolvectl log-level' now
-          uses it to report the current maximum log level.
+        * The common io.systemd.service Varlink interface gained GetLogLevel(),
+          matching the existing SetLogLevel() method. It is exposed by
+          systemd's service daemons, and 'resolvectl log-level' now uses it to
+          report the current maximum log level.
 
         * The hostname setup logic now supports a new type of wildcard
           character when configuring hostnames (for example via /etc/hostname).
-          In addition to the existing '?' wildcard support (which resolves to a
-          hex character derived from the machine ID by hashing) there's now '$'
+          In addition to the existing '?' wildcards (which resolve to a hex
+          character derived from the machine ID by hashing), there is now '$'
           which resolves to a word picked from a word list file also via
           hashing. This may be used to automatically assign memorable hostnames
           to systems in a random but deterministic and stable fashion. Three
@@ -248,21 +271,21 @@ CHANGES WITH 262 in spe:
 
         * Varlink socket inodes are tagged with an
           user.varlink= xattr where supported, indicating whether they are
-          entrypoint, listener or accepted sockets. This
+          entrypoint, listener or accepted sockets.
 
         * varlinkctl gained a command list-sockets to discover all tagged local
           Varlink entrypoints.
 
         Changes in systemd-boot, systemd-stub & bootctl:
 
-        * Random seed handling now respects the "read-only" ESP/vFAT file
-          flag. If the backing volume or /loader/random-seed file is marked
+        * Random seed handling now respects the "read-only" ESP/vFAT file flag.
+          If the backing volume or /loader/random-seed file is marked
           read-only, systemd-boot skips updating the seed and does not credit
           it to the kernel entropy pool, since a seed that cannot be rotated
           would be reused on later boots. This may be used to turn off
-          random-seed handling in replicated images. (Similar, the boot
+          random-seed handling in replicated images. Similarly, the boot
           counting logic is disabled if boot entry files or the file system
-          backing them are marked as read-only.)
+          backing them are marked as read-only.
 
         * systemd-stub now sets up all detected consoles instead of only the
           best one. If no console= option was supplied, graphical console
@@ -270,11 +293,11 @@ CHANGES WITH 262 in spe:
           VM boots with graphical output and unrelated virtio devices more
           reliable while still enabling other detected consoles.
 
-        * bootctl gained a new "link-auto" command, which operates like
-          "bootctl link" but automatically discovers the UKI and resources to
+        * bootctl gained a new "link-auto" verb, which operates like
+          "bootctl link" but automatically discovers the UKI and resources to
           link in /usr/lib/systemd/uki/ and similar directories in /run/ and
-          /var/. This logic can be executed automatcally when systemd-sysupdate
-          completes an update by enabling the
+          /var/. This logic can be executed automatically when
+          systemd-sysupdate completes an update by enabling the
           systemd-sysupdate-notify-bootctl.socket unit.
 
         Changes in systemd-hostnamed:
@@ -293,7 +316,7 @@ CHANGES WITH 262 in spe:
 
         * systemd-hostnamed's Varlink interface gained setter methods for the
           transient, static and pretty hostnames, icon name, chassis,
-          deployment and location fields.
+          deployment, and location fields.
 
         * systemd-hostnamed's Varlink interface gained a new call SetTags() for
           setting/unsetting machine tags. Its D-Bus API gained
@@ -307,11 +330,10 @@ CHANGES WITH 262 in spe:
 
         Changes in systemd-networkd:
 
-        * The [Match] sections of .link, .network and .netdev files
-          gained MachineTag=, matching the same tag syntax as
-          ConditionMachineTag= in unit files. Or in other words: network
-          configuration may now be conditioned on certain machine tags to be
-          set or unset.
+        * The [Match] sections of .link, .network and .netdev files gained
+          MachineTag=, matching the same tag syntax as ConditionMachineTag= in
+          unit files. Or in other words: network configuration may now be
+          conditioned on the presence or absence of specific machine tags.
 
         * The IPv6ProxyNDPAddress= setting in the [Network] section of .network
           files has been renamed to ProxyNeighbor=, and remains accepted as a
@@ -344,21 +366,20 @@ CHANGES WITH 262 in spe:
           verification is skipped in that case).
 
         * The io.systemd.JournalAccess.GetEntries Varlink method gained a
-          follow mode. When called with follow=true it returns the requested
+          follow mode. When called with "follow=true" it returns the requested
           backlog and then keeps the method call open, streaming new matching
-          entries like journalctl -f until the client disconnects.
+          entries like 'journalctl -f' until the client disconnects.
 
         Changes in systemd-coredump and coredumpctl:
 
         * systemd-coredump now supports the kernel coredump socket protocol
           available since Linux 6.17. On supported kernels,
-          systemd-coredumpd.service listens on
-          /run/systemd/coredumpd/kernel, and
-          systemd-coredump-register.service registers the socket through
+          systemd-coredumpd.service listens on /run/systemd/coredumpd/kernel,
+          and systemd-coredump-register.service registers the socket through
           kernel.core_pattern. Older kernels continue to use the per-coredump
           systemd-coredump@.service path. Changes to coredump.conf require
           reloading systemd-coredumpd.service, and deployments that set a
-          custom kernel.core_pattern should mask or stop that service.
+          custom kernel.core_pattern should stop and disable that service.
 
         * The coredumpctl dump and debug commands now honor --json= and include
           the selected coredump's metadata in the requested JSON format.
@@ -377,7 +398,7 @@ CHANGES WITH 262 in spe:
 
         * The io.systemd.Resolve.Monitor Varlink interface gained FlushCaches()
           and ResetServerFeatures() methods, and resolvectl uses them where
-          available for its flush-caches and reset-server-features commands.
+          available for its flush-caches and reset-server-features verbs.
 
         Changes in systemd-udevd:
 
@@ -388,7 +409,7 @@ CHANGES WITH 262 in spe:
 
         * sd-device and systemd-udevd now ignore invalid ordinary kernel
           properties in uevents and uevent files instead of rejecting the whole
-          otherwise valid event. Required and typed properties remain strict.
+          otherwise-valid event. Required and typed properties remain strict.
 
         Changes in systemd-homed and homectl:
 
@@ -402,8 +423,8 @@ CHANGES WITH 262 in spe:
           before removing the old ones. If adding a new slot fails, the old
           slots are left intact, avoiding lockout on enrollment failure.
 
-        * homectl gained a new --recovery-key-file= option which may used to
-          write the recover key into a file in an atomic and reasonable safe
+        * homectl gained a new --recovery-key-file= option which may be used to
+          write the recovery key into a file in an atomic and reasonably safe
           fashion, when enrolling one.
 
         Changes in systemd-tmpfiles:
@@ -434,7 +455,7 @@ CHANGES WITH 262 in spe:
           option to ukify. NvPCRs that are not defined or initialized in the
           initrd will fail to initialize lazily during runtime if an attempt is
           made to extend them with systemd-pcrextend. Existing NvPCRs that were
-          created with a previous systemd version will be automatically
+          created with previous systemd versions will be automatically
           upgraded, and the existing "anchor secret" stored in /var/lib and the
           ESP/XBOOTLDR will be removed.
 
@@ -485,9 +506,9 @@ CHANGES WITH 262 in spe:
           --tpm2-argon2id-memory=, --tpm2-argon2id-iterations=,
           --tpm2-argon2id-parallelism= and --tpm2-argon2id-iter-time=.
 
-        * systemd-cryptenroll now support an optional "first-boot" wizard for
+        * systemd-cryptenroll now supports an optional "first-boot" wizard for
           enrolling additional unlock mechanisms. This is intended to be used
-          in TPM enabled scenarios which default to unattended TPM-based disk
+          in TPM-enabled scenarios which default to unattended TPM-based disk
           encryption, but where enrollment of additional mechanisms to decrypt
           the disks for recovery purposes shall be suggested to the user. This
           wizard is provided by the new systemd-cryptenroll-firstboot.service
@@ -500,7 +521,7 @@ CHANGES WITH 262 in spe:
           to unlock the disk via an empty password, instead of prompting the
           user for one. There's also a new --unlock-headless switch, which is
           equivalent to --unlock-tpm2 if a TPM is available, and otherwise
-          equivalent to --unlock-empty. This is supposed to to be useful in
+          equivalent to --unlock-empty. This is supposed to be useful in
           scenarios where the system defaults to unattended encryption with a
           TPM if one is available, and an empty password otherwise.
 
@@ -597,8 +618,7 @@ CHANGES WITH 262 in spe:
 
         * A new report provider systemd-report-files has been added that will
           report any file placed in (or symlinked into)
-          /run/systemd/report.files/ (the same dir in /etc/ and /var is checked
-          too) as metric in the report.
+          {/etc,/run,/var/lib}/systemd/report.files/ as a metric in the report.
 
         Changes in libsystemd:
 
@@ -610,14 +630,14 @@ CHANGES WITH 262 in spe:
           plus sd_varlink_bind_upgrade() implement asynchronous server-side
           protocol upgrades without blocking while the final reply is flushed.
 
-        * sd-dlopen.h gained SD_ELF_NOTE_DLOPEN_ANCHORED(), which
-          associates dlopen metadata notes with a generated anchor symbol so
-          unused notes can be garbage-collected with unreachable code when
-          linking with --gc-sections. Full builds now require binutils
-          >= 2.35 and LLVM/clang >= 18 for the assembler features used by
-          these notes. Clang older than 18 falls back to the non-anchored form.
+        * sd-dlopen.h gained SD_ELF_NOTE_DLOPEN_ANCHORED(), which associates
+          dlopen metadata notes with a generated anchor symbol so unused notes
+          can be garbage-collected with unreachable code when linking with
+          --gc-sections. Full builds now require binutils >= 2.35 and
+          LLVM/clang >= 18 for the assembler features used by these notes.
+          Clang older than 18 falls back to the non-anchored form.
 
-        * sd_id128_from_string() now accepts RFC 4122 UUID URNs with the
+        * sd_id128_from_string() now accepts RFC 4122 UUID URNs with the
           "urn:uuid:" prefix in addition to plain 32-character IDs and dashed
           UUID strings.
 
@@ -628,55 +648,54 @@ CHANGES WITH 262 in spe:
 
         * userdb services may now advertise via xattrs on their Varlink AF_UNIX
           entrypoint socket inodes for which subset of UID/GID ranges or
-          user/group names (via glob expression) they shell be queried. This is
-          a very efficient way to suppress unnecessary userdb backend IPC
-          requests with very basic filtering. All of systemd's own userdb
-          providers set the appropriate xattrs.
+          user/group names (via glob expression) they shall be queried. This is
+          an efficient way to suppress unnecessary userdb backend IPC requests.
+          All of systemd's own userdb providers now set the appropriate xattrs.
 
         Changes in systemd-sysupdate:
 
         * systemd-sysupdate will now maintain a persistent database of all
           files it installed. Files that have previously been installed by
-          systemd-sysupdate but for which no current match pattern applies
-          anymore, are now automatically removed when the new "cleanup" verb is
-          called. This means match patterns now become a stronger form of
-          ownership declaration.
+          systemd-sysupdate but to which no current match pattern applies, are
+          now automatically removed when the new "cleanup" verb is called. This
+          means match patterns now become a stronger form of ownership
+          declaration.
 
         * systemd-sysupdate will now synchronously notify all services that
           have a Varlink entrypoint socket bound into the
           /run/systemd/sysupdate/notify/ directory about completed updates.
 
         * systemd-sysupdate gained a basic Varlink API. Currently you may use
-          it to list features, and components/targets and check for newer versions.
+          it to list features, and components/targets and check for newer
+          versions.
 
         * systemd-sysupdate's support for "components" has been extended: a
-          per-component metadata file (*.component) is now loaded if it
-          exists. It can be used to enable/disable the component, and may carry
-          a human readable description as well as documentation links. The
-          "systemd-sysupdate components" command will show the component
+          per-component metadata file (*.component) is now loaded if it exists.
+          It can be used to enable/disable the component, and may carry a human
+          readable description as well as documentation links. The
+          'systemd-sysupdate components' command will show the component
           description strings.
 
         * systemd-sysupdate gained support for new
           enable-feature/disable-feature commands that may be used to enable
           disable features. (Previously these operations where available in
           updatectl, i.e. in the frontend, but now they are available in the
-          mechanism itself.) Similar new commands
-          enable-component/disable-component has been added.
+          service itself.)  Similar new commands
+          'enable-component'/'disable-component' have been added.
 
-        * components and features acquired a "suggestion" concept. This is
+        * Components and features acquired a "suggestion" concept. This is
           inspired by unit file's ConditionXYZ= settings, and allows marking
           components and features as suggested for installation under various
           conditions (such as architecture, used virtualization, host identity,
-          kernel command line, version, firmware properties and machine
-          tag). Via "systemd-sysupdate enable-component --component-suggested"
-          all components currently suggested can be enabled (similar for
-          features). Note that by automatically tagging machines with certain
-          hardware it is thus possible to automatically determine which system
-          extensions containing drivers shall be installed, based on hwdb files
-          that match vendor/product identity to machine tags. If the new
-          systemd-sysupdate-auto-enable.service unit is enabled it will
-          automatically enable all suggested components and features before
-          each unattended systemd-sysupdate run.
+          kernel command line, version, firmware properties and machine tag).
+          All components currently suggested can be enabled via
+          'systemd-sysupdate enable-component --component-suggested' (and
+          similarly for features). Note that by providing hwdb files that match
+          vendor/product identity and set machine tags, it is now possible to
+          automatically determine which system extensions containing drivers
+          shall be installed. If the new systemd-sysupdate-auto-enable.service
+          unit is enabled, it will automatically enable all suggested
+          components and features before each unattended systemd-sysupdate run.
 
         * systemd-sysupdate's "update" command acquired a new --component-all
           switch for updating all installed components in one go.
@@ -699,11 +718,11 @@ CHANGES WITH 262 in spe:
 
         * systemd-sysext will now honour new fields EXTENSION_RESTART_UNITS=
           and EXTENSION_RELOAD_OR_RESTART_UNITS= in the extension-release file.
-          If may list units to restart or reload when a sysext is applied.
+          It may list units to restart or reload when a sysext is applied.
 
         * systemd-sysext can now automatically refresh if a systemd-sysupdate
-          run completed, by enabling the systemd-sysupdate-notify-sysext.socket
-          unit.
+          run completed. To activate this feature, enable the
+          systemd-sysupdate-notify-sysext.socket unit.
 
         Other changes:
 
@@ -718,14 +737,14 @@ CHANGES WITH 262 in spe:
         * systemd-machined: privileged callers that authenticate through polkit
           as administrators may register machines for other users. The Register
           Varlink method now derives the supervisor process from the caller and
-          ignores the deprecated supervisor/supervisorProcessId input fields
-          for compatibility, and OpenShell accepts numeric UIDs again.
+          ignores the deprecated supervisor/supervisorProcessId input fields.
+          systemd-machined's OpenShell accepts numeric UIDs again.
 
         * systemctl kexec gained --kernel-cmdline-reuse, which appends the
           currently running kernel command line to the kexec kernel command
           line. --kernel-cmdline= may now be specified more than once. The
           final command line is assembled from the boot loader entry, optional
-          reused current command line, and explicit additions, then
+          reused current command line, and explicit additions. After that
           byte-identical duplicate arguments are removed, keeping the last
           occurrence. These options are rejected if a kexec kernel is already
           loaded.
@@ -736,7 +755,7 @@ CHANGES WITH 262 in spe:
           non-interactive auto-configuration that requires no user input (such
           as selecting the sole installed locale, or applying settings provided
           via credentials). This is useful for unattended installations that
-          should be provisioned as far as possible without ever blocking on a
+          should be provisioned as far as possible without blocking on a
           prompt.
 
         * Tools that create or modify files in offline roots/images now use the
@@ -771,13 +790,13 @@ CHANGES WITH 262 in spe:
           and is used as the base name for generated UKI files and loader entry
           snippets.
 
-        * Many command line tools now expose machine-readable command metadata
-          via --introspect-cli as JSON, generated from declarative verb/option
-          descriptions. This now covers systemctl and a broad set of systemd
-          utilities. Scripts that need command/option discovery may consume
-          this interface instead of parsing human --help output. This feature
-          is experimental and the JSON schema may be subject to change in later
-          release until a future stabilization announcement.
+        * All command line tools that implement --help now expose
+          machine-readable command metadata via --introspect-cli as JSON,
+          generated from declarative verb/option descriptions. Scripts that
+          need command/option discovery may consume this interface instead of
+          parsing human --help output. This feature is experimental and the
+          JSON schema will most likely change in the future release until a
+          future stabilization announcement.
 
         * OpenPGP verification of downloaded resources now accepts signing
           subkeys embedded in signatures when they are certified by a trusted
@@ -789,7 +808,7 @@ CHANGES WITH 262 in spe:
 
         * New dm-clone boot integration was added. /etc/clonetab entries are
           translated by systemd-clonesetup-generator into
-          systemd-clonesetup@.service units ordered by clonesetup.target, and
+          systemd-clonesetup@.service units pulled in by clonesetup.target, and
           systemd-clonesetup creates and removes the device-mapper clone
           devices. clonetab entries may set region-size= to control hydration
           granularity.
@@ -812,50 +831,56 @@ CHANGES WITH 262 in spe:
         Contributions from: Adam Dinwoodie, Akarithos, Aleksa Sarai,
         Alexander Egorov, Alexandre Saou, Alexey Shabalin,
         Alperen Kılıç, Américo Monteiro, Ananth, Ananth Bhaskararaman,
-        Andre Eikmeyer, Andrei Stepanov, Andres Beltran, Andrew Dunn,
-        Ani Sinha, Anton Tiurin, Antonio Alvarez Feijoo,
-        Arian van Putten, Arif Budiman, Aritra Basu, Armaan Sandhu,
-        Arseniy Kostevich, Aswin Murugan, Axel, Baurzhan Muftakhidinov,
-        Beniamino Galvani, Bone NI, Chris Ayoub, Chris Coulson,
-        Chris Down, Christian Brauner, Christian Glombek, Christian Hesse,
+        Anders Jonsson, Andre Eikmeyer, Andrei Stepanov, Andres Beltran,
+        Andres Diaz, Andrew Dunn, Ani Sinha, Anton Tiurin,
+        Antonio Alvarez Feijoo, Arian van Putten, Arif Budiman,
+        Aritra Basu, Armaan Sandhu, Arseniy Kostevich, Aswin Murugan, Axel,
+        Baurzhan Muftakhidinov, Beniamino Galvani, Bone NI, Cathal Mullan,
+        Chris Ayoub, Chris Coulson, Chris Down, Chris Hasiński,
+        Christian Brauner, Christian Glombek, Christian Hesse,
         Clayton Craft, Confusedphoton, CrtlTom, Daan De Meyer,
-        Daniel28972897, Dara Adib, David 'equinox' Lamparter, David Tardon,
-        Davide Cavalca, Davis-Rippon, DongShengyuan, EJ Campbell,
-        Elliot Berman, Emanuele Petriglia, Emanuele Rocca,
-        Emilio Sepulveda, Eric Boucher, Eric Curtin, Fabian Vogt,
-        Fco. Javier F. Serrador, Fede2782, Frantisek Sumsal, Gabriel,
-        Guillaume Kehren, Hans de Goede, Hashim Khan, Hijae Song,
-        Hilal Rahmatullah, Honza Hejzl, Hüseyin Kutsi Balcı,
-        Ivan Kruglov, Jakub Stasiak, Jan Macku, Jason Yang,
-        Jelle van der Waa, Jesse Guo, Jonas Dreßler, Josh Hoffer,
-        Jouke Witteveen, Julian Bouzas, Julian Sparber, Jörg Behrmann,
-        Kai Lüke, Kai Wohlfahrt, Kakueeen, Konstantin Shkolnyy,
-        Lars Sjöstrom, Lefteris T, Lennart Poettering, Liu Zhangjian,
-        Liu Zheng, Luca Boccassi, LucasTavaresA, Ludwig Nussel,
+        Daniel Wagenknecht, Daniel28972897, Dara Adib,
+        David 'equinox' Lamparter, David Tardon, Davide Cavalca,
+        Davis-Rippon, Deniz Gözen, DongShengyuan, EJ Campbell,
+        Edvard Jaegtnes, Elliot Berman, Emanuele Petriglia, Emanuele Rocca,
+        Emilio Sepulveda, Eric Boucher, Eric Curtin, Ettore Atalan,
+        Fabian Vogt, Fco. Javier F. Serrador, Fede2782, Franck Bui,
+        Frantisek Sumsal, Gabriel, Guillaume Kehren, Hans de Goede,
+        Hashim Khan, Hijae Song, Hilal Rahmatullah, Honza Hejzl,
+        Hüseyin Kutsi Balcı, Ivan Kruglov, Jakub Stasiak, Jan Kuparinen,
+        Jan Macku, Jason Yang, Jelle van der Waa, Jesse Guo,
+        Jonas Dreßler, Josh Hoffer, Jouke Witteveen, Julian Bouzas,
+        Julian Sparber, Justin Cabral, Jörg Behrmann, Kai Lüke,
+        Kai Wohlfahrt, Kakueeen, Kevin Charpentier, KingPointer,
+        Konstantin Shkolnyy, Lars Sjöstrom, Lefteris T,
+        Lennart Poettering, Liu Zhangjian, Liu Zheng, Lokesh Patel,
+        Luca Boccassi, Lucas Adriano Salles, LucasTavaresA, Ludwig Nussel,
         Luna Jernberg, Léane GRASSER, Lương Việt Hoàng,
         Marek Adamski, Markus Boehme, Martin Pitt, Martin Srebotnjak,
-        Matthew Schwartz, Matthias P. Walther, Michael Vogt,
-        Michal Koutný, Michal Sekletár, Michal Čihař, Mike Yuan,
-        Morteza Pourkazemi, Nandakumar Raghavan, Nicholas Lim,
-        Nick Rosbrook, Oğuz Ersen, Parag Gupta, Paul Menzel, Paul Meyer,
-        Pavel Borecki, Petru Rebeja, Philip Withnall, Popax21,
-        Pranay Pawar, Pétur, Rafael Fontenelle, Rafael Passos,
-        Raito Bezarius, Rasmus Villemoes, Renan Pagani,
-        Robin Richard Rajan, Rocker Zhang, Roman Vinogradov, Ronan Pigott,
-        Ross Burton, Semyon Klintsov, Sergey A., Shihao Ren, ShiroKSH,
-        Shivank Sharma, Simon de Vlieger, Simran Singh, Sinity,
-        Siteshwar Vashisht, Skye Soss, Srijan Keshri,
+        Matthew Schwartz, Matthias P. Walther, Michael Renner,
+        Michael Vogt, Michal Koutný, Michal Sekletár, Michal Čihař,
+        Mike Yuan, Morteza Pourkazemi, Muhammed Yakup Özlük, Méven Car,
+        Nandakumar Raghavan, Nicholas Lim, Nick Rosbrook, Oğuz Ersen,
+        Parag Gupta, Paul Menzel, Paul Meyer, Pavel Borecki, Petru Rebeja,
+        Philip Withnall, Popax21, Pranay Pawar, Pétur, Rafael Fontenelle,
+        Rafael Passos, Raito Bezarius, Ramses, Rasmus Villemoes,
+        Renan Pagani, Robin Richard Rajan, Rocker Zhang, Roman Vinogradov,
+        Ronan Pigott, Ross Burton, Semyon Klintsov, Sergey A., Shihao Ren,
+        ShiroKSH, Shivank Sharma, Simon de Vlieger, Simran Singh, Sinity,
+        Siteshwar Vashisht, Skye Soss, Srijan Keshri, Stefan Agner,
         Stephanie Wilde-Hobbs, Sven Joachim, Syed Mohammed Nayyar,
         Temuri Doghonadze, Thomas Kopp, Tim Culverhouse, Tim Schumacher,
-        Timon de Groot, Victor Verdan, Vsevolod Kozlov, Wang Yu,
-        Yu Watanabe, Zbigniew Jędrzejewski-Szmek, acandoo, cidkidnix,
+        Timon de Groot, Tobias Heider, Totoro, Umut Tezduyar Lindskog,
+        Val Packett, Victor Verdan, Vsevolod Kozlov, Wang Yu, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek, acandoo, benkigeek, cidkidnix,
         countgitmick, cverorg, dirhamtriyadi, dongshengyuan, felix h, fuldeka,
         gkehren, gpenz, guolin, hanjinpeng, jmestwa-coder, joo es,
-        logical-misha, lucia-huang7, lzwind, quanyeyang, r-vdp, rashidmya,
-        rodin-ia, totoro, tunaichao, wangzhaohui, wyu, xiahualiu, zhaoshuang,
-        zouge666, Марко Костић (Marko Kostić), 김인수
+        logical-misha, lucia-huang7, lzwind, nl6720, quanyeyang, r-vdp,
+        rashidmya, rodin-ia, totoro, tunaichao, wangzhaohui, wyu, xiahualiu,
+        zhaoshuang, zouge666, Марко Костић (Marko Kostić),
+        김인수
 
-        — Edinburgh, 2026/08/31
+        — Lavanttal Tal, 2026/09/22
 
 CHANGES WITH 261:
 
@@ -1020,7 +1045,7 @@ CHANGES WITH 261:
 
         * The service manager knows two new global knobs
           EventLoopRateLimitIntervalSec=/EventLoopRateLimitBurst= to configure
-          PID1's event loop ratelimit logic. This permits fine-tuning the
+          PID1's event loop rate-limit logic. This permits fine-tuning the
           safety logic in PID 1 that slows down operation in case PID 1 starts
           to busy loop.
 
@@ -1113,7 +1138,7 @@ CHANGES WITH 261:
           and Type 11 in PCR 1, since some firmwares do not measure them, even
           though they are supposed to.
 
-        * systemd-tpm2-setup.service will now allocate NvPCRs in an orer
+        * systemd-tpm2-setup.service will now allocate NvPCRs in an order
           configurable via the "priority" field of their defining JSON object.
           As NV index space is very constrained, it's essential to allocate them
           in the order of relevance, so that the least relevant NvPCRs are
@@ -1531,11 +1556,11 @@ CHANGES WITH 261:
           basic.target). Note that D-Bus only becomes available later, and it
           can hence only be contacted via Varlink that early.
 
-        * systemd-hostnamed and /etc/machine-info now support a new Tags= key,
-          which can be used to tag a machine with an arbitrary set of strings.
-          Units can match on these tags via the new ConditionMachineTag= setting,
-          and systemd-firstboot can set the tags via command line parameters or
-          credentials.
+        * /etc/machine-info now supports a new TAGS= key, which can be used to
+          tag a machine with a set of keywords and keyword=value pairs. Units
+          can match on these tags via the new ConditionMachineTag= setting, and
+          systemd-firstboot can be used to set the tags via command line
+          parameters or credentials.
 
         Changes in systemd-logind:
 
@@ -1736,7 +1761,7 @@ CHANGES WITH 260:
 
         * Support for non-system users and groups in udev rules and
           systemd-networkd configuration has been restored, but is deprecated
-          and discouraged. systemd-udevd will emits warnings if a non-system
+          and discouraged. systemd-udevd will emit warnings if a non-system
           user/group is specified in OWNER=/GROUP=. Similarly, systemd-networkd
           will warn about User=/Group= settings with a non-system user/group
           specified in .netdev files for Tun/Tap interfaces. This support will
@@ -1895,7 +1920,7 @@ CHANGES WITH 260:
           running stable kernel branches should ensure they are updated to patch
           levels that include the fix.
 
-        * Persistent network interface naming has bee extended to MCTP devices
+        * Persistent network interface naming has been extended to MCTP devices
           with the "mc" prefix.
 
         * The minimum backlight brightness value used when restoring backlight
@@ -2022,7 +2047,7 @@ CHANGES WITH 260:
           the same switch in systemd-nspawn.
 
         * systemd-vmspawn gained a new switch --image-format= for selecting the
-          image format (i.e. support qcow2 in additin to raw) to boot from.
+          image format (i.e. support qcow2 in addition to raw) to boot from.
           Also --extra-drive= now takes the image format as a colon separated
           parameter.
 
@@ -2284,7 +2309,7 @@ CHANGES WITH 259:
         * The image dissection logic will now enforce the VFAT file system type
           for XBOOTLDR partitions, similar to how it already does this for the
           ESP. This is done for security, since both the ESP and XBOOTLDR must
-          be directly firmware-accessible and thus cannot by protected by
+          be directly firmware-accessible and thus cannot be protected by
           cryptographic means. Thus it is essential to not mount arbitrarily
           complex file systems on them. This restriction only applies if
           automatic dissection is used. If other file system types shall be
@@ -2465,7 +2490,7 @@ CHANGES WITH 259:
 
         * systemd-homed's fscrypt backend gained a new key sealing format that
           aims to be more future-proof and robust against advances in brute
-          forcing techniques. Compatibiilty with the existing format is maintained,
+          forcing techniques. Compatibility with the existing format is maintained,
           but new enrollments will happen with the new format. Users enrolling
           new systems must thus take care in not downgrading to an older version.
 
@@ -2669,7 +2694,7 @@ CHANGES WITH 259:
 
         * A new service systemd-pcrproduct.service is added which is similar to
           systemd-pcrmachine.service but instead of the machine ID
-          (i.e. /etc/machined-id) measures the product ID (as reported by SMBIOS
+          (i.e. /etc/machine-id) measures the product ID (as reported by SMBIOS
           or Devicetree). It uses a new NvPCR called "hardware" for this.
 
         * systemd-pcrlock has been updated to generate CEL event log data
@@ -3608,7 +3633,7 @@ CHANGES WITH 258:
         * bootctl's --no-variables switch has been replaced by
           --variables=yes/no. By setting --variables=yes modification of EFI
           variables can be forced now in environments where we'd previously
-          automatically turn this off (e.g. in choot() contexts).
+          automatically turn this off (e.g. in chroot() contexts).
 
         * bootctl's --graceful is now implicitly enabled when running in a
           chroot, to ease integration in packaging scriptlets.
@@ -3979,7 +4004,7 @@ CHANGES WITH 258:
           filename.
 
         * systemd-dissect's --attach command now supports a new --quiet switch
-          that suppressed output of the loopback device node path that is
+          that suppresses output of the loopback device node path that is
           usually shown.
 
         * A generic service template systemd-loop@.service has been added that
@@ -4024,7 +4049,7 @@ CHANGES WITH 258:
         * The DDI dissection logic now understands a concept of partition
           "filtering". A partition filter is simply a per-designator globbing
           pattern to match the partition labels against. This may be used
-          support parallel installations of multiple operating systems on the
+          to support parallel installations of multiple operating systems on the
           same disk, where each OS names its partitions with a specific prefix
           or similar. systemd-dissect gained a new --image-filter= switch to
           configure this filter. The new "dissect_image" udev plugin and
@@ -5031,11 +5056,11 @@ CHANGES WITH 257:
           with the same instance name.
 
         * systemd-analyze's "capability" verb now gained a new --mask
-          parameter. If specified a numeric capbality mask can be specified
-          which is decoded for its contained capabilities.
+          parameter. A numeric capability mask can be specified which is decoded
+          for its contained capabilities.
 
         * systemd-analyze's "plot" verb gained two new settings: --scale-svg=
-          allows the X axis of the split to be stritched by a factor. If
+          allows the X axis of the plot to be stretched by a factor. If
           --detailed is specified activation timestamps are shown in the plot.
 
         busctl:
@@ -5197,7 +5222,7 @@ CHANGES WITH 257:
           that the host systemd-coredump preferably dispatches coredump
           processing to the container itself, if it supports that. Only full-OS
           containers which run systemd inside will support this however, in
-          other cases EnterNamespace= might be an suitable approach to acquire
+          other cases EnterNamespace= might be a suitable approach to acquire
           symbolized backtraces.)
 
         Special thanks to Nick Owens for bringing attention to and testing
@@ -6238,7 +6263,7 @@ CHANGES WITH 256:
         * systemd-sysext gained support for enabling system extensions in
           mutable fashion, where a writable upperdir is stored under
           /var/lib/extensions.mutable/, and a new --mutable= option to
-          configure this behaviour. An "ephemeral" mode is not also supported
+          configure this behaviour. An "ephemeral" mode is now also supported
           where the mutable layer is configured to be a tmpfs that is
           automatically released when the system extensions are reattached.
 
@@ -6276,7 +6301,7 @@ CHANGES WITH 256:
 
         * "systemd-analyze dot" will now also show BindsTo= dependencies.
 
-        * systemd-debug-generator gained the ability add in arbitrary units
+        * systemd-debug-generator gained the ability to add arbitrary units
           based on them being passed in via system credentials.
 
         * A new kernel command-line option systemd.default_debug_tty= can be
@@ -6718,7 +6743,7 @@ CHANGES WITH 255:
         * .network files gained a new IPv4ReversePathFilter= setting in the
           [Network] section, to control sysctl's rp_filter setting.
 
-        * .network files gaiend a new HopLimit= setting in the [Route] section,
+        * .network files gained a new HopLimit= setting in the [Route] section,
           to configure a per-route hop limit.
 
         * .network files gained a new TCPRetransmissionTimeoutSec= setting in
@@ -7033,7 +7058,7 @@ CHANGES WITH 254:
           process capability to invoked session processes of regular users on
           local seats (as well as to systemd --user), unless configured
           otherwise via data from JSON user records, or via the PAM module's
-          parameter list. This is useful in order allow desktop tools such as
+          parameter list. This is useful in order to allow desktop tools such as
           GNOME's Alarm Clock application to set a timer for
           CLOCK_REALTIME_ALARM that wakes up the system when it elapses. A
           per-user service unit file may thus use AmbientCapability= to pass
@@ -7780,7 +7805,7 @@ CHANGES WITH 253:
           privileges, so impact should be small. This will remove a great source
           of confusion that has been reported by users over the years, due to
           how these options require an extra setting to be manually enabled when
-          used in the per-user service manager, as opposed as to the system
+          used in the per-user service manager, as opposed to the system
           service manager. We plan to enable this change in the next release
           later this year. For more details, see:
           https://lists.freedesktop.org/archives/systemd-devel/2022-December/048682.html
@@ -8016,7 +8041,7 @@ CHANGES WITH 253:
         * systemd-stub now processes random seeds in the same way as
           systemd-boot already does, in case a unified kernel image is being
           used from a different bootloader than systemd-boot, or without any
-          boot load at all.
+          boot loader at all.
 
         * bootctl will now generate a system token on all EFI systems, even
           virtualized ones, and is activated in the case that the system token
@@ -8080,7 +8105,7 @@ CHANGES WITH 253:
         * The [DHCPv4] section in .network file gained new SocketPriority=
           setting that assigns the Linux socket priority used by the DHCPv4 raw
           socket. This may be used in conjunction with the
-          EgressQOSMaps=setting in [VLAN] section of .netdev file to send the
+          EgressQOSMaps= setting in [VLAN] section of .netdev file to send the
           desired ethernet 802.1Q frame priority for DHCPv4 initial
           packets. This cannot be achieved with netfilter mangle tables because
           of the raw socket bypass.
@@ -8228,8 +8253,8 @@ CHANGES WITH 253:
           systemd-pcrfs@.service have been added that invoke the tool with
           these switches during early boot.
 
-        * systemd-pcrphase gained a --graceful switch will make it exit cleanly
-          with a success exit code even if no TPM device is detected.
+        * systemd-pcrphase gained a --graceful switch that will make it exit
+          cleanly with a success exit code even if no TPM device is detected.
 
         * systemd-cryptenroll now stores the user-supplied PIN with a salt,
           making it harder to brute-force.
@@ -8250,7 +8275,7 @@ CHANGES WITH 253:
           unprivileged code to access those values.
 
           systemd-hostnamed also exports the SUPPORT_END= field from
-          os-release(5) as OperatingSystemSupportEnd. hostnamectl make uses of
+          os-release(5) as OperatingSystemSupportEnd. hostnamectl makes use of
           this to show the status of the installed system.
 
         * systemd-measure gained an --append= option to sign multiple phase
@@ -8743,11 +8768,10 @@ CHANGES WITH 252 🎃:
         * A new function sd_hwdb_new_from_path() has been added to open a hwdb
           database given an explicit path to the file.
 
-        * The signal number argument to sd_event_add_signal() now can now be
-          ORed with the SD_EVENT_SIGNAL_PROCMASK flag, causing sigprocmask() to
-          be automatically invoked to block the specified signal. This is
-          useful to simplify invocations as the caller doesn't have to do this
-          manually.
+        * The signal number argument to sd_event_add_signal() can now be ORed
+          with the SD_EVENT_SIGNAL_PROCMASK flag, causing sigprocmask() to be
+          automatically invoked to block the specified signal. This is useful to
+          simplify invocations as the caller doesn't have to do this manually.
 
         * A new convenience call sd_event_set_signal_exit() has been added to
           sd-event to set up signal handling so that the event loop
@@ -9505,8 +9529,8 @@ CHANGES WITH 251:
 
         * hostnamed's D-Bus interface gained a new method GetHardwareSerial()
           for reading the hardware serial number, as reported by DMI. It also
-          exposes a new method D-Bus property FirmwareVersion that encode the
-          firmware version of the system.
+          exposes a new D-Bus property FirmwareVersion that encodes the firmware
+          version of the system.
 
         Changes in other components:
 
@@ -9801,7 +9825,7 @@ CHANGES WITH 250:
           during build-time.
 
         * Path units gained new TriggerLimitBurst= and TriggerLimitIntervalSec=
-          settings that default to 200 and 2 s respectively. The ratelimit
+          settings that default to 200 and 2 s respectively. The rate-limit
           ensures that a path unit cannot cause PID1 to busy-loop when it is
           trying to trigger a service that is skipped because of a Condition*=
           not being satisfied. This matches the configuration and behaviour of
@@ -10098,7 +10122,7 @@ CHANGES WITH 250:
         * sd-boot now embeds a .osrel PE section like we expect from Boot
           Loader Specification Type #2 Unified Kernels. This means sd-boot
           itself may be used in place of a Type #2 Unified Kernel. This is
-          useful for debugging purposes as it allows chain-loading one a
+          useful for debugging purposes as it allows chain-loading one
           (development) sd-boot instance from another.
 
         * sd-boot now supports a new "devicetree" field in Boot Loader
@@ -11333,7 +11357,7 @@ CHANGES WITH 248:
 
           "IPMasquerade=yes", which was the same as "IPMasquerade=ipv4" before,
           retains its meaning, but has been deprecated. Please switch to either
-          "ivp4" or "both" (if covering IPv6 is desired).
+          "ipv4" or "both" (if covering IPv6 is desired).
 
         * systemd-importd will now download .verity and .roothash.p7s files
           along with the machine image (as exposed via machinectl pull-raw).
@@ -11415,7 +11439,7 @@ CHANGES WITH 248:
         * systemd-localed will now refuse to configure a keymap which is not
           installed in the file system. This is intended as a bug fix, but
           could break cases where systemd-localed was used to configure the
-          keymap in advanced of it being installed. It is necessary to install
+          keymap in advance of it being installed. It is necessary to install
           the keymap file first.
 
         * The main git development branch has been renamed to 'main'.
@@ -11976,14 +12000,14 @@ CHANGES WITH 247:
           was originally defined in the Multimedia context (to restart playback
           of a song or film), but is now primarily used in various embedded
           devices for "Reboot" buttons. Accordingly, systemd-logind will now
-          honour it as such. This may configured in more detail via the new
+          honour it as such. This may be configured in more detail via the new
           HandleRebootKey= and RebootKeyIgnoreInhibited=.
 
         * systemd-nspawn/systemd-machined will now reconstruct hardlinks when
           copying OS trees, for example in "systemd-nspawn --ephemeral",
           "systemd-nspawn --template=", "machinectl clone" and similar. This is
           useful when operating with OSTree images, which use hardlinks heavily
-          throughout, and where such copies previously resulting in "exploding"
+          throughout, and where such copies previously resulted in "exploding"
           hardlinks.
 
         * systemd-nspawn's --console= setting gained support for a new
@@ -13159,14 +13183,14 @@ CHANGES WITH 244:
           cgroup hierarchy setup. 'bootctl systemd-efi-options' may be used to
           set the EFI variable.
 
-        * systemd will now disable printk ratelimits in early boot. This should
-          allow us to capture more logs from the early boot phase where normal
-          storage is not available and the kernel ring buffer is used for
-          logging. Configuration on the kernel command line has higher priority
-          and overrides the systemd setting.
+        * systemd will now disable printk rate-limits in early boot. This
+          should allow us to capture more logs from the early boot phase where
+          normal storage is not available and the kernel ring buffer is used
+          for logging. Configuration on the kernel command line has higher
+          priority and overrides the systemd setting.
 
           systemd programs which log to /dev/kmsg directly use internal
-          ratelimits to prevent runaway logging. (Normally this is only used
+          rate-limits to prevent runaway logging. (Normally this is only used
           during early boot, so in practice this change has very little
           effect.)
 
@@ -13650,7 +13674,7 @@ CHANGES WITH 243:
           IPv6 configuration (static or DHCPv6) was found for a given
           interface. It will not touch the sysctl otherwise.
 
-        * The order of entries is $PATH used by the user manager instance was
+        * The order of entries in $PATH used by the user manager instance was
           changed to put bin/ entries before the corresponding sbin/ entries.
           It is recommended to not rely on this order, and only ever have one
           binary with a given name in the system paths under /usr.
@@ -13809,7 +13833,7 @@ CHANGES WITH 243:
           BFQ scheduler officially found in kernels 5.0+.
 
         * A new mailing list has been created for reporting of security issues:
-          systemd-security@redhat.com. For mode details, see
+          systemd-security@redhat.com. For more details, see
           https://systemd.io/CONTRIBUTING#security-vulnerability-reports.
 
         Contributions from: Aaron Barany, Adrian Bunk, Alan Jenkins, Albrecht
@@ -13980,8 +14004,8 @@ CHANGES WITH 242:
           submit-from-crypt-cpus options to tweak encryption work scheduling
           details.
 
-        * systemd-tmpfiles will now take a BSD file lock before operating on a
-          contents of directory. This may be used to temporarily exclude
+        * systemd-tmpfiles will now take a BSD file lock before operating on the
+          contents of a directory. This may be used to temporarily exclude
           directories from aging by taking the same lock (useful for example
           when extracting a tarball into /tmp or /var/tmp as a privileged user,
           which might create files with really old timestamps, which
@@ -14006,7 +14030,7 @@ CHANGES WITH 242:
           partition.
 
         * A system may now be booted with systemd.volatile=overlay on the
-          kernel command line, which causes the root file system to be set up
+          kernel command line, which causes the root file system to be set up as
           an overlayfs mount combining the root-only root directory with a
           writable tmpfs. In this setup, the underlying root device is not
           modified, and any changes are lost at reboot.
@@ -14016,7 +14040,7 @@ CHANGES WITH 242:
 
         * systemd-nspawn can now consume OCI runtime bundles using a new
           --oci-bundle= option. This implementation is fully usable, with most
-          features in the specification implemented, but since this a lot of
+          features in the specification implemented, but since this is a lot of
           new code and functionality, this feature should most likely not
           be used in production yet.
 
@@ -14602,7 +14626,7 @@ CHANGES WITH 240:
           (or just -S) option has been added for invoking the $SHELL of the
           caller as a service, and implies --pty --same-dir --wait --collect
           --service-type=exec. Or in other words, "systemd-run -S" is now the
-          quickest way to quickly get an interactive in a fully clean and
+          quickest way to get an interactive shell in a fully clean and
           well-defined system service context.
 
         * machinectl gained a new verb "import-fs" for importing an OS tree
@@ -15226,7 +15250,7 @@ CHANGES WITH 238:
           machine is connected to external power can now be configured using
           HandleLidSwitchExternalPower= in logind.conf. Previously, this action
           was determined by HandleLidSwitch=, and, for backwards compatibility,
-          is still is, if HandleLidSwitchExternalPower= is not explicitly set.
+          still is, if HandleLidSwitchExternalPower= is not explicitly set.
 
         * journalctl will periodically call sd_journal_process() to make it
           resilient against inotify queue overruns when journal files are
@@ -16851,7 +16875,7 @@ CHANGES WITH 232:
           CAP_SYS_MKNOD as before).
 
         * In service unit files it is now possible to connect a specific named
-          file descriptor with stdin/stdout/stdout of an executed service. The
+          file descriptor with stdin/stdout/stderr of an executed service. The
           name may be specified in matching .socket units using the
           FileDescriptorName= setting.
 
@@ -17267,7 +17291,7 @@ CHANGES WITH 230:
 
         * The DeviceAllow= unit setting now supports specifiers (with "%").
 
-        * "systemctl show" gained a new --value switch, which allows print a
+        * "systemctl show" gained a new --value switch, which allows printing
           only the contents of a specific unit property, without also printing
           the property's name. Similar support was added to "show*" verbs
           of loginctl and machinectl that output "key=value" lists.
@@ -17825,7 +17849,7 @@ CHANGES WITH 227:
 
         * Support for the "pids" cgroup controller has been added. It
           allows accounting the number of tasks in a cgroup and
-          enforcing limits on it. This adds two new setting
+          enforcing limits on it. This adds two new settings
           TasksAccounting= and TasksMax= to each unit, as well as a
           global option DefaultTasksAccounting=.
 
@@ -17847,7 +17871,7 @@ CHANGES WITH 227:
 
         * Watchdog timeouts have been increased to 3 minutes for all
           in-tree service files. Apparently, disk IO issues are more
-          frequent than we hoped, and user reported >1 minute waiting
+          frequent than we hoped, and users reported >1 minute waiting
           for disk IO.
 
         * 'machine-id-commit' functionality has been merged into
@@ -17909,7 +17933,7 @@ CHANGES WITH 227:
           show the control groups within a certain container only.
 
         * "systemctl kill" gained support for an optional --fail
-          switch. If specified the requested operation will fail of no
+          switch. If specified the requested operation will fail if no
           processes have been killed, because the unit had no
           processes attached, or similar.
 
@@ -17973,7 +17997,7 @@ CHANGES WITH 227:
           service that is activated through /dev/rfkill on each rfkill
           state change and saves the settings to disk. This way,
           systemd-rfkill is now compatible with devices that exist
-          only intermittendly, and even restores state if the previous
+          only intermittently, and even restores state if the previous
           system shutdown was abrupt rather than clean.
 
         * The journal daemon gained support for vacuuming old journal
@@ -19415,7 +19439,7 @@ CHANGES WITH 216:
           systemd-resolved. Hostnames, addresses and arbitrary RRs may
           be resolved via systemd-resolved D-Bus APIs. In contrast to
           the glibc internal resolver systemd-resolved is aware of
-          multi-homed system, and keeps DNS server and caches separate
+          multi-homed systems, and keeps DNS server and caches separate
           and per-interface. Queries are sent simultaneously on all
           interfaces that have DNS servers configured, in order to
           properly handle VPNs and local LANs which might resolve
@@ -19666,7 +19690,7 @@ CHANGES WITH 215:
         * For tmpfiles' "L", "L+", "C" and "C+" directives the final
           'argument' field (which so far specified the source to
           symlink/copy the files from) is now optional. If omitted the
-          same file os copied from /usr/share/factory/ suffixed by the
+          same file is copied from /usr/share/factory/ suffixed by the
           full destination path. This is useful for populating /etc
           with essential files, by copying them from vendor defaults
           shipped in /usr/share/factory/etc.
@@ -21549,7 +21573,7 @@ CHANGES WITH 202:
 
         Contributions from: Anatol Pomozov, Auke Kok, Harald Hoyer,
         Henrik Grindal Bakken, Josh Triplett, Kay Sievers, Lennart
-        Poettering, Lukas Nykryn, Mantas Mikulėnas Marius Vollmer,
+        Poettering, Lukas Nykryn, Mantas Mikulėnas, Marius Vollmer,
         Martin Jansa, Martin Pitt, Michael Biebl, Michal Schmidt,
         Mirco Tischler, Pali Rohar, Simon Peeters, Steven Hiscocks,
         Tom Gundersen, Zbigniew Jędrzejewski-Szmek
@@ -21574,7 +21598,7 @@ CHANGES WITH 201:
         * 'systemctl status' will now show information about the
           network sockets a socket unit is listening on.
 
-        * 'systemctl status' will also shown information about any
+        * 'systemctl status' will also show information about any
           drop-in configuration file for units. (Drop-In configuration
           files in this context are files such as
           /etc/systemd/system/foobar.service.d/*.conf)
@@ -21907,7 +21931,7 @@ CHANGES WITH 198:
           journal output in reverse order (i.e. newest line first).
 
         * journalctl gained a new "--pager-end" (or -e) option to jump
-          to immediately jump to the end of the journal in the
+          immediately to the end of the journal in the
           pager. This is only supported in conjunction with "less".
 
         * journalctl gained a new "--user-unit=" option, that works
@@ -22047,7 +22071,7 @@ CHANGES WITH 197:
 
         * Unit files learnt a new condition ConditionACPower= which
           may be used to conditionalize a unit depending on whether an
-          AC power source is connected or not, of whether the system
+          AC power source is connected or not, or whether the system
           is running on battery power.
 
         * systemctl gained a new "is-failed" verb that may be used in
@@ -22369,7 +22393,7 @@ CHANGES WITH 192:
           and line break accordingly.
 
         Contributions from: Dave Reisner, Kay Sievers, Lennart
-        Poettering, Lukas Nykrynm, Mirco Tischler, Václav Pavlín
+        Poettering, Lukas Nykryn, Mirco Tischler, Václav Pavlín
 
 CHANGES WITH 191:
 
@@ -22478,7 +22502,7 @@ CHANGES WITH 190:
         * There's now a new RPM macro definition for the system preset
           dir: %_presetdir.
 
-        * journald will now warn if it ca not forward a message to the
+        * journald will now warn if it cannot forward a message to the
           syslog daemon because its socket is full.
 
         * timedated will no longer write or process /etc/timezone,

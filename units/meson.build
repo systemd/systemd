@@ -349,7 +349,6 @@ units = [
         {
           'file' : 'systemd-coredumpd.service.in',
           'conditions' : ['ENABLE_COREDUMP'],
-          'symlinks' : ['sysinit.target.wants/'],
         },
         {
           'file' : 'systemd-creds.socket',

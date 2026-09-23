@@ -2,6 +2,7 @@
 #pragma once
 
 #include "dlopen-note.h"
+#include "errno-util.h"
 #include "forward.h"
 
 #if HAVE_ACL
@@ -62,7 +63,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(uid_t*, sym_acl_free, acl_free_uid_tpp, 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(gid_t*, sym_acl_free, acl_free_gid_tpp, NULL);
 
 static inline int acl_set_perm(acl_permset_t ps, acl_perm_t p, bool b) {
-        return (b ? sym_acl_add_perm : sym_acl_delete_perm)(ps, p);
+        return RET_NERRNO((b ? sym_acl_add_perm : sym_acl_delete_perm)(ps, p));
 }
 
 #else

@@ -195,6 +195,9 @@ journalctl --fields
 journalctl --list-boots
 journalctl --update-catalog
 journalctl --list-catalog
+[[ "$(journalctl --list-catalog | wc -l)" -gt 1 ]]
+[[ "$(journalctl --list-catalog f77379a8490b408bbe5f6940505a777b | wc -l)" -eq 1 ]]
+[[ "$(journalctl --dump-catalog | wc -l)" -gt "$(journalctl --dump-catalog f77379a8490b408bbe5f6940505a777b | wc -l)" ]]
 
 # Add new tests before here, the journald restarts below
 # may make tests flappy.

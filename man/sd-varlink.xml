@@ -36,8 +36,10 @@
 
     <para><filename>sd-varlink.h</filename> is part of
     <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
-    provides APIs for implementing Varlink IPC clients and services. See <ulink url="https://varlink.org/"/>
-    for more information about Varlink IPC.</para>
+    provides APIs for implementing Varlink IPC clients and services. See <ulink
+    url="https://varlink.org/">Varlink IPC</ulink> for more information about Varlink IPC, as well as the <ulink
+    url="https://uapi-group.org/specifications/specs/varlink/">UAPI.20 Varlink IPC</ulink>
+    specification.</para>
 
     <para>Varlink IPC uses <ulink url="https://json.org/">JSON</ulink> as marshalling format. The sd-varlink
     API relies on the

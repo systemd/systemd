@@ -10,7 +10,6 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
-#include "ansi-color.h"
 #include "argv-util.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
@@ -2592,8 +2591,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         r = table_add_many(
                                         t,
                                         TABLE_PATH, *p,
-                                        TABLE_STRING, "none",
-                                        TABLE_SET_COLOR, ansi_grey(),
+                                        TABLE_STRV, STRV_EMPTY,
                                         TABLE_EMPTY);
                         if (r < 0)
                                 return table_log_add_error(r);

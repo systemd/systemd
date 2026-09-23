@@ -3748,8 +3748,8 @@ _public_ int sd_varlink_server_listen_name(sd_varlink_server *s, const char *nam
         /* Adds all passed fds marked as "name" to our varlink server. These fds can either refer to a
          * listening socket or to a connection socket.
          *
-         * See https://varlink.org/#activation for the environment variables this is backed by and the
-         * recommended "varlink" identifier in $LISTEN_FDNAMES. */
+         * See https://uapi-group.org/specifications/specs/varlink/#socket-activation for the environment
+         * variables this is backed by and the recommended "varlink" identifier in $LISTEN_FDNAMES. */
 
         m = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
         if (m < 0)

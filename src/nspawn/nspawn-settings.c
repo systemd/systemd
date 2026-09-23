@@ -95,7 +95,9 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         /* Make sure that if userns_mode is set, userns_chown is set to something appropriate, and vice versa. Either
          * both fields shall be initialized or neither. */
         if (s->userns_mode >= 0 && s->userns_ownership < 0)
-                s->userns_ownership = s->userns_mode == USER_NAMESPACE_PICK ? USER_NAMESPACE_OWNERSHIP_CHOWN : USER_NAMESPACE_OWNERSHIP_OFF;
+                s->userns_ownership = IN_SET(s->userns_mode, USER_NAMESPACE_PICK, USER_NAMESPACE_MANAGED)
+                        ? USER_NAMESPACE_OWNERSHIP_AUTO
+                        : USER_NAMESPACE_OWNERSHIP_OFF;
         if (s->userns_ownership >= 0 && s->userns_mode < 0)
                 s->userns_mode = USER_NAMESPACE_NO;
 

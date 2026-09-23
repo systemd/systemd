@@ -1341,7 +1341,7 @@ static int archive_write_acl(
                 assert_cc(ACL_UNDEFINED_TAG == 0);   /* safety check, we assume that holes are filled with ACL_UNDEFINED_TAG */
                 assert_cc(ELEMENTSOF(tag_map) <= 64); /* safety check, we assume that the tag ids are all packed and low */
 
-                int tag = ntag >= 0 && ntag <= (acl_tag_t) ELEMENTSOF(tag_map) ? tag_map[ntag] : ACL_UNDEFINED_TAG;
+                int tag = ntag >= 0 && ntag < (acl_tag_t) ELEMENTSOF(tag_map) ? tag_map[ntag] : ACL_UNDEFINED_TAG;
 
                 bool skip = false;
                 id_t qualifier = UID_INVALID;
@@ -1366,17 +1366,17 @@ static int archive_write_acl(
                         int permset = 0;
                         r = sym_acl_get_perm(p, ACL_READ);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to get ACL entry read bit: %m");
+                                return log_error_errno(errno, "Failed to get ACL entry read bit: %m");
                         SET_FLAG(permset, ARCHIVE_ENTRY_ACL_READ, r);
 
                         r = sym_acl_get_perm(p, ACL_WRITE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to get ACL entry write bit: %m");
+                                return log_error_errno(errno, "Failed to get ACL entry write bit: %m");
                         SET_FLAG(permset, ARCHIVE_ENTRY_ACL_WRITE, r);
 
                         r = sym_acl_get_perm(p, ACL_EXECUTE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to get ACL entry execute bit: %m");
+                                return log_error_errno(errno, "Failed to get ACL entry execute bit: %m");
                         SET_FLAG(permset, ARCHIVE_ENTRY_ACL_EXECUTE, r);
 
                         r = sym_archive_entry_acl_add_entry(entry, type, permset, tag, qualifier, /* name= */ NULL);

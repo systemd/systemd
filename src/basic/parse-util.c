@@ -779,16 +779,17 @@ int parse_oom_score_adjust(const char *s, int *ret) {
 int store_loadavg_fixed_point(unsigned long i, unsigned long f, loadavg_t *ret) {
         assert(ret);
 
-        if (i >= (~0UL << LOADAVG_PRECISION_BITS))
+        /* Validate both parts *before* shifting them, so that the shifts themselves cannot overflow.
+         * Rejecting f >= 100 is equivalent to the old check of the shifted value against
+         * LOADAVG_FIXED_POINT_1_0, since DIV_ROUND_UP(99 << 11, 100) == 2028 and
+         * DIV_ROUND_UP(100 << 11, 100) == 2048. */
+        if (i > (~0UL >> LOADAVG_PRECISION_BITS))
                 return -ERANGE;
 
-        i = i << LOADAVG_PRECISION_BITS;
-        f = DIV_ROUND_UP((f << LOADAVG_PRECISION_BITS), 100);
-
-        if (f >= LOADAVG_FIXED_POINT_1_0)
+        if (f >= 100)
                 return -ERANGE;
 
-        *ret = i | f;
+        *ret = (i << LOADAVG_PRECISION_BITS) | DIV_ROUND_UP(f << LOADAVG_PRECISION_BITS, 100);
         return 0;
 }
 

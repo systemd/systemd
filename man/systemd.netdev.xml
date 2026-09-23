@@ -1268,9 +1268,10 @@ Ports=eth2</programlisting>
       <varlistentry>
         <term><varname>Layer2SpecificHeader=</varname></term>
         <listitem>
-          <para>Specifies layer2specific header type of the session. One of <literal>none</literal> or <literal>default</literal>. Defaults to <literal>default</literal>.</para>
+          <para>Specifies the layer 2 specific header type of the session. One of <literal>none</literal> or
+          <literal>default</literal>. Defaults to <literal>default</literal>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v242"/>
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2888,7 +2889,8 @@ Ports=eth2</programlisting>
           <literal>station</literal>, <literal>ap</literal>, <literal>ap-vlan</literal>,
           <literal>wds</literal>, <literal>monitor</literal>, <literal>mesh-point</literal>,
           <literal>p2p-client</literal>, <literal>p2p-go</literal>, <literal>p2p-device</literal>,
-          <literal>ocb</literal>, and <literal>nan</literal>. This option is mandatory.</para>
+          <literal>ocb</literal>, <literal>nan</literal>, <literal>nan-data</literal> and
+          <literal>pd</literal>. This option is mandatory.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>

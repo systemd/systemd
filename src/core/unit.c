@@ -1819,7 +1819,7 @@ static bool unit_test_condition(Unit *u) {
                                 env,
                                 condition_type_to_string,
                                 log_unit_internal,
-                                u);
+                                u) > 0;
 
         unit_add_to_dbus_queue(u);
         return u->condition_result;
@@ -1843,7 +1843,7 @@ static bool unit_test_assert(Unit *u) {
                                 env,
                                 assert_type_to_string,
                                 log_unit_internal,
-                                u);
+                                u) > 0;
 
         unit_add_to_dbus_queue(u);
         return u->assert_result;

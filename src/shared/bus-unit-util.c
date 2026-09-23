@@ -2083,7 +2083,7 @@ static int bus_append_directory(sd_bus_message *m, const char *field, const char
                 } else {
                         ExecDirectoryFlags exec_directory_flags = exec_directory_flags_from_string(flags);
                         if (exec_directory_flags < 0 || (exec_directory_flags & ~_EXEC_DIRECTORY_FLAGS_PUBLIC) != 0)
-                                return log_error_errno(r, "Failed to parse flags for %s=: '%s'", field, flags);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse flags for %s=: '%s'", field, flags);
 
                         if (!isempty(dest)) {
                                 path_simplify(dest);
@@ -2199,7 +2199,7 @@ static int bus_append_quota_directory(sd_bus_message *m, const char *field, cons
                 if (r < 0) {
                         r = parse_size(eq, 1024, &quota_absolute);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %s=%s", field, eq);
+                                return log_error_errno(r, "Failed to parse argument: %s=%s", field, eq);
                 } else
                         quota_scale = UINT32_SCALE_FROM_PERMYRIAD(r);
 

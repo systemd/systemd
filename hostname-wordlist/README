@@ -56,14 +56,13 @@ Origin
 ------
 
 Compiled for systemd from common vocabulary and standardized names rather than
-imported from an existing word list.
+imported from existing compilations.
 
-    weather  Everyday English weather adjectives
-    colors   Basic English color names
-    worlds   The planets, moons and minor bodies of the solar system
+    weather  Weather adjectives
+    colors   Color names
+    worlds   Stars, planets, moons, minor bodies of the solar system, other mythical and real locations
 
 The lists are deliberately short: they are picked for being easy to recognize,
-read out over the phone and type from memory, while the '?' wildcards carry the
-entropy.
+read out over the phone and type from memory.
 
-The wordlists are licensed under MIT-0.
+The lists are licensed under MIT-0.

@@ -68,13 +68,6 @@ static_assert(ORANGEFS_DEVREQ_MAGIC == 0x20030529, "");
 static_assert(GFS2_MAGIC == 0x01161970, "");
 #endif
 
-/* Not exposed yet. Defined at fs/configfs/mount.c */
-#ifndef CONFIGFS_MAGIC
-#  define CONFIGFS_MAGIC 0x62656570
-#else
-static_assert(CONFIGFS_MAGIC == 0x62656570, "");
-#endif
-
 /* Not exposed yet. Defined at fs/vboxsf/super.c */
 #ifndef VBOXSF_SUPER_MAGIC
 #  define VBOXSF_SUPER_MAGIC 0x786f4256

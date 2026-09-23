@@ -17,7 +17,7 @@ In systemd we leave much of the file system layout open to the operating system,
   All of them must be available before the host systemd is first executed.
 
 - `/var` does not have to be mounted when the host systemd is first invoked, however,
-  it must be configured so that it is mounted writable before local-fs.target is reached (for example, by simply listing it in` /etc/fstab`).
+  it must be configured so that it is mounted writable before local-fs.target is reached (for example, by simply listing it in `/etc/fstab`).
 
 - `/tmp` is recommended to be a tmpfs (default), but doesn't have to.
   If configured, it must be mounted before local-fs.target is reached (for example, by listing it in `/etc/fstab`).

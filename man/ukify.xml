@@ -53,7 +53,7 @@
     a boot loader. When used with <ulink url="https://www.qemu.org/docs/master/">qemu</ulink>, a UKI can also
     be executed through "direct kernel boot", see example below.</para>
 
-    <para><command>ukify</command> can also be used generate other types of UKI-like images, in particular
+    <para><command>ukify</command> can also be used to generate other types of UKI-like images, in particular
     extensions. See the description of the <command>build</command> verb below. <command>ukify</command> can
     also generate certificates and keys for SecureBoot and PCR signing, see the description of the
     <command>genkey</command> verb below. <command>ukify</command> can also print detailed information about
@@ -998,7 +998,7 @@ ID=factory-reset' \
       <para>Then, sign the PCR digests offline and insert them in the JSON blob:</para>
 
       <programlisting>#!/usr/bin/python3
-import base64, hashlib, json, subprocess
+import base64, json, subprocess
 
 priv_key = '/home/zbyszek/src/systemd/tpm2-pcr-private.pem'
 base_file = 'base.pcrs'
@@ -1007,11 +1007,9 @@ base = json.load(open(base_file))
 
 for bank,policies in base.items():
     for policy in policies:
-        to_sign = base64.b16decode(policy['pol'].upper())
-        if policyref := policy.get('ref'):
-            to_sign += hashlib.sha256(policyref.encode()).digest()
-        call = subprocess.run(['openssl', 'dgst', f'-{bank}', '-sign', priv_key],
-                              input=to_sign,
+        tbs = base64.b16decode(policy['tbs'].upper())
+        call = subprocess.run(['openssl', 'dgst', '-sha256', '-sign', priv_key],
+                input=tbs,
                               check=True,
                               capture_output=True)
         sig = base64.b64encode(call.stdout).decode()

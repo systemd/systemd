@@ -399,14 +399,8 @@ TEST(setgroups_deny) {
 
                 r = ASSERT_OK(pidref_safe_fork("(test-deny)", FORK_LOG|FORK_DEATHSIG_SIGKILL, &pidref));
                 if (r == 0) {
-                        /* Enter the userns manually without going through namespace_enter(), because
-                         * that calls reset_uid_gid() which calls setgroups() internally. Since the
-                         * BPF LSM denies setgroups(), reset_uid_gid() would fail before calling
-                         * setresuid()/setresgid(), leaving us as the overflow UID without
-                         * capabilities. */
-                        ASSERT_OK_ERRNO(setns(deny_userns_fd, CLONE_NEWUSER));
-                        ASSERT_OK_ERRNO(setresgid(0, 0, 0));
-                        ASSERT_OK_ERRNO(setresuid(0, 0, 0));
+                        /* Entering must work even though the BPF LSM denies the setgroups() involved. */
+                        ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, deny_userns_fd, -EBADF));
 
                         /* setgroups() should be denied by BPF LSM */
                         ASSERT_ERROR_ERRNO(setgroups(0, NULL), EPERM);

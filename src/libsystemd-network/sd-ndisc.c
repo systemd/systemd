@@ -219,7 +219,10 @@ static int ndisc_handle_router(sd_ndisc *nd, ICMP6Packet *packet) {
         if (r < 0)
                 return r;
 
-        (void) event_source_disable(nd->timeout_event_source);
+        /* Stop sending RS once we have sent at least one RS and received an RA with a non-zero lifetime. */
+        if (nd->retransmit_time > 0 && sd_ndisc_router_get_lifetime(rt, /* ret= */ NULL) > 0)
+                (void) event_source_disable(nd->timeout_event_source);
+
         (void) event_source_disable(nd->timeout_no_ra);
 
         if (DEBUG_LOGGING) {
@@ -466,6 +469,8 @@ static int ndisc_timeout_no_ra(sd_event_source *s, uint64_t usec, void *userdata
 
         log_ndisc(nd, "No RA received before link confirmation timeout");
 
+        /* Also stop sending RS here, by disabling timeout_event_source. */
+        (void) event_source_disable(nd->timeout_event_source);
         (void) event_source_disable(nd->timeout_no_ra);
         ndisc_callback(nd, SD_NDISC_EVENT_TIMEOUT, NULL);
 
