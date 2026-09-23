@@ -22,6 +22,7 @@ int nsresource_allocate_userns_full(sd_varlink *vl, const char *name, uint64_t s
 static inline int nsresource_allocate_userns(sd_varlink *vl, const char *name, uint64_t size) {
         return nsresource_allocate_userns_full(vl, name, size, /* delegate_container_ranges= */ 0);
 }
+int nsresource_allocate_userns_self(sd_varlink *vl, const char *name, bool map_foreign);
 int nsresource_register_userns(sd_varlink *vl, const char *name, int userns_fd);
 int nsresource_add_mount(sd_varlink *vl, int userns_fd, int mount_fd);
 int nsresource_add_cgroup(sd_varlink *vl, int userns_fd, int cgroup_fd);
