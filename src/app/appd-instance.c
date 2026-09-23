@@ -2,9 +2,11 @@
 
 #include "sd-event.h"
 #include "sd-json.h"
+#include "sd-future.h"
 
 #include "alloc-util.h"
 #include "appd-instance.h"
+#include "appd-instance-varlink.h"
 #include "appd-manager.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
@@ -15,6 +17,7 @@
 #include "log.h"
 #include "pidref.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "unit-name.h"
 #include "xattr-util.h"
@@ -35,6 +38,8 @@ static AppInstance* app_instance_free(AppInstance *a) {
         a->permissions = sd_json_variant_unref(a->permissions);
         a->entitlements = sd_json_variant_unref(a->entitlements);
 
+        a->last_notify = sd_future_unref(a->last_notify);
+
         return mfree(a);
 }
 
@@ -45,7 +50,12 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(instance_hash_ops,
                                               AppInstance, app_instance_unref);
 
 static void app_instance_unmanage(AppInstance *instance) {
-        log_debug("App instance %s disappeared", instance->unit);
+        assert(instance);
+
+        log_full(instance->published ? LOG_INFO : LOG_DEBUG, "App instance %s disappeared", instance->unit);
+        if (instance->published)
+                app_instance_notify_async(instance, APP_INSTANCE_DISAPPEARED);
+        instance->published = false;
 
         _cleanup_(app_instance_unrefp) AppInstance *owned_instance = NULL;
         owned_instance = hashmap_remove(instance->manager->instances, instance->cg_path);
@@ -235,4 +245,99 @@ bool app_instance_same_app(AppInstance *a, AppInstance *b) {
         return streq(a->app_id, b->app_id) &&
                 streq_ptr(a->collection, b->collection) &&
                 streq_ptr(a->sandbox, b->sandbox);
+}
+
+static const char* const app_instance_event_table[_APP_INSTANCE_EVENT_MAX] = {
+        [APP_INSTANCE_APPEARED] = "appeared",
+        [APP_INSTANCE_CHANGED] = "changed",
+        [APP_INSTANCE_DISAPPEARED] = "disappeared",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(app_instance_event, AppInstanceEvent);
+
+typedef struct NotifyFiberContext {
+        AppInstance *instance;
+        AppInstanceEvent event;
+        sd_future *previous_notify;
+} NotifyFiberContext;
+
+static NotifyFiberContext* notify_fiber_context_free(NotifyFiberContext *context) {
+        if (!context)
+                return NULL;
+
+        context->instance = app_instance_unref(context->instance);
+        context->previous_notify = sd_future_unref(context->previous_notify);
+        return mfree(context);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(NotifyFiberContext*, notify_fiber_context_free);
+
+static int notify_fiber(void *userdata) {
+        _cleanup_(notify_fiber_context_freep) NotifyFiberContext *ctx = ASSERT_PTR(userdata);
+
+        /* Wait for all previous notifications to be delivered, before we send this one */
+        if (ctx->previous_notify)
+                (void) sd_fiber_await(ctx->previous_notify);
+
+        return app_instance_varlink_notify(ctx->instance, ctx->event);
+}
+
+static int app_instance_notify_impl(AppInstance *instance, AppInstanceEvent event, sd_future **ret) {
+        int r;
+
+        assert(instance);
+
+        log_debug("Starting fiber to notify that app instance %s %s",
+                  instance->unit, app_instance_event_to_string(event));
+
+        _cleanup_free_ char *description = NULL;
+        r = asprintf(&description, "vl-instance-notify-%s-%s", instance->app_id,
+                     app_instance_event_to_string(event));
+        if (r < 0)
+                return log_oom_debug();
+
+        _cleanup_(notify_fiber_context_freep) NotifyFiberContext *ctx = new(NotifyFiberContext, 1);
+        if (!ctx)
+                return log_oom_debug();
+
+        *ctx = (NotifyFiberContext) {
+                .instance = app_instance_ref(instance),
+                .event = event,
+                .previous_notify = sd_future_ref(instance->last_notify),
+        };
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *fiber = NULL;
+        r = sd_fiber_new(instance->manager->event, description, notify_fiber, ctx, &fiber);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to spawn fiber: %m");
+        TAKE_PTR(ctx);
+
+        /* Ensure that this fiber holds a reference on itself, until it resolves. This way we don't have to
+         * worry about freeing the fiber before it's done: in all cases the fiber will be driven to completion
+         * before being free'd. */
+        r = sd_fiber_set_floating(fiber, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to make fiber floating: %m");
+
+        if (ret)
+                *ret = sd_future_ref(fiber);
+        free_and_replace_full(instance->last_notify, fiber, sd_future_unref);
+        return 0;
+}
+
+void app_instance_notify_async(AppInstance *instance, AppInstanceEvent event) {
+        return (void) app_instance_notify_impl(instance, event, /* ret= */ NULL);
+}
+
+int app_instance_notify(AppInstance *instance, AppInstanceEvent event) {
+        int r;
+
+        assert(instance);
+
+        _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
+        r = app_instance_notify_impl(instance, event, &fiber);
+        if (r < 0)
+                return r;
+
+        return sd_fiber_await(fiber);
 }
