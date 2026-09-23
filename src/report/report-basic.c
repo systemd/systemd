@@ -384,7 +384,7 @@ static int disk_io_generate(const MetricFamily mf[static 2], sd_varlink *link, v
         size_t n_devices = 0;
         CLEANUP_ARRAY(devices, n_devices, block_device_array_free);
 
-        r = blockdev_list(BLOCKDEV_LIST_IGNORE_VIRTUAL | BLOCKDEV_LIST_IGNORE_PARTITIONS | BLOCKDEV_LIST_RW_STATS,
+        r = blockdev_list(BLOCKDEV_LIST_IGNORE_VIRTUAL | BLOCKDEV_LIST_IGNORE_LOOP | BLOCKDEV_LIST_IGNORE_PARTITIONS | BLOCKDEV_LIST_RW_STATS,
                           &devices, &n_devices);
         if (r < 0)
                 return r;
