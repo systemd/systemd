@@ -102,6 +102,16 @@
 
       <listitem><para><constant>SD_VARLINK_SERVER_HANDLE_SIGTERM</constant>: similar, but does the same for
       <constant>SIGTERM</constant>.</para></listitem>
+
+      <listitem><para><constant>SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY</constant>: if set, one-way method
+      calls (i.e. those made by the client via <function>sd_varlink_send()</function> and related calls) are
+      not considered complete once the method handler callback returns. Instead, the handler is expected to
+      signal completion explicitly, by enqueuing a reply via <function>sd_varlink_reply()</function> or an
+      error via <function>sd_varlink_error()</function> and related calls (the reply/error itself is
+      discarded, since one-way calls never send anything back to the client). Until then the connection is
+      parked, and no further pipelined method calls on the same connection are dispatched. If the flag is not
+      set (the default), one-way method calls are considered complete as soon as the callback
+      returns.</para></listitem>
     </itemizedlist>
   </refsect1>
 
