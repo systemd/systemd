@@ -167,7 +167,7 @@ static int verb_list_volumes(int argc, char *argv[], uintptr_t data, void *userd
                         return log_oom();
         }
 
-        ssize_t n = varlink_execute_directory(
+        r = varlink_execute_directory(
                         socket_path,
                         "io.systemd.StorageProvider.ListVolumes",
                         v,
@@ -175,8 +175,8 @@ static int verb_list_volumes(int argc, char *argv[], uintptr_t data, void *userd
                         /* timeout_usec= */ 0, /* 0 means default */
                         on_list_reply,
                         t);
-        if (n < 0 && n != -ENOENT)
-                return log_error_errno(n, "Failed to enumerate storage volumes: %m");
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to enumerate storage volumes: %m");
 
         if (!table_isempty(t)) {
                 r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
@@ -272,7 +272,7 @@ static int verb_templates(int argc, char *argv[], uintptr_t data, void *userdata
                         return log_oom();
         }
 
-        ssize_t n = varlink_execute_directory(
+        r = varlink_execute_directory(
                         socket_path,
                         "io.systemd.StorageProvider.ListTemplates",
                         v,
@@ -280,8 +280,8 @@ static int verb_templates(int argc, char *argv[], uintptr_t data, void *userdata
                         /* timeout_usec= */ 0, /* 0 means default */
                         on_list_templates_reply,
                         t);
-        if (n < 0 && n != -ENOENT)
-                return log_error_errno(n, "Failed to enumerate storage volume templates: %m");
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to enumerate storage volume templates: %m");
 
         if (!table_isempty(t)) {
                 r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
