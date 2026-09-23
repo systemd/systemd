@@ -70,7 +70,10 @@ static int file_metric_generate(const MetricFamily *mf, sd_varlink *link, void *
 
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_close_ int fd = chase_and_open(path, /* root= */ NULL, CHASE_MUST_BE_REGULAR, O_RDONLY|O_CLOEXEC, &resolved);
-                if (fd == -ENOENT) /* Not in this directory (or dangling symlink): try the next one. */
+                /* Not in this directory, a dangling symlink, or not a regular file: try the next one. This
+                 * matches what conf_files_list_strv() skips when building the metric list. Masked entries
+                 * never get here, since they are not listed in the first place. */
+                if (IN_SET(fd, -ENOENT, -EISDIR, -EBADFD))
                         continue;
                 if (fd < 0) {
                         log_warning_errno(fd, "Failed to open '%s', skipping: %m", path);
@@ -120,7 +123,7 @@ static int build_file_metrics(MetricFamily **ret) {
 
         /* Enumerate the files to report across all our directories, deduplicated by name. The entry name is
          * used as the metric field name. */
-        r = conf_files_list_strv(&files, /* suffix= */ NULL, /* root= */ NULL, CONF_FILES_REGULAR, report_files_dirs);
+        r = conf_files_list_strv(&files, /* suffix= */ NULL, /* root= */ NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED_BY_SYMLINK, report_files_dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate report files: %m");
 
