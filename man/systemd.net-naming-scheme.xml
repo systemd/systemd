@@ -617,6 +617,24 @@
           <xi:include href="version-info.xml" xpointer="v261"/>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><constant>v263</constant></term>
+
+          <listitem><para>When an SR-IOV virtual function (VF) does not expose a usable
+          <constant>phys_port_name</constant>, the onboard, PCI path, and slot names use the
+          <constant>phys_port_name</constant> of its parent physical function (PF). This requires exactly
+          one network interface directly below the PF's PCI device. The VF's own
+          <constant>phys_port_name</constant> takes precedence, followed by the PF's
+          <constant>phys_port_name</constant>, then the VF's <constant>dev_port</constant>. Attribute
+          filtering applies to both interfaces. For example, VFs of a PF with onboard name
+          <literal>eno1np0</literal> and <constant>phys_port_name</constant> of <literal>p0</literal> are
+          named <literal>eno1np0v0</literal>, <literal>eno1np0v1</literal>, and so on. Sub-function (SF)
+          devices, including SFs hosted on VFs, do not use this fallback.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+          </listitem>
+        </varlistentry>
       </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
