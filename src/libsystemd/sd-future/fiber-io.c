@@ -54,6 +54,10 @@ static ssize_t fiber_io_operation(
         if (r < 0)
                 return r;
 
+        r = sd_future_result(io);
+        if (r < 0)
+                return r;
+
         return func(fd, args);
 }
 
@@ -227,9 +231,13 @@ int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         if (r < 0)
                 return r;
 
+        r = sd_fiber_await(io);
+        if (r < 0)
+                return r;
+
         /* future_new_io resolves with the revents mask on success; translate any positive value
          * (e.g. POLLOUT) back to the connect(2) success status. */
-        r = sd_fiber_await(io);
+        r = sd_future_result(io);
         return r > 0 ? 0 : r;
 }
 
@@ -445,6 +453,11 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
         r = sd_fiber_await(group);
         if (r < 0 && r != -ETIME)
                 return r;
+        if (r >= 0) {
+                r = sd_future_result(group);
+                if (r < 0)
+                        return r;
+        }
 
         /* Always sweep fds with a non-blocking ppoll(): the timer and an fd readiness can resolve in
          * the same event-loop tick (or the fd can become ready between the timer firing and us being

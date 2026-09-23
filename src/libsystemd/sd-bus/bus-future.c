@@ -124,13 +124,9 @@ int bus_call_suspend(
                 return sd_bus_error_set_errno(reterr_error, r);
 
         r = sd_fiber_await(f);
-
-        /* If the future isn't resolved, the suspend was interrupted before a reply arrived (fiber
-         * cancelled, fiber-wide SD_FIBER_TIMEOUT scope expired, …). There's no reply to extract,
-         * so surface the resume error directly. When the future is resolved, future_get_bus_reply()
-         * recovers either the reply or the detailed sd_bus_error from the error reply. */
-        if (sd_future_state(f) != SD_FUTURE_RESOLVED)
+        if (r < 0)
                 return sd_bus_error_set_errno(reterr_error, r);
 
+        /* Recovers either the reply or the detailed sd_bus_error from the error reply. */
         return future_get_bus_reply(f, reterr_error, ret_reply);
 }

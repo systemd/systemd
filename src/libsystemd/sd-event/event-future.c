@@ -411,6 +411,10 @@ int event_run_suspend(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 return r;
 
+        r = sd_future_result(group);
+        if (r < 0)
+                return r;
+
         r = sd_event_prepare(e);
         if (r == 0)
                 r = sd_event_wait(e, 0);
