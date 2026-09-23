@@ -1748,8 +1748,8 @@ static int await_invalid_fiber(void *userdata) {
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_await(NULL)), EINVAL);
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_await(sd_fiber_get_current())), EDEADLK);
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_await(other)), EINVAL);
-        ASSERT_NULL(ASSERT_RETURN_EXPECTED(sd_future_cancel_wait_unref(sd_future_ref(sd_fiber_get_current()))));
-        ASSERT_NULL(ASSERT_RETURN_EXPECTED(sd_future_cancel_wait_unref(sd_future_ref(other))));
+        ASSERT_NULL(sd_future_cancel_wait_unref(sd_future_ref(sd_fiber_get_current())));
+        ASSERT_NULL(sd_future_cancel_wait_unref(sd_future_ref(other)));
         ASSERT_EQ(sd_future_state(other), SD_FUTURE_PENDING);
 
         ASSERT_OK(sd_future_resolve(other, 42));
