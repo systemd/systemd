@@ -52,6 +52,7 @@ int compressor_new(Compressor **ret, Compression type);
 int compressor_start(Compressor *c, const void *data, size_t size, void **buffer, size_t *buffer_size, size_t *buffer_allocated);
 int compressor_finish(Compressor *c, void **buffer, size_t *buffer_size, size_t *buffer_allocated);
 
+int decompressor_new_limited(Decompressor **ret, Compression type, uint64_t max_memory);
 int decompressor_detect(Decompressor **decompressor, const void *data, size_t size);
 int decompressor_force_off(Decompressor **decompressor);
 int decompressor_push(Decompressor *c, const void *data, size_t size, DecompressorCallback callback, void *userdata);
