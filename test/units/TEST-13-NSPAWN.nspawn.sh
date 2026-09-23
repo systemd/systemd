@@ -975,6 +975,43 @@ testcase_notification_socket() {
     rm -fr "$root"
 }
 
+testcase_socket_activation() {
+    # Verify that the socket activation environment variables are properly propagated into the
+    # container, i.e. that $LISTEN_FDNAMES survives, and that $LISTEN_PID refers to the process that
+    # actually ends up running the payload (PID 2 when --as-pid2 is used).
+    # https://github.com/systemd/systemd/issues/43764
+    local root entrypoint socket
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.socket-activation.XXX)"
+    create_dummy_container "$root"
+    entrypoint="$root/entrypoint.sh"
+    socket="/run/TEST-13-NSPAWN-socket-activation.sock"
+    rm -f "$socket"
+
+    cat >"$entrypoint" <<\EOF
+#!/usr/bin/env bash
+set -ex
+
+env | grep '^LISTEN_'
+test "$LISTEN_FDS" = "1"
+test "$LISTEN_FDNAMES" = "hoge"
+test "$LISTEN_PID" = "$$"
+EOF
+    chmod +x "$entrypoint"
+
+    # Without --as-pid2 the payload is PID 1 in the container…
+    systemd-socket-activate --listen="$socket" --fdname=hoge --now -- \
+        systemd-nspawn --register=no --directory="$root" "${entrypoint##"$root"}"
+    rm -f "$socket"
+
+    # …and with --as-pid2 it's PID 2, as the stub PID 1 forks it off.
+    systemd-socket-activate --listen="$socket" --fdname=hoge --now -- \
+        systemd-nspawn --register=no --directory="$root" --as-pid2 "${entrypoint##"$root"}"
+    rm -f "$socket"
+
+    rm -fr "$root"
+}
+
 testcase_os_release() {
     local root entrypoint os_release_source
 

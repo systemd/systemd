@@ -101,6 +101,7 @@
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "pidref.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
@@ -3320,7 +3321,7 @@ static int inner_child(
                 NULL, /* LOGNAME */
                 NULL, /* container_uuid */
                 NULL, /* LISTEN_FDS */
-                NULL, /* LISTEN_PID */
+                NULL, /* LISTEN_FDNAMES */
                 NULL, /* NOTIFY_SOCKET */
                 NULL, /* CREDENTIALS_DIRECTORY */
                 NULL, /* LANG */
@@ -3594,9 +3595,22 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to unset O_CLOEXEC for file descriptors.");
 
-                if ((asprintf(envp + n_env++, "LISTEN_FDS=%u", fdset_size(fds)) < 0) ||
-                    (asprintf(envp + n_env++, "LISTEN_PID=1") < 0))
+                if (asprintf(envp + n_env++, "LISTEN_FDS=%u", fdset_size(fds)) < 0)
                         return log_oom();
+
+                const char *fdnames = getenv("LISTEN_FDNAMES");
+                if (fdnames) {
+                        _cleanup_strv_free_ char **l = NULL;
+
+                        r = strv_split_full(&l, fdnames, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse $LISTEN_FDNAMES: %m");
+
+                        if ((size_t) r != fdset_size(fds))
+                                log_warning("Number of entries in $LISTEN_FDNAMES doesn't match number of passed file descriptors, ignoring.");
+                        else
+                                envp[n_env++] = strjoina("LISTEN_FDNAMES=", fdnames);
+                }
         }
         if (asprintf(envp + n_env++, "NOTIFY_SOCKET=%s", NSPAWN_NOTIFY_SOCKET_PATH) < 0)
                 return log_oom();
@@ -3634,6 +3648,23 @@ static int inner_child(
                 r = stub_pid1(arg_uuid);
                 if (r < 0)
                         return r;
+        }
+
+        /* Now that we know which process is going to execute the payload, set LISTEN_PID */
+        if (!fdset_isempty(fds)) {
+                r = strv_env_assignf(&env_use, "LISTEN_PID", PID_FMT, getpid_cached());
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set $LISTEN_PID: %m");
+
+                uint64_t pidfdid;
+                r = pidfd_get_inode_id_self_cached(&pidfdid);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to acquire pidfd inode ID of payload process, not setting $LISTEN_PIDFDID: %m");
+                else {
+                        r = strv_env_assignf(&env_use, "LISTEN_PIDFDID", "%" PRIu64, pidfdid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set $LISTEN_PIDFDID: %m");
+                }
         }
 
         if (arg_console_mode != CONSOLE_PIPE) {
