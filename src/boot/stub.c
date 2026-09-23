@@ -396,7 +396,7 @@ static void install_addon_devicetrees(
                                 TPM2_PCR_KERNEL_CONFIG,
                                 POINTER_TO_PHYSICAL_ADDRESS(a->blob.iov_base),
                                 a->blob.iov_len,
-                                DEVICETREE_ADDON_EVENT_TAG_ID,
+                                DEVICETREE_EVENT_TAG_ID,
                                 a->filename,
                                 &m);
                 if (err != EFI_SUCCESS)
