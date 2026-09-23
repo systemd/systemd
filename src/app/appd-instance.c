@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "appd-instance.h"
+#include "appd-instance-varlink.h"
 #include "appd-manager.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
@@ -49,6 +50,7 @@ static int app_instance_unmanage(AppInstance *instance) {
         owned_instance = hashmap_remove(instance->manager->instances, instance->cg_path);
         assert(owned_instance == instance);
 
+        (void) app_instance_notify(instance, APP_INSTANCE_DISAPPEARED, NULL, NULL);
         return 0;
 }
 
