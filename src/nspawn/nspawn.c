@@ -102,6 +102,7 @@
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "pidref.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
@@ -3303,6 +3304,7 @@ static int inner_child(
                 Barrier *barrier,
                 int fd_inner_socket,
                 FDSet *fds,
+                char **fdnames,
                 char **os_release_pairs) {
 
         _cleanup_free_ char *home = NULL;
@@ -3318,7 +3320,7 @@ static int inner_child(
                 NULL, /* LOGNAME */
                 NULL, /* container_uuid */
                 NULL, /* LISTEN_FDS */
-                NULL, /* LISTEN_PID */
+                NULL, /* LISTEN_FDNAMES */
                 NULL, /* NOTIFY_SOCKET */
                 NULL, /* CREDENTIALS_DIRECTORY */
                 NULL, /* LANG */
@@ -3592,9 +3594,17 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to unset O_CLOEXEC for file descriptors.");
 
-                if ((asprintf(envp + n_env++, "LISTEN_FDS=%u", fdset_size(fds)) < 0) ||
-                    (asprintf(envp + n_env++, "LISTEN_PID=1") < 0))
+                if (asprintf(envp + n_env++, "LISTEN_FDS=%u", fdset_size(fds)) < 0)
                         return log_oom();
+
+                if (fdnames) {
+                        _cleanup_free_ char *joined = strv_join(fdnames, ":");
+                        if (!joined)
+                                return log_oom();
+
+                        if (asprintf(envp + n_env++, "LISTEN_FDNAMES=%s", joined) < 0)
+                                return log_oom();
+                }
         }
         if (asprintf(envp + n_env++, "NOTIFY_SOCKET=%s", NSPAWN_NOTIFY_SOCKET_PATH) < 0)
                 return log_oom();
@@ -3632,6 +3642,23 @@ static int inner_child(
                 r = stub_pid1(arg_uuid);
                 if (r < 0)
                         return r;
+        }
+
+        /* Now that we know which process is going to execute the payload, set $LISTEN_PID and
+         * $LISTEN_PIDFDID. If $LISTEN_PID is overridden via --setenv=, leave $LISTEN_PIDFDID alone too, as
+         * it would refer to a different process than $LISTEN_PID then. */
+        if (!fdset_isempty(fds) && !strv_env_get(arg_setenv, "LISTEN_PID")) {
+                r = strv_env_assignf(&env_use, "LISTEN_PID", PID_FMT, getpid_cached());
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set $LISTEN_PID: %m");
+
+                uint64_t pidfdid;
+                if (!strv_env_get(arg_setenv, "LISTEN_PIDFDID") &&
+                    pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        r = strv_env_assignf(&env_use, "LISTEN_PIDFDID", "%" PRIu64, pidfdid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set $LISTEN_PIDFDID: %m");
+                }
         }
 
         if (arg_console_mode != CONSOLE_PIPE) {
@@ -3891,6 +3918,7 @@ static int outer_child(
                 int fd_outer_socket,
                 int fd_inner_socket,
                 FDSet *fds,
+                char **fdnames,
                 int netns_fd,
                 const char *unix_export_path) {
 
@@ -4459,7 +4487,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to move root directory: %m");
                 }
 
-                r = inner_child(barrier, fd_inner_socket, fds, os_release_pairs);
+                r = inner_child(barrier, fd_inner_socket, fds, fdnames, os_release_pairs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -4588,18 +4616,23 @@ static int setup_uid_map(
         return 0;
 }
 
+static bool fd_store_forwarding_enabled(void) {
+        /* We can only forward fd-store related messages if we have an upstream supervisor (NOTIFY_SOCKET)
+         * with an fd store available (FDSTORE). */
+        return getenv("NOTIFY_SOCKET") && fdstore_detected();
+}
+
 static int forward_fd_store(char **tags, FDSet *fds) {
         int r;
 
         /* Forward fd-store related messages to our own service manager, so that file descriptors stored
-         * by the inner payload propagate up the chain and are preserved across restarts. Skip entirely
-         * if we have no upstream supervisor (no NOTIFY_SOCKET) or no fd store available (no FDSTORE).
+         * by the inner payload propagate up the chain and are preserved across restarts.
          *
          * Forwarded entries are namespaced with a "payload-" prefix on their FDNAME so that they
          * cannot collide with fd-store entries that nspawn itself might want to push to its own
          * upstream supervisor (the container payload and nspawn share a single upstream fdstore
          * namespace, since there's only one init system per container). */
-        if (!getenv("NOTIFY_SOCKET") || !fdstore_detected())
+        if (!fd_store_forwarding_enabled())
                 return 0;
 
         const char *pattern = strv_find_startswith(tags, "FDSTOREWIPE=");
@@ -5330,6 +5363,7 @@ static int run_container(
                 MStack *mstack,
                 int userns_fd,
                 FDSet *fds,
+                char **fdnames,
                 char veth_name[IFNAMSIZ],
                 bool *veth_created,
                 struct ExposeArgs *expose_args,
@@ -5491,6 +5525,7 @@ static int run_container(
                                 fd_outer_socket_pair[1],
                                 fd_inner_socket_pair[1],
                                 fds,
+                                fdnames,
                                 child_netns_fd,
                                 unix_export_host_dir);
                 if (r < 0)
@@ -6200,10 +6235,70 @@ static int do_cleanup(void) {
         return 0;
 }
 
+static int acquire_listen_fdnames(FDSet *fds, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *e;
+        int r;
+
+        assert(ret);
+
+        e = getenv("LISTEN_FDNAMES");
+        if (!e || fdset_isempty(fds)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        /* Split the same way sd_listen_fds_with_names() does, so that we end up with the same names. */
+        r = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse $LISTEN_FDNAMES, ignoring: %m");
+                *ret = NULL;
+                return 0;
+        }
+
+        if ((size_t) r != fdset_size(fds)) {
+                log_warning("Number of entries in $LISTEN_FDNAMES (%i) doesn't match number of passed file descriptors (%u), ignoring.",
+                            r, fdset_size(fds));
+                *ret = NULL;
+                return 0;
+        }
+
+        /* forward_fd_store() prefixes the names of the payload's fd store entries with "payload-" when
+         * pushing them upstream. Strip it again when they are passed back to us, so that the payload gets
+         * them back under the name it stored them with. Leave the names alone if we wouldn't forward fd
+         * store entries, as they can't have come from the payload then. */
+        bool strip_prefix = fd_store_forwarding_enabled();
+
+        STRV_FOREACH(n, l) {
+                if (!fdname_is_valid(*n)) {
+                        _cleanup_free_ char *esc = cescape(*n);
+                        log_warning("$LISTEN_FDNAMES contains invalid file descriptor name '%s', ignoring.", strna(esc));
+                        *ret = NULL;
+                        return 0;
+                }
+
+                const char *name = (strip_prefix ? startswith(*n, "payload-") : NULL) ?: *n;
+
+                /* The payload's sd_listen_fds_with_names() will unescape the names again, hence escape
+                 * them here. */
+                char *esc = shell_escape(name, ":");
+                if (!esc)
+                        return log_oom();
+
+                free_and_replace(*n, esc);
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         bool remove_image = false, veth_created = false;
         _cleanup_close_ int master = -EBADF, userns_fd = -EBADF, mount_fd = -EBADF;
         _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_strv_free_ char **fdnames = NULL;
         int r, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
         struct ExposeArgs expose_args = {};
@@ -6315,6 +6410,10 @@ static int run(int argc, char *argv[]) {
                 log_error_errno(r, "Failed to collect file descriptors: %m");
                 goto finish;
         }
+
+        r = acquire_listen_fdnames(fds, &fdnames);
+        if (r < 0)
+                goto finish;
 
         /* The "default" umask. This is appropriate for most file and directory
         * operations performed by nspawn, and is the umask that will be used for
@@ -6841,6 +6940,7 @@ static int run(int argc, char *argv[]) {
                                 mstack,
                                 userns_fd,
                                 fds,
+                                fdnames,
                                 veth_name,
                                 &veth_created,
                                 &expose_args, &master,
