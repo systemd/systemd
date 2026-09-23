@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-future.h"
+
 #include "alloc-util.h"
 #include "appd-instance.h"
 #include "appd-instance-varlink.h"
@@ -11,9 +13,13 @@
 #include "pidref.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "varlink-util.h"
 #include "varlink-io.systemd.AppInstance.h"
+
+#define NOTIFY_TIMEOUT_USEC (5 * USEC_PER_SEC)
+#define NOTIFY_CHANNEL_CAPACITY 50
 
 static int start_transient_scope(const char *unit_name, PidRef *peer) {
         int r;
@@ -175,10 +181,17 @@ static int vl_method_instance_register(
 
         /* Apps may register themselves repeatedly: by the launcher, and/or the sandbox engine, and/or the
          * app itself. This approach maximizes the likelihood that all apps get registered, but it also means
-         * that we have no way of knowing when an app is actually done registering itself. */
-        if (instance->ever_queried)
+         * that we have no way of knowing when an app is actually done registering itself. If someone has
+         * managed to query information about the instance before it finished registering, try to get them to
+         * forget whatever state they've acquired. */
+        if (instance->ever_queried) {
                 log_warning("App instance %s is amending its registration, but has already been queried.",
                             instance->unit);
+
+                r = app_instance_notify(instance, APP_INSTANCE_FORGET);
+                if (r < 0)
+                        return r;
+        }
 
         if (params.sandbox) {
                 assert(!instance->sandbox);
@@ -198,6 +211,10 @@ static int vl_method_instance_register(
 
         if (params.entitlements)
                 json_variant_unref_and_replace(instance->entitlements, params.entitlements);
+
+        if (!instance->published)
+                log_info("App instance %s appeared via explicit registration", instance->unit);
+        instance->published = true;
 
         r = app_instance_commit(instance);
         if (r < 0)
@@ -344,6 +361,10 @@ static int vl_method_instance_query(
         if (!target_instance->ever_queried) {
                 target_instance->ever_queried = true;
 
+                if (!target_instance->published)
+                        log_info("App instance %s appeared via query", target_instance->unit);
+                target_instance->published = true;
+
                 r = app_instance_commit(target_instance);
                 if (r < 0)
                         return r;
@@ -405,6 +426,9 @@ static int vl_method_instance_set_permissions(
         if (peer_instance && peer_instance->sandbox)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
+        if (!target_instance->published)
+                return sd_varlink_error(link, "io.systemd.AppInstance.NoSuchInstance", /* parameters= */ NULL);
+
         if (!target_instance->ever_queried || p.generation != target_instance->generation)
                 return sd_varlink_error(link, "io.systemd.AppInstance.Stale", /* parameters= */ NULL);
 
@@ -414,10 +438,14 @@ static int vl_method_instance_set_permissions(
         if (r < 0)
                 return r;
 
+        r = app_instance_notify(target_instance, APP_INSTANCE_CHANGED);
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
-int manager_instance_varlink_init(Manager *m) {
+static int manager_instance_varlink_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
 
@@ -461,8 +489,182 @@ int manager_instance_varlink_init(Manager *m) {
         return 0;
 }
 
+typedef struct NotifyFuture {
+        sd_json_variant *params;
+        AppInstanceEvent event;
+        char *unit;
+} NotifyFuture;
+
+#define NOTIFY_FUTURE(f) (ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f))))
+
+static void notify_future_free(sd_future *f) {
+        NotifyFuture *nf = NOTIFY_FUTURE(f);
+
+        nf->params = sd_json_variant_unref(nf->params);
+        nf->unit = mfree(nf->unit);
+}
+
+static int notify_future_cancel(sd_future *f) {
+        return sd_future_resolve(f, -ECANCELED);
+}
+
+static const sd_future_ops notify_future_ops = {
+        .size = sizeof(sd_future_ops),
+        .private_size = sizeof(NotifyFuture),
+        .free = notify_future_free,
+        .cancel = notify_future_cancel,
+};
+
+int app_instance_varlink_new_notification(AppInstance *instance, AppInstanceEvent event, sd_future **ret) {
+        int r;
+
+        assert(instance);
+        assert(ret);
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(instance->manager->event, &notify_future_ops, &f);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create notification future: %m");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
+        r = sd_json_buildo(
+                        &params,
+                        SD_JSON_BUILD_PAIR_STRING("event", app_instance_event_to_string(event)),
+                        SD_JSON_BUILD_PAIR_STRING("id", instance->app_id),
+                        SD_JSON_BUILD_PAIR_STRING("cgroup", instance->cg_path));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build notify params: %m");
+
+        _cleanup_free_ char *unit_dup = strdup(instance->unit);
+        if (!unit_dup)
+                return log_oom_debug();
+
+        NotifyFuture *nf = NOTIFY_FUTURE(f);
+        *nf = (NotifyFuture) {
+                .params = TAKE_PTR(params),
+                .event = event,
+                .unit = TAKE_PTR(unit_dup),
+        };
+
+        *ret = TAKE_PTR(f);
+        return 0;
+}
+
+static int notify_reply(
+                sd_varlink *link,
+                sd_json_variant *reply,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        assert(link);
+
+        if (error_id)
+                log_debug("App instance monitor '%s' returned error, ignoring: %s",
+                          strna(sd_varlink_get_description(link)), error_id);
+
+        return 0;
+}
+
+static int notify_worker_fiber(void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_free_ char *notify_dir_path = NULL;
+        r = xdg_user_runtime_dir("systemd/io.systemd.AppInstanceMonitor", &notify_dir_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to construct notify directory path: %m");
+
+        for (;;) {
+                _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+                r = sd_channel_pop(manager->varlink_instance_notifications, (void**) &f);
+                if (r == -ECANCELED)
+                        return r;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to pop notification from channel, ignoring: %m");
+                        continue;
+                }
+
+                if (sd_future_state(f) != SD_FUTURE_PENDING)
+                        continue;
+
+                NotifyFuture *nf = NOTIFY_FUTURE(f);
+                log_debug("Notifying app instance %s: %s", nf->unit, app_instance_event_to_string(nf->event));
+
+                r = varlink_execute_directory(
+                                notify_dir_path,
+                                "io.systemd.AppInstanceMonitor.Notify",
+                                nf->params,
+                                /* more= */ false,
+                                NOTIFY_TIMEOUT_USEC,
+                                notify_reply,
+                                /* userdata= */ NULL);
+                if (r == -ENOENT)
+                        r = 0;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to invoke app instance monitors, ignoring: %m");
+
+                if (sd_future_state(f) != SD_FUTURE_PENDING)
+                        continue;
+                r = sd_future_resolve(f, r);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to resolve pending notification, ignoring; %m");
+                        continue;
+                }
+        }
+}
+
+static void notify_channel_item_destroy(void *p) {
+        sd_future *fut = ASSERT_PTR(p);
+        sd_future_cancel_unref(fut);
+}
+
+static int manager_instance_varlink_notify_init(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        r = sd_channel_new(
+                        manager->event,
+                        NOTIFY_CHANNEL_CAPACITY,
+                        SD_CHANNEL_OVERFLOW_WAIT,
+                        notify_channel_item_destroy,
+                        &manager->varlink_instance_notifications);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize notification channel: %m");
+
+        r = sd_fiber_new(
+                        manager->event,
+                        "varlink-instance-notifier",
+                        notify_worker_fiber,
+                        manager,
+                        &manager->varlink_instance_notifier);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize notification fiber: %m");
+
+        return 0;
+}
+
+int manager_instance_varlink_init(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = manager_instance_varlink_server_init(m);
+        if (r < 0)
+                return r;
+
+        r = manager_instance_varlink_notify_init(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 void manager_instance_varlink_done(Manager *m) {
         assert(m);
 
         m->varlink_instance_server = sd_varlink_server_unref(m->varlink_instance_server);
+        m->varlink_instance_notifier = sd_future_cancel_unref(m->varlink_instance_notifier);
+        m->varlink_instance_notifications = sd_channel_unref(m->varlink_instance_notifications);
 }
