@@ -1718,12 +1718,7 @@ static int unprivileged_clone(Image *i, const char *new_path, bool read_only) {
 
         /* Make new image */
         _cleanup_close_ int new_fd = -EBADF;
-        r = mountfsd_make_directory(
-                        link,
-                        new_path,
-                        MODE_INVALID,
-                        /* flags= */ 0,
-                        &new_fd);
+        r = mkdir_foreign(new_path, MODE_INVALID, &new_fd);
         if (r < 0)
                 return r;
 
