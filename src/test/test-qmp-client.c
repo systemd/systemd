@@ -10,8 +10,10 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "iovec-util.h"
 #include "json-stream.h"
 #include "qmp-client.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "tests.h"
 
@@ -249,6 +251,120 @@ TEST(json_stream_split_crlf_delimiter) {
         sd_json_variant *two = ASSERT_NOT_NULL(sd_json_variant_by_key(v, "two"));
         ASSERT_EQ(sd_json_variant_unsigned(two), 2U);
         ASSERT_FALSE(json_stream_has_buffered_input(&s));
+}
+
+TEST(json_stream_fd_passing_disconnect) {
+        _cleanup_(json_stream_done) JsonStream s = {};
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fds));
+        mock_qmp_init(&s, TAKE_FD(fds[1]));
+        ASSERT_OK(json_stream_set_allow_fd_passing_input(&s, true, true));
+
+        /* Closing a peer with unread data causes ECONNRESET. The peek must leave disconnect
+         * classification to the actual recvmsg() call. */
+        ASSERT_OK_EQ_ERRNO(write(s.output_fd, "x", 1), 1);
+        fds[0] = safe_close(fds[0]);
+
+        ASSERT_OK_POSITIVE(json_stream_read(&s));
+        ASSERT_TRUE(FLAGS_SET(s.flags, JSON_STREAM_READ_DISCONNECTED));
+}
+
+TEST(json_stream_fd_association_split_crlf_delimiter) {
+        const JsonStreamParams params = {
+                .delimiter = "\r\n",
+                .phase = mock_qmp_phase,
+                .dispatch = mock_qmp_dispatch,
+        };
+        _cleanup_(json_stream_done) JsonStream s = {};
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        _cleanup_close_ int fd_to_pass = -EBADF;
+        const char first[] = "{\"first\":true}\r";
+        const struct iovec second = CONST_IOVEC_MAKE_STRING("{\"second\":true}\r\n");
+        eventfd_t value;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fds));
+        ASSERT_OK(json_stream_init(&s, &params));
+        int fd = TAKE_FD(fds[0]);
+        ASSERT_OK(json_stream_connect_fd_pair(&s, fd, fd));
+        ASSERT_OK(json_stream_set_allow_fd_passing_input(&s, true, true));
+
+        /* Buffer the first message without the final byte of its delimiter. */
+        ASSERT_OK_EQ_ERRNO(write(fds[1], first, strlen(first)), (ssize_t) strlen(first));
+        ASSERT_OK_POSITIVE(json_stream_read(&s));
+        ASSERT_OK_ZERO(json_stream_parse(&s, &v));
+        ASSERT_NULL(v);
+
+        /* The remaining newline must not bring the next message's descriptor into the first message. */
+        ASSERT_OK_EQ_ERRNO(write(fds[1], "\n", 1), 1);
+        fd_to_pass = ASSERT_OK_ERRNO(eventfd(7, EFD_CLOEXEC|EFD_NONBLOCK));
+        ASSERT_OK_EQ(send_one_fd_iov(fds[1], fd_to_pass, &second, 1, MSG_NOSIGNAL),
+                     (ssize_t) second.iov_len);
+        ASSERT_OK_POSITIVE(json_stream_read(&s));
+        ASSERT_OK_POSITIVE(json_stream_parse(&s, &v));
+        ASSERT_TRUE(sd_json_variant_boolean(ASSERT_NOT_NULL(sd_json_variant_by_key(v, "first"))));
+        ASSERT_EQ(json_stream_get_n_input_fds(&s), (size_t) 0);
+
+        v = sd_json_variant_unref(v);
+        ASSERT_OK_POSITIVE(json_stream_read(&s));
+        ASSERT_OK_POSITIVE(json_stream_parse(&s, &v));
+        ASSERT_TRUE(sd_json_variant_boolean(ASSERT_NOT_NULL(sd_json_variant_by_key(v, "second"))));
+        ASSERT_EQ(json_stream_get_n_input_fds(&s), (size_t) 1);
+        int received_fd = ASSERT_OK(json_stream_peek_input_fd(&s, 0));
+        ASSERT_OK_ERRNO(eventfd_read(received_fd, &value));
+        ASSERT_EQ(value, (eventfd_t) 7);
+        ASSERT_FALSE(json_stream_has_buffered_input(&s));
+}
+
+static void test_json_stream_packet_batch(int type) {
+        const JsonStreamParams params = {
+                .delimiter = "\r\n",
+                .phase = mock_qmp_phase,
+                .dispatch = mock_qmp_dispatch,
+        };
+        _cleanup_(json_stream_done) JsonStream s = {};
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        _cleanup_close_ int fd_to_pass = -EBADF;
+        const struct iovec batch = CONST_IOVEC_MAKE_STRING("{\"first\":true}\r\n{\"second\":true}\r\n");
+        eventfd_t value;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, type|SOCK_CLOEXEC, 0, fds));
+        ASSERT_OK(json_stream_init(&s, &params));
+        int fd = TAKE_FD(fds[0]);
+        ASSERT_OK(json_stream_connect_fd_pair(&s, fd, fd));
+        ASSERT_OK(json_stream_set_allow_fd_passing_input(&s, true, true));
+
+        /* Both messages share one packet, with the descriptor attached to the first message.
+         * Limiting recvmsg() to the first delimiter would truncate the rest of the packet. */
+        fd_to_pass = ASSERT_OK_ERRNO(eventfd(7, EFD_CLOEXEC|EFD_NONBLOCK));
+        ASSERT_OK_EQ(send_one_fd_iov(fds[1], fd_to_pass, &batch, 1, MSG_NOSIGNAL),
+                     (ssize_t) batch.iov_len);
+        ASSERT_OK_POSITIVE(json_stream_read(&s));
+        ASSERT_OK_POSITIVE(json_stream_parse(&s, &v));
+        sd_json_variant *first = ASSERT_NOT_NULL(sd_json_variant_by_key(v, "first"));
+        ASSERT_TRUE(sd_json_variant_boolean(first));
+        ASSERT_EQ(json_stream_get_n_input_fds(&s), (size_t) 1);
+        int received_fd = ASSERT_OK(json_stream_peek_input_fd(&s, 0));
+        ASSERT_OK_ERRNO(eventfd_read(received_fd, &value));
+        ASSERT_EQ(value, (eventfd_t) 7);
+        json_stream_close_input_fds(&s);
+
+        v = sd_json_variant_unref(v);
+        ASSERT_OK_POSITIVE(json_stream_parse(&s, &v));
+        sd_json_variant *second = ASSERT_NOT_NULL(sd_json_variant_by_key(v, "second"));
+        ASSERT_TRUE(sd_json_variant_boolean(second));
+        ASSERT_EQ(json_stream_get_n_input_fds(&s), (size_t) 0);
+        ASSERT_FALSE(json_stream_has_buffered_input(&s));
+}
+
+TEST(json_stream_seqpacket_batch) {
+        test_json_stream_packet_batch(SOCK_SEQPACKET);
+}
+
+TEST(json_stream_dgram_batch) {
+        test_json_stream_packet_batch(SOCK_DGRAM);
 }
 
 static int mock_qmp_eof_fiber(void *userdata) {
