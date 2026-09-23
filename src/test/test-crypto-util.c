@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "crypto-util.h"
+#include "iovec-util.h"
 #include "tests.h"
 
 TEST(openssl_pkey_from_pem) {
@@ -633,6 +634,69 @@ TEST(string_hashsum) {
         ASSERT_OK(string_hashsum("", 0, "SHA256", &out4));
         /* echo -n '' | sha256sum - */
         ASSERT_STREQ(out4, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+}
+
+TEST(openssl_load_x509_certificate_from_pem) {
+        _cleanup_(X509_freep) X509 *plain = NULL, *skipped = NULL, *first = NULL, *first_again = NULL,
+                *bad = NULL;
+        uint8_t fp[X509_FINGERPRINT_SIZE], fp2[X509_FINGERPRINT_SIZE];
+        bool more;
+
+        static const char pem[] =
+                "-----BEGIN CERTIFICATE-----\n"
+                "MIIBmTCCAT+gAwIBAgIUZ4uOZJsauyCZT+Y1n4/gzCOZTtEwCgYIKoZIzj0EAwIw\n"
+                "ITEfMB0GA1UEAwwWdGVzdC1rZXlyaW5nLXV0aWwtY2VydDAgFw0yNjA4MzEwNzUx\n"
+                "MTRaGA8yMTI2MDgwNzA3NTExNFowITEfMB0GA1UEAwwWdGVzdC1rZXlyaW5nLXV0\n"
+                "aWwtY2VydDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNc3AuZYdnff2T2SsQLk\n"
+                "KnlchPOXz0jdcdZi69553EmFhlanCE/4TAgCobz9Nx2cXzkMeAKgvQrVUiMVPhY+\n"
+                "9QSjUzBRMB0GA1UdDgQWBBQUL7BjFMmgrpesb8YFEFMwCXmfHjAfBgNVHSMEGDAW\n"
+                "gBQUL7BjFMmgrpesb8YFEFMwCXmfHjAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49\n"
+                "BAMCA0gAMEUCIA8Qpr29PVqMLOyyMqx1R1+NcwjbDWWQJsymyQGhhUW0AiEA2wlv\n"
+                "xf2X2CHdKDFOguJGhrj+rG4UJ+IEPmTRbRRAvL0=\n"
+                "-----END CERTIFICATE-----\n";
+        static const char pem2[] =
+                "-----BEGIN CERTIFICATE-----\n"
+                "MIIBoDCCAUegAwIBAgIUIaxtB5yuXspbj70dHTXLYpiAXIQwCgYIKoZIzj0EAwIw\n"
+                "JTEjMCEGA1UEAwwadGVzdC1rZXlyaW5nLXV0aWwtc3RyYW5nZXIwIBcNMjYwODMx\n"
+                "MDc1MTE0WhgPMjEyNjA4MDcwNzUxMTRaMCUxIzAhBgNVBAMMGnRlc3Qta2V5cmlu\n"
+                "Zy11dGlsLXN0cmFuZ2VyMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgABkdJI8\n"
+                "jo/ql7tzpucCX2Rd7qpj58sRBiLt7xU2mrICIOg5Pd3Bb/mMTQE6DqYj0g2uN2DU\n"
+                "gd6WZzxkMwARaaNTMFEwHQYDVR0OBBYEFOUypKpAR+0EhRQ9VlR9ffURVrcJMB8G\n"
+                "A1UdIwQYMBaAFOUypKpAR+0EhRQ9VlR9ffURVrcJMA8GA1UdEwEB/wQFMAMBAf8w\n"
+                "CgYIKoZIzj0EAwIDRwAwRAIgYE0WHkumPoEm/0k1XaBby4DsaVP9IIq670yLTwIM\n"
+                "PeMCICvGIAjV5sZNAGyE1bRNIO2x8/tU8eimhPHMzjfN1u+h\n"
+                "-----END CERTIFICATE-----\n";
+
+        ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE((void*) pem, strlen(pem)), &plain,
+                                                         &more));
+        ASSERT_FALSE(more);
+        ASSERT_OK(x509_fingerprint(plain, fp));
+
+        /* Anything before the first CERTIFICATE block is skipped */
+        _cleanup_free_ char *prefixed = strjoin("Bag Attributes\n    friendlyName: pkcs12\n", pem);
+        ASSERT_NOT_NULL(prefixed);
+        ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE(prefixed, strlen(prefixed)), &skipped,
+                                                         &more));
+        ASSERT_FALSE(more);
+        ASSERT_OK(x509_fingerprint(skipped, fp2));
+        ASSERT_EQ(memcmp(fp, fp2, sizeof(fp)), 0);
+
+        /* The first certificate wins, the second is reported, and ret_more is optional */
+        _cleanup_free_ char *two = strjoin(pem, pem2);
+        ASSERT_NOT_NULL(two);
+        ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE(two, strlen(two)), &first, &more));
+        ASSERT_TRUE(more);
+        ASSERT_OK(x509_fingerprint(first, fp2));
+        ASSERT_EQ(memcmp(fp, fp2, sizeof(fp)), 0);
+        ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE(two, strlen(two)), &first_again,
+                                                         /* ret_more= */ NULL));
+        ASSERT_OK(x509_fingerprint(first_again, fp2));
+        ASSERT_EQ(memcmp(fp, fp2, sizeof(fp)), 0);
+
+        static const char garbage[] = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n";
+        ASSERT_FAIL(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE((void*) garbage, strlen(garbage)),
+                                                           &bad, &more));
+        ASSERT_ERROR(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE(NULL, 0), &bad, &more), EBADMSG);
 }
 
 static int intro(void) {
