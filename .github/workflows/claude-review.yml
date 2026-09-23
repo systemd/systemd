@@ -330,7 +330,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Run review
-        timeout-minutes: 40
+        timeout-minutes: 45
         env:
           CLAUDE_CODE_USE_BEDROCK: "1"
           CLAUDE_CODE_USE_MANTLE: "1"
@@ -346,6 +346,19 @@ jobs:
           {
             "permissions": {
               "allow": ["Bash", "Read", "Grep", "Glob"]
+            },
+            "hooks": {
+              "PreToolUse": [
+                {
+                  "matcher": "Bash|Read|Grep|Glob",
+                  "hooks": [
+                    {
+                      "type": "command",
+                      "command": "[[ $(date +%s) -lt ${REVIEW_DEADLINE:-0} ]] || { echo 'Time is up: stop using tools and return your findings now.' >&2; exit 2; }"
+                    }
+                  ]
+                }
+              ]
             },
             "sandbox": {
               "enabled": true,
@@ -373,10 +386,17 @@ jobs:
           # sandbox leaves the checkout read-only. The structured result goes to
           # $OUTPUT/<name>.json. The transcript goes to the job log, which the
           # runner masks, rather than to an artifact, which it does not.
+          #
+          # A killed run yields nothing, so the deadline is enforced by the hook
+          # above, which denies tool calls once it has passed and leaves the model
+          # one turn to return what it has. The timeout only catches a hang.
           run_claude() {
             local name=$1 minutes=$2 schema=$3 prompt=$4 dir status=0
             dir="$(mktemp -d)"
-            (cd "$dir" && timeout --kill-after=30 "${minutes}m" claude \
+            prompt+="
+
+          You have ${minutes} minutes. After that, tool calls are denied and you must return what you have."
+            (cd "$dir" && REVIEW_DEADLINE=$(( $(date +%s) + minutes * 60 )) timeout --kill-after=30 "$((minutes + 3))m" claude \
               --model us.anthropic.claude-opus-5 \
               --effort high \
               --max-turns 100 \
@@ -429,7 +449,7 @@ jobs:
           )
 
           for name in "${!lenses[@]}"; do
-            run_claude "$name" 20 "{\"type\": \"object\", \"required\": [\"findings\"], \"properties\": {\"findings\": {\"type\": \"array\", \"items\": $finding}}}" \
+            run_claude "$name" 22 "{\"type\": \"object\", \"required\": [\"findings\"], \"properties\": {\"findings\": {\"type\": \"array\", \"items\": $finding}}}" \
           "${context}
 
           Review the pull request through one lens only, ${name}: ${lenses[$name]}. Report only
@@ -439,10 +459,7 @@ jobs:
 
           A body states the problem and, when obvious, the fix, in one or two sentences of at most
           300 characters, without headings, lists, or restating the code. A suggestion block that
-          replaces the commented lines is welcome and does not count toward the limit.
-
-          Budget: at most 12 tool calls in total, so batch independent shell commands into one call.
-          After the 12th call, or earlier when you are done, stop and return your findings." &
+          replaces the commented lines is welcome and does not count toward the limit." &
           done
           wait
           for name in "${!lenses[@]}"; do
@@ -469,7 +486,7 @@ jobs:
           if [[ "$(jq length "$INPUT/candidates.json")" == 0 && "$open_threads" == 0 ]]; then
             echo '{"confirmed": [], "resolve": []}' >"$OUTPUT/validator.json"
           else
-            run_claude validator 15 "{\"type\": \"object\", \"required\": [\"confirmed\", \"resolve\"], \"properties\": {\"confirmed\": {\"type\": \"array\", \"items\": $finding}, \"resolve\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}}" \
+            run_claude validator 12 "{\"type\": \"object\", \"required\": [\"confirmed\", \"resolve\"], \"properties\": {\"confirmed\": {\"type\": \"array\", \"items\": $finding}, \"resolve\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}}" \
           "${context}
 
           ${INPUT}/candidates.json holds candidate findings from independent reviewers, possibly
@@ -482,10 +499,7 @@ jobs:
           Review comments in discussion.json by github-actions[bot] that start with \"Claude: **\"
           and have no in_reply_to_id are findings from earlier reviews; replies carry that id in
           in_reply_to_id. Return in resolve the ids of those whose issue is fixed at the head and
-          that have no human replies.
-
-          Budget: at most 2 tool calls per candidate and 15 in total, so batch independent shell
-          commands into one call. Then stop and return what you confirmed."
+          that have no human replies."
             print_log validator
             if [[ ! -s "$OUTPUT/validator.json" ]]; then
               echo "Validation did not finish." >&2
