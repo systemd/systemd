@@ -310,14 +310,9 @@ static int tar_pull_make_local_copy(TarPull *p) {
                         }
 
                         _cleanup_close_ int directory_fd = -EBADF;
-                        r = mountfsd_make_directory(
-                                        mountfsd_link,
-                                        t,
-                                        MODE_INVALID,
-                                        /* flags= */ 0,
-                                        &directory_fd);
+                        r = mkdir_foreign(t, MODE_INVALID, &directory_fd);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to make directory via mountfsd: %m");
+                                return log_error_errno(r, "Failed to make foreign UID range owned directory: %m");
 
                         _cleanup_close_ int copy_fd = -EBADF;
                         r = mountfsd_mount_directory_fd(
@@ -623,14 +618,9 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                         return log_error_errno(r, "Failed to connect to mountfsd: %m");
 
                 _cleanup_close_ int directory_fd = -EBADF;
-                r = mountfsd_make_directory(
-                                mountfsd_link,
-                                where,
-                                MODE_INVALID,
-                                /* flags= */ 0,
-                                &directory_fd);
+                r = mkdir_foreign(where, MODE_INVALID, &directory_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make directory via mountfsd: %m");
+                        return log_error_errno(r, "Failed to make foreign UID range owned directory: %m");
 
                 r = mountfsd_mount_directory_fd(
                                 mountfsd_link,
