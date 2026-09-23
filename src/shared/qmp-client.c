@@ -978,15 +978,11 @@ static int qmp_client_call_suspend(
                 return r;
 
         r = sd_fiber_await(call);
-
-        /* If the future isn't resolved, the suspend was interrupted before a reply arrived (fiber
-         * cancelled, fiber-wide SD_FIBER_TIMEOUT scope expired, …). There's no reply to extract,
-         * so surface the resume error directly. When the future is resolved, future_get_qmp_reply()
-         * already encodes success (1), QMP-level error (-EIO with the desc captured if asked for),
-         * and no-reply (negative future result) — pass it through. */
-        if (sd_future_state(call) != SD_FUTURE_RESOLVED)
+        if (r < 0)
                 return r;
 
+        /* future_get_qmp_reply() encodes success (1), QMP-level error (-EIO with the desc captured if
+         * asked for), and no-reply (negative future result) — pass it through. */
         return future_get_qmp_reply(call, ret_result, ret_error_desc);
 }
 

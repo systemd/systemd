@@ -379,16 +379,17 @@ TEST(fiber_wait_for_completed) {
         ASSERT_OK_EQ(sd_future_result(target), 100);
 }
 
-/* Test: awaiting an already-resolved future returns the future's result directly */
+/* Test: awaiting an already-resolved future completes immediately */
 static int await_resolved_fiber(void *userdata) {
         sd_future *target = userdata;
 
         ASSERT_EQ((int) sd_future_state(target), (int) SD_FUTURE_RESOLVED);
-        ASSERT_OK_EQ(sd_fiber_await(target), 77);
+        ASSERT_OK_ZERO(sd_fiber_await(target));
+        ASSERT_OK_EQ(sd_future_result(target), 77);
         return 0;
 }
 
-TEST(fiber_await_resolved_returns_result) {
+TEST(fiber_await_resolved) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
@@ -1667,13 +1668,14 @@ static int await_result_fiber(void *userdata) {
                 _cleanup_(sd_future_unrefp) sd_future *awaited = NULL;
 
                 ASSERT_OK(sd_future_new_defer(sd_fiber_get_event(), result, &awaited));
-                ASSERT_EQ(sd_fiber_await(awaited), result); /* Pending. */
-                ASSERT_EQ(sd_fiber_await(awaited), result); /* Already resolved. */
+                ASSERT_OK_ZERO(sd_fiber_await(awaited)); /* Pending. */
+                ASSERT_EQ(sd_future_result(awaited), result);
+                ASSERT_OK_ZERO(sd_fiber_await(awaited)); /* Already resolved. */
                 ASSERT_OK_ZERO(sd_fiber_yield());
 
                 /* An already-resolved future must leave an unrelated pending interruption alone. */
                 ASSERT_OK(sd_fiber_resume(sd_fiber_get_current(), -ECANCELED));
-                ASSERT_EQ(sd_fiber_await(awaited), result);
+                ASSERT_OK_ZERO(sd_fiber_await(awaited));
                 ASSERT_ERROR(sd_fiber_yield(), ECANCELED);
         }
 
@@ -1693,7 +1695,14 @@ TEST(fiber_await_result) {
 }
 
 static int await_borrowed_fiber(void *userdata) {
-        return sd_fiber_await(userdata);
+        _cleanup_(sd_future_unrefp) sd_future *target = sd_future_ref(ASSERT_PTR(userdata));
+        int r;
+
+        r = sd_fiber_await(target);
+        if (r < 0)
+                return r;
+
+        return sd_future_result(target);
 }
 
 TEST(fiber_await_last_reference) {
@@ -1709,11 +1718,11 @@ TEST(fiber_await_last_reference) {
                 ASSERT_OK(sd_fiber_new(e, "await-borrowed", await_borrowed_fiber, target,
                                        /* destroy= */ NULL, &waiter));
 
-                /* Suspend in await, so its non-floating callback slot holds a reference to target. */
+                /* Suspend in await, so the waiter's own reference and the wait's slot keep target alive. */
                 ASSERT_OK_POSITIVE(sd_event_run(e, 0));
                 ASSERT_EQ(sd_future_state(waiter), SD_FUTURE_PENDING);
 
-                /* Leave the slot as the sole owner. Await must read the result before freeing it. */
+                /* Drop our reference while the wait is in flight: the waiter still reads the result. */
                 ASSERT_OK(sd_future_resolve(target, result));
                 target = sd_future_unref(target);
 
