@@ -23,6 +23,7 @@ fi
 TESTUSER_UID="$(id -u testuser)"
 RUNTIME="/run/user/$TESTUSER_UID"
 SOCK="$RUNTIME/systemd/io.systemd.AppInstance"
+MONDIR="$RUNTIME/systemd/io.systemd.AppInstanceMonitor"
 
 systemctl_user() {
     systemctl --user --machine "testuser@" "$@"
@@ -66,6 +67,7 @@ at_exit() {
     set +e
 
     systemctl_user stop appd-socktarget.service 2>/dev/null
+    systemctl_user stop appd-monitor.service 2>/dev/null
     systemctl_user stop systemd-appd.service 2>/dev/null
     loginctl disable-linger testuser 2>/dev/null
 }
@@ -312,6 +314,42 @@ testcase_no_such_instance() {
         --graceful=io.systemd.AppInstance.NoSuchInstance \
         io.systemd.AppInstance.Query '{}' 2>&1)"
     grep "returned expected error: io.systemd.AppInstance.NoSuchInstance" <<<"$out" >/dev/null
+}
+
+# Notifications on changes / app disappearing
+testcase_notification_sockets() {
+    local log monsock pid out gen
+    log="$RUNTIME/appd-monitor.log.$RANDOM"
+    monsock="$MONDIR/responder.sock"
+
+    # Impl of io.systemd.AppInstanceMonitor that logs the notifs to a file
+    rm -f "$log"
+    systemctl_user reset-failed appd-monitor.service 2>/dev/null || true
+    # shellcheck disable=SC2016
+    systemd-run --user --machine "testuser@" --quiet --unit=appd-monitor.service \
+        -p Type=notify -p RuntimeDirectory="${MONDIR#"$RUNTIME"/}" -- \
+            systemd-socket-activate --accept --inetd -l "$monsock" -- \
+                bash -c 'IFS= read -r -d "" req
+                    jq -r ".parameters | \"\(.event) \(.id) \(.uniqueId)\"" <<<"$req" >>"$0"
+                    printf "{}\0"' "$log" >&2
+
+    pid="$(start_bg_app com.example.NotifyTarget)"
+
+    # Fire a changed notification (by changing permissions)
+    out="$(user_run_wait varlinkctl call "$SOCK" \
+        io.systemd.AppInstance.Query '{"targetPid":{"pid":'"$pid"'}}')"
+    gen="$(jq -r .generation <<<"$out")"
+    user_run_wait varlinkctl call "$SOCK" io.systemd.AppInstance.SetPermissions \
+        '{"targetPid":{"pid":'"$pid"'},"generation":'"$gen"',"permissions":{"testperm":true}}'
+    # This is synchronous, so the log line should be there by the time SetPermissions returns
+    grep -E 'changed com\.example\.NotifyTarget ' "$log" >/dev/null
+
+    # Make the app quit so that we get notified of its disappearance (asynchronously)
+    kill "$pid" 2>/dev/null || true
+    timeout 30 bash -c "until grep -E 'disappeared com\.example\.NotifyTarget ' '$log' >/dev/null 2>&1; do sleep 0.2; done"
+
+    systemctl_user stop appd-monitor.service 2>/dev/null || true
+    rm -f "$log"
 }
 
 run_testcases
