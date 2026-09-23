@@ -108,7 +108,7 @@ static char* arg_key = NULL;
 static bool arg_cache = true;
 static bool arg_wait = false;
 static bool arg_varlink = false;
-static ImdsNetworkMode arg_network_mode = _IMDS_NETWORK_MODE_INVALID;
+static ImdsNetworkMode arg_network_mode = IMDS_NETWORK_DEFAULT;
 static bool arg_setup_network = false;
 
 /* The follow configure the IMDS service endpoint details */

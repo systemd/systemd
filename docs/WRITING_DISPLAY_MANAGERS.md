@@ -31,7 +31,7 @@ Minimal porting (without multi-seat) requires the following:
 3. Make sure to register your logged in session via the PAM session stack as well, also including pam_systemd in it.
 4. Optionally, use pam_misc_setenv() to set the environment variables XDG_SEAT and XDG_VTNR.
    The former should contain "seat0", the latter the VT number your session runs on. pam_systemd can determine these values automatically but it's nice to pass these variables anyway.
-In summary: porting a display manager from ConsoleKit to systemd primarily means removing code, not necessarily adding any new code. Here, a cheers to simplicity!
+In summary: porting a display manager from ConsoleKit to systemd primarily means removing code, not necessarily adding any new code. Hear, cheers to simplicity!
 
 1. Subscribe to seats showing up and going away, via the systemd-logind D-Bus interface's SeatAdded and SeatRemoved signals.
    Take possession of each seat by spawning your greeter on it.

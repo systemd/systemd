@@ -1,8 +1,8 @@
 #
 #	List of PCI IDs
 #
-#	Version: 2026.09.07
-#	Date:    2026-09-07 03:15:02
+#	Version: 2026.09.22
+#	Date:    2026-09-22 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -113,6 +113,54 @@
 0123  General Dynamics
 0127  MIPS
 0128  Dell (wrong ID)
+# http://www.zeobercom.cn/
+0168  Chengdu ZeoberCom Co.
+# http://www.zeobercom.cn/
+	00ad  Multi-channel analog acquisition card, CPCI/PCI interface
+# http://www.zeobercom.cn/
+	00ca  CAN Serials Card, CPCI/PCI interface,10/more ports.
+# http://www.zeobercom.cn/
+	00da  Multi-channel analog output board, CPCI/PCI interface
+# http://www.zeobercom.cn/
+	00df  Manchester encoding card, CPCI/PCI interface,4/more ports
+# http://www.zeobercom.cn/
+	00ee  PCI-e switch Serials Card, CPCI/PCI interface,4/more ports.
+# http://www.zeobercom.cn/
+	0123  Programmable resistor output board, CPCI/PCI interface,8/more ports.
+# http://www.zeobercom.cn/
+	0232  RS232/RS422/RS485 Serials Card, CPCI/PCI interface,10/more ports.
+# http://www.zeobercom.cn/
+	025e  2.5G Ethenet switch Serials Card, CPCI/PCI interface,4/more ports.
+# http://www.zeobercom.cn/
+	0429  std ARINC429 Serials Card, CPCI/PCI interface, one/more ports.
+# http://www.zeobercom.cn/
+	0818  std ARINC818 Serials Card, CPCI/PCI interface, one/more ports.
+# http://www.zeobercom.cn/
+	0a4e  TSN Serials Card, CPCI/PCI interface,2/more ports.
+# http://www.zeobercom.cn/
+	0afd  AFDX Serials Card, CPCI/PCI interface, one/more ports.
+# http://www.zeobercom.cn/
+	0c32  Multi-channel 32-bit counter board, CPCI/PCI interface
+# http://www.zeobercom.cn/
+	0d10  Discrete I/O Board, CPCI/PCI interface,8/more ports.
+# http://www.zeobercom.cn/
+	0dac  Multi-function Data Acquisition Series Card,, CPCI/PCI interface,8/more ports.
+# http://www.zeobercom.cn/
+	1394  std MIL-STD-1394B Serials Card, CPCI/PCI interface, one/more ports.
+# http://www.zeobercom.cn/
+	1553  1553B card
+# http://www.zeobercom.cn/
+	adda  Analog input/output board, CPCI/PCI interface,8/more ports.
+# http://www.zeobercom.cn/
+	c000  NXP Series Processing Board
+# http://www.zeobercom.cn/
+	c004  Ascend series AI computing card
+# http://www.zeobercom.cn/
+	c006  Longson Series Processing Board
+# http://www.zeobercom.cn/
+	c00f  Phytium Series Processing Board
+# http://www.zeobercom.cn/
+	fcae  FC-AE Serials Card, CPCI/PCI interface, one/more ports.
 # 018a is not LevelOne but there is a board misprogrammed
 018a  LevelOne
 	0106  FPC-0106TX misprogrammed [RTL81xx]
@@ -806,11 +854,13 @@
 	0097  SAS3008 PCI-Express Fusion-MPT SAS-3
 		1000 3090  SAS9311-8i
 		1000 30a0  SAS9300-8e
+		1000 30d0  SAS9300-16e
 		1000 30e0  SAS9300-8i
 		1000 3130  SAS 9300-16i
 		1000 3170  SAS9302-16e
 # IBM SAS3008 HBA controller
 		1014 0457  9302-8i [N2215]
+		1014 04cd  SAS9300-16e
 		1028 1f45  HBA330 Adapter
 		1028 1f46  12Gbps HBA
 		1028 1f53  HBA330 Mini
@@ -7987,6 +8037,7 @@
 		1077 0283  QLE2764 Quad Port 32Gb Fibre Channel to PCIe Adapter
 		1077 029e  QLE2694 Quad Port 16Gb Fibre Channel to PCIe Adapter
 		1077 02a2  QLE2694L Quad Port 16Gb Fibre Channel to PCIe Adapter
+		1077 02a3  QLE2694 Quad Port 16Gb Fibre Channel to PCIe Adapter
 		1077 02ad  QLE2694U Quad Port 16/32Gb Fibre Channel to PCIe Adapter
 	2081  ISP2814-based 64/32G Fibre Channel to PCIe Controller
 		1077 02e1  QLE2874 Quad Port 64GFC PCIe Gen4 x16 Adapter
@@ -9648,6 +9699,7 @@
 		1518 0200  ThinkIO-C
 		15ed 1002  MCCS 8-port Serial Hot Swap
 		15ed 1003  MCCS 16-port Serial Hot Swap
+		1761 1112  50-110A-121
 		1761 1122  Pickering Interfaces 50-297-010
 		1761 1123  Pickering Interfaces 50-297-011
 		1761 1124  Pickering Interfaces 50-297-012
@@ -13649,7 +13701,7 @@
 	2bbc  GB202GL [RTX PRO 6000D Blackwell Max-Q Workstation Edition]
 	2c02  GB203 [GeForce RTX 5080]
 	2c05  GB203 [GeForce RTX 5070 Ti]
-	2c09  GB203
+	2c09  GB203 [GeForce RTX 5070]
 	2c18  GB203M / GN22 [GeForce RTX 5090 Max-Q / Mobile]
 	2c19  GB203M / GN22 [GeForce RTX 5080 Max-Q / Mobile]
 	2c2c  GB6-256(N22W-ES-A1)
@@ -13682,7 +13734,7 @@
 	2e03  GB20B [RTX Spark N1X (6144-core Blackwell RTX GPU)]
 	2e06  GB20B [RTX Spark N1X (5120-core Blackwell RTX GPU)]
 	2e12  GB20B [GB10]
-	2e13  GB20B [Desktop Device]
+	2e13  GB20B [RTX Spark N1X (6144-core Blackwell RTX GPU)]
 # N1X
 	2e2a  GB20B [JMJWOA-Generic-GPU]
 	2f04  GB205 [GeForce RTX 5070]
@@ -13691,10 +13743,11 @@
 	2f38  GB205GLM [RTX PRO 3000 Blackwell Generation Laptop GPU]
 	2f58  GB205M [GeForce RTX 5070 Ti Mobile]
 	2f80  GB205 High Definition Audio Controller
-	2f95  Vera Rubin CPU
-	2f96  Vera Rubin CPU
-	2f97  Vera Rubin CPU
-	2f98  Vera Rubin CPU
+	2f95  TB500 RP x16
+	2f96  TB500 RP x8
+	2f97  TB500 RP x4
+	2f98  TB500 RP x2
+	2f99  TB500 RP x1
 	3000  GR100 [Reserved Dev ID A]
 	3021  GR100 [PCIe Faber]
 	3040  GR100 [Reserved Dev ID B]
@@ -13710,6 +13763,7 @@
 	3224  GB112
 	323e  GB112
 	3340  GB120
+	3400  GB10B [Tegra RP iGPU]
 10df  Emulex Corporation
 	0720  OneConnect NIC (Skyhawk)
 		103c 1934  FlexFabric 20Gb 2-port 650M Adapter
@@ -24308,6 +24362,7 @@
 		1761 331f  50-297A-014
 		1761 3320  50-297A-050
 		1761 3321  50-297A-056
+		1761 3353  50-110B-121
 		1761 3366  41-625-004
 		1761 3368  50-297A-130
 		1761 3372  50-297A-122
@@ -24318,6 +24373,8 @@
 		1761 33b4  50-297A-034
 		1761 33d1  50-297A-151
 		1761 33ed  50-297A-013
+		1761 33f0  50-297A-040
+		1761 33f1  50-297A-031
 		1761 3714  42-297A-050
 1771  InnoVISION Multimedia Ltd.
 1775  General Electric
@@ -25370,6 +25427,10 @@
 		1924 0303  SFE4003-A3
 		1924 0304  SFE4003-A4
 		1924 0500  SFE4005-A0
+	8c03  X4D 1/10/25/40/50/100Gb Ethernet Controller PLUS
+	9c03  X4D 1/10/25/40/50/100Gb Ethernet Controller PLUS (Virtual Function)
+	ac03  X4D 1/10/25/40/50/100Gb Ethernet Controller
+	bc03  X4D 1/10/25/40/50/100Gb Ethernet Controller (Virtual Function)
 	c101  EF1-21022T [EtherFabric]
 192a  BiTMICRO Networks Inc.
 	0008  RAMPART
@@ -25629,6 +25690,8 @@
 	5013  PS5013-E13 PCIe3 NVMe Controller (DRAM-less)
 	5015  PS5015-E15 PCIe3 NVMe Controller (DRAM-less)
 	5016  E16 PCIe4 NVMe Controller
+# TEAM card
+	5017  PS5017 x2 NVMe SD Express SSD Controller (DRAM-less)
 	5018  E18 PCIe4 NVMe Controller
 	5019  PS5019-E19 PCIe4 NVMe Controller (DRAM-less)
 	5020  PS5020-E20 (X1) PCIe4 NVMe Controller
@@ -26827,6 +26890,7 @@
 	0025  FD922
 	0026  FD788
 	0027  FD940
+	0028  FD722
 1c28  Lite-On IT Corp. / Plextor
 	0122  M6e PCI Express SSD [Marvell 88SS9183]
 # previously Fiberblaze
@@ -27138,6 +27202,8 @@
 	0001  Hunter PCI Express
 1c8c  Mobiveil, Inc.
 1ca5  Corerise Electronics Co. Ltd.
+# Gskill Phoenix Blade
+	1241  Comay SBC208 SCSI Controller
 1cb0  Shannon Systems
 	8266  SP4 Series SSD
 		1cb0 2021  SP4 Series OCS U.2 SSD
@@ -28648,6 +28714,7 @@
 		1028 2450  RLC9CZV245T
 	003e  LC9 E3.S NVMe SSD
 	003f  LC9 U.2 NVMe SSD
+	0040  Exceria G3 PCIe 5 NVMe SSD (QLC) (DRAM-less)
 	0042  NVMe SSD Controller LD4
 1e17  Arnold & Richter Cine Technik GmbH & Co. Betriebs KG
 1e18  Beijing GuangRunTong Technology Development Co.,Ltd
@@ -29022,6 +29089,7 @@
 1e59  Oxford Nanopore Technologies
 	0001  MinION Mk1C
 1e5d  ASR Microelectronics
+	3003  Key Stone K1/M1 PCIe 2.0 x2 Root Complex
 	7000  AI controller A7000
 	7010  AI controller A7010
 1e60  Hailo Technologies Ltd.
@@ -30267,8 +30335,8 @@
 	8800  LM-I56N
 2004  Smart Link Ltd.
 201f  SpacemiT
-	0001  X60 PCIe 2.0 x2 Root Complex
-	0002  X100 PCIe Root Complex
+	0001  Key Stone K1 PCIe 2.0 x2 Root Complex
+	0002  Key Stone K3 PCIe Root Complex
 202c  CAEN S.p.A.
 	5818  A5818
 2036  Netforward Microelectronics Co., Ltd.
@@ -30394,6 +30462,8 @@
 		2061 2088  E5300 NVMe SSD 7.68TB PCIe 5.0 U.2
 		2061 2089  E5300 NVMe SSD 12.8TB PCIe 5.0 U.2
 		2061 208a  E5300 NVMe SSD 15.36TB PCIe 5.0 U.2
+		2061 2090  E5300 NVMe SSD 25.6TB PCIe 5.0 U.2
+		2061 2091  E5300 NVMe SSD 30.72TB PCIe 5.0 U.2
 2063  Hubei Yangtze Mason Semiconductor Technology Co., Ltd.
 	0bb8  MC3000
 	0bb9  RC3000
@@ -30477,6 +30547,7 @@
 20b4  Genstoraige Technology Co., Ltd.
 	a20c  PT200A PCIe 5.0 NVMe SSD
 	c25c  MQ205 PCIe 5.0 NVMe SSD
+	d15b  PT150 PCIe 4.0 NVMe SSD
 	d20c  PT200 PCIe 5.0 NVMe SSD
 	d25c  PT205 PCIe 5.0 NVMe SSD
 # PT208 PCIe 5.0 NVMe SSD Device ID
@@ -30564,6 +30635,9 @@
 	0002  Xeetah Development Platform
 # This vendor ID 0x2155 is officially assigned by PCI‑SIG to Hubei Zhuanwei Technology Co., Ltd.
 2155  Hubei Zhuanwei Technology Co., Ltd.
+2159  AIC Semiconductor (Shanghai) Co., Ltd.
+	8d90  AIC8800M80X2P Network controller
+215e  SmarCo HT Tech Inc.
 21b4  Hunan Goke Microelectronics Co., Ltd
 21c3  21st Century Computer Corp.
 22b8  Flex-Logix Technologies
@@ -34273,10 +34347,17 @@
 	1bc7  C740 Series (Emmitsburg) Chipsets Power Management Controller
 	1bc8  C740 Series (Emmitsburg) Chipsets Audio
 	1bc9  C740 Series (Emmitsburg) Chipsets SMBus
+	1bca  C740 Series SPI Controller [Emmitsburg]
 	1bcd  C740 Series (Emmitsburg) Chipsets USB 3.2 Gen 1 xHCI Controller
 		1bd4 00a5  RS0800I5H16i
+	1bce  C740 Series Shared SRAM
 	1bd2  Sapphire Rapids SATA AHCI Controller
 	1bd6  C740 Series (Emmitsburg) Chipsets SATA2 Controller (RAID)
+	1be0  C740 Series ME HECI #1
+	1be1  C740 Series ME HECI #2
+	1be2  C740 Series ME IDE Redirection (IDER-R)
+	1be3  C740 Series ME Keyboard and Text (KT) Redirection
+	1be4  C740 Series ME HECI #3
 	1bf2  Sapphire Rapids SATA AHCI Controller
 	1bf6  C740 Series (Emmitsburg) Chipsets SATA1 Controller (RAID)
 	1c00  6 Series/C200 Series Chipset Family Desktop SATA Controller (IDE mode, ports 0-3)
@@ -37695,12 +37776,15 @@
 	3241  Xeon 6900 6700 6500 Series with P-Cores Processors UPI link/Phy0
 	3242  Xeon 6900 6700 6500 Series with P-Cores Processors UPI Phy0
 	3245  Xeon 6900 6700 6500 Series with P-Cores Processors UPI
+	3246  Xeon 6900 6700 6500 Series with P-Cores Processors UPI PMON0 Registers
+	3247  Xeon 6900 6700 6500 Series with P-Cores Processors UPI PMON1 Registers
 	324a  Xeon 6900 6700 6500 Series with P-Cores Processors IMC
 	324c  Xeon 6900 6700 6500 Series with P-Cores Processors CHA Unicast Group 1
 	324d  Xeon 6900 6700 6500 Series with P-Cores Processors CHA Unicast Group 0
 	3250  Xeon 6900 6700 6500 Series with P-Cores Processors Ubox Event Control
 	3251  Xeon 6900 6700 6500 Series with P-Cores Processors Ubox Register Access Control Unit
 	3252  Xeon 6900 6700 6500 Series with P-Cores Processors Ubox Decode
+	3255  Xeon 6900 6700 6500 Series with P-Cores Processors MS2UBox
 	3256  Xeon 6900 6700 6500 Series with P-Cores Processors Trace Hub
 	3258  Power Control Unit (PCU) CR0
 	3259  Power Control Unit (PCU) CR1
@@ -39019,6 +39103,7 @@
 	51fc  Alder Lake-P Integrated Sensor Hub
 		1028 0b10  Precision 3571
 		1028 0c06  Precision 3580
+	51ff  Alder Lake UFS Controller
 	5200  EtherExpress PRO/100 Intelligent Server PCI Bridge
 	5201  EtherExpress PRO/100 Intelligent Server Fast Ethernet Controller
 		8086 0001  EtherExpress PRO/100 Server Ethernet Adapter
@@ -39279,15 +39364,40 @@
 	6750  CRI
 	6e23  Nova Lake PCH-S SMbus Controller
 	6e24  Nova Lake PCH-S SPI Controller
+	6e27  Nova Lake PCH-S Shared SRAM
 	6e28  Nova Lake PCH-S Serial IO UART Controller #0
 	6e29  Nova Lake PCH-S Serial IO UART Controller #1
 	6e2a  Nova Lake PCH-S Serial IO SPI Controller #0
 	6e2b  Nova Lake PCH-S Serial IO SPI Controller #1
+	6e30  900 Series Chipset Family PCIe Root Port #9
+	6e31  900 Series Chipset Family PCIe Root Port #10
+	6e32  900 Series Chipset Family PCIe Root Port #11
+	6e33  900 Series Chipset Family PCIe Root Port #12
+	6e34  900 Series Chipset Family PCIe Root Port #13
+	6e35  900 Series Chipset Family PCIe Root Port #14
+	6e38  900 Series Chipset Family PCIe Root Port #1
+	6e39  900 Series Chipset Family PCIe Root Port #2
+	6e3a  900 Series Chipset Family PCIe Root Port #3
+	6e3b  900 Series Chipset Family PCIe Root Port #4
+	6e3c  900 Series Chipset Family PCIe Root Port #5
+	6e3d  900 Series Chipset Family PCIe Root Port #6
+	6e3e  900 Series Chipset Family PCIe Root Port #7
+	6e3f  900 Series Chipset Family PCIe Root Port #8
+	6e40  900 Series Chipset Family PCIe Root Port #17
+	6e41  900 Series Chipset Family PCIe Root Port #18
+	6e42  900 Series Chipset Family PCIe Root Port #19
+	6e43  900 Series Chipset Family PCIe Root Port #20
+	6e44  900 Series Chipset Family PCIe Root Port #21
+	6e45  900 Series Chipset Family PCIe Root Port #22
+	6e46  900 Series Chipset Family PCIe Root Port #23
+	6e47  900 Series Chipset Family PCIe Root Port #24
 	6e4c  Nova Lake PCH-S Serial IO I2C Controller #0
 	6e4d  Nova Lake PCH-S Serial IO I2C Controller #1
 	6e4e  Nova Lake PCH-S Serial IO I2C Controller #2
 	6e4f  Nova Lake PCH-S Serial IO I2C Controller #3
 	6e5e  Nova Lake PCH-S Serial IO SPI Controller #2
+	6e68  Nova Lake PCH-S CSME HECI #1
+	6e6e  Nova Lake PCH-S USB 3.2 xHCI HC
 	6e7a  Nova Lake PCH-S Serial IO I2C Controller #4
 	6e7b  Nova Lake PCH-S Serial IO I2C Controller #5
 	6f00  Xeon E7 v4/Xeon E5 v4/Xeon E3 v4/Xeon D DMI2
@@ -40045,7 +40155,7 @@
 	8c1d  8 Series/C220 Series Chipset Family PCI Express Root Port #7
 	8c1e  8 Series/C220 Series Chipset Family PCI Express Root Port #8
 	8c1f  8 Series/C220 Series Chipset Family PCI Express Root Port #8
-	8c20  8 Series/C220 Series Chipset High Definition Audio Controller
+	8c20  8 Series/C220/C740 Series Chipset High Definition Audio Controller
 		1028 05d7  Alienware X51 R2
 		103c 1909  ZBook 15
 		103c 1998  EliteDesk 800 G1
@@ -40288,6 +40398,7 @@
 	96a1  Integrated RAID
 	9840  Lakefield GT2 [UHD Graphics]
 	9841  Lakefield GT1.5 [UHD Graphics]
+	98fa  Lakefield UFS Controller
 	9a01  11th Gen Core Processor PCIe Controller #1
 	9a02  Tiger Lake-UP4 2 cores Host Bridge/DRAM Registers
 	9a03  TigerLake-LP Dynamic Tuning Processor Participant
@@ -41349,29 +41460,83 @@
 	d156  Core Processor Semaphore and Scratchpad Registers
 	d157  Core Processor System Control and Status Registers
 	d158  Core Processor Miscellaneous Registers
+	d320  Core Ultra Processors (Series 4) P2SB 8b
+	d321  Core Ultra Processors (Series 4) PMC
 	d323  Nova Lake PCD-H SPI Controller
+	d324  Core Ultra Processors (Series 4) Trace Hub
 	d325  Nova Lake PCD-H Serial IO UART Controller #0
 	d326  Nova Lake PCD-H Serial IO UART Controller #1
 	d327  Nova Lake PCD-H Serial IO SPI Controller #0
 	d330  Nova Lake PCD-H Serial IO SPI Controller #1
 	d331  Nova Lake-H Thunderbolt 5 USB Controller
 	d333  Nova Lake-H Thunderbolt 5 NHI #0
+	d335  Core Ultra Processors (Series 4) UFS Controller
+	d338  Core Ultra Processors (Series 4) PCIe Gen4 Root Port #1
+	d339  Core Ultra Processors (Series 4) PCIe Gen4 Root Port #2
+	d33a  Core Ultra Processors (Series 4) PCIe Gen4 Root Port #3
+	d33b  Core Ultra Processors (Series 4) PCIe Gen4 Root Port #4
+	d33c  Core Ultra Processors (Series 4) PCIe Gen4 Root Port #5
+	d33d  Core Ultra Processors (Series 4) PCIe Gen4 Root Port #6
+	d33e  Core Ultra Processors (Series 4) PCIe Gen4 Root Port #7
+	d33f  Core Ultra Processors (Series 4) PCIe Gen4 Root Port #8
+	d344  Core Ultra Processors (Series 4) IEH #0
+	d345  Core Ultra Processors (Series 4) IEH #1
+	d346  Core Ultra Processors (Series 4) CNVi Bluetooth
 	d347  Nova Lake PCD-H Serial IO SPI Controller #2
+	d348  Core Ultra Processors (Series 4) THC #0 ID1
+	d349  Core Ultra Processors (Series 4) THC #0 ID2
+	d34a  Core Ultra Processors (Series 4) THC #1 ID1
+	d34b  Core Ultra Processors (Series 4) THC #1 ID2
+	d34c  Core Ultra Processors (Series 4) P2SB 16b
 	d34e  Nova Lake-H Thunderbolt 5 PCI Express Root Port #0
 	d34f  Nova Lake-H Thunderbolt 5 PCI Express Root Port #1
 	d350  Nova Lake PCD-H Serial IO I2C Controller #4
 	d351  Nova Lake PCD-H Serial IO I2C Controller #5
 	d352  Nova Lake PCD-H Serial IO UART Controller #2
+	d354  Core Ultra Processors (Series 4) ISH
+	d358  Core Ultra Processors (Series 4) SSE HECI #1
+	d359  Core Ultra Processors (Series 4) SSE HECI #2
+	d35a  Core Ultra Processors (Series 4) SSE HECI #3
+	d35c  Core Ultra Processors (Series 4) PCIe Gen5 Root Port #10
 	d360  Nova Lake-H Thunderbolt 5 PCI Express Root Port #2
+	d361  Core Ultra Processors (Series 4) PCIe Gen5 Root Port #9
+	d362  Core Ultra Processors (Series 4) PSE HECI #1
+	d363  Core Ultra Processors (Series 4) PSE HECI #2
+	d364  Core Ultra Processors (Series 4) PSE HECI #3
+	d365  Core Ultra Processors (Series 4) PCIe Gen5 Root Port #11
+	d366  Core Ultra Processors (Series 4) PCIe Gen5 Root Port #12
+	d367  Core Ultra Processors (Series 4) PCIe Gen5 Root Port #13
+	d368  Core Ultra Processors (Series 4) PCIe Gen5 Root Port #14
+	d36f  Core Ultra Processors (Series 4) I3C #2
+	d370  Core Ultra Processors (Series 4) CSME HECI #1
+	d371  Core Ultra Processors (Series 4) CSME HECI #2
+	d372  Core Ultra Processors (Series 4) CSME IDE Redirection (IDER-R)
+	d373  Core Ultra Processors (Series 4) CSME Keyboard and Text (KT) Redirection
+	d374  Core Ultra Processors (Series 4) CSME HECI #3
+	d375  Core Ultra Processors (Series 4) CSME HECI #4
 	d378  Nova Lake PCD-H Serial IO I2C Controller #0
 	d379  Nova Lake PCD-H Serial IO I2C Controller #1
 	d37a  Nova Lake PCD-H Serial IO I2C Controller #2
 	d37b  Nova Lake PCD-H Serial IO I2C Controller #3
+	d37c  Core Ultra Processors (Series 4) I3C #1
+	d37d  Core Ultra Processors (Series 4) Standalone xHCI Controller
+	d37e  Core Ultra Processors (Series 4) PMC Shared SRAM
+	d37f  Core Ultra Processors (Series 4) Standalone xDCI Controller
+	d423  Core Ultra Processors (Series 4) SPI (flash) Controller
 	d431  Nova Lake-S Thunderbolt 5 USB Controller
 	d433  Nova Lake-S Thunderbolt 5 NHI #0
 	d44e  Nova Lake-S Thunderbolt 5 PCI Express Root Port #0
 	d44f  Nova Lake-S Thunderbolt 5 PCI Express Root Port #1
 	d460  Nova Lake-S Thunderbolt 5 PCI Express Root Port #2
+	d462  Core Ultra Processors (Series 4) PSE HECI #1
+	d470  Core Ultra Processors (Series 4) ESE++ HECI #1
+	d47e  Core Ultra Processors (Series 4) Shared SRAM
+	d703  Core Ultra Processors (Series 4) DTT
+	d70b  Core Ultra Processors (Series 4) VMD
+	d70d  Core Ultra Processors (Series 4) Crashlog and Telemetry
+	d719  Core Ultra Processors (Series 4) IPU
+	d71d  Core Ultra Processors (Series 4) NPU
+	d72d  Core Ultra Processors (Series 4) IAA
 	d740  NVL-S
 	d741  NVL-U
 	d742  NVL-H
@@ -42364,9 +42529,6 @@ a200  NEC Corporation
 a259  Hewlett Packard
 a25b  Hewlett Packard GmbH PL24-MKT
 a304  Sony
-a69c  AIC Semiconductor (Shanghai) CO., Ltd.
-# Kernel driver in use: aic8800m80x2p_fdrv
-	8d90  AIC8800M80X2P Network controller
 a727  3Com Corporation
 	0013  3CRPAG175 Wireless PC Card
 	6803  3CRDAG675B Wireless 11a/b/g Adapter

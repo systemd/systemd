@@ -13,6 +13,12 @@ release=/run/dbus-reconnect-release
 notify=/run/dbus-reconnect-notify
 reloaded=/run/dbus-reconnect-reloaded
 
+# Five restarts + boot time start trips the default start rate limit.
+systemctl edit --runtime --stdin dbus.service --drop-in=99-no-start-limit.conf <<EOF
+[Unit]
+StartLimitIntervalSec=0
+EOF
+
 at_exit() {
     rm -f "$marker" "$release" "$notify" "$reloaded"
     systemctl stop \
@@ -159,3 +165,5 @@ systemctl daemon-reexec
 touch "$marker"
 poll "$unit" SubState running
 systemctl stop "$unit"
+
+touch /testok

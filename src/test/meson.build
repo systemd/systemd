@@ -57,6 +57,7 @@ generated_sources += [test_libsystemd_sym_c, test_libudev_sym_c]
 
 simple_tests += files(
         'test-alloc-util.c',
+        'test-ansi-seq.c',
         'test-architecture.c',
         'test-argv-util.c',
         'test-arphrd-util.c',
@@ -291,6 +292,11 @@ executables += [
                         libaudit_cflags,
                         libselinux_cflags,
                 ],
+        },
+        test_template + {
+                'sources' : files('test-console-stdio.c'),
+                'type' : 'unsafe',
+                'parallel' : false,
         },
         test_template + {
                 'sources' : files('test-coredump-stacktrace.c'),

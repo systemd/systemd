@@ -96,7 +96,7 @@ node /org/freedesktop/sysupdate1 {
 
       <para>The <function>JobRemoved()</function> signal is sent each time a job finishes,
       is canceled or fails. It also carries the job ID and object path, followed by a numeric status
-      code. If the status is zero, the job has succeed. A positive status should be treated as an
+      code. If the status is zero, the job has succeeded. A positive status should be treated as an
       exit code (i.e. <literal>EXIT_FAILURE</literal>), and a negative status should be treated as a
       negative errno-style error code (i.e. <literal>-EINVAL</literal>).</para>
     </refsect2>
@@ -333,7 +333,7 @@ node /org/freedesktop/sysupdate1/target/host {
         </varlistentry>
 
         <varlistentry>
-          <term><literal>isEnabled</literal></term>
+          <term><literal>enabled</literal></term>
           <listitem><para>A boolean indicating whether this feature is enabled.</para></listitem>
         </varlistentry>
 
@@ -350,7 +350,7 @@ node /org/freedesktop/sysupdate1/target/host {
         </varlistentry>
 
         <varlistentry>
-          <term><literal>appstream</literal></term>
+          <term><literal>appStream</literal></term>
           <listitem><para>An optional string that contains an HTTP/HTTPS URL to an
           <ulink url="https://wwww.freedesktop.org/software/appstream/docs/chap-CatalogData.html">appstream
           catalog</ulink> XML file containing metadata about this feature.</para></listitem>

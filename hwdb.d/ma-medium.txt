@@ -15413,6 +15413,66 @@ E00000-EFFFFF     (base 16)		Green ACS Sp. z o.o.
 				Wroclaw  Dolnoslaskie  52-130
 				PL
 
+CC-82-7B   (hex)		Ecotron Corporation
+900000-9FFFFF     (base 16)		Ecotron Corporation
+				2942 Columbia St
+				Torrance  CA  90503
+				US
+
+CC-82-7B   (hex)		ACS Motion Control
+200000-2FFFFF     (base 16)		ACS Motion Control
+				5 Ha'Tnufa st. 
+				Yokneam    2066717
+				IL
+
+CC-82-7B   (hex)		Tedee Sp. z o.o.
+000000-0FFFFF     (base 16)		Tedee Sp. z o.o.
+				Ul. Karola Bohdanowicza 21/57PL7010795542
+				Warszawa  Malopolskie  02-127
+				PL
+
+CC-82-7B   (hex)		UNIWORLD VISION PVT LTD
+600000-6FFFFF     (base 16)		UNIWORLD VISION PVT LTD
+				WARD NO-31, ROAD NO-3 AZADNAGAR 
+				Patna  BIHAR  800020
+				IN
+
+CC-82-7B   (hex)		iGentAI Computing Technology(Shenzhen) Co., Ltd.
+B00000-BFFFFF     (base 16)		iGentAI Computing Technology(Shenzhen) Co., Ltd.
+				Room 1201, Tower A, Building 7, Shenzhen International Innovation Valley, Bashi 1st Road, Xili Community, Xili Street, Nanshan District, Shenzhen City, Guangdong Province China.
+				Shenzhen City  Guangdong Province  518000
+				CN
+
+CC-82-7B   (hex)		Cron AI
+100000-1FFFFF     (base 16)		Cron AI
+				4-6 Canfield Place
+				London    NW6 3BT
+				GB
+
+CC-82-7B   (hex)		UNILEAP Technology Inc.
+800000-8FFFFF     (base 16)		UNILEAP Technology Inc.
+				8 F., No. 198, Jian 8th Rd., Zhonghe Dist.
+				New Taipei City    235042
+				TW
+
+CC-82-7B   (hex)		Applied Materials
+E00000-EFFFFF     (base 16)		Applied Materials
+				2100 Brighton Henrietta Townline Rd
+				Rochester  NY  14623
+				US
+
+C8-F1-0A   (hex)		Nanjing Brome Communications Technology CO.,LTD 
+600000-6FFFFF     (base 16)		Nanjing Brome Communications Technology CO.,LTD 
+				Room 618, building B, No.6 Yongzhi Road, Qinhuai District, Nanjing, P.R.China
+				Nanjing    210014
+				CN
+
+C8-F1-0A   (hex)		CiDi Inc.
+300000-3FFFFF     (base 16)		CiDi Inc.
+				Room 101, Building 1, Intelligent Driving Industrial Park,No.60 Hebaotang West Road, Yuelu District,Changsha City, Hunan Province, P.R.China
+				Changsha   Hunan  410205
+				CN
+
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
 				140 58th St. Bldg A, Ste 2N
@@ -22616,12 +22676,6 @@ F4-97-9D   (hex)		LUXSHARE - ICT(NGHE AN) LIMITED
 				Nghe An  Nghe An  460000 
 				VN
 
-F4-97-9D   (hex)		camnex innovation pvt ltd
-600000-6FFFFF     (base 16)		camnex innovation pvt ltd
-				8th floor, platina Heights,C24,Sector 62
-				Noida  UTTAR PRADESH  201301
-				IN
-
 F4-97-9D   (hex)		Tardis Technology
 000000-0FFFFF     (base 16)		Tardis Technology
 				2-30, Maenser Space, 145 Shindae-ro
@@ -23473,6 +23527,24 @@ A00000-AFFFFF     (base 16)		Shenzhen Yidao Intelligent Technology Co.,Ltd.
 				Room 403-D38, Jinli Commercial Plaza, No. 26 Jinpeng Road, Changlong Community, Buji Subdistrict, Longgang District, Shenzhen City, Guangdong Province, P.R.China
 				Shenzhen City  Guangdong Province  518112
 				CN
+
+CC-82-7B   (hex)		Converging Systems Inc.
+A00000-AFFFFF     (base 16)		Converging Systems Inc.
+				32420 Nautilus Drive
+				Rancho Palos Verdes  CA  90275
+				US
+
+F4-97-9D   (hex)		Camnex Innovations Private Limited
+600000-6FFFFF     (base 16)		Camnex Innovations Private Limited
+				8th floor, platina Heights,C24,Sector 62
+				Noida  UTTAR PRADESH  201301
+				IN
+
+CC-82-7B   (hex)		Opsys Tech Inc
+700000-7FFFFF     (base 16)		Opsys Tech Inc
+				697 E Brokaw Road
+				San Jose  CA  95112
+				US
 
 D0-14-11   (hex)		P.B. Elettronica srl
 100000-1FFFFF     (base 16)		P.B. Elettronica srl
@@ -31252,6 +31324,30 @@ EC-BA-34   (hex)		femrice
 				Rm408,Tower B,Jiahu Building,Shangdi 3rd Street,Haidian,Beijing,China
 				Beijing    100085
 				CN
+
+CC-82-7B   (hex)		Good Trend Technology Co.Ltd.(Shanghai).
+D00000-DFFFFF     (base 16)		Good Trend Technology Co.Ltd.(Shanghai).
+				Room A902 & A903, Building 6, No. 1618 Yishan Road, Minhang District
+				Shanghai    201100
+				CN
+
+CC-82-7B   (hex)		RNL Technology(Shenzhen) Co., Ltd
+C00000-CFFFFF     (base 16)		RNL Technology(Shenzhen) Co., Ltd
+				39th Floor, Building 12A, Shenzhen Bay Science and Technology Ecological Park, Nanshan District
+				Shenzhen  guangdong  158000
+				CN
+
+CC-82-7B   (hex)		Shenzhen Fengruixiang Intelligent Technology Co., Ltd.
+300000-3FFFFF     (base 16)		Shenzhen Fengruixiang Intelligent Technology Co., Ltd.
+				Room 2108, Longhu Junhui No.4745 Longhua Avenue, Qinghua Community, Longhua Street, Longhua District, Shenzhen
+				Shenzhen     518000
+				CN
+
+CC-82-7B   (hex)		Mistlabs Limited
+400000-4FFFFF     (base 16)		Mistlabs Limited
+				8 THE GREEN STE A, DOVER, KENT, Delaware, 19901, U.S.A
+				DOVER  DE  19901
+				US
 
 C8-5C-E2   (hex)		Fela Management AG 
 000000-0FFFFF     (base 16)		Fela Management AG 
@@ -39250,3 +39346,9 @@ EC-BA-34   (hex)		CITIZEN T.I.C. CO., LTD.
 				5-6-12 Maehara-cho
 				Koganei-shi  Tokyo (東京都)  1840013
 				JP
+
+CC-82-7B   (hex)		TALENTPROS SYSTEM INNOVATION CO., LTD.
+500000-5FFFFF     (base 16)		TALENTPROS SYSTEM INNOVATION CO., LTD.
+				4 F.-1, No. 95, Weixin St., Zhubei City, Hsinchu County 302081, Taiwan
+				Zhubei City  Hsinchu County  302081
+				TW

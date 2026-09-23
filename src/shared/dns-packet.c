@@ -297,6 +297,8 @@ DnsPacket *dns_packet_unref(DnsPacket *p) {
         return NULL;
 }
 
+DEFINE_POINTER_ARRAY_FREE_FUNC(DnsPacket*, dns_packet_unref);
+
 int dns_packet_validate(DnsPacket *p) {
         assert(p);
 
@@ -1583,7 +1585,7 @@ int dns_packet_read_name(
         assert(p);
 
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
-        size_t after_rindex = 0, jump_barrier = p->rindex;
+        size_t after_rindex = 0, jump_barrier = p->rindex, jumps = 0;
         _cleanup_free_ char *name = NULL;
         bool first = true;
         size_t n = 0, m = 0;
@@ -1641,6 +1643,9 @@ int dns_packet_read_name(
 
                         ptr = (uint16_t) (c & ~(DNS_COMPRESSION_POINTER_FLAG >> 8)) << 8 | (uint16_t) d;
                         if (ptr < DNS_PACKET_HEADER_SIZE || ptr >= jump_barrier)
+                                return -EBADMSG;
+
+                        if (jumps++ >= DNS_COMPRESSION_JUMPS_MAX)
                                 return -EBADMSG;
 
                         if (after_rindex == 0)
