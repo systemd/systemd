@@ -255,7 +255,7 @@ static DnssdDiscoveredService* dnssd_discovered_service_free(DnssdDiscoveredServ
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(DnssdDiscoveredService, dnssd_discovered_service, dnssd_discovered_service_free);
 
-static int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t t, usec_t until) {
+static int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t until) {
         assert(service);
         assert(rr);
 
@@ -307,7 +307,6 @@ int dns_service_match_and_update(
                 int ifindex,
                 usec_t until) {
 
-        usec_t t = now(CLOCK_BOOTTIME);
         int r;
 
         /* Check if a discovered service matching the given resource record, owner family, and ifindex exists
@@ -325,7 +324,7 @@ int dns_service_match_and_update(
                         return 1;
 
                 if (service->until < until)
-                        mdns_service_update(service, rr, t, until);
+                        mdns_service_update(service, rr, until);
 
                 return 1;
         }
