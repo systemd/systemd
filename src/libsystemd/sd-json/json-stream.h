@@ -75,6 +75,7 @@ typedef struct JsonStream {
 
         int input_fd;
         int output_fd;
+        int input_socket_type; /* Cached SO_TYPE, or 0 for non-socket input. */
 
         usec_t timeout;          /* relative; USEC_INFINITY = no timeout */
         usec_t last_activity;    /* CLOCK_MONOTONIC */
