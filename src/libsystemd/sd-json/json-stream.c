@@ -1033,12 +1033,9 @@ static int json_stream_format_queue(JsonStream *s) {
                  * Stop here and let json_stream_write() drain the buffer first; the next write()
                  * call will pull this item into a clean buffer.
                  *
-                 * Note: this only produces a difference on SOCK_SEQPACKET / SOCK_DGRAM, where
-                 * each sendmsg() is its own datagram with its own SCM_RIGHTS cmsg. On AF_UNIX
-                 * SOCK_STREAM the kernel absorbs a preceding non-scm skb forward into the
-                 * next scm-bearing skb's recv, so per-sendmsg separation is invisible to the
-                 * receiver anyway. Kept as cheap defensive sender hygiene that's necessary
-                 * the moment a SEQPACKET/DGRAM consumer wires JsonStream up. */
+                 * On AF_UNIX SOCK_STREAM, separate sendmsg() calls alone are not sufficient:
+                 * recvmsg() may combine preceding data with the next SCM_RIGHTS-bearing send.
+                 * The receive side must also stop at message boundaries to keep the association. */
                 if (q->n_fds > 0 && s->output_buffer_size > 0)
                         return 0;
 
@@ -1174,14 +1171,15 @@ int json_stream_write(JsonStream *s) {
 
 /* ===== Read side ===== */
 
-/* In bounded-reads mode, peek at the socket data to find the delimiter and return a read
- * size that won't consume past it. This prevents over-reading data that belongs to whatever
- * protocol the socket is being handed off to. Falls back to byte-by-byte for non-socket fds
- * where MSG_PEEK is not available. */
+/* Peek at the socket data to find the delimiter and return a read size that won't consume past it.
+ * Besides preserving data for protocol handoff, this keeps SCM_RIGHTS from a later message from being
+ * received with an earlier message that carries no file descriptors. Falls back to byte-by-byte for
+ * non-socket fds where MSG_PEEK is not available. */
 static ssize_t json_stream_peek_message_boundary(JsonStream *s, void *p, size_t rs) {
         assert(s);
 
-        if (!FLAGS_SET(s->flags, JSON_STREAM_BOUNDED_READS))
+        if (!FLAGS_SET(s->flags, JSON_STREAM_BOUNDED_READS) &&
+            !FLAGS_SET(s->flags, JSON_STREAM_ALLOW_FD_PASSING_INPUT))
                 return rs;
 
         if (FLAGS_SET(s->flags, JSON_STREAM_PREFER_READ))
@@ -1200,9 +1198,11 @@ static ssize_t json_stream_peek_message_boundary(JsonStream *s, void *p, size_t 
                 return rs;
 
         size_t dsz = json_stream_delimiter_size(s);
-        void *delim = memmem_safe(p, peeked, s->delimiter ?: "\0", dsz);
+        /* Include the buffered suffix in case the delimiter straddles the old and new data. */
+        size_t rescan = MIN(s->input_buffer_size, dsz - 1);
+        void *delim = memmem_safe((char*) p - rescan, rescan + peeked, s->delimiter ?: "\0", dsz);
         if (delim)
-                return (ssize_t) ((char*) delim - (char*) p) + dsz;
+                return (char*) delim + dsz - (char*) p;
 
         return peeked;
 }
@@ -1259,9 +1259,7 @@ int json_stream_read(JsonStream *s) {
 
         rs = MALLOC_SIZEOF_SAFE(s->input_buffer) - (s->input_buffer_index + s->input_buffer_size);
 
-        /* If a protocol upgrade may follow, ensure we don't consume any post-upgrade bytes by
-         * limiting the read to the next delimiter. Uses MSG_PEEK on sockets, single-byte reads
-         * otherwise. */
+        /* Preserve message boundaries when receiving file descriptors or preparing a protocol upgrade. */
         rs = json_stream_peek_message_boundary(s, p, rs);
         if (rs < 0)
                 return json_stream_log_errno(s, (int) rs, "Failed to peek message boundary: %m");
