@@ -394,6 +394,8 @@ static int mock_qmp_call_fiber(void *userdata) {
         mock_qmp_init(&s, PTR_TO_FD(userdata));
         mock_qmp_handshake(&s);
 
+        /* The client cancels the first query-status and discards the reply to it. */
+        mock_qmp_query_status_running(&s);
         mock_qmp_query_status_running(&s);
         mock_qmp_expect_and_reply_error(&s, "stop", "not running");
         mock_qmp_expect_and_reply_error(&s, "stop", "still not running");
@@ -406,12 +408,21 @@ static int qmp_client_call_fiber(void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
         _cleanup_free_ char *error_desc = NULL;
 
+        /* A cancelled call has no reply, so the getter returns the result of the future. */
+        ASSERT_OK(qmp_client_call_future(client, "query-status", NULL, &f));
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(future_get_qmp_reply(f, &result, &error_desc)), EBUSY);
+        ASSERT_OK(sd_future_cancel(f));
+        ASSERT_ERROR(future_get_qmp_reply(f, &result, &error_desc), ECANCELED);
+        ASSERT_NULL(result);
+        ASSERT_NULL(error_desc);
+        f = sd_future_unref(f);
+
         /* Exercise qmp_client_call_future() + sd_fiber_await() + future_get_qmp_reply()
          * directly — success path. */
         ASSERT_OK(qmp_client_call_future(client, "query-status", NULL, &f));
         ASSERT_OK(sd_fiber_await(f));
         ASSERT_OK(sd_future_result(f));
-        ASSERT_OK(future_get_qmp_reply(f, &result, &error_desc));
+        ASSERT_OK_POSITIVE(future_get_qmp_reply(f, &result, &error_desc));
 
         ASSERT_NULL(error_desc);
         sd_json_variant *running = ASSERT_NOT_NULL(sd_json_variant_by_key(result, "running"));
