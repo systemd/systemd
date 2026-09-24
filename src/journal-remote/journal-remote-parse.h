@@ -14,6 +14,7 @@ typedef struct RemoteSource {
         sd_event_source *event;
         sd_event_source *buffer_event;
         Compression compression;
+        Decompressor *decompressor;
         char *encoding;
 } RemoteSource;
 
