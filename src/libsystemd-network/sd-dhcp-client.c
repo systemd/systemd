@@ -854,10 +854,13 @@ static int client_restart(sd_dhcp_client *client) {
         assert(client);
         DHCP_CLIENT_DONT_DESTROY(client);
 
-        /* This is called when we receive a DHCPNAK or could not receive any replies. */
+        /* This is called when we receive a DHCPNAK, a DECLINE after conflict
+         * or could not receive any replies. */
 
         /* First, if we have a bound lease, then notify it is expired. */
         if (IN_SET(client->state, DHCP_STATE_BOUND, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING)) {
+                /* The network refused the address, so this is not an expiry due to elapsed lifetime. */
+                client->lease_timed_out = false;
                 client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
 
                 if (client->state == DHCP_STATE_STOPPED)
@@ -885,10 +888,15 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userda
 
         log_dhcp_client(client, "EXPIRED");
 
+        client->lease_timed_out = true;
         client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
 
         if (client->state == DHCP_STATE_STOPPED)
                 return 0; /* The notify callback stopped the client. */
+
+        /* If we may keep using the expired lease, do not restart the client. */
+        if (client->keep_expired_lease)
+                return 0;
 
         r = client_start(client);
         if (r < 0)
@@ -1082,6 +1090,10 @@ static int client_enter_bound(sd_dhcp_client *client, sd_dhcp_lease *lease) {
                 else
                         notify_event = SD_DHCP_CLIENT_EVENT_IP_CHANGE;
                 break;
+        case DHCP_STATE_STOPPED:
+                /* Entering bound state with a lease loaded from persistent storage. */
+                notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
+                break;
         default:
                 assert_not_reached();
         }
@@ -1091,6 +1103,7 @@ static int client_enter_bound(sd_dhcp_client *client, sd_dhcp_lease *lease) {
         client_disable_event_sources(client);
 
         client->start_delay = 0;
+        client->lease_timed_out = false;
 
         client_set_state(client, DHCP_STATE_BOUND);
 
