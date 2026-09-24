@@ -2174,11 +2174,16 @@ static int unit_update_cgroup(
                 crt->cgroup_enabled_mask = result_mask;
         }
 
+        /* Apply cleared cpuset limits even if the controller is no longer needed, before forgetting the
+         * previous realized mask. Honor DisableControllers= as we do for the target mask. */
+        CGroupMask apply_mask = target_mask |
+                (crt->cgroup_realized_mask & CGROUP_MASK_CPUSET & ~unit_get_ancestor_disable_mask(u));
+
         /* Keep track that this is now realized */
         crt->cgroup_realized_mask = target_mask;
 
         /* Set attributes */
-        cgroup_context_apply(u, target_mask, state);
+        cgroup_context_apply(u, apply_mask, state);
         cgroup_xattr_apply(u);
 
         /* For most units we expect that pressure monitoring is set up before the unit is started and we
