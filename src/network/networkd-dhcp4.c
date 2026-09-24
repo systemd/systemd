@@ -1143,6 +1143,28 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         return dhcp4_request_address_and_routes(link, true);
 }
 
+static DHCPClientPersistLeases link_get_dhcp_client_persist_leases(Link *link) {
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        if (link->network->dhcp_client_persist_leases >= 0)
+                return link->network->dhcp_client_persist_leases;
+
+        return link->manager->dhcp_client_persist_leases;
+}
+
+int is_dhcp_client_persist_leases(Link *link) {
+        return link_get_dhcp_client_persist_leases(link) > 0;
+}
+
+int is_dhcp_client_persist_lease_expired(Link *link) {
+        DHCPClientPersistLeases v = link_get_dhcp_client_persist_leases(link);
+
+        /* The unset value is -EINVAL, whose bit pattern includes the EXPIRED bit,
+         * so the sign has to be tested before the flag. */
+        return v > 0 && FLAGS_SET(v, DHCP_CLIENT_PERSIST_LEASES_EXPIRED);
+}
 static int dhcp_lease_ip_change(sd_dhcp_client *client, Link *link) {
         int r;
 
