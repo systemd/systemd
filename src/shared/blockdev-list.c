@@ -205,8 +205,8 @@ int blockdev_list_one(
                         goto no_match;
         }
 
-        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ZRAM)) {
-                r = device_sysname_startswith(dev, "zram");
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_RAMDISK)) {
+                r = device_sysname_startswith(dev, "ram");
                 if (r < 0) {
                         log_device_warning_errno(dev, r, "Failed to check device name of discovered block device '%s', ignoring: %m", node);
                         goto skipped;

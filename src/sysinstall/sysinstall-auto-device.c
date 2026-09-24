@@ -27,7 +27,7 @@
  * $SYSTEMD_SYSINSTALL_PERMIT_AUTO_TARGET_LOOP env var says otherwise, see auto_device_list_flags()). */
 #define AUTO_DEVICE_LIST_FLAGS                          \
         (BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING |     \
-         BLOCKDEV_LIST_IGNORE_ZRAM |                    \
+         BLOCKDEV_LIST_IGNORE_RAMDISK |                 \
          BLOCKDEV_LIST_IGNORE_READ_ONLY |               \
          BLOCKDEV_LIST_IGNORE_ROOT |                    \
          BLOCKDEV_LIST_IGNORE_EMPTY |                   \

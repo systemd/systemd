@@ -88,7 +88,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("list-devices", NULL,
                             "List candidate block devices to operate on"):
-                        r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM, /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
+                        r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_RAMDISK,
+                                          /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
                         if (r < 0)
                                 return r;
 
