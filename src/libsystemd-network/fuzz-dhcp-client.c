@@ -14,6 +14,7 @@
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         static const struct hw_addr_data hw_addr = {
@@ -75,6 +76,15 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
                         ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
                 }
+
+                /* Save the lease to a file and load it back. */
+                _cleanup_(unlink_tempfilep) char lease_file[] = "/tmp/fuzz-dhcp-client.XXXXXX";
+                _unused_ _cleanup_close_ int tmp_fd = ASSERT_OK(mkostemp_safe(lease_file));
+
+                ASSERT_OK(dhcp_lease_save_at(lease, AT_FDCWD, lease_file));
+
+                _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *loaded = NULL;
+                ASSERT_OK(dhcp_lease_load_at(client, AT_FDCWD, lease_file, &loaded));
         }
 
         ASSERT_OK(sd_dhcp_client_stop(client));
