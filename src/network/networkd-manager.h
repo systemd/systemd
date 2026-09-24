@@ -32,6 +32,7 @@ typedef struct Manager {
         int persistent_storage_fd;
 
         KeepConfiguration keep_configuration;
+        DHCPClientPersistLeases dhcp_client_persist_leases;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 
         ManagerState state;
