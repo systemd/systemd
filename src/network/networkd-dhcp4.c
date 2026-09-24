@@ -1428,6 +1428,25 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 return 0;
                         }
 
+                        if (is_dhcp_client_persist_leases_expired(link)) {
+
+                                /* This entire section could be in a function? */
+
+                                /* Fuzzed lifetime extension */
+                                usec_t extension = calculate_expired_lease_lifetime_fuzzed(link);
+
+                                r = sd_dhcp_client_update_lease_lifetime(client, link->dhcp_lease, extension);
+                                if (r < 0)
+                                        log_link_warning_errno(link, r, "Failed to set lease timeouts: %m");
+                                else
+                                        log_link_info(link, "Extended expired lease, continuing to broadcast");
+
+                                r = dhcp4_request_address_and_routes(link, false);
+                                if (r < 0)
+                                        return log_link_warning_errno(link, r, "Failed to configure extended lease: %m");
+                                return 0;
+                        }
+
                         if (link->dhcp_lease) {
                                 r = dhcp4_lease_lost(link);
                                 if (r < 0) {
@@ -1893,6 +1912,12 @@ static int dhcp4_configure(Link *link) {
                 r = sd_dhcp_client_set_fallback_lease_lifetime(link->dhcp_client, link->network->dhcp_fallback_lease_lifetime_usec);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set fallback lease lifetime: %m");
+        }
+
+        if (is_dhcp_client_persist_leases_expired(link)) {
+                r = sd_dhcp_client_set_keep_expired_lease(link->dhcp_client, true);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to enable expired lease extension flag: %m");
         }
 
         return dhcp4_set_client_identifier(link);

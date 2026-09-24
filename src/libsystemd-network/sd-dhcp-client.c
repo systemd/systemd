@@ -888,6 +888,10 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userda
         if (client->state == DHCP_STATE_STOPPED)
                 return 0; /* The notify callback stopped the client. */
 
+        /* If we may keep using the expired lease, do not restart the client. */
+        if (client->keep_expired_lease)
+                return 0;
+
         r = client_start(client);
         if (r < 0)
                 client_stop(client, r);
@@ -1079,6 +1083,10 @@ static int client_enter_bound(sd_dhcp_client *client, sd_dhcp_lease *lease) {
                         notify_event = SD_DHCP_CLIENT_EVENT_RENEW;
                 else
                         notify_event = SD_DHCP_CLIENT_EVENT_IP_CHANGE;
+                break;
+        case DHCP_STATE_STOPPED:
+                /* Entering bound state with a lease loaded from persistent storage. */
+                notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
                 break;
         default:
                 assert_not_reached();
