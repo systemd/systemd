@@ -9,7 +9,7 @@ typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_IGNORE_VIRTUAL             = 1 << 2,  /* Ignore virtual devices (devices under /sys/devices/virtual/), except loopback devices */
         BLOCKDEV_LIST_IGNORE_LOOP                = 1 << 3,  /* Ignore loopback devices */
         BLOCKDEV_LIST_IGNORE_PARTITIONS          = 1 << 4,  /* Ignore partitions */
-        BLOCKDEV_LIST_IGNORE_ZRAM                = 1 << 5,  /* Ignore ZRAM */
+        BLOCKDEV_LIST_IGNORE_RAMDISK             = 1 << 5,  /* Ignore RAMDISK (by brd module) and ZRAM (by zram module) */
         BLOCKDEV_LIST_IGNORE_ROOT                = 1 << 6,  /* Ignore the block device we are currently booted from */
         BLOCKDEV_LIST_IGNORE_EMPTY               = 1 << 7,  /* Ignore disks of zero size (usually drives without a medium) */
         BLOCKDEV_LIST_IGNORE_READ_ONLY           = 1 << 8,  /* Ignore read-only block devices */
