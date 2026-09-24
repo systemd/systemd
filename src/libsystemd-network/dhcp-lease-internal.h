@@ -65,3 +65,6 @@ int dhcp_lease_new(sd_dhcp_lease **ret);
 void dhcp_lease_set_timestamp(sd_dhcp_lease *lease, const triple_timestamp *timestamp);
 
 int dhcp_client_parse_message(sd_dhcp_client *client, const struct iovec *iov, sd_dhcp_lease **ret);
+int dhcp_lease_new_from_message(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease **ret);
+
+void dhcp_set_default_t1_t2(sd_dhcp_lease *lease);

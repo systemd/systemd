@@ -399,7 +399,38 @@ int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **ret) {
         return 0;
 }
 
-static int dhcp_lease_new_from_message(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease **ret) {
+void dhcp_set_default_t1_t2(sd_dhcp_lease *lease) {
+        assert(lease);
+        assert(lease->lifetime > 0);
+
+        if (lease->lifetime == USEC_INFINITY) {
+                /* Timers not armed in infinite leases */
+                lease->t1 = 0;
+                lease->t2 = 0;
+                return;
+        }
+
+        /* verify that 0 < t2 < lifetime */
+        if (lease->t2 <= 0 || lease->t2 >= lease->lifetime)
+                /* RFC2131 section 4.4.5: T2 defaults to (0.875 * duration_of_lease). */
+                lease->t2 = lease->lifetime * 7 / 8;
+
+        /* verify that 0 < t1 < t2 */
+        if (lease->t1 <= 0 || lease->t1 >= lease->t2)
+                /* RFC2131 section 4.4.5: T1 defaults to (0.5 * duration_of_lease). */
+                lease->t1 = lease->lifetime / 2;
+
+        /* For the case when T2 is too small compared with lifetime. */
+        if (lease->t1 >= lease->t2)
+                /* RFC2131 section 4.4.5: T2 defaults to (0.875 * duration_of_lease). */
+                lease->t2 = lease->lifetime * 7 / 8;
+
+        assert(lease->t1 > 0);
+        assert(lease->t1 < lease->t2);
+        assert(lease->t2 < lease->lifetime);
+}
+
+int dhcp_lease_new_from_message(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease **ret) {
         int r;
 
         assert(client);
@@ -472,38 +503,20 @@ static int dhcp_lease_new_from_message(sd_dhcp_client *client, sd_dhcp_message *
                         lease->lifetime = 30 * USEC_PER_SEC;
                 }
 
-                if (lease->lifetime != USEC_INFINITY) {
-                        /* T2 */
-                        r = dhcp_message_get_option_sec(message, SD_DHCP_OPTION_REBINDING_TIME, /* max_as_infinity= */ true, &lease->t2);
-                        if (r < 0 && r != -ENODATA)
-                                log_dhcp_client_errno(client, r, "Failed to read %s option, ignoring: %m",
-                                                      dhcp_option_code_to_string(SD_DHCP_OPTION_REBINDING_TIME));
+                /* T2 */
+                r = dhcp_message_get_option_sec(message, SD_DHCP_OPTION_REBINDING_TIME, /* max_as_infinity= */ true, &lease->t2);
+                if (r < 0 && r != -ENODATA)
+                        log_dhcp_client_errno(client, r, "Failed to read %s option, ignoring: %m",
+                                              dhcp_option_code_to_string(SD_DHCP_OPTION_REBINDING_TIME));
 
-                        /* verify that 0 < t2 < lifetime */
-                        if (lease->t2 <= 0 || lease->t2 >= lease->lifetime)
-                                /* RFC2131 section 4.4.5: T2 defaults to (0.875 * duration_of_lease). */
-                                lease->t2 = lease->lifetime * 7 / 8;
+                /* T1 */
+                r = dhcp_message_get_option_sec(message, SD_DHCP_OPTION_RENEWAL_TIME, /* max_as_infinity= */ true, &lease->t1);
+                if (r < 0 && r != -ENODATA)
+                        log_dhcp_client_errno(client, r, "Failed to read %s option, ignoring: %m",
+                                              dhcp_option_code_to_string(SD_DHCP_OPTION_RENEWAL_TIME));
 
-                        /* T1 */
-                        r = dhcp_message_get_option_sec(message, SD_DHCP_OPTION_RENEWAL_TIME, /* max_as_infinity= */ true, &lease->t1);
-                        if (r < 0 && r != -ENODATA)
-                                log_dhcp_client_errno(client, r, "Failed to read %s option, ignoring: %m",
-                                                      dhcp_option_code_to_string(SD_DHCP_OPTION_RENEWAL_TIME));
-
-                        /* verify that 0 < t1 < t2 */
-                        if (lease->t1 <= 0 || lease->t1 >= lease->t2)
-                                /* RFC2131 section 4.4.5: T1 defaults to (0.5 * duration_of_lease). */
-                                lease->t1 = lease->lifetime / 2;
-
-                        /* For the case when T2 is too small compared with lifetime. */
-                        if (lease->t1 >= lease->t2)
-                                /* RFC2131 section 4.4.5: T2 defaults to (0.875 * duration_of_lease). */
-                                lease->t2 = lease->lifetime * 7 / 8;
-
-                        assert(lease->t1 > 0);
-                        assert(lease->t1 < lease->t2);
-                        assert(lease->t2 < lease->lifetime);
-                }
+                /* Check Values */
+                dhcp_set_default_t1_t2(lease);
         }
 
         r = dhcp_message_get_option_be32(message, SD_DHCP_OPTION_BROADCAST, &lease->broadcast);
