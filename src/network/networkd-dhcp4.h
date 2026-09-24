@@ -3,6 +3,10 @@
 
 #include "networkd-forward.h"
 
+typedef struct Link Link;
+typedef struct Network Network;
+typedef struct Manager Manager;
+
 typedef enum DHCPClientIdentifier {
         DHCP_CLIENT_ID_MAC,
         DHCP_CLIENT_ID_DUID,
@@ -25,6 +29,7 @@ int link_request_dhcp4_client(Link *link);
 int link_drop_dhcp4_config(Link *link, Network *network);
 int link_get_dhcp_client_lease_path(Link *link, int *ret_dir_fd, char **ret_path);
 int is_dhcp_client_persist_leases(Link *link);
+void manager_enable_dhcp4_client_persistent_storage(Manager *manager, bool start);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);

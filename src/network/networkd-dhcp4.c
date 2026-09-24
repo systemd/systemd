@@ -1348,6 +1348,60 @@ static int dhcp_configure_with_saved_lease(Link* link) {
         return 1;
 }
 
+void manager_enable_dhcp4_client_persistent_storage(Manager *manager, bool start) {
+        Link *link;
+        int r;
+
+        assert(manager);
+
+        manager->persistent_storage_ready = start; /* Keep the flag that the storage is ready for use */
+
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                if (!link->dhcp_client)
+                        continue;
+
+                if (!is_dhcp_client_persist_leases(link))
+                        continue;
+
+                /* if the persistent storage is not ready/got disabled, stop persisting but leave
+                 * the client running. Stopping it here would release the lease and remove the address. */
+                if (!start) {
+                        r = sd_dhcp_client_set_lease_file(link->dhcp_client, -EBADF, NULL);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to clear lease file, ignoring: %m");
+                        continue;
+                }
+
+                /* Save the current lease before stopping. Stop drops the lease during client initialise
+                 * This is in the case the client has started and acquired a lease before the persistent
+                 * storage is up. Race condition may occur */
+                if (link->dhcp_lease) {
+                        _cleanup_free_ char *path = NULL;
+                        int dir_fd;
+
+                        r = link_get_dhcp_client_lease_path(link, &dir_fd, &path);
+                        if (r > 0) {
+                                r = dhcp_lease_save_at(link->dhcp_lease, dir_fd, path);
+                                if (r < 0)
+                                        log_link_warning_errno(link, r,
+                                                        "Failed to save lease before stopping client, ignoring: %m");
+                        }
+                }
+
+                r = sd_dhcp_client_stop(link->dhcp_client);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to stop DHCP client, ignoring: %m");
+
+                /* Inside dhcp4_start, the code to configure the link with persistent lease is called,
+                this is to ensure that, in the event of a reboot, if the client is started before the
+                persistent storage service is active, there is still the chance to apply the lease */
+                r = dhcp4_start(link);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to start DHCP client: %m");
+                        link_enter_failed(link);
+                }
+        }
+}
 
 static int dhcp_lease_ip_change(sd_dhcp_client *client, Link *link) {
         int r;
