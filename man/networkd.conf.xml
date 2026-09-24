@@ -361,6 +361,20 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+          <term><varname>PersistLeases=</varname></term>
+          <listitem>
+            <para>Specifies the default value for per-network <varname>PersistLeases=</varname> in the
+            [DHCPv4] section. Takes one of <literal>no</literal>, <literal>yes</literal>, or
+            <literal>yes-with-expired</literal>. This applies to every interface with a DHCPv4 client whose
+            <filename>.network</filename> file does not set the option. See
+            <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details. Defaults to <literal>no</literal>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v263"/>
+          </listitem>
+        </varlistentry>
     </variablelist>
   </refsect1>
 
