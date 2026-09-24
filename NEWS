@@ -1470,10 +1470,6 @@ CHANGES WITH 261:
           booting on UEFI firmware that supports TPMs, avoiding spurious
           errors on systems without a TPM.
 
-        * libcryptsetup is now loaded via dlopen() in the cryptsetup
-          binaries, eliminating the hard runtime dependency for systems that do
-          not actually use it.
-
         * systemd-cryptenroll now defaults to sealing the LUKS2 key using
           RSA-OAEP with SHA-256 (or SHA-1 if the hardware doesn't support it),
           in order to make the setup more robust against theoretical future
@@ -1482,7 +1478,7 @@ CHANGES WITH 261:
 
         Changes in Dynamic Linking:
 
-        * libgnutls, libmicrohttpd, libcurl, libcrypto, libssl, libfdisk
+        * libgnutls, libmicrohttpd, libcurl, libcrypto, libssl, libfdisk,
           and libcryptsetup are now consistently loaded via dlopen()
           throughout the codebase, further reducing the set of mandatory
           dependencies from all binaries.
@@ -2537,19 +2533,15 @@ CHANGES WITH 259:
           the PAM modules pam_systemd + pam_systemd_home + pam_systemd_loadkey,
           which are loaded by PAM and hence need PAM anyway to operate).
 
-        * Similarly, libacl support is now implemented via dlopen().
+        * Similarly, libmount is now loaded via dlopen().
 
-        * Similarly, libblkid support is now implemented via dlopen().
+          Note: libmount still must be installed for systemd to manage the
+          system. However, libsystemd.so no longer requires it, and neither do
+          various ways to invoke the systemd service manager binary other than
+          to manage the system.
 
-        * Similarly, libseccomp support is now implemented via dlopen().
-
-        * Similarly, libselinux support is now implemented via dlopen().
-
-        * Similarly, libmount support is now implemented via dlopen(). Note,
-          that libmount still must be installed in order to invoke the service
-          manager itself. However, libsystemd.so no longer requires it, and
-          neither do various ways to invoke the systemd service manager binary
-          short of using it to manage a system.
+        * Similarly, libacl, libblkid, libseccomp, libselinux are loaded via
+          dlopen().
 
         * systemd no longer links against libcap at all. The simple system call
           wrappers and other APIs it provides have been reimplemented directly
