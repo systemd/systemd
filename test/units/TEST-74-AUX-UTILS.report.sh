@@ -280,6 +280,9 @@ at_exit() {
     systemctl stop fake-report-server fake-report-server-tls
     systemctl stop systemd-report.socket systemd-report-files.socket systemd-report-sign-plain.socket
     rm -f /run/systemd/report.files/testreportfile /run/systemd/report.files/binaryfile
+    rm -f /run/systemd/report.files/maskedfile /var/lib/systemd/report.files/maskedfile /var/lib/systemd/report.files/dirshadowed
+    rm -f /run/systemd/report.files/fifoshadowed /var/lib/systemd/report.files/fifoshadowed
+    rmdir /run/systemd/report.files/dirshadowed 2>/dev/null
     rm -rf "$CERTDIR" "${SIGN_WORK:-}"
 }
 trap at_exit EXIT
@@ -331,6 +334,26 @@ printf '\xff\xfe binary garbage' >/run/systemd/report.files/binaryfile
 files_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Files io.systemd.Metrics.List {})"
 [ -z "$(files_value io.systemd.Files.binaryfile)" ]
 rm -f /run/systemd/report.files/binaryfile
+
+# An entry in an earlier directory that is a symlink to /dev/null masks the one
+# in a later directory: it must be neither listed nor described. An entry that
+# isn't a regular file is ignored, so the later one is reported instead.
+mkdir -p /var/lib/systemd/report.files
+echo masked >/var/lib/systemd/report.files/maskedfile
+echo shadowed >/var/lib/systemd/report.files/dirshadowed
+ln -s /dev/null /run/systemd/report.files/maskedfile
+mkdir /run/systemd/report.files/dirshadowed
+echo fifo-shadowed >/var/lib/systemd/report.files/fifoshadowed
+mkfifo /run/systemd/report.files/fifoshadowed
+files_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Files io.systemd.Metrics.List {})"
+files_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Files io.systemd.Metrics.Describe {})"
+[ -z "$(files_value io.systemd.Files.maskedfile)" ]
+(! echo "$files_describe" | jq --seq -r .name | grep -wx io.systemd.Files.maskedfile >/dev/null)
+[ "$(files_value io.systemd.Files.dirshadowed)" = "shadowed" ]
+[ "$(files_value io.systemd.Files.fifoshadowed)" = "fifo-shadowed" ]
+rm -f /run/systemd/report.files/fifoshadowed /var/lib/systemd/report.files/fifoshadowed
+rm -f /run/systemd/report.files/maskedfile /var/lib/systemd/report.files/maskedfile /var/lib/systemd/report.files/dirshadowed
+rmdir /run/systemd/report.files/dirshadowed
 
 # -----------------------------------------------------------------------------
 # Test report signing through the plain software backend, driven entirely via
