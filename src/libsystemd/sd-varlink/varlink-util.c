@@ -222,45 +222,85 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 sd_varlink,
                 sd_varlink_unref);
 
-static int varlink_finish_idle(Set *s) {
-        int r;
-
-        sd_varlink *vl;
-        bool fully_idle = true;
-        SET_FOREACH(vl, s) {
-                r = sd_varlink_is_idle(vl);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        fully_idle = false;
-                else {
-                        /* Idle? Then we can close the connection, and release some resources. */
-                        assert_se(set_remove(s, vl) == vl);
-                        vl = sd_varlink_close_unref(vl);
-                }
-        }
-
-        return fully_idle;
-}
-
 #define VARLINK_EXECUTE_SOCKETS_MAX 255
 
-ssize_t varlink_execute_directory(
+typedef struct ExecuteDirectoryAsyncContext {
+        Set *links;
+        sd_event_source *exit_event;
+        sd_varlink_reply_t reply_cb;
+        varlink_execute_directory_finished_t done_cb;
+        void *userdata;
+} ExecuteDirectoryAsyncContext;
+
+static ExecuteDirectoryAsyncContext* execute_directory_async_context_free(ExecuteDirectoryAsyncContext *context) {
+        if (!context)
+                return NULL;
+
+        context->links = set_free(context->links);
+        context->exit_event = sd_event_source_disable_unref(context->exit_event);
+        return mfree(context);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ExecuteDirectoryAsyncContext*, execute_directory_async_context_free);
+
+static int execute_directory_async_reply(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        ExecuteDirectoryAsyncContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        if (ctx->reply_cb) {
+                r = ctx->reply_cb(link, parameters, error_id, flags, ctx->userdata);
+                if (r < 0)
+                        log_debug_errno(r, "Reply callback returned error, ignoring: %m");
+        }
+
+        if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
+                assert_se(set_remove(ctx->links, link) == link);
+                link = sd_varlink_close_unref(link);
+        }
+
+        if (set_isempty(ctx->links)) {
+                if (ctx->done_cb) {
+                        r = ctx->done_cb(ctx->userdata);
+                        if (r < 0)
+                                log_debug_errno(r, "Done callback returned error, ignoring: %m");
+                }
+                ctx = execute_directory_async_context_free(ctx);
+        }
+
+        return 0;
+}
+
+static int execute_directory_async_exit(sd_event_source *s, void *userdata) {
+        ExecuteDirectoryAsyncContext *ctx = ASSERT_PTR(userdata);
+        execute_directory_async_context_free(ctx);
+        return 0;
+}
+
+static int varlink_execute_directory_internal(
+                sd_event **event,
                 const char *path,
                 const char *method,
                 sd_json_variant *parameters,
                 bool more,
                 usec_t timeout_usec,
                 sd_varlink_reply_t reply,
+                varlink_execute_directory_finished_t done,
                 void *userdata) {
 
         int r;
 
+        assert(event);
         assert(path);
         assert(method);
 
         /* Invokes the specified method on all Varlink sockets in the specified directory. Any reply
-         * will be dispatched to the reply callback. Blocks until the last reply has come in.
+         * will be dispatched to the reply callback. Calls the done callback once the last reply has come in.
          *
          * Returns how many sockets were contacted.
          *
@@ -276,8 +316,16 @@ ssize_t varlink_execute_directory(
         if (r < 0)
                 return log_debug_errno(r, "Failed to enumerate '%s': %m", path);
 
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(set_freep) Set *links = NULL;
+        _cleanup_(execute_directory_async_context_freep) ExecuteDirectoryAsyncContext *ctx = NULL;
+        ctx = new(ExecuteDirectoryAsyncContext, 1);
+        if (!ctx)
+                return log_oom_debug();
+        *ctx = (ExecuteDirectoryAsyncContext) {
+                .reply_cb = reply,
+                .done_cb = done,
+                .userdata = userdata,
+        };
+
         size_t t = 0;
         FOREACH_ARRAY(dp, dentries->entries, dentries->n_entries) {
                 struct dirent *de = *dp;
@@ -288,7 +336,7 @@ ssize_t varlink_execute_directory(
                 if (!j)
                         return log_oom_debug();
 
-                if (set_size(links) >= VARLINK_EXECUTE_SOCKETS_MAX) {
+                if (set_size(ctx->links) >= VARLINK_EXECUTE_SOCKETS_MAX) {
                         log_debug("Too many sockets (%zu) in directory, skipping '%s'.", t, j);
                         continue;
                 }
@@ -303,8 +351,8 @@ ssize_t varlink_execute_directory(
                         continue;
                 }
 
-                if (!event) {
-                        r = sd_event_new(&event);
+                if (!*event) {
+                        r = sd_event_new(event);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to allocate event loop: %m");
                 }
@@ -316,13 +364,13 @@ ssize_t varlink_execute_directory(
 
                 TAKE_FD(socket_fd);
 
-                r = sd_varlink_attach_event(link, event, /* priority= */ 0);
+                r = sd_varlink_attach_event(link, *event, /* priority= */ 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to attach varlink connection to event loop: %m");
 
-                sd_varlink_set_userdata(link, userdata);
+                sd_varlink_set_userdata(link, ctx);
 
-                r = sd_varlink_bind_reply(link, reply);
+                r = sd_varlink_bind_reply(link, execute_directory_async_reply);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to bind reply callback: %m");
 
@@ -341,41 +389,100 @@ ssize_t varlink_execute_directory(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to enqueue message on Varlink connection: %m");
 
-                if (set_ensure_consume(&links, &varlink_hash_ops, TAKE_PTR(link)) < 0)
+                if (set_ensure_consume(&ctx->links, &varlink_hash_ops, TAKE_PTR(link)) < 0)
                         return log_oom_debug();
         }
 
-        size_t c = set_size(links);
-
-        for (;;) {
-                if (event) {
-                        int state = sd_event_get_state(event);
-                        if (state < 0)
-                                return state;
-                        if (state == SD_EVENT_FINISHED) {
-                                int x;
-                                r = sd_event_get_exit_code(event, &x);
-                                if (r < 0)
-                                        return r;
-                                if (x != 0)
-                                        return x;
-
-                                break;
-                        }
-                }
-
-                r = varlink_finish_idle(links);
+        size_t count = set_size(ctx->links);
+        if (count != 0) {
+                r = sd_event_add_exit(*event, &ctx->exit_event, execute_directory_async_exit, ctx);
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        break; /* idle, we are done */
-
-                assert(event);
-
-                r = sd_event_run(event, /* timeout= */ UINT64_MAX);
+                TAKE_PTR(ctx);
+        } else if (ctx->done_cb) {
+                r = ctx->done_cb(ctx->userdata);
                 if (r < 0)
-                        return r;
+                        log_debug_errno(r, "Done callback returned error, ignoring: %m");
         }
 
-        return (ssize_t) c;
+        assert(count < INT_MAX); /* Because there are at most VARLINK_EXECUTE_SOCKETS_MAX */
+        return (int) count;
+}
+
+int varlink_execute_directory_async(
+                sd_event *event,
+                const char *path,
+                const char *method,
+                sd_json_variant *parameters,
+                bool more,
+                usec_t timeout_usec,
+                sd_varlink_reply_t reply,
+                varlink_execute_directory_finished_t done,
+                void *userdata) {
+
+        assert(event);
+        return varlink_execute_directory_internal(&event, path, method, parameters, more, timeout_usec,
+                                                  reply, done, userdata);
+}
+
+typedef struct ExecuteDirectorySyncContext {
+        sd_event *event;
+        sd_varlink_reply_t reply_cb;
+        void *userdata;
+} ExecuteDirectorySyncContext;
+
+static void execute_directory_sync_context_done(ExecuteDirectorySyncContext *context) {
+        sd_event_unref(context->event);
+}
+
+static int execute_directory_sync_reply(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        ExecuteDirectorySyncContext *context = ASSERT_PTR(userdata);
+        assert(context->reply_cb);
+        return context->reply_cb(link, parameters, error_id, flags, context->userdata);
+}
+
+static int execute_directory_sync_done(void *userdata) {
+        ExecuteDirectorySyncContext *context = ASSERT_PTR(userdata);
+        if (context->event)
+                return sd_event_exit(context->event, 0);
+        return 0;
+}
+
+int varlink_execute_directory(
+                const char *path,
+                const char *method,
+                sd_json_variant *parameters,
+                bool more,
+                usec_t timeout_usec,
+                sd_varlink_reply_t reply,
+                void *userdata) {
+
+        int r;
+
+        /* Like varlink_execute_directory_async, but blocks until the last reply comes in. */
+
+        _cleanup_(execute_directory_sync_context_done) ExecuteDirectorySyncContext ctx = {};
+        if (reply) {
+                ctx.reply_cb = reply;
+                ctx.userdata = userdata;
+                reply = execute_directory_sync_reply;
+        }
+        int count = varlink_execute_directory_internal(&ctx.event, path, method, parameters, more,
+                                                       timeout_usec, reply, execute_directory_sync_done, &ctx);
+        if (count <= 0)
+                return count;
+
+        assert(ctx.event);
+
+        r = sd_event_loop(ctx.event);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to run event loop: %m");
+
+        return count;
 }
