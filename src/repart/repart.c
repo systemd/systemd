@@ -10692,7 +10692,7 @@ static int parse_argv(int argc, char *argv[]) {
                         r = blockdev_list(
                                         BLOCKDEV_LIST_SHOW_SYMLINKS|
                                         BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|
-                                        BLOCKDEV_LIST_IGNORE_ZRAM|
+                                        BLOCKDEV_LIST_IGNORE_RAMDISK|
                                         BLOCKDEV_LIST_IGNORE_READ_ONLY,
                                         /* ret_devices= */ NULL,
                                         /* ret_n_devices= */ NULL);
