@@ -49,6 +49,14 @@ typedef enum ActivationPolicy {
         _ACTIVATION_POLICY_INVALID = -EINVAL,
 } ActivationPolicy;
 
+typedef enum DHCPClientPersistLeases {
+        DHCP_CLIENT_PERSIST_LEASES_NO,
+        DHCP_CLIENT_PERSIST_LEASES_YES,
+        DHCP_CLIENT_PERSIST_LEASES_YES_WITH_EXPIRED,
+        _DHCP_CLIENT_PERSIST_LEASES_MAX,
+        _DHCP_CLIENT_PERSIST_LEASES_INVALID = -EINVAL,
+} DHCPClientPersistLeases;
+
 typedef struct NetworkDHCPServerEmitAddress {
         bool emit;
         struct in_addr *addresses;
@@ -107,6 +115,9 @@ typedef struct Network {
         bool default_route_on_device;
         AddressFamily ip_masquerade;
         usec_t ipv4_dad_timeout_usec;
+        DHCPClientPersistLeases dhcp_client_persist_leases;
+        usec_t expired_lease_extension_lifetime;
+        uint64_t expired_lease_extension_fuzz;
 
         /* Protocol independent settings */
         UseDomains use_domains;
@@ -469,9 +480,13 @@ CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
 CONFIG_PARSER_PROTOTYPE(config_parse_activation_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_group);
 CONFIG_PARSER_PROTOTYPE(config_parse_ignore_carrier_loss);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_persist_leases);
+CONFIG_PARSER_PROTOTYPE(config_parse_expired_lease_extension_options);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 DECLARE_STRING_TABLE_LOOKUP(keep_configuration, KeepConfiguration);
 
 DECLARE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);
+
+DECLARE_STRING_TABLE_LOOKUP(dhcp_client_persist_leases, DHCPClientPersistLeases);
