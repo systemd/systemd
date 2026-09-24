@@ -12,11 +12,17 @@
 #include "dhcp-lease-internal.h"
 #include "dhcp-route.h"
 #include "dns-resolver-internal.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "in-addr-util.h"
 #include "ip-util.h"
+#include "json-util.h"
+#include "mkdir.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "time-util.h"
 
 void dhcp_lease_set_timestamp(sd_dhcp_lease *lease, const triple_timestamp *timestamp) {
@@ -388,6 +394,101 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
         return 0;
 }
 
+int dhcp_lease_save_at(sd_dhcp_lease *lease, int dir_fd, const char *lease_file) {
+        int r;
+
+        assert(lease);
+        assert(lease->message);
+        assert(lease_file);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        r = dhcp_message_build_json(lease->message, &m);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(&v,
+                           SD_JSON_BUILD_PAIR_UNSIGNED("Version", 1),
+                           SD_JSON_BUILD_PAIR_UNSIGNED("TimestampRealtimeUSec", lease->timestamp.realtime),
+                           SD_JSON_BUILD_PAIR_VARIANT("Message", m));
+        if (r < 0)
+                return r;
+
+        r = mkdirat_parents(dir_fd, lease_file, 0755);
+        if (r < 0)
+                return r;
+
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_temporary_at(dir_fd, lease_file, &f, &temp_path);
+        if (r < 0)
+                return r;
+
+        (void) fchmod(fileno(f), 0644);
+
+        r = sd_json_variant_dump(v, SD_JSON_FORMAT_FLUSH | SD_JSON_FORMAT_PRETTY_AUTO, f, /* prefix= */ NULL);
+        if (r < 0)
+                return r;
+
+        r = conservative_renameat(dir_fd, temp_path, dir_fd, lease_file);
+        if (r < 0)
+                return r;
+
+        temp_path = mfree(temp_path);
+        return 0;
+}
+
+int dhcp_lease_load_at(sd_dhcp_client *client, int dir_fd, const char *lease_file, sd_dhcp_lease **ret) {
+        int r;
+
+        assert(client);
+        assert(lease_file);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse_file_at(/* f= */ NULL, dir_fd, lease_file, SD_JSON_PARSE_MUST_BE_OBJECT,
+                                  &v, /* ret_line= */ NULL, /* ret_column= */ NULL);
+        if (r < 0)
+                return r;
+
+        struct {
+                uint64_t version;
+                uint64_t timestamp;
+                sd_json_variant *message;
+        } p = {};
+
+        static const sd_json_dispatch_field table[] = {
+                { "Version",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        voffsetof(p, version),   SD_JSON_MANDATORY },
+                { "TimestampRealtimeUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        voffsetof(p, timestamp), SD_JSON_MANDATORY },
+                { "Message",               SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, voffsetof(p, message),   SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_json_dispatch(v, table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return r;
+
+        if (p.version != 1)
+                return -EPROTONOSUPPORT;
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *message = NULL;
+        r = dhcp_message_parse_json(p.message, &message);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        r = dhcp_lease_new_from_message(client, message, &lease);
+        if (r < 0)
+                return r;
+
+        /* Restore the timestamp of when the lease was acquired, so that the caller can determine
+         * how much of the lifetime is left. */
+        triple_timestamp_from_realtime(&lease->timestamp, p.timestamp);
+
+        *ret = TAKE_PTR(lease);
+        return 0;
+}
 int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **ret) {
         assert_return(lease, -EINVAL);
 
