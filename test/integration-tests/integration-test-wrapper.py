@@ -647,10 +647,14 @@ def main() -> None:
     vm = args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1'
 
     smbios_type0 = None
+    qemu_hide_hypervisor_args = None
     if args.hide_hypervisor:
         smbios_type0 = tempfile.NamedTemporaryFile(prefix='systemd-integration-test-smbios-')
         smbios_type0.write(SMBIOS_TYPE0)
         smbios_type0.flush()
+        qemu_hide_hypervisor_args = f'-smbios file={smbios_type0.name}'
+        if summary.architecture in ('x86', 'x86-64'):
+            qemu_hide_hypervisor_args = f'-cpu max,hypervisor=off {qemu_hide_hypervisor_args}'
 
     # Tests that launch nested VMs need the mkosi-built images, which are build outputs rather than
     # installed test artifacts. Bind the output directory read-only into the boot-mode container at
@@ -724,11 +728,7 @@ def main() -> None:
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
         '--runtime-network=none',
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
-        *(
-            [f'--qemu-args=-cpu max,hypervisor=off -smbios file={smbios_type0.name}']
-            if smbios_type0
-            else []
-        ),
+        *([f'--qemu-args={qemu_hide_hypervisor_args}'] if qemu_hide_hypervisor_args else []),
         *args.mkosi_args,
         '--firmware', firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
