@@ -4583,6 +4583,14 @@ int unit_patch_contexts(Unit *u) {
                 }
         }
 
+        /* The cpuset controller is only enabled when AllowedCPUs= or AllowedMemoryNodes= is configured,
+         * and a partition is rejected by the kernel without CPUs of its own, so CPUSetPartition= has
+         * no effect unless AllowedCPUs= is configured. Note that StartupAllowedCPUs= does not suffice:
+         * outside the startup states cgroup_context_allowed_cpus() falls back to the empty AllowedCPUs=,
+         * which would leave the partition broken. */
+        if (cc && cc->cpuset_partition >= 0 && !cc->cpuset_cpus.set)
+                log_unit_warning(u, "CPUSetPartition= requires AllowedCPUs= to also be set, the setting has no effect.");
+
         return unit_verify_contexts(u);
 }
 
