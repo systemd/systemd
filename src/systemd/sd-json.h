@@ -144,6 +144,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_format_flags_t) {
         SD_JSON_FORMAT_FLUSH            = 1 << 9,  /* call fflush() after dumping JSON */
         SD_JSON_FORMAT_EMPTY_ARRAY      = 1 << 10, /* output "[]" for empty input */
         SD_JSON_FORMAT_CENSOR_SENSITIVE = 1 << 11, /* replace all sensitive elements with the string "<sensitive data>" */
+        SD_JSON_FORMAT_EMPTY_OBJECT     = 1 << 12, /* output "{}" for empty input */
         _SD_ENUM_FORCE_S64(JSON_FORMAT_FLAGS)
 } sd_json_format_flags_t;
 
