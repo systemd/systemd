@@ -822,7 +822,11 @@ int sd_fiber_sleep(uint64_t usec) {
         if (r < 0)
                 return r;
 
-        return sd_fiber_await(timer);
+        r = sd_fiber_await(timer);
+        if (r < 0)
+                return r;
+
+        return sd_future_result(timer);
 }
 
 static int fiber_wait_callback(sd_future *target, void *userdata) {
@@ -861,7 +865,7 @@ int sd_fiber_await(sd_future *target) {
         assert_return(sd_future_get_event(target) == sd_future_get_event(f), -EINVAL);
 
         if (sd_future_state(target) == SD_FUTURE_RESOLVED)
-                return sd_future_result(target);
+                return 0;
 
         /* The fiber is executing inside event dispatch, so its loop cannot have finished yet.
          * Waiting during exit is supported by the slot's exit source. */
@@ -879,8 +883,7 @@ int sd_fiber_await(sd_future *target) {
         if (sd_future_state(target) != SD_FUTURE_RESOLVED)
                 return -EBUSY;
 
-        /* Read the result while the slot still pins the target: releasing it may drop the last ref. */
-        return sd_future_result(target);
+        return 0;
 }
 
 sd_future* sd_future_cancel_wait_unref(sd_future *f) {
