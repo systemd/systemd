@@ -317,6 +317,13 @@ CHANGES WITH 262 in spe:
 
         Changes in systemd-networkd:
 
+        * The DHCPv4 client gained support for persisting leases in
+          non-volatile storage, and loading them again on start, controlled by
+          the new PersistLeases= setting in the [DHCPv4] section of .network
+          files. Optionally, expired leases may be reused for a limited time,
+          configurable with ExpiredLeaseExtensionLifetime= and
+          ExpiredLeaseExtensionFuzz=.
+
         * The [Match] sections of .link, .network and .netdev files
           gained MachineTag=, matching the same tag syntax as
           ConditionMachineTag= in unit files. Or in other words: network
