@@ -759,15 +759,17 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!sd_json_format_enabled(arg_json_format_flags)) {
                 arg_json_format_flags &= ~SD_JSON_FORMAT_OFF;
 
-                if (arg_exec)
-                        arg_json_format_flags |= SD_JSON_FORMAT_NEWLINE;
-                else
+                if (!arg_exec)
                         arg_json_format_flags |= SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
         }
 
         /* For pipeable text tools it's kinda customary to finish output off in a newline character, and not
          * leave incomplete lines hanging around. */
         arg_json_format_flags |= SD_JSON_FORMAT_NEWLINE;
+
+        /* For the purposes of output, we represent an empty reply object as '{}' rather than a totally
+         * empty string, to ensure consistent behavior of tools like jq */
+        arg_json_format_flags |= SD_JSON_FORMAT_EMPTY_OBJECT;
 
         unsigned line = 0, column = 0;
         if (parameter) {
