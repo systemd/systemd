@@ -72,6 +72,10 @@ dmi:bvnLENOVO*
 dmi:bvnMicrosoft Corporation*:pvrSurface with Windows 8 Pro*
  ID_CHASSIS=tablet
 
+# Microsoft Surface Go 3 is a detachable, but reports chassis type 9 (Laptop)
+dmi:*:svnMicrosoftCorporation:pnSurfaceGo3:*
+ ID_CHASSIS=convertible
+
 # GPD Pocket 4 chassis type
 dmi:bvnAmericanMegatrendsInternational*:rvnGPD:rnG1628-04*
  ID_CHASSIS=convertible
