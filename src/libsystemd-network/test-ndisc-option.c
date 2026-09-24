@@ -290,7 +290,7 @@ TEST(ndisc_dnssl) {
 
 TEST(ndisc_captive_portal) {
         _cleanup_set_free_ Set *options = NULL;
-        ndisc_option_set_captive_portal(&options, "https://captive-portal.example.com");
+        ASSERT_OK(ndisc_option_set_captive_portal(&options, "https://captive-portal.example.com"));
         ndisc_round_trip(options);
 }
 
