@@ -703,6 +703,24 @@ TEST(compressor_decompressor_push_api) {
         ASSERT_NULL(d);
 }
 
+TEST(decompressor_zstd_window_limit) {
+#if HAVE_ZSTD
+        if (!compression_supported(COMPRESSION_ZSTD))
+                return (void) log_tests_skipped("zstd is not supported");
+
+        /* Empty Zstandard frame declaring a 64 MiB window. */
+        static const uint8_t frame[] = { 0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x80, 0x01, 0x00, 0x00 };
+        _cleanup_(compressor_freep) Decompressor *d = NULL;
+        struct decompressor_test_data result = {};
+
+        ASSERT_OK(dlopen_compress(COMPRESSION_ZSTD, LOG_DEBUG));
+        ASSERT_OK(decompressor_new_limited(&d, COMPRESSION_ZSTD, 32U * 1024U * 1024U));
+        ASSERT_ERROR(decompressor_push(d, frame, sizeof(frame), test_decompressor_callback, &result), EBADMSG);
+        ASSERT_EQ(result.size, (size_t) 0);
+        free(result.buf);
+#endif
+}
+
 static int intro(void) {
         srcfile = saved_argc > 1 ? saved_argv[1] : saved_argv[0];
 

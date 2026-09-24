@@ -1215,7 +1215,7 @@ libpam_cflags = declare_dependency(
 )
 
 libmicrohttpd = dependency('libmicrohttpd',
-                           version : '>= 0.9.33',
+                           version : '>= 0.9.53',
                            required : get_option('microhttpd'))
 conf.set10('HAVE_MICROHTTPD', libmicrohttpd.found())
 libmicrohttpd_cflags = declare_dependency(
