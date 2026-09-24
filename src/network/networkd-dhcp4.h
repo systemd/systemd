@@ -23,6 +23,8 @@ int dhcp4_check_ready(Link *link);
 
 int link_request_dhcp4_client(Link *link);
 int link_drop_dhcp4_config(Link *link, Network *network);
+int link_get_dhcp_client_lease_path(Link *link, int *ret_dir_fd, char **ret_path);
+int is_dhcp_client_persist_leases(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);
