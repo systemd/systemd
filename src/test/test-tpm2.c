@@ -1730,6 +1730,38 @@ TEST(tpm2_digest_to_data) {
         ASSERT_EQ(memcmp_nn(d.buffer, d.size, expected, expected_len), 0);
 }
 
+TEST(tpm2_unmarshal_saved_tpm2_tools_context) {
+        /* A hand-constructed tpm2-tools context blob. Its big-endian layout is:
+         * uint32_t magic (0xbadcc0de), uint32_t version (1), hierarchy (here TPM2_RH_OWNER),
+         * savedHandle (here 0x80000000), sequence (here 0x2a), then the size-prefixed
+         * context blob. */
+        DEFINE_HEX_PTR(good, "badcc0de000000014000000180000000000000000000002a0004deadbeef");
+        DEFINE_HEX_PTR(blob, "deadbeef");
+
+        TPMS_CONTEXT context;
+        ASSERT_OK(tpm2_unmarshal_saved_tpm2_tools_context(good, good_len, &context));
+        ASSERT_EQ(context.hierarchy, UINT32_C(0x40000001));
+        ASSERT_EQ(context.savedHandle, UINT32_C(0x80000000));
+        ASSERT_EQ(context.sequence, UINT64_C(0x2a));
+        ASSERT_EQ(memcmp_nn(context.contextBlob.buffer, context.contextBlob.size, blob, blob_len), 0);
+
+        /* A blob without the tpm2-tools magic must be rejected with -EOPNOTSUPP */
+        DEFINE_HEX_PTR(bad_magic, "deadc0de000000014000000180000000000000000000002a0004deadbeef");
+        ASSERT_ERROR(tpm2_unmarshal_saved_tpm2_tools_context(bad_magic, bad_magic_len, &context), EOPNOTSUPP);
+
+        /* An unsupported version is rejected. */
+        DEFINE_HEX_PTR(bad_version, "badcc0de000000024000000180000000000000000000002a0004deadbeef");
+        ASSERT_ERROR(tpm2_unmarshal_saved_tpm2_tools_context(bad_version, bad_version_len, &context), ENOTRECOVERABLE);
+
+        /* A truncated blob is rejected. */
+        DEFINE_HEX_PTR(truncated, "badcc0de");
+        ASSERT_ERROR(tpm2_unmarshal_saved_tpm2_tools_context(truncated, truncated_len, &context), ENOTRECOVERABLE);
+
+        /* A blob with trailing garbage bytes is rejected. */
+        DEFINE_HEX_PTR(garbage, "badcc0de000000014000000180000000000000000000002a0004deadbeef0000");
+        ASSERT_ERROR(tpm2_unmarshal_saved_tpm2_tools_context(truncated, truncated_len, &context), ENOTRECOVERABLE);
+}
+
 static void check_context_saving(Tpm2Context *c) {
         assert(c);
 

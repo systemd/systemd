@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <unistd.h>
 
 #include "sd-json.h"
@@ -17,6 +18,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "options.h"
+#include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -25,6 +27,7 @@
 #include "tpm2-report.h"
 #include "tpm2-util.h"
 #include "varlink-io.systemd.Report.Signer.h"
+#include "varlink-io.systemd.Report.TPM2SignerKeyManager.h"
 #include "varlink-util.h"
 #include "verbs.h"
 
@@ -119,21 +122,38 @@ static const char* const signing_key_type_table[_SIGNING_KEY_TYPE_MAX] = {
         [SIGNING_KEY_PRIMARY]    = "primary",
 };
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(signing_key_type, SigningKeyType);
-
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_signing_key_type, SigningKeyType, signing_key_type_from_string);
+
+typedef enum SigningKeyHierarchy {
+        SIGNING_KEY_HIERARCHY_OWNER,
+        SIGNING_KEY_HIERARCHY_ENDORSEMENT,
+        SIGNING_KEY_HIERARCHY_NULL,
+
+        _SIGNING_KEY_HIERARCHY_MAX,
+        _SIGNING_KEY_HIERARCHY_INVALID = -EINVAL,
+} SigningKeyHierarchy;
+
+static const char* const signing_key_hierarchy_table[_SIGNING_KEY_HIERARCHY_MAX] = {
+        [SIGNING_KEY_HIERARCHY_OWNER]       = "owner",
+        [SIGNING_KEY_HIERARCHY_ENDORSEMENT] = "endorsement",
+        [SIGNING_KEY_HIERARCHY_NULL]        = "null",
+};
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(signing_key_hierarchy, SigningKeyHierarchy);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_signing_key_hierarchy, SigningKeyHierarchy, signing_key_hierarchy_from_string);
 
 /* SigningKeyData represents the stored data corresponding to a TPM signing key. */
 typedef struct SigningKeyData {
         SigningKeyType type;
 
-        struct iovec parent_handle;
-        struct iovec public;
-        struct iovec private;
+        struct iovec parent_handle;    /* Persistent handle for the parent of ordinary keys */
+        struct iovec public;           /* Public area of ordinary keys */
+        struct iovec private;          /* Private area of ordinary keys */
 
-        struct iovec handle;
+        struct iovec handle;           /* Handle of persistent key. */
 
-        uint32_t hierarchy;
-        struct iovec template;
+        SigningKeyHierarchy hierarchy; /* Hierarchy in which to recreate primary key. */
+        struct iovec template;         /* Template used to recreate primary key. */
+        struct iovec name;             /* Expected name of primary key. */
 } SigningKeyData;
 
 static SigningKeyData *signing_key_data_free(SigningKeyData *d) {
@@ -147,6 +167,7 @@ static SigningKeyData *signing_key_data_free(SigningKeyData *d) {
         iovec_done(&d->handle);
 
         iovec_done(&d->template);
+        iovec_done(&d->name);
 
         return mfree(d);
 }
@@ -182,13 +203,14 @@ static int load_signing_key_data(int dir_fd, const char *fname, SigningKeyData *
                                        strnull(dir_path), fname);
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "type",         SD_JSON_VARIANT_STRING,        json_dispatch_signing_key_type, offsetof(SigningKeyData, type),          SD_JSON_MANDATORY },
-                { "parentHandle", SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,   offsetof(SigningKeyData, parent_handle), 0                 },
-                { "public",       SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,   offsetof(SigningKeyData, public),        0                 },
-                { "private",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,   offsetof(SigningKeyData, private),       0                 },
-                { "handle",       SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,   offsetof(SigningKeyData, handle),        0                 },
-                { "hierarchy",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,        offsetof(SigningKeyData, hierarchy),     0                 },
-                { "template",     SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,   offsetof(SigningKeyData, template),      0                 },
+                { "type",         SD_JSON_VARIANT_STRING,        json_dispatch_signing_key_type,      offsetof(SigningKeyData, type),          SD_JSON_MANDATORY },
+                { "parentHandle", SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,        offsetof(SigningKeyData, parent_handle), 0                 },
+                { "public",       SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,        offsetof(SigningKeyData, public),        0                 },
+                { "private",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,        offsetof(SigningKeyData, private),       0                 },
+                { "handle",       SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,        offsetof(SigningKeyData, handle),        0                 },
+                { "hierarchy",    _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_signing_key_hierarchy, offsetof(SigningKeyData, hierarchy),     0                 },
+                { "template",     SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,        offsetof(SigningKeyData, template),      0                 },
+                { "name",         SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec,           offsetof(SigningKeyData, name),          0                 },
                 {},
         };
 
@@ -201,38 +223,25 @@ static int load_signing_key_data(int dir_fd, const char *fname, SigningKeyData *
         return 0;
 }
 
-/* Generate an ordinary attestation key using the best available template. */
-static int generate_key(Tpm2Context *c, int dir_fd) {
+/* Build the JSON key data for an ordinary key. */
+static int build_ordinary_key_data(
+                Tpm2Context *c,
+                const Tpm2Handle *parent,
+                const TPM2B_PUBLIC *public,
+                const TPM2B_PRIVATE *private,
+                sd_json_variant **ret) {
         int r;
 
         assert(c);
-        assert(dir_fd >= 0);
+        assert(parent);
+        assert(public);
+        assert(private);
+        assert(ret);
 
-        TPMT_PUBLIC template;
-        r = tpm2_get_best_attestation_key_template(c, &template);
+        _cleanup_(iovec_done) struct iovec parent_handle_buf = {};
+        r = tpm2_serialize(c, parent, &parent_handle_buf);
         if (r < 0)
-                return log_error_errno(r, "Failed to get attestation key template: %m");
-
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *ek_handle = NULL;
-        r = tpm2_get_or_create_ek(c, /* session= */ NULL, /*  ret_public= */ NULL, /* ret_name= */ NULL, /* ret_qname= */ NULL, &ek_handle);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get handle to persistent EK: %m");
-
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
-        r = tpm2_open_ek_user_policy_session(c, /* session= */ NULL, ek_handle, /* tpm_key= */ NULL, &session);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open policy session for EK: %m");
-
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
-        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
-        r = tpm2_create(c, ek_handle, session, &template, /* sensitive= */ NULL, &public, &private);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create new ordinary signing key: %m");
-
-        _cleanup_(iovec_done) struct iovec ek_handle_buf = {};
-        r = tpm2_serialize(c, ek_handle, &ek_handle_buf);
-        if (r < 0)
-                return log_error_errno(r, "Failed to serialize EK handle: %m");
+                return log_error_errno(r, "Failed to serialize parent handle: %m");
 
         _cleanup_free_ void *public_buf = NULL;
         size_t public_sz;
@@ -250,11 +259,49 @@ static int generate_key(Tpm2Context *c, int dir_fd) {
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("type", signing_key_type_to_string(SIGNING_KEY_ORDINARY)),
-                        JSON_BUILD_PAIR_IOVEC_BASE64("parentHandle", &ek_handle_buf),
+                        JSON_BUILD_PAIR_IOVEC_BASE64("parentHandle", &parent_handle_buf),
                         SD_JSON_BUILD_PAIR_BASE64("public", public_buf, public_sz),
                         SD_JSON_BUILD_PAIR_BASE64("private", private_buf, private_sz));
         if (r < 0)
                 return log_error_errno(r, "Failed to build signing key data: %m");
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+/* Generate an ordinary attestation key as a child of the EK, using the best available template. */
+static int generate_key(Tpm2Context *c, int dir_fd) {
+        int r;
+
+        assert(c);
+        assert(dir_fd >= 0);
+
+        TPMT_PUBLIC template;
+        r = tpm2_get_best_attestation_key_template(c, &template);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get attestation key template: %m");
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *ek_handle = NULL;
+        r = tpm2_get_or_create_ek(c, /* session= */ NULL, /*  ret_public= */ NULL, /* ret_name= */ NULL, /* ret_qname= */ NULL, &ek_handle);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get handle to persistent EK: %m");
+
+        /* The EK requires a policy session for authorization. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        r = tpm2_open_ek_user_policy_session(c, /* session= */ NULL, ek_handle, &session);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open policy session for EK: %m");
+
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        r = tpm2_create(c, ek_handle, session, &template, /* sensitive= */ NULL, &public, &private);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create new ordinary signing key: %m");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = build_ordinary_key_data(c, ek_handle, public, private, &v);
+        if (r < 0)
+                return r;
 
         _cleanup_free_ char *dir_path = NULL;
         (void) fd_get_path(dir_fd, &dir_path);
@@ -446,57 +493,104 @@ static int load_signing_keys(Tpm2Context *c, SigningKey **ret_keys, size_t *ret_
         return 0;
 }
 
-/* Recreate a primary TPM key in the specified hierarchy, using the supplied template data. */
-static int recreate_primary_key(Tpm2Context *c, uint32_t hierarchy, const struct iovec *template, Tpm2Handle **ret_handle) {
+/* Create a primary TPM key in the specified hierarchy, using the supplied template. */
+static int create_primary_key(
+                Tpm2Context *c,
+                SigningKeyHierarchy hierarchy,
+                const TPMT_PUBLIC *template,
+                TPM2B_NAME **ret_name,
+                TPM2B_PUBLIC **ret_public,
+                Tpm2Handle **ret_handle) {
         int r;
 
         assert(c);
-        assert(iovec_is_valid(template));
+        assert(template);
         assert(ret_handle);
 
         ESYS_TR hierarchy_esys;
         switch (hierarchy) {
-        case TPM2_RH_OWNER:
+        case SIGNING_KEY_HIERARCHY_OWNER:
                 hierarchy_esys = ESYS_TR_RH_OWNER;
                 break;
-        case TPM2_RH_ENDORSEMENT:
+        case SIGNING_KEY_HIERARCHY_ENDORSEMENT:
                 hierarchy_esys = ESYS_TR_RH_ENDORSEMENT;
                 break;
+        case SIGNING_KEY_HIERARCHY_NULL:
+                hierarchy_esys = ESYS_TR_RH_NULL;
+                break;
         default:
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unsupported hierarchy for primary key");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported hierarchy for primary key");
         }
 
-        TPM2B_PUBLIC template_tpm2b;
-        r = tpm2_unmarshal_public(template->iov_base, template->iov_len, &template_tpm2b);
-        if (r < 0)
-                return log_error_errno(r, "Failed to unmarshal primary key template: %m");
+        TPM2B_PUBLIC template_tpm2b = {
+                .size = sizeof(TPMT_PUBLIC),
+                .publicArea = *template,
+        };
 
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
         _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
-        r = tpm2_create_primary(
-                c,
-                /* session= */ NULL,
-                hierarchy_esys,
-                &template_tpm2b,
-                /* sensitive= */ NULL,
-                /* ret_public= */ NULL,
-                &handle);
+        r = tpm2_create_primary(c, /* session= */ NULL, hierarchy_esys, &template_tpm2b, /* sensitive= */ NULL, &public, &handle);
         if (r < 0)
-                return log_error_errno(r, "Failed to recreate primary signing key: %m");
+                return log_error_errno(r, "Failed to create primary key");
 
-        log_debug("Acquired primary signing key handle.");
+        _cleanup_(Esys_Freep) TPM2B_NAME *name = NULL;
+        if (ret_name) {
+                r = tpm2_get_name(c, handle, &name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get name of primary key");
 
+                *ret_name = TAKE_PTR(name);
+        }
+        if (ret_public)
+                *ret_public = TAKE_PTR(public);
         *ret_handle = TAKE_PTR(handle);
 
         return 0;
 }
 
+/* Recreate a primary TPM key in the specified hierarchy, using the supplied template data. */
+static int recreate_primary_key(
+                Tpm2Context *c,
+                SigningKeyHierarchy hierarchy,
+                const struct iovec *template,
+                const struct iovec *expected_name,
+                Tpm2Handle **ret) {
+        int r;
+
+        assert(c);
+        assert(iovec_is_valid(template));
+        assert(iovec_is_valid(expected_name));
+        assert(ret);
+
+        TPM2B_PUBLIC template_tpm2b;
+        r = tpm2_unmarshal_public(template->iov_base, template->iov_len, &template_tpm2b);
+        if (r < 0)
+                return log_error_errno(r, "Failed to unmarshal primary signing key template: %m");
+
+        _cleanup_(Esys_Freep) TPM2B_NAME *name = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = create_primary_key(c, hierarchy, &template_tpm2b.publicArea, &name, /* ret_public= */ NULL, &handle);
+        if (r < 0)
+                return r;
+
+        if (memcmp_nn(expected_name->iov_base, expected_name->iov_len, name->name, name->size) != 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "Recreated primary attestation key does not have the expected name. This is likely because the primary seed of the TPM hierarchy has changed");
+
+        log_debug("Acquired primary signing key handle.");
+
+        *ret = TAKE_PTR(handle);
+
+        return 0;
+}
+
 /* Acquire a handle for a persistent TPM key using the supplied persistent handle data. */
-static int acquire_persistent_key(Tpm2Context *c, const struct iovec *handle_data, Tpm2Handle **ret_handle) {
+static int acquire_persistent_key(Tpm2Context *c, const struct iovec *handle_data, Tpm2Handle **ret) {
         int r;
 
         assert(c);
         assert(iovec_is_valid(handle_data));
-        assert(ret_handle);
+        assert(ret);
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
         r = tpm2_deserialize(c, handle_data, &handle);
@@ -512,16 +606,18 @@ static int acquire_persistent_key(Tpm2Context *c, const struct iovec *handle_dat
 
         _cleanup_(Esys_Freep) TPM2B_NAME *real_name = NULL;
         r = tpm2_read_public(c, /* session= */ NULL, handle, /* ret_public= */ NULL, &real_name, /* ret_qname= */ NULL);
+        if (r == -ENOKEY)
+                return log_warning_errno(r, "Persistent object is no longer available in the TPM");
         if (r < 0)
                 return log_error_errno(r, "Failed to read name of persistent signing key from TPM: %m");
 
         if (memcmp_nn(handle_name->name, handle_name->size, real_name->name, real_name->size) != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Persistent signing key handle does not match object in TPM");
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                         "Persistent object in the TPM does not match the saved handle");
 
         log_debug("Acquired persistent signing key handle.");
 
-        *ret_handle = TAKE_PTR(handle);
+        *ret = TAKE_PTR(handle);
 
         return 0;
 }
@@ -532,14 +628,14 @@ static int load_ordinary_key(
                 const struct iovec *parent_handle_data,
                 const struct iovec *public,
                 const struct iovec *private,
-                Tpm2Handle **ret_handle) {
+                Tpm2Handle **ret) {
         int r;
 
         assert(c);
         assert(iovec_is_valid(parent_handle_data));
         assert(iovec_is_valid(public));
         assert(iovec_is_valid(private));
-        assert(ret_handle);
+        assert(ret);
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *parent = NULL;
         r = tpm2_deserialize(c, parent_handle_data, &parent);
@@ -556,22 +652,23 @@ static int load_ordinary_key(
         if (r < 0)
                 return log_error_errno(r, "Failed to unmarshal ordinary signing key private area: %m");
 
-        /* We pass in the EK handle as the tpmKey parameter for the policy session. This is just to make
-         * sure that the policy session HMAC check will fail on the TPM if the handle we've deserialized
-         * from disk isn't consistent with the object that's actually in the TPM now. */
         _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
-        r = tpm2_open_ek_user_policy_session(c, /* session= */ NULL, parent, parent, &session);
+        r = tpm2_open_ek_user_policy_session(c, /* session= */ NULL, parent, &session);
         if (r < 0)
                 return log_error_errno(r, "Failed to open policy session for EK: %m");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
         r = tpm2_load(c, parent, session, &public_tpm2b, &private_tpm2b, &handle);
+        if (r == -EREMOTE)
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                         "Ordinary attestation key failed an integrity check when loading it into the TPM. "
+                                         "Either the storage key at the parent handle in the TPM isn't the correct one or the saved key data is invalid.");
         if (r < 0)
                 return log_error_errno(r, "Failed to load ordinary attestation key into the TPM: %m");
 
         log_debug("Acquired ordinary signing key handle.");
 
-        *ret_handle = TAKE_PTR(handle);
+        *ret = TAKE_PTR(handle);
 
         return 0;
 }
@@ -694,7 +791,7 @@ static int acquire_key_handle(Tpm2Context *c, int runtime_dir_fd, const char *na
         case SIGNING_KEY_PRIMARY:
                 r = load_key_context(c, runtime_dir_fd, name, &handle);
                 if (r == -ENOENT) {
-                        r = recreate_primary_key(c, data->hierarchy, &data->template, &handle);
+                        r = recreate_primary_key(c, data->hierarchy, &data->template, &data->name, &handle);
                         if (r < 0)
                                 return r;
 
@@ -866,6 +963,10 @@ static int vl_method_sign(
         FOREACH_ARRAY(key, keys, n_keys) {
                 _cleanup_(tpm2_handle_freep) Tpm2Handle *key_handle = NULL;
                 r = acquire_key_handle(c, runtime_dir_fd, key->name, key->data, &key_handle);
+                if (r == -ENOKEY) {
+                        log_warning("The signing key '%s' is not available, skipping.", key->name);
+                        continue;
+                }
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire a signing key handle for key '%s': %m", key->name);
 
@@ -882,6 +983,900 @@ static int vl_method_sign(
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("data", dv));
 }
 
+typedef enum SigningScheme {
+        SIGNING_SCHEME_RSASSA,
+        SIGNING_SCHEME_RSAPSS,
+        SIGNING_SCHEME_ECDSA,
+
+        _SIGNING_SCHEME_MAX,
+        _SIGNING_SCHEME_INVALID = -EINVAL,
+} SigningScheme;
+
+static const char* const signing_scheme_table[_SIGNING_SCHEME_MAX] = {
+        [SIGNING_SCHEME_RSASSA] = "rsassa",
+        [SIGNING_SCHEME_RSAPSS] = "rsapss",
+        [SIGNING_SCHEME_ECDSA]  = "ecdsa",
+};
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(signing_scheme, SigningScheme);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_signing_scheme, SigningScheme, signing_scheme_from_string);
+
+typedef enum HashAlgorithm {
+        HASH_ALGORITHM_SHA256,
+        HASH_ALGORITHM_SHA384,
+        HASH_ALGORITHM_SHA512,
+
+        _HASH_ALGORITHM_MAX,
+        _HASH_ALGORITHM_INVALID = -EINVAL,
+} HashAlgorithm;
+
+static const char* const hash_algorithm_table[_HASH_ALGORITHM_MAX] = {
+        [HASH_ALGORITHM_SHA256] = "sha256",
+        [HASH_ALGORITHM_SHA384] = "sha384",
+        [HASH_ALGORITHM_SHA512] = "sha512",
+};
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(hash_algorithm, HashAlgorithm);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_hash_algorithm, HashAlgorithm, hash_algorithm_from_string);
+
+static TPMI_ALG_HASH hash_algorithm_to_tpm(HashAlgorithm alg) {
+        switch (alg) {
+        case HASH_ALGORITHM_SHA256:
+                return TPM2_ALG_SHA256;
+        case HASH_ALGORITHM_SHA384:
+                return TPM2_ALG_SHA384;
+        case HASH_ALGORITHM_SHA512:
+                return TPM2_ALG_SHA512;
+        default:
+                return TPM2_ALG_ERROR;
+        }
+}
+
+typedef enum ECCCurve {
+        ECC_CURVE_NISTP256,
+        ECC_CURVE_NISTP384,
+        ECC_CURVE_NISTP521,
+
+        _ECC_CURVE_MAX,
+        _ECC_CURVE_INVALID = -EINVAL,
+} ECCCurve;
+
+static const char* const ecc_curve_table[_ECC_CURVE_MAX] = {
+        [ECC_CURVE_NISTP256] = "nistp256",
+        [ECC_CURVE_NISTP384] = "nistp384",
+        [ECC_CURVE_NISTP521] = "nistp521",
+};
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(ecc_curve, ECCCurve);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_ecc_curve, ECCCurve, ecc_curve_from_string);
+
+static TPMI_ECC_CURVE ecc_curve_to_tpm(ECCCurve c) {
+        switch (c) {
+        case ECC_CURVE_NISTP256:
+                return TPM2_ECC_NIST_P256;
+        case ECC_CURVE_NISTP384:
+                return TPM2_ECC_NIST_P384;
+        case ECC_CURVE_NISTP521:
+                return TPM2_ECC_NIST_P521;
+        default:
+                return TPM2_ECC_NONE;
+        }
+}
+
+/* The TPM persistent handle range. Like tpm2_persist_handle() we don't use TPM2_PERSISTENT_FIRST/LAST here,
+ * see the comment there. */
+static bool is_persistent_handle(uint64_t h) {
+        return h >= UINT64_C(0x81000000) && h <= UINT64_C(0x81ffffff);
+}
+
+/* Build the template for a new signing key. The unique area (used to customize primary keys) is not set here. */
+static void make_signing_key_template(
+                SigningScheme scheme,
+                TPMI_ALG_HASH hash_alg,
+                uint16_t rsa_key_bits,
+                TPMI_ECC_CURVE ecc_curve,
+                TPMT_PUBLIC *ret) {
+
+        assert(ret);
+
+        TPMT_PUBLIC template = {
+                .nameAlg = hash_alg,
+                .objectAttributes =
+                        TPMA_OBJECT_FIXEDTPM |
+                        TPMA_OBJECT_FIXEDPARENT |
+                        TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                        TPMA_OBJECT_USERWITHAUTH |
+                        TPMA_OBJECT_RESTRICTED |
+                        TPMA_OBJECT_SIGN_ENCRYPT,
+                .parameters.asymDetail.symmetric.algorithm = TPM2_ALG_NULL,
+        };
+
+        switch (scheme) {
+        case SIGNING_SCHEME_RSASSA:
+        case SIGNING_SCHEME_RSAPSS:
+                template.type = TPM2_ALG_RSA;
+                template.parameters.rsaDetail.scheme.scheme = scheme == SIGNING_SCHEME_RSASSA ? TPM2_ALG_RSASSA : TPM2_ALG_RSAPSS;
+                template.parameters.rsaDetail.scheme.details.anySig.hashAlg = hash_alg;
+                template.parameters.rsaDetail.keyBits = rsa_key_bits;
+                template.parameters.rsaDetail.exponent = 0;
+                break;
+        case SIGNING_SCHEME_ECDSA:
+                template.type = TPM2_ALG_ECC;
+                template.parameters.eccDetail.scheme.scheme = TPM2_ALG_ECDSA;
+                template.parameters.eccDetail.scheme.details.ecdsa.hashAlg = hash_alg;
+                template.parameters.eccDetail.curveID = ecc_curve;
+                template.parameters.eccDetail.kdf.scheme = TPM2_ALG_NULL;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        *ret = template;
+}
+
+/* Copy the supplied nonce into the unique area of the template, used to customize primary keys. */
+static int signing_key_template_set_nonce(TPMT_PUBLIC *template, const struct iovec *nonce) {
+        assert(template);
+        assert(iovec_is_valid(nonce));
+
+        switch (template->type) {
+        case TPM2_ALG_RSA:
+                if (nonce->iov_len > sizeof(template->unique.rsa.buffer))
+                        return -EINVAL;
+
+                template->unique.rsa.size = nonce->iov_len;
+                memcpy_safe(template->unique.rsa.buffer, nonce->iov_base, nonce->iov_len);
+                break;
+        case TPM2_ALG_ECC:
+                if (nonce->iov_len > sizeof(template->unique.ecc.x.buffer))
+                        return -EINVAL;
+
+                /* For elliptic keys, the nonce is only used to customize the x coordinate. The y coordinate
+                 * is left empty. This is consistent with section 7.4.1.1.2 (unique field for an ECC key) of
+                 * the "TPM 2.0 Keys for Device Identity and Attestation" specification. */
+                template->unique.ecc.x.size = nonce->iov_len;
+                memcpy_safe(template->unique.ecc.x.buffer, nonce->iov_base, nonce->iov_len);
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+typedef struct CreateKeyParameters {
+        const char *name;
+        SigningKeyType type;
+        SigningScheme scheme;
+        HashAlgorithm hash_alg;
+        uint64_t rsa_key_bits;
+        ECCCurve ecc_curve;
+        uint64_t parent_handle;
+        struct iovec parent_context;
+        SigningKeyHierarchy hierarchy;
+        uint64_t persistent_handle;
+        struct iovec primary_nonce;
+} CreateKeyParameters;
+
+static void create_key_parameters_done(CreateKeyParameters *p) {
+        assert(p);
+
+        iovec_done(&p->parent_context);
+        iovec_done(&p->primary_nonce);
+}
+
+static int reply_unsupported_template(sd_varlink *link, const char *parameter) {
+        assert(link);
+
+        return sd_varlink_errorbo(
+                        link,
+                        "io.systemd.Report.TPM2SignerKeyManager.UnsupportedTemplate",
+                        SD_JSON_BUILD_PAIR_CONDITION(!!parameter, "parameter", SD_JSON_BUILD_STRING(parameter)));
+}
+
+/* Build the JSON key data for a primary key. */
+static int build_primary_key_data(
+                SigningKeyHierarchy hierarchy,
+                const TPMT_PUBLIC *template,
+                const TPM2B_NAME *name,
+                sd_json_variant **ret) {
+        int r;
+
+        assert(template);
+        assert(name);
+        assert(ret);
+
+        TPM2B_PUBLIC template_tpm2b = {
+                .size = sizeof(TPMT_PUBLIC),
+                .publicArea = *template,
+        };
+
+        _cleanup_free_ void *template_buf = NULL;
+        size_t template_sz;
+        r = tpm2_marshal_public(&template_tpm2b, &template_buf, &template_sz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to marshal template for new primary signing key: %m");
+
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("type", signing_key_type_to_string(SIGNING_KEY_PRIMARY)),
+                        SD_JSON_BUILD_PAIR_STRING("hierarchy", signing_key_hierarchy_to_string(hierarchy)),
+                        SD_JSON_BUILD_PAIR_BASE64("template", template_buf, template_sz),
+                        SD_JSON_BUILD_PAIR_HEX("name", name->name, name->size));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build signing key data: %m");
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+/* Persist the transient key in the TPM and build the JSON key data for it. Note that the key has to be
+ * persisted before we generate the data for it. */
+static int persist_and_build_key_data(
+                Tpm2Context *c,
+                const Tpm2Handle *handle,
+                TPMI_DH_PERSISTENT persistent_handle_index,
+                sd_json_variant **ret) {
+        int r;
+
+        assert(c);
+        assert(handle);
+        assert(ret);
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *persistent_handle = NULL;
+        r = tpm2_persist_handle(c, handle, /* session= */ NULL, persistent_handle_index, &persistent_handle);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EEXIST;
+
+        _cleanup_(iovec_done) struct iovec handle_buf = {};
+        r = tpm2_serialize(c, persistent_handle, &handle_buf);
+        if (r < 0) {
+                (void) tpm2_evict_handle(c, /* session= */ NULL, persistent_handle_index);
+                return log_error_errno(r, "Failed to serialize persistent signing key handle: %m");
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("type", signing_key_type_to_string(SIGNING_KEY_PERSISTENT)),
+                        JSON_BUILD_PAIR_IOVEC_BASE64("handle", &handle_buf));
+        if (r < 0) {
+                (void) tpm2_evict_handle(c, /* session= */ NULL, persistent_handle_index);
+                return log_error_errno(r, "Failed to build signing key data: %m");
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int vl_method_create_key(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,       offsetof(CreateKeyParameters, name),              SD_JSON_MANDATORY },
+                { "type",             SD_JSON_VARIANT_STRING,        json_dispatch_signing_key_type,      offsetof(CreateKeyParameters, type),              SD_JSON_MANDATORY },
+                { "scheme",           SD_JSON_VARIANT_STRING,        json_dispatch_signing_scheme,        offsetof(CreateKeyParameters, scheme),            SD_JSON_MANDATORY },
+                { "hashAlg",          _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_hash_algorithm,        offsetof(CreateKeyParameters, hash_alg),          SD_JSON_MANDATORY },
+                { "rsaKeyBits",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,             offsetof(CreateKeyParameters, rsa_key_bits),      SD_JSON_NULLABLE  },
+                { "eccCurve",         SD_JSON_VARIANT_STRING,        json_dispatch_ecc_curve,             offsetof(CreateKeyParameters, ecc_curve),         SD_JSON_NULLABLE  },
+                { "parentHandle",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,             offsetof(CreateKeyParameters, parent_handle),     SD_JSON_NULLABLE  },
+                { "parentContext",    SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,        offsetof(CreateKeyParameters, parent_context),    SD_JSON_NULLABLE  },
+                { "hierarchy",        SD_JSON_VARIANT_STRING,        json_dispatch_signing_key_hierarchy, offsetof(CreateKeyParameters, hierarchy),         SD_JSON_NULLABLE  },
+                { "persistentHandle", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,             offsetof(CreateKeyParameters, persistent_handle), SD_JSON_NULLABLE  },
+                { "primaryNonce",     SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,        offsetof(CreateKeyParameters, primary_nonce),     SD_JSON_NULLABLE  },
+                {}
+        };
+
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_(create_key_parameters_done) CreateKeyParameters p = {
+                .type = _SIGNING_KEY_TYPE_INVALID,
+                .scheme = _SIGNING_SCHEME_INVALID,
+                .ecc_curve = _ECC_CURVE_INVALID,
+                .hierarchy = _SIGNING_KEY_HIERARCHY_INVALID,
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* An explicit null for uint64 fields is dispatched as UINT64_MAX. Normalize them back to their
+         * unset state (0). */
+        if (p.rsa_key_bits == UINT64_MAX)
+                p.rsa_key_bits = 0;
+        if (p.parent_handle == UINT64_MAX)
+                p.parent_handle = 0;
+        if (p.persistent_handle == UINT64_MAX)
+                p.persistent_handle = 0;
+
+        /* Check the mandatory fields. */
+        if (p.type < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "type");
+        if (p.scheme < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "scheme");
+
+        if (!filename_is_valid(p.name))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        bool is_rsa = IN_SET(p.scheme, SIGNING_SCHEME_RSASSA, SIGNING_SCHEME_RSAPSS);
+
+        if (is_rsa) {
+                if (p.rsa_key_bits == 0 || p.rsa_key_bits > UINT16_MAX)
+                        return sd_varlink_error_invalid_parameter_name(link, "rsaKeyBits");
+                if (p.ecc_curve >= 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "eccCurve");
+        } else {
+                if (p.ecc_curve < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "eccCurve");
+                if (p.rsa_key_bits != 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "rsaKeyBits");
+        }
+
+        /* Validate the handle/hierarchy combination for the chosen key type. */
+        switch (p.type) {
+        case SIGNING_KEY_ORDINARY:
+                /* Must have a parentHandle, and it must be persistent. */
+                if (!is_persistent_handle(p.parent_handle))
+                        return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
+
+                /* Must not specify a parentContext, hierarchy or persistentHandle. */
+                if (iovec_is_set(&p.parent_context))
+                        return sd_varlink_error_invalid_parameter_name(link, "parentContext");
+                if (p.hierarchy >= 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "hierarchy");
+                if (p.persistent_handle != 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "persistentHandle");
+                break;
+
+        case SIGNING_KEY_PERSISTENT:
+                /* Exactly one of parentHandle, parentContext or hierarchy must be specified. */
+                if ((p.parent_handle != 0) + iovec_is_set(&p.parent_context) + (p.hierarchy >= 0) != 1)
+                        return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
+
+                /* If parentHandle is specified, it must be a persistent handle. */
+                if (p.parent_handle != 0 && !is_persistent_handle(p.parent_handle))
+                        return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
+
+                /* Must have a persistentHandle too. */
+                if (!is_persistent_handle(p.persistent_handle))
+                        return sd_varlink_error_invalid_parameter_name(link, "persistentHandle");
+
+                /* Cannot persist a key in the null hierarchy. */
+                if (p.hierarchy == SIGNING_KEY_HIERARCHY_NULL)
+                        return sd_varlink_error_invalid_parameter_name(link, "hierarchy");
+                break;
+
+        case SIGNING_KEY_PRIMARY:
+                /* Must have a hierarchy. */
+                if (p.hierarchy < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "hierarchy");
+
+                /* Must not have a parentHandle, parentContext or persistentHandle. */
+                if (p.parent_handle != 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
+                if (iovec_is_set(&p.parent_context))
+                        return sd_varlink_error_invalid_parameter_name(link, "parentContext");
+                if (p.persistent_handle != 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "persistentHandle");
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        /* The key is created as a primary key whenever the type is "primary", or where the type is
+         * "persistent" with "hierarchy" rather than "parentHandle". */
+        bool as_primary = p.type == SIGNING_KEY_PRIMARY || (p.type == SIGNING_KEY_PERSISTENT && p.hierarchy >= 0);
+
+        /* The unique area of the template can only be customized for primary keys. */
+        if (iovec_is_set(&p.primary_nonce) && !as_primary)
+                return sd_varlink_error_invalid_parameter_name(link, "primaryNonce");
+
+        /* Build the template for the new restricted signing key. */
+        TPMT_PUBLIC template;
+        make_signing_key_template(
+                        p.scheme,
+                        hash_algorithm_to_tpm(p.hash_alg),
+                        (uint16_t) p.rsa_key_bits,
+                        ecc_curve_to_tpm(p.ecc_curve),
+                        &template);
+
+        /* We've already verified that primaryNonce is only set if we're creating a primary key. */
+        r = signing_key_template_set_nonce(&template, &p.primary_nonce);
+        if (r < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "primaryNonce");
+
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        r = tpm2_context_new_or_warn(/* device= */ NULL, &c);
+        if (r < 0)
+                return r;
+
+        /* Check the TPM actually supports the requested template. */
+        if (!tpm2_supports_alg(c, template.type))
+                return reply_unsupported_template(link, "scheme");
+        if (template.type == TPM2_ALG_ECC && !tpm2_supports_ecc_curve(c, template.parameters.eccDetail.curveID))
+                return reply_unsupported_template(link, "eccCurve");
+        if (!tpm2_test_parms(c, template.type, &template.parameters))
+                return reply_unsupported_template(link, /* parameter= */ NULL);
+
+        /* Open (creating if necessary) and exclusively lock the key directory, so that creating the key is
+         * safe against signing invocations (which load the keys under the same lock). */
+        _cleanup_close_ int dir_fd = xopenat_lock_full(
+                        AT_FDCWD,
+                        REPORT_SIGN_TPM2_PERSISTENT_DIR,
+                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        /* xopen_flags= */ 0,
+                        /* mode= */ 0700,
+                        LOCK_BSD,
+                        LOCK_EX);
+        if (dir_fd < 0)
+                return log_error_errno(dir_fd, "Failed to open and lock directory '%s': %m", REPORT_SIGN_TPM2_PERSISTENT_DIR);
+
+        _cleanup_free_ char *fname = strjoin(p.name, REPORT_SIGN_TPM2_KEY_EXT);
+        if (!fname)
+                return log_oom();
+
+        if (faccessat(dir_fd, fname, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                return sd_varlink_error(link, "io.systemd.Report.TPM2SignerKeyManager.KeyExists", /* parameters= */ NULL);
+        if (errno != ENOENT)
+                return log_error_errno(errno, "Failed to check whether signing key '%s' already exists: %m", fname);
+
+        /* Now we can create the new key. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL, *parent = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        _cleanup_(Esys_Freep) TPM2B_NAME *name = NULL;
+
+        if (as_primary) {
+                /* This is the path for "primary" keys, or "persistent" keys with a "hierarchy" rather than
+                 * "parentHandle" or "parentContext". */
+                r = create_primary_key(c, p.hierarchy, &template, &name, &public, &handle);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create new signing key in TPM: %m");
+        } else {
+                /* This is the path for "ordinary" keys, or "persistent" keys with either a "parentHandle"
+                * or "parentContext" rather than a "hierarchy". */
+                if (iovec_is_set(&p.parent_context)) {
+                        /* Persistent keys with a "parentContext" corresponding to a saved transient key.
+                         * Try unmarshalling using the tpm2-tools structure first. */
+                        TPMS_CONTEXT context;
+                        r = tpm2_unmarshal_saved_tpm2_tools_context(
+                                        p.parent_context.iov_base,
+                                        p.parent_context.iov_len,
+                                        &context);
+                        if (r < 0 && r != -EOPNOTSUPP)
+                                return sd_varlink_error_invalid_parameter_name(link, "parentContext");
+                        if (r < 0) {
+                                /* The supplied context did not have the tpm2-tools magic header. */
+                                r = tpm2_unmarshal_saved_handle_context(
+                                                p.parent_context.iov_base,
+                                                p.parent_context.iov_len,
+                                                &context);
+                                if (r < 0)
+                                        return sd_varlink_error_invalid_parameter_name(link, "parentContext");
+                        }
+
+                        r = tpm2_load_saved_handle_context(c, &context, /* ret_name= */ NULL, &parent);
+                        if (r < 0)
+                                return sd_varlink_error_invalid_parameter_name(link, "parentContext");
+                } else {
+                        /* "Ordinary" keys or "persistent" keys with a "parentHandle". */
+                        r = tpm2_index_to_handle(c, (TPM2_HANDLE) p.parent_handle, /* session= */ NULL, /* ret_name= */ NULL, &parent);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to acquire parent handle: %m");
+                        if (r == 0)
+                                return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
+                }
+
+                /* If parent corresponds to the EK, we may require a policy session for authorization. */
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+                r = tpm2_open_ek_user_policy_session(c, /* session= */ NULL, parent, &session);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open policy session for EK: %m");
+
+                r = tpm2_create(c, parent, session, &template, /* sensitive= */ NULL, &public, &private);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create new signing key in TPM: %m");
+
+                /* A persistent key must be loaded before it can be persisted below. */
+                if (p.type == SIGNING_KEY_PERSISTENT) {
+                        /* If parentHandle corresponds to the EK, we may require a policy session for authorization. */
+                        session = tpm2_handle_free(session);
+                        r = tpm2_open_ek_user_policy_session(c, session, parent, &session);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open policy session for EK: %m");
+
+                        r = tpm2_load(c, parent, session, public, private, &handle);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to load new signing key: %m");
+                }
+        }
+
+        /* Build the JSON encoded key data to persist. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *kd = NULL;
+
+        switch (p.type) {
+        case SIGNING_KEY_ORDINARY:
+                r = build_ordinary_key_data(c, parent, public, private, &kd);
+                if (r < 0)
+                        return r;
+                break;
+
+        case SIGNING_KEY_PERSISTENT:
+                r = persist_and_build_key_data(c, handle, (TPMI_DH_PERSISTENT) p.persistent_handle, &kd);
+                if (r == -ENOSPC)
+                        return sd_varlink_error(link, "io.systemd.Report.TPM2SignerKeyManager.NotEnoughSpace", /* parameters= */ NULL);
+                if (r == -EEXIST)
+                        return sd_varlink_error(link, "io.systemd.Report.TPM2SignerKeyManager.PersistentHandleExists", /* parameters= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to persist new signing key: %m");
+                break;
+
+        case SIGNING_KEY_PRIMARY:
+                r = build_primary_key_data(p.hierarchy, &template, name, &kd);
+                if (r < 0)
+                        return r;
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        _cleanup_free_ char *dir_path = NULL;
+        (void) fd_get_path(dir_fd, &dir_path);
+
+        /* Write the key data to the persistent directory, without overwriting an existing file. */
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *temp = NULL;
+        r = fopen_tmpfile_linkable_at(dir_fd, fname, O_WRONLY, &temp, &f);
+        if (r < 0) {
+                if (p.type == SIGNING_KEY_PERSISTENT)
+                        (void) tpm2_evict_handle(c, /* session= */ NULL, p.persistent_handle);
+                return log_error_errno(r, "Failed to open signing key data file '%s/%s' for writing: %m",
+                                       strnull(dir_path), fname);
+        }
+
+        CLEANUP_TMPFILE_AT(dir_fd, temp);
+
+        r = sd_json_variant_dump(kd, SD_JSON_FORMAT_NEWLINE, f, /* prefix= */ NULL);
+        if (r < 0) {
+                if (p.type == SIGNING_KEY_PERSISTENT)
+                        (void) tpm2_evict_handle(c, /* session= */ NULL, p.persistent_handle);
+                return log_error_errno(r, "Failed to write signing key data: %m");
+        }
+
+        r = flink_tmpfile_at(f, dir_fd, temp, fname, LINK_TMPFILE_SYNC);
+        if (r < 0) {
+                if (p.type == SIGNING_KEY_PERSISTENT)
+                        (void) tpm2_evict_handle(c, /* session= */ NULL, p.persistent_handle);
+                return log_error_errno(r, "Failed to move signing key data file '%s/%s' into place: %m",
+                                       strnull(dir_path), fname);
+        }
+
+        temp = mfree(temp);
+
+        log_debug("Created signing key and saved to '%s/%s'.", strnull(dir_path), fname);
+
+        /* Build the reply describing the new key. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *public_json = NULL;
+        r = tpm2_tpmt_public_to_json(&public->publicArea, &public_json);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert public area to JSON: %m");
+
+        _cleanup_free_ char *public_pem = NULL;
+        r = tpm2_tpmt_public_to_pem(&public->publicArea, &public_pem);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert public area to PEM: %m");
+
+        return sd_varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_VARIANT("public", public_json),
+                        SD_JSON_BUILD_PAIR_STRING("publicPEM", public_pem));
+}
+
+typedef struct DeleteKeyParameters {
+        const char *name;
+} DeleteKeyParameters;
+
+static int vl_method_delete_key(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(DeleteKeyParameters, name), SD_JSON_MANDATORY },
+                {}
+        };
+
+        DeleteKeyParameters p = {};
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!filename_is_valid(p.name))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        _cleanup_free_ char *key_fname = strjoin(p.name, REPORT_SIGN_TPM2_KEY_EXT);
+        _cleanup_free_ char *voucher_fname = strjoin(p.name, REPORT_SIGN_TPM2_VOUCHER_EXT);
+        _cleanup_free_ char *context_fname = strjoin(p.name, REPORT_SIGN_TPM2_KEYCONTEXT_EXT);
+        if (!key_fname || !voucher_fname || !context_fname)
+                return log_oom();
+
+        /* Lock the runtime directory and then the persistent directory, both exclusively. We take the two
+         * locks in the same order as the signing path (runtime first, then persistent) to avoid deadlocking. */
+        _cleanup_close_ int runtime_dir_fd = xopenat_lock_full(
+                        AT_FDCWD,
+                        REPORT_SIGN_TPM2_RUNTIME_DIR,
+                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        /* xopen_flags= */ 0,
+                        /* mode= */ 0700,
+                        LOCK_BSD,
+                        LOCK_EX);
+        if (runtime_dir_fd < 0)
+                return log_error_errno(runtime_dir_fd, "Failed to open and lock directory '%s': %m", REPORT_SIGN_TPM2_RUNTIME_DIR);
+
+        _cleanup_close_ int dir_fd = xopenat_lock_full(
+                        AT_FDCWD,
+                        REPORT_SIGN_TPM2_PERSISTENT_DIR,
+                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        /* xopen_flags= */ 0,
+                        /* mode= */ 0700,
+                        LOCK_BSD,
+                        LOCK_EX);
+        if (dir_fd < 0)
+                return log_error_errno(dir_fd, "Failed to open and lock directory '%s': %m", REPORT_SIGN_TPM2_PERSISTENT_DIR);
+
+        /* Check that the key exists. */
+        if (faccessat(dir_fd, key_fname, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                if (errno == ENOENT)
+                        return sd_varlink_error(link, "io.systemd.Report.TPM2SignerKeyManager.NoSuchKey", /* parameters= */ NULL);
+                return log_error_errno(errno, "Failed to check whether signing key '%s' exists: %m", key_fname);
+        }
+
+        /* Load the key data so we know its type, and for persistent keys the handle we may need to evict. */
+        _cleanup_(signing_key_data_freep) SigningKeyData *data = new0(SigningKeyData, 1);
+        if (!data)
+                return log_oom();
+
+        r = load_signing_key_data(dir_fd, key_fname, data);
+        if (r < 0)
+                return r;
+
+        /* For a persistent key, evict the corresponding TPM object too as long as the object matches the
+         * persistent handle stored in the key file. */
+        if (data->type == SIGNING_KEY_PERSISTENT) {
+                _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+                r = tpm2_context_new_or_warn(/* device= */ NULL, &c);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+                r = acquire_persistent_key(c, &data->handle, &handle);
+                if (r < 0)
+                        log_warning_errno(r, "Persistent object for signing key '%s' is missing or no longer matches, not evicting it.", p.name);
+                else {
+                        TPM2_HANDLE index;
+                        r = tpm2_index_from_handle(c, handle, &index);
+                        if (r < 0)
+                                /* Note that this fails on versions of tss2 that don't have Esys_TR_GetTpmHandle. */
+                                return log_error_errno(r, "Failed to determine persistent handle for signing key '%s': %m", p.name);
+
+                        r = tpm2_evict_handle(c, /* session= */ NULL, index);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to evict persistent object for signing key '%s': %m", p.name);
+                }
+        }
+
+        _cleanup_free_ char *dir_path = NULL;
+        (void) fd_get_path(dir_fd, &dir_path);
+
+        /* Remove the key file and its optional voucher from the persistent directory. */
+        if (unlinkat(dir_fd, key_fname, 0) < 0)
+                return log_error_errno(errno, "Failed to remove signing key data file '%s/%s': %m", strnull(dir_path), key_fname);
+
+        if (unlinkat(dir_fd, voucher_fname, 0) < 0 && errno != ENOENT)
+                return log_error_errno(errno, "Failed to remove signing key voucher '%s/%s': %m", strnull(dir_path), voucher_fname);
+
+        /* Remove the cached key context from the runtime directory. */
+        if (unlinkat(runtime_dir_fd, context_fname, 0) < 0 && errno != ENOENT)
+                return log_error_errno(errno, "Failed to remove signing key context '%s': %m", context_fname);
+
+        log_debug("Deleted signing key '%s'.", p.name);
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+typedef struct ListKeysParameters {
+        const char *filter;
+} ListKeysParameters;
+
+static int list_signing_key(
+                sd_varlink *link,
+                Tpm2Context *c,
+                int runtime_dir_fd,
+                const SigningKey *key) {
+        int r;
+
+        assert(link);
+        assert(c);
+        assert(runtime_dir_fd >= 0);
+        assert(key);
+
+        const char *name = key->name;
+        SigningKeyData *data = key->data;
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = acquire_key_handle(c, runtime_dir_fd, name, data, &handle);
+        if (r < 0 && r != -ENOKEY)
+                return log_error_errno(r, "Failed to acquire signing key '%s': %m", name);
+
+        bool available = r >= 0;
+
+        TPMT_PUBLIC public_area;
+        bool have_public = false;
+
+        if (available) {
+                /* The key exists in the TPM, so just read it from there. */
+                _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+                r = tpm2_read_public(c, /* session= */ NULL, handle, &public, /* ret_name= */ NULL, /* ret_qname= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read public area of signing key '%s': %m", name);
+
+                public_area = public->publicArea;
+                have_public = true;
+        } else if (data->type == SIGNING_KEY_ORDINARY) {
+                /* The key doesn't exist in the TPM because we couldn't load it, but as it's an ordinary
+                 * key, we can just obtain the stored public area. */
+                TPM2B_PUBLIC public;
+                r = tpm2_unmarshal_public(data->public.iov_base, data->public.iov_len, &public);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unmarshal public area of signing key '%s': %m", name);
+
+                public_area = public.publicArea;
+                have_public = true;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *public_json = NULL;
+        _cleanup_free_ char *public_pem = NULL;
+        if (have_public) {
+                r = tpm2_tpmt_public_to_json(&public_area, &public_json);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert public area of signing key '%s' to JSON: %m", name);
+
+                r = tpm2_tpmt_public_to_pem(&public_area, &public_pem);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert public area of signing key '%s' to PEM: %m", name);
+        }
+
+        uint64_t persistent_handle = 0;
+        if (data->type == SIGNING_KEY_PERSISTENT) {
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *ph = NULL;
+                r = tpm2_deserialize(c, &data->handle, &ph);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to deserialize persistent handle of signing key '%s': %m", name);
+
+                /* This requires a new enough tss2, so don't make it fatal.
+                 * If it fails, we just omit the persistentHandle from the reply. */
+                TPM2_HANDLE index = 0;
+                r = tpm2_index_from_handle(c, ph, &index);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine persistent handle of signing key '%s'", name);
+
+                persistent_handle = index;
+        }
+
+        return sd_varlink_notifybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_STRING("type", signing_key_type_to_string(data->type)),
+                        SD_JSON_BUILD_PAIR_STRING("status", available ? "available" : "unavailable"),
+                        SD_JSON_BUILD_PAIR_CONDITION(have_public, "public", SD_JSON_BUILD_VARIANT(public_json)),
+                        SD_JSON_BUILD_PAIR_CONDITION(have_public, "publicPEM", SD_JSON_BUILD_STRING(public_pem)),
+                        SD_JSON_BUILD_PAIR_CONDITION(persistent_handle != 0, "persistentHandle", SD_JSON_BUILD_UNSIGNED(persistent_handle)),
+                        SD_JSON_BUILD_PAIR_CONDITION(data->type == SIGNING_KEY_PRIMARY, "hierarchy", SD_JSON_BUILD_STRING(signing_key_hierarchy_to_string(data->hierarchy))),
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(&key->voucher), "voucher", JSON_BUILD_IOVEC_BASE64(&key->voucher)));
+}
+
+static int vl_method_list_keys(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "filter", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(ListKeysParameters, filter), SD_JSON_NULLABLE },
+                {}
+        };
+
+        ListKeysParameters p = {};
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        /* ListKeys streams one reply per key, so it must be called with the 'more' flag. */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        r = tpm2_context_new_or_warn(/* device= */ NULL, &c);
+        if (r < 0)
+                return r;
+
+        /* Lock the runtime directory and then the persistent directory, both exclusively, in the same order
+         * as the signing path to avoid deadlocking against it. The runtime directory is used by
+         * acquire_key_handle() for the cached key contexts. */
+        _cleanup_close_ int runtime_dir_fd = xopenat_lock_full(
+                        AT_FDCWD,
+                        REPORT_SIGN_TPM2_RUNTIME_DIR,
+                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        /* xopen_flags= */ 0,
+                        /* mode= */ 0700,
+                        LOCK_BSD,
+                        LOCK_EX);
+        if (runtime_dir_fd < 0)
+                return log_error_errno(runtime_dir_fd, "Failed to open and lock directory '%s': %m", REPORT_SIGN_TPM2_RUNTIME_DIR);
+
+        _cleanup_close_ int dir_fd = xopenat_lock_full(
+                        AT_FDCWD,
+                        REPORT_SIGN_TPM2_PERSISTENT_DIR,
+                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        /* xopen_flags= */ 0,
+                        /* mode= */ 0700,
+                        LOCK_BSD,
+                        LOCK_EX);
+        if (dir_fd < 0)
+                return log_error_errno(dir_fd, "Failed to open and lock directory '%s': %m", REPORT_SIGN_TPM2_PERSISTENT_DIR);
+
+        _cleanup_closedir_ DIR *d = xopendirat(dir_fd, "", O_CLOEXEC);
+        if (!d)
+                return log_error_errno(errno, "Failed to open directory '%s': %m", REPORT_SIGN_TPM2_PERSISTENT_DIR);
+
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read directory '%s': %m", REPORT_SIGN_TPM2_PERSISTENT_DIR)) {
+                if (!dirent_is_file_with_suffix(de, REPORT_SIGN_TPM2_KEY_EXT))
+                        continue;
+
+                const char *e = endswith(de->d_name, REPORT_SIGN_TPM2_KEY_EXT);
+                assert(e);
+
+                _cleanup_free_ char *name = strndup(de->d_name, e - de->d_name);
+                if (!name)
+                        return log_oom();
+
+                /* Apply the optional filter to the key name. */
+                if (p.filter && fnmatch(p.filter, name, 0) != 0)
+                        continue;
+
+                _cleanup_(signing_key_done) SigningKey key;
+                r = load_signing_key(dir_fd, de->d_name, &key);
+                if (r < 0)
+                        return r;
+
+                r = list_signing_key(link, c, runtime_dir_fd, &key);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *vs = NULL;
         int r;
@@ -890,11 +1885,18 @@ static int vl_server(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-        r = sd_varlink_server_add_interface(vs, &vl_interface_io_systemd_Report_Signer);
+        r = sd_varlink_server_add_interface_many(vs,
+                        &vl_interface_io_systemd_Report_Signer,
+                        &vl_interface_io_systemd_Report_TPM2SignerKeyManager);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-        r = sd_varlink_server_bind_method(vs, "io.systemd.Report.Signer.Sign", vl_method_sign);
+        r = sd_varlink_server_bind_method_many(
+                        vs,
+                        "io.systemd.Report.Signer.Sign",                    vl_method_sign,
+                        "io.systemd.Report.TPM2SignerKeyManager.CreateKey", vl_method_create_key,
+                        "io.systemd.Report.TPM2SignerKeyManager.DeleteKey", vl_method_delete_key,
+                        "io.systemd.Report.TPM2SignerKeyManager.ListKeys",  vl_method_list_keys);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
