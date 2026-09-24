@@ -1868,7 +1868,6 @@ _public_ int sd_json_variant_format(sd_json_variant *v, sd_json_format_flags_t f
         /* Returns the length of the generated string (without the terminating NUL),
          * or negative on error. */
 
-        assert_return(v, -EINVAL);
         assert_return(ret, -EINVAL);
 
         if (!sd_json_format_enabled(flags))
@@ -1893,6 +1892,8 @@ _public_ int sd_json_variant_dump(sd_json_variant *v, sd_json_format_flags_t fla
         if (!v) {
                 if (flags & SD_JSON_FORMAT_EMPTY_ARRAY)
                         v = JSON_VARIANT_MAGIC_EMPTY_ARRAY;
+                else if (flags & SD_JSON_FORMAT_EMPTY_OBJECT)
+                        v = JSON_VARIANT_MAGIC_EMPTY_OBJECT;
                 else
                         return 0;
         }
