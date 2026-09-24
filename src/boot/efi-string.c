@@ -146,17 +146,15 @@ DEFINE_STRRCHR(char16_t, strrchr16);
                 unsigned long result = 0;                                       \
                 int any = 0;                                                    \
                                                                                 \
-                while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') {   \
+                while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')     \
                         p++;                                                    \
-                }                                                               \
                                                                                 \
                 if ((base == 0 || base == 16) &&                                \
                     *p == '0' && (*(p + 1) == 'x' || *(p + 1) == 'X')) {        \
                         base = 16;                                              \
                         p += 2;                                                 \
-                } else if (base == 0) {                                         \
+                } else if (base == 0)                                           \
                         base = (*p == '0') ? 8 : 10;                            \
-                }                                                               \
                                                                                 \
                 unsigned long max_val = ~0UL;                                   \
                 unsigned long cutoff = max_val / base;                          \

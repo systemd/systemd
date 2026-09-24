@@ -42,7 +42,7 @@ static size_t devicetree_allocated(const struct devicetree_state *state) {
         return state->pages * EFI_PAGE_SIZE;
 }
 
-static EFI_STATUS devicetree_fixup(struct devicetree_state *state, size_t len) {
+static EFI_STATUS devicetree_fixup(struct devicetree_state *state) {
         EFI_DT_FIXUP_PROTOCOL *fixup;
         size_t size;
         EFI_STATUS err;
@@ -66,7 +66,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, size_t len) {
                 if (err != EFI_SUCCESS)
                         return err;
 
-                memcpy(PHYSICAL_ADDRESS_TO_POINTER(state->addr), oldptr, len);
+                memcpy(PHYSICAL_ADDRESS_TO_POINTER(state->addr), oldptr, state->size);
                 err = BS->FreePages(oldaddr, oldpages);
                 if (err != EFI_SUCCESS)
                         return err;
@@ -86,6 +86,8 @@ EFI_STATUS devicetree_load(struct devicetree_state *state, EFI_FILE *root_dir, c
         EFI_STATUS err;
 
         assert(state);
+        /* state has not been initialized yet */
+        assert(!state->pages);
         assert(root_dir);
         assert(name);
 
@@ -216,7 +218,9 @@ EFI_STATUS devicetree_install_from_memory(
 
         memcpy(PHYSICAL_ADDRESS_TO_POINTER(state->addr), dtb_buffer, dtb_length);
 
-        err = devicetree_fixup(state, dtb_length);
+        state->size = dtb_length;
+
+        err = devicetree_fixup(state);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -343,7 +347,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state) {
         if (!state->pages)
                 return EFI_SUCCESS;
 
-        EFI_STATUS err = devicetree_fixup(state, state->size);
+        EFI_STATUS err = devicetree_fixup(state);
         if (err != EFI_SUCCESS)
                 return err;
 
