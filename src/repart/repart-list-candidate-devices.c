@@ -162,7 +162,7 @@ int vl_method_list_candidate_devices(
         const BlockDevListFlags listflags =
                 BLOCKDEV_LIST_SHOW_SYMLINKS|
                 BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|
-                BLOCKDEV_LIST_IGNORE_ZRAM|
+                BLOCKDEV_LIST_IGNORE_RAMDISK|
                 BLOCKDEV_LIST_IGNORE_READ_ONLY|
                 BLOCKDEV_LIST_METADATA|
                 BLOCKDEV_LIST_DISKSEQ|
