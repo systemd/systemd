@@ -57,8 +57,6 @@ typedef enum DHCPClientPersistLeases {
         _DHCP_CLIENT_PERSIST_LEASES_INVALID = -EINVAL,
 } DHCPClientPersistLeases;
 
-typedef struct Manager Manager;
-
 typedef struct NetworkDHCPServerEmitAddress {
         bool emit;
         struct in_addr *addresses;
