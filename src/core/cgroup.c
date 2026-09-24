@@ -3775,6 +3775,32 @@ int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret) {
         return 0;
 }
 
+void unit_get_effective_managed_oom_mem_pressure(
+                Unit *u,
+                uint32_t *ret_limit,
+                usec_t *ret_duration) {
+
+        assert(u);
+        assert(ret_limit);
+        assert(ret_duration);
+
+        *ret_limit = 0;
+        *ret_duration = USEC_INFINITY;
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return;
+
+        for (Unit *slice = u; slice; slice = UNIT_GET_SLICE(slice)) {
+                CGroupContext *c = ASSERT_PTR(unit_get_cgroup_context(slice));
+
+                if (c->moom_mem_pressure == MANAGED_OOM_KILL) {
+                        *ret_limit = c->moom_mem_pressure_limit;
+                        *ret_duration = c->moom_mem_pressure_duration_usec;
+                        return;
+                }
+        }
+}
+
 static int unit_get_io_accounting_raw(
                 const Unit *u,
                 const CGroupRuntime *crt,
