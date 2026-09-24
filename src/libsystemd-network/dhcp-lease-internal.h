@@ -68,3 +68,5 @@ int dhcp_client_parse_message(sd_dhcp_client *client, const struct iovec *iov, s
 int dhcp_lease_new_from_message(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease **ret);
 
 void dhcp_set_default_t1_t2(sd_dhcp_lease *lease);
+int dhcp_lease_save_at(sd_dhcp_lease *lease, int dir_fd, const char *lease_file);
+int dhcp_lease_load_at(sd_dhcp_client *client, int dir_fd, const char *lease_file, sd_dhcp_lease **ret);
