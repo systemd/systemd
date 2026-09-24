@@ -115,6 +115,18 @@
     <filename>/dev/null</filename> in
     <filename>/etc/systemd/system-preset/</filename> bearing the same
     filename.</para>
+
+    <para>By default <command>systemctl preset</command> writes the enablement symlinks it creates to
+    <filename>/etc/systemd/system/</filename>. When building an OS image it is usually preferable to apply
+    the policy to the vendor unit directory instead, with <command>systemctl preset-all --vendor</command>:
+    the resulting image boots the same way, but <filename>/etc/</filename> is left empty and thus remains
+    available for the administrator. A later <command>systemctl preset-all</command> on the deployed system
+    does not undo that: where the policy and the vendor agree, no symlink is written to
+    <filename>/etc/</filename>. The administrator can still turn individual units off afterwards, in
+    which case <command>systemctl disable</command> shadows the vendor symlink with a symlink to
+    <filename>/dev/null</filename> in <filename>/etc/</filename>. See
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details.</para>
   </refsect1>
 
   <refsect1>
