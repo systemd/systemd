@@ -118,6 +118,9 @@ DEFINE_STRCPY(char16_t, strcpy16);
                 return c ? NULL : (type *) s;      \
         }
 
+DEFINE_STRCHR(char, strchr8);
+DEFINE_STRCHR(char16_t, strchr16);
+
 #define DEFINE_STRRCHR(type, name)                 \
         type *name(const type *s, type c) {        \
                 if (!s)                            \
@@ -130,8 +133,8 @@ DEFINE_STRCPY(char16_t, strcpy16);
                         s++;                       \
                 }                                  \
                 if (c == '\0')                     \
-                        return (type *) s;          \
-                return (type *) last;               \
+                        return (type *) s;         \
+                return (type *) last;              \
         }
 
 DEFINE_STRRCHR(char, strrchr8);
@@ -146,17 +149,15 @@ DEFINE_STRRCHR(char16_t, strrchr16);
                 unsigned long result = 0;                                       \
                 int any = 0;                                                    \
                                                                                 \
-                while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') {   \
+                while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')     \
                         p++;                                                    \
-                }                                                               \
                                                                                 \
                 if ((base == 0 || base == 16) &&                                \
                     *p == '0' && (*(p + 1) == 'x' || *(p + 1) == 'X')) {        \
                         base = 16;                                              \
                         p += 2;                                                 \
-                } else if (base == 0) {                                         \
+                } else if (base == 0)                                           \
                         base = (*p == '0') ? 8 : 10;                            \
-                }                                                               \
                                                                                 \
                 unsigned long max_val = ~0UL;                                   \
                 unsigned long cutoff = max_val / base;                          \
@@ -233,7 +234,6 @@ const char16_t* path_filename16(const char16_t *path) {
 
 DEFINE_STRSTR(char, strstr8, strlen8);
 DEFINE_STRSTR(char16_t, strstr16, strlen16);
-
 #define DEFINE_STRNDUP(type, name, len_func)              \
         type *name(const type *s, size_t n) {             \
                 if (!s)                                   \

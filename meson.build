@@ -1956,7 +1956,7 @@ conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch)
 libfdt = dependency('libfdt', static : true, required : false)
 if not libfdt.found()
         # Older versions (not built with meson) do not ship a pkg-config file.
-        libfdt = cc.find_library('fdt', static : true, required : false)
+        libfdt = cc.find_library('fdt', has_headers : 'libfdt.h', static : true, required : false)
 endif
 have_libfdt = libfdt.found()
 conf.set10('HAVE_LIBFDT', have_libfdt)
@@ -3519,8 +3519,8 @@ foreach tuple : [
         ['libcryptsetup-plugins'],
         ['libcurl'],
         ['libfdisk'],
-        ['libfido2'],
         ['libfdt'],
+        ['libfido2'],
         ['libidn2'],
         ['microhttpd'],
         ['openssl'],
