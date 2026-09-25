@@ -2,9 +2,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import contextlib
+import hashlib
 import http.client
+import lzma
 import os
 import select
+import signal
 import socket
 import subprocess
 import tempfile
@@ -27,6 +30,18 @@ def entry(message):
         '_MACHINE_ID=69121ca41d12c1b69a7960174c27b618\n'
         f'MESSAGE={message}\n\n'
     ).encode()
+
+
+def zstd_rle_frame(entries):
+    """Return entries padded with 64 MiB cursor values, which the importer discards."""
+
+    def raw(data):
+        return (len(data) << 3).to_bytes(3, 'little') + data
+
+    rle = (128 * 1024 << 3 | 2).to_bytes(3, 'little') + b'A'
+    padded_entry = raw(b'__CURSOR=') + rle * 512 + raw(b'\n' + entry('padded'))
+    header = bytes.fromhex('28b52ffd0050')  # Zstandard magic number and 1 MiB window descriptor
+    return header + padded_entry * entries + b'\x01\x00\x00'
 
 
 class Connection(socket.socket):
@@ -111,9 +126,9 @@ class ReceiverTestCase(unittest.TestCase):
         with self.connect() as connection:
             return connection.post(body, encoding)
 
-    def journal(self):
+    def journal(self, field='MESSAGE'):
         return subprocess.check_output(
-            [JOURNALCTL, f'--file={self.output}', '-o', 'cat'],
+            [JOURNALCTL, f'--file={self.output}', '-o', 'cat', f'--output-fields={field}'],
             text=True,
         ).splitlines()
 
@@ -183,6 +198,86 @@ class EntryDeadlineTests(ReceiverTestCase):
                 DEADLINE,
                 lambda: self.assertEqual(connection.post(b'\n', keep_alive=True, chunked=False), 202),
             )
+
+
+class StreamingTests:
+    """Base test suite parameterized across supported compression formats."""
+
+    def compressed(self, message):
+        return self.compress(entry(message))
+
+    def assert_rejected(self, body, status=400):
+        # The server may close the connection before the error response is read.
+        with contextlib.suppress(ConnectionError):
+            self.assertEqual(self.post(body, self.encoding), status)
+        self.assertEqual(self.post(entry('after-rejection')), 202)
+        self.assertIn('after-rejection', self.journal())
+
+    def test_split_upload(self):
+        message = hashlib.shake_256(b'journal-remote split upload').hexdigest(256 * 1024)
+        body = self.compressed(message)
+        # The payload exceeds the libmicrohttpd connection memory limit and is
+        # received across multiple callbacks.
+        self.assertGreater(len(body), 128 * 1024)
+        self.assertEqual(self.post(body, self.encoding), 202)
+        self.assertEqual(self.journal(), [message])
+
+    def test_decoder_is_per_request(self):
+        with self.connect() as connection:
+            self.assertEqual(connection.post(self.compressed('first'), self.encoding, keep_alive=True), 202)
+            self.assertEqual(connection.post(self.compressed('second'), self.encoding, chunked=False), 202)
+        self.assertEqual(self.journal(), ['first', 'second'])
+
+    def test_truncated_upload(self):
+        self.assert_rejected(self.compressed('truncated')[:-1])
+
+
+class XzStreamingTests(StreamingTests, ReceiverTestCase):
+    encoding = 'xz'
+
+    def compress(self, data):
+        return lzma.compress(data)
+
+
+class ZstdStreamingTests(StreamingTests, ReceiverTestCase):
+    encoding = 'zstd'
+
+    def compress(self, data):
+        return subprocess.check_output(['zstd', '-q', '-c'], input=data)
+
+    def test_window_limit(self):
+        # The frame specifies a 128 MiB window, exceeding the 64 MiB maximum
+        # window size permitted by the server.
+        body = bytes.fromhex('28b52ffd0088010000')
+        self.assertEqual(subprocess.check_output(['zstd', '-q', '-d', '-c', '--long=27'], input=body), b'')
+        self.assert_rejected(body)
+
+    def test_callback_output_limit(self):
+        # The thirteen entries decode to 832 MiB in total, exceeding the 768 MiB
+        # (DATA_SIZE_MAX) decompression limit for a single callback.
+        body = zstd_rle_frame(13)
+        # The compressed payload must fit within the initial receive buffer so
+        # that libmicrohttpd processes it in a single callback.
+        self.assertLess(len(body), 32 * 1024)
+        with self.connect() as connection, contextlib.suppress(ConnectionError):
+            connection.begin(self.encoding)
+            # Suspend the server process during transmission to ensure the
+            # payload is buffered in the socket and processed in a single
+            # callback rather than incrementally.
+            self.process.send_signal(signal.SIGSTOP)
+            _, status = os.waitpid(self.process.pid, os.WUNTRACED)
+            try:
+                self.assertTrue(os.WIFSTOPPED(status))
+                connection.chunk(body)
+                connection.chunk(b'')
+            finally:
+                self.process.send_signal(signal.SIGCONT)
+            self.assertEqual(connection.status(), 413)
+        # Decompression exceeds the limit during the twelfth entry, so only the
+        # eleven preceding complete entries are stored.
+        self.assertEqual(len(self.journal('_BOOT_ID')), 11)
+        self.assertEqual(self.post(entry('after-output-limit')), 202)
+        self.assertEqual(len(self.journal('_BOOT_ID')), 12)
 
 
 if __name__ == '__main__':

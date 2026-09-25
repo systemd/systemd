@@ -42,6 +42,8 @@
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
+/* Accommodate the 64 MiB dictionary of xz preset 9 (see xz(1)), the largest that journal-upload can emit. */
+#define JOURNAL_REMOTE_DECOMPRESSOR_MEMORY_MAX (96U * 1024U * 1024U)
 #define JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT 32U
 #define JOURNAL_REMOTE_CONNECTION_TIMEOUT_SEC 30U
 #define JOURNAL_REMOTE_ENTRY_TIMEOUT_USEC (2 * USEC_PER_MINUTE)
@@ -387,6 +389,84 @@ static void http_connection_notify(
         *socket_context = deadline_event;
 }
 
+/* Per-callback context for processing decoded upload data. */
+typedef struct HttpUploadData {
+        struct MHD_Connection *connection;
+        sd_event_source *deadline_event;
+        RemoteSource *source;
+        size_t decoded_size;
+        int error;
+} HttpUploadData;
+
+static int http_upload_store(HttpUploadData *u, const void *data, size_t size) {
+        int r;
+
+        assert(u);
+
+        /* Limit decoded output per callback rather than per request to allow indefinite streaming. */
+        if (size > DATA_SIZE_MAX - u->decoded_size)
+                return -EFBIG;
+        u->decoded_size += size;
+
+        r = journal_importer_push_data(&u->source->importer, data, size);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                r = process_source(u->source, journal_remote_server_global->file_flags);
+                if (r == -EAGAIN)
+                        return 0;
+                if (r == -ENOBUFS)
+                        return log_warning_errno(r, "Entry is above the maximum of %u, aborting connection %p.",
+                                                 DATA_SIZE_MAX, u->connection);
+                if (r == -E2BIG)
+                        return log_warning_errno(r, "Entry with more fields than the maximum of %u, aborting connection %p.",
+                                                 ENTRY_FIELD_COUNT_MAX, u->connection);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to process data, aborting connection %p: %m",
+                                                 u->connection);
+                if (r > 0 && u->deadline_event) {
+                        usec_t deadline;
+
+                        r = entry_deadline(sd_event_source_get_event(u->deadline_event), &deadline);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_event_source_set_time(u->deadline_event, deadline);
+                        if (r < 0)
+                                return r;
+                }
+        }
+}
+
+static int http_upload_decoded(const void *data, size_t size, void *userdata) {
+        HttpUploadData *u = ASSERT_PTR(userdata);
+        int r;
+
+        /* Record failures here so the caller can tell them from decompression errors. */
+        r = http_upload_store(u, data, size);
+        if (r < 0)
+                u->error = r;
+        return r;
+}
+
+static int http_upload_push_lz4_blob(HttpUploadData *u, const void *data, size_t size) {
+        _cleanup_free_ void *buf = NULL;
+        size_t buf_size;
+        int r;
+
+        assert(u);
+
+        if (size == 0)
+                return 0;
+
+        r = decompress_blob(COMPRESSION_LZ4, data, size, &buf, &buf_size, DATA_SIZE_MAX);
+        if (r < 0)
+                return r;
+
+        return http_upload_decoded(buf, buf_size, u);
+}
+
 static int process_http_upload(
                 struct MHD_Connection *connection,
                 const char *upload_data,
@@ -394,8 +474,10 @@ static int process_http_upload(
                 RemoteSource *source) {
 
         const union MHD_ConnectionInfo *ci;
-        sd_event_source *deadline_event = NULL;
-        bool finished = false;
+        HttpUploadData data = {
+                .connection = connection,
+                .source = source,
+        };
         size_t remaining;
         int r;
 
@@ -403,63 +485,52 @@ static int process_http_upload(
 
         ci = sym_MHD_get_connection_info(connection, MHD_CONNECTION_INFO_SOCKET_CONTEXT);
         if (ci)
-                deadline_event = ci->socket_context;
+                data.deadline_event = ci->socket_context;
 
         log_trace("%s: connection %p, %zu bytes",
                   __func__, connection, *upload_data_size);
 
-        if (*upload_data_size) {
+        if (*upload_data_size > 0)
                 log_trace("Received %zu bytes", *upload_data_size);
 
-                if (source->compression != COMPRESSION_NONE) {
-                        _cleanup_free_ char *buf = NULL;
-                        size_t buf_size;
-
-                        r = decompress_blob(source->compression, upload_data, *upload_data_size, (void **) &buf, &buf_size, DATA_SIZE_MAX);
+        if (source->compression == COMPRESSION_LZ4)
+                /* systemd-journal-upload sends LZ4 as compress_blob() output: an 8-byte uncompressed-size
+                 * header and one raw LZ4 block, not an LZ4 frame. The compressed size is not recorded, so
+                 * the data cannot be decoded as a stream; decode each callback's data as one blob. */
+                r = http_upload_push_lz4_blob(&data, upload_data, *upload_data_size);
+        else {
+                if (!source->decompressor) {
+                        /* For COMPRESSION_NONE, decompressor_new_limited() creates a passthrough
+                         * decompressor. */
+                        r = dlopen_compress(source->compression, LOG_DEBUG);
                         if (r < 0)
-                                return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob failed.");
+                                return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE, "Compression is unavailable.");
 
-                        r = journal_importer_push_data(&source->importer, buf, buf_size);
-                } else
-                        r = journal_importer_push_data(&source->importer, upload_data, *upload_data_size);
-                if (r < 0)
-                        return mhd_respond_oom(connection);
-
-                *upload_data_size = 0;
-        } else
-                finished = true;
-
-        for (;;) {
-                r = process_source(source, journal_remote_server_global->file_flags);
-                if (r == -EAGAIN)
-                        break;
-                if (r < 0) {
-                        if (r == -ENOBUFS)
-                                log_warning_errno(r, "Entry is above the maximum of %u, aborting connection %p.",
-                                                  DATA_SIZE_MAX, connection);
-                        else if (r == -E2BIG)
-                                log_warning_errno(r, "Entry with more fields than the maximum of %u, aborting connection %p.",
-                                                  ENTRY_FIELD_COUNT_MAX, connection);
-                        else
-                                log_warning_errno(r, "Failed to process data, aborting connection %p: %m",
-                                                  connection);
-                        return MHD_NO;
+                        r = decompressor_new_limited(source->compression, JOURNAL_REMOTE_DECOMPRESSOR_MEMORY_MAX,
+                                                     &source->decompressor);
+                        if (r < 0)
+                                return r == -ENOMEM ? mhd_respond_oom(connection) : MHD_NO;
                 }
-                if (r > 0 && deadline_event) {
-                        usec_t deadline;
 
-                        r = entry_deadline(sd_event_source_get_event(deadline_event), &deadline);
-                        if (r < 0)
-                                return MHD_NO;
-
-                        r = sd_event_source_set_time(deadline_event, deadline);
-                        if (r < 0)
-                                return MHD_NO;
-                }
+                /* libmicrohttpd signals EOF with a zero-length call. Pushing zero bytes notifies the
+                 * decompressor of end-of-stream, failing if the compressed data was truncated. */
+                r = decompressor_push(source->decompressor, upload_data, *upload_data_size,
+                                      http_upload_decoded, &data);
         }
+        if (r == -ENOMEM)
+                return mhd_respond_oom(connection);
+        if (r == -EFBIG)
+                return mhd_respond(connection, MHD_HTTP_CONTENT_TOO_LARGE,
+                                   "Decoded payload exceeds maximum size.");
+        if (r < 0 && data.error < 0)
+                return MHD_NO;
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob failed.");
 
-        if (!finished)
+        if (*upload_data_size > 0) {
+                *upload_data_size = 0;
                 return MHD_YES;
+        }
 
         /* The upload is finished */
 
