@@ -5,7 +5,6 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "sd-daemon.h"
 #include "sd-json.h"
 #include "sd-netlink.h"
 
@@ -484,12 +483,6 @@ static void release_userns_inode_resources(struct userns_restrict_bpf *bpf, uint
                 if (r < 0)
                         log_warning_errno(r, "Failed to remove namespace inode from BPF map, ignoring: %m");
         }
-
-        r = sd_notifyf(/* unset_environment= */ false,
-                       "FDSTOREREMOVE=1\n"
-                       "FDNAME=userns-%" PRIu64 "\n", inode);
-        if (r < 0)
-                log_warning_errno(r, "Failed to send fd store removal message, ignoring: %m");
 }
 
 void userns_registry_release_by_info(struct userns_restrict_bpf *bpf, int dir_fd, UserNamespaceInfo *info) {
@@ -536,8 +529,8 @@ void userns_registry_release_by_userns_inode(struct userns_restrict_bpf *bpf, in
                        "Failed to find userns for inode %" PRIu64 ", ignoring: %m", inode);
         log_debug("Removing user namespace mapping %" PRIu64 ".", inode);
 
-        /* No registry entry — still clean up the inode-keyed kernel resources (BPF map allowlist and
-         * fdstore fd), which can outlive a missing registry record. */
+        /* No registry entry — still clean up the inode-keyed BPF map allowlist, which can outlive a
+         * missing registry record. */
         release_userns_inode_resources(bpf, inode);
 }
 

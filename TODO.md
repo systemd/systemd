@@ -1808,6 +1808,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - MountFlags=shared acts as MountFlags=slave right now.
 
 - **mountfsd/nsresourced:**
+  - nsresourced: a user namespace whose death the BPF ring buffer could not hold
+    (it has room for 1024) is only released by the next allocation that happens
+    to pick its range, or by a restart of the service. Count the events the
+    kprobe program could not deliver and run the startup sweep when the count
+    moved, or sweep the registry periodically.
   - userdb: maybe allow callers to map one uid to their own uid
   - bpflsm: allow writes if resulting UID on disk would be userns' owner UID
   - make encrypted DDIs work (password…)
