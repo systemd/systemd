@@ -307,7 +307,7 @@ int netdev_attach_name(NetDev *netdev, const char *name) {
         return netdev_attach_name_full(netdev, name, &netdev->manager->netdevs);
 }
 
-static int netdev_attach(NetDev *netdev) {
+int netdev_attach(NetDev *netdev) {
         int r;
 
         assert(netdev);
