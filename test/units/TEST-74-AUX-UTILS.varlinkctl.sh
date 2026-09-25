@@ -364,5 +364,19 @@ echo "$result" | grep "untrusted data decompressed safely" >/dev/null
 kill "$SERVE_PID" 2>/dev/null || true
 wait "$SERVE_PID" 2>/dev/null || true
 
+# Let's test for consistent handling of omitted/null/empty parameters
+function check_output_is_empty_object {
+	SERVE_PID=$(systemd-notify --fork -- \
+			systemd-socket-activate -l "$SERVE_SOCKET" --inetd -a -- \
+				printf "$1\0")
+	varlinkctl call "unix:$SERVE_SOCKET" com.example.Test '{}' | grep "^{}$"
+	varlinkctl --exec call "unix:$SERVE_SOCKET" com.example.Test '{}' -- grep "^{}$"
+	kill "$SERVE_PID" 2>/dev/null || true
+	wait "$SERVE_PID" 2>/dev/null || true
+}
+check_output_is_empty_object '{}'
+check_output_is_empty_object '{"parameters": null}'
+check_output_is_empty_object '{"parameters": {}}'
+
 rm -f "$SERVE_SOCKET"
 rm -rf "$(dirname "$SERVE_SOCKET")" "$SERVE_TMPDIR"
