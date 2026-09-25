@@ -131,3 +131,20 @@ testcase_coco_tsm_signer_varlink_snp() {
     test -d /sys/kernel/config/tsm/report
     assert_eq "$(ls -A /sys/kernel/config/tsm/report)" ""
 }
+
+# Sign a real system report through the io.systemd.Report pipeline and export the result (the
+# report plus its signature records) for the host to check, as a real verifier would. No assertions
+# here beyond a produced document: what the signatures must prove is decided on the untrusted side.
+testcase_coco_report_pipeline() {
+    local report_seq="${COCO_ARTIFACTS_DIR:?}/$COCO_ARTIFACT_SIGNED_REPORT"
+
+    systemctl start systemd-report.socket
+
+    # The reply carries the signed report as base64-encoded JSON-SEQ: the first record is the
+    # report itself, each further record is one signer backend's signature.
+    varlinkctl call /run/systemd/io.systemd.Report io.systemd.Report.GenerateSigned \
+        '{"matches":["io.systemd.Manager.UnitsTotal"]}' |
+        jq -er .reportData | base64 -d >"$report_seq"
+
+    test -s "$report_seq"
+}
