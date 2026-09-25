@@ -12,6 +12,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -271,6 +272,7 @@ static int fsck_progress_socket(void) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_close_pair_ int progress_pipe[2] = EBADF_PAIR;
+        _cleanup_close_ int lock_fd = -EBADF;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_free_ char *dpath = NULL;
         _cleanup_fclose_ FILE *console = NULL;
@@ -374,6 +376,20 @@ static int run(int argc, char *argv[]) {
             show_progress &&
             pipe(progress_pipe) < 0)
                 return log_error_errno(errno, "pipe(): %m");
+
+        if (arg_repair != FSCK_REPAIR_NO) {
+                dev_t devnum;
+
+                r = sd_device_get_devnum(dev, &devnum);
+                if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to get device number for '%s': %m", device);
+
+                lock_fd = lock_whole_block_device(devnum, O_WRONLY, LOCK_EX);
+                if (lock_fd < 0)
+                        return log_device_error_errno(dev, lock_fd, "Failed to lock whole block device for '%s': %m", device);
+
+                log_device_debug(dev, "Locked whole block device while checking %s.", device);
+        }
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
