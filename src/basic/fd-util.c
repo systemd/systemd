@@ -274,7 +274,7 @@ int close_all_fds_frugal(const int except[], size_t n_except) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Refusing to loop over %d potential fds.", max_fd);
 
-        for (int fd = 3; fd >= 0; fd = fd < max_fd ? fd + 1 : -EBADF) {
+        for (int fd = 3; fd <= max_fd; fd++) {
                 int q;
 
                 if (fd_in_set(fd, except, n_except))
@@ -295,27 +295,26 @@ static int close_all_fds_special_case(const int except[], size_t n_except) {
          * nicely, since we won't need sorting for them. Returns > 0 if the special casing worked, 0
          * otherwise. */
 
-        if (n_except == 1 && except[0] < 0) /* Minor optimization: if we only got one fd, and it's invalid,
-                                             * we got none */
-                n_except = 0;
-
         switch (n_except) {
 
+        case 1:
+                if (except[0] > 3 && except[0] < INT_MAX) {
+                        /* Close all but exactly one, then we don't need no sorting. This is a pretty common
+                         * case, hence let's handle it specially. */
+
+                        if (close_range(3, except[0] - 1, 0) < 0)
+                                return -errno;
+
+                        if (close_range(except[0] + 1, -1, 0) < 0)
+                                return -errno;
+
+                        return 1;
+                }
+
+                _fallthrough_;
         case 0:
                 /* Close everything. Yay! */
                 if (close_range(3, INT_MAX, 0) < 0)
-                        return -errno;
-
-                return 1;
-
-        case 1:
-                /* Close all but exactly one, then we don't need no sorting. This is a pretty common
-                 * case, hence let's handle it specially. */
-
-                if (except[0] > 3 && close_range(3, except[0] - 1, 0) < 0)
-                        return -errno;
-
-                if (except[0] < INT_MAX && close_range(MAX(3, except[0] + 1), -1, 0) < 0)
                         return -errno;
 
                 return 1;
