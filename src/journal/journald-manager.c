@@ -1691,13 +1691,10 @@ static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *
 }
 
 static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *news = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
         log_received_signal(LOG_INFO, si);
-
-        (void) sd_event_source_set_enabled(es, SD_EVENT_OFF); /* Make sure this handler is called at most once */
 
         /* So on one hand we want to ensure that SIGTERMs are definitely handled in appropriate, bounded
          * time. On the other hand we want that everything pending is first comprehensively processed and
@@ -1715,6 +1712,15 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
          * start up next – unless we are going down for the final system shutdown, in which case everything
          * is lost. */
 
+        /* Skip the following steps if we have received SIGTERM/SIGINT previously. */
+        if (m->exit)
+                return 0;
+
+        m->exit = true;
+
+        (void) sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
+
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *news = NULL;
         r = sd_event_add_defer(m->event, &news, NULL, NULL); /* NULL handler means → exit when triggered */
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate exit idle event handler: %m");
