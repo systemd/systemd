@@ -549,6 +549,7 @@ int mstack_open_images(
                         DISSECT_IMAGE_GROWFS|
                         DISSECT_IMAGE_ADD_PARTITION_DEVICES|
                         DISSECT_IMAGE_PIN_PARTITION_DEVICES|
+                        DISSECT_IMAGE_VERITY_SHARE|
                         DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
                 SET_FLAG(dissect_image_flags, DISSECT_IMAGE_READ_ONLY, mount_is_ro(m, flags));
