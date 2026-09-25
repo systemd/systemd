@@ -94,6 +94,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: systemd/mkosi@e8245468f14f6ddbc9eb11ebbf3399046852156a
+        with:
+          # Bootstrapping a postmarketOS tools tree on the Ubuntu host needs apk
+          apk: ${{ matrix.distro == 'postmarketos' }}
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
