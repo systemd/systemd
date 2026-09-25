@@ -93,6 +93,9 @@ executables += [
                         libopenssl_cflags,
                         libp11kit_cflags,
                 ],
+                'symlinks' : [
+                        { 'name' : 'systemd-home-fallback-shell' },
+                ],
         },
         test_template + {
                 'sources' : files('test-homectl-prompts.c'),
@@ -125,7 +128,3 @@ if install_sysconfdir_samples
         install_data('homed.conf',
                      install_dir : pkgconfigfiledir)
 endif
-
-install_symlink('systemd-home-fallback-shell',
-                pointing_to : 'homectl',
-                install_dir : bindir)

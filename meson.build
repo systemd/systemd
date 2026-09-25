@@ -128,7 +128,6 @@ endif
 prefixdir_noslash = '/' + prefixdir.strip('/')
 bindir = prefixdir / get_option('bindir')
 sbindir = prefixdir / (split_bin ? 'sbin' : 'bin')
-sbin_to_bin = split_bin ? '../bin/' : ''
 libdir = prefixdir / get_option('libdir')
 sysconfdir = prefixdir / get_option('sysconfdir')
 includedir = prefixdir / get_option('includedir')
@@ -2042,6 +2041,17 @@ endif
 #
 # For executables matched by the install-standalone list, a .standalone variant
 # will be installed if install is true.
+#
+# The 'symlinks' field, if present, is a list of dictionaries, each describing an alias
+# name for the executable (for multicall binaries dispatching on argv[0]):
+#   'name'           : (required) the name of the symlink.
+#   'install_dir'    : where to install the symlink. Defaults to the install directory
+#                      of the executable.
+#   'conditions'     : a list of config options that must all be enabled for the
+#                      symlink to be created.
+#   'dbus', 'public' : same meaning as for the executable itself, but for the alias.
+# The symlinks are also created in the build directory, pointing to the executable in
+# the build directory, so that the aliases can be invoked by tests and tools.
 executable_template = {
         'include_directories' : includes,
         'link_with' : [libshared],
@@ -2300,6 +2310,20 @@ foreach dict : executables
                 continue
         endif
 
+        symlinks = []
+        foreach item : dict.get('symlinks', [])
+                enabled = true
+                foreach cond : item.get('conditions', [])
+                        if conf.get(cond) != 1
+                                enabled = false
+                                break
+                        endif
+                endforeach
+                if enabled
+                        symlinks += [item]
+                endif
+        endforeach
+
         exe_sources = dict.get('sources', []) + dict.get('export', [])
 
         foreach bpf_name : dict.get('bpf_programs', [])
@@ -2313,7 +2337,7 @@ foreach dict : executables
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs', 'link_args_static']
+                           'bpf_programs', 'link_args_static', 'symlinks']
                         continue
                 endif
 
@@ -2457,6 +2481,73 @@ foreach dict : executables
                                 public_programs += exe_static
                         endif
                 endif
+        endif
+
+        if symlinks.length() > 0
+                if install == 'static'
+                        exe_primary = exe_static
+                        build_by_default_primary = build_by_default_static
+                        install_primary = install_static
+                else
+                        exe_primary = exe
+                        build_by_default_primary = build_by_default_shared
+                        install_primary = install_shared
+                endif
+
+                exe_install_dir = kwargs.get('install_dir', bindir)
+                # The symlinks get the same install tag of the executable: whatever was specified,
+                # or 'runtime', which meson assigns to executables by default.
+                symlink_kwargs = { 'install_tag' : kwargs.get('install_tag', 'runtime') }
+
+                foreach symlink : symlinks
+                        symlink_name = symlink['name']
+
+                        # Build-directory alias, e.g. build/systemd-networkd → networkctl, allowing
+                        # the alias to be run from the build tree. We only need (and can) this if
+                        # the target name is different than the symlink name.
+                        if symlink_name != name
+                                link = custom_target(
+                                        symlink_name,
+                                        output : symlink_name,
+                                        command : [ln, '-fs', name, '@OUTPUT@'],
+                                        depends : exe_primary,
+                                        build_by_default : build_by_default_primary)
+
+                                if build_by_default_primary
+                                        if symlink.get('dbus', false)
+                                                dbus_programs += link
+                                        endif
+                                        if symlink.get('public', false)
+                                                public_programs += link
+                                        endif
+                                endif
+                        endif
+
+                        if not install_primary
+                                continue
+                        endif
+
+                        symlink_dir = symlink.get('install_dir', exe_install_dir)
+
+                        if symlink_dir == exe_install_dir
+                                install_symlink(symlink_name,
+                                                pointing_to : name,
+                                                install_dir : symlink_dir,
+                                                kwargs : symlink_kwargs)
+                        elif meson.version().version_compare('>=1.3.0')
+                                install_symlink(symlink_name,
+                                                pointing_to : fs.relative_to(exe_install_dir / name, symlink_dir),
+                                                install_dir : symlink_dir,
+                                                kwargs : symlink_kwargs)
+                        else
+                                # fs.relative_to() is not available before meson 1.3
+                                install_emptydir(symlink_dir, kwargs : symlink_kwargs)
+                                meson.add_install_script(sh, '-c',
+                                                         ln_s.format(exe_install_dir / name,
+                                                                     symlink_dir / symlink_name),
+                                                         kwargs : symlink_kwargs)
+                        endif
+                endforeach
         endif
 
         if is_test
