@@ -295,7 +295,7 @@ int xsetxattr_full(
         assert(fd >= 0 || fd == AT_FDCWD);
         assert((at_flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
         assert(name);
-        assert(value);
+        assert(value || size == 0);
 
         if (size == SIZE_MAX)
                 size = strlen(value);
