@@ -94,3 +94,40 @@ testcase_coco_creds_hostile_shadow() {
     _coco_assert_smbios_injected "$COCO_CRED_TRUSTED_ID"
     assert_eq "$(systemd-creds --system cat "$COCO_CRED_TRUSTED_ID")" "$COCO_CRED_TRUSTED_VALUE"
 }
+
+# Drive the tsm report signer directly over its varlink socket: Sign() must return a hardware-signed
+# attestation report that embeds the digest it was asked to sign.
+testcase_coco_tsm_signer_varlink_snp() {
+    local signer=/run/systemd/report.sign/tsm
+    local nonce reply report
+
+    # The signer socket is gated on ConditionSecurity=cvm, which must hold in a confidential guest.
+    assert_eq "$(systemctl show -P ActiveState systemd-report-sign-tsm.socket)" "active"
+
+    # A fresh digest per boot, so the REPORT_DATA echo below can't be satisfied by stale data.
+    nonce="$(openssl rand -hex 32)"
+    reply="$(varlinkctl call "$signer" io.systemd.Report.Signer.Sign \
+        "{\"digest\":\"$nonce\",\"algorithm\":\"SHA256\"}")"
+
+    # Without a configfs-tsm provider Sign() reports success with an empty signature set, so require
+    # exactly the one signature the SNP provider must produce.
+    assert_eq "$(jq '.data | length' <<<"$reply")" "1"
+    assert_eq "$(jq -r '.data[0].provider' <<<"$reply")" "sev_guest"
+
+    # Hex-encode the report so fields can be sliced by string offset (2 hex chars per byte).
+    report="$(jq -r '.data[0].outblob' <<<"$reply" | base64 -d | od -An -vtx1 | tr -d ' \n')"
+    assert_eq "$((${#report} / 2))" "1184"
+    # REPORT_DATA sits at byte offset 0x50: the digest, zero-padded to 64 bytes.
+    assert_eq "${report:2*0x50:64}" "$nonce"
+    assert_eq "${report:2*0x70:64}" "$(printf '00%.0s' {1..32})"
+
+    # Unsupported digest algorithms and digest sizes must be rejected.
+    assert_fail varlinkctl call "$signer" io.systemd.Report.Signer.Sign \
+        "{\"digest\":\"$nonce\",\"algorithm\":\"SHA384\"}"
+    assert_fail varlinkctl call "$signer" io.systemd.Report.Signer.Sign \
+        "{\"digest\":\"${nonce:0:32}\",\"algorithm\":\"SHA256\"}"
+
+    # Report acquisition works on a private configfs entry that must be removed when done.
+    test -d /sys/kernel/config/tsm/report
+    assert_eq "$(ls -A /sys/kernel/config/tsm/report)" ""
+}

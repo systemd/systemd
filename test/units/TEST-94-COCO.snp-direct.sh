@@ -31,7 +31,9 @@ trap at_exit EXIT
 # - detect_virt: systemd-detect-virt --cvm detects SNP as the CVM type
 # - creds_vmspawn: credential transport by vmspawn is working (via initrd for SNP)
 # - creds_cmdline: credential transport via cmdline is working (cmdline is measured on SNP)
-vmspawn_boot_coco "$MACHINE-honest" "$COCO_TYPE" "$WORKDIR/honest" 'detect_virt creds_vmspawn creds_cmdline' \
+# - tsm_signer_varlink_snp: the tsm report signer yields an SNP attestation report echoing the digest
+vmspawn_boot_coco "$MACHINE-honest" "$COCO_TYPE" "$WORKDIR/honest" \
+    'detect_virt creds_vmspawn creds_cmdline tsm_signer_varlink_snp' \
     --image="$IMAGE_DIR/image.raw" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
     --initrd="$IMAGE_DIR/image.initrd" \
