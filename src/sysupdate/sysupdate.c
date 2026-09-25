@@ -21,7 +21,9 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "glyph-util.h"
+#include "hash-funcs.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
@@ -1555,6 +1557,105 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
 
 static int context_process_partial_and_pending(Context *c, const char *version);
 
+typedef struct ContextFreeSpaceCheck {
+        dev_t dev;
+        uint64_t required;
+        uint64_t free;
+        char **paths;
+} ContextFreeSpaceCheck;
+
+static ContextFreeSpaceCheck *context_free_space_check_free(ContextFreeSpaceCheck *check) {
+        if (!check)
+                return NULL;
+
+        strv_free(check->paths);
+        return mfree(check);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ContextFreeSpaceCheck*, context_free_space_check_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                context_free_space_check_hash_ops,
+                dev_t,
+                devt_hash_func,
+                devt_compare_func,
+                ContextFreeSpaceCheck,
+                context_free_space_check_free);
+
+static int context_check_free_space(Context *c, UpdateSet *us) {
+        _cleanup_hashmap_free_ Hashmap *checks = NULL;
+        ContextFreeSpaceCheck *check;
+
+        assert(c);
+        assert(us);
+        assert(us->n_instances == c->n_transfers);
+
+        for (size_t i = 0; i < c->n_transfers; i++) {
+                Transfer *t = c->transfers[i];
+                Instance *inst = us->instances[i];
+                _cleanup_(context_free_space_check_freep) ContextFreeSpaceCheck *new_check = NULL;
+                uint64_t required, free_bytes;
+                dev_t dev;
+                int r;
+
+                assert(t);
+                assert(inst);
+
+                r = transfer_measure_free_space(t, inst, &required, &free_bytes, &dev);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                check = hashmap_get(checks, &dev);
+                if (!check) {
+                        new_check = new(ContextFreeSpaceCheck, 1);
+                        if (!new_check)
+                                return log_oom();
+
+                        *new_check = (ContextFreeSpaceCheck) {
+                                .dev = dev,
+                                .free = free_bytes,
+                        };
+
+                        r = hashmap_ensure_put(
+                                        &checks,
+                                        &context_free_space_check_hash_ops,
+                                        &new_check->dev,
+                                        new_check);
+                        if (r < 0)
+                                return log_oom();
+
+                        check = TAKE_PTR(new_check);
+                }
+
+                r = strv_extend(&check->paths, t->final_path);
+                if (r < 0)
+                        return log_oom();
+
+                check->required = saturate_add(check->required, required, UINT64_MAX);
+        }
+
+        HASHMAP_FOREACH(check, checks)
+                if (check->free < check->required) {
+                        _cleanup_free_ char *paths = NULL;
+
+                        paths = strv_join(check->paths, "', '");
+                        if (!paths)
+                                return log_oom();
+
+                        log_warning_errno(
+                                        SYNTHETIC_ERRNO(ENOSPC),
+                                        "Not enough free space on the filesystem containing paths "
+                                        "'%s' to acquire the update: need at least %s, have %s; proceeding anyway.",
+                                        paths,
+                                        strna(FORMAT_BYTES(check->required)),
+                                        strna(FORMAT_BYTES(check->free)));
+                }
+
+        return 0;
+}
+
 static int context_acquire(
                 Context *c,
                 const char *version) {
@@ -1638,6 +1739,10 @@ static int context_acquire(
 
         if (c->sync)
                 sync();
+
+        r = context_check_free_space(c, us);
+        if (r < 0)
+                return r;
 
         (void) sd_notifyf(/* unset_environment= */ false,
                           "STATUS=Updating to '%s'.", us->version);

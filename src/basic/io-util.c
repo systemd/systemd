@@ -331,9 +331,9 @@ static size_t nul_length(const uint8_t *p, size_t sz) {
         return n;
 }
 
-ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
+int sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
         const uint8_t *q, *w, *e;
-        ssize_t l;
+        int r;
 
         q = w = p;
         e = q + sz;
@@ -349,11 +349,12 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
                     (n > 0 && q == p) ||
                     (n > 0 && q + n >= e)) {
                         if (q > w) {
-                                l = write(fd, w, q - w);
-                                if (l < 0)
-                                        return -errno;
-                                if (l != q -w)
-                                        return -EIO;
+                                /* Use loop_write() here so that errors such as ENOSPC are reported by
+                                 * the kernel after a short write, instead of guessing them from VFS
+                                 * statistics which don't account for all filesystem restrictions. */
+                                r = loop_write(fd, w, q - w);
+                                if (r < 0)
+                                        return r;
                         }
 
                         if (lseek(fd, n, SEEK_CUR) < 0)
@@ -368,12 +369,10 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
         }
 
         if (q > w) {
-                l = write(fd, w, q - w);
-                if (l < 0)
-                        return -errno;
-                if (l != q - w)
-                        return -EIO;
+                r = loop_write(fd, w, q - w);
+                if (r < 0)
+                        return r;
         }
 
-        return q - (const uint8_t*) p;
+        return 0;
 }

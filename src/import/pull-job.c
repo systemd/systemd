@@ -188,13 +188,9 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
         if (j->disk_fd >= 0) {
 
                 if (S_ISREG(j->disk_stat.st_mode) && j->offset == UINT64_MAX) {
-                        ssize_t n;
-
-                        n = sparse_write(j->disk_fd, p, sz, 64);
-                        if (n < 0)
-                                return log_error_errno((int) n, "Failed to write file: %m");
-                        if ((size_t) n < sz)
-                                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write");
+                        r = sparse_write(j->disk_fd, p, sz, 64);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write file: %m");
                 } else {
                         r = loop_write(j->disk_fd, p, sz);
                         if (r < 0)

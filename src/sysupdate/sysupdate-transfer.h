@@ -70,6 +70,15 @@ int transfer_resolve_paths(Transfer *t, const char *root, const char *node);
 int transfer_vacuum(Transfer *t, uint64_t space, const char *extra_protected_version);
 
 int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata *f);
+
+/* Returns 0 if no measurement is available, 1 if all output parameters are set,
+ * and a negative errno on failure. */
+int transfer_measure_free_space(
+                Transfer *t,
+                Instance *i,
+                uint64_t *ret_required,
+                uint64_t *ret_free,
+                dev_t *ret_dev);
 int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata);
 int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i);
 
