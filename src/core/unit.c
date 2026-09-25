@@ -7292,3 +7292,20 @@ unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers)
 
         return markers;
 }
+
+int unit_get_app_id(Unit *u, char **ret) {
+        int r;
+        char *alias;
+
+        r = unit_name_to_app_id(u->id, ret);
+        if (r >= 0)
+                return r;
+
+        SET_FOREACH(alias, u->aliases) {
+                r = unit_name_to_app_id(alias, ret);
+                if (r >= 0)
+                        return r;
+        }
+
+        return r;
+}

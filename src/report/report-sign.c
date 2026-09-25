@@ -179,7 +179,7 @@ int context_sign_report(
                 return log_error_errno(r, "Failed to build JSON data: %m");
 
         _cleanup_(signature_list_done) SignatureList sl = {};
-        ssize_t jobs = varlink_execute_directory(
+        r = varlink_execute_directory(
                         REPORT_SIGN_DIR,
                         "io.systemd.Report.Signer.Sign",
                         params,
@@ -189,8 +189,8 @@ int context_sign_report(
                         /* userdata= */ &sl);
         /* A missing signer directory (-ENOENT) just means no signing backends are installed; that is benign
          * and surfaces below as "no signatures acquired". Any other enumeration failure is fatal. */
-        if (jobs < 0 && jobs != -ENOENT)
-                return log_error_errno(jobs, "Failed to execute signing via '%s': %m", REPORT_SIGN_DIR);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to execute signing via '%s': %m", REPORT_SIGN_DIR);
 
         if (sl.fatal_error < 0)
                 return log_error_errno(sl.fatal_error, "Failed to collect signatures: %m");

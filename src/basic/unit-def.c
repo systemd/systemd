@@ -356,6 +356,26 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
 
+bool unit_dependency_can_be_transient(UnitDependency d) {
+        return IN_SET(d,
+                      UNIT_REQUIRES,
+                      UNIT_REQUISITE,
+                      UNIT_WANTS,
+                      UNIT_BINDS_TO,
+                      UNIT_PART_OF,
+                      UNIT_UPHOLDS,
+                      UNIT_CONFLICTS,
+                      UNIT_BEFORE,
+                      UNIT_AFTER,
+                      UNIT_ON_SUCCESS,
+                      UNIT_ON_FAILURE,
+                      UNIT_PROPAGATES_RELOAD_TO,
+                      UNIT_RELOAD_PROPAGATED_FROM,
+                      UNIT_PROPAGATES_STOP_TO,
+                      UNIT_STOP_PROPAGATED_FROM,
+                      UNIT_JOINS_NAMESPACE_OF);
+}
+
 void unit_types_list(void) {
         DUMP_STRING_TABLE(unit_dependency, UnitDependency, _UNIT_DEPENDENCY_MAX);
 }
