@@ -108,6 +108,7 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode, journal_write_spl
 #if HAVE_MICROHTTPD
 
 static unsigned connection_limit = JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT;
+static usec_t entry_timeout_usec = JOURNAL_REMOTE_ENTRY_TIMEOUT_USEC;
 
 typedef struct MHDDaemonWrapper {
         uint64_t fd;
@@ -217,6 +218,7 @@ static int dispatch_http_event(sd_event_source *event, int fd, uint32_t revents,
 
 static void parse_http_env(void) {
         const char *e;
+        usec_t t;
         int r;
 
         e = secure_getenv("SYSTEMD_JOURNAL_REMOTE_MAX_CONNECTIONS");
@@ -230,6 +232,19 @@ static void parse_http_env(void) {
                 else
                         connection_limit = u;
         }
+
+        e = secure_getenv("SYSTEMD_JOURNAL_REMOTE_ENTRY_TIMEOUT_SEC");
+        if (!e)
+                return;
+
+        r = parse_sec(e, &t);
+        if (r < 0 || t == 0) {
+                log_warning_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
+                                  "Failed to parse $SYSTEMD_JOURNAL_REMOTE_ENTRY_TIMEOUT_SEC value '%s', ignoring: %m", e);
+                return;
+        }
+
+        entry_timeout_usec = t;
 }
 
 static int build_accept_encoding(char **ret) {
@@ -314,7 +329,7 @@ static int http_connection_deadline(sd_event_source *event, uint64_t usec, void 
         struct MHD_Connection *connection = ASSERT_PTR(userdata);
 
         log_debug("Closing HTTP connection %p after no entry was stored for %s.",
-                  connection, FORMAT_TIMESPAN(JOURNAL_REMOTE_ENTRY_TIMEOUT_USEC, USEC_PER_SEC));
+                  connection, FORMAT_TIMESPAN(entry_timeout_usec, USEC_PER_SEC));
         shutdown_http_connection(connection);
         return 0;
 }
@@ -332,7 +347,7 @@ static int entry_deadline(sd_event *e, usec_t *ret) {
         if (r < 0)
                 return r;
 
-        *ret = usec_add(n, JOURNAL_REMOTE_ENTRY_TIMEOUT_USEC);
+        *ret = usec_add(n, entry_timeout_usec);
         return 0;
 }
 
