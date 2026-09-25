@@ -1323,6 +1323,15 @@ libfido2_cflags = declare_dependency(
 )
 conf.set10('HAVE_LIBFIDO2', libfido2.found())
 
+liburing = dependency('liburing',
+                      version : '>= 2.3',
+                      required : get_option('liburing'))
+liburing_cflags = declare_dependency(
+        dependencies : liburing.partial_dependency(includes: true, compile_args: true),
+        compile_args : '-DSYSTEMD_CFLAGS_MARKER_LIBURING',
+)
+conf.set10('HAVE_LIBURING', liburing.found())
+
 tss2_esys = dependency('tss2-esys', required : get_option('tpm2'))
 tss2_mu = dependency('tss2-mu', required : get_option('tpm2'))
 tss2_rc = dependency('tss2-rc', required : get_option('tpm2'))
@@ -2313,7 +2322,7 @@ foreach dict : executables
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs', 'link_args_static']
+                           'bpf_programs', 'io_uring', 'link_args_static']
                         continue
                 endif
 
@@ -2479,6 +2488,14 @@ foreach dict : executables
                              timeout : dict.get('timeout', 30),
                              suite : suite,
                              is_parallel : dict.get('parallel', true))
+
+                        if dict.get('io_uring', false)
+                                test(name + '-io-uring', exe,
+                                     env : test_env + {'SYSTEMD_EVENT_IO_URING' : '1'},
+                                     timeout : dict.get('timeout', 30),
+                                     suite : suite,
+                                     is_parallel : dict.get('parallel', true))
+                        endif
                 endif
         endif
 
