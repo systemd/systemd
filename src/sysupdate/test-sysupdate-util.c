@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "glyph-util.h"
+#include "sysupdate-update-set-flags.h"
 #include "sysupdate-util.h"
 #include "tests.h"
 
@@ -21,6 +23,14 @@ TEST(component_name_valid) {
         ASSERT_FALSE(component_name_valid("foo\nbar"));
         ASSERT_FALSE(component_name_valid("foo\x7f"));
         ASSERT_FALSE(component_name_valid("\xff"));           /* not valid UTF-8 */
+}
+
+TEST(update_set_flags_glyph) {
+        ASSERT_STREQ(update_set_flags_to_glyph(UPDATE_INSTALLED|UPDATE_INCOMPLETE), " ");
+        ASSERT_STREQ(update_set_flags_to_glyph(UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_PENDING), " ");
+        ASSERT_STREQ(update_set_flags_to_glyph(UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_NEWEST), glyph(GLYPH_BLACK_CIRCLE));
+        ASSERT_STREQ(update_set_flags_to_glyph(UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_PROTECTED), glyph(GLYPH_WHITE_CIRCLE));
+        ASSERT_STREQ(update_set_flags_to_glyph(UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_PARTIAL|UPDATE_PENDING), glyph(GLYPH_DOWNLOAD));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
