@@ -277,6 +277,10 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
+                'sources' : files('test-cli-c.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-compress-benchmark.c'),
                 'link_with' : [libshared],
                 'timeout' : 90,
@@ -761,6 +765,20 @@ if static_libudev != 'false'
                         'build_by_default' : want_tests != 'false',
                         'install' : install_tests ? 'yes' : 'no',
                         'suite' : 'libudev',
+                },
+        ]
+endif
+
+############################################################
+
+if have_rust
+        rust_executables += [
+                {
+                        'sources' : files('test-rust-shared.rs'),
+                },
+                {
+                        'sources' : files('test-cli-rust.rs'),
+                        'type' : 'manual',
                 },
         ]
 endif
