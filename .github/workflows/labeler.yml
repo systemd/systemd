@@ -48,14 +48,33 @@ jobs:
       if: startsWith(github.event_name, 'pull_request') && github.event.action != 'closed' && !github.event.pull_request.draft
       with:
         script: |
+          /* Never read the full label set and write it back: other workflows
+           * label the same pull request concurrently and setLabels() would
+           * clobber whatever they added in the meantime. Only ever add or
+           * remove the individual labels this step owns. */
+          const removeLabel = async (name) => {
+            try {
+              await github.rest.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: name,
+              });
+            } catch (error) {
+              /* Somebody else removed it first. */
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+          };
+
           response = await github.rest.issues.listLabelsOnIssue({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
           });
 
-          original = new Set(response.data.map(l => l.name));
-          labels = new Set(original);
+          labels = new Set(response.data.map(l => l.name));
 
           good_to_merge = new Set([
             "good-to-merge/waiting-for-ci 👍",
@@ -85,24 +104,22 @@ jobs:
                 }
               }
             `, { id: context.payload.pull_request.node_id });
-          } else if (Array.from(labels).filter(l => good_to_merge.has(l)).length == 0) {
-            labels.add("please-review");
+          } else if (!Array.from(good_to_merge).some(l => labels.has(l)) && !labels.has("please-review")) {
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ["please-review"],
+            });
           }
 
           for (const label of ["reviewed/needs-rework 🔨",
                                "ci-fails/needs-rework 🔥",
                                "ci-failure-appears-unrelated",
                                "needs-rebase"]) {
-            labels.delete(label);
-          }
-
-          if (labels.size != original.size || Array.from(labels).some(l => !original.has(l))) {
-            await github.rest.issues.setLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: Array.from(labels),
-            });
+            if (labels.has(label)) {
+              await removeLabel(label);
+            }
           }
 
     - name: Add please-review label on command in issue comment
@@ -128,8 +145,7 @@ jobs:
             repo: context.repo.repo,
           });
 
-          original = new Set(response.data.map(l => l.name));
-          labels = new Set(original);
+          labels = new Set(response.data.map(l => l.name));
 
           for (const label of ["please-review",
                                "reviewed/needs-rework 🔨",
@@ -144,14 +160,21 @@ jobs:
                                "dont-merge 💣",
                                "squash-on-merge",
                                "quick-review 🏃‍♂️"]) {
-            labels.delete(label);
-          }
+            if (!labels.has(label)) {
+              continue;
+            }
 
-          if (labels.size != original.size || Array.from(labels).some(l => !original.has(l))) {
-            await github.rest.issues.setLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: Array.from(labels),
-            });
+            try {
+              await github.rest.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+              });
+            } catch (error) {
+              /* Somebody else removed it first. */
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
           }
