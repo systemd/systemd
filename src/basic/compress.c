@@ -49,6 +49,7 @@
 #include "dlfcn-util.h"
 #include "io-util.h"
 #include "log.h"
+#include "logarithm.h"
 #include "string-table.h"
 #include "unaligned.h"
 
@@ -104,6 +105,7 @@ static DLSYM_PROTOTYPE(ZSTD_createDCtx) = NULL;
 static DLSYM_PROTOTYPE(ZSTD_CStreamInSize) = NULL;
 static DLSYM_PROTOTYPE(ZSTD_CStreamOutSize) = NULL;
 static DLSYM_PROTOTYPE(ZSTD_decompressStream) = NULL;
+static DLSYM_PROTOTYPE(ZSTD_DCtx_setParameter) = NULL;
 static DLSYM_PROTOTYPE(ZSTD_DStreamInSize) = NULL;
 static DLSYM_PROTOTYPE(ZSTD_DStreamOutSize) = NULL;
 static DLSYM_PROTOTYPE(ZSTD_freeCCtx) = NULL;
@@ -368,6 +370,7 @@ int dlopen_zstd(int log_level) {
                         DLSYM_ARG(ZSTD_compress),
                         DLSYM_ARG(ZSTD_getFrameContentSize),
                         DLSYM_ARG(ZSTD_decompressStream),
+                        DLSYM_ARG(ZSTD_DCtx_setParameter),
                         DLSYM_ARG(ZSTD_getErrorName),
                         DLSYM_ARG(ZSTD_DStreamOutSize),
                         DLSYM_ARG(ZSTD_CStreamInSize),
@@ -1741,8 +1744,9 @@ static int decompress_stream_write_callback(const void *data, size_t size, void 
         return loop_write(u->fd, data, size);
 }
 
-static int decompressor_new(Decompressor **ret, Compression type, DecompressFlags flags) {
+static int decompressor_new(Decompressor **ret, Compression type, uint64_t max_memory, DecompressFlags flags) {
         assert(ret);
+        assert(max_memory > 0);
 
         _cleanup_(compressor_freep) Decompressor *c = new0(Decompressor, 1);
         if (!c)
@@ -1759,8 +1763,8 @@ static int decompressor_new(Decompressor **ret, Compression type, DecompressFlag
                 uint32_t xz_flags = LZMA_TELL_UNSUPPORTED_CHECK |
                         (FLAGS_SET(flags, DECOMPRESS_REFUSE_CONCATENATED) ? 0 : LZMA_CONCATENATED);
                 lzma_ret xz_ret = FLAGS_SET(flags, DECOMPRESS_LEGACY_LZMA) ?
-                        sym_lzma_auto_decoder(&c->xz, UINT64_MAX, xz_flags) :
-                        sym_lzma_stream_decoder(&c->xz, UINT64_MAX, xz_flags);
+                        sym_lzma_auto_decoder(&c->xz, max_memory, xz_flags) :
+                        sym_lzma_stream_decoder(&c->xz, max_memory, xz_flags);
                 if (xz_ret != LZMA_OK)
                         return -EIO;
                 break;
@@ -1782,6 +1786,23 @@ static int decompressor_new(Decompressor **ret, Compression type, DecompressFlag
                 c->d_zstd = sym_ZSTD_createDCtx();
                 if (!c->d_zstd)
                         return -ENOMEM;
+
+                /* Set the compression type early so cleanup frees the zstd context if setting the
+                 * limit fails. */
+                c->type = COMPRESSION_ZSTD;
+
+                if (max_memory != UINT64_MAX) {
+                        size_t zr;
+
+                        /* Zstd requires a window log of at least 10 (1 KiB); 0 resets to the default
+                         * instead of enforcing a limit. */
+                        if (max_memory < 1024)
+                                return -EINVAL;
+
+                        zr = sym_ZSTD_DCtx_setParameter(c->d_zstd, ZSTD_d_windowLogMax, (int) log2u64(max_memory));
+                        if (sym_ZSTD_isError(zr))
+                                return -EINVAL;
+                }
                 break;
 #endif
 
@@ -1807,6 +1828,10 @@ static int decompressor_new(Decompressor **ret, Compression type, DecompressFlag
         c->encoding = false;
         *ret = TAKE_PTR(c);
         return 0;
+}
+
+int decompressor_new_limited(Compression type, uint64_t max_memory, Decompressor **ret) {
+        return decompressor_new(ret, type, max_memory, /* flags= */ 0);
 }
 
 static int decompress_blob_to_fd_impl(
@@ -1880,7 +1905,7 @@ static int decompress_blob_to_fd_impl(
         }
 
         _cleanup_(compressor_freep) Decompressor *c = NULL;
-        r = decompressor_new(&c, type, DECOMPRESS_REFUSE_CONCATENATED);
+        r = decompressor_new(&c, type, UINT64_MAX, DECOMPRESS_REFUSE_CONCATENATED);
         if (r < 0)
                 return r;
 
@@ -1976,7 +2001,7 @@ int decompress_stream_full(
         if (r < 0)
                 return r;
 
-        r = decompressor_new(&c, type, flags);
+        r = decompressor_new(&c, type, UINT64_MAX, flags);
         if (r < 0)
                 return r;
 
@@ -2123,7 +2148,7 @@ int decompressor_detect(Decompressor **decompressor, const void *data, size_t si
         if (r < 0)
                 return r;
 
-        r = decompressor_new(decompressor, type, /* flags= */ 0);
+        r = decompressor_new(decompressor, type, UINT64_MAX, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -2144,7 +2169,7 @@ int decompressor_force(Decompressor **decompressor, Compression type) {
                 return r;
 
         *decompressor = compressor_free(*decompressor);
-        return decompressor_new(decompressor, type, /* flags= */ 0);
+        return decompressor_new(decompressor, type, UINT64_MAX, /* flags= */ 0);
 }
 
 int decompressor_force_off(Decompressor **decompressor) {
