@@ -66,6 +66,9 @@ int process_source(RemoteSource *source, JournalFileFlags file_flags) {
 
         if (source->importer.iovw.count == 0) {
                 log_warning("Entry with no payload, skipping");
+                /* r is 1 from journal_importer_process_data(). Return 0 so that callers do not count
+                 * the skipped entry as stored. */
+                r = 0;
                 goto freeing;
         }
 
