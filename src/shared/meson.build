@@ -249,6 +249,7 @@ shared_sources = files(
         'varlink-io.systemd.Repart.c',
         'varlink-io.systemd.Report.c',
         'varlink-io.systemd.Report.Signer.c',
+        'varlink-io.systemd.Report.TPM2SignerKeyManager.c',
         'varlink-io.systemd.Report.Uploader.c',
         'varlink-io.systemd.Resolve.c',
         'varlink-io.systemd.Resolve.Hook.c',
