@@ -134,18 +134,29 @@ jobs:
             ]);
 
             /* A README.md that still carries the AI review notice has not been
-             * looked at by its author yet, so there is nothing to review. */
-            const readme = await github.rest.repos.getContent({
-              owner,
-              repo,
-              path: "README.md",
-              ref: pr.data.head.sha,
-            });
-            if (Buffer.from(readme.data.content, "base64").toString()
-                .includes("Remove this line to confirm you've reviewed this PR before submitting.")) {
-              console.log("README.md still carries the review notice, skipping.");
-              core.setOutput("skip", "true");
-              return;
+             * looked at by its author yet, so there is nothing to review. An
+             * explicit "@claude review" answers the notice, so only the automatic
+             * triggers are skipped, and a check that cannot run reviews anyway. */
+            if (context.eventName === "pull_request_target") {
+              let notice = false;
+              try {
+                const readme = await github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path: "README.md",
+                  ref: pr.data.head.sha,
+                });
+                notice = Buffer.from(readme.data.content, "base64").toString()
+                  .includes("Remove this line to confirm you've reviewed this PR before submitting.");
+              } catch (e) {
+                console.log(`Failed to read README.md, assuming it has been reviewed: ${e.message}`);
+              }
+
+              if (notice) {
+                console.log("README.md still carries the review notice, skipping.");
+                core.setOutput("skip", "true");
+                return;
+              }
             }
 
             /* Find or create tracking comment. */
@@ -207,6 +218,7 @@ jobs:
             fs.writeFileSync("pr-context.json", JSON.stringify(prContext, null, 2));
 
       - name: Upload PR context
+        if: steps.context.outputs.skip != 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: pr-context.json
@@ -354,7 +366,7 @@ jobs:
                   "hooks": [
                     {
                       "type": "command",
-                      "command": "[[ $(date +%s) -lt ${REVIEW_DEADLINE:-0} ]] || { echo 'Time is up: stop using tools and return your findings now.' >&2; exit 2; }"
+                      "command": "[ \"$(date +%s)\" -lt \"${REVIEW_DEADLINE:-0}\" ] || { echo 'Time is up: stop using tools and return your findings now.' >&2; exit 2; }"
                     }
                   ]
                 }
@@ -408,10 +420,21 @@ jobs:
               -p "$prompt" >"$OUTPUT/$name.log") || status=$?
             jq -Rc 'fromjson? | select(.type == "result" and .subtype == "success") | .structured_output | select(. != null)' \
               "$OUTPUT/$name.log" | tail -n 1 >"$OUTPUT/$name.json" || :
-            if [[ -s "$OUTPUT/$name.json" ]]; then
+            # An agent whose every tool call failed still returns an empty findings
+            # array, which is indistinguishable from a clean review. Require that it
+            # got at least one tool result other than its own structured output.
+            local worked
+            worked="$(jq -Rn '
+              [inputs | fromjson?] as $events
+              | [$events[] | select(.type == "assistant") | .message.content[]?
+                 | select(.type == "tool_use" and .name == "StructuredOutput") | .id] as $ignore
+              | [$events[] | select(.type == "user") | .message.content[]?
+                 | select(.type == "tool_result" and .is_error != true and ([.tool_use_id] - $ignore | length > 0))]
+              | length' <"$OUTPUT/$name.log")"
+            if [[ -s "$OUTPUT/$name.json" ]] && (( worked > 0 )); then
               echo "${name}: done (status ${status})"
             else
-              echo "${name}: no result (status ${status})"
+              echo "${name}: no result (status ${status}, ${worked} tool call(s) succeeded)"
               rm -f "$OUTPUT/$name.json"
             fi
           }
@@ -746,12 +769,12 @@ jobs:
               }
               /* An unterminated fence would swallow everything after it, so cut
                * it off before anything else is measured or truncated. */
-              const fences = [...c.body.matchAll(/^```/gm)];
+              const fences = [...c.body.matchAll(/^ {0,3}`{3,}/gm)];
               if (fences.length % 2 === 1) {
                 console.log(`  Dropping unterminated code fence in comment on ${c.path}:${c.line}.`);
                 c = { ...c, body: c.body.slice(0, fences.at(-1).index).trimEnd() || "(empty)" };
               }
-              const prose = c.body.replace(/^```[\s\S]*?^```[^\n]*/gm, "");
+              const prose = c.body.replace(/^ {0,3}`{3,}[\s\S]*?^ {0,3}`{3,}[^\n]*/gm, "");
               if (prose.length > MAX_PROSE_LENGTH) {
                 console.log(`  Truncating comment on ${c.path}:${c.line}: ${prose.length} characters of prose exceeds ${MAX_PROSE_LENGTH}.`);
                 /* Cutting inside a fence would leave a suggestion missing code,
