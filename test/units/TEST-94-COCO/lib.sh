@@ -52,6 +52,32 @@ After=$COCO_GUEST_UNIT
 EOF
 }
 
+# _coco_collect_artifacts RESULTS DEST_DIR
+# Decode the 'ARTIFACT=<name> DATA=<base64>' records the guest shipped alongside its per-check
+# results into DEST_DIR, one file per record. Records whose name doesn't look like a plain file name
+# are ignored, so a record can't write outside DEST_DIR.
+_coco_collect_artifacts() {
+    local results="${1:?}" dest_dir="${2:?}"
+    local name data _
+
+    mkdir -p "$dest_dir"
+    while read -r name data _ || [[ -n "$name" ]]; do
+        [[ "$name" == ARTIFACT=* && "$data" == DATA=* ]] || continue
+        name="${name#ARTIFACT=}"
+        data="${data#DATA=}"
+        if [[ ! "$name" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]*$ ]]; then
+            echo "ignoring guest artifact with unexpected name '$name'" >&2
+            continue
+        fi
+        if ! base64 -d <<<"$data" >"$dest_dir/$name"; then
+            echo "failed to decode guest artifact '$name'" >&2
+            rm -f "$dest_dir/$name"
+            continue
+        fi
+        echo "collected guest artifact '$name' ($(stat -c%s "$dest_dir/$name") bytes)"
+    done <"$results"
+}
+
 # vmspawn_boot_coco MACHINE COCO_TYPE WORKDIR TESTCASES [systemd-vmspawn args...]
 # Boot a confidential guest with systemd-vmspawn, running the coco guest test runner. TESTCASES is the
 # space-separated list of guest checks (testcase_coco_* names without the prefix).
@@ -60,6 +86,7 @@ EOF
 # stays configurable. Per-check records shipped by the guest are collected over a vsock
 # socket into WORKDIR/results and echoed; returns 0 iff the guest reported the success
 # aggregate, otherwise dumps the console.
+# Artifacts the guest checks exported are decoded into WORKDIR/artifacts.
 vmspawn_boot_coco() {
     local machine="${1:?}" coco_type="${2:?}" workdir="${3:?}" testcases="${4:?}"
     shift 4
@@ -73,9 +100,9 @@ vmspawn_boot_coco() {
     guest_unit="$(_coco_guest_unit "$coco_type" "$units_dir" "$testcases")"
     guest_dropin="$(_coco_guest_dropin)"
 
-    # Collect the per-check records the guest ships over vsock (single connection, guest closes when
-    # done). Best-effort: the aggregate exit status below is the authoritative pass/fail, so a vsock
-    # hiccup only costs the per-check breakdown, never the verdict.
+    # Collect the records the guest ships over vsock (single connection, guest closes when done):
+    # per-check results and any artifacts the checks exported. The per-check breakdown is
+    # best-effort: the aggregate exit status below is the authoritative pass/fail.
     socat -u "VSOCK-LISTEN:$_COCO_RESULT_PORT" "OPEN:$results,creat" &
     listener_pid=$!
 
@@ -96,8 +123,9 @@ vmspawn_boot_coco() {
 
     if [[ -s "$results" ]]; then
         echo "coco guest per-check results:"
-        cat "$results"
+        grep -v '^ARTIFACT=' "$results" || :
     fi
+    _coco_collect_artifacts "$results" "$workdir/artifacts"
 
     if [[ "$rc" -eq 124 || "$rc" -eq 137 ]]; then
         echo "systemd-vmspawn was killed by timeout (exit $rc)" >&2
