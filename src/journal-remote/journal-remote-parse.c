@@ -18,6 +18,7 @@ RemoteSource* source_free(RemoteSource *source) {
         sd_event_source_unref(source->event);
         sd_event_source_unref(source->buffer_event);
 
+        compressor_free(source->decompressor);
         free(source->encoding);
         return mfree(source);
 }
