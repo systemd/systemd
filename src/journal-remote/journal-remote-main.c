@@ -105,6 +105,8 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode, journal_write_spl
 
 #if HAVE_MICROHTTPD
 
+static unsigned connection_limit = JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT;
+
 typedef struct MHDDaemonWrapper {
         uint64_t fd;
         struct MHD_Daemon *daemon;
@@ -210,6 +212,23 @@ static int spawn_getter(const char *getter) {
 
 static int null_timer_event_handler(sd_event_source *timer_event, uint64_t usec, void *userdata);
 static int dispatch_http_event(sd_event_source *event, int fd, uint32_t revents, void *userdata);
+
+static void parse_http_env(void) {
+        const char *e;
+        int r;
+
+        e = secure_getenv("SYSTEMD_JOURNAL_REMOTE_MAX_CONNECTIONS");
+        if (e) {
+                unsigned u;
+
+                r = safe_atou(e, &u);
+                if (r < 0 || u == 0)
+                        log_warning_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
+                                          "Failed to parse $SYSTEMD_JOURNAL_REMOTE_MAX_CONNECTIONS value '%s', ignoring: %m", e);
+                else
+                        connection_limit = u;
+        }
+}
 
 static int build_accept_encoding(char **ret) {
         assert(ret);
@@ -489,7 +508,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
                 { MHD_OPTION_LISTEN_SOCKET, fd},
                 { MHD_OPTION_CONNECTION_MEMORY_LIMIT, JOURNAL_SERVER_MEMORY_MAX},
-                { MHD_OPTION_CONNECTION_LIMIT, JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT},
+                { MHD_OPTION_CONNECTION_LIMIT, connection_limit},
                 { MHD_OPTION_CONNECTION_TIMEOUT, JOURNAL_REMOTE_CONNECTION_TIMEOUT_SEC},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
@@ -643,7 +662,7 @@ static int dispatch_http_event(sd_event_source *event,
         int r;
 
         info = sym_MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_CURRENT_CONNECTIONS);
-        at_limit = info && info->num_connections >= JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT;
+        at_limit = info && info->num_connections >= connection_limit;
 
         r = sym_MHD_run(d->daemon);
         if (r == MHD_NO)
@@ -655,7 +674,7 @@ static int dispatch_http_event(sd_event_source *event,
         /* MHD 1.0.1 rearms the listen socket before freeing closed connections. If the server was at
          * the connection limit, run again immediately to accept pending connections. */
         info = sym_MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_CURRENT_CONNECTIONS);
-        if (at_limit && info && info->num_connections < JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT)
+        if (at_limit && info && info->num_connections < connection_limit)
                 next = now(CLOCK_MONOTONIC);
 
         r = sd_event_source_set_time(d->timer_event, next);
@@ -1188,6 +1207,8 @@ static int run(int argc, char **argv) {
         journal_browse_prepare();
 
 #if HAVE_MICROHTTPD
+        parse_http_env();
+
         if (arg_listen_http || arg_listen_https) {
                 r = setup_gnutls_logger(arg_gnutls_log);
                 if (r < 0)
