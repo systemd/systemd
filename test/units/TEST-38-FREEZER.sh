@@ -377,6 +377,62 @@ testcase_watchdog() {
     systemctl stop "$unit"
 }
 
+testcase_sigkill_frozen_unit() {
+    local unit="sigkill-frozen.service"
+
+    # systemctl kill --signal=KILL clears stuck FreezerState
+    systemd-run --unit "$unit" --property Type=exec /bin/sleep infinity >/dev/null
+    timeout 5 bash -c "while ! systemctl is-active -q '$unit'; do sleep .1; done"
+    systemctl freeze "$unit"
+    check_freezer_state "$unit" "frozen"
+
+    systemctl kill --signal=KILL "$unit"
+    timeout 5 bash -c "while systemctl is-active -q '$unit'; do sleep .1; done"
+    check_freezer_state "$unit" "running"
+
+    # Must be restartable without "Cannot perform operation on frozen unit"
+    systemctl reset-failed "$unit" 2>/dev/null || true
+    systemctl start "$unit"
+    timeout 5 bash -c "while ! systemctl is-active -q '$unit'; do sleep .1; done"
+    check_freezer_state "$unit" "running"
+
+    # kill -9 main PID clears stuck FreezerState
+    systemctl freeze "$unit"
+    check_freezer_state "$unit" "frozen"
+    local pid
+    pid=$(systemctl show "$unit" --property=MainPID --value)
+    kill -9 "$pid"
+    timeout 5 bash -c "while systemctl is-active -q '$unit'; do sleep .1; done"
+    check_freezer_state "$unit" "running"
+
+    systemctl stop "$unit" 2>/dev/null || true
+
+    # dead frozen-by-parent child stays frozen-by-parent until slice thaws
+    local slice="sigkill-child.slice"
+    local child="sigkill-child.service"
+    systemd-run --unit "$child" --slice "$slice" --property Type=exec /bin/sleep infinity >/dev/null
+    timeout 5 bash -c "while ! systemctl is-active -q '$child'; do sleep .1; done"
+
+    systemctl freeze "$slice"
+    check_freezer_state "$slice" "frozen"
+    check_freezer_state "$child" "frozen-by-parent"
+
+    systemctl kill --signal=KILL "$child"
+    timeout 5 bash -c "while systemctl is-active -q '$child'; do sleep .1; done"
+
+    # Parent still frozen => dead child must retain frozen-by-parent so a subsequent
+    # restart is correctly refused until the parent is thawed.
+    check_freezer_state "$child" "frozen-by-parent"
+
+    # Thawing the parent must flow through to the dead child's state.
+    systemctl thaw "$slice"
+    check_freezer_state "$slice" "running"
+    check_freezer_state "$child" "running"
+
+    systemctl stop "$child" 2>/dev/null || true
+    systemctl stop "$slice" 2>/dev/null || true
+}
+
 if [[ -e /sys/fs/cgroup/system.slice/cgroup.freeze ]]; then
     start_test_service
     run_testcases
