@@ -28,6 +28,7 @@
 #include "hmac.h"
 #include "initrd-util.h"
 #include "io-util.h"
+#include "iovec-wrapper.h"
 #include "json-util.h"
 #include "limits-util.h"
 #include "log.h"
@@ -11421,6 +11422,103 @@ static int tpm2_parse_shard_array(
         return 0;
 }
 
+typedef struct Tpm2Luks2Token {
+        uint32_t hash_pcr_mask;
+        uint16_t pcr_bank;
+        uint16_t primary_alg;
+        struct iovec_wrapper blobs;
+        struct iovec_wrapper policy_hash;
+        bool pin;
+        bool pcrlock;
+        struct iovec salt;
+        uint32_t pubkey_pcr_mask;
+        struct iovec pubkey;
+        char *pubkey_ref;
+        struct iovec srk;
+        struct iovec pcrlock_nv;
+        Argon2IdParameters argon2id;
+} Tpm2Luks2Token;
+
+static void tpm2_luks2_token_done(Tpm2Luks2Token *t) {
+        assert(t);
+
+        iovw_done_free(&t->blobs);
+        iovw_done_free(&t->policy_hash);
+        iovec_done(&t->salt);
+        iovec_done(&t->pubkey);
+        t->pubkey_ref = mfree(t->pubkey_ref);
+        iovec_done(&t->srk);
+        iovec_done(&t->pcrlock_nv);
+}
+
+static int dispatch_tpm2_pcr_mask(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint32_t *mask = ASSERT_PTR(userdata);
+
+        return tpm2_parse_pcr_json_array(variant, mask);
+}
+
+static int dispatch_tpm2_pcr_bank(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint16_t *bank = ASSERT_PTR(userdata);
+        int r;
+
+        r = tpm2_hash_alg_from_string(sd_json_variant_string(variant));
+        if (r < 0)
+                return json_log(variant, flags, r, "TPM2 PCR bank invalid or not supported: %s", sd_json_variant_string(variant));
+
+        *bank = r;
+        return 0;
+}
+
+static int dispatch_tpm2_primary_alg(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint16_t *alg = ASSERT_PTR(userdata);
+        int r;
+
+        r = tpm2_asym_alg_from_string(sd_json_variant_string(variant));
+        if (r < 0)
+                return json_log(variant, flags, r, "TPM2 asymmetric algorithm invalid or not supported: %s", sd_json_variant_string(variant));
+
+        *alg = r;
+        return 0;
+}
+
+static int dispatch_tpm2_blob(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        struct iovec_wrapper *iovw = ASSERT_PTR(userdata);
+
+        return tpm2_parse_shard_array(variant, name, json_variant_unbase64_iovec, &iovw->iovec, &iovw->count);
+}
+
+static int dispatch_tpm2_policy_hash(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        struct iovec_wrapper *iovw = ASSERT_PTR(userdata);
+
+        return tpm2_parse_shard_array(variant, name, json_variant_unhex_iovec, &iovw->iovec, &iovw->count);
+}
+
+static int dispatch_tpm2_argon2id_memcost(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint64_t *memcost = ASSERT_PTR(userdata);
+
+        /* Return -EUCLEAN on bogus values, so that callers can skip over the token gracefully */
+
+        *memcost = sd_json_variant_unsigned(variant);
+        if (*memcost == 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EUCLEAN), "%s must be non-zero.", name);
+
+        return 0;
+}
+
+static int dispatch_tpm2_argon2id_uint32(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint32_t *value = ASSERT_PTR(userdata);
+        uint64_t u;
+
+        /* Return -EUCLEAN on bogus values, so that callers can skip over the token gracefully */
+
+        u = sd_json_variant_unsigned(variant);
+        if (u == 0 || u > UINT32_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EUCLEAN), "%s value out of range.", name);
+
+        *value = (uint32_t) u;
+        return 0;
+}
+
 int tpm2_parse_luks2_json(
                 sd_json_variant *v,
                 int *ret_keyslot,
@@ -11440,14 +11538,34 @@ int tpm2_parse_luks2_json(
                 TPM2Flags *ret_flags,
                 Argon2IdParameters *ret_argon2id_params) {
 
-        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
-        _cleanup_free_ char *pubkey_ref = NULL;
-        uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
-        uint16_t primary_alg = 0;
-        uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
-        int r, keyslot = -1;
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "tpm2-pcrs",                SD_JSON_VARIANT_ARRAY,         dispatch_tpm2_pcr_mask,         offsetof(Tpm2Luks2Token, hash_pcr_mask),          SD_JSON_MANDATORY },
+                { "tpm2-pcr-bank",            SD_JSON_VARIANT_STRING,        dispatch_tpm2_pcr_bank,         offsetof(Tpm2Luks2Token, pcr_bank),               0                 },
+                { "tpm2-primary-alg",         SD_JSON_VARIANT_STRING,        dispatch_tpm2_primary_alg,      offsetof(Tpm2Luks2Token, primary_alg),            0                 },
+                { "tpm2-blob",                _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tpm2_blob,             offsetof(Tpm2Luks2Token, blobs),                  SD_JSON_MANDATORY },
+                { "tpm2-policy-hash",         _SD_JSON_VARIANT_TYPE_INVALID, dispatch_tpm2_policy_hash,      offsetof(Tpm2Luks2Token, policy_hash),            SD_JSON_MANDATORY },
+                { "tpm2-pin",                 SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(Tpm2Luks2Token, pin),                    0                 },
+                { "tpm2_pcrlock",             SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(Tpm2Luks2Token, pcrlock),                0                 },
+                { "tpm2_salt",                SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,   offsetof(Tpm2Luks2Token, salt),                   0                 },
+                { "tpm2_pubkey_pcrs",         SD_JSON_VARIANT_ARRAY,         dispatch_tpm2_pcr_mask,         offsetof(Tpm2Luks2Token, pubkey_pcr_mask),        0                 },
+                { "tpm2_pubkey",              SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,   offsetof(Tpm2Luks2Token, pubkey),                 0                 },
+                { "tpm2_pubkey_ref",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(Tpm2Luks2Token, pubkey_ref),             0                 },
+                { "tpm2_srk",                 SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,   offsetof(Tpm2Luks2Token, srk),                    0                 },
+                { "tpm2_pcrlock_nv",          SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,   offsetof(Tpm2Luks2Token, pcrlock_nv),             0                 },
+                { "tpm2_argon2id_memcost",    SD_JSON_VARIANT_UNSIGNED,      dispatch_tpm2_argon2id_memcost, offsetof(Tpm2Luks2Token, argon2id.memcost_bytes), 0                 },
+                { "tpm2_argon2id_iterations", SD_JSON_VARIANT_UNSIGNED,      dispatch_tpm2_argon2id_uint32,  offsetof(Tpm2Luks2Token, argon2id.iterations),    0                 },
+                { "tpm2_argon2id_lanes",      SD_JSON_VARIANT_UNSIGNED,      dispatch_tpm2_argon2id_uint32,  offsetof(Tpm2Luks2Token, argon2id.lanes),         0                 },
+                {},
+        };
+
+        _cleanup_(tpm2_luks2_token_done) Tpm2Luks2Token t = {
+                /* The bank field is optional, since it was added in systemd 250 only. Before the bank was
+                 * hardcoded to SHA256. The primary key algorithm field is optional too, since it was also
+                 * added in systemd 250 only. Before the algorithm was hardcoded to ECC. */
+                .pcr_bank = UINT16_MAX, /* default: pick automatically */
+        };
         TPM2Flags flags = 0;
-        sd_json_variant *w;
+        int r, keyslot = -1;
 
         assert(v);
 
@@ -11462,210 +11580,64 @@ int tpm2_parse_luks2_json(
                 }
         }
 
-        w = sd_json_variant_by_key(v, "tpm2-pcrs");
-        if (!w)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-pcrs' field.");
-
-        r = tpm2_parse_pcr_json_array(w, &hash_pcr_mask);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse TPM2 PCR mask: %m");
-
-        /* The bank field is optional, since it was added in systemd 250 only. Before the bank was hardcoded
-         * to SHA256. */
-        w = sd_json_variant_by_key(v, "tpm2-pcr-bank");
-        if (w) {
-                /* The PCR bank field is optional */
-
-                if (!sd_json_variant_is_string(w))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR bank is not a string.");
-
-                r = tpm2_hash_alg_from_string(sd_json_variant_string(w));
-                if (r < 0)
-                        return log_debug_errno(r, "TPM2 PCR bank invalid or not supported: %s", sd_json_variant_string(w));
-
-                pcr_bank = r;
-        }
-
-        /* The primary key algorithm field is optional, since it was also added in systemd 250 only. Before
-         * the algorithm was hardcoded to ECC. */
-        w = sd_json_variant_by_key(v, "tpm2-primary-alg");
-        if (w) {
-                /* The primary key algorithm is optional */
-
-                if (!sd_json_variant_is_string(w))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 primary key algorithm is not a string.");
-
-                r = tpm2_asym_alg_from_string(sd_json_variant_string(w));
-                if (r < 0)
-                        return log_debug_errno(r, "TPM2 asymmetric algorithm invalid or not supported: %s", sd_json_variant_string(w));
-
-                primary_alg = r;
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2-blob");
-        if (!w)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-blob' field.");
-
-        struct iovec *blobs = NULL;
-        size_t n_blobs = 0;
-        CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
-
-        r = tpm2_parse_shard_array(w, "tpm2-blob", json_variant_unbase64_iovec, &blobs, &n_blobs);
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_LOG|SD_JSON_DEBUG|SD_JSON_ALLOW_EXTENSIONS, &t);
         if (r < 0)
                 return r;
 
-        w = sd_json_variant_by_key(v, "tpm2-policy-hash");
-        if (!w)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-policy-hash' field.");
-
-        struct iovec *policy_hash = NULL;
-        size_t n_policy_hash = 0;
-        CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
-
-        r = tpm2_parse_shard_array(w, "tpm2-policy-hash", json_variant_unhex_iovec, &policy_hash, &n_policy_hash);
-        if (r < 0)
-                return r;
-
-        w = sd_json_variant_by_key(v, "tpm2-pin");
-        if (w) {
-                if (!sd_json_variant_is_boolean(w))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PIN policy is not a boolean.");
-
-                SET_FLAG(flags, TPM2_FLAGS_USE_PIN, sd_json_variant_boolean(w));
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2_pcrlock");
-        if (w) {
-                if (!sd_json_variant_is_boolean(w))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 pclock policy is not a boolean.");
-
-                SET_FLAG(flags, TPM2_FLAGS_USE_PCRLOCK, sd_json_variant_boolean(w));
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2_salt");
-        if (w) {
-                r = json_variant_unbase64_iovec(w, &salt);
-                if (r < 0)
-                        return log_debug_errno(r, "Invalid base64 data in 'tpm2_salt' field.");
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2_pubkey_pcrs");
-        if (w) {
-                r = tpm2_parse_pcr_json_array(w, &pubkey_pcr_mask);
-                if (r < 0)
-                        return r;
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2_pubkey");
-        if (w) {
-                r = json_variant_unbase64_iovec(w, &pubkey);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to decode PCR public key.");
-        } else if (pubkey_pcr_mask != 0)
+        if (t.pubkey_pcr_mask != 0 && !iovec_is_set(&t.pubkey))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key PCR mask set, but not public key included in JSON data, refusing.");
 
-        w = sd_json_variant_by_key(v, "tpm2_pubkey_ref");
-        if (w) {
-                const char *s = sd_json_variant_string(w);
-                if (!s)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key policy reference is not a string.");
-                pubkey_ref = strdup(s);
-                if (!pubkey_ref)
-                        return log_oom_debug();
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2_srk");
-        if (w) {
-                r = json_variant_unbase64_iovec(w, &srk);
-                if (r < 0)
-                        return log_debug_errno(r, "Invalid base64 data in 'tpm2_srk' field.");
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2_pcrlock_nv");
-        if (w) {
-                r = json_variant_unbase64_iovec(w, &pcrlock_nv);
-                if (r < 0)
-                        return log_debug_errno(r, "Invalid base64 data in 'tpm2_pcrlock_nv' field.");
-        }
-
-        Argon2IdParameters ap = {};
-
-        w = sd_json_variant_by_key(v, "tpm2_argon2id_memcost");
-        if (w) {
-                if (!sd_json_variant_is_unsigned(w))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_memcost is not an unsigned integer.");
-                ap.memcost_bytes = sd_json_variant_unsigned(w);
-                if (ap.memcost_bytes == 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "tpm2_argon2id_memcost must be non-zero.");
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2_argon2id_iterations");
-        if (w) {
-                uint64_t raw_iterations;
-
-                if (!sd_json_variant_is_unsigned(w))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_iterations is not an unsigned integer.");
-                raw_iterations = sd_json_variant_unsigned(w);
-                if (raw_iterations == 0 || raw_iterations > UINT32_MAX)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "tpm2_argon2id_iterations value out of range.");
-                ap.iterations = (uint32_t) raw_iterations;
-        }
-
-        w = sd_json_variant_by_key(v, "tpm2_argon2id_lanes");
-        if (w) {
-                uint64_t raw_lanes;
-
-                if (!sd_json_variant_is_unsigned(w))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "tpm2_argon2id_lanes is not an unsigned integer.");
-                raw_lanes = sd_json_variant_unsigned(w);
-                if (raw_lanes == 0 || raw_lanes > UINT32_MAX)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "tpm2_argon2id_lanes value out of range.");
-                ap.lanes = (uint32_t) raw_lanes;
-        }
-
-        if (ap.memcost_bytes > 0 && ap.iterations > 0 && ap.lanes > 0) {
-                if (!iovec_is_set(&salt))
+        if (t.argon2id.memcost_bytes > 0 && t.argon2id.iterations > 0 && t.argon2id.lanes > 0) {
+                if (!iovec_is_set(&t.salt))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Argon2id PIN requires salt in LUKS2 token.");
 
-                if (ap.memcost_bytes > physical_memory())
+                if (t.argon2id.memcost_bytes > physical_memory())
                         return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "Argon2id memory cost exceeds physical memory.");
 
                 SET_FLAG(flags, TPM2_FLAGS_USE_ARGON2ID, true);
-        } else if (ap.memcost_bytes > 0 || ap.iterations > 0 || ap.lanes > 0)
+        } else if (t.argon2id.memcost_bytes > 0 || t.argon2id.iterations > 0 || t.argon2id.lanes > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "Incomplete Argon2id parameters in LUKS2 token.");
+
+        SET_FLAG(flags, TPM2_FLAGS_USE_PIN, t.pin);
+        SET_FLAG(flags, TPM2_FLAGS_USE_PCRLOCK, t.pcrlock);
 
         if (ret_keyslot)
                 *ret_keyslot = keyslot;
         if (ret_hash_pcr_mask)
-                *ret_hash_pcr_mask = hash_pcr_mask;
+                *ret_hash_pcr_mask = t.hash_pcr_mask;
         if (ret_pcr_bank)
-                *ret_pcr_bank = pcr_bank;
+                *ret_pcr_bank = t.pcr_bank;
         if (ret_pubkey)
-                *ret_pubkey = TAKE_STRUCT(pubkey);
+                *ret_pubkey = TAKE_STRUCT(t.pubkey);
         if (ret_pubkey_policy_ref)
-                *ret_pubkey_policy_ref = TAKE_PTR(pubkey_ref);
+                *ret_pubkey_policy_ref = TAKE_PTR(t.pubkey_ref);
         if (ret_pubkey_pcr_mask)
-                *ret_pubkey_pcr_mask = pubkey_pcr_mask;
+                *ret_pubkey_pcr_mask = t.pubkey_pcr_mask;
         if (ret_primary_alg)
-                *ret_primary_alg = primary_alg;
-        if (ret_blobs)
-                *ret_blobs = TAKE_PTR(blobs);
+                *ret_primary_alg = t.primary_alg;
         if (ret_n_blobs)
-                *ret_n_blobs = n_blobs;
-        if (ret_policy_hash)
-                *ret_policy_hash = TAKE_PTR(policy_hash);
+                *ret_n_blobs = t.blobs.count;
+        if (ret_blobs) {
+                *ret_blobs = TAKE_PTR(t.blobs.iovec);
+                t.blobs.count = 0;
+        }
         if (ret_n_policy_hash)
-                *ret_n_policy_hash = n_policy_hash;
+                *ret_n_policy_hash = t.policy_hash.count;
+        if (ret_policy_hash) {
+                *ret_policy_hash = TAKE_PTR(t.policy_hash.iovec);
+                t.policy_hash.count = 0;
+        }
         if (ret_salt)
-                *ret_salt = TAKE_STRUCT(salt);
+                *ret_salt = TAKE_STRUCT(t.salt);
         if (ret_srk)
-                *ret_srk = TAKE_STRUCT(srk);
+                *ret_srk = TAKE_STRUCT(t.srk);
         if (ret_pcrlock_nv)
-                *ret_pcrlock_nv = TAKE_STRUCT(pcrlock_nv);
+                *ret_pcrlock_nv = TAKE_STRUCT(t.pcrlock_nv);
         if (ret_flags)
                 *ret_flags = flags;
         if (ret_argon2id_params)
-                *ret_argon2id_params = ap;
+                *ret_argon2id_params = t.argon2id;
+
         return 0;
 }
 
