@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -43,6 +44,7 @@
 
 #define JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT 32U
 #define JOURNAL_REMOTE_CONNECTION_TIMEOUT_SEC 30U
+#define JOURNAL_REMOTE_ENTRY_TIMEOUT_USEC (2 * USEC_PER_MINUTE)
 
 static char *arg_url = NULL;
 static char *arg_getter = NULL;
@@ -300,17 +302,93 @@ static void request_meta_free(void *cls,
         }
 }
 
+static void shutdown_http_connection(struct MHD_Connection *connection) {
+        const union MHD_ConnectionInfo *ci;
+
+        ci = sym_MHD_get_connection_info(connection, MHD_CONNECTION_INFO_CONNECTION_FD);
+        if (ci && ci->connect_fd >= 0)
+                (void) shutdown(ci->connect_fd, SHUT_RDWR);
+}
+
+static int http_connection_deadline(sd_event_source *event, uint64_t usec, void *userdata) {
+        struct MHD_Connection *connection = ASSERT_PTR(userdata);
+
+        log_debug("Closing HTTP connection %p after no entry was stored for %s.",
+                  connection, FORMAT_TIMESPAN(JOURNAL_REMOTE_ENTRY_TIMEOUT_USEC, USEC_PER_SEC));
+        shutdown_http_connection(connection);
+        return 0;
+}
+
+static int entry_deadline(sd_event *e, usec_t *ret) {
+        usec_t n;
+        int r;
+
+        assert(ret);
+
+        /* usec_add() saturates at USEC_INFINITY, so an infinite timeout, or one whose deadline would
+         * overflow, disables the timer instead of failing with -EOVERFLOW as
+         * sd_event_add_time_relative() and sd_event_source_set_time_relative() would. */
+        r = sd_event_now(e, CLOCK_MONOTONIC, &n);
+        if (r < 0)
+                return r;
+
+        *ret = usec_add(n, JOURNAL_REMOTE_ENTRY_TIMEOUT_USEC);
+        return 0;
+}
+
+static void http_connection_notify(
+                void *cls,
+                struct MHD_Connection *connection,
+                void **socket_context,
+                enum MHD_ConnectionNotificationCode toe) {
+
+        RemoteServer *s = ASSERT_PTR(cls);
+        sd_event_source *deadline_event;
+        usec_t deadline;
+        int r;
+
+        assert(socket_context);
+
+        /* The socket context holds the connection's entry deadline timer. */
+
+        if (toe == MHD_CONNECTION_NOTIFY_CLOSED) {
+                *socket_context = sd_event_source_unref(*socket_context);
+                return;
+        }
+
+        assert(toe == MHD_CONNECTION_NOTIFY_STARTED);
+
+        r = entry_deadline(s->event, &deadline);
+        if (r >= 0)
+                r = sd_event_add_time(s->event, &deadline_event, CLOCK_MONOTONIC, deadline, 0,
+                                      http_connection_deadline, connection);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to set up entry deadline for HTTP connection %p, closing connection: %m",
+                                  connection);
+                shutdown_http_connection(connection);
+                return;
+        }
+
+        *socket_context = deadline_event;
+}
+
 static int process_http_upload(
                 struct MHD_Connection *connection,
                 const char *upload_data,
                 size_t *upload_data_size,
                 RemoteSource *source) {
 
+        const union MHD_ConnectionInfo *ci;
+        sd_event_source *deadline_event = NULL;
         bool finished = false;
         size_t remaining;
         int r;
 
         assert(source);
+
+        ci = sym_MHD_get_connection_info(connection, MHD_CONNECTION_INFO_SOCKET_CONTEXT);
+        if (ci)
+                deadline_event = ci->socket_context;
 
         log_trace("%s: connection %p, %zu bytes",
                   __func__, connection, *upload_data_size);
@@ -351,6 +429,17 @@ static int process_http_upload(
                                 log_warning_errno(r, "Failed to process data, aborting connection %p: %m",
                                                   connection);
                         return MHD_NO;
+                }
+                if (r > 0 && deadline_event) {
+                        usec_t deadline;
+
+                        r = entry_deadline(sd_event_source_get_event(deadline_event), &deadline);
+                        if (r < 0)
+                                return MHD_NO;
+
+                        r = sd_event_source_set_time(deadline_event, deadline);
+                        if (r < 0)
+                                return MHD_NO;
                 }
         }
 
@@ -506,6 +595,7 @@ static int setup_microhttpd_server(RemoteServer *s,
         struct MHD_OptionItem opts[] = {
                 { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger},
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
+                { MHD_OPTION_NOTIFY_CONNECTION, (intptr_t) http_connection_notify, s},
                 { MHD_OPTION_LISTEN_SOCKET, fd},
                 { MHD_OPTION_CONNECTION_MEMORY_LIMIT, JOURNAL_SERVER_MEMORY_MAX},
                 { MHD_OPTION_CONNECTION_LIMIT, connection_limit},
@@ -515,7 +605,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END}};
-        int opts_pos = 6;
+        int opts_pos = 7;
         int flags =
                 MHD_USE_DEBUG |
                 MHD_USE_DUAL_STACK |
