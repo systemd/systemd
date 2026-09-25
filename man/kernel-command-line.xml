@@ -477,8 +477,11 @@
         <term><varname>rd.systemd.gpt_auto=</varname></term>
 
         <listitem>
-          <para>Configures whether GPT-based partition auto-discovery shall be attempted. For details, see
-          <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          <para>Configures whether GPT-based partition auto-discovery shall be attempted. The special
+          value <literal>esp-only</literal> limits host-side discovery to the EFI System Partition used for
+          the current boot. For details, see
+          <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum>
+          </citerefentry>.</para>
 
           <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
