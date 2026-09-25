@@ -203,6 +203,7 @@ int dissected_image_relinquish(DissectedImage *m);
 void image_filter_done(ImageFilter *f);
 ImageFilter *image_filter_free(ImageFilter *f);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ImageFilter*, image_filter_free);
+bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, const char *label);
 int image_filter_parse(const char *s, ImageFilter **ret);
 
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
