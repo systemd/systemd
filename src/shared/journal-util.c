@@ -124,7 +124,7 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
                         continue;
 
                 case ENODATA:
-                        log_warning_errno(err, "Journal file %s is truncated, ignoring file.", path);
+                        log_warning_errno(err, "Journal file %s is truncated or empty, ignoring file.", path);
                         break;
 
                 case EPROTONOSUPPORT:

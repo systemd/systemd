@@ -524,17 +524,18 @@ static bool offset_is_valid(uint64_t offset, uint64_t header_size, uint64_t tail
         return true;
 }
 
-static bool hash_table_is_valid(uint64_t offset, uint64_t size, uint64_t header_size, uint64_t arena_size, uint64_t tail_object_offset) {
+static bool hash_table_is_valid(uint64_t offset, uint64_t size, uint64_t header_size, uint64_t arena_size) {
         if ((offset == 0) != (size == 0))
                 return false;
         if (offset == 0)
                 return true;
         if (offset <= offsetof(Object, hash_table.items))
                 return false;
-        offset -= offsetof(Object, hash_table.items);
-        if (!offset_is_valid(offset, header_size, tail_object_offset))
+        if (!offset_is_valid(offset - offsetof(Object, hash_table.items), header_size, header_size + arena_size))
                 return false;
-        assert(offset <= header_size + arena_size);
+        /* The item span itself must lie inside the arena, not just the object start. */
+        if (offset > header_size + arena_size)
+                return false;
         if (size > header_size + arena_size - offset)
                 return false;
         return true;
@@ -542,6 +543,7 @@ static bool hash_table_is_valid(uint64_t offset, uint64_t size, uint64_t header_
 
 static int journal_file_verify_header(JournalFile *f) {
         uint64_t arena_size, header_size;
+        int r;
 
         assert(f);
         assert(f->header);
@@ -584,11 +586,18 @@ static int journal_file_verify_header(JournalFile *f) {
         if (UINT64_MAX - header_size < arena_size)
                 return -ENODATA;
 
+        /* The writer grows the file before it updates arena_size, hence refresh possibly stale stat data
+         * before judging (#41992). */
+        if (header_size + arena_size > (uint64_t) f->last_stat.st_size) {
+                r = journal_file_fstat(f);
+                if (r < 0)
+                        return r;
+        }
+
         uint64_t file_size = (uint64_t) f->last_stat.st_size;
 
         /* Probably an unclean shutdown where the header was written, but the arena data was not. On write we
          * should ask the caller to rotate, but on read, we can still work it out with bounds checks. */
-        bool truncated = false;
         if (header_size + arena_size > file_size) {
                 if (journal_file_writable(f))
                         return -ENODATA;
@@ -605,15 +614,33 @@ static int journal_file_verify_header(JournalFile *f) {
                           arena_size,
                           file_size);
                 arena_size = available - header_size;
-                truncated = true;
         }
 
+        /* The hash table descriptors are set up once, when the file is created, hence cannot be observed
+         * torn, and they are the one thing the object accessors do not revalidate:
+         * journal_file_map_data_hash_table() and journal_file_map_field_hash_table() map whatever they
+         * denote. Check them for every open. */
+        if (!hash_table_is_valid(le64toh(f->header->data_hash_table_offset),
+                                 le64toh(f->header->data_hash_table_size),
+                                 header_size, arena_size))
+                return -ENODATA;
+
+        if (!hash_table_is_valid(le64toh(f->header->field_hash_table_offset),
+                                 le64toh(f->header->field_hash_table_size),
+                                 header_size, arena_size))
+                return -ENODATA;
+
+        /* The remaining checks relate fields the writer updates one at a time, without locks, as it
+         * appends. A reader racing an append can load a torn pair, e.g. a tail_entry_offset pointing past
+         * the tail_object_offset loaded a moment earlier, and would fail spuriously here (#40053). The
+         * state field cannot say whether the file is settled: journald moves a live file to STATE_OFFLINE
+         * on sync and back on the next append, and a crashed writer leaves STATE_ONLINE behind for good.
+         * Hence enforce these relations only on writable opens; readers revalidate every offset against
+         * the file size at access time anyway. */
+        if (!journal_file_writable(f))
+                return 0;
+
         uint64_t tail_object_offset = le64toh(f->header->tail_object_offset);
-        if (truncated)
-                /* The tail may be in the lost region, so cap it at the last possible object header start. */
-                tail_object_offset = MIN(
-                                tail_object_offset,
-                                header_size + arena_size - offsetof(ObjectHeader, payload));
         if (!offset_is_valid(tail_object_offset, header_size, UINT64_MAX))
                 return -ENODATA;
         if (header_size + arena_size < tail_object_offset)
@@ -621,21 +648,11 @@ static int journal_file_verify_header(JournalFile *f) {
         if (header_size + arena_size - tail_object_offset < offsetof(ObjectHeader, payload))
                 return -ENODATA;
 
-        if (!hash_table_is_valid(le64toh(f->header->data_hash_table_offset),
-                                 le64toh(f->header->data_hash_table_size),
-                                 header_size, arena_size, tail_object_offset))
-                return -ENODATA;
-
-        if (!hash_table_is_valid(le64toh(f->header->field_hash_table_offset),
-                                 le64toh(f->header->field_hash_table_size),
-                                 header_size, arena_size, tail_object_offset))
-                return -ENODATA;
-
         uint64_t entry_array_offset = le64toh(f->header->entry_array_offset);
         if (!offset_is_valid(entry_array_offset, header_size, tail_object_offset))
                 return -ENODATA;
 
-        if (!truncated && JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_offset)) {
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_offset)) {
                 uint32_t offset = le32toh(f->header->tail_entry_array_offset);
                 uint32_t n = le32toh(f->header->tail_entry_array_n_entries);
 
@@ -652,7 +669,7 @@ static int journal_file_verify_header(JournalFile *f) {
                         return -ENODATA;
         }
 
-        if (!truncated && JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
                 uint64_t offset = le64toh(f->header->tail_entry_offset);
 
                 if (!offset_is_valid(offset, header_size, tail_object_offset))
@@ -684,7 +701,7 @@ static int journal_file_verify_header(JournalFile *f) {
 
         /* Verify number of objects */
         uint64_t n_objects = le64toh(f->header->n_objects);
-        if (!truncated && n_objects > arena_size / offsetof(ObjectHeader, payload))
+        if (n_objects > arena_size / offsetof(ObjectHeader, payload))
                 return -ENODATA;
 
         uint64_t n_entries = le64toh(f->header->n_entries);
@@ -711,37 +728,32 @@ static int journal_file_verify_header(JournalFile *f) {
             le32toh(f->header->tail_entry_array_n_entries) > n_entries)
                 return -ENODATA;
 
-        if (journal_file_writable(f)) {
-                sd_id128_t machine_id;
-                uint8_t state;
-                int r;
+        sd_id128_t machine_id;
+        r = sd_id128_get_machine(&machine_id);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) /* Gracefully handle the machine ID not being initialized yet */
+                machine_id = SD_ID128_NULL;
+        else if (r < 0)
+                return r;
 
-                r = sd_id128_get_machine(&machine_id);
-                if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) /* Gracefully handle the machine ID not being initialized yet */
-                        machine_id = SD_ID128_NULL;
-                else if (r < 0)
-                        return r;
+        if (!sd_id128_equal(machine_id, f->header->machine_id))
+                return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                       "Trying to open journal file from different host for writing, refusing.");
 
-                if (!sd_id128_equal(machine_id, f->header->machine_id))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
-                                               "Trying to open journal file from different host for writing, refusing.");
+        uint8_t state = f->header->state;
 
-                state = f->header->state;
+        if (state == STATE_ARCHIVED)
+                return -ESHUTDOWN; /* Already archived */
+        if (state == STATE_ONLINE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                       "Journal file %s is already online. Assuming unclean closing.",
+                                       f->path);
+        if (state != STATE_OFFLINE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                       "Journal file %s has unknown state %i.",
+                                       f->path, state);
 
-                if (state == STATE_ARCHIVED)
-                        return -ESHUTDOWN; /* Already archived */
-                if (state == STATE_ONLINE)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
-                                               "Journal file %s is already online. Assuming unclean closing.",
-                                               f->path);
-                if (state != STATE_OFFLINE)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
-                                               "Journal file %s has unknown state %i.",
-                                               f->path, state);
-
-                if (f->header->field_hash_table_size == 0 || f->header->data_hash_table_size == 0)
-                        return -EBADMSG;
-        }
+        if (f->header->field_hash_table_size == 0 || f->header->data_hash_table_size == 0)
+                return -EBADMSG;
 
         return 0;
 }
