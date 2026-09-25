@@ -26,3 +26,5 @@ SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
 {{SERVICE_WATCHDOG}}
+
+Environment=SYSTEMD_LOG_LEVEL=debug
