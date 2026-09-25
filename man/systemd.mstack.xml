@@ -65,13 +65,46 @@
       <listitem><para>Similar, <filename>robind@<replaceable>location</replaceable>.raw</filename> creates a
       read-only bind mount from a DDI.</para></listitem>
 
-      <listitem><para>If a <filename>root/</filename> subdirectory exists, it is used as root of the
-      resulting mount hierarchy, and only the <filename>usr/</filename> subtree of the overlayfs mount will
-      be bound to <filename>usr/</filename> in the hierarchy.</para></listitem>
+      <listitem><para>If a <filename>root/</filename> subdirectory exists, it is used as the base (bottommost)
+      layer of the resulting mount hierarchy: if any <filename>layer@<replaceable>id</replaceable></filename>
+      or <filename>rw</filename> entries are also present, <filename>root/</filename> becomes the lowest
+      layer of the same <literal>overlayfs</literal> stack (its content merges with theirs across the whole
+      tree, not just <filename>usr/</filename>); otherwise it is used as the root directly on its
+      own.</para></listitem>
+
+      <listitem><para>A <filename>tmpfs@<replaceable>location</replaceable>/</filename> directory (which
+      should be left empty) mounts a fresh, writable <literal>tmpfs</literal> at the mount point
+      indicated by the <varname>location</varname> identifier, using the same escaping logic as
+      <filename>bind@<replaceable>location</replaceable>/</filename>. Unlike the other entry types, its
+      contents (if any) are ignored: the <literal>tmpfs</literal> mounted at runtime always starts out
+      empty, regardless of what - if anything - is stored below the
+      <filename>tmpfs@<replaceable>location</replaceable>/</filename> directory itself. It also stays
+      writable when the stack as a whole is mounted read-only: a scratch area whose contents are
+      discarded again is the entry's whole purpose, and a read-only one would have none.</para></listitem>
     </orderedlist>
 
     <para>Note that each of the entry types above may be a symbolic link pointing to a directory or image
     file, instead a directory or image file itself.</para>
+
+    <para>Note that the meaning of <filename>root/</filename> alongside
+    <filename>layer@<replaceable>id</replaceable></filename> or <filename>rw</filename> entries has
+    changed: previously only the overlay's <filename>usr/</filename> subtree was bound over
+    <filename>root/</filename>, whereas now <filename>root/</filename> takes part in the same
+    <literal>overlayfs</literal> stack as its bottommost layer, and the layers merge across the whole
+    tree. A <filename>.mstack/</filename> written for the older behaviour will therefore also see the
+    layers' content outside <filename>usr/</filename>. To keep a layer confined to
+    <filename>usr/</filename>, name that explicitly with a <filename>robind@usr</filename> entry
+    instead.</para>
+
+    <para>The mount point a <filename>bind@<replaceable>location</replaceable>/</filename>,
+    <filename>robind@<replaceable>location</replaceable>/</filename> or
+    <filename>tmpfs@<replaceable>location</replaceable>/</filename> entry names is resolved inside the
+    assembled root, following any symbolic links it encounters, so an entry may name a path that the
+    image redirects elsewhere, for example below <filename>/var/run/</filename> where it is a symbolic
+    link to <filename>/run/</filename>. Resolution is always confined to the container's root: an
+    absolute symbolic link is interpreted relative to it, and can never lead outside. Where a symbolic
+    link is followed the resolved path is logged at debug level, since the mount then ends up somewhere
+    other than the entry literally named.</para>
 
     <para>On each listed file or subdirectory type the
     <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -94,8 +127,12 @@
       <listitem><para><filename>foobar.mstack/rw/</filename></para></listitem>
     </orderedlist>
 
-    <para>The following <filename>.mstack/</filename> consists of a read-only DDI mounted to <literal>/usr/</literal>
-    and writable root:</para>
+    <para>The following <filename>.mstack/</filename> merges a read-only DDI over a directory across the
+    whole tree, rather than only over <filename>/usr/</filename>: because a
+    <filename>layer@<replaceable>id</replaceable></filename> entry is present,
+    <filename>root/</filename> joins the same <literal>overlayfs</literal> stack as its bottommost layer.
+    The result is read-only, there being no writable layer; adding an <filename>rw/</filename> directory
+    makes it writable:</para>
 
     <orderedlist>
       <listitem><para><filename>waldo.mstack/layer@0.raw</filename> → <filename>../vendor.raw</filename></para></listitem>
