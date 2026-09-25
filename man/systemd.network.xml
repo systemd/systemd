@@ -3130,7 +3130,7 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
         <term><varname>SendOption=</varname></term>
         <listitem>
           <para>As in the [DHCPv4] section, however because DHCPv6 uses 16-bit fields to store option
-          numbers, the option number is an integer in the range 1…65536.</para>
+          numbers, the option number is an integer in the range 1…65535.</para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
