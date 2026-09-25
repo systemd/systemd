@@ -581,6 +581,130 @@ static const sd_future_ops cancel_failure_ops = {
         .cancel = failing_child_cancel,
 };
 
+TEST(future_group_cancel_forwards_repeats) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL, *stubborn = NULL, *sibling = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_future_new(e, &stubborn_child_ops, &stubborn));
+        ASSERT_OK(sd_future_group_new(e, &sibling));
+        ASSERT_OK(sd_future_group_add_many(group, stubborn, sibling));
+
+        ASSERT_OK(sd_future_cancel(group));
+        StubbornChild *sc = sd_future_get_private(stubborn);
+        ASSERT_EQ(sc->cancels, 1U);
+        ASSERT_EQ(sd_future_state(stubborn), SD_FUTURE_PENDING);
+        ASSERT_ERROR(sd_future_result(sibling), ECANCELED);
+        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+                ;
+        ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
+
+        /* A repeated cancel reaches the pending child only: the settled sibling is left alone. Once the
+         * last child settles synchronously the group resolves without waiting for a dispatch. */
+        ASSERT_OK(sd_future_cancel(group));
+        ASSERT_EQ(sc->cancels, 2U);
+        ASSERT_ERROR(sd_future_result(stubborn), ECANCELED);
+        ASSERT_ERROR(sd_future_result(group), ECANCELED);
+}
+
+/* A child whose cancellation cancels its own group again: without the re-entrancy guard the two would
+ * bounce it back and forth until the stack overflows. The group pointer is borrowed. */
+typedef struct ReentrantChild {
+        sd_future *group;
+        unsigned cancels;
+} ReentrantChild;
+
+static void* reentrant_child_alloc(void) {
+        return new0(ReentrantChild, 1);
+}
+
+static void reentrant_child_free(sd_future *f) {
+        free(sd_future_get_private(f));
+}
+
+static int reentrant_child_cancel(sd_future *f) {
+        ReentrantChild *rc = ASSERT_PTR(sd_future_get_private(f));
+
+        rc->cancels++;
+        return sd_future_cancel(rc->group);
+}
+
+static const sd_future_ops reentrant_child_ops = {
+        .size = sizeof(sd_future_ops),
+        .alloc = reentrant_child_alloc,
+        .free = reentrant_child_free,
+        .cancel = reentrant_child_cancel,
+};
+
+TEST(future_group_cancel_reentrant_child_terminates) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL, *child = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_future_new(e, &reentrant_child_ops, &child));
+        ReentrantChild *rc = sd_future_get_private(child);
+        rc->group = group;
+        ASSERT_OK(sd_future_group_add(group, child));
+
+        ASSERT_OK(sd_future_cancel(group));
+        ASSERT_EQ(rc->cancels, 1U);
+        ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
+
+        /* Repeated cancellations are forwarded, and must terminate too. */
+        ASSERT_OK(sd_future_cancel(group));
+        ASSERT_EQ(rc->cancels, 2U);
+        ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
+
+        ASSERT_OK(sd_future_resolve(child, -ECANCELED));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(sd_future_result(group), ECANCELED);
+}
+
+/* The motivating case: sd_future_cancel_wait_unref() on a group drives a child that only settles on
+ * a repeated cancellation. The first cancel leaves the child pending, the fiber is interrupted while
+ * waiting for the group, and the loop's second cancel has to reach the child through the group. */
+static int cancel_wait_group_fiber(void *userdata) {
+        unsigned *cancels = ASSERT_PTR(userdata);
+        _cleanup_(sd_future_unrefp) sd_future *stubborn = NULL;
+        sd_future *group = NULL;
+
+        ASSERT_OK(sd_future_group_new(sd_fiber_get_event(), &group));
+        ASSERT_OK(sd_future_new(sd_fiber_get_event(), &stubborn_child_ops, &stubborn));
+        ASSERT_OK(sd_future_group_add(group, stubborn));
+
+        sd_future_cancel_wait_unref(group);
+        ASSERT_ERROR(sd_future_result(stubborn), ECANCELED);
+
+        StubbornChild *sc = sd_future_get_private(stubborn);
+        *cancels = sc->cancels;
+
+        /* The interruption that woke the wait is re-queued on us. */
+        return sd_fiber_suspend();
+}
+
+TEST(future_group_cancel_wait_unref_drives_stubborn_child) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *driver = NULL;
+        unsigned cancels = 0;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_fiber_new(e, "cancel-wait-group", cancel_wait_group_fiber, &cancels, NULL, &driver));
+
+        /* One iteration runs the fiber up to the await inside sd_future_cancel_wait_unref(): the group
+         * is finalizing, but the stubborn child ignored the first cancel. */
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_EQ(cancels, 0U);
+
+        ASSERT_OK_POSITIVE(sd_future_cancel(driver));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(sd_future_result(driver), ECANCELED);
+        ASSERT_EQ(cancels, 2U);
+}
+
 TEST(future_group_cancel_failure_still_drains) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_future_unrefp) sd_future *group = NULL, *failing = NULL, *sibling = NULL;
@@ -601,6 +725,11 @@ TEST(future_group_cancel_failure_still_drains) {
         /* The sibling's callback cannot finish the group while the failed cancellation is pending. */
         while (ASSERT_OK(sd_event_run(e, 0)) > 0)
                 ;
+        ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
+
+        /* A repeated cancel reaches the still-pending child and reports its failure too. */
+        ASSERT_ERROR(sd_future_cancel(group), EIO);
+        ASSERT_EQ(sc->cancels, 2U);
         ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
 
         ASSERT_OK(sd_future_resolve(failing, 42));
