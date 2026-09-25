@@ -439,8 +439,10 @@ int sd_dhcp6_client_set_request_user_class(sd_dhcp6_client *client, char * const
         return strv_free_and_replace(client->user_class, s);
 }
 
-int sd_dhcp6_client_set_request_vendor_class(sd_dhcp6_client *client, char * const *vendor_class) {
-        char **s;
+int sd_dhcp6_client_set_request_vendor_class(sd_dhcp6_client *client, char * const *vendor_class,
+                                             uint32_t enterprise_identifier) {
+        _cleanup_strv_free_ char **s = NULL;
+        int r;
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
@@ -457,7 +459,13 @@ int sd_dhcp6_client_set_request_vendor_class(sd_dhcp6_client *client, char * con
         if (!s)
                 return -ENOMEM;
 
-        return strv_free_and_replace(client->vendor_class, s);
+        r = ordered_hashmap_ensure_put(&client->vendor_class, &dhcp6_vendor_class_hash_ops,
+                                       UINT32_TO_PTR(enterprise_identifier), s);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(s);
+        return r;
 }
 
 int sd_dhcp6_client_get_prefix_delegation(sd_dhcp6_client *client, int *delegation) {
@@ -612,6 +620,8 @@ static int client_append_common_options_in_managed_mode(
                 const DHCP6IA *ia_na,
                 const DHCP6IA *ia_pd) {
 
+        char * const *vendor_class_data;
+        void *enterprise_identifier_key;
         int r;
 
         assert(client);
@@ -647,9 +657,11 @@ static int client_append_common_options_in_managed_mode(
         if (r < 0)
                 return r;
 
-        r = dhcp6_option_append_vendor_class(buf, offset, client->vendor_class);
-        if (r < 0)
-                return r;
+        ORDERED_HASHMAP_FOREACH_KEY(vendor_class_data, enterprise_identifier_key, client->vendor_class) {
+                r = dhcp6_option_append_vendor_class(buf, offset, vendor_class_data, PTR_TO_UINT32(enterprise_identifier_key));
+                if (r < 0)
+                        return r;
+        }
 
         r = dhcp6_option_append_vendor_option(buf, offset, client->vendor_options);
         if (r < 0)
@@ -1560,7 +1572,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         ordered_hashmap_free(client->extra_options);
         ordered_set_free(client->vendor_options);
         strv_free(client->user_class);
-        strv_free(client->vendor_class);
+        ordered_hashmap_free(client->vendor_class);
         free(client->ifname);
 
         return mfree(client);
