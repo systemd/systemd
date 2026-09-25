@@ -271,9 +271,11 @@ static void dns_server_verified(DnsServer *s, DnsServerFeatureLevel level) {
                           dns_server_feature_level_to_string(level),
                           strna(dns_server_string_full(s)));
                 s->verified_feature_level = level;
-        }
 
-        assert_se(sd_event_now(s->manager->event, CLOCK_BOOTTIME, &s->verified_usec) >= 0);
+                /* Restart the grace period, but only when a new level was verified, not on every reply, or
+                 * it never elapses on a server in continuous use. See also dns_server_reset_counters(). */
+                assert_se(sd_event_now(s->manager->event, CLOCK_BOOTTIME, &s->verified_usec) >= 0);
+        }
 }
 
 static void dns_server_reset_counters(DnsServer *s) {
@@ -284,7 +286,10 @@ static void dns_server_reset_counters(DnsServer *s) {
         s->n_failed_tls = 0;
         s->packet_truncated = false;
         s->packet_invalid = false;
-        s->verified_usec = 0;
+
+        /* Restart the grace period. now() rather than sd_event_now(), as this also runs from
+         * dns_server_new(), before the manager has an event loop. */
+        s->verified_usec = now(CLOCK_BOOTTIME);
 
         /* Note that we do not reset s->packet_bad_opt and s->packet_rrsig_missing here. We reset them only when the
          * grace period ends, but not when lowering the possible feature level, as a lower level feature level should
@@ -444,9 +449,6 @@ static bool dns_server_grace_period_expired(DnsServer *s) {
 
         assert(s);
         assert(s->manager);
-
-        if (s->verified_usec == 0)
-                return false;
 
         assert_se(sd_event_now(s->manager->event, CLOCK_BOOTTIME, &ts) >= 0);
 
