@@ -395,6 +395,10 @@
 
         <para>This parameter can be specified multiple times.</para>
 
+        <para>If the argument contains a shell-style glob, it is matched against the syslog identifiers
+        actually present in the journal, as for <option>--unit=</option>. If no glob matches anything, and
+        no exact identifier was given either, an error is returned.</para>
+
         <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
@@ -406,6 +410,10 @@
         <replaceable>SYSLOG_IDENTIFIER</replaceable>.</para>
 
         <para>This parameter can be specified multiple times.</para>
+
+        <para>If the argument contains a shell-style glob, it is matched against the syslog identifiers
+        actually present in the journal, as for <option>--identifier=</option>. Patterns which do not match
+        anything are silently skipped.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
