@@ -1,0 +1,137 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-report-geoip_.service" conditional="HAVE_LIBCURL"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-report-geoip@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-report-geoip@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-report-geoip@.service</refname>
+    <refname>systemd-report-geoip.socket</refname>
+    <refname>systemd-report-geoip</refname>
+    <refpurpose>Report the approximate geographic location of the system as a metric</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-report-geoip@.service</filename></para>
+    <para><filename>systemd-report-geoip.socket</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-report-geoip</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-report-geoip@.service</command> is a metrics source for
+    <citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry>. It
+    reports the approximate geographic location of the system, as determined by a public IP geolocation
+    web service from the public IP address the system connects to it with. It implements the
+    <constant>io.systemd.Metrics</constant> Varlink interface on a socket linked into the
+    <filename>/run/systemd/report/</filename> directory.</para>
+
+    <para>The geolocation data is acquired via HTTP from the endpoint configured in
+    <citerefentry><refentrytitle>report-geoip.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+    acquired data is cached, and only refreshed once the cache is older than the configured
+    <varname>RefreshSec=</varname> interval. If the endpoint cannot be reached, the cached data is reported
+    even if it is older than that. If no data is available at all, no metrics are reported.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Metrics</title>
+
+    <para>The following metrics are reported, all in the <literal>io.systemd.GeoIP.</literal> namespace. Fields
+    the geolocation service does not provide are not reported.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>io.systemd.GeoIP.PublicAddress</constant></term>
+        <listitem><para>The public IP address of the system, as seen by the geolocation service. The address
+        is validated and reported in normalized form.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>io.systemd.GeoIP.CountryCode</constant></term>
+        <term><constant>io.systemd.GeoIP.CountryName</constant></term>
+        <listitem><para>The ISO 3166-1 alpha-2 code and the name of the country the system is located
+        in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>io.systemd.GeoIP.RegionCode</constant></term>
+        <term><constant>io.systemd.GeoIP.RegionName</constant></term>
+        <listitem><para>The code and name of the region (state, province, …) the system is located
+        in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>io.systemd.GeoIP.City</constant></term>
+        <term><constant>io.systemd.GeoIP.ZipCode</constant></term>
+        <listitem><para>The city and postal code of the area the system is located in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>io.systemd.GeoIP.Timezone</constant></term>
+        <listitem><para>The IANA time zone name of the area the system is located in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>io.systemd.GeoIP.Latitude</constant></term>
+        <term><constant>io.systemd.GeoIP.Longitude</constant></term>
+        <listitem><para>The geographic coordinates of the system's location, in decimal degrees.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>io.systemd.GeoIP.Timestamp</constant></term>
+        <listitem><para>The time at which the reported data was acquired from the geolocation service, in
+        microseconds since the UNIX epoch (<constant>CLOCK_REALTIME</constant>). When the data is served from
+        the cache this is the time the cache was last refreshed, not the time of the report.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Privacy</title>
+
+    <para>Note that refreshing the geolocation data means contacting a third party web service, which
+    thereby learns the public IP address of the system. The reported metrics identify the system's public IP
+    address and approximate location, and hence are sensitive. Only enable this service if this is acceptable
+    for the systems the reports are collected from.</para>
+  </refsect1>
+
+  <!-- Note: we do not document the command line switches here. The systemd-report-geoip binary itself should
+       not be invoked by users, but only as a service. Use systemd-report(1) to acquire metrics. -->
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>report-geoip.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
