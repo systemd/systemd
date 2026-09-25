@@ -109,9 +109,20 @@
           <term><option>--ephemeral</option></term>
 
           <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
-          immediately when the VM terminates. Only works with <option>--image=</option> currently.
+          immediately when the VM terminates.</para>
 
-          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+          <para>For <option>--directory=</option> the snapshot is a btrfs snapshot of the directory, or a
+          copy of it if the file system does not support snapshots, made next to the directory, or inside
+          it if it is a mount point.</para>
+
+          <para>For <option>--image=</option> the snapshot is an unnamed temporary file created next to the
+          resolved image. If the image is not a regular file, its directory is unavailable, or its file
+          system is memory-backed, the directory selected by <varname>$TMPDIR</varname>,
+          <varname>$TEMP</varname>, or <varname>$TMP</varname> is used instead, defaulting to
+          <filename>/var/tmp/</filename>. Memory-backed directories are refused.</para>
+
+          <para>Note that <option>--ephemeral</option> will not work with
+          <option>--extra-drive=</option>.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/></listitem>
         </varlistentry>
