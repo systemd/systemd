@@ -159,6 +159,10 @@ TEST(xsetxattr) {
         ASSERT_OK(xsetxattr_full(dfd, "test", 0, "user.foo", "dirfd", SIZE_MAX, XATTR_REPLACE));
         verify_xattr(dfd, "dirfd");
 
+        /* Empty xattr values are allowed */
+        ASSERT_OK(xsetxattr_full(dfd, "test", 0, "user.foo", NULL, 0, 0));
+        verify_xattr(dfd, "");
+
         /* by fd (O_PATH) */
         ASSERT_OK_ERRNO(fd = openat(dfd, "test", O_PATH|O_CLOEXEC));
 
