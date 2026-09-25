@@ -966,16 +966,31 @@ static int compare_arch(Architecture a, Architecture b) {
         return 0;
 }
 
-static bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, const char *label) {
+bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, const char *label) {
         assert(d < _PARTITION_DESIGNATOR_MAX);
 
         if (d < 0) /* For unspecified designators we have no filter expression */
                 return true;
 
-        if (!filter || !filter->pattern[d])
+        if (!filter)
                 return true;
 
-        return fnmatch(filter->pattern[d], strempty(label),  FNM_NOESCAPE) == 0;
+        const char *pattern = filter->pattern[d];
+
+        /* If there's no filter for this specific designator but it's a verity partition, fall back to the
+         * filter for the corresponding data partition. This ensures that e.g. image_filter=usr=250 also
+         * constrains which usr verity (and verity sig) partitions are selected. This assumes verity
+         * partitions carry the same label as their corresponding data partition. */
+        if (!pattern) {
+                PartitionDesignator data = partition_verity_to_data(d);
+                if (data >= 0)
+                        pattern = filter->pattern[data];
+        }
+
+        if (!pattern)
+                return true;
+
+        return fnmatch(pattern, strempty(label), FNM_NOESCAPE) == 0;
 }
 
 static int dissect_image_from_unpartitioned(
