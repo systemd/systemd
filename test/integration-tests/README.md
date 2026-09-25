@@ -179,6 +179,17 @@ meson test
                           └─ guest-test-runner.sh
 ```
 
+Verifying SNP attestation reports requires the AMD certificate chain, fetched
+once on the host into a directory named `snp-certs` and passed to the test via
+`TEST_BIND_DIRS=/path/to/snp-certs`. The VCEK is per-machine and derived from
+an attestation report of this host, e.g. one generated with `snpguest report`
+in a manually booted SNP guest:
+
+```shell
+$ snpguest fetch ca pem snp-certs <processor-model>
+$ snpguest fetch vcek pem snp-certs <attestation-report>
+```
+
 ## Running the integration tests without building systemd from source
 
 If you want to run the integration tests against prebuilt systemd packages,
