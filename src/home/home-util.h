@@ -19,6 +19,10 @@
  * rebalancing. */
 #define USER_DISK_SIZE_DEFAULT_PERCENT ((unsigned) ((100 * REBALANCE_WEIGHT_DEFAULT) / (REBALANCE_WEIGHT_DEFAULT + REBALANCE_WEIGHT_BACKING)))
 
+#define HOME_RECORD_SUFFIX ".identity"
+#define HOME_RECORD_PENDING_SUFFIX HOME_RECORD_SUFFIX ".pending"
+#define HOME_RECORD_THIN_INTENT_SUFFIX HOME_RECORD_SUFFIX ".thin-intent"
+
 extern const struct hash_ops blob_fd_hash_ops;
 
 bool suitable_user_name(const char *name);
@@ -40,3 +44,6 @@ int bus_message_append_secret(sd_bus_message *m, UserRecord *secret);
 
 const char* home_record_dir(void);
 const char* home_system_blob_dir(void);
+int home_record_commit_pending(const char *user_name);
+int home_record_cancel_pending(const char *user_name);
+int home_record_has_pending(const char *user_name);
