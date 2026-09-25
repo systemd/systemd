@@ -1542,7 +1542,7 @@ static int bus_append_filter_list(sd_bus_message *m, const char *field, const ch
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &word, /* separators= */ WHITESPACE ",", EXTRACT_UNQUOTE);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
                 if (r == 0)

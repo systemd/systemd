@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 
 #include "parse-helpers.h"
+#include "set.h"
 #include "tests.h"
 
 static void test_valid_item(
@@ -123,6 +124,81 @@ TEST(path_simplify_and_warn) {
         assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", 0) == 0);
         assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", PATH_CHECK_ABSOLUTE) == 0);
         assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", PATH_CHECK_RELATIVE) == -EINVAL);
+}
+
+static void check_families(Set *s, const int *expected, size_t n_expected) {
+        ASSERT_EQ(set_size(s), n_expected);
+        for (size_t i = 0; i < n_expected; i++)
+                ASSERT_TRUE(set_contains(s, INT_TO_PTR(expected[i])));
+}
+
+#define ASSERT_FAMILIES(s, ...)                                                                                 \
+        check_families(s, (const int[]) { __VA_ARGS__ }, ELEMENTSOF(((const int[]) { __VA_ARGS__ })))
+
+TEST(parse_address_families) {
+        _cleanup_set_free_ Set *s = NULL;
+        bool allowlist = false;
+
+        /* The empty string undoes any previous configuration. */
+        ASSERT_OK(parse_address_families("AF_UNIX", &s, &allowlist));
+        ASSERT_NOT_NULL(s);
+        ASSERT_OK(parse_address_families("", &s, &allowlist));
+        ASSERT_NULL(s);
+        ASSERT_FALSE(allowlist);
+
+        /* "none" is an empty allow list, i.e. all address families are denied. */
+        ASSERT_OK(parse_address_families("AF_UNIX", &s, &allowlist));
+        ASSERT_OK(parse_address_families("none", &s, &allowlist));
+        ASSERT_NULL(s);
+        ASSERT_TRUE(allowlist);
+
+        /* Space- and comma-separated lists, with or without the AF_ prefix, in any case. */
+        ASSERT_OK(parse_address_families("AF_UNIX AF_INET", &s, &allowlist));
+        ASSERT_TRUE(allowlist);
+        ASSERT_FAMILIES(s, AF_UNIX, AF_INET);
+        s = set_free(s);
+
+        ASSERT_OK(parse_address_families("unix,inet", &s, &allowlist));
+        ASSERT_TRUE(allowlist);
+        ASSERT_FAMILIES(s, AF_UNIX, AF_INET);
+        s = set_free(s);
+
+        ASSERT_OK(parse_address_families("af_unix, Inet6,,PACKET ", &s, &allowlist));
+        ASSERT_TRUE(allowlist);
+        ASSERT_FAMILIES(s, AF_UNIX, AF_INET6, AF_PACKET);
+        s = set_free(s);
+
+        /* A leading '~' turns the list into a deny list. */
+        ASSERT_OK(parse_address_families("~AF_INET6", &s, &allowlist));
+        ASSERT_FALSE(allowlist);
+        ASSERT_FAMILIES(s, AF_INET6);
+
+        /* Further assignments extend the existing deny list, or remove entries from it. */
+        ASSERT_OK(parse_address_families("~packet,netlink", &s, &allowlist));
+        ASSERT_FALSE(allowlist);
+        ASSERT_FAMILIES(s, AF_INET6, AF_PACKET, AF_NETLINK);
+
+        ASSERT_OK(parse_address_families("inet6 AF_NETLINK", &s, &allowlist));
+        ASSERT_FALSE(allowlist);
+        ASSERT_FAMILIES(s, AF_PACKET);
+        s = set_free(s);
+
+        /* Same for an allow list. */
+        ASSERT_OK(parse_address_families("unix", &s, &allowlist));
+        ASSERT_TRUE(allowlist);
+        ASSERT_OK(parse_address_families("inet,inet6", &s, &allowlist));
+        ASSERT_TRUE(allowlist);
+        ASSERT_FAMILIES(s, AF_UNIX, AF_INET, AF_INET6);
+
+        ASSERT_OK(parse_address_families("~inet6", &s, &allowlist));
+        ASSERT_TRUE(allowlist);
+        ASSERT_FAMILIES(s, AF_UNIX, AF_INET);
+
+        /* Unknown names are rejected, and quoting does not turn a list into one name. */
+        ASSERT_ERROR(parse_address_families("AF_HUDDLDUDDL", &s, &allowlist), EINVAL);
+        ASSERT_ERROR(parse_address_families("unix huddlduddl", &s, &allowlist), EINVAL);
+        ASSERT_ERROR(parse_address_families("~unix,huddlduddl", &s, &allowlist), EINVAL);
+        ASSERT_ERROR(parse_address_families("\"AF_UNIX AF_INET\"", &s, &allowlist), EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
