@@ -41,6 +41,9 @@
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
+#define JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT 32U
+#define JOURNAL_REMOTE_CONNECTION_TIMEOUT_SEC 30U
+
 static char *arg_url = NULL;
 static char *arg_getter = NULL;
 static char *arg_listen_raw = NULL;
@@ -486,12 +489,14 @@ static int setup_microhttpd_server(RemoteServer *s,
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
                 { MHD_OPTION_LISTEN_SOCKET, fd},
                 { MHD_OPTION_CONNECTION_MEMORY_LIMIT, JOURNAL_SERVER_MEMORY_MAX},
+                { MHD_OPTION_CONNECTION_LIMIT, JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT},
+                { MHD_OPTION_CONNECTION_TIMEOUT, JOURNAL_REMOTE_CONNECTION_TIMEOUT_SEC},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END}};
-        int opts_pos = 4;
+        int opts_pos = 6;
         int flags =
                 MHD_USE_DEBUG |
                 MHD_USE_DUAL_STACK |
@@ -633,15 +638,25 @@ static int dispatch_http_event(sd_event_source *event,
         MHDDaemonWrapper *d = ASSERT_PTR(userdata);
         MHD_UNSIGNED_LONG_LONG timeout;
         usec_t next = USEC_INFINITY;
+        const union MHD_DaemonInfo *info;
+        bool at_limit;
         int r;
+
+        info = sym_MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_CURRENT_CONNECTIONS);
+        at_limit = info && info->num_connections >= JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT;
 
         r = sym_MHD_run(d->daemon);
         if (r == MHD_NO)
                 // FIXME: unregister daemon
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "MHD_run failed!");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "MHD_run failed!");
         if (sym_MHD_get_timeout(d->daemon, &timeout) == MHD_YES)
                 next = mhd_timeout_to_deadline(now(CLOCK_MONOTONIC), timeout);
+
+        /* MHD 1.0.1 rearms the listen socket before freeing closed connections. If the server was at
+         * the connection limit, run again immediately to accept pending connections. */
+        info = sym_MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_CURRENT_CONNECTIONS);
+        if (at_limit && info && info->num_connections < JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT)
+                next = now(CLOCK_MONOTONIC);
 
         r = sd_event_source_set_time(d->timer_event, next);
         if (r < 0) {
