@@ -34,6 +34,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "verbs.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
@@ -577,8 +578,10 @@ static int setup_microhttpd_server(RemoteServer *s,
         if (r < 0)
                 return log_error_errno(r, "Failed to set source name: %m");
 
+        /* Use 1us accuracy: MHD requests an immediate rerun while request data is pending, and
+         * the default 250ms accuracy would delay every such iteration. */
         r = sd_event_add_time(s->event, &d->timer_event,
-                              CLOCK_MONOTONIC, UINT64_MAX, 0,
+                              CLOCK_MONOTONIC, UINT64_MAX, 1,
                               null_timer_event_handler, d);
         if (r < 0)
                 return log_error_errno(r, "Failed to add timer_event: %m");
@@ -628,18 +631,19 @@ static int dispatch_http_event(sd_event_source *event,
                                uint32_t revents,
                                void *userdata) {
         MHDDaemonWrapper *d = ASSERT_PTR(userdata);
+        MHD_UNSIGNED_LONG_LONG timeout;
+        usec_t next = USEC_INFINITY;
         int r;
-        MHD_UNSIGNED_LONG_LONG timeout = ULLONG_MAX;
 
         r = sym_MHD_run(d->daemon);
         if (r == MHD_NO)
                 // FIXME: unregister daemon
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "MHD_run failed!");
-        if (sym_MHD_get_timeout(d->daemon, &timeout) == MHD_NO)
-                timeout = ULLONG_MAX;
+        if (sym_MHD_get_timeout(d->daemon, &timeout) == MHD_YES)
+                next = mhd_timeout_to_deadline(now(CLOCK_MONOTONIC), timeout);
 
-        r = sd_event_source_set_time(d->timer_event, timeout);
+        r = sd_event_source_set_time(d->timer_event, next);
         if (r < 0) {
                 log_warning_errno(r, "Unable to set event loop timeout: %m, this may result in indefinite blocking!");
                 return 1;
