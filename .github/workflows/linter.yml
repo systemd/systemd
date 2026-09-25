@@ -40,7 +40,7 @@ jobs:
           GITHUB_ACTIONS_CONFIG_FILE: actionlint.yml
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
 
-      - uses: systemd/mkosi@f7762b71437227922a367bb89597843c77494ef9
+      - uses: systemd/mkosi@e8245468f14f6ddbc9eb11ebbf3399046852156a
 
       - name: Check that tabs are not used in Python code
         run: sh -c '! git grep -P "\\t" -- src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
