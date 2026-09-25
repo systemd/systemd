@@ -20,6 +20,7 @@ ConditionPathExists=!/etc/initrd-release
 ConditionKernelCommandLine=!systemd.sysext=0
 
 DefaultDependencies=no
+After=systemd-confext.service
 After=local-fs.target
 Before=sysinit.target systemd-tmpfiles-setup.service
 Conflicts=shutdown.target
