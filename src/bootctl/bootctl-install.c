@@ -1215,9 +1215,11 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to write signature list to secure boot auto-enrollment file: %m");
 
-                r = link_tmpfile_at(fd, keys_fd, t, filename, LINK_TMPFILE_SYNC);
+                /* Unlike loader.conf, these files are derived entirely from the certificate passed in, hence
+                 * replace existing ones instead of failing (or keeping stale keys) when installing again. */
+                r = link_tmpfile_at(fd, keys_fd, t, filename, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to link secure boot auto-enrollment file: %m");
+                        return log_error_errno(r, "Failed to link secure boot auto-enrollment file: %m");
 
                 t = mfree(t); /* Disarm CLEANUP_TMPFILE_AT() */
 
