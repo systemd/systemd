@@ -270,6 +270,8 @@ PidRef* pidref_free(PidRef *pidref) {
         return mfree(pidref);
 }
 
+DEFINE_ARRAY_FREE_FUNC(pidref_array_free, PidRef, pidref_done);
+
 int pidref_copy(const PidRef *pidref, PidRef *ret) {
         _cleanup_(pidref_done) PidRef copy = PIDREF_NULL;
 
