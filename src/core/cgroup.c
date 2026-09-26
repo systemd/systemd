@@ -1521,7 +1521,9 @@ static void cgroup_context_apply(
                 cgroup_apply_cpuset(u, "cpuset.cpus", cgroup_context_allowed_cpus(c, state));
                 cgroup_apply_cpuset(u, "cpuset.mems", cgroup_context_allowed_mems(c, state));
 
-                if (c->cpuset_partition >= 0)
+                /* The old CPUSET bit may be present only to clear cpus/mems. Do not rewrite the partition
+                 * in that case. */
+                if (c->cpuset_partition >= 0 && (unit_get_target_mask(u) & CGROUP_MASK_CPUSET))
                         cgroup_apply_cpuset_partition(u, "cpuset.cpus.partition", cpuset_partition_to_string(c->cpuset_partition));
         }
 
@@ -2174,11 +2176,16 @@ static int unit_update_cgroup(
                 crt->cgroup_enabled_mask = result_mask;
         }
 
+        /* Apply cleared cpuset limits even if the controller is no longer needed, before forgetting the
+         * previous realized mask. Honor DisableControllers= as we do for the target mask. */
+        CGroupMask apply_mask = target_mask |
+                (crt->cgroup_realized_mask & CGROUP_MASK_CPUSET & ~unit_get_ancestor_disable_mask(u));
+
         /* Keep track that this is now realized */
         crt->cgroup_realized_mask = target_mask;
 
         /* Set attributes */
-        cgroup_context_apply(u, target_mask, state);
+        cgroup_context_apply(u, apply_mask, state);
         cgroup_xattr_apply(u);
 
         /* For most units we expect that pressure monitoring is set up before the unit is started and we
