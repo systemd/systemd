@@ -1516,14 +1516,17 @@ int mount_fd_clone(int mount_fd, bool recursive, int *replacement_fd) {
         return TAKE_FD(fd1);
 }
 
-int make_userns(uid_t uid_shift,
+int make_userns(
+                uid_t uid_shift,
                 uid_t uid_range,
-                uid_t source_owner,
-                uid_t dest_owner,
+                uid_t source_uid,
+                gid_t source_gid,
+                uid_t dest_uid,
+                gid_t dest_gid,
                 RemountIdmapping idmapping) {
 
         _cleanup_close_ int userns_fd = -EBADF;
-        _cleanup_free_ char *line = NULL;
+        _cleanup_free_ char *uid_line = NULL, *gid_line = NULL;
         uid_t source_base = 0;
 
         /* Allocates a userns file descriptor with the mapping we need. For this we'll fork off a child
@@ -1541,7 +1544,7 @@ int make_userns(uid_t uid_shift,
         case REMOUNT_IDMAPPING_NONE:
         case REMOUNT_IDMAPPING_HOST_ROOT:
 
-                if (asprintf(&line,
+                if (asprintf(&uid_line,
                              UID_FMT " " UID_FMT " " UID_FMT "\n",
                              source_base, uid_shift, uid_range) < 0)
                         return log_oom_debug();
@@ -1558,7 +1561,7 @@ int make_userns(uid_t uid_shift,
                  * to the container's own UID range, but it's good to have a safety net, in case we
                  * forget it.) */
                 if (idmapping == REMOUNT_IDMAPPING_HOST_ROOT)
-                        if (strextendf(&line,
+                        if (strextendf(&uid_line,
                                        UID_FMT " " UID_FMT " " UID_FMT "\n",
                                        UID_MAPPED_ROOT, (uid_t) 0u, (uid_t) 1u) < 0)
                                 return log_oom_debug();
@@ -1569,10 +1572,16 @@ int make_userns(uid_t uid_shift,
                 /* Remap the owner of the bind mounted directory to the root user within the container. This
                  * way every file written by root within the container to the bind-mounted directory will
                  * be owned by the original user from the host. All other users will remain unmapped. */
-                if (asprintf(&line,
+                if (asprintf(&uid_line,
                              UID_FMT " " UID_FMT " " UID_FMT "\n",
-                             source_owner, uid_shift, (uid_t) 1u) < 0)
+                             source_uid, uid_shift, (uid_t) 1u) < 0)
                         return log_oom_debug();
+
+                if (asprintf(&gid_line,
+                             GID_FMT " " GID_FMT " " GID_FMT "\n",
+                             source_gid, (gid_t) uid_shift, (gid_t) 1u) < 0)
+                        return log_oom_debug();
+
                 break;
 
         case REMOUNT_IDMAPPING_HOST_OWNER_TO_TARGET_OWNER:
@@ -1580,18 +1589,23 @@ int make_userns(uid_t uid_shift,
                  * within the container. This way every file written by target directory owner within the
                  * container to the bind-mounted directory will be owned by the original host user.
                  * All other users will remain unmapped. */
-                if (asprintf(&line,
+                if (asprintf(&uid_line,
                              UID_FMT " " UID_FMT " " UID_FMT "\n",
-                             source_owner, dest_owner, (uid_t) 1u) < 0)
+                             source_uid, dest_uid, (uid_t) 1u) < 0)
                         return log_oom_debug();
+
+                if (asprintf(&gid_line,
+                             GID_FMT " " GID_FMT " " GID_FMT "\n",
+                             source_gid, dest_gid, (gid_t) 1u) < 0)
+                        return log_oom_debug();
+
                 break;
 
         default:
                 assert_not_reached();
         }
 
-        /* We always assign the same UID and GID ranges */
-        userns_fd = userns_acquire(line, line, /* setgroups_deny= */ true);
+        userns_fd = userns_acquire(uid_line, gid_line ?: uid_line, /* setgroups_deny= */ true);
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "Failed to acquire new userns: %m");
 
@@ -1728,13 +1742,22 @@ int remount_idmap(
                 char **p,
                 uid_t uid_shift,
                 uid_t uid_range,
-                uid_t source_owner,
-                uid_t dest_owner,
+                uid_t source_uid,
+                gid_t source_gid,
+                uid_t dest_uid,
+                gid_t dest_gid,
                 RemountIdmapping idmapping) {
 
         _cleanup_close_ int userns_fd = -EBADF;
 
-        userns_fd = make_userns(uid_shift, uid_range, source_owner, dest_owner, idmapping);
+        userns_fd = make_userns(
+                        uid_shift,
+                        uid_range,
+                        source_uid,
+                        source_gid,
+                        dest_uid,
+                        dest_gid,
+                        idmapping);
         if (userns_fd < 0)
                 return userns_fd;
 
