@@ -27,6 +27,7 @@
 
 import glob
 import os
+import re
 import string
 import sys
 
@@ -77,6 +78,10 @@ from functools import lru_cache
 EOL = LineEnd().suppress()
 EMPTYLINE = LineEnd()
 COMMENTLINE = pythonStyleComment + EOL
+# A '#' starts a trailing comment only if it is preceded by whitespace and followed by whitespace,
+# another '#' or the end of the line, see hwdb(7).
+TRAILING_COMMENT_RE = r'(?<=\s)#(?=[\s#]|$).*'
+TRAILING_COMMENT = Regex(TRAILING_COMMENT_RE)
 INTEGER = Word(nums)
 REAL = Combine((INTEGER + Optional('.' + Optional(INTEGER))) ^ ('.' + INTEGER))
 SIGNED_REAL = Combine(Optional(Word('-+')) + REAL)
@@ -142,7 +147,7 @@ def hwdb_grammar():
     propertyline = (
         White(' ', exact=1).suppress()
         + Combine(
-            UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/?&')) - Optional(pythonStyleComment)
+            UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/?&')) - Optional(TRAILING_COMMENT)
         )
         + EOL
     )
@@ -394,7 +399,7 @@ def check_properties(groups):
         seen_props = {}
         for prop in props:
             # print('--', prop)
-            prop = prop.partition('#')[0].rstrip()
+            prop = re.split(TRAILING_COMMENT_RE, prop, maxsplit=1)[0].rstrip()
             try:
                 parsed = grammar.parseString(prop)
             except ParseBaseException:
