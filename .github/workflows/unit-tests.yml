@@ -74,7 +74,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: systemd/mkosi@f7762b71437227922a367bb89597843c77494ef9
+      - uses: systemd/mkosi@e8245468f14f6ddbc9eb11ebbf3399046852156a
+        with:
+          # Bootstrapping a postmarketOS tools tree on the Ubuntu host needs apk
+          apk: true
 
       - name: Build tools tree
         run: |
