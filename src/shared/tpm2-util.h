@@ -323,8 +323,12 @@ int tpm2_object_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Han
 int tpm2_nv_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_NV_PUBLIC **ret_nv_public, TPM2B_NAME **ret_name, Tpm2Handle **ret_handle);
 int tpm2_index_from_handle(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE *ret_index);
 
+int tpm2_persist_handle(Tpm2Context *c, const Tpm2Handle *transient_handle, const Tpm2Handle *session, TPMI_DH_PERSISTENT persistent_handle_index, Tpm2Handle **ret_persistent_handle);
+int tpm2_evict_handle(Tpm2Context *c, const Tpm2Handle *session, TPMI_DH_PERSISTENT handle_index);
+
 int tpm2_marshal_saved_handle_context(TPMS_CONTEXT *context, void **ret, size_t *ret_size);
 int tpm2_unmarshal_saved_handle_context(const void *data, size_t size, TPMS_CONTEXT *ret);
+int tpm2_unmarshal_saved_tpm2_tools_context(const void *data, size_t size, TPMS_CONTEXT *ret);
 int tpm2_load_saved_handle_context(Tpm2Context *c, const TPMS_CONTEXT *context, TPM2B_NAME **ret_name, Tpm2Handle **ret_handle);
 int tpm2_save_handle_context(Tpm2Context *c, const Tpm2Handle *handle, TPMS_CONTEXT **ret_context);
 
@@ -392,7 +396,7 @@ int tpm2_get_ek_template(Tpm2Context *c, const Tpm2Handle *session, Tpm2EKTempla
 int tpm2_get_ek(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 int tpm2_get_or_create_ek(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
-int tpm2_open_ek_user_policy_session(Tpm2Context *c, const Tpm2Handle *session, const Tpm2Handle *ek_handle, const Tpm2Handle *tpm_key, Tpm2Handle **ret_session);
+int tpm2_open_ek_user_policy_session(Tpm2Context *c, const Tpm2Handle *session, const Tpm2Handle *ek_handle, Tpm2Handle **ret_session);
 
 int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST policy_hash[], size_t n_policy, const char *pin, struct iovec *ret_secret, struct iovec **ret_blobs, size_t *ret_n_blobs, uint16_t *ret_primary_alg, struct iovec *ret_srk);
 int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, const char *pubkey_policy_ref, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec known_policy_hash[], size_t n_known_policy_hash, const struct iovec *srk, struct iovec *ret_secret);

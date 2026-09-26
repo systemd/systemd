@@ -46,6 +46,7 @@
 #include "varlink-io.systemd.Repart.h"
 #include "varlink-io.systemd.Report.h"
 #include "varlink-io.systemd.Report.Signer.h"
+#include "varlink-io.systemd.Report.TPM2SignerKeyManager.h"
 #include "varlink-io.systemd.Report.Uploader.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Hook.h"
@@ -226,6 +227,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Repart,
                 &vl_interface_io_systemd_Report,
                 &vl_interface_io_systemd_Report_Signer,
+                &vl_interface_io_systemd_Report_TPM2SignerKeyManager,
                 &vl_interface_io_systemd_Report_Uploader,
                 &vl_interface_io_systemd_Resolve,
                 &vl_interface_io_systemd_Resolve_Hook,
