@@ -1,0 +1,11 @@
+[NetDev]
+Name=br0
+Kind=ovs-bridge
+
+[OVSBridge]
+FailMode=secure
+STP=yes
+MulticastSnooping=no
+DatapathType=system
+Protocols=OpenFlow13 OpenFlow14
+DatapathID=0000aabbccddeeff

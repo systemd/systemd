@@ -24,6 +24,7 @@
 #include "networkd-radv.h"
 #include "networkd-sysctl.h"
 #include "networkd-wwan-bus.h"
+#include "ovs-port.h"
 #include "resolve-util.h"
 #include "tlv-util.h"
 
@@ -83,6 +84,25 @@ typedef struct Network {
         char *bond_name;
         char *vrf_name;
         Hashmap *stacked_netdev_names;
+
+        /* OVS master netdev */
+        char *ovs_bridge_name;
+        char *ovs_bond_name;
+
+        /* [OVSPort] per-link settings (only meaningful with OVSBridge=).
+         *
+         * PVID/Tag (synonyms): primary VLAN tag for the port, set on all
+         * untagged ingress traffic. VLANID_INVALID = unset.
+         *
+         * VLAN bitmap (settable via OVSPort.VLAN= range syntax, BridgeVLAN-style)
+         * and Trunks bitmap (legacy comma-list via OVSPort.Trunks=) are merged
+         * into a single ovs_port_vlan_bitmap consumed by the reconciler — the
+         * names exist to mirror the kernel-bridge BridgeVLAN.VLAN= ergonomics
+         * while keeping backwards compatibility with the original Trunks=
+         * spelling. */
+        uint16_t ovs_port_tag;          /* VLANID_INVALID = unset (Tag= / PVID=) */
+        OVSPortVLANMode ovs_port_vlan_mode;     /* _OVS_PORT_VLAN_MODE_INVALID = unset */
+        uint32_t ovs_port_vlan_bitmap[BRIDGE_VLAN_BITMAP_LEN];           /* VLAN= / Trunks= */
 
         /* [Link] section */
         struct hw_addr_data hw_addr;

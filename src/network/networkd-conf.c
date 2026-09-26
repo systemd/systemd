@@ -23,7 +23,8 @@ int manager_parse_config_file(Manager *m) {
                         "DHCPv6\0"
                         "DHCPServer\0"
                         "DHCPRelay\0"
-                        "DHCP\0",
+                        "DHCP\0"
+                        "OVS\0",
                         config_item_perf_lookup, networkd_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         /* userdata= */ m);
