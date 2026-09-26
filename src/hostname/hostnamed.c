@@ -1685,7 +1685,10 @@ static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (!j)
                 return log_oom();
 
-        if (!machine_tag_list_is_valid(tags))
+        r = machine_tag_list_is_valid(tags);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags '%s'", j);
 
         context_read_machine_info(c);
@@ -1761,11 +1764,18 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        if (!machine_tag_list_is_valid(add)) {
+        r = machine_tag_list_is_valid(add);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 _cleanup_free_ char *j = strv_join(add, ":");
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to add '%s'", strna(j));
         }
-        if (!machine_tag_list_is_valid(remove)) {
+
+        r = machine_tag_list_is_valid(remove);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 _cleanup_free_ char *j = strv_join(remove, ":");
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to remove '%s'", strna(j));
         }
@@ -2559,11 +2569,24 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
          * check for the field's presence separately. */
         bool reset = sd_json_variant_by_key(parameters, "set");
 
-        if (reset && !machine_tag_list_is_valid(p.set))
-                return sd_varlink_error_invalid_parameter_name(link, "set");
-        if (!machine_tag_list_is_valid(p.add))
+        if (reset) {
+                r = machine_tag_list_is_valid(p.set);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "set");
+        }
+
+        r = machine_tag_list_is_valid(p.add);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "add");
-        if (!machine_tag_list_is_valid(p.remove))
+
+        r = machine_tag_list_is_valid(p.remove);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "remove");
 
         context_read_machine_info(c);
