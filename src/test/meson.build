@@ -248,6 +248,10 @@ common_test_dependencies = [
 
 executables += [
         test_template + {
+                'sources' : files('test-microhttpd-util.c'),
+                'dependencies' : [libmicrohttpd_cflags],
+        },
+        test_template + {
                 'sources' : files('test-acl-util.c'),
                 'conditions' : ['HAVE_ACL'],
                 'dependencies' : libacl_cflags,

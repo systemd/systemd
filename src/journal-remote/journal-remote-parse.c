@@ -18,6 +18,7 @@ RemoteSource* source_free(RemoteSource *source) {
         sd_event_source_unref(source->event);
         sd_event_source_unref(source->buffer_event);
 
+        compressor_free(source->decompressor);
         free(source->encoding);
         return mfree(source);
 }
@@ -66,6 +67,9 @@ int process_source(RemoteSource *source, JournalFileFlags file_flags) {
 
         if (source->importer.iovw.count == 0) {
                 log_warning("Entry with no payload, skipping");
+                /* r is 1 from journal_importer_process_data(). Return 0 so that callers do not count
+                 * the skipped entry as stored. */
+                r = 0;
                 goto freeing;
         }
 

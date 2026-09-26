@@ -1214,8 +1214,10 @@ libpam_cflags = declare_dependency(
         compile_args : '-DSYSTEMD_CFLAGS_MARKER_LIBPAM',
 )
 
+# 0.9.53 advances a connection's activity timestamp only on actual transfers and applies the idle
+# timeout to HTTPS connections, which journal-remote relies on to close idle connections.
 libmicrohttpd = dependency('libmicrohttpd',
-                           version : '>= 0.9.33',
+                           version : '>= 0.9.53',
                            required : get_option('microhttpd'))
 conf.set10('HAVE_MICROHTTPD', libmicrohttpd.found())
 libmicrohttpd_cflags = declare_dependency(
