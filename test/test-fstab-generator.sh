@@ -53,7 +53,7 @@ test_one() (
     # Also, when $initrd is no, symlink to systemd-remount-fs.service is created.
     # The system that the test is currently running on may not have or may have outdated unit file.
     # Let's replace the symlink with an empty file.
-    for i in "$out"/*/systemd-growfs@*.service "$out"/local-fs.target.wants/systemd-remount-fs.service; do
+    for i in "$out"/*/systemd-growfs@*.service "$out"/sysinit.target.wants/systemd-remount-fs.service; do
         [[ -L "$i" ]] || continue
         rm "$i"
         touch "$i"
