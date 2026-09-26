@@ -328,7 +328,7 @@ static void install_change_done(InstallChange *change) {
 
 DEFINE_ARRAY_FREE_FUNC(install_changes_free, InstallChange, install_change_done);
 
-static void install_change_dump_success(const InstallChange *change) {
+void install_change_dump_success(const InstallChange *change) {
         assert(change);
         assert(change->path);
 
