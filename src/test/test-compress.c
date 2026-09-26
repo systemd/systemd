@@ -703,6 +703,59 @@ TEST(compressor_decompressor_push_api) {
         ASSERT_NULL(d);
 }
 
+TEST(decompressor_zstd_window_limit) {
+        if (!compression_supported(COMPRESSION_ZSTD))
+                return (void) log_tests_skipped("zstd is not supported");
+
+        /* Empty Zstandard frame declaring a 64 MiB window. */
+        static const uint8_t frame[] = { 0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x80, 0x01, 0x00, 0x00 };
+        _cleanup_(compressor_freep) Decompressor *d = NULL;
+        struct decompressor_test_data result = {};
+
+        ASSERT_OK(dlopen_compress(COMPRESSION_ZSTD, LOG_DEBUG));
+        ASSERT_OK(decompressor_new_limited(COMPRESSION_ZSTD, 32U * 1024U * 1024U, &d));
+        ASSERT_ERROR(decompressor_push(d, frame, sizeof(frame), test_decompressor_callback, &result), EBADMSG);
+        ASSERT_EQ(result.size, (size_t) 0);
+        d = compressor_free(d);
+
+        /* The same frame decodes successfully when the limit covers the window. */
+        ASSERT_OK(decompressor_new_limited(COMPRESSION_ZSTD, 64U * 1024U * 1024U, &d));
+        ASSERT_OK(decompressor_push(d, frame, sizeof(frame), test_decompressor_callback, &result));
+        ASSERT_OK(decompressor_push(d, /* data= */ NULL, 0, test_decompressor_callback, &result));
+        ASSERT_EQ(result.size, (size_t) 0);
+        d = compressor_free(d);
+
+        ASSERT_ERROR(decompressor_new_limited(COMPRESSION_ZSTD, 1, &d), EINVAL);
+        ASSERT_NULL(d);
+        ASSERT_ERROR(decompressor_new_limited(COMPRESSION_ZSTD, UINT64_MAX - 1, &d), EINVAL);
+        ASSERT_NULL(d);
+        free(result.buf);
+}
+
+TEST(decompressor_xz_memory_limit) {
+        if (!compression_supported(COMPRESSION_XZ))
+                return (void) log_tests_skipped("xz is not supported");
+
+        uint8_t compressed[sizeof(text) * 2];
+        size_t compressed_size;
+        struct decompressor_test_data result = {};
+        _cleanup_(compressor_freep) Decompressor *d = NULL;
+
+        ASSERT_OK(dlopen_compress(COMPRESSION_XZ, LOG_DEBUG));
+        ASSERT_OK(compress_blob(COMPRESSION_XZ, text, sizeof(text), compressed, sizeof(compressed), &compressed_size, 6));
+        ASSERT_OK(decompressor_new_limited(COMPRESSION_XZ, 1024U * 1024U, &d));
+        ASSERT_ERROR(decompressor_push(d, compressed, compressed_size, test_decompressor_callback, &result), EBADMSG);
+        ASSERT_EQ(result.size, (size_t) 0);
+        d = compressor_free(d);
+
+        ASSERT_OK(decompressor_new_limited(COMPRESSION_XZ, 96U * 1024U * 1024U, &d));
+        ASSERT_OK(decompressor_push(d, compressed, compressed_size, test_decompressor_callback, &result));
+        ASSERT_OK(decompressor_push(d, /* data= */ NULL, 0, test_decompressor_callback, &result));
+        ASSERT_EQ(result.size, sizeof(text));
+        ASSERT_EQ(memcmp(result.buf, text, sizeof(text)), 0);
+        free(result.buf);
+}
+
 static int intro(void) {
         srcfile = saved_argc > 1 ? saved_argv[1] : saved_argv[0];
 
