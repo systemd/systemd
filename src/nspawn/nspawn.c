@@ -101,6 +101,7 @@
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "pidref.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
@@ -3305,6 +3306,7 @@ static int inner_child(
                 Barrier *barrier,
                 int fd_inner_socket,
                 FDSet *fds,
+                char **fdnames,
                 char **os_release_pairs) {
 
         _cleanup_free_ char *home = NULL;
@@ -3320,7 +3322,7 @@ static int inner_child(
                 NULL, /* LOGNAME */
                 NULL, /* container_uuid */
                 NULL, /* LISTEN_FDS */
-                NULL, /* LISTEN_PID */
+                NULL, /* LISTEN_FDNAMES */
                 NULL, /* NOTIFY_SOCKET */
                 NULL, /* CREDENTIALS_DIRECTORY */
                 NULL, /* LANG */
@@ -3594,9 +3596,17 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to unset O_CLOEXEC for file descriptors.");
 
-                if ((asprintf(envp + n_env++, "LISTEN_FDS=%u", fdset_size(fds)) < 0) ||
-                    (asprintf(envp + n_env++, "LISTEN_PID=1") < 0))
+                if (asprintf(envp + n_env++, "LISTEN_FDS=%u", fdset_size(fds)) < 0)
                         return log_oom();
+
+                if (fdnames) {
+                        _cleanup_free_ char *joined = strv_join(fdnames, ":");
+                        if (!joined)
+                                return log_oom();
+
+                        if (asprintf(envp + n_env++, "LISTEN_FDNAMES=%s", joined) < 0)
+                                return log_oom();
+                }
         }
         if (asprintf(envp + n_env++, "NOTIFY_SOCKET=%s", NSPAWN_NOTIFY_SOCKET_PATH) < 0)
                 return log_oom();
@@ -3634,6 +3644,27 @@ static int inner_child(
                 r = stub_pid1(arg_uuid);
                 if (r < 0)
                         return r;
+        }
+
+        /* Now that we know which process is going to execute the payload, set LISTEN_PID */
+        if (!fdset_isempty(fds)) {
+                r = strv_env_assignf(&env_use, "LISTEN_PID", PID_FMT, getpid_cached());
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set $LISTEN_PID: %m");
+
+                uint64_t pidfdid;
+                _cleanup_close_ int pidfd = pidfd_open(getpid_cached(), /* flags= */ 0);
+                if (pidfd < 0)
+                        r = -errno;
+                else
+                        r = pidfd_get_inode_id(pidfd, &pidfdid);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to acquire pidfd inode ID of payload process, not setting $LISTEN_PIDFDID: %m");
+                else {
+                        r = strv_env_assignf(&env_use, "LISTEN_PIDFDID", "%" PRIu64, pidfdid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set $LISTEN_PIDFDID: %m");
+                }
         }
 
         if (arg_console_mode != CONSOLE_PIPE) {
@@ -3891,6 +3922,7 @@ static int outer_child(
                 int fd_outer_socket,
                 int fd_inner_socket,
                 FDSet *fds,
+                char **fdnames,
                 int netns_fd,
                 const char *unix_export_path) {
 
@@ -4459,7 +4491,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to move root directory: %m");
                 }
 
-                r = inner_child(barrier, fd_inner_socket, fds, os_release_pairs);
+                r = inner_child(barrier, fd_inner_socket, fds, fdnames, os_release_pairs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -5245,6 +5277,7 @@ static int run_container(
                 MStack *mstack,
                 int userns_fd,
                 FDSet *fds,
+                char **fdnames,
                 char veth_name[IFNAMSIZ],
                 bool *veth_created,
                 struct ExposeArgs *expose_args,
@@ -5406,6 +5439,7 @@ static int run_container(
                                 fd_outer_socket_pair[1],
                                 fd_inner_socket_pair[1],
                                 fds,
+                                fdnames,
                                 child_netns_fd,
                                 unix_export_host_dir);
                 if (r < 0)
@@ -6079,10 +6113,46 @@ static int do_cleanup(void) {
         return 0;
 }
 
+static int acquire_listen_fdnames(FDSet *fds, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *e;
+        int r;
+
+        assert(ret);
+
+        e = getenv("LISTEN_FDNAMES");
+        if (!e || fdset_isempty(fds)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse $LISTEN_FDNAMES: %m");
+
+        if ((size_t) r != fdset_size(fds)) {
+                log_warning("Number of entries in $LISTEN_FDNAMES (%i) doesn't match number of passed file descriptors (%u), ignoring.",
+                            r, fdset_size(fds));
+                *ret = NULL;
+                return 0;
+        }
+
+        STRV_FOREACH(n, l)
+                if (!fdname_is_valid(*n)) {
+                        log_warning("$LISTEN_FDNAMES contains invalid file descriptor name '%s', ignoring.", *n);
+                        *ret = NULL;
+                        return 0;
+                }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         bool remove_image = false, veth_created = false;
         _cleanup_close_ int master = -EBADF, userns_fd = -EBADF, mount_fd = -EBADF;
         _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_strv_free_ char **fdnames = NULL;
         int r, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
         struct ExposeArgs expose_args = {};
@@ -6193,6 +6263,10 @@ static int run(int argc, char *argv[]) {
                 log_error_errno(r, "Failed to collect file descriptors: %m");
                 goto finish;
         }
+
+        r = acquire_listen_fdnames(fds, &fdnames);
+        if (r < 0)
+                goto finish;
 
         /* The "default" umask. This is appropriate for most file and directory
         * operations performed by nspawn, and is the umask that will be used for
@@ -6718,6 +6792,7 @@ static int run(int argc, char *argv[]) {
                                 mstack,
                                 userns_fd,
                                 fds,
+                                fdnames,
                                 veth_name,
                                 &veth_created,
                                 &expose_args, &master,
