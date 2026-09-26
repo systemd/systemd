@@ -122,6 +122,7 @@ typedef struct BootEntry {
         char16_t *loader;
         char16_t *url;
         char16_t *devicetree;
+        char16_t **devicetree_overlay;
         char16_t *options;
         bool options_implied; /* If true, these options are implied if we invoke the PE binary without any parameters (as in: UKI). If false we must specify these options explicitly. */
         char16_t **initrd;
@@ -434,6 +435,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("         extra: %ls\n", *extra);
                 if (entry->devicetree)
                         printf("    devicetree: %ls\n", entry->devicetree);
+                STRV_FOREACH(dtbo, entry->devicetree_overlay)
+                        printf("    dt-overlay: %ls\n", *dtbo);
                 if (entry->options)
                         printf("       options: %ls\n", entry->options);
                 if (entry->profile > 0)
@@ -1053,6 +1056,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->loader);
         free(entry->url);
         free(entry->devicetree);
+        strv_free(entry->devicetree_overlay);
         free(entry->options);
         strv_free(entry->initrd);
         strv_free(entry->extras);
@@ -1384,6 +1388,9 @@ static void boot_entry_add_type1(
         _cleanup_(boot_entry_freep) BootEntry *entry = NULL;
         char *line;
         size_t pos = 0, n_initrd = 0, n_extras = 0;
+#if HAVE_LIBFDT
+        size_t n_dt_overlay = 0;
+#endif
         char *key, *value;
         EFI_STATUS err;
 
@@ -1504,7 +1511,19 @@ static void boot_entry_add_type1(
                         free(entry->devicetree);
                         entry->devicetree = xstr8_to_path(value);
 
-                } else if (streq8(key, "initrd")) {
+                }
+#if HAVE_LIBFDT
+                else if (streq8(key, "devicetree-overlay")) {
+                        entry->devicetree_overlay = xrealloc(
+                                entry->devicetree_overlay,
+                                n_dt_overlay == 0 ? 0 : (n_dt_overlay + 1) * sizeof(uint16_t *),
+                                (n_dt_overlay + 2) * sizeof(uint16_t *));
+                        entry->devicetree_overlay[n_dt_overlay++] = xstr8_to_path(value);
+                        entry->devicetree_overlay[n_dt_overlay] = NULL;
+
+                }
+#endif
+                else if (streq8(key, "initrd")) {
                         entry->initrd = xrealloc(
                                 entry->initrd,
                                 n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(uint16_t *),
@@ -3029,10 +3048,22 @@ static EFI_STATUS call_image_start(
                 /* DTBs are loaded by the kernel before ExitBootServices(), and they can be used to map and
                  * assign arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here
                  * is unverified. */
-                if (entry->devicetree && !secure_boot_enabled()) {
-                        err = devicetree_install(&dtstate, image_root, entry->devicetree);
+                if (!secure_boot_enabled()) {
+                        if (entry->devicetree) {
+                                err = devicetree_load(&dtstate, image_root, entry->devicetree);
+                                if (err != EFI_SUCCESS)
+                                        return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
+                        }
+
+                        STRV_FOREACH(dtbo, entry->devicetree_overlay) {
+                                err = devicetree_apply_overlay(&dtstate, image_root, *dtbo);
+                                if (err != EFI_SUCCESS)
+                                        return log_error_status(err, "Error applying devicetree overlay %ls: %m", *dtbo);
+                        }
+
+                        err = devicetree_install(&dtstate);
                         if (err != EFI_SUCCESS)
-                                return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
+                                return log_error_status(err, "Error installing devicetree: %m");
                 }
 
                 switch (entry->type) {
@@ -3284,6 +3315,9 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS |
                 EFI_LOADER_FEATURE_KEYBOARD_LAYOUT |
                 EFI_LOADER_FEATURE_SMBIOS_MEASURED |
+#if HAVE_LIBFDT
+                EFI_LOADER_FEATURE_DEVICETREE_OVERLAY |
+#endif
                 0;
 
         assert(loaded_image);

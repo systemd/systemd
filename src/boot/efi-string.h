@@ -15,11 +15,11 @@ static inline size_t strlen16(const char16_t *s) {
 }
 
 static inline size_t strsize8(const char *s) {
-        return s ? (strlen8(s) + 1) * sizeof(*s) : 0;
+        return s ? (strlen8(s) + 1) * sizeof(char) : 0;
 }
 
 static inline size_t strsize16(const char16_t *s) {
-        return s ? (strlen16(s) + 1) * sizeof(*s) : 0;
+        return s ? (strlen16(s) + 1) * sizeof(char16_t) : 0;
 }
 
 char* strtolower8(char *s);
@@ -83,6 +83,12 @@ char16_t *strcpy16(char16_t * restrict dest, const char16_t * restrict src);
 
 char* strchr8(const char *s, char c);
 char16_t *strchr16(const char16_t *s, char16_t c);
+
+char* strrchr8(const char *s, char c);
+char16_t *strrchr16(const char16_t *s, char16_t c);
+
+unsigned long strtoul8(const char *nptr, char **endptr, int base);
+unsigned long strtoul16(const char16_t *nptr, char16_t **endptr, int base);
 
 char* xstrndup8(const char *s, size_t n);
 char16_t *xstrndup16(const char16_t *s, size_t n);
@@ -169,6 +175,7 @@ _gnu_printf_(2, 0) _warn_unused_result_ char16_t *xvasprintf_status(EFI_STATUS s
 #  define memchr __builtin_memchr
 #  define memcmp __builtin_memcmp
 #  define memcpy __builtin_memcpy
+#  define memmove __builtin_memmove
 #  define memset __builtin_memset
 
 static inline void *mempcpy(void * restrict dest, const void * restrict src, size_t n) {
@@ -183,5 +190,6 @@ static inline void *mempcpy(void * restrict dest, const void * restrict src, siz
 void *efi_memchr(const void *p, int c, size_t n);
 int efi_memcmp(const void *p1, const void *p2, size_t n);
 void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n);
+void *efi_memmove(void *dest, const void *src, size_t n);
 void *efi_memset(void *p, int c, size_t n);
 #endif

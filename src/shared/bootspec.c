@@ -234,36 +234,6 @@ static int parse_path_strv(
         return strv_consume(s, c);
 }
 
-static int parse_path_many(
-                const char *fname,
-                unsigned line,
-                const char *field,
-                char ***s,
-                const char *p) {
-
-        _cleanup_strv_free_ char **l = NULL, **f = NULL;
-        int r;
-
-        l = strv_split(p, NULL);
-        if (!l)
-                return -ENOMEM;
-
-        STRV_FOREACH(i, l) {
-                char *c;
-
-                r = mangle_path(fname, line, field, *i, &c);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                r = strv_consume(&f, c);
-                if (r < 0)
-                        return r;
-        }
-
-        return strv_extend_strv_consume(s, TAKE_PTR(f), /* filter_duplicates= */ false);
-}
 
 static int parse_extra(
                 const char *fname,
@@ -519,7 +489,7 @@ static int boot_entry_load_type1(
                 else if (streq(field, "devicetree"))
                         r = parse_path_one(tmp.path, line, field, &tmp.device_tree, p);
                 else if (streq(field, "devicetree-overlay"))
-                        r = parse_path_many(tmp.path, line, field, &tmp.device_tree_overlay, p);
+                        r = parse_path_strv(tmp.path, line, field, &tmp.device_tree_overlay, p);
                 else if (streq(field, "extra"))
                         r = parse_extra(tmp.path, line, field, &tmp.local_extras, p);
                 else {

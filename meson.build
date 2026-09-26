@@ -1762,13 +1762,38 @@ have = get_option('bootloader').require(
 conf.set10('ENABLE_BOOTLOADER', have)
 conf.set_quoted('EFI_MACHINE_TYPE_NAME', have ? efi_arch : '')
 
+libfdt = dependency('libfdt', static : true, required : false)
+if not libfdt.found()
+        # Older versions (not built with meson) do not ship a pkg-config file.
+        libfdt = cc.find_library('fdt', static : true, required : false)
+endif
+have_libfdt = libfdt.found()
+conf.set10('HAVE_LIBFDT', have_libfdt)
+
 efi_arch_alt = ''
 efi_cpu_family_alt = ''
-if have and efi_arch == 'x64' and cc.links('''
+have_efi_arch_alt = have and efi_arch == 'x64' and cc.links('''
                 #include <limits.h>
                 int main(int argc, char *argv[]) {
                         return __builtin_popcount(argc - CHAR_MAX);
-                }''', args : ['-m32', '-march=i686'], name : '32bit build possible')
+                }''',
+                args : ['-m32', '-march=i686'],
+                name : '32bit build possible')
+if have_efi_arch_alt and have_libfdt
+        have_efi_arch_alt_fdt = cc.links('''
+                        #include <libfdt.h>
+                        int main(int argc, char *argv[]) {
+                                return fdt_check_header(argv);
+                        }''',
+                        args : ['-m32', '-march=i686'],
+                        dependencies : libfdt,
+                        name : '32bit build possible with libfdt')
+        if not have_efi_arch_alt_fdt
+                warning('32-bit build is possible but 32-bit libfdt is missing or incompatible. Disabling ia32 EFI build.')
+        endif
+        have_efi_arch_alt = have_efi_arch_alt_fdt
+endif
+if have_efi_arch_alt
         efi_arch_alt = 'ia32'
         efi_cpu_family_alt = 'x86'
 endif
@@ -3065,6 +3090,7 @@ foreach tuple : [
         ['libcurl'],
         ['libfdisk'],
         ['libfido2'],
+        ['libfdt'],
         ['libidn2'],
         ['microhttpd'],
         ['openssl'],
