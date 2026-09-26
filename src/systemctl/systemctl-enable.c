@@ -336,9 +336,13 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                         start_verb = "try-restart";
                         accept_path = true;
                         prohibit_templates = false;
+                } else if (streq(verb, "unmask")) {
+                        start_verb = "start";
+                        accept_path = false;
+                        prohibit_templates = true;
                 } else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--now can only be used with verb enable, disable, reenable, or mask.");
+                                               "--now can only be used with verb enable, disable, reenable, mask, or unmask.");
 
                 switch (install_client_side()) {
                 case INSTALL_CLIENT_SIDE_NO:
