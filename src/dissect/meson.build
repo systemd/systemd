@@ -12,9 +12,8 @@ executables += [
                 'dependencies' : [
                         libarchive_cflags,
                 ],
+                'symlinks' : [
+                        { 'name' : 'mount.ddi', 'install_dir' : sbindir },
+                ],
         },
 ]
-
-install_symlink('mount.ddi',
-                pointing_to : sbin_to_bin + 'systemd-dissect',
-                install_dir : sbindir)

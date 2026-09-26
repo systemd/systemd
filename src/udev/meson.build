@@ -145,6 +145,9 @@ udev_binaries_dict = [
                 'dependencies' : udev_dependencies,
                 'install' : get_option('link-udev-shared') ? 'yes' : 'static',
                 'install_tag' : 'udev',
+                'symlinks' : [
+                        { 'name' : 'systemd-udevd', 'install_dir' : libexecdir },
+                ],
         },
         udev_plugin_template + {
                 'name' : 'ata_id',
@@ -243,11 +246,6 @@ executables += [
                 'sources' : files('fuzz-udev-rules.c'),
         },
 ]
-
-install_symlink('systemd-udevd',
-                pointing_to : libexecdir_to_bin + 'udevadm',
-                install_dir : libexecdir,
-                install_tag : 'udev')
 
 if install_sysconfdir_samples
         install_data('udev.conf',
