@@ -53,7 +53,7 @@ int sd_journal_perror_with_location(const char *file, const char *line, const ch
 #endif
 
 int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix);
-int sd_journal_stream_fd_with_namespace(const char *name_space, const char *identifier, int priority, int level_prefix);
+int sd_journal_stream_fd_with_namespace(const char *namespace, const char *identifier, int priority, int level_prefix);
 
 /* Browse journal stream */
 
@@ -82,7 +82,7 @@ enum {
 };
 
 int sd_journal_open(sd_journal **ret, int flags);
-int sd_journal_open_namespace(sd_journal **ret, const char *name_space, int flags);
+int sd_journal_open_namespace(sd_journal **ret, const char *namespace, int flags);
 int sd_journal_open_directory(sd_journal **ret, const char *path, int flags);
 int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags);
 int sd_journal_open_files(sd_journal **ret, const char **paths, int flags);
@@ -102,7 +102,7 @@ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret_monotonic, sd_id1
 int sd_journal_get_seqnum(sd_journal *j, uint64_t *ret_seqnum, sd_id128_t *ret_seqnum_id);
 
 int sd_journal_set_data_threshold(sd_journal *j, size_t sz);
-int sd_journal_get_data_threshold(sd_journal *j, size_t *sz);
+int sd_journal_get_data_threshold(sd_journal *j, size_t *ret);
 
 int sd_journal_get_data(sd_journal *j, const char *field, const void **ret_data, size_t *ret_size);
 int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, size_t *ret_size);
@@ -123,8 +123,8 @@ int sd_journal_seek_cursor(sd_journal *j, const char *cursor);
 int sd_journal_get_cursor(sd_journal *j, char **ret);
 int sd_journal_test_cursor(sd_journal *j, const char *cursor);
 
-int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, uint64_t *to);
-int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot_id, uint64_t *from, uint64_t *to);
+int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *ret_from, uint64_t *ret_to);
+int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot_id, uint64_t *ret_from, uint64_t *ret_to);
 
 int sd_journal_get_usage(sd_journal *j, uint64_t *ret_bytes);
 
@@ -160,12 +160,12 @@ int sd_journal_has_persistent_files(sd_journal *j);
         else while (sd_journal_previous(j) > 0)
 
 /* Iterate through all available data fields of the current journal entry */
-#define SD_JOURNAL_FOREACH_DATA(j, data, l)                             \
-        for (sd_journal_restart_data(j); sd_journal_enumerate_available_data((j), &(data), &(l)) > 0; )
+#define SD_JOURNAL_FOREACH_DATA(j, data, size)                          \
+        for (sd_journal_restart_data(j); sd_journal_enumerate_available_data((j), &(data), &(size)) > 0; )
 
 /* Iterate through all available values of a specific field */
-#define SD_JOURNAL_FOREACH_UNIQUE(j, data, l)                           \
-        for (sd_journal_restart_unique(j); sd_journal_enumerate_available_unique((j), &(data), &(l)) > 0; )
+#define SD_JOURNAL_FOREACH_UNIQUE(j, data, size)                        \
+        for (sd_journal_restart_unique(j); sd_journal_enumerate_available_unique((j), &(data), &(size)) > 0; )
 
 /* Iterate through all known field names */
 #define SD_JOURNAL_FOREACH_FIELD(j, field) \

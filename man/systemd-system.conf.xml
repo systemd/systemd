@@ -390,7 +390,7 @@
         clean reboot attempt times out. Note that the <varname>RebootWatchdogSec=</varname> timeout applies
         only to the second phase of the reboot, i.e. after all regular services are already terminated, and
         after the system and service manager process (PID 1) got replaced by the
-        <filename>systemd-shutdown</filename> binary, see system
+        <command>systemd-shutdown</command> binary, see system
         <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         details. During the first phase of the shutdown operation the system and service manager remains
         running and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a

@@ -34,7 +34,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_journal_stream_fd_with_namespace</function></funcdef>
-        <paramdef>const char *<parameter>name_space</parameter></paramdef>
+        <paramdef>const char *<parameter>namespace</parameter></paramdef>
         <paramdef>const char *<parameter>identifier</parameter></paramdef>
         <paramdef>int <parameter>priority</parameter></paramdef>
         <paramdef>int <parameter>level_prefix</parameter></paramdef>
@@ -70,7 +70,7 @@
     for more information.</para>
 
     <para><function>sd_journal_stream_fd_with_namespace()</function> is similar to
-    <function>sd_journal_stream_fd()</function>, but takes an additional <parameter>name_space</parameter> parameter
+    <function>sd_journal_stream_fd()</function>, but takes an additional <parameter>namespace</parameter> parameter
     that specifies which journal namespace to operate on. If specified as <constant>NULL</constant> the call
     is identical to <function>sd_journal_stream_fd()</function>. For details about journal namespaces, see
     <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
@@ -116,7 +116,7 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_journal_stream_fd()</function> was added in version 187.</para>
+    <para><function>sd_journal_stream_fd()</function> was added in version 38.</para>
     <para><function>sd_journal_stream_fd_with_namespace()</function> was added in version 256.</para>
   </refsect1>
 

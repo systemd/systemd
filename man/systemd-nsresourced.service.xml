@@ -90,7 +90,7 @@
     <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
     <para>This service provides one <ulink url="https://varlink.org/">Varlink</ulink> service:
-    <constant>io.systemd.NamespaceResource</constant> allows registering user namespaces, and assign mounts,
+    <interfacename>io.systemd.NamespaceResource</interfacename> allows registering user namespaces, and assign mounts,
     cgroups and network interfaces to it.</para>
 
     <para>Note that combining usage of <command>systemd-nsresourced</command> and systems based on

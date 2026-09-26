@@ -34,7 +34,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_reply_and_upgrade</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>parameters</parameter></paramdef>
         <paramdef>int *<parameter>ret_input_fd</parameter></paramdef>
         <paramdef>int *<parameter>ret_output_fd</parameter></paramdef>
@@ -42,26 +42,26 @@
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_respond_and_upgrade</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
         <paramdef>sd_json_variant *<parameter>parameters</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_respond_and_upgradeb</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
         <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_respond_and_upgradebo</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
         <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_bind_upgrade</function></funcdef>
-        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
-        <paramdef>sd_varlink_upgrade_t <parameter>callback</parameter></paramdef>
+        <paramdef>sd_varlink *<parameter>v</parameter></paramdef>
+        <paramdef>sd_varlink_upgrade_t <parameter>upgrade</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -128,7 +128,7 @@
     <citerefentry><refentrytitle>sd_json_buildo</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
     <para><function>sd_varlink_bind_upgrade()</function> registers the upgrade
-    <parameter>callback</parameter> that is invoked once a reply enqueued via
+    <parameter>upgrade</parameter> that is invoked once a reply enqueued via
     <function>sd_varlink_respond_and_upgrade()</function> (or one of its variants) has been flushed to the
     connection. The callback is of type <type>sd_varlink_upgrade_t</type> and receives the Varlink connection
     object, the input and output file descriptors of the (now upgraded) connection, and the userdata pointer
@@ -137,7 +137,7 @@
     Ownership of the two file descriptors is transferred to the callback (regardless if the callback later
     fails or not). The descriptor semantics (blocking mode, duplication for bidirectional sockets, distinct
     ends for pipe pairs) match those described for <function>sd_varlink_reply_and_upgrade()</function>
-    above. Passing <constant>NULL</constant> as <parameter>callback</parameter> removes a previously
+    above. Passing <constant>NULL</constant> as <parameter>upgrade</parameter> removes a previously
     registered callback.</para>
   </refsect1>
 

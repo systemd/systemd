@@ -4782,7 +4782,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
         return something_new;
 }
 
-_public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
+_public_ int sd_event_wait(sd_event *e, uint64_t timeout_usec) {
         bool ratelimit_expired = false;
         int r;
 
@@ -4808,7 +4808,7 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                  * https://github.com/systemd/systemd/pull/18750#issuecomment-785801085
                  * https://github.com/systemd/systemd/pull/18922#issuecomment-792825226 */
 
-                r = process_epoll(e, timeout, threshold, &epoll_min_priority);
+                r = process_epoll(e, timeout_usec, threshold, &epoll_min_priority);
                 if (r == -EINTR) {
                         e->state = SD_EVENT_PENDING;
                         return 1;
@@ -4830,7 +4830,7 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                 if (threshold == INT64_MIN)
                         break;
 
-                timeout = 0;
+                timeout_usec = 0;
         }
 
         r = process_watchdog(e);
@@ -4933,7 +4933,7 @@ static void event_log_delays(sd_event *e) {
         log_debug("Event loop iterations: %s", b);
 }
 
-_public_ int sd_event_run(sd_event *e, uint64_t timeout) {
+_public_ int sd_event_run(sd_event *e, uint64_t timeout_usec) {
         int r;
 
         assert_return(e, -EINVAL);
@@ -4947,7 +4947,7 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
          * drives the event loop via sd_event_prepare()/sd_event_wait()/sd_event_dispatch() itself, which
          * are the same primitives profile_delays tracks when called directly. */
         if (sd_fiber_is_running())
-                return event_run_suspend(e, timeout);
+                return event_run_suspend(e, timeout_usec);
 
         if (e->profile_delays && e->last_run_usec != 0) {
                 usec_t this_run;
@@ -4971,7 +4971,7 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         r = sd_event_prepare(e);
         if (r == 0)
                 /* There was nothing? Then wait... */
-                r = sd_event_wait(e, timeout);
+                r = sd_event_wait(e, timeout_usec);
 
         if (e->profile_delays)
                 e->last_run_usec = now(CLOCK_MONOTONIC);
@@ -5439,25 +5439,25 @@ static int event_source_set_pressure_type(sd_event_source *s, const char *ty) {
         return 1;
 }
 
-_public_ int sd_event_source_set_memory_pressure_type(sd_event_source *s, const char *ty) {
+_public_ int sd_event_source_set_memory_pressure_type(sd_event_source *s, const char *type) {
         assert_return(s, -EINVAL);
         assert_return(s->type == SOURCE_MEMORY_PRESSURE, -EDOM);
 
-        return event_source_set_pressure_type(s, ty);
+        return event_source_set_pressure_type(s, type);
 }
 
-_public_ int sd_event_source_set_cpu_pressure_type(sd_event_source *s, const char *ty) {
+_public_ int sd_event_source_set_cpu_pressure_type(sd_event_source *s, const char *type) {
         assert_return(s, -EINVAL);
         assert_return(s->type == SOURCE_CPU_PRESSURE, -EDOM);
 
-        return event_source_set_pressure_type(s, ty);
+        return event_source_set_pressure_type(s, type);
 }
 
-_public_ int sd_event_source_set_io_pressure_type(sd_event_source *s, const char *ty) {
+_public_ int sd_event_source_set_io_pressure_type(sd_event_source *s, const char *type) {
         assert_return(s, -EINVAL);
         assert_return(s->type == SOURCE_IO_PRESSURE, -EDOM);
 
-        return event_source_set_pressure_type(s, ty);
+        return event_source_set_pressure_type(s, type);
 }
 
 static int event_source_set_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec) {
