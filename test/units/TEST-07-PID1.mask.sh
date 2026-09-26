@@ -88,3 +88,22 @@ systemctl stop mask-test.service
 [[ "$(systemctl is-active mask-test.service || :)" == inactive ]]
 [[ ! -f /tmp/should-not-exist-by-main ]]
 [[ ! -f /tmp/should-not-exist-by-dropin ]]
+
+# Check if unmask --now starts the service
+systemctl unmask --now mask-test.service
+[[ "$(systemctl is-enabled mask-test.service || :)" == static ]]
+[[ "$(systemctl is-active mask-test.service || :)" == active ]]
+
+# Unmask it again, keeps it running
+systemctl unmask --now mask-test.service
+[[ "$(systemctl is-enabled mask-test.service || :)" == static ]]
+[[ "$(systemctl is-active mask-test.service || :)" == active ]]
+
+# A masked but running service, keeps running
+systemctl mask mask-test.service
+[[ "$(systemctl is-enabled mask-test.service || :)" == masked ]]
+[[ "$(systemctl is-active mask-test.service || :)" == active ]]
+
+systemctl unmask --now mask-test.service
+[[ "$(systemctl is-enabled mask-test.service || :)" == static ]]
+[[ "$(systemctl is-active mask-test.service || :)" == active ]]
