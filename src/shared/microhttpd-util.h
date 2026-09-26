@@ -138,3 +138,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct MHD_Response*, sym_MHD_destroy_re
 #endif
 
 int dlopen_microhttpd(int log_level) _dlopen_loader_;
+
+usec_t mhd_timeout_to_deadline(usec_t now_usec, uint64_t timeout_msec);
