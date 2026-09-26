@@ -30,6 +30,15 @@ int verb_preset_all(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 (void) install_changes_dump(r, "preset all", changes, n_changes, arg_quiet);
                 if (r < 0)
                         return r;
+
+                /* We wrote below /usr/ on a system whose manager is running, so it has not seen any of this
+                 * yet. Every other reason to end up here leaves no manager to tell. Graceful: the files are
+                 * already in place, and failing to reach the manager must not turn that into an error. */
+                if (install_client_side() == INSTALL_CLIENT_SIDE_VENDOR && !arg_no_reload) {
+                        r = daemon_reload(ACTION_RELOAD, /* graceful= */ true);
+                        if (r < 0)
+                                return r;
+                }
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
