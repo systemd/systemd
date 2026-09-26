@@ -1802,7 +1802,7 @@ StateDirectory=aaa/bbb ccc</programlisting>
         no timeout is applied. If a timeout is configured the clean operation will be aborted forcibly when
         the timeout is reached, potentially leaving resources on disk.</para>
 
-        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>

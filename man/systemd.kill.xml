@@ -100,7 +100,7 @@
 
         <para>Defaults to <option>control-group</option>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v182-or-before"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -114,7 +114,7 @@
         <para>Note that, right after sending the signal specified in this setting, systemd will always send
         <constant>SIGCONT</constant>, to ensure that even suspended tasks can be terminated cleanly.</para>
 
-        <xi:include href="version-info.xml" xpointer="v187"/>
+        <xi:include href="version-info.xml" xpointer="v182-or-before"/>
         </listitem>
       </varlistentry>
 
@@ -154,7 +154,7 @@
         Takes a boolean value. Defaults to <literal>yes</literal>.
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v182-or-before"/></listitem>
       </varlistentry>
 
       <varlistentry>

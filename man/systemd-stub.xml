@@ -298,7 +298,7 @@
     consumption by the kernel and OS eventually booted. For example,
     <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> does
     this for resources configured in UAPI.1 Type #1 <literal>extra</literal>
-    lines. <filename>systemd-stub</filename> will combine any resources provided that way with the companion
+    lines. <command>systemd-stub</command> will combine any resources provided that way with the companion
     file resources it acquires itself.</para>
   </refsect1>
 

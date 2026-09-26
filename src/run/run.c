@@ -2579,7 +2579,7 @@ static int start_transient_scope(sd_bus *bus) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, /* usec = */ 0, &error, &reply);
+                r = sd_bus_call(bus, m, /* timeout_usec = */ 0, &error, &reply);
                 if (r < 0) {
                         if (sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY) && allow_pidfd) {
                                 log_debug("Retrying with classic PIDs.");

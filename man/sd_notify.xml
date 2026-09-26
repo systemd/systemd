@@ -82,14 +82,14 @@
       <funcprototype>
         <funcdef>int <function>sd_notify_barrier</function></funcdef>
         <paramdef>int <parameter>unset_environment</parameter></paramdef>
-        <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout_usec</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_pid_notify_barrier</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
         <paramdef>int <parameter>unset_environment</parameter></paramdef>
-        <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout_usec</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -163,7 +163,7 @@
 
     <para><function>sd_notify_barrier()</function> allows the caller to synchronize against reception of
     previously sent notification messages and uses the <varname>BARRIER=1</varname> command. It takes a
-    relative <varname>timeout</varname> value in microseconds which is passed to
+    relative <varname>timeout_usec</varname> value in microseconds which is passed to
     <citerefentry><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum>
     </citerefentry>. A value of UINT64_MAX is interpreted as infinite timeout.</para>
 
@@ -544,9 +544,7 @@
           file descriptors that may be passed across <constant>AF_UNIX</constant> sockets at once is 253, see
           <citerefentry
           project='man-pages'><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-          details.</para>
-
-          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+          details.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -669,9 +667,9 @@ sd_notify_barrier(0, 5 * 1000000);
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_pid_notify()</function>,
-    <function>sd_pid_notifyf()</function>, and
-    <function>sd_pid_notify_with_fds()</function> were added in version 219.</para>
+    <para><function>sd_pid_notify()</function> and
+    <function>sd_pid_notifyf()</function> were added in version 214.</para>
+    <para><function>sd_pid_notify_with_fds()</function> was added in version 219.</para>
     <para><function>sd_notify_barrier()</function> was added in version 246.</para>
     <para><function>sd_pid_notifyf_with_fds()</function> and
     <function>sd_pid_notify_barrier()</function> were added in version 254.</para>

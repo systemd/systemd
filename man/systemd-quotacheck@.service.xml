@@ -41,7 +41,7 @@
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para><filename>systemd-quotacheck</filename> understands one
+    <para><command>systemd-quotacheck</command> understands one
     kernel command line parameter:</para>
 
     <variablelist class='kernel-commandline-options'>
