@@ -165,7 +165,8 @@ static int log_job_error_with_service_result(
                 const char* service,
                 const char *result,
                 bool quiet,
-                const char* const* extra_args) {
+                const char* const* extra_args,
+                char **ret_description) {
 
         static const struct {
                 const char *result;
@@ -202,6 +203,11 @@ static int log_job_error_with_service_result(
         if (!isempty(result))
                 FOREACH_ELEMENT(i, explanations)
                         if (streq(result, i->result)) {
+                                if (ret_description) {
+                                        *ret_description = strdup(i->explanation);
+                                        if (!*ret_description)
+                                                return -ENOMEM;
+                                }
                                 r = log_full_errno(quiet ? LOG_DEBUG : LOG_ERR,
                                                    SYNTHETIC_ERRNO(i->error),
                                                    "Job for %s failed because %s.\n"
@@ -211,6 +217,12 @@ static int log_job_error_with_service_result(
                                                    journalctl, service_shell_quoted ?: "<service>");
                                 goto extra;
                         }
+
+        if (ret_description) {
+                *ret_description = strdup("job failed");
+                if (!*ret_description)
+                        return -ENOMEM;
+        }
 
         r = log_full_errno(quiet ? LOG_DEBUG : LOG_ERR,
                            SYNTHETIC_ERRNO(ENOMEDIUM),
@@ -232,7 +244,7 @@ extra:
         return r;
 }
 
-static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
+static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args, char **ret_description) {
         int r;
 
         assert(d);
@@ -253,34 +265,71 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
 
         int priority = FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR) ? LOG_ERR : LOG_DEBUG;
 
-        if (streq(d->result, "canceled"))
+#define SET_DESCRIPTION(s) \
+        do { \
+                if (ret_description) { \
+                        *ret_description = strdup(s); \
+                        if (!*ret_description) \
+                                return -ENOMEM; \
+                } \
+        } while (false)
+
+        if (streq(d->result, "canceled")) {
+                SET_DESCRIPTION("job was canceled");
                 return log_full_errno(priority, SYNTHETIC_ERRNO(ECANCELED), "Job for %s canceled.", d->name);
-        if (streq(d->result, "timeout"))
+        }
+        if (streq(d->result, "timeout")) {
+                SET_DESCRIPTION("job timed out");
                 return log_full_errno(priority, SYNTHETIC_ERRNO(ETIME), "Job for %s timed out.", d->name);
-        if (streq(d->result, "dependency"))
+        }
+        if (streq(d->result, "dependency")) {
+                SET_DESCRIPTION("a dependency job failed");
                 return log_full_errno(priority, SYNTHETIC_ERRNO(EIO), "A dependency job for %s failed. See 'journalctl -xe' for details.", d->name);
-        if (streq(d->result, "invalid"))
+        }
+        if (streq(d->result, "invalid")) {
+                SET_DESCRIPTION("unit is not active, cannot reload");
                 return log_full_errno(priority, SYNTHETIC_ERRNO(ENOEXEC), "%s is not active, cannot reload.", d->name);
-        if (streq(d->result, "assert"))
+        }
+        if (streq(d->result, "assert")) {
+                SET_DESCRIPTION("assertion failed on job");
                 return log_full_errno(priority, SYNTHETIC_ERRNO(EPROTO), "Assertion failed on job for %s.", d->name);
-        if (streq(d->result, "unsupported"))
+        }
+        if (streq(d->result, "unsupported")) {
+                SET_DESCRIPTION("operation not supported on this system");
                 return log_full_errno(priority, SYNTHETIC_ERRNO(EOPNOTSUPP), "Operation on or unit type of %s not supported on this system.", d->name);
-        if (streq(d->result, "collected"))
+        }
+        if (streq(d->result, "collected")) {
+                SET_DESCRIPTION("queued job was garbage collected");
                 return log_full_errno(priority, SYNTHETIC_ERRNO(ECANCELED), "Queued job for %s was garbage collected.", d->name);
-        if (streq(d->result, "once"))
+        }
+        if (streq(d->result, "once")) {
+                SET_DESCRIPTION("unit was already started once and cannot be started again");
                 return log_full_errno(priority, SYNTHETIC_ERRNO(ESTALE), "Unit %s was started already once and can't be started again.", d->name);
-        if (streq(d->result, "frozen"))
+        }
+        if (streq(d->result, "frozen")) {
+                SET_DESCRIPTION("cannot perform operation on frozen unit");
                 return log_full_errno(priority, SYNTHETIC_ERRNO(EDEADLK), "Cannot perform operation on frozen unit %s.", d->name);
-        if (streq(d->result, "concurrency"))
+        }
+        if (streq(d->result, "concurrency")) {
+                SET_DESCRIPTION("concurrency limit of a slice unit has been reached");
                 return log_full_errno(priority, SYNTHETIC_ERRNO(ETOOMANYREFS), "Concurrency limit of a slice unit %s is contained in has been reached.", d->name);
+        }
+
+#undef SET_DESCRIPTION
 
         if (!streq(d->result, "failed"))
                 log_debug("Unexpected job result '%s' for unit '%s', assuming server side newer than us.",
                           d->result, d->name);
 
         /* Job is failed, or result is unknown. For non-service units, just show a generic message. */
-        if (!endswith(d->name, ".service"))
+        if (!endswith(d->name, ".service")) {
+                if (ret_description) {
+                        *ret_description = strdup("job failed");
+                        if (!*ret_description)
+                                return -ENOMEM;
+                }
                 return log_full_errno(priority, SYNTHETIC_ERRNO(ENOMEDIUM), "Job failed. See \"journalctl -xe\" for details.");
+        }
 
         /* For services, let's also try Result property. */
         _cleanup_free_ char *result = NULL;
@@ -291,10 +340,11 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
         return log_job_error_with_service_result(
                         d->name, result,
                         /* quiet= */ !FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR),
-                        extra_args);
+                        extra_args,
+                        ret_description);
 }
 
-int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
+static int bus_wait_for_jobs_internal(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args, char **ret_description) {
         int r = 0;
 
         assert(d);
@@ -307,12 +357,18 @@ int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const*
                         return log_error_errno(q, "Failed to wait for response: %m");
 
                 if (d->name && d->result) {
-                        q = check_wait_response(d, flags, extra_args);
+                        _cleanup_free_ char *description = NULL;
+
+                        q = check_wait_response(d, flags, extra_args, ret_description ? &description : NULL);
                         /* Return the first error as it is most likely to be meaningful. */
                         RET_GATHER(r, q);
 
                         log_full_errno_zerook(LOG_DEBUG, q,
                                               "Got result %s/%m for job %s.", d->result, d->name);
+
+                        /* Keep the description of the first error */
+                        if (description && ret_description && !*ret_description)
+                                *ret_description = TAKE_PTR(description);
                 }
 
                 d->name = mfree(d->name);
@@ -320,6 +376,10 @@ int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const*
         }
 
         return r;
+}
+
+int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
+        return bus_wait_for_jobs_internal(d, flags, extra_args, /* ret_description= */ NULL);
 }
 
 int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path) {
@@ -335,5 +395,15 @@ int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, WaitJobsFlags fla
         if (r < 0)
                 return log_oom();
 
-        return bus_wait_for_jobs(d, flags, extra_args);
+        return bus_wait_for_jobs_internal(d, flags, extra_args, /* ret_description= */ NULL);
+}
+
+int bus_wait_for_jobs_one_full(BusWaitForJobs *d, const char *path, WaitJobsFlags flags, const char* const* extra_args, char **ret_description) {
+        int r;
+
+        r = bus_wait_for_jobs_add(d, path);
+        if (r < 0)
+                return log_oom();
+
+        return bus_wait_for_jobs_internal(d, flags, extra_args, ret_description);
 }
