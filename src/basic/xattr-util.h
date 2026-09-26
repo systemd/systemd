@@ -35,7 +35,7 @@ int xsetxattr_full(
                 const char *name,
                 const char *value,
                 size_t size,
-                int xattr_flags);
+                int xattr_flags) _nonnull_if_nonzero_(5, 6);
 static inline int xsetxattr(
                 int fd,
                 const char *path,
