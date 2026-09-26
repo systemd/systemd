@@ -111,7 +111,9 @@
       matches the base OS. This is typically implemented by checking that the extension <varname>ID=</varname>
       option either matches the host <varname>ID=</varname> option or is included the host <varname>ID_LIKE=</varname>
       option, and either <varname>SYSEXT_LEVEL=</varname> exists and matches too, or if it is not present,
-      <varname>VERSION_ID=</varname> exists and matches. This ensures ABI/API compatibility between the
+      <varname>VERSION_ID=</varname> exists and matches. If the extension image sets
+      <varname>IMAGE_ID=</varname> and/or <varname>IMAGE_VERSION=</varname>, the host must also declare
+      these fields and the values must match. This ensures ABI/API compatibility between the
       layers and prevents merging of an incompatible image in an overlay.</para>
 
       <para>In order to identify the extension image itself, the same fields defined below can be added to the
@@ -337,6 +339,12 @@
           those that are not managed via images but put together and updated from individual packages and on
           the local system.</para>
 
+          <para>When used in an <filename>extension-release</filename> file, this field is matched against
+          the host <filename>os-release</filename>. If the extension declares <varname>IMAGE_ID=</varname>,
+          the host must also set <varname>IMAGE_ID=</varname> with the same value, or the extension is
+          rejected. To describe the extension image itself rather than constrain the host, use the prefixed
+          variant (e.g. <varname>SYSEXT_IMAGE_ID=</varname>) instead.</para>
+
           <para>Examples: <literal>IMAGE_ID=vendorx-cashier-system</literal>,
           <literal>IMAGE_ID=netbook-image</literal>.</para>
 
@@ -354,6 +362,10 @@
           <para>It is recommended to follow the <ulink
           url="https://uapi-group.org/specifications/specs/version_format_specification/">UAPI.10 Version
           Format Specification</ulink> for this version string, but this is generally not enforced.</para>
+
+          <para>When used in an <filename>extension-release</filename> file, this field is matched against
+          the host <filename>os-release</filename>, analogous to <varname>IMAGE_ID=</varname> described
+          above.</para>
 
           <para>Examples: <literal>IMAGE_VERSION=33</literal>, <literal>IMAGE_VERSION=47.1rc1</literal>.
           </para>
