@@ -7,6 +7,7 @@
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
+        test_table(ConsoleMode, console_mode, CONSOLE_MODE);
         test_table(ResolvConfMode, resolv_conf_mode, RESOLV_CONF_MODE);
         test_table(TimezoneMode, timezone_mode, TIMEZONE_MODE);
 
