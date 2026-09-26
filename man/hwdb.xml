@@ -63,7 +63,10 @@
       <para>The match lines are followed by one or more key-value pair lines, which are
       recognized by a leading space character. The key name and value are separated by
       <literal>=</literal>. An empty line signifies the end of a record. Lines beginning
-      with <literal>#</literal> are ignored.</para>
+      with <literal>#</literal> are ignored. A <literal>#</literal> also starts a comment that
+      extends to the end of the line if it is the first non-whitespace character, or if it is
+      preceded by whitespace and followed by whitespace or the end of the line. Any other
+      <literal>#</literal> is part of the match or value.</para>
 
       <para>In case multiple records match a given lookup string, the key-value pairs
       from all records are combined. If a key is specified multiple times, the value

@@ -461,6 +461,19 @@ static int insert_data(struct trie *trie, char **match_list, char *line, const c
         return 0;
 }
 
+static char* find_trailing_comment(char *line) {
+        /* A '#' starts a comment only if it is the first non-whitespace character, or if it is preceded
+         * by whitespace and followed by whitespace or the end of the line. Any other '#' is part of the
+         * match or value, e.g. "ID_MODEL_FROM_DATABASE=SB200 OHCI USB Controller #1". */
+
+        for (char *p = strchr(line, '#'); p; p = strchr(p + 1, '#'))
+                if (p == line + strspn(line, WHITESPACE) ||
+                    (strchr(WHITESPACE, p[-1]) && (p[1] == '\0' || strchr(WHITESPACE, p[1]))))
+                        return p;
+
+        return NULL;
+}
+
 static int import_file(struct trie *trie, int fd, const char *filename, uint16_t file_priority, bool compat) {
         enum {
                 HW_NONE,
@@ -498,7 +511,7 @@ static int import_file(struct trie *trie, int fd, const char *filename, uint16_t
                         continue;
 
                 /* strip trailing comment */
-                pos = strchr(line, '#');
+                pos = find_trailing_comment(line);
                 if (pos)
                         pos[0] = '\0';
 
