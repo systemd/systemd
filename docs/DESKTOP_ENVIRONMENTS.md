@@ -106,6 +106,13 @@ Additionally, apps following this convention will be placed in a slice called
 `app-<AppId>.slice`, to allow users and desktop environments to apply resource
 limits on all instances of a given app at once.
 
+`.desktop` files can opt themselves out of the launcher's scope-creation logic
+(including registration via `systemd-appd`), by using the line:
+`X-systemd-skip-register=true`. This is especially useful for situations where
+the `Exec=` entrypoint defined in the `.desktop` file is just a short-lived stub
+process that doesn't really belong to the app and instead just triggers the app
+to launch via IPC.
+
 ## XDG autostart integration
 
 To allow XDG autostart integration, systemd ships a cross-desktop generator
