@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import contextlib
+import ctypes
 import hashlib
 import http.client
 import lzma
@@ -9,6 +10,7 @@ import os
 import select
 import signal
 import socket
+import struct
 import subprocess
 import tempfile
 import time
@@ -237,6 +239,24 @@ class XzStreamingTests(StreamingTests, ReceiverTestCase):
 
     def compress(self, data):
         return lzma.compress(data)
+
+
+class Lz4StreamingTests(StreamingTests, ReceiverTestCase):
+    encoding = 'lz4'
+
+    def compress(self, data):
+        # systemd-journal-upload sends one compress_blob() output per 64 KiB
+        # libcurl upload buffer: the decoded size as a little-endian 64-bit
+        # integer, then one raw LZ4 block.
+        lz4 = ctypes.CDLL('liblz4.so.1')
+        body = b''
+        for offset in range(0, len(data), 64 * 1024):
+            piece = data[offset:offset + 64 * 1024]
+            block = ctypes.create_string_buffer(lz4.LZ4_compressBound(len(piece)))
+            size = lz4.LZ4_compress_default(piece, block, len(piece), len(block))
+            self.assertGreater(size, 0)
+            body += struct.pack('<Q', len(piece)) + block.raw[:size]
+        return body
 
 
 class ZstdStreamingTests(StreamingTests, ReceiverTestCase):
