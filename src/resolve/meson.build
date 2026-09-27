@@ -168,6 +168,7 @@ executables += [
         },
         resolve_test_template + {
                 'sources' : files('test-resolved-dummy-server.c'),
+                'export' : files('resolved-dummy-server-test-util.c'),
                 'type' : 'manual',
         },
         resolve_fuzz_template + {
