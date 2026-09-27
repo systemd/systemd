@@ -408,7 +408,7 @@ static int context_add_connection(Context *context, int fd) {
                 log_debug("New connection from %s", strna(peer));
         }
 
-        if (set_size(context->connections) > arg_connections_max)
+        if (set_size(context->connections) >= arg_connections_max)
                 return log_warning_errno(SYNTHETIC_ERRNO(EBUSY), "Hit connection limit, refusing connection.");
 
         r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_OFF);
