@@ -21,6 +21,7 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "resolve-private.h"
+#include "rlimit-util.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -656,6 +657,10 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        /* Each connection holds several fds (two sockets, their duplicates and a pipe per direction), so
+         * the default soft limit of 1024 would run out well before the default connection limit. */
+        (void) rlimit_nofile_bump(-1);
 
         r = sd_event_default(&context.event);
         if (r < 0)
