@@ -3337,6 +3337,23 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>RegisterAddresses=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, the DHCPv6 client sends an ADDR-REG-INFORM message to
+          the server to register self-generated IPv6 addresses, as defined in <ulink
+          url="https://www.rfc-editor.org/rfc/rfc9686.html">RFC 9686</ulink>. The registration takes
+          place only when the DHCPv6 client is running, for example because we received a Router
+          Advertisement with the M or O flags, or because other configuration options such as
+          <varname>WithoutRA=</varname> force the DHCPv6 client to start. Also, the registration
+          happens only if the server indicates support by including option 148 (Address Registration)
+          in its replies. When enabled, all the IPv6 addresses with global scope not obtained via
+          DHCPv6 are registered, including statically configured, SLAAC and temporary (privacy
+          extension) addresses. Defaults to false. </para>
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
       <!-- How to communicate with the server -->
 
       <varlistentry>
