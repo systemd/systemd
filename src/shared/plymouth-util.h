@@ -6,6 +6,7 @@
 
 int plymouth_connect(int flags);
 int plymouth_build_password_packet(const char *message, char **ret_packet, size_t *ret_size);
+char** plymouth_parse_password_reply(uint8_t type, const char *payload, size_t size);
 int plymouth_send_raw(const void *raw, size_t size, int flags);
 int plymouth_send_msg(const char *text, bool pause_spinner);
 int plymouth_hide_splash(void);
