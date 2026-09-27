@@ -13,6 +13,7 @@ typedef enum DnssecResult DnssecResult;
 typedef enum DnssecVerdict DnssecVerdict;
 typedef enum DnsScopeOrigin DnsScopeOrigin;
 typedef enum DnsTransactionState DnsTransactionState;
+typedef enum DnsTransportKind DnsTransportKind;
 typedef enum ResolveConfigSource ResolveConfigSource;
 
 typedef struct DnsAnswer DnsAnswer;
