@@ -108,6 +108,7 @@ TYPES = {
     ),
     'ieee1394-unit-function': ('node',),
     'camera': ('usb'),
+    'u3v': ('usb',),
 }
 
 # Patterns that are used to set general properties on a device
@@ -207,6 +208,7 @@ def property_grammar():
         ('ID_MAKER_TOOL', zero_one),
         ('ID_HARDWARE_WALLET', zero_one),
         ('ID_SOFTWARE_RADIO', zero_one),
+        ('ID_U3V_DEVICE', zero_one),
         ('ID_MM_DEVICE_IGNORE', zero_one),
         ('ID_NET_AUTO_LINK_LOCAL_ONLY', zero_one),
         ('POINTINGSTICK_SENSITIVITY', INTEGER),
