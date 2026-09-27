@@ -23,6 +23,7 @@ systemd_resolved_export_sources = files(
         'resolved-dns-stub.c',
         'resolved-dns-synthesize.c',
         'resolved-dns-transaction.c',
+        'resolved-dns-transport.c',
         'resolved-dns-trust-anchor.c',
         'resolved-dns-zone.c',
         'resolved-dnssd-bus.c',
@@ -164,6 +165,9 @@ executables += [
         },
         resolve_test_template + {
                 'sources' : files('test-resolved-link.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-resolved-transport.c'),
         },
         resolve_test_template + {
                 'sources' : files('test-dns-query.c'),
