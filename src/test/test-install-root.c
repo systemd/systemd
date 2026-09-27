@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "install.h"
 #include "mkdir.h"
@@ -12,12 +13,31 @@
 #include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
 static char *root = NULL;
 
+/* The vendor tests leave enablement symlinks below /usr/ behind, which a preset-all in any of the other
+ * tests would then act on. The order the tests run in is up to the linker, so give them a root of their
+ * own rather than depend on it. */
+static char *vendor_root = NULL;
+
 STATIC_DESTRUCTOR_REGISTER(root, rm_rf_physical_and_freep);
+STATIC_DESTRUCTOR_REGISTER(vendor_root, rm_rf_physical_and_freep);
+
+static void make_root(char **ret) {
+        ASSERT_OK(mkdtemp_malloc("/tmp/rootXXXXXX", ret));
+
+        FOREACH_STRING(d, "/usr/lib/systemd/system/", SYSTEM_CONFIG_UNIT_DIR"/", "/run/systemd/system/",
+                       "/opt/", "/usr/lib/systemd/system-preset/")
+                ASSERT_OK(mkdir_p(strjoina(*ret, d), 0755));
+
+        FOREACH_STRING(t, "multi-user.target", "graphical.target")
+                ASSERT_OK(write_string_file(strjoina(*ret, "/usr/lib/systemd/system/", t),
+                                            "# pretty much empty", WRITE_STRING_FILE_CREATE));
+}
 
 TEST(basic_mask_and_enable) {
         const char *p;
@@ -798,6 +818,8 @@ TEST(revert) {
         ASSERT_OK_ERRNO(unlink(strjoina(root, "/run/systemd/generator/zz.service")));
 }
 
+/* The enablement symlinks point at paths relative to the image root, so they dangle when inspected from
+ * outside of it. Look at the symlink itself rather than at what it resolves to. */
 TEST(preset_order) {
         InstallChange *changes = NULL;
         size_t n_changes = 0;
@@ -1350,31 +1372,86 @@ TEST(verify_alias) {
         verify_one(&di_inst_template, "goo.target.conf/plain.service", -EXDEV, NULL);
 }
 
+static bool symlink_exists(const char *path) {
+        return is_symlink(path) > 0;
+}
+
+static bool is_dependency_mask(const char *path) {
+        _cleanup_free_ char *dest = NULL;
+
+        if (readlink_malloc(path, &dest) < 0)
+                return false;
+
+        return path_equal(dest, "/dev/null");
+}
+
+static void write_vendor_file(const char *rel, const char *contents) {
+        const char *p = strjoina(vendor_root, "/usr/lib/systemd/", rel);
+
+        ASSERT_OK(mkdir_parents(p, 0755));
+        ASSERT_OK(write_string_file(p, contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
+}
+
+static void assert_state(const char *name, UnitFileState expect) {
+        UnitFileState state;
+
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, vendor_root, name, &state));
+        ASSERT_EQ(state, expect);
+}
+
+/* The verbs under test, with the change list of no interest to the caller. The one test that does look at it
+ * calls unit_file_disable() directly. */
+
+static void do_enable(UnitFileFlags flags, char * const *names) {
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, flags, vendor_root, names, &changes, &n_changes));
+}
+
+static void do_disable(UnitFileFlags flags, char * const *names) {
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, flags, vendor_root, names, &changes, &n_changes));
+}
+
+#define ETC_WANTS SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/"
+
+#define WANTED_BY_MULTI_USER \
+        "[Install]\n"        \
+        "WantedBy=multi-user.target\n"
+
+TEST(dependency_mask) {
+        const char *entry;
+
+        /* A .wants/, .requires/ or .upholds/ entry that resolves to /dev/null tells PID 1 to ignore the
+         * dependency, see process_deps(). Enabling is what put the entry there, so the mask has to win over
+         * it, and disabling has to leave the mask alone: removing it would quietly re-enable the unit. */
+
+        write_vendor_file("system/masked-dep.service", WANTED_BY_MULTI_USER);
+
+        do_enable(0, STRV_MAKE("masked-dep.service"));
+        assert_state("masked-dep.service", UNIT_FILE_ENABLED);
+
+        entry = strjoina(vendor_root, ETC_WANTS"masked-dep.service");
+        ASSERT_TRUE(symlink_exists(entry));
+
+        ASSERT_OK_ERRNO(unlink(entry));
+        ASSERT_OK_ERRNO(symlink("/dev/null", entry));
+        assert_state("masked-dep.service", UNIT_FILE_DISABLED);
+
+        do_disable(0, STRV_MAKE("masked-dep.service"));
+        ASSERT_TRUE(is_dependency_mask(entry));
+        assert_state("masked-dep.service", UNIT_FILE_DISABLED);
+}
+
+
 static int intro(void) {
-        const char *p;
-
-        assert_se(mkdtemp_malloc("/tmp/rootXXXXXX", &root) >= 0);
-
-        p = strjoina(root, "/usr/lib/systemd/system/");
-        assert_se(mkdir_p(p, 0755) >= 0);
-
-        p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/");
-        assert_se(mkdir_p(p, 0755) >= 0);
-
-        p = strjoina(root, "/run/systemd/system/");
-        assert_se(mkdir_p(p, 0755) >= 0);
-
-        p = strjoina(root, "/opt/");
-        assert_se(mkdir_p(p, 0755) >= 0);
-
-        p = strjoina(root, "/usr/lib/systemd/system-preset/");
-        assert_se(mkdir_p(p, 0755) >= 0);
-
-        p = strjoina(root, "/usr/lib/systemd/system/multi-user.target");
-        assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
-
-        p = strjoina(root, "/usr/lib/systemd/system/graphical.target");
-        assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
+        make_root(&root);
+        make_root(&vendor_root);
 
         return EXIT_SUCCESS;
 }

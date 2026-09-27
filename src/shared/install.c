@@ -263,11 +263,54 @@ static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) 
                 return true;
 
         /* Not rpath: the generator directories are root prefixed, so stripping the root here would keep
-         * this from ever matching under --root=. */
-        if (path_is_generator(lp, path))
+         * this from ever matching under --root=. Returned rather than used as an operand, so that the
+         * negative errno it can hand back reaches the caller instead of coercing to "true". */
+        return path_is_generator(lp, path);
+}
+
+static bool is_dependency_dir_name(const char *name) {
+        assert(name);
+
+        return ENDSWITH_SET(name, ".wants", ".requires", ".upholds");
+}
+
+static int path_is_dependency_dir(const char *path) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(path);
+
+        r = path_extract_filename(path, &name);
+        if (r < 0)
+                return r;
+
+        return is_dependency_dir_name(name);
+}
+
+/* Mirrors what PID 1 does in process_deps(): a .wants/, .requires/ or .upholds/ entry that resolves to
+ * /dev/null, or to an empty file, masks the dependency rather than establishing it. Resolve inside the root,
+ * since an image being operated on offline usually has no /dev/null to stat. */
+static int dependency_is_masked(const LookupPaths *lp, const char *path) {
+        _cleanup_free_ char *resolved = NULL;
+        struct stat st;
+        int r;
+
+        assert(lp);
+        assert(path);
+
+        r = chase(path, lp->root_dir, CHASE_NONEXISTENT, &resolved, NULL);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        if (path_equal(skip_root(lp->root_dir, resolved) ?: resolved, "/dev/null"))
                 return true;
 
-        return path_equal(rpath, SYSTEM_DATA_UNIT_DIR);
+        if (stat(resolved, &st) < 0)
+                return errno == ENOENT ? false : -errno;
+
+        return null_or_empty(&st);
 }
 
 static const char* config_path_from_flags(const LookupPaths *lp, UnitFileFlags flags) {
@@ -695,6 +738,11 @@ static int remove_marked_symlinks_fd(
 
         rewinddir(d);
 
+        /* A property of the directory we are scanning, not of the entries in it, so settle it once. */
+        int is_dependency_dir = path_is_dependency_dir(path);
+        if (is_dependency_dir < 0)
+                return is_dependency_dir;
+
         FOREACH_DIRENT(de, d, return -errno)
                 if (de->d_type == DT_DIR) {
                         _cleanup_close_ int nfd = -EBADF;
@@ -769,6 +817,17 @@ static int remove_marked_symlinks_fd(
 
                         if (!found)
                                 continue;
+
+                        if (is_dependency_dir > 0) {
+                                /* Leave dependency masks alone. They are how a unit that has been disabled
+                                 * stays disabled, so dropping one here would silently re-enable it. */
+                                r = dependency_is_masked(lp, p);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to check if '%s' is a dependency mask, "
+                                                           "assuming it isn't: %m", p);
+                                else if (r > 0)
+                                        continue;
+                        }
 
                         if (!dry_run) {
                                 if (unlinkat(fd, de->d_name, 0) < 0 && errno != ENOENT) {
@@ -867,15 +926,46 @@ static int is_symlink_with_known_name(const InstallInfo *i, const char *name) {
         return false;
 }
 
+/* Key identifying a dependency symlink for shadowing, i.e. "multi-user.target.wants/foo.service". PID 1
+ * resolves these through conf_files_list_strv(), which lets an entry in a higher priority directory override
+ * one with the same name further down the search path. */
+static int dependency_shadow_key(const char *path, char **ret) {
+        _cleanup_free_ char *dir_path = NULL, *dir_name = NULL, *name = NULL, *key = NULL;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        r = path_extract_filename(path, &name);
+        if (r < 0)
+                return r;
+
+        r = path_extract_directory(path, &dir_path);
+        if (r < 0)
+                return r;
+
+        r = path_extract_filename(dir_path, &dir_name);
+        if (r < 0)
+                return r;
+
+        key = path_join(dir_name, name);
+        if (!key)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(key);
+        return 0;
+}
+
 static int find_symlinks_in_directory(
                 DIR *dir,
                 const char *dir_path,
-                const char *root_dir,
+                const LookupPaths *lp,
                 const InstallInfo *info,
                 bool ignore_destination,
                 bool match_name,
                 bool ignore_same_name,
                 const char *config_path,
+                Set **shadowed,
                 bool *same_name_link) {
 
         int r, ret = 0;
@@ -885,12 +975,25 @@ static int find_symlinks_in_directory(
         assert(info);
         assert(unit_name_is_valid(info->name, UNIT_NAME_ANY));
         assert(config_path);
+        assert(shadowed);
         assert(same_name_link);
 
         FOREACH_DIRENT(de, dir, return -errno) {
                 bool found_path = false, found_dest = false, b = false;
 
-                if (de->d_type != DT_LNK)
+                /* Everything below turns on the type, and readdir() does not know it on every filesystem,
+                 * so resolve it rather than take DT_UNKNOWN for "not a symlink". */
+                r = dirent_ensure_type(dirfd(dir), de);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                RET_GATHER(ret, r);
+                        continue;
+                }
+
+                /* In a dependency directory anything of the right name shadows the entries below it, see
+                 * conf_files_list_strv(), whether or not PID 1 then honours it. So look at all of them,
+                 * not just at symlinks. Everywhere else only symlinks are of interest. */
+                if (!ignore_destination && de->d_type != DT_LNK)
                         continue;
 
                 if (!ignore_destination) {
@@ -944,6 +1047,38 @@ static int find_symlinks_in_directory(
                 if (b)
                         *same_name_link = true;
                 else if (found_path || found_dest) {
+                        if (ignore_destination) {
+                                _cleanup_free_ char *key = NULL, *path = NULL;
+
+                                path = path_join(dir_path, de->d_name);
+                                if (!path)
+                                        return -ENOMEM;
+
+                                r = dependency_shadow_key(path, &key);
+                                if (r < 0)
+                                        return r;
+
+                                if (set_contains(*shadowed, key))
+                                        continue;
+
+                                r = dependency_is_masked(lp, path);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to check if '%s' masks a dependency, "
+                                                           "ignoring: %m", path);
+                                        continue;
+                                }
+
+                                /* Only a symlink that isn't a mask establishes the dependency. Anything
+                                 * else PID 1 ignores, but it still shadows what is below, so remember it. */
+                                if (r > 0 || de->d_type != DT_LNK) {
+                                        r = set_ensure_consume(shadowed, &path_hash_ops_free, TAKE_PTR(key));
+                                        if (r < 0)
+                                                return r;
+
+                                        continue;
+                                }
+                        }
+
                         if (!match_name)
                                 return 1;
 
@@ -958,11 +1093,12 @@ static int find_symlinks_in_directory(
 }
 
 static int find_symlinks(
-                const char *root_dir,
+                const LookupPaths *lp,
                 const InstallInfo *i,
                 bool match_name,
                 bool ignore_same_name,
                 const char *config_path,
+                Set **shadowed,
                 bool *same_name_link) {
 
         _cleanup_closedir_ DIR *config_dir = NULL;
@@ -970,6 +1106,7 @@ static int find_symlinks(
 
         assert(i);
         assert(config_path);
+        assert(shadowed);
         assert(same_name_link);
 
         config_dir = opendir(config_path);
@@ -980,32 +1117,33 @@ static int find_symlinks(
         }
 
         FOREACH_DIRENT(de, config_dir, return -errno) {
-                const char *suffix;
                 _cleanup_free_ const char *path = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                if (de->d_type != DT_DIR)
-                        continue;
-
-                suffix = strrchr(de->d_name, '.');
-                if (!STRPTR_IN_SET(suffix, ".wants", ".requires", ".upholds"))
+                /* No d_type check here: readdir() does not know the type on every filesystem, and taking
+                 * DT_UNKNOWN for "not a directory" would hide a whole dependency directory. A name this
+                 * specific is cheap enough to just try to open. O_NOFOLLOW because an absolute symlink here
+                 * would otherwise take us out of --root= and have us report on the host. */
+                if (!is_dependency_dir_name(de->d_name))
                         continue;
 
                 path = path_join(config_path, de->d_name);
                 if (!path)
                         return -ENOMEM;
 
-                d = opendir(path);
+                d = xopendirat(dirfd(config_dir), de->d_name, O_NOFOLLOW);
                 if (!d) {
-                        log_error_errno(errno, "Failed to open directory \"%s\" while scanning for symlinks, ignoring: %m", path);
+                        if (!IN_SET(errno, ENOTDIR, ELOOP))
+                                log_error_errno(errno, "Failed to open directory \"%s\" while scanning for symlinks, ignoring: %m", path);
                         continue;
                 }
 
-                r = find_symlinks_in_directory(d, path, root_dir, i,
+                r = find_symlinks_in_directory(d, path, lp, i,
                                                /* ignore_destination= */ true,
                                                /* match_name= */ match_name,
                                                /* ignore_same_name= */ ignore_same_name,
                                                config_path,
+                                               shadowed,
                                                same_name_link);
                 if (r > 0)
                         return 1;
@@ -1016,12 +1154,17 @@ static int find_symlinks(
         /* We didn't find any suitable symlinks in .wants, .requires or .upholds directories,
          * let's look for linked unit files in this directory. */
         rewinddir(config_dir);
-        return find_symlinks_in_directory(config_dir, config_path, root_dir, i,
-                                          /* ignore_destination= */ false,
-                                          /* match_name= */ match_name,
-                                          /* ignore_same_name= */ ignore_same_name,
-                                          config_path,
-                                          same_name_link);
+        r = find_symlinks_in_directory(config_dir, config_path, lp, i,
+                                       /* ignore_destination= */ false,
+                                       /* match_name= */ match_name,
+                                       /* ignore_same_name= */ ignore_same_name,
+                                       config_path,
+                                       shadowed,
+                                       same_name_link);
+        if (r < 0)
+                return r;
+
+        return r;
 }
 
 static int find_symlinks_in_scope(
@@ -1032,8 +1175,9 @@ static int find_symlinks_in_scope(
                 UnitFileState *state) {
 
         bool same_name_link_runtime = false, same_name_link_config = false;
-        bool enabled_in_runtime = false, enabled_at_all = false;
+        bool enabled_in_runtime = false, aliased_at_all = false;
         bool ignore_same_name = false;
+        _cleanup_set_free_ Set *shadowed = NULL;
         int r;
 
         assert(lp);
@@ -1042,12 +1186,17 @@ static int find_symlinks_in_scope(
 
         /* As we iterate over the list of search paths in lp->search_path, we may encounter "same name"
          * symlinks. The ones which are "below" (i.e. have lower priority) than the unit file itself are
-         * effectively masked, so we should ignore them. */
+         * effectively masked, so we should ignore them.
+         *
+         * The same applies to dependency symlinks: an entry in a .wants/, .requires/ or .upholds/ directory
+         * shadows one of the same name further down the search path, and if it is a symlink to /dev/null it
+         * masks it outright. 'shadowed' accumulates the latter as we descend. */
 
         STRV_FOREACH(p, lp->search_path)  {
                 bool same_name_link = false;
 
-                r = find_symlinks(lp->root_dir, info, match_name, ignore_same_name, *p, &same_name_link);
+                r = find_symlinks(lp, info, match_name, ignore_same_name, *p,
+                                  &shadowed, &same_name_link);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -1071,7 +1220,7 @@ static int find_symlinks_in_scope(
                         if (r > 0)
                                 enabled_in_runtime = true;
                         else
-                                enabled_at_all = true;
+                                aliased_at_all = true;
 
                 } else if (same_name_link) {
                         if (path_equal(*p, lp->persistent_config))
@@ -1100,7 +1249,7 @@ static int find_symlinks_in_scope(
          * outside of runtime and configuration directory, then we consider it statically enabled. Note we do that only
          * for instance, not for regular names, as those are merely aliases, while instances explicitly instantiate
          * something, and hence are a much stronger concept. */
-        if (enabled_at_all && unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+        if (aliased_at_all && unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
                 *state = UNIT_FILE_STATIC;
                 return 1;
         }
@@ -2364,6 +2513,7 @@ int unit_file_mask(
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
 
+
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
                 return r;
@@ -2409,6 +2559,7 @@ int unit_file_unmask(
 
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
+
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -2499,7 +2650,8 @@ int unit_file_unmask(
                         return q;
         }
 
-        RET_GATHER(r, remove_marked_symlinks(remove_symlinks_to, config_path, &lp, dry_run, changes, n_changes));
+        RET_GATHER(r, remove_marked_symlinks(remove_symlinks_to,
+                                             config_path, &lp, dry_run, changes, n_changes));
 
         return r;
 }
@@ -2521,6 +2673,7 @@ int unit_file_link(
         assert(scope < _RUNTIME_SCOPE_MAX);
         assert(changes);
         assert(n_changes);
+
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -2757,11 +2910,13 @@ int unit_file_revert(
                         return q;
         }
 
-        q = remove_marked_symlinks(remove_symlinks_to, lp.runtime_config, &lp, false, changes, n_changes);
+        q = remove_marked_symlinks(remove_symlinks_to,
+                                   lp.runtime_config, &lp, false, changes, n_changes);
         if (r >= 0)
                 r = q;
 
-        q = remove_marked_symlinks(remove_symlinks_to, lp.persistent_config, &lp, false, changes, n_changes);
+        q = remove_marked_symlinks(remove_symlinks_to,
+                                   lp.persistent_config, &lp, false, changes, n_changes);
         if (r >= 0)
                 r = q;
 
@@ -2788,6 +2943,7 @@ int unit_file_add_dependency(
         assert(scope < _RUNTIME_SCOPE_MAX);
         assert(target);
         assert(IN_SET(dep, UNIT_WANTS, UNIT_REQUIRES));
+
 
         if (!unit_name_is_valid(target, UNIT_NAME_ANY))
                 return install_changes_add(changes, n_changes, -EUCLEAN, target, NULL);
@@ -2867,8 +3023,12 @@ static int do_unit_file_enable(
            is useful to determine whether the passed units had any
            installation data at all. */
 
-        return install_context_apply(&ctx, lp, flags, config_path,
-                                     SEARCH_LOAD, changes, n_changes);
+        r = install_context_apply(&ctx, lp, flags, config_path,
+                                  SEARCH_LOAD, changes, n_changes);
+        if (r < 0)
+                return r;
+
+        return r;
 }
 
 int unit_file_enable(
@@ -2936,9 +3096,12 @@ static int do_unit_file_disable(
         }
 
         _cleanup_set_free_ Set *remove_symlinks_to = NULL;
-        r = install_context_mark_for_removal(&ctx, lp, &remove_symlinks_to, config_path, changes, n_changes);
+
+        r = install_context_mark_for_removal(&ctx, lp, &remove_symlinks_to,
+                                             config_path, changes, n_changes);
         if (r >= 0)
-                r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
+                r = remove_marked_symlinks(remove_symlinks_to, config_path, lp,
+                                           flags & UNIT_FILE_DRY_RUN, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -3086,6 +3249,7 @@ int unit_file_set_default(
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
         assert(name);
+
 
         if (unit_name_to_type(name) != UNIT_TARGET) /* this also validates the name */
                 return -EINVAL;
@@ -3600,11 +3764,19 @@ static int execute_preset(
         if (mode != UNIT_FILE_PRESET_ENABLE_ONLY) {
                 _cleanup_set_free_ Set *remove_symlinks_to = NULL;
 
-                r = install_context_mark_for_removal(minus, lp, &remove_symlinks_to, config_path, changes, n_changes);
+                r = install_context_mark_for_removal(minus, lp, &remove_symlinks_to,
+                                                     config_path, changes, n_changes);
                 if (r < 0)
                         return r;
 
-                r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, false, changes, n_changes);
+                /* No masking here, unlike unit_file_disable(). A preset policy of "disable" applies to
+                 * what this command is responsible for, and enablement the vendor shipped below /usr/ is
+                 * not that: leaving a /dev/null in /etc/ for it would take units out of the boot on every
+                 * existing system whose preset files do not name what it wires up, which they never had to.
+                 * Presetting the vendor directories does turn those units off, by removing the symlink,
+                 * and an administrator asking for it by name with "systemctl disable" still gets a mask. */
+                r = remove_marked_symlinks(remove_symlinks_to, config_path, lp,
+                                           false, changes, n_changes);
         } else
                 r = 0;
 
@@ -3709,7 +3881,7 @@ int unit_file_preset(
         if (r < 0)
                 return r;
 
-        config_path = (file_flags & UNIT_FILE_RUNTIME) ? lp.runtime_config : lp.persistent_config;
+        config_path = config_path_from_flags(&lp, file_flags);
         if (!config_path)
                 return -ENXIO;
 
@@ -3753,7 +3925,7 @@ int unit_file_preset_all(
         if (r < 0)
                 return r;
 
-        config_path = (file_flags & UNIT_FILE_RUNTIME) ? lp.runtime_config : lp.persistent_config;
+        config_path = config_path_from_flags(&lp, file_flags);
         if (!config_path)
                 return -ENXIO;
 
