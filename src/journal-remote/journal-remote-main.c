@@ -44,6 +44,13 @@
 
 /* Accommodate the 64 MiB dictionary of xz preset 9 (see xz(1)), the largest that journal-upload can emit. */
 #define JOURNAL_REMOTE_DECOMPRESSOR_MEMORY_MAX (96U * 1024U * 1024U)
+/* systemd-journal-upload compresses the data from each call to its libcurl read callback into one
+ * LZ4 blob. The buffer passed to that callback is at most CURLOPT_UPLOAD_BUFFERSIZE bytes, and that
+ * option cannot exceed 2 MiB. */
+#define JOURNAL_REMOTE_LZ4_DECODED_MAX (2U * 1024U * 1024U)
+/* The blob header plus LZ4_COMPRESSBOUND(JOURNAL_REMOTE_LZ4_DECODED_MAX). */
+#define JOURNAL_REMOTE_LZ4_BLOB_MAX \
+        (8U + JOURNAL_REMOTE_LZ4_DECODED_MAX + JOURNAL_REMOTE_LZ4_DECODED_MAX / 255U + 16U)
 #define JOURNAL_REMOTE_CONNECTION_LIMIT_DEFAULT 32U
 #define JOURNAL_REMOTE_CONNECTION_TIMEOUT_SEC 30U
 #define JOURNAL_REMOTE_ENTRY_TIMEOUT_USEC (2 * USEC_PER_MINUTE)
@@ -450,21 +457,52 @@ static int http_upload_decoded(const void *data, size_t size, void *userdata) {
         return r;
 }
 
-static int http_upload_push_lz4_blob(HttpUploadData *u, const void *data, size_t size) {
-        _cleanup_free_ void *buf = NULL;
-        size_t buf_size;
+static int http_upload_push_lz4(HttpUploadData *u, const void *data, size_t size) {
+        RemoteSource *s = ASSERT_PTR(u->source);
         int r;
 
-        assert(u);
+        /* systemd-journal-upload sends LZ4 as compress_blob() output, one blob after another, and the data
+         * of each callback may end anywhere in a blob. Each blob is buffered until it is complete. */
 
         if (size == 0)
-                return 0;
+                return s->lz4_buffer_size == 0 ? 0 : -EBADMSG;
 
-        r = decompress_blob(COMPRESSION_LZ4, data, size, &buf, &buf_size, DATA_SIZE_MAX);
-        if (r < 0)
-                return r;
+        if (!GREEDY_REALLOC(s->lz4_buffer, s->lz4_buffer_size + size))
+                return -ENOMEM;
 
-        return http_upload_decoded(buf, buf_size, u);
+        memcpy(s->lz4_buffer + s->lz4_buffer_size, data, size);
+        s->lz4_buffer_size += size;
+
+        for (;;) {
+                _cleanup_free_ void *decoded = NULL;
+                size_t blob_size, decoded_size;
+
+                r = lz4_blob_scan(s->lz4_buffer, s->lz4_buffer_size, &s->lz4_scan);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                blob_size = s->lz4_scan.offset;
+
+                r = decompress_blob(COMPRESSION_LZ4, s->lz4_buffer, blob_size,
+                                    &decoded, &decoded_size, JOURNAL_REMOTE_LZ4_DECODED_MAX);
+                if (r < 0)
+                        return r;
+
+                r = http_upload_decoded(decoded, decoded_size, u);
+                if (r < 0)
+                        return r;
+
+                memmove(s->lz4_buffer, s->lz4_buffer + blob_size, s->lz4_buffer_size - blob_size);
+                s->lz4_buffer_size -= blob_size;
+                s->lz4_scan = (LZ4BlobScan) {};
+        }
+
+        if (s->lz4_buffer_size > JOURNAL_REMOTE_LZ4_BLOB_MAX)
+                return -EFBIG;
+
+        return 0;
 }
 
 static int process_http_upload(
@@ -494,10 +532,7 @@ static int process_http_upload(
                 log_trace("Received %zu bytes", *upload_data_size);
 
         if (source->compression == COMPRESSION_LZ4)
-                /* systemd-journal-upload sends LZ4 as compress_blob() output: an 8-byte uncompressed-size
-                 * header and one raw LZ4 block, not an LZ4 frame. The compressed size is not recorded, so
-                 * the data cannot be decoded as a stream; decode each callback's data as one blob. */
-                r = http_upload_push_lz4_blob(&data, upload_data, *upload_data_size);
+                r = http_upload_push_lz4(&data, upload_data, *upload_data_size);
         else {
                 if (!source->decompressor) {
                         /* For COMPRESSION_NONE, decompressor_new_limited() creates a passthrough

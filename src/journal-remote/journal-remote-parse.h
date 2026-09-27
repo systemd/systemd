@@ -15,6 +15,9 @@ typedef struct RemoteSource {
         sd_event_source *buffer_event;
         Compression compression;
         Decompressor *decompressor;
+        uint8_t *lz4_buffer;    /* The part of the current LZ4 blob received so far. */
+        size_t lz4_buffer_size;
+        LZ4BlobScan lz4_scan;
         char *encoding;
 } RemoteSource;
 
