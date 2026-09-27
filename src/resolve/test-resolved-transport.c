@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "resolved-dns-server.h"
 #include "resolved-dns-transport.h"
 #include "tests.h"
 
@@ -44,6 +43,28 @@ TEST(feature_level_constants) {
         ASSERT_TRUE(dns_server_feature_level_equal(DNS_SERVER_FEATURE_LEVEL_TCP, levels_in_order[0]));
         ASSERT_TRUE(dns_server_feature_level_equal(DNS_SERVER_FEATURE_LEVEL_UDP, levels_in_order[1]));
         ASSERT_TRUE(dns_server_feature_level_equal(DNS_SERVER_FEATURE_LEVEL_BEST, levels_in_order[ELEMENTSOF(levels_in_order) - 1]));
+}
+
+TEST(feature_level_for_transport) {
+        /* Classic DNS does datagrams, at every EDNS level */
+        for (DnsServerEdnsLevel e = 0; e < _DNS_SERVER_EDNS_LEVEL_MAX; e++) {
+                DnsServerFeatureLevel l = dns_server_feature_level_for_transport(DNS_TRANSPORT_DNS, e);
+
+                ASSERT_EQ(l.transport, DNS_TRANSPORT_DNS);
+                ASSERT_EQ(l.edns, e);
+                ASSERT_TRUE(l.udp);
+        }
+
+#if ENABLE_DNS_OVER_TLS
+        /* DNS-over-TLS is stream-only and requires EDNS0, lower EDNS levels are raised to that */
+        for (DnsServerEdnsLevel e = 0; e < _DNS_SERVER_EDNS_LEVEL_MAX; e++) {
+                DnsServerFeatureLevel l = dns_server_feature_level_for_transport(DNS_TRANSPORT_DOT, e);
+
+                ASSERT_EQ(l.transport, DNS_TRANSPORT_DOT);
+                ASSERT_EQ(l.edns, MAX(e, DNS_SERVER_EDNS_LEVEL_EDNS0));
+                ASSERT_FALSE(l.udp);
+        }
+#endif
 }
 
 TEST(feature_level_invalid) {
