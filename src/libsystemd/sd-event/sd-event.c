@@ -1083,18 +1083,22 @@ static void source_disconnect(sd_event_source *s) {
                 sd_event_unref(event);
 }
 
-static sd_event_source* source_free(sd_event_source *s) {
+/* Idempotent: each ownership flag is cleared as its work is done. Also called from
+ * sd_event_source_unref() so a process_own kill happens at unref time rather than being
+ * deferred until the io_uring backend drops its last ref. */
+static void source_disown(sd_event_source *s) {
         int r;
 
         assert(s);
 
-        source_disconnect(s);
-
-        if (s->type == SOURCE_IO && s->io.owned)
+        if (s->type == SOURCE_IO && s->io.owned) {
                 s->io.fd = safe_close(s->io.fd);
+                s->io.owned = false;
+        }
 
         if (s->type == SOURCE_CHILD) {
-                /* Eventually the kernel will do this automatically for us, but for now let's emulate this (unreliably) in userspace. */
+                /* Eventually the kernel will do this automatically for us, but for now let's emulate
+                 * this (unreliably) in userspace. */
 
                 if (s->child.process_owned) {
                         assert(s->child.pid > 0);
@@ -1105,6 +1109,8 @@ static sd_event_source* source_free(sd_event_source *s) {
                                 if (r < 0 && r != -ESRCH)
                                         log_debug_errno(r, "Failed to kill process " PID_FMT ", ignoring: %m",
                                                         s->child.pid);
+                                else
+                                        s->child.exited = true;
                         }
 
                         if (!s->child.waited) {
@@ -1112,17 +1118,29 @@ static sd_event_source* source_free(sd_event_source *s) {
 
                                 /* Reap the child if we can */
                                 (void) waitid(P_PIDFD, s->child.pidfd, &si, WEXITED);
+                                s->child.waited = true;
                         }
+
+                        s->child.process_owned = false;
                 }
 
-                if (s->child.pidfd_owned)
+                if (s->child.pidfd_owned) {
                         s->child.pidfd = safe_close(s->child.pidfd);
+                        s->child.pidfd_owned = false;
+                }
         }
 
         if (EVENT_SOURCE_IS_PRESSURE(s)) {
                 s->pressure.fd = safe_close(s->pressure.fd);
                 s->pressure.write_buffer = mfree(s->pressure.write_buffer);
         }
+}
+
+static sd_event_source* source_free(sd_event_source *s) {
+        assert(s);
+
+        source_disconnect(s);
+        source_disown(s);
 
         if (s->destroy_callback)
                 s->destroy_callback(s->userdata);
