@@ -15,6 +15,18 @@ CHANGES WITH 263 in spe:
           1 for them. Distributions ship such symlinks for a number of units,
           so this may be visible in packaging scripts.
 
+          "systemctl disable" can now turn such units off, which it previously
+          could not. It cannot remove the symlink, as /usr/ is frequently
+          read-only and the change would be undone by the next image update, so
+          it shadows it with a symlink to /dev/null in /etc/ instead, which
+          "systemctl enable" removes again.
+
+          A preset policy of "disable" deliberately does not do this and leaves
+          the vendor's enablement alone, so that "systemctl preset-all" keeps
+          behaving as before on existing systems: masking what a vendor wired
+          up would take units out of the boot everywhere the preset files do
+          not name what is shipped pre-wired, which they never had to.
+
           Units without WantedBy=, RequiredBy= or UpheldBy= in their [Install]
           section are unaffected: a dependency symlink pointing at such a unit
           wires it up statically rather than enabling it, so it is not reported
