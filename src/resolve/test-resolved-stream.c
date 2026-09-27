@@ -12,19 +12,25 @@
 
 #include "sd-event.h"
 
+#include "dns-answer.h"
 #include "dns-packet.h"
 #include "dns-question.h"
 #include "dns-rr.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "in-addr-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "resolved-dns-scope.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
+#include "resolved-dns-transaction.h"
 #include "resolved-dnstls.h"
+#include "resolved-dummy-server-test-util.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "sparse-endian.h"
 #include "tests.h"
@@ -326,6 +332,126 @@ static void test_dns_stream(bool tls) {
         log_info("test-resolved-stream: Finished %s test", tls ? "TLS" : "TCP");
 }
 
+/* Runs a DummyServer (see resolved-dummy-server-test-util.c) on its own event loop in a separate thread, so
+ * that we can drive resolved's transaction logic against it on the main thread's event loop. */
+static union sockaddr_union dummy_server_address;
+
+typedef struct DummyServerThread {
+        pthread_t thread;
+        sd_event *event;
+        DummyServer *server;
+        int stop_fd[2];
+} DummyServerThread;
+
+static int on_dummy_server_stop(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
+static void *dummy_server_thread(void *p) {
+        DummyServerThread *t = ASSERT_PTR(p);
+
+        ASSERT_OK(sd_event_loop(t->event));
+        return NULL;
+}
+
+static void dummy_server_thread_start(DummyServerThread *t) {
+        _cleanup_free_ char *address = NULL;
+
+        assert(t);
+
+        *t = (DummyServerThread) {
+                .stop_fd = EBADF_PAIR,
+        };
+
+        ASSERT_OK(asprintf(&address, "%s:%" PRIu16,
+                           IN_ADDR_TO_STRING(AF_INET, sockaddr_in_addr(&dummy_server_address.sa)),
+                           be16toh(dummy_server_address.in.sin_port)));
+
+        /* Set up everything before starting the thread, so that the server is listening once we return. */
+        ASSERT_OK(sd_event_new(&t->event));
+        ASSERT_OK(dummy_server_new(t->event, address, &t->server));
+        ASSERT_OK_ERRNO(pipe2(t->stop_fd, O_CLOEXEC));
+        ASSERT_OK(sd_event_add_io(t->event, NULL, t->stop_fd[0], EPOLLIN, on_dummy_server_stop, NULL));
+
+        ASSERT_EQ(pthread_create(&t->thread, NULL, dummy_server_thread, t), 0);
+}
+
+static void dummy_server_thread_stop(DummyServerThread *t) {
+        assert(t);
+
+        ASSERT_EQ(write(t->stop_fd[1], "", 1), (ssize_t) 1);
+        ASSERT_EQ(pthread_join(t->thread, NULL), 0);
+
+        t->server = dummy_server_free(t->server);
+        t->event = sd_event_unref(t->event);
+        safe_close_pair(t->stop_fd);
+}
+
+static void test_transaction_retry_over_stream(const char *name, unsigned expected_attempts) {
+        Manager manager = {};
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(link_freep) Link *link = NULL;
+        DummyServerThread server_thread;
+        DnsScope *scope = NULL;
+        DnsServer *server = NULL;
+        DnsTransaction *t = NULL;
+        DnsResourceRecord *rr;
+        union in_addr_union expected_address;
+        usec_t end;
+
+        log_info("test-resolved-stream: Started transaction retry test for %s", name);
+
+        /* The dummy server truncates all UDP replies for the *.stream.test names, so the query is always
+         * retried via TCP, and hence the replies that make us retry the transaction are received on a stream,
+         * i.e. processed by dns_transaction_on_stream_packet(). Previously the retry would be aborted
+         * immediately with DNS_TRANSACTION_INVALID_REPLY. */
+
+        dummy_server_thread_start(&server_thread);
+
+        ASSERT_OK(sd_event_new(&event));
+        manager.event = event;
+
+        ASSERT_OK(link_new(&manager, &link, LOOPBACK_IFINDEX));
+        link->mtu = 65536; /* The loopback MTU, otherwise every query is deemed too large for UDP */
+        ASSERT_OK(dns_scope_new(&manager, &scope, DNS_SCOPE_LINK, link, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_INET));
+        ASSERT_OK(dns_server_new(&manager, &server, DNS_SERVER_LINK, link, /* delegate= */ NULL, AF_INET,
+                                 sockaddr_in_addr(&dummy_server_address.sa),
+                                 be16toh(dummy_server_address.in.sin_port),
+                                 LOOPBACK_IFINDEX, /* server_name= */ NULL, RESOLVE_CONFIG_SOURCE_DBUS));
+
+        ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, name));
+        ASSERT_OK(dns_transaction_new(&t, scope, key, /* bypass= */ NULL, SD_RESOLVED_NO_CACHE));
+        t->block_gc++;
+
+        end = usec_add(now(CLOCK_MONOTONIC), EVENT_TIMEOUT_USEC);
+        ASSERT_OK_POSITIVE(dns_transaction_go(t));
+        while (t->state == DNS_TRANSACTION_PENDING) {
+                ASSERT_LT(now(CLOCK_MONOTONIC), end);
+                ASSERT_OK(sd_event_run(event, EVENT_TIMEOUT_USEC));
+        }
+
+        ASSERT_EQ(t->state, DNS_TRANSACTION_SUCCESS);
+        ASSERT_EQ(t->n_attempts, expected_attempts);
+        ASSERT_EQ(t->answer_rcode, DNS_RCODE_SUCCESS);
+        ASSERT_EQ(dns_answer_size(t->answer), 1u);
+
+        ASSERT_OK(in_addr_from_string(AF_INET, DUMMY_SERVER_STREAM_TEST_ADDRESS, &expected_address));
+        DNS_ANSWER_FOREACH(rr, t->answer) {
+                ASSERT_EQ(rr->key->type, DNS_TYPE_A);
+                ASSERT_EQ(rr->a.in_addr.s_addr, expected_address.in.s_addr);
+        }
+
+        t->block_gc--;
+        dns_transaction_free(t);
+        dns_scope_free(scope);
+        hashmap_free(manager.dns_transactions);
+
+        dummy_server_thread_stop(&server_thread);
+
+        log_info("test-resolved-stream: Finished transaction retry test for %s", name);
+}
+
 static int try_isolate_network(void) {
         _cleanup_close_ int socket_fd = -EBADF;
         int r;
@@ -380,6 +506,8 @@ int main(int argc, char **argv) {
                 .in.sin_port = htobe16(random_u64_range(UINT16_MAX - 1024) + 1024),
                 .in.sin_addr.s_addr = htobe32(INADDR_LOOPBACK)
         };
+        dummy_server_address = server_address;
+        dummy_server_address.in.sin_port = htobe16(be16toh(server_address.in.sin_port) + 1);
         int r;
 
         test_setup_logging(LOG_DEBUG);
@@ -390,6 +518,11 @@ int main(int argc, char **argv) {
         assert_se(r >= 0);
 
         test_dns_stream(false);
+        /* SERVFAIL with an OPT RR: retried once at the same feature level, then with a feature level
+         * reduced far enough to not send an OPT RR anymore. */
+        test_transaction_retry_over_stream("servfail-with-opt.stream.test", 3);
+        /* SERVFAIL with EDE "Not Ready": retried once at the same feature level. */
+        test_transaction_retry_over_stream("not-ready-then-ok.stream.test", 2);
 #if ENABLE_DNS_OVER_TLS
         if (system("openssl version >/dev/null 2>&1") != 0)
                 return log_tests_skipped("Skipping TLS test since the 'openssl' command does not seem to be available");
