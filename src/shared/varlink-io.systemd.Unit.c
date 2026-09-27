@@ -1042,7 +1042,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#RuntimeRandomizedExtraSec="),
                 SD_VARLINK_DEFINE_FIELD(RuntimeRandomizedExtraUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#TimeoutStopSec="),
-                SD_VARLINK_DEFINE_FIELD(TimeoutStopUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(TimeoutStopUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of processes to move into the new scope. only settable at unit creation time via StartTransient()."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PIDs, ProcessId, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ScopeResult,
@@ -1956,6 +1958,7 @@ static SD_VARLINK_DEFINE_ERROR(
 static SD_VARLINK_DEFINE_ERROR(UnitExists);
 static SD_VARLINK_DEFINE_ERROR(UnitTypeNotSupported);
 static SD_VARLINK_DEFINE_ERROR(BadUnitSetting);
+static SD_VARLINK_DEFINE_ERROR(ProcessIdUnknown);
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 StartTransient,
@@ -2159,4 +2162,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("This unit type does not support transient units"),
                 &vl_error_UnitTypeNotSupported,
                 SD_VARLINK_SYMBOL_COMMENT("The unit file content contains invalid settings"),
-                &vl_error_BadUnitSetting);
+                &vl_error_BadUnitSetting,
+                SD_VARLINK_SYMBOL_COMMENT("The specified process could not be found"),
+                &vl_error_ProcessIdUnknown);
