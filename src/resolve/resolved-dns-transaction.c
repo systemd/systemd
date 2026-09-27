@@ -22,7 +22,7 @@
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-transaction.h"
-#include "resolved-dnstls.h"
+#include "resolved-dns-transport.h"
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
@@ -684,21 +684,39 @@ static int on_stream_packet(DnsStream *s, DnsPacket *p) {
         return 0;
 }
 
-static uint16_t dns_transaction_port(DnsTransaction *t) {
+int dns_transaction_stream_new(
+                DnsTransaction *t,
+                DnsStreamType type,
+                int fd,
+                const union sockaddr_union *tfo_address,
+                usec_t connect_timeout_usec,
+                DnsStream **ret) {
+
+        DnsStream *s;
+        int r;
+
         assert(t);
+        assert(fd >= 0);
+        assert(ret);
 
-        if (t->server->port > 0)
-                return t->server->port;
+        /* Wraps a connected TCP socket into a stream delivering replies to the transaction logic. On
+         * success the stream takes possession of the fd. */
 
-        return DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) ? 853 : 53;
+        r = dns_stream_new(t->scope->manager, &s, type, t->scope->protocol, fd, tfo_address,
+                           on_stream_packet, on_stream_complete, connect_timeout_usec);
+        if (r < 0)
+                return r;
+
+        /* The interface index is difficult to determine if we are connecting to the local host, hence fill
+         * this in right away instead of determining it from the socket */
+        s->ifindex = dns_scope_ifindex(t->scope);
+
+        *ret = s;
+        return 0;
 }
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
-        usec_t stream_timeout_usec = DNS_STREAM_DEFAULT_TIMEOUT_USEC;
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        union sockaddr_union sa;
-        DnsStreamType type;
         int r;
 
         assert(t);
@@ -708,7 +726,9 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
         switch (t->scope->protocol) {
 
-        case DNS_PROTOCOL_DNS:
+        case DNS_PROTOCOL_DNS: {
+                DnsServerTransport *tr;
+
                 r = dns_transaction_pick_server(t);
                 if (r < 0)
                         return r;
@@ -725,23 +745,22 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                                 return r;
                 }
 
-                if (t->server->stream && (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) == t->server->stream->encrypted))
-                        s = dns_stream_ref(t->server->stream);
-                else
-                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_transaction_port(t), &sa);
+                tr = dns_server_transport(t->server, t->current_feature_level.transport);
+                if (!tr)
+                        return -EAFNOSUPPORT;
 
-                /* Lower timeout in DNS-over-TLS opportunistic mode. In environments where DoT is blocked
-                 * without ICMP response overly long delays when contacting DoT servers are nasty, in
-                 * particular if multiple DNS servers are defined which we try in turn and all are
-                 * blocked. Hence, substantially lower the timeout in that case. */
-                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) &&
-                    dns_server_get_dns_over_tls_mode(t->server) == DNS_OVER_TLS_OPPORTUNISTIC)
-                        stream_timeout_usec = DNS_STREAM_OPPORTUNISTIC_TLS_TIMEOUT_USEC;
+                /* The transport either hands us its existing long-lived stream, or opens a new one */
+                r = DNS_TRANSPORT_VTABLE(tr)->open_stream(tr, t, &s);
+                if (r < 0)
+                        return r;
 
-                type = DNS_STREAM_LOOKUP;
                 break;
+        }
 
-        case DNS_PROTOCOL_LLMNR:
+        case DNS_PROTOCOL_LLMNR: {
+                _cleanup_close_ int fd = -EBADF;
+                union sockaddr_union sa;
+
                 /* When we already received a reply to this (but it was truncated), send to its sender address */
                 if (t->received)
                         fd = dns_scope_socket_tcp(t->scope, t->received->family, &t->received->sender, NULL, t->received->sender_port, &sa);
@@ -763,58 +782,19 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
                         fd = dns_scope_socket_tcp(t->scope, family, &address, NULL, LLMNR_PORT, &sa);
                 }
-
-                type = DNS_STREAM_LLMNR_SEND;
-                break;
-
-        default:
-                return -EAFNOSUPPORT;
-        }
-
-        if (!s) {
                 if (fd < 0)
                         return fd;
 
-                r = dns_stream_new(t->scope->manager, &s, type, t->scope->protocol, fd, &sa,
-                                   on_stream_packet, on_stream_complete, stream_timeout_usec);
+                r = dns_transaction_stream_new(t, DNS_STREAM_LLMNR_SEND, fd, &sa, DNS_STREAM_DEFAULT_TIMEOUT_USEC, &s);
                 if (r < 0)
                         return r;
 
-                fd = -EBADF;
+                TAKE_FD(fd);
+                break;
+        }
 
-#if ENABLE_DNS_OVER_TLS
-                if (t->scope->protocol == DNS_PROTOCOL_DNS &&
-                    DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
-
-                        assert(t->server);
-                        r = dnstls_stream_connect_tls(s, t->server);
-                        if (r < 0) {
-                                /* If libcrypto is not available treat this like a TLS connection loss, so
-                                 * that opportunistic DNS-over-TLS downgrades to plaintext instead of
-                                 * re-selecting a TLS feature level and failing on every attempt. */
-                                if (r == -EOPNOTSUPP) {
-                                        log_struct_once(LOG_WARNING,
-                                                        LOG_MESSAGE_ID(SD_MESSAGE_MISSING_DEPENDENCY_STR),
-                                                        LOG_ITEM("FEATURE=DNS-over-TLS"),
-                                                        LOG_MESSAGE("DNS-over-TLS has been requested but the required TLS libraries (libssl/libcrypto) are not installed."));
-                                        dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
-                                        return -ECONNREFUSED;
-                                }
-                                return r;
-                        }
-                }
-#endif
-
-                if (t->server) {
-                        dns_server_unref_stream(t->server);
-                        s->server = dns_server_ref(t->server);
-                        t->server->stream = dns_stream_ref(s);
-                }
-
-                /* The interface index is difficult to determine if we are
-                 * connecting to the local host, hence fill this in right away
-                 * instead of determining it from the socket */
-                s->ifindex = dns_scope_ifindex(t->scope);
+        default:
+                return -EAFNOSUPPORT;
         }
 
         t->stream = TAKE_PTR(s);
@@ -1547,6 +1527,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
         assert(t);
 
         if (t->scope->protocol == DNS_PROTOCOL_DNS) {
+                DnsServerTransport *tr;
 
                 r = dns_transaction_pick_server(t);
                 if (r < 0)
@@ -1555,7 +1536,11 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                 if (manager_server_is_stub(t->scope->manager, t->server))
                         return -ELOOP;
 
-                if (!DNS_SERVER_FEATURE_LEVEL_IS_UDP(t->current_feature_level))
+                tr = dns_server_transport(t->server, t->current_feature_level.transport);
+                if (!tr)
+                        return -EAFNOSUPPORT;
+
+                if (!DNS_SERVER_FEATURE_LEVEL_IS_UDP(t->current_feature_level) || !DNS_TRANSPORT_VTABLE(tr)->open_datagram)
                         return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
 
                 if (!t->bypass && !dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(dns_transaction_key(t)->type))
@@ -1569,7 +1554,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                         /* Before we allocate a new UDP socket, let's process the graveyard a bit to free some fds */
                         manager_socket_graveyard_process(t->scope->manager);
 
-                        fd = dns_scope_socket_udp(t->scope, t->server);
+                        fd = DNS_TRANSPORT_VTABLE(tr)->open_datagram(tr, t->scope);
                         if (fd < 0)
                                 return fd;
 
