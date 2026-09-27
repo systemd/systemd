@@ -499,8 +499,8 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
         t->current_feature_level = dns_server_possible_feature_level(server);
 
         /* Clamp the feature level if that is requested. */
-        if (t->clamp_feature_level_servfail != _DNS_SERVER_FEATURE_LEVEL_INVALID &&
-            t->current_feature_level > t->clamp_feature_level_servfail)
+        if (dns_server_feature_level_is_valid(t->clamp_feature_level_servfail) &&
+            dns_server_feature_level_compare(t->current_feature_level, t->clamp_feature_level_servfail) > 0)
                 t->current_feature_level = t->clamp_feature_level_servfail;
 
         log_debug("Using feature level %s for transaction %u.", dns_server_feature_level_to_string(t->current_feature_level), t->id);
@@ -562,7 +562,7 @@ static int dns_transaction_maybe_restart(DnsTransaction *t) {
         if (!t->server)
                 return 0;
 
-        if (t->current_feature_level <= dns_server_possible_feature_level(t->server))
+        if (dns_server_feature_level_compare(t->current_feature_level, dns_server_possible_feature_level(t->server)) <= 0)
                 return 0;
 
         /* The server's current feature level is lower than when we sent the original query. We learnt something from
@@ -1087,6 +1087,35 @@ static int dns_transaction_fix_rcode(DnsTransaction *t) {
         return 0;
 }
 
+static bool dns_transaction_reduce_feature_level(DnsTransaction *t, DnsServerFeatureLevel *ret) {
+        DnsServerFeatureLevel l;
+
+        assert(t);
+        assert(ret);
+
+        /* Determines the next lower feature level to retry with after a FORMERR, SERVFAIL or NOTIMP rcode.
+         * Only features that affect the packet layout are reduced, i.e. the EDNS level. Returns false if
+         * there's nothing left to reduce. */
+
+        l = t->current_feature_level;
+
+        if (l.edns == DNS_SERVER_EDNS_LEVEL_NONE)
+                return false;
+
+        if (l.transport == DNS_TRANSPORT_DOT && l.edns == DNS_SERVER_EDNS_LEVEL_EDNS0)
+                /* Our DNS-over-TLS implementation requires EDNS0, fall back to classic DNS instead */
+                l = (DnsServerFeatureLevel) {
+                        .transport = DNS_TRANSPORT_DNS,
+                        .edns = DNS_SERVER_EDNS_LEVEL_EDNS0,
+                        .udp = true,
+                };
+        else
+                l.edns--;
+
+        *ret = l;
+        return true;
+}
+
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted) {
         bool retry_with_tcp = false;
         int r;
@@ -1196,7 +1225,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 if (t->server)
                         dns_server_packet_udp_fragmented(t->server, dns_packet_size_unfragmented(p));
 
-                if (t->current_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP) {
+                if (DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(t->current_feature_level)) {
                         /* Packet was fragmented. Let's retry with TCP to avoid fragmentation attack
                          * issues. (We don't do that on the lowest feature level however, since crappy DNS
                          * servers often do not implement TCP, hence falling back to TCP on fragmentation is
@@ -1304,7 +1333,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
                         /* Request failed, immediately try again with reduced features */
 
-                        if (t->current_feature_level <= DNS_SERVER_FEATURE_LEVEL_UDP) {
+                        DnsServerFeatureLevel reduced;
+                        if (!dns_transaction_reduce_feature_level(t, &reduced)) {
 
                                 /* This was already at UDP feature level? If so, it doesn't make sense to downgrade
                                  * this transaction anymore, but let's see if it might make sense to send the request
@@ -1328,23 +1358,13 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                          * is retried without actually downgrading. If the next try also fails we will downgrade by
                          * hitting the else branch below. */
                         if (dns_packet_rcode(p) == DNS_RCODE_SERVFAIL &&
-                            t->clamp_feature_level_servfail < 0) {
+                            !dns_server_feature_level_is_valid(t->clamp_feature_level_servfail)) {
                                 t->clamp_feature_level_servfail = t->current_feature_level;
                                 log_debug("Server returned error %s, retrying transaction.",
                                           FORMAT_DNS_RCODE(dns_packet_rcode(p)));
                         } else {
                                 /* Reduce this feature level by one and try again. */
-                                switch (t->current_feature_level) {
-                                case DNS_SERVER_FEATURE_LEVEL_TLS_DO:
-                                        t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
-                                        break;
-                                case DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN + 1:
-                                        /* Skip plain TLS when TLS is not supported */
-                                        t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN - 1;
-                                        break;
-                                default:
-                                        t->clamp_feature_level_servfail = t->current_feature_level - 1;
-                                }
+                                t->clamp_feature_level_servfail = reduced;
 
                                 log_debug("Server returned error %s, retrying transaction with reduced feature level %s.",
                                           FORMAT_DNS_RCODE(dns_packet_rcode(p)),
@@ -1389,7 +1409,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                  * rcode and subsequently downgraded the protocol */
 
                 if (IN_SET(dns_packet_rcode(p), DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN) &&
-                    t->clamp_feature_level_servfail != _DNS_SERVER_FEATURE_LEVEL_INVALID)
+                    dns_server_feature_level_is_valid(t->clamp_feature_level_servfail))
                         dns_server_packet_rcode_downgrade(t->server, t->clamp_feature_level_servfail);
 
                 /* Report that the OPT RR was missing */
@@ -1535,7 +1555,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                 if (manager_server_is_stub(t->scope->manager, t->server))
                         return -ELOOP;
 
-                if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP || DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level))
+                if (!DNS_SERVER_FEATURE_LEVEL_IS_UDP(t->current_feature_level))
                         return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
 
                 if (!t->bypass && !dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(dns_transaction_key(t)->type))

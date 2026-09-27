@@ -263,10 +263,10 @@ void dns_server_move_back_and_unmark(DnsServer *s) {
 static void dns_server_verified(DnsServer *s, DnsServerFeatureLevel level) {
         assert(s);
 
-        if (s->verified_feature_level > level)
+        if (dns_server_feature_level_compare(s->verified_feature_level, level) > 0)
                 return;
 
-        if (s->verified_feature_level != level) {
+        if (!dns_server_feature_level_equal(s->verified_feature_level, level)) {
                 log_debug("Verified we get a response at feature level %s from DNS server %s.",
                           dns_server_feature_level_to_string(level),
                           strna(dns_server_string_full(s)));
@@ -302,14 +302,14 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
         assert(s);
 
         if (protocol == IPPROTO_UDP) {
-                if (s->possible_feature_level == level)
+                if (dns_server_feature_level_equal(s->possible_feature_level, level))
                         s->n_failed_udp = 0;
         } else if (protocol == IPPROTO_TCP) {
                 if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(level)) {
-                        if (s->possible_feature_level == level)
+                        if (dns_server_feature_level_equal(s->possible_feature_level, level))
                                 s->n_failed_tls = 0;
                 } else {
-                        if (s->possible_feature_level == level)
+                        if (dns_server_feature_level_equal(s->possible_feature_level, level))
                                 s->n_failed_tcp = 0;
 
                         /* Successful TCP connections are only useful to verify the TCP feature level. */
@@ -318,12 +318,12 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
         }
 
         /* If the RRSIG data is missing, then we can only validate EDNS0 at max */
-        if (s->packet_rrsig_missing && level >= DNS_SERVER_FEATURE_LEVEL_DO)
-                level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN : DNS_SERVER_FEATURE_LEVEL_EDNS0;
+        if (s->packet_rrsig_missing && DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(level))
+                level.edns = DNS_SERVER_EDNS_LEVEL_EDNS0;
 
         /* If the OPT RR got lost, then we can only validate UDP at max */
-        if (s->packet_bad_opt && level >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
-                level = DNS_SERVER_FEATURE_LEVEL_EDNS0 - 1;
+        if (s->packet_bad_opt && DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(level))
+                level = DNS_SERVER_FEATURE_LEVEL_UDP;
 
         dns_server_verified(s, level);
 
@@ -337,7 +337,7 @@ void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel le
         assert(s);
         assert(s->manager);
 
-        if (s->possible_feature_level != level)
+        if (!dns_server_feature_level_equal(s->possible_feature_level, level))
                 return;
 
         if (protocol == IPPROTO_UDP)
@@ -355,7 +355,7 @@ void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level) {
 
         /* Invoked whenever we get a packet with TC bit set. */
 
-        if (s->possible_feature_level != level)
+        if (!dns_server_feature_level_equal(s->possible_feature_level, level))
                 return;
 
         s->packet_truncated = true;
@@ -364,12 +364,17 @@ void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level) {
 void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level) {
         assert(s);
 
-        if (level < DNS_SERVER_FEATURE_LEVEL_DO)
+        if (!DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(level))
                 return;
 
-        /* If the RRSIG RRs are missing, we have to downgrade what we previously verified */
-        if (s->verified_feature_level >= DNS_SERVER_FEATURE_LEVEL_DO)
-                s->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN : DNS_SERVER_FEATURE_LEVEL_EDNS0;
+        /* If the RRSIG RRs are missing, we have to downgrade what we previously verified. Note that we
+         * attribute this to the transport the packet was received on, not the one we verified earlier. */
+        if (DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->verified_feature_level))
+                s->verified_feature_level = (DnsServerFeatureLevel) {
+                        .transport = level.transport,
+                        .edns = DNS_SERVER_EDNS_LEVEL_EDNS0,
+                        .udp = level.transport == DNS_TRANSPORT_DNS,
+                };
 
         s->packet_rrsig_missing = true;
 }
@@ -377,12 +382,12 @@ void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level) 
 void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level) {
         assert(s);
 
-        if (level < DNS_SERVER_FEATURE_LEVEL_EDNS0)
+        if (!DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(level))
                 return;
 
         /* If the OPT RR got lost, we have to downgrade what we previously verified */
-        if (s->verified_feature_level >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
-                s->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0-1;
+        if (DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(s->verified_feature_level))
+                s->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
 
         s->packet_bad_opt = true;
 }
@@ -394,10 +399,10 @@ void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level
          * for the transaction made it go away. In this case we immediately downgrade to the feature level that made
          * things work. */
 
-        if (s->verified_feature_level > level)
+        if (dns_server_feature_level_compare(s->verified_feature_level, level) > 0)
                 s->verified_feature_level = level;
 
-        if (s->possible_feature_level > level) {
+        if (dns_server_feature_level_compare(s->possible_feature_level, level) > 0) {
                 s->possible_feature_level = level;
                 dns_server_reset_counters(s);
                 log_debug("Downgrading transaction feature level fixed an RCODE error, downgrading server %s too.", strna(dns_server_string_full(s)));
@@ -409,7 +414,7 @@ void dns_server_packet_invalid(DnsServer *s, DnsServerFeatureLevel level) {
 
         /* Invoked whenever we got a packet we couldn't parse at all */
 
-        if (s->possible_feature_level != level)
+        if (!dns_server_feature_level_equal(s->possible_feature_level, level))
                 return;
 
         s->packet_invalid = true;
@@ -420,7 +425,7 @@ void dns_server_packet_do_off(DnsServer *s, DnsServerFeatureLevel level) {
 
         /* Invoked whenever the DO flag was not copied from our request to the response. */
 
-        if (s->possible_feature_level != level)
+        if (!dns_server_feature_level_equal(s->possible_feature_level, level))
                 return;
 
         s->packet_do_off = true;
@@ -458,6 +463,11 @@ static bool dns_server_grace_period_expired(DnsServer *s) {
         return true;
 }
 
+static DnsServerEdnsLevel dns_server_edns_level_min(DnsTransportKind transport) {
+        /* Our DNS-over-TLS implementation always requires EDNS0 */
+        return transport == DNS_TRANSPORT_DOT ? DNS_SERVER_EDNS_LEVEL_EDNS0 : DNS_SERVER_EDNS_LEVEL_NONE;
+}
+
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
         DnsServerFeatureLevel best;
 
@@ -465,21 +475,18 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
 
         /* Determine the best feature level we care about. If DNSSEC mode is off there's no point in using anything
          * better than EDNS0, hence don't even try. */
-        if (dns_server_get_dnssec_mode(s) != DNSSEC_NO)
-                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
-                        DNS_SERVER_FEATURE_LEVEL_DO :
-                        DNS_SERVER_FEATURE_LEVEL_TLS_DO;
-        else
-                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
-                        DNS_SERVER_FEATURE_LEVEL_EDNS0 :
-                        DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
+        best = (DnsServerFeatureLevel) {
+                .transport = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ? DNS_TRANSPORT_DNS : DNS_TRANSPORT_DOT,
+                .edns = dns_server_get_dnssec_mode(s) != DNSSEC_NO ? DNS_SERVER_EDNS_LEVEL_DO : DNS_SERVER_EDNS_LEVEL_EDNS0,
+        };
+        best.udp = best.transport == DNS_TRANSPORT_DNS;
 
         /* Clamp the feature level the highest level we care about. The DNSSEC mode might have changed since the last
          * time, hence let's downgrade if we are still at a higher level. */
-        if (s->possible_feature_level > best)
+        if (dns_server_feature_level_compare(s->possible_feature_level, best) > 0)
                 s->possible_feature_level = best;
 
-        if (s->possible_feature_level < best && dns_server_grace_period_expired(s)) {
+        if (dns_server_feature_level_compare(s->possible_feature_level, best) < 0 && dns_server_grace_period_expired(s)) {
 
                 s->possible_feature_level = best;
 
@@ -494,14 +501,14 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
 
                 dns_server_flush_cache(s);
 
-        } else if (s->possible_feature_level <= s->verified_feature_level)
+        } else if (dns_server_feature_level_compare(s->possible_feature_level, s->verified_feature_level) <= 0)
                 s->possible_feature_level = s->verified_feature_level;
         else {
                 DnsServerFeatureLevel p = s->possible_feature_level;
                 int log_level = LOG_WARNING;
 
                 if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
-                    s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TCP) {
+                    dns_server_feature_level_equal(s->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_TCP)) {
 
                         /* We are at the TCP (lowest) level, and we tried a couple of TCP connections, and it didn't
                          * work. Upgrade back to UDP again. */
@@ -513,25 +520,22 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                            dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
 
                         /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext UDP
-                         * if we don't require DNS-over-TLS */
+                         * if we don't require DNS-over-TLS, keeping the EDNS level. */
 
                         log_debug("Server doesn't support DNS-over-TLS, downgrading protocol...");
-                        s->possible_feature_level--;
+                        s->possible_feature_level.transport = DNS_TRANSPORT_DNS;
+                        s->possible_feature_level.udp = true;
 
                 } else if (s->packet_invalid &&
-                           s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP &&
-                           s->possible_feature_level != DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN) {
+                           s->possible_feature_level.edns > dns_server_edns_level_min(s->possible_feature_level.transport)) {
 
                         /* Downgrade from DO to EDNS0 + from EDNS0 to UDP, from TLS+DO to plain TLS. Or in
-                         * other words, if we receive a packet we cannot parse jump to the next lower feature
-                         * level that actually has an influence on the packet layout (and not just the
+                         * other words, if we receive a packet we cannot parse jump to the next lower EDNS
+                         * level, which actually has an influence on the packet layout (and not just the
                          * transport). */
 
                         log_debug("Got invalid packet from server, downgrading protocol...");
-                        s->possible_feature_level =
-                                s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TLS_DO  ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
-                                DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_EDNS0 :
-                                                                                                DNS_SERVER_FEATURE_LEVEL_UDP;
+                        s->possible_feature_level.edns--;
 
                 } else if (s->packet_bad_opt &&
                            DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(s->possible_feature_level) &&
@@ -563,8 +567,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                          * correctly implemented, let's downgrade if that's allowed. */
 
                         log_debug("Detected server didn't copy DO flag from request to response, downgrading feature level...");
-                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
-                                                                                                                 DNS_SERVER_FEATURE_LEVEL_EDNS0;
+                        s->possible_feature_level.edns = DNS_SERVER_EDNS_LEVEL_EDNS0;
 
                 } else if (s->packet_rrsig_missing &&
                            DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) &&
@@ -578,31 +581,31 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                          * DNSSEC mode. */
 
                         log_debug("Detected server responses lack RRSIG records, downgrading feature level...");
-                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
-                                                                                                                 DNS_SERVER_FEATURE_LEVEL_EDNS0;
+                        s->possible_feature_level.edns = DNS_SERVER_EDNS_LEVEL_EDNS0;
 
                 } else if (s->n_failed_udp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
                            DNS_SERVER_FEATURE_LEVEL_IS_UDP(s->possible_feature_level) &&
-                           ((s->possible_feature_level != DNS_SERVER_FEATURE_LEVEL_DO) || dns_server_get_dnssec_mode(s) != DNSSEC_YES)) {
+                           (!DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) || dns_server_get_dnssec_mode(s) != DNSSEC_YES)) {
 
                         /* We lost too many UDP packets in a row, and are on a UDP feature level. If the
                          * packets are lost, maybe the server cannot parse them, hence downgrading sounds
-                         * like a good idea. We might downgrade all the way down to TCP this way.
+                         * like a good idea. We first lower the EDNS level, and eventually switch from UDP
+                         * to TCP this way.
                          *
                          * If strict DNSSEC mode is used we won't downgrade below DO level however, as packet loss
                          * might have many reasons, a broken DNSSEC implementation being only one reason. And if the
                          * user is strict on DNSSEC, then let's assume that DNSSEC is not the fault here. */
 
                         log_debug("Lost too many UDP packets, downgrading feature level...");
-                        if (s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_DO) /* skip over TLS_PLAIN */
-                                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+                        if (s->possible_feature_level.edns > DNS_SERVER_EDNS_LEVEL_NONE)
+                                s->possible_feature_level.edns--;
                         else
-                                s->possible_feature_level--;
+                                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_TCP;
 
                 } else if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
                            s->packet_truncated &&
-                           s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP &&
                            DNS_SERVER_FEATURE_LEVEL_IS_UDP(s->possible_feature_level) &&
+                           DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(s->possible_feature_level) &&
                            (!DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) || dns_server_get_dnssec_mode(s) != DNSSEC_YES)) {
 
                          /* We got too many TCP connection failures in a row, we had at least one truncated
@@ -613,14 +616,10 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                           * TCP failed too often after all. */
 
                         log_debug("Got too many failed TCP connection failures and truncated UDP packets, downgrading feature level...");
-
-                        if (DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level))
-                                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0; /* Go DNSSEC → EDNS0 */
-                        else
-                                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP; /* Go EDNS0 → UDP */
+                        s->possible_feature_level.edns--; /* Go DNSSEC → EDNS0, or EDNS0 → UDP */
                 }
 
-                if (p != s->possible_feature_level) {
+                if (!dns_server_feature_level_equal(p, s->possible_feature_level)) {
 
                         /* We changed the feature level, reset the counting */
                         dns_server_reset_counters(s);
@@ -649,10 +648,10 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
         if (r < 0)
                 return r;
 
-        if (level < DNS_SERVER_FEATURE_LEVEL_EDNS0)
+        if (!DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(level))
                 return 0;
 
-        edns_do = level >= DNS_SERVER_FEATURE_LEVEL_DO;
+        edns_do = DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(level);
 
         udp_size = udp_header_size(server->family);
 
@@ -1280,15 +1279,67 @@ static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_type, DnsServerType);
 
-static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVEL_MAX] = {
-        [DNS_SERVER_FEATURE_LEVEL_TCP]       = "TCP",
-        [DNS_SERVER_FEATURE_LEVEL_UDP]       = "UDP",
-        [DNS_SERVER_FEATURE_LEVEL_EDNS0]     = "UDP+EDNS0",
-        [DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN] = "TLS+EDNS0",
-        [DNS_SERVER_FEATURE_LEVEL_DO]        = "UDP+EDNS0+DO",
-        [DNS_SERVER_FEATURE_LEVEL_TLS_DO]    = "TLS+EDNS0+DO",
+static const char* const dns_server_edns_level_table[_DNS_SERVER_EDNS_LEVEL_MAX] = {
+        [DNS_SERVER_EDNS_LEVEL_NONE]  = "none",
+        [DNS_SERVER_EDNS_LEVEL_EDNS0] = "edns0",
+        [DNS_SERVER_EDNS_LEVEL_DO]    = "do",
 };
-DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
+DEFINE_STRING_TABLE_LOOKUP(dns_server_edns_level, DnsServerEdnsLevel);
+
+int dns_server_feature_level_compare(DnsServerFeatureLevel a, DnsServerFeatureLevel b) {
+        int r;
+
+        /* Invalid feature levels sort before all valid ones */
+        r = CMP(dns_server_feature_level_is_valid(a), dns_server_feature_level_is_valid(b));
+        if (r != 0)
+                return r;
+        if (!dns_server_feature_level_is_valid(a))
+                return 0;
+
+        r = CMP(a.edns, b.edns);
+        if (r != 0)
+                return r;
+
+        r = CMP(a.transport, b.transport);
+        if (r != 0)
+                return r;
+
+        if (a.transport != DNS_TRANSPORT_DNS)
+                return 0;
+
+        return CMP(a.udp, b.udp);
+}
+
+const char* dns_server_feature_level_to_string(DnsServerFeatureLevel l) {
+        static const char* const table[_DNS_TRANSPORT_KIND_MAX][2][_DNS_SERVER_EDNS_LEVEL_MAX] = {
+                [DNS_TRANSPORT_DNS] = {
+                        [false] = {
+                                [DNS_SERVER_EDNS_LEVEL_NONE]  = "TCP",
+                                [DNS_SERVER_EDNS_LEVEL_EDNS0] = "TCP+EDNS0",
+                                [DNS_SERVER_EDNS_LEVEL_DO]    = "TCP+EDNS0+DO",
+                        },
+                        [true] = {
+                                [DNS_SERVER_EDNS_LEVEL_NONE]  = "UDP",
+                                [DNS_SERVER_EDNS_LEVEL_EDNS0] = "UDP+EDNS0",
+                                [DNS_SERVER_EDNS_LEVEL_DO]    = "UDP+EDNS0+DO",
+                        },
+                },
+                [DNS_TRANSPORT_DOT] = {
+                        [false] = {
+                                [DNS_SERVER_EDNS_LEVEL_NONE]  = "TLS",
+                                [DNS_SERVER_EDNS_LEVEL_EDNS0] = "TLS+EDNS0",
+                                [DNS_SERVER_EDNS_LEVEL_DO]    = "TLS+EDNS0+DO",
+                        },
+                },
+        };
+
+        if (!dns_server_feature_level_is_valid(l) ||
+            l.transport >= _DNS_TRANSPORT_KIND_MAX ||
+            l.edns >= _DNS_SERVER_EDNS_LEVEL_MAX)
+                return NULL;
+
+        return table[l.transport][l.transport == DNS_TRANSPORT_DNS && l.udp][l.edns];
+}
 
 int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret) {
 
