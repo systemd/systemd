@@ -97,6 +97,13 @@ desktop environments should adhere to the following conventions:
 
 This has the advantage of making it possible to reliably identify the app.
 
+`.desktop` files can opt themselves out of the launcher's scope-creation logic
+(including registration via `systemd-appd`), by using the line:
+`X-systemd-skip-register=true`. This is especially useful for situations where
+the `Exec=` entrypoint defined in the `.desktop` file is just a short-lived stub
+process that doesn't really belong to the app and instead just triggers the app
+to launch via IPC.
+
 ## XDG autostart integration
 
 To allow XDG autostart integration, systemd ships a cross-desktop generator
