@@ -1083,18 +1083,21 @@ static void source_disconnect(sd_event_source *s) {
                 sd_event_unref(event);
 }
 
-static sd_event_source* source_free(sd_event_source *s) {
+/* Idempotent: every flag is cleared as its work is done, so this may be called more than once on the
+ * same source. */
+static void source_disown(sd_event_source *s) {
         int r;
 
         assert(s);
 
-        source_disconnect(s);
-
-        if (s->type == SOURCE_IO && s->io.owned)
+        if (s->type == SOURCE_IO && s->io.owned) {
                 s->io.fd = safe_close(s->io.fd);
+                s->io.owned = false;
+        }
 
         if (s->type == SOURCE_CHILD) {
-                /* Eventually the kernel will do this automatically for us, but for now let's emulate this (unreliably) in userspace. */
+                /* Eventually the kernel will do this automatically for us, but for now let's emulate
+                 * this (unreliably) in userspace. */
 
                 if (s->child.process_owned) {
                         assert(s->child.pid > 0);
@@ -1105,24 +1108,46 @@ static sd_event_source* source_free(sd_event_source *s) {
                                 if (r < 0 && r != -ESRCH)
                                         log_debug_errno(r, "Failed to kill process " PID_FMT ", ignoring: %m",
                                                         s->child.pid);
+                                else
+                                        s->child.exited = true;
                         }
 
                         if (!s->child.waited) {
                                 siginfo_t si = {};
 
                                 /* Reap the child if we can */
-                                (void) waitid(P_PIDFD, s->child.pidfd, &si, WEXITED);
+                                if (waitid(P_PIDFD, s->child.pidfd, &si, WEXITED) >= 0)
+                                        s->child.waited = true;
                         }
+
+                        /* Keep ownership until the reap went through, so a later call retries it. */
+                        if (s->child.waited)
+                                s->child.process_owned = false;
                 }
 
-                if (s->child.pidfd_owned)
+                /* The reap needs the pidfd, so hold on to it while one is still owed. */
+                if (s->child.pidfd_owned && !s->child.process_owned) {
                         s->child.pidfd = safe_close(s->child.pidfd);
+                        s->child.pidfd_owned = false;
+                }
         }
 
         if (EVENT_SOURCE_IS_PRESSURE(s)) {
                 s->pressure.fd = safe_close(s->pressure.fd);
                 s->pressure.write_buffer = mfree(s->pressure.write_buffer);
+                s->pressure.write_buffer_size = 0;
         }
+}
+
+static sd_event_source* source_free(sd_event_source *s) {
+        assert(s);
+
+        source_disconnect(s);
+        source_disown(s);
+
+        /* Nothing can retry a failed reap past this point, so drop the pidfd source_disown() kept for it. */
+        if (s->type == SOURCE_CHILD && s->child.pidfd_owned)
+                s->child.pidfd = safe_close(s->child.pidfd);
 
         if (s->destroy_callback)
                 s->destroy_callback(s->userdata);
