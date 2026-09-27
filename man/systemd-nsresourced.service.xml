@@ -48,7 +48,11 @@
     such as <literal>overlayfs</literal> writes to a separate upper layer that would not be covered by the
     checks on the overlay mount itself, mounting a writable <literal>overlayfs</literal> instance is refused
     for these user namespaces unless its upper layer, too, is torn down together with the user namespace, or
-    is an id-mapped mount that translates the transient range away before it reaches the disk.</para>
+    is an id-mapped mount that translates the transient range away before it reaches the disk. The policy
+    does not cover <literal>cgroupfs</literal>, whose superblock is shared system-wide and cannot be
+    id-mapped: it records no ownership that survives a reboot, and the only part of it a transient range owns
+    is the cgroup subtree delegated to the user namespace (see below), hence user namespaces may freely
+    create cgroups below it.</para>
 
     <para><command>systemd-nsresourced</command> automatically ensures that any registered UID ranges show up
     in the system's NSS database via the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record
