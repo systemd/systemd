@@ -67,6 +67,7 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 
 /* From include/uapi/linux/magic.h, which vmlinux.h does not provide. */
 #define OVERLAYFS_SUPER_MAGIC 0x794c7630
+#define CGROUP2_SUPER_MAGIC 0x63677270
 
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
@@ -270,6 +271,18 @@ static int mount_map_id(struct vfsmount *mnt, struct user_namespace *fs_userns, 
         return uid_gid_map_translate(gid ? &fs_userns->gid_map : &fs_userns->uid_map, id, /* up= */ false, ret);
 }
 
+/* cgroupfs is exempt from this policy. There is a single cgroupfs superblock, stamped with the initial user
+ * namespace and shared by every mount of it no matter which namespace mounts it, so the s_user_ns test the
+ * callers apply can never pass for it, and it cannot be idmapped either. Exempting it is safe: cgroupfs
+ * carries no ownership past a reboot, and the only part of the tree a managed namespace's transient range
+ * owns is the cgroup delegated to it through
+ * io.systemd.NamespaceResource.AddControlGroupToUserNamespace, which the delegation tears down with the
+ * client. Everything above that stays owned by an ID the namespace does not map, hence out of its reach.
+ * Without this a systemd-nspawn --private-users=managed payload cannot create the cgroups it runs in. */
+static bool mount_is_exempt(struct vfsmount *v) {
+        return v->mnt_sb->s_magic == CGROUP2_SUPER_MAGIC;
+}
+
 /* Common tail of the inode creation hooks: would the object the calling task is about to create end up
  * owned by a transient ID on a file system that outlives the user namespace that ID was handed to? */
 static int validate_mount(struct vfsmount *v, int ret) {
@@ -297,6 +310,9 @@ static int validate_mount(struct vfsmount *v, int ret) {
         if (r < 0)
                 return r;
         if (r == 0) /* Not provisioned by nsresourced? Then this is none of our business. */
+                return 0;
+
+        if (mount_is_exempt(v))
                 return 0;
 
         fs_userns = v->mnt_sb->s_user_ns;
@@ -349,6 +365,9 @@ int BPF_PROG(userns_restrict_path_chown, struct path *path, unsigned long long u
         if (r < 0)
                 return r;
         if (r == 0)
+                return 0;
+
+        if (mount_is_exempt(path->mnt))
                 return 0;
 
         r = userns_is_below(managed, path->mnt->mnt_sb->s_user_ns);
