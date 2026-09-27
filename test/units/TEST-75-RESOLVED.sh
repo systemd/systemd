@@ -1742,6 +1742,96 @@ testcase_dot_strict_per_link_verify() {
         --grep "Failed to invoke SSL_do_handshake.*(certificate verify failed|self[- ]signed certificate|unable to get local issuer)"
 }
 
+# Regression test: when a reply received over a stream (TCP or DNS-over-TLS) made resolved retry the
+# transaction (e.g. SERVFAIL → retry with a reduced feature level), the retry was immediately aborted and the
+# lookup failed with "invalid-reply". The dummy server truncates all UDP replies for this name (to force
+# TCP) and replies with SERVFAIL as long as the query carries an OPT RR, so the lookup only succeeds if
+# resolved downgrades its feature level across multiple stream replies.
+# See the "servfail-with-opt.stream.test" handler in test-resolved-dummy-server.c.
+testcase_servfail_retry_over_stream() {
+    local link_addr="10.123.97.1" socat_pid="" tmpdir
+
+    tmpdir="$(mktemp -d)"
+
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        if [[ -n "$socat_pid" ]] && kill -0 "$socat_pid" 2>/dev/null; then
+            kill "$socat_pid" || :
+            wait "$socat_pid" 2>/dev/null || :
+        fi
+        systemctl stop resolved-dummy-server-stream.service || :
+        rm -f /run/systemd/network/10-dns4-stream.netdev /run/systemd/network/10-dns4-stream.network
+        networkctl reload || :
+        ip link del dns4-stream 2>/dev/null || :
+        rm -rf "$tmpdir"
+    }
+
+    trap cleanup RETURN ERR
+
+    {
+        echo "[NetDev]"
+        echo "Name=dns4-stream"
+        echo "Kind=dummy"
+    } >/run/systemd/network/10-dns4-stream.netdev
+    {
+        echo "[Match]"
+        echo "Name=dns4-stream"
+        echo ""
+        echo "[Network]"
+        echo "IPv6AcceptRA=no"
+        echo "Address=${link_addr}/24"
+        echo "DNS=${link_addr}"
+        echo "Domains=~stream.test"
+        echo "DNSOverTLS=no"
+        echo "DNSSEC=no"
+    } >/run/systemd/network/10-dns4-stream.network
+
+    networkctl reload
+    /usr/lib/systemd/systemd-networkd-wait-online --timeout=30 --interface=dns4-stream:routable
+    assert_eq "$(resolvectl --json=short dnsovertls dns4-stream | jq -rc '.[0].dnsOverTLS')" "no"
+
+    systemd-run -u resolved-dummy-server-stream.service -p Type=notify -E SYSTEMD_LOG_LEVEL=debug \
+        /usr/lib/systemd/tests/unit-tests/manual/test-resolved-dummy-server "${link_addr}:53"
+
+    : "SERVFAIL over TCP must trigger a retry with a reduced feature level"
+    journalctl -n0 -q --cursor-file="$tmpdir/cursor-tcp"
+    run resolvectl query --cache=no -t A servfail-with-opt.stream.test
+    grep -F "servfail-with-opt.stream.test IN A ${link_addr}" "$RUN_OUT" >/dev/null
+    journalctl --sync
+    journalctl -u systemd-resolved.service --cursor-file="$tmpdir/cursor-tcp" \
+        --grep "Server returned error SERVFAIL, retrying transaction with reduced feature level UDP\."
+
+    if ! command -v openssl >/dev/null || ! command -v socat >/dev/null || ! socat -V | grep -F "WITH_OPENSSL 1" >/dev/null; then
+        echo "openssl or socat with OpenSSL support not found, skipping the DNS-over-TLS part"
+        return 0
+    fi
+
+    : "SERVFAIL over DNS-over-TLS must trigger a retry with a reduced feature level"
+    openssl req -x509 -newkey rsa:2048 -nodes \
+        -keyout "$tmpdir/key.pem" -out "$tmpdir/cert.pem" \
+        -subj "/CN=stream.test" -days 1
+    # Terminate TLS and forward the plaintext stream to the dummy server
+    socat -d -d -lf "$tmpdir/socat.log" \
+        "OPENSSL-LISTEN:853,bind=${link_addr},reuseaddr,fork,cert=$tmpdir/cert.pem,key=$tmpdir/key.pem,verify=0" \
+        "TCP:${link_addr}:53" &
+    socat_pid=$!
+    timeout 10s bash -c "until ss -lnt 'sport = :853' | grep -F ${link_addr} >/dev/null; do sleep 0.2; done"
+
+    # Opportunistic mode, since our certificate is self-signed. Also make sure we start with the full
+    # feature set again, as the server was downgraded by the previous lookup.
+    resolvectl dnsovertls dns4-stream opportunistic
+    assert_eq "$(resolvectl --json=short dnsovertls dns4-stream | jq -rc '.[0].dnsOverTLS')" "opportunistic"
+    resolvectl reset-server-features
+
+    journalctl -n0 -q --cursor-file="$tmpdir/cursor-tls"
+    run resolvectl query --cache=no -t A servfail-with-opt.stream.test
+    grep -F "servfail-with-opt.stream.test IN A ${link_addr}" "$RUN_OUT" >/dev/null
+    grep -F "accepting connection" "$tmpdir/socat.log" >/dev/null
+    journalctl --sync
+    journalctl -u systemd-resolved.service --cursor-file="$tmpdir/cursor-tls" \
+        --grep "Server returned error SERVFAIL, retrying transaction with reduced feature level UDP\+EDNS0\."
+}
+
 testcase_static_record() {
     mkdir -p /run/systemd/resolve/static.d/
     cat >/run/systemd/resolve/static.d/statictest.rr <<EOF
