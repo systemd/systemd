@@ -2296,6 +2296,55 @@ EOF
     assert_in "${image}2 : start=      286680, size=      532480, type=${esp_guid}" "$output"
 }
 
+testcase_fallback_partitions_copy_files() {
+    local workdir defs image root output
+
+    workdir="$(mktemp --directory /var/tmp/test-repart.fallback-copy.XXXXXXXXXX)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir:?}'" RETURN
+
+    defs="$workdir/defs"
+    image="$workdir/image.raw"
+    root="$workdir/root"
+    mkdir -p "$defs" "$root/efi/EFI/BOOT" "$root/boot/EFI/Linux"
+    echo bootloader >"$root/efi/EFI/BOOT/loader.efi"
+    echo kernel >"$root/boot/EFI/Linux/kernel.efi"
+
+    cat >"$defs/10-esp.conf" <<EOF
+[Partition]
+Type=esp
+Format=vfat
+CopyFiles=/efi:/
+SizeMinBytes=10M
+SplitName=esp
+EOF
+
+    cat >"$defs/20-xbootldr.conf" <<EOF
+[Partition]
+Type=xbootldr
+Format=vfat
+CopyFiles=/boot:/
+SizeMinBytes=100M
+SupplementFor=10-esp
+EOF
+
+    # Neither definition has subvolumes, but both CopyFiles= entries must survive the merge.
+    systemd-repart --offline="$OFFLINE" \
+                   --root="$root" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=auto \
+                   --dry-run=no \
+                   --split=yes \
+                   "$image"
+
+    output="$(sfdisk --json "$image")"
+    assert_eq "$(jq '.partitiontable.partitions | length' <<<"$output")" 1
+    assert_eq "$(jq -r '.partitiontable.partitions[0].type' <<<"$output")" "$esp_guid"
+    assert_eq "$(mtype -i "$workdir/image.esp.raw" ::/EFI/BOOT/loader.efi)" bootloader
+    assert_eq "$(mtype -i "$workdir/image.esp.raw" ::/EFI/Linux/kernel.efi)" kernel
+}
+
 testcase_btrfs() {
     local defs imgs output root
 

@@ -6916,15 +6916,19 @@ static int make_subvolumes_hashmap(const Partition *p, Hashmap **ret) {
         }
 
         if (p->suppressing_supplement) {
-                Hashmap *supplemented_by;
+                _cleanup_hashmap_free_ Hashmap *supplemented_by = NULL;
 
                 r = make_subvolumes_hashmap(p->supplemented_by, &supplemented_by);
                 if (r < 0)
                         return r;
 
-                r = hashmap_merge(hashmap, supplemented_by);
-                if (r < 0)
-                        return log_oom();
+                if (!hashmap)
+                        hashmap = TAKE_PTR(supplemented_by);
+                else {
+                        r = hashmap_move(hashmap, supplemented_by);
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         *ret = TAKE_PTR(hashmap);
@@ -6962,15 +6966,19 @@ static int make_subvolumes_by_source_inode_hashmap(
         }
 
         if (p->suppressing_supplement) {
-                Hashmap *supplemented_by;
+                _cleanup_hashmap_free_ Hashmap *supplemented_by = NULL;
 
                 r = make_subvolumes_by_source_inode_hashmap(p->supplemented_by, source, target, &supplemented_by);
                 if (r < 0)
                         return r;
 
-                r = hashmap_merge(hashmap, supplemented_by);
-                if (r < 0)
-                        return log_oom();
+                if (!hashmap)
+                        hashmap = TAKE_PTR(supplemented_by);
+                else {
+                        r = hashmap_move(hashmap, supplemented_by);
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         *ret = TAKE_PTR(hashmap);
