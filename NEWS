@@ -157,6 +157,22 @@ CHANGES WITH 263 in spe:
           systemd-sysupdate. The Credential= match in .network, .netdev, and
           .link files is unchanged.
 
+        * Units that the vendor enabled with a .wants/, .requires/ or .upholds/
+          symlink below /usr/ are now reported as "enabled" by "systemctl
+          is-enabled" and "systemctl status". Previously such units were
+          reported as "disabled" (or "static" for instances) even though the
+          service manager acts on those symlinks and starts the units at boot,
+          which means "systemctl is-enabled" now exits 0 where it used to exit
+          1 for them. Distributions install such symlinks for a number of
+          units, so this may be visible in packaging scripts.
+
+          Only a symlink that "systemctl enable" would create counts, i.e. one
+          in a directory that WantedBy=, RequiredBy= or UpheldBy= in the
+          [Install] section of the unit names. Any other dependency symlink
+          below /usr/ is a static dependency rather than enablement: the unit
+          is not reported as enabled because of it, and "systemctl disable"
+          leaves it in effect.
+
         * systemd may now optionally be built with support for programs
           written in Rust, controlled by the new -Drust= meson option. This
           adds rustc >= 1.85, bindgen >= 0.71.1 and meson >= 1.4.0 as

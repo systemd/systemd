@@ -75,6 +75,75 @@ static bool install_info_has_also(const InstallInfo *i) {
         return !strv_isempty(i->also);
 }
 
+static int dependency_dir_is_named(
+                RuntimeScope scope,
+                const InstallInfo *info,
+                char **targets,
+                const char *suffix,
+                const char *dir) {
+
+        int r;
+
+        assert(info);
+        assert(suffix);
+        assert(dir);
+
+        STRV_FOREACH(target, targets) {
+                _cleanup_free_ char *dst = NULL;
+                const char *e;
+
+                r = install_name_printf(scope, info, *target, &dst);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to resolve specifiers in '%s', ignoring: %m", *target);
+                        continue;
+                }
+
+                e = startswith(dir, dst);
+                if (e && streq(e, suffix))
+                        return true;
+        }
+
+        return false;
+}
+
+/* Whether enabling the unit creates a symlink named entry in a dependency directory named dir, for example
+ * multi-user.target.wants. WantedBy=, RequiredBy= and UpheldBy= in the [Install] section name the targets.
+ * Alias= names a unit file and Also= names other units, so neither results in a dependency symlink. Any
+ * other dependency symlink below /usr/ is a static dependency rather than enablement, and has to stay:
+ * remote-cryptsetup.target has WantedBy=multi-user.target, and systemd installs a symlink to it in
+ * initrd-root-device.target.wants/. */
+static int dependency_is_enablement(
+                RuntimeScope scope,
+                const InstallInfo *info,
+                const char *dir,
+                const char *entry) {
+
+        int r;
+
+        assert(info);
+        assert(dir);
+        assert(entry);
+
+        /* install_name_printf() expands a specifier such as %i from the name of the unit. For a template
+         * the symlink is named after an instance, so the specifiers are expanded from the entry name. */
+        const InstallInfo instance = {
+                .name = (char*) entry,
+                .root = info->root,
+        };
+
+        r = dependency_dir_is_named(scope, &instance, info->wanted_by, ".wants", dir);
+        if (r != 0)
+                return r;
+
+        r = dependency_dir_is_named(scope, &instance, info->required_by, ".requires", dir);
+        if (r != 0)
+                return r;
+
+        return dependency_dir_is_named(scope, &instance, info->upheld_by, ".upholds", dir);
+}
+
 static void unit_file_preset_rule_done(UnitFilePresetRule *rule) {
         assert(rule);
 
@@ -250,26 +319,37 @@ static int path_is_runtime(const LookupPaths *lp, const char *path, bool check_p
                            lp->runtime_control);
 }
 
-static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
+/* Unit directories below /usr/, i.e. the ones holding vendor supplied units and vendor supplied enablement.
+ * PID 1 acts on dependency symlinks in these just like on the ones in /etc/, but they are off limits when we
+ * enable or disable a unit on behalf of the administrator. */
+static bool path_is_vendor(const LookupPaths *lp, const char *path) {
         const char *rpath;
-        int r;
 
         assert(lp);
         assert(path);
 
         rpath = skip_root(lp->root_dir, path);
         if (!rpath)
-                return 0;
+                return false;
 
         if (path_startswith(rpath, "/usr"))
                 return true;
 
-        /* The lookup paths are root prefixed, so we have to pass in a root prefixed path. */
-        r = path_is_generator(lp, path);
-        if (r != 0)
-                return r;
+        return PATH_IN_SET(rpath, SYSTEM_DATA_UNIT_DIR, USER_DATA_UNIT_DIR);
+}
 
-        return path_equal(rpath, SYSTEM_DATA_UNIT_DIR);
+static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
+        assert(lp);
+        assert(path);
+
+        if (!skip_root(lp->root_dir, path))
+                return 0;
+
+        if (path_is_vendor(lp, path))
+                return true;
+
+        /* The lookup paths are root prefixed, so we have to pass in a root prefixed path. */
+        return path_is_generator(lp, path);
 }
 
 static const char* dependency_dir_suffix(const char *dir) {
@@ -1044,26 +1124,35 @@ static int find_symlinks_in_directory(
 }
 
 static int find_symlinks(
+                RuntimeScope scope,
                 const LookupPaths *lp,
                 const InstallInfo *i,
                 bool match_name,
                 bool ignore_same_name,
                 const char *config_path,
-                bool *same_name_link) {
+                bool *same_name_link,
+                bool *ret_enablement) {
 
         _cleanup_closedir_ DIR *config_dir = NULL;
+        bool vendor, found_static = false;
         int r;
 
+        assert(lp);
         assert(i);
         assert(config_path);
         assert(same_name_link);
+        assert(ret_enablement);
 
         config_dir = opendir(config_path);
         if (!config_dir) {
-                if (IN_SET(errno, ENOENT, ENOTDIR, EACCES))
+                if (IN_SET(errno, ENOENT, ENOTDIR, EACCES)) {
+                        *ret_enablement = false;
                         return 0;
+                }
                 return -errno;
         }
+
+        vendor = path_is_vendor(lp, config_path);
 
         FOREACH_DIRENT(de, config_dir, return -errno) {
                 _cleanup_free_ const char *path = NULL;
@@ -1088,8 +1177,23 @@ static int find_symlinks(
                                                /* ignore_same_name= */ ignore_same_name,
                                                config_path,
                                                same_name_link);
-                if (r > 0)
+                if (r > 0) {
+                        /* In the vendor directories only a symlink that enabling would create enables the
+                         * unit. Any other dependency symlink there is a static dependency, which
+                         * find_symlinks_in_scope() treats like an alias. */
+                        if (vendor) {
+                                r = dependency_is_enablement(scope, i, de->d_name, i->name);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0) {
+                                        found_static = true;
+                                        continue;
+                                }
+                        }
+
+                        *ret_enablement = true;
                         return 1;
+                }
                 if (r < 0)
                         log_debug_errno(r, "Failed to look up symlinks in \"%s\": %m", path);
         }
@@ -1097,12 +1201,17 @@ static int find_symlinks(
         /* We didn't find any suitable symlinks in .wants, .requires or .upholds directories,
          * let's look for linked unit files in this directory. */
         rewinddir(config_dir);
-        return find_symlinks_in_directory(config_dir, config_path, lp, i,
-                                          /* ignore_destination= */ false,
-                                          /* match_name= */ match_name,
-                                          /* ignore_same_name= */ ignore_same_name,
-                                          config_path,
-                                          same_name_link);
+        r = find_symlinks_in_directory(config_dir, config_path, lp, i,
+                                       /* ignore_destination= */ false,
+                                       /* match_name= */ match_name,
+                                       /* ignore_same_name= */ ignore_same_name,
+                                       config_path,
+                                       same_name_link);
+        if (r < 0)
+                return r;
+
+        *ret_enablement = false;
+        return r > 0 || found_static;
 }
 
 static int find_symlinks_in_scope(
@@ -1113,7 +1222,7 @@ static int find_symlinks_in_scope(
                 UnitFileState *state) {
 
         bool same_name_link_runtime = false, same_name_link_config = false;
-        bool enabled_in_runtime = false, enabled_at_all = false;
+        bool enabled_in_runtime = false, enabled_at_all = false, aliased_at_all = false;
         bool ignore_same_name = false;
         int r;
 
@@ -1126,9 +1235,9 @@ static int find_symlinks_in_scope(
          * effectively masked, so we should ignore them. */
 
         STRV_FOREACH(p, lp->search_path)  {
-                bool same_name_link = false;
+                bool same_name_link = false, enablement = false;
 
-                r = find_symlinks(lp, info, match_name, ignore_same_name, *p, &same_name_link);
+                r = find_symlinks(scope, lp, info, match_name, ignore_same_name, *p, &same_name_link, &enablement);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -1151,8 +1260,18 @@ static int find_symlinks_in_scope(
                                 return r;
                         if (r > 0)
                                 enabled_in_runtime = true;
-                        else
+                        else if (enablement && path_is_vendor(lp, *p))
+                                /* The vendor installed a .wants/, .requires/ or .upholds/ symlink below
+                                 * /usr/, in a directory the [Install] section names. PID 1 acts on it like
+                                 * on a symlink in /etc/, so the unit is enabled. A symlink or a mask in
+                                 * /etc/ still overrides it. */
                                 enabled_at_all = true;
+                        else
+                                /* The symlink is an alias, i.e. it gives the unit another name, a static
+                                 * dependency the vendor installed, or a symlink in one of the remaining
+                                 * directories, such as the one portable services are attached to. None of
+                                 * those enables the unit, see below. */
+                                aliased_at_all = true;
 
                 } else if (same_name_link) {
                         if (path_equal(*p, lp->persistent_config))
@@ -1177,11 +1296,19 @@ static int find_symlinks_in_scope(
                 return 1;
         }
 
+        /* Enabled by the vendor rather than by the administrator. Report it as plain "enabled": that is what
+         * it behaves like, and it remains overridable from /etc/, either by removing the dependency symlink
+         * that shadows the vendor one or by masking it with a symlink to /dev/null. */
+        if (enabled_at_all) {
+                *state = UNIT_FILE_ENABLED;
+                return 1;
+        }
+
         /* Here's a special rule: if the unit we are looking for is an instance, and it symlinked in the search path
          * outside of runtime and configuration directory, then we consider it statically enabled. Note we do that only
          * for instance, not for regular names, as those are merely aliases, while instances explicitly instantiate
          * something, and hence are a much stronger concept. */
-        if (enabled_at_all && unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+        if (aliased_at_all && unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
                 *state = UNIT_FILE_STATIC;
                 return 1;
         }
