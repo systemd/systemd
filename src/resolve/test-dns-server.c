@@ -3,6 +3,7 @@
 #include "sd-event.h"
 
 #include "resolved-dns-server.h"
+#include "resolved-dns-transport-dns.h"
 #include "resolved-manager.h"
 #include "tests.h"
 

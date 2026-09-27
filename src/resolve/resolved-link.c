@@ -284,7 +284,7 @@ static int link_update_dns_server_one(Link *l, const char *str) {
                 return -EINVAL;
 
         /* By default, the port number is determined with the transaction feature level.
-         * See dns_transaction_port() and dns_server_port(). */
+         * See dns_server_transport_port() and dns_server_port(). */
         if (IN_SET(port, 53, 853))
                 port = 0;
 

@@ -22,7 +22,6 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
-#include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"
@@ -207,6 +206,9 @@ static int on_stream_complete_do_nothing(DnsStream *s, int error) {
 
 static void test_dns_stream(bool tls) {
         Manager manager = {};
+#if ENABLE_DNS_OVER_TLS
+        _cleanup_(dnstls_server_data_done) DnsTlsServerData server_data = {};
+#endif
          _cleanup_(dns_stream_unrefp) DnsStream *stream = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_close_ int clientfd = -EBADF;
@@ -261,14 +263,14 @@ static void test_dns_stream(bool tls) {
                                  DNS_STREAM_DEFAULT_TIMEOUT_USEC) >= 0);
 #if ENABLE_DNS_OVER_TLS
         if (tls) {
-                DnsServer server = {
-                        .manager = &manager,
-                        .family = server_address.sa.sa_family,
-                        .address = *sockaddr_in_addr(&server_address.sa),
-                };
-
                 assert_se(dnstls_manager_init(&manager) >= 0);
-                assert_se(dnstls_stream_connect_tls(stream, &server) >= 0);
+                assert_se(dnstls_stream_connect_tls(
+                                        stream,
+                                        /* server_name= */ NULL,
+                                        server_address.sa.sa_family,
+                                        sockaddr_in_addr(&server_address.sa),
+                                        /* verify= */ manager.dns_over_tls_mode == DNS_OVER_TLS_YES,
+                                        &server_data) >= 0);
         }
 #endif
 
@@ -314,8 +316,13 @@ static void test_dns_stream(bool tls) {
         n_received_packets = 0;
 
 #if ENABLE_DNS_OVER_TLS
-        if (tls)
+        if (tls) {
+                /* Shutting down the stream saves the TLS session for resumption */
+                assert_se(dnstls_stream_shutdown(stream, 0) >= 0);
+                assert_se(server_data.session);
+
                 dnstls_manager_free(&manager);
+        }
 #endif
 
         /* Stop the DNS server */
