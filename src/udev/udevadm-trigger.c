@@ -142,7 +142,7 @@ static int exec_list(
                                 RET_GATHER(ret, r);
                         continue;
                 } else
-                        log_device_debug(d, "Triggered device with action '%s'.", action_str);
+                        log_device_debug(d, "Triggered '%s': ACTION=%s, UUID=%s", syspath, action_str, SD_ID128_TO_STRING(id));
 
                 /* If the user asked for it, write event UUID to stdout */
                 if (arg_uuid)
