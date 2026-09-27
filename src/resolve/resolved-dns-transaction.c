@@ -496,12 +496,8 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
         if (server != t->server)
                 t->clamp_feature_level_servfail = _DNS_SERVER_FEATURE_LEVEL_INVALID;
 
-        t->current_feature_level = dns_server_possible_feature_level(server);
-
-        /* Clamp the feature level if that is requested. */
-        if (dns_server_feature_level_is_valid(t->clamp_feature_level_servfail) &&
-            dns_server_feature_level_compare(t->current_feature_level, t->clamp_feature_level_servfail) > 0)
-                t->current_feature_level = t->clamp_feature_level_servfail;
+        /* Use the server's possible feature level, clamped if that is requested. */
+        t->current_feature_level = dns_server_possible_feature_level_clamped(server, &t->clamp_feature_level_servfail);
 
         log_debug("Using feature level %s for transaction %u.", dns_server_feature_level_to_string(t->current_feature_level), t->id);
 
@@ -1067,35 +1063,6 @@ static int dns_transaction_fix_rcode(DnsTransaction *t) {
         return 0;
 }
 
-static bool dns_transaction_reduce_feature_level(DnsTransaction *t, DnsServerFeatureLevel *ret) {
-        DnsServerFeatureLevel l;
-
-        assert(t);
-        assert(ret);
-
-        /* Determines the next lower feature level to retry with after a FORMERR, SERVFAIL or NOTIMP rcode.
-         * Only features that affect the packet layout are reduced, i.e. the EDNS level. Returns false if
-         * there's nothing left to reduce. */
-
-        l = t->current_feature_level;
-
-        if (l.edns == DNS_SERVER_EDNS_LEVEL_NONE)
-                return false;
-
-        if (l.transport == DNS_TRANSPORT_DOT && l.edns == DNS_SERVER_EDNS_LEVEL_EDNS0)
-                /* Our DNS-over-TLS implementation requires EDNS0, fall back to classic DNS instead */
-                l = (DnsServerFeatureLevel) {
-                        .transport = DNS_TRANSPORT_DNS,
-                        .edns = DNS_SERVER_EDNS_LEVEL_EDNS0,
-                        .udp = true,
-                };
-        else
-                l.edns--;
-
-        *ret = l;
-        return true;
-}
-
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted) {
         bool retry_with_tcp = false;
         int r;
@@ -1314,14 +1281,15 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                         /* Request failed, immediately try again with reduced features */
 
                         DnsServerFeatureLevel reduced;
-                        if (!dns_transaction_reduce_feature_level(t, &reduced)) {
+                        if (!dns_server_feature_level_reduce(t->server, t->current_feature_level, &reduced)) {
 
-                                /* This was already at UDP feature level? If so, it doesn't make sense to downgrade
-                                 * this transaction anymore, but let's see if it might make sense to send the request
-                                 * to a different DNS server instead. If not let's process the response, and accept the
-                                 * rcode. Note that we don't retry on TCP, since that's a suitable way to mitigate
-                                 * packet loss, but is not going to give us better rcodes should we actually have
-                                 * managed to get them already at UDP level. */
+                                /* This was already at the lowest feature level the policy permits (e.g. UDP
+                                 * without EDNS0)? If so, it doesn't make sense to downgrade this transaction
+                                 * anymore, but let's see if it might make sense to send the request to a different
+                                 * DNS server instead. If not let's process the response, and accept the rcode. Note
+                                 * that we don't retry on TCP, since that's a suitable way to mitigate packet loss,
+                                 * but is not going to give us better rcodes should we actually have managed to get
+                                 * them already at UDP level. */
 
                                 if (dns_transaction_limited_retry(t))
                                         return;
