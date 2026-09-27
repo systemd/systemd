@@ -191,6 +191,7 @@ static thread_local sd_event *default_event = NULL;
 
 static void source_disconnect(sd_event_source *s);
 static void event_gc_inode_data(sd_event *e, InodeData *d);
+static int event_source_offline(sd_event_source *s, int enabled, bool ratelimited);
 
 sd_event* event_resolve(sd_event *e) {
         return e == SD_EVENT_DEFAULT ? default_event : e;
@@ -488,7 +489,23 @@ _public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
         return sd_event_source_unref(s);
 }
 
+/* Single choke point for adding, modifying, and removing an fd's readiness registration. events and
+ * userdata are ignored for EPOLL_CTL_DEL. */
+static int event_poll_ctl(sd_event *e, int op, int fd, uint32_t events, void *userdata) {
+        assert(e);
+        assert(fd >= 0);
+
+        struct epoll_event ev = {
+                .events = events,
+                .data.ptr = userdata,
+        };
+
+        return RET_NERRNO(epoll_ctl(e->epoll_fd, op, fd, op == EPOLL_CTL_DEL ? NULL : &ev));
+}
+
 static void source_io_unregister(sd_event_source *s) {
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_IO);
 
@@ -498,8 +515,9 @@ static void source_io_unregister(sd_event_source *s) {
         if (!s->io.registered)
                 return;
 
-        if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->io.fd, NULL) < 0)
-                log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
+        r = event_poll_ctl(s->event, EPOLL_CTL_DEL, s->io.fd, /* events= */ 0, s);
+        if (r < 0)
+                log_debug_errno(r, "Failed to remove source %s (type %s) from event loop, ignoring: %m",
                                 strna(s->description), event_source_type_to_string(s->type));
 
         s->io.registered = false;
@@ -510,19 +528,19 @@ static int source_io_register(
                 int enabled,
                 uint32_t events) {
 
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_IO);
         assert(enabled != SD_EVENT_OFF);
 
-        struct epoll_event ev = {
-                .events = events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
-                .data.ptr = s,
-        };
-
-        if (epoll_ctl(s->event->epoll_fd,
-                      s->io.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
-                      s->io.fd, &ev) < 0)
-                return -errno;
+        r = event_poll_ctl(s->event,
+                            s->io.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                            s->io.fd,
+                            events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
+                            s);
+        if (r < 0)
+                return r;
 
         s->io.registered = true;
 
@@ -530,6 +548,8 @@ static int source_io_register(
 }
 
 static void source_child_pidfd_unregister(sd_event_source *s) {
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_CHILD);
 
@@ -539,29 +559,31 @@ static void source_child_pidfd_unregister(sd_event_source *s) {
         if (!s->child.registered)
                 return;
 
-        if (EVENT_SOURCE_WATCH_PIDFD(s))
-                if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->child.pidfd, NULL) < 0)
-                        log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
+        if (EVENT_SOURCE_WATCH_PIDFD(s)) {
+                r = event_poll_ctl(s->event, EPOLL_CTL_DEL, s->child.pidfd, /* events= */ 0, s);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to remove source %s (type %s) from event loop, ignoring: %m",
                                         strna(s->description), event_source_type_to_string(s->type));
+        }
 
         s->child.registered = false;
 }
 
 static int source_child_pidfd_register(sd_event_source *s, int enabled) {
+        int r;
+
         assert(s);
         assert(s->type == SOURCE_CHILD);
         assert(enabled != SD_EVENT_OFF);
 
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
-                struct epoll_event ev = {
-                        .events = EPOLLIN | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
-                        .data.ptr = s,
-                };
-
-                if (epoll_ctl(s->event->epoll_fd,
-                              s->child.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
-                              s->child.pidfd, &ev) < 0)
-                        return -errno;
+                r = event_poll_ctl(s->event,
+                                    s->child.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                                    s->child.pidfd,
+                                    EPOLLIN | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
+                                    s);
+                if (r < 0)
+                        return r;
         }
 
         s->child.registered = true;
@@ -571,6 +593,8 @@ static int source_child_pidfd_register(sd_event_source *s, int enabled) {
 #define EVENT_SOURCE_IS_PRESSURE(s) IN_SET((s)->type, SOURCE_MEMORY_PRESSURE, SOURCE_CPU_PRESSURE, SOURCE_IO_PRESSURE)
 
 static void source_pressure_unregister(sd_event_source *s) {
+        int r;
+
         assert(s);
         assert(EVENT_SOURCE_IS_PRESSURE(s));
 
@@ -580,28 +604,29 @@ static void source_pressure_unregister(sd_event_source *s) {
         if (!s->pressure.registered)
                 return;
 
-        if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->pressure.fd, NULL) < 0)
-                log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
+        r = event_poll_ctl(s->event, EPOLL_CTL_DEL, s->pressure.fd, /* events= */ 0, s);
+        if (r < 0)
+                log_debug_errno(r, "Failed to remove source %s (type %s) from event loop, ignoring: %m",
                                 strna(s->description), event_source_type_to_string(s->type));
 
         s->pressure.registered = false;
 }
 
 static int source_pressure_register(sd_event_source *s, int enabled) {
+        int r;
+
         assert(s);
         assert(EVENT_SOURCE_IS_PRESSURE(s));
         assert(enabled != SD_EVENT_OFF);
 
-        struct epoll_event ev = {
-                .events = s->pressure.write_buffer_size > 0 ? EPOLLOUT :
-                          (s->pressure.events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0)),
-                .data.ptr = s,
-        };
-
-        if (epoll_ctl(s->event->epoll_fd,
-                      s->pressure.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
-                      s->pressure.fd, &ev) < 0)
-                return -errno;
+        r = event_poll_ctl(s->event,
+                            s->pressure.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                            s->pressure.fd,
+                            s->pressure.write_buffer_size > 0 ? EPOLLOUT :
+                                (s->pressure.events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0)),
+                            s);
+        if (r < 0)
+                return r;
 
         s->pressure.registered = true;
         return 0;
@@ -782,15 +807,9 @@ static int event_make_signal_data(
 
         d->fd = fd_move_above_stdio(r);
 
-        struct epoll_event ev = {
-                .events = EPOLLIN,
-                .data.ptr = d,
-        };
-
-        if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, d->fd, &ev) < 0) {
-                r = -errno;
+        r = event_poll_ctl(e, EPOLL_CTL_ADD, d->fd, EPOLLIN, d);
+        if (r < 0)
                 goto fail;
-        }
 
         if (ret)
                 *ret = d;
@@ -1328,6 +1347,8 @@ static int event_setup_timer_fd(
                 struct clock_data *d,
                 clockid_t clock) {
 
+        int r;
+
         assert(e);
         assert(d);
 
@@ -1342,13 +1363,9 @@ static int event_setup_timer_fd(
 
         fd = fd_move_above_stdio(fd);
 
-        struct epoll_event ev = {
-                .events = EPOLLIN,
-                .data.ptr = d,
-        };
-
-        if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
-                return -errno;
+        r = event_poll_ctl(e, EPOLL_CTL_ADD, fd, EPOLLIN, d);
+        if (r < 0)
+                return r;
 
         d->fd = TAKE_FD(fd);
         return 0;
@@ -2206,6 +2223,8 @@ _public_ int sd_event_add_io_pressure(
 }
 
 static void event_free_inotify_data(sd_event *e, InotifyData *d) {
+        int r;
+
         assert(e);
 
         if (!d)
@@ -2223,9 +2242,11 @@ static void event_free_inotify_data(sd_event *e, InotifyData *d) {
         assert_se(hashmap_remove(e->inotify_data, &d->priority) == d);
 
         if (d->fd >= 0) {
-                if (!event_origin_changed(e) &&
-                    epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, d->fd, NULL) < 0)
-                        log_debug_errno(errno, "Failed to remove inotify fd from epoll, ignoring: %m");
+                if (!event_origin_changed(e)) {
+                        r = event_poll_ctl(e, EPOLL_CTL_DEL, d->fd, /* events= */ 0, d);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to remove inotify fd from event loop, ignoring: %m");
+                }
 
                 safe_close(d->fd);
         }
@@ -2269,13 +2290,8 @@ static int event_make_inotify_data(sd_event *e, int64_t priority, InotifyData **
                 return r;
         }
 
-        struct epoll_event ev = {
-                .events = EPOLLIN,
-                .data.ptr = d,
-        };
-
-        if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, d->fd, &ev) < 0) {
-                r = -errno;
+        r = event_poll_ctl(e, EPOLL_CTL_ADD, d->fd, EPOLLIN, d);
+        if (r < 0) {
                 d->fd = safe_close(d->fd); /* let's close this ourselves, as event_free_inotify_data() would otherwise
                                             * remove the fd from the epoll first, which we don't want as we couldn't
                                             * add it in the first place. */
@@ -2731,14 +2747,23 @@ _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
         if (s->io.registered) {
                 s->io.registered = false;
 
+                /* Ignore failure: callers are allowed to have closed saved_fd already, which drops the
+                 * registration by itself. */
+                (void) event_poll_ctl(s->event, EPOLL_CTL_DEL, saved_fd, /* events= */ 0, s);
+
                 r = source_io_register(s, s->enabled, s->io.events);
                 if (r < 0) {
+                        /* Put the source back on saved_fd. If even that fails there is no fd left we can
+                         * watch, so take the source offline rather than leave it enabled but unregistered,
+                         * which would trip the assertion above on the next call. */
                         s->io.fd = saved_fd;
-                        s->io.registered = true;
+                        if (source_io_register(s, s->enabled, s->io.events) < 0) {
+                                (void) event_source_offline(s, SD_EVENT_OFF, s->ratelimited);
+                                event_source_pp_prioq_reshuffle(s);
+                        }
+
                         return r;
                 }
-
-                (void) epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, saved_fd, NULL);
         }
 
         if (s->io.owned)
@@ -5151,19 +5176,13 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 if (r < 0)
                         goto fail;
 
-                struct epoll_event ev = {
-                        .events = EPOLLIN,
-                        .data.ptr = INT_TO_PTR(SOURCE_WATCHDOG),
-                };
-
-                if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, e->watchdog_fd, &ev) < 0) {
-                        r = -errno;
+                r = event_poll_ctl(e, EPOLL_CTL_ADD, e->watchdog_fd, EPOLLIN, INT_TO_PTR(SOURCE_WATCHDOG));
+                if (r < 0)
                         goto fail;
-                }
 
         } else {
                 if (e->watchdog_fd >= 0) {
-                        (void) epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, e->watchdog_fd, NULL);
+                        (void) event_poll_ctl(e, EPOLL_CTL_DEL, e->watchdog_fd, /* events= */ 0, INT_TO_PTR(SOURCE_WATCHDOG));
                         e->watchdog_fd = safe_close(e->watchdog_fd);
                 }
         }
