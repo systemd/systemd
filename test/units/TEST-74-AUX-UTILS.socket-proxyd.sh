@@ -38,6 +38,8 @@ EOF
 cat >/run/systemd/system/test-proxyd.service <<EOF
 [Service]
 ExecStart=/usr/lib/systemd/systemd-socket-proxyd $BACKEND_SOCK
+LimitNOFILE=1024:4096
+CapabilityBoundingSet=~CAP_SYS_RESOURCE
 EOF
 
 systemctl daemon-reload
@@ -56,3 +58,10 @@ assert_eq "$(echo -n world | proxy_echo)" "world"
 # Test with larger data (64KB random, base64-encoded)
 LARGE_DATA="$(dd if=/dev/urandom bs=1024 count=64 status=none | base64)"
 assert_eq "$(echo -n "$LARGE_DATA" | proxy_echo)" "$LARGE_DATA"
+
+# Every connection costs the proxy several fds, so it raises its soft RLIMIT_NOFILE. Without
+# CAP_SYS_RESOURCE it cannot raise the hard limit, so the result is exactly the unit's hard limit.
+PROXY_PID="$(systemctl show -P MainPID test-proxyd.service)"
+read -r _ _ _ SOFT HARD _ < <(grep '^Max open files' "/proc/$PROXY_PID/limits")
+assert_eq "$SOFT" 4096
+assert_eq "$HARD" 4096
