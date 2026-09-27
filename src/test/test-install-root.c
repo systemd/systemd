@@ -1392,6 +1392,13 @@ static void write_vendor_file(const char *rel, const char *contents) {
         ASSERT_OK(write_string_file(p, contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
 }
 
+static void write_vendor_symlink(const char *rel, const char *target) {
+        const char *p = strjoina(vendor_root, "/usr/lib/systemd/system/", rel);
+
+        ASSERT_OK(mkdir_parents(p, 0755));
+        ASSERT_OK_ERRNO(symlink(target, p));
+}
+
 static void assert_state(const char *name, UnitFileState expect) {
         UnitFileState state;
 
@@ -1446,6 +1453,95 @@ TEST(dependency_mask) {
         do_disable(0, STRV_MAKE("masked-dep.service"));
         ASSERT_TRUE(is_dependency_mask(entry));
         assert_state("masked-dep.service", UNIT_FILE_DISABLED);
+}
+
+TEST(vendor_symlinked_dependency_dir_is_not_followed) {
+        /* A dependency directory that is itself a symlink is not entered. An absolute one would resolve
+         * against the host rather than against --root=, which would have us report on and mask in the
+         * host's unit tree while operating on an image. */
+
+        write_vendor_file("system/vendor-escape.service", WANTED_BY_MULTI_USER);
+
+        /* The entry lives in a directory whose own name is not a dependency directory name, so it is only
+         * ever reachable through the symlink. */
+        write_vendor_symlink("stash/vendor-escape.service", "../vendor-escape.service");
+        ASSERT_OK_ERRNO(symlink("stash", strjoina(vendor_root, "/usr/lib/systemd/system/escape.target.wants")));
+
+        assert_state("vendor-escape.service", UNIT_FILE_DISABLED);
+
+        do_disable(0, STRV_MAKE("vendor-escape.service"));
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/escape.target.wants/vendor-escape.service")));
+}
+
+TEST(vendor_mask_shadows_lower_priority_dir) {
+        const char *high_mask, *mask;
+
+        /* An entry in a higher priority directory shadows the one below it, so a vendor that masks its own
+         * dependency in /usr/local/ leaves nothing for us to mask in /etc/. */
+
+        write_vendor_file("system/vendor-shadow.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-shadow.service", "../vendor-shadow.service");
+
+        high_mask = strjoina(vendor_root, "/usr/local/lib/systemd/system/multi-user.target.wants/vendor-shadow.service");
+        ASSERT_OK(mkdir_parents(high_mask, 0755));
+        ASSERT_OK_ERRNO(symlink("/dev/null", high_mask));
+
+        assert_state("vendor-shadow.service", UNIT_FILE_DISABLED);
+
+        do_disable(0, STRV_MAKE("vendor-shadow.service"));
+
+        mask = strjoina(vendor_root, ETC_WANTS"vendor-shadow.service");
+        ASSERT_FALSE(symlink_exists(mask));
+}
+
+TEST(vendor_entry_kinds) {
+        const char *entry;
+
+        /* conf_files_list_strv() lets whatever sits in the higher priority dependency directory win, and
+         * PID 1 then ignores anything that is not a symlink. A dependency resolving to an empty file counts
+         * as a mask just like one pointing at /dev/null. Our verdict has to agree with all of that. */
+
+        write_vendor_file("system/vendor-kinds.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-kinds.service", "../vendor-kinds.service");
+        assert_state("vendor-kinds.service", UNIT_FILE_ENABLED);
+
+        entry = strjoina(vendor_root, ETC_WANTS"vendor-kinds.service");
+        ASSERT_OK(mkdir_parents(entry, 0755));
+
+        /* A dangling symlink is still a dependency as far as PID 1 is concerned. */
+        ASSERT_OK_ERRNO(symlink("../nope.service", entry));
+        assert_state("vendor-kinds.service", UNIT_FILE_ENABLED);
+        ASSERT_OK_ERRNO(unlink(entry));
+
+        ASSERT_OK(write_string_file(strjoina(vendor_root, "/etc/empty"), "",
+                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
+        ASSERT_OK_ERRNO(symlink("/etc/empty", entry));
+        assert_state("vendor-kinds.service", UNIT_FILE_DISABLED);
+        ASSERT_OK_ERRNO(unlink(entry));
+
+        FOREACH_STRING(contents, "", "junk\n") {
+                _cleanup_free_ char *back = NULL;
+
+                ASSERT_OK(write_string_file(entry, contents,
+                                            WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|
+                                            WRITE_STRING_FILE_AVOID_NEWLINE));
+                assert_state("vendor-kinds.service", UNIT_FILE_DISABLED);
+
+                /* Whatever is sitting there already shadows the vendor symlink, so disabling has nothing
+                 * left to do and must not replace it: that would destroy it. */
+                do_disable(0, STRV_MAKE("vendor-kinds.service"));
+                ASSERT_OK(read_full_file(entry, &back, NULL));
+                ASSERT_STREQ(back, contents);
+
+                ASSERT_OK_ERRNO(unlink(entry));
+        }
+
+        ASSERT_OK_ERRNO(mkdir(entry, 0755));
+        assert_state("vendor-kinds.service", UNIT_FILE_DISABLED);
+
+        /* Replacing this one would fail outright rather than quietly. */
+        do_disable(0, STRV_MAKE("vendor-kinds.service"));
+        ASSERT_OK_ERRNO(rmdir(entry));
 }
 
 

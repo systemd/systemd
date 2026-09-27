@@ -6,6 +6,20 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * Units that the vendor enabled with a .wants/, .requires/ or .upholds/
+          symlink below /usr/ are now reported as "enabled" by "systemctl
+          is-enabled" and "systemctl status". Previously such units were
+          reported as "disabled" (or "static" for instances) even though the
+          service manager acts on those symlinks and starts the units at boot,
+          which means "systemctl is-enabled" now exits 0 where it used to exit
+          1 for them. Distributions ship such symlinks for a number of units,
+          so this may be visible in packaging scripts.
+
+          Units without WantedBy=, RequiredBy= or UpheldBy= in their [Install]
+          section are unaffected: a dependency symlink pointing at such a unit
+          wires it up statically rather than enabling it, so it is not reported
+          as enabled and nothing takes it out of the boot.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
