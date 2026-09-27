@@ -1532,6 +1532,16 @@ static int path_set_acls(
         return r;
 }
 
+static void fcaps_patch_update(FCapsPatch *patch, uint64_t caps, bool raise) {
+        assert(patch);
+
+        patch->mask |= caps;
+        if (raise)
+                patch->set |= caps;
+        else
+                patch->set &= ~caps;
+}
+
 static int capability_vfs_from_string(const char *s, FCapsUpdate *ret) {
         FCapsUpdate set = {
                 .rootuid = UID_INVALID,
@@ -1567,9 +1577,6 @@ static int capability_vfs_from_string(const char *s, FCapsUpdate *ret) {
                 } else {
                         uint64_t caps = 0;
 
-                        if (!in_charset(value, "eip"))
-                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse value '%s': %m", value);
-
                         if (STR_IN_SET(keys, "all", ""))
                                 caps = all_capabilities();
                         else
@@ -1591,31 +1598,38 @@ static int capability_vfs_from_string(const char *s, FCapsUpdate *ret) {
                                         }
                                 }
 
-                        if (sep == '=') {
-                                set.permitted.mask |= caps;
-                                set.inheritable.mask |= caps;
-                                set.effective.mask |= caps;
-                        }
-                        if (IN_SET(sep, '=', '+')) {
-                                if (strchr(value, 'p'))
-                                        set.permitted.set |= caps;
-                                if (strchr(value, 'i'))
-                                        set.inheritable.set |= caps;
-                                if (strchr(value, 'e'))
-                                        set.effective.set |= caps;
-                        } else {
-                                if (strchr(value, 'p')) {
-                                        set.permitted.mask |= caps;
-                                        set.permitted.set &= ~caps;
+                        /* A clause may contain several "<operator><flags>" actions, e.g. "cap_setuid+p-i",
+                         * which are applied in order, see cap_text_formats(7). Only the first action may
+                         * use '='. '+' and '-' need at least one flag, '=' alone lowers the listed
+                         * capabilities in all sets. */
+                        for (const char *a = value;;) {
+                                size_t n = strspn(a, "eip");
+                                bool eff = memchr(a, 'e', n);
+                                bool inh = memchr(a, 'i', n);
+                                bool perm = memchr(a, 'p', n);
+                                const char *end = a + n;
+
+                                if (!IN_SET(*end, '\0', '+', '-') || (n == 0 && sep != '='))
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Failed to parse value '%s': %m", value);
+
+                                if (sep == '=') {
+                                        fcaps_patch_update(&set.effective, caps, eff);
+                                        fcaps_patch_update(&set.inheritable, caps, inh);
+                                        fcaps_patch_update(&set.permitted, caps, perm);
+                                } else {
+                                        if (eff)
+                                                fcaps_patch_update(&set.effective, caps, sep == '+');
+                                        if (inh)
+                                                fcaps_patch_update(&set.inheritable, caps, sep == '+');
+                                        if (perm)
+                                                fcaps_patch_update(&set.permitted, caps, sep == '+');
                                 }
-                                if (strchr(value, 'i')) {
-                                        set.inheritable.mask |= caps;
-                                        set.inheritable.set &= ~caps;
-                                }
-                                if (strchr(value, 'e')) {
-                                        set.effective.mask |= caps;
-                                        set.effective.set &= ~caps;
-                                }
+
+                                if (!*end)
+                                        break;
+                                sep = *end;
+                                a = end + 1;
                         }
                 }
         }
