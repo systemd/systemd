@@ -467,19 +467,33 @@ static bool dns_server_grace_period_expired(DnsServer *s) {
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
         DnsServerFeatureLevel best;
+        DnsTransportPolicy policy;
 
         assert(s);
 
-        /* Determine the best feature level we care about. If DNSSEC mode is off there's no point in using anything
-         * better than EDNS0, hence don't even try. */
+        /* Determine the best feature level we care about: the most preferred transport the policy permits,
+         * and, if DNSSEC mode is off, not more than EDNS0, as there's no point in using anything better. */
+        dns_server_transport_policy(s, &policy);
         best = dns_server_feature_level_for_transport(
-                        dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ? DNS_TRANSPORT_DNS : DNS_TRANSPORT_DOT,
+                        policy.transports[0],
                         dns_server_get_dnssec_mode(s) != DNSSEC_NO ? DNS_SERVER_EDNS_LEVEL_DO : DNS_SERVER_EDNS_LEVEL_EDNS0);
 
         /* Clamp the feature level the highest level we care about. The DNSSEC mode might have changed since the last
          * time, hence let's downgrade if we are still at a higher level. */
         if (dns_server_feature_level_compare(s->possible_feature_level, best) > 0)
                 s->possible_feature_level = best;
+
+        /* Similarly, the policy might have changed since the last time, and not permit the transport we are
+         * using anymore. In that case start over with the best one it permits. */
+        if (!dns_transport_policy_contains(&policy, s->possible_feature_level.transport)) {
+                log_debug("Transport %s is not permitted for DNS server %s anymore, switching to %s.",
+                          dns_transport_kind_to_string(s->possible_feature_level.transport),
+                          strna(dns_server_string_full(s)),
+                          dns_transport_kind_to_string(best.transport));
+
+                s->possible_feature_level = best;
+                dns_server_reset_counters(s);
+        }
 
         if (dns_server_feature_level_compare(s->possible_feature_level, best) < 0 && dns_server_grace_period_expired(s)) {
 
@@ -496,23 +510,28 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
 
                 dns_server_flush_cache(s);
 
-        } else if (dns_server_feature_level_compare(s->possible_feature_level, s->verified_feature_level) <= 0)
+        } else if (dns_transport_policy_contains(&policy, s->verified_feature_level.transport) &&
+                   dns_server_feature_level_compare(s->possible_feature_level, s->verified_feature_level) <= 0)
+                /* We verified a feature level at least as good as the one we are at, use it. Unless the
+                 * policy doesn't permit its transport anymore, in which case it tells us nothing. */
                 s->possible_feature_level = s->verified_feature_level;
         else {
                 DnsServerFeatureLevel p = s->possible_feature_level;
                 DnsServerTransport *tr = ASSERT_PTR(dns_server_transport(s, p.transport));
                 const DnsTransportVTable *vt = DNS_TRANSPORT_VTABLE(tr);
+                DnsTransportKind fallback = dns_transport_policy_next(&policy, p.transport);
                 int log_level = LOG_WARNING;
 
-                if (vt->failed && vt->failed(tr) &&
-                    dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
+                if (fallback >= 0 && vt->failed && vt->failed(tr)) {
 
-                        /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext UDP
-                         * if we don't require DNS-over-TLS, keeping the EDNS level. */
+                        /* We tried to connect using the transport, and it didn't work. Fall back to the next
+                         * one the policy permits, e.g. from DNS-over-TLS to plaintext UDP, keeping the EDNS
+                         * level. */
 
-                        log_debug("Transport %s doesn't work with server, downgrading protocol...",
-                                  dns_transport_kind_to_string(p.transport));
-                        s->possible_feature_level = dns_server_feature_level_for_transport(DNS_TRANSPORT_DNS, p.edns);
+                        log_debug("Transport %s doesn't work with server, falling back to %s...",
+                                  dns_transport_kind_to_string(p.transport),
+                                  dns_transport_kind_to_string(fallback));
+                        s->possible_feature_level = dns_server_feature_level_for_transport(fallback, p.edns);
 
                 } else if (s->packet_invalid &&
                            s->possible_feature_level.edns > vt->edns_min) {
@@ -528,7 +547,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                 } else if (s->packet_bad_opt &&
                            DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(s->possible_feature_level) &&
                            dns_server_get_dnssec_mode(s) != DNSSEC_YES &&
-                           dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
+                           dns_transport_policy_contains(&policy, DNS_TRANSPORT_DNS)) {
 
                         /* A reply to one of our EDNS0 queries didn't carry a valid OPT RR, then downgrade to
                          * below EDNS0 levels. After all, some servers generate different responses with and
@@ -536,9 +555,10 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                          *
                          * https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html
                          *
-                         * If we are in strict DNSSEC or DoT mode, we don't do this kind of downgrade
-                         * however, as both modes imply EDNS0 to work (DNSSEC strictly requires it, and DoT
-                         * only in our implementation). */
+                         * If we are in strict DNSSEC mode, or the policy only permits encrypted transports, we
+                         * don't do this kind of downgrade however, as both imply EDNS0 to work (DNSSEC
+                         * strictly requires it, and DoT only in our implementation). Only classic DNS can do
+                         * without EDNS0. */
 
                         log_debug("Server doesn't support EDNS(0) properly, downgrading feature level...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
@@ -696,6 +716,8 @@ const char* dns_server_string_full(DnsServer *server) {
 }
 
 bool dns_server_dnssec_supported(DnsServer *server) {
+        DnsServerTransport *tr;
+
         assert(server);
 
         /* Returns whether the server supports DNSSEC according to what we know about it */
@@ -712,12 +734,12 @@ bool dns_server_dnssec_supported(DnsServer *server) {
         if (server->packet_do_off)
                 return false;
 
-        FOREACH_ELEMENT(tr, server->transports) {
-                if (!*tr)
-                        continue;
+        /* Ask the transport we are using. Others might carry counters from before we switched away. */
+        tr = dns_server_transport(server, server->possible_feature_level.transport);
+        if (tr) {
+                const DnsTransportVTable *vt = DNS_TRANSPORT_VTABLE(tr);
 
-                const DnsTransportVTable *vt = DNS_TRANSPORT_VTABLE(*tr);
-                if (vt->dnssec_supported && !vt->dnssec_supported(*tr))
+                if (vt->dnssec_supported && !vt->dnssec_supported(tr))
                         return false;
         }
 
@@ -1088,13 +1110,59 @@ DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
         return manager_get_dnssec_mode(s->manager);
 }
 
-DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s) {
+DnsEncryptionMode dns_server_get_encryption_mode(DnsServer *s) {
         assert(s);
 
+#if ENABLE_DNS_OVER_TLS
         if (s->link)
-                return link_get_dns_over_tls_mode(s->link);
+                return dns_encryption_mode_from_dns_over_tls_mode(link_get_dns_over_tls_mode(s->link));
 
-        return manager_get_dns_over_tls_mode(s->manager);
+        return dns_encryption_mode_from_dns_over_tls_mode(manager_get_dns_over_tls_mode(s->manager));
+#else
+        /* The configuration parsers turn DNS-over-TLS off already in this case, but let's be explicit, since
+         * without it we have no encrypted transport. */
+        return DNS_ENCRYPTION_NO;
+#endif
+}
+
+void dns_server_transport_policy(DnsServer *s, DnsTransportPolicy *ret) {
+        assert(s);
+        assert(ret);
+
+        dns_transport_policy_init(dns_server_get_encryption_mode(s), ret);
+}
+
+bool dns_server_feature_level_reduce(DnsServer *s, DnsServerFeatureLevel level, DnsServerFeatureLevel *ret) {
+        const DnsTransportVTable *vt;
+        DnsTransportPolicy policy;
+        DnsTransportKind fallback;
+
+        assert(s);
+        assert(dns_server_feature_level_is_valid(level));
+        assert(ret);
+
+        /* Determines the next lower feature level to retry with after a FORMERR, SERVFAIL or NOTIMP rcode.
+         * First the EDNS level is lowered, as that changes the packet layout. If the transport doesn't
+         * permit a lower EDNS level, we fall back to the next transport the policy permits, if any. Returns
+         * false if there's nothing left to reduce. */
+
+        if (level.edns == DNS_SERVER_EDNS_LEVEL_NONE)
+                return false;
+
+        vt = ASSERT_PTR(dns_transport_vtable[level.transport]);
+        if (level.edns > vt->edns_min) {
+                level.edns--;
+                *ret = level;
+                return true;
+        }
+
+        dns_server_transport_policy(s, &policy);
+        fallback = dns_transport_policy_next(&policy, level.transport);
+        if (fallback < 0)
+                return false;
+
+        *ret = dns_server_feature_level_for_transport(fallback, level.edns);
+        return true;
 }
 
 void dns_server_flush_cache(DnsServer *s) {
@@ -1185,6 +1253,10 @@ void dns_server_dump(DnsServer *s, FILE *f) {
 
         fputs("\tDNSSEC Mode: ", f);
         fputs(strna(dnssec_mode_to_string(dns_server_get_dnssec_mode(s))), f);
+        fputc('\n', f);
+
+        fputs("\tEncryption Mode: ", f);
+        fputs(strna(dns_encryption_mode_to_string(dns_server_get_encryption_mode(s))), f);
         fputc('\n', f);
 
         fputs("\tCan do DNSSEC: ", f);
