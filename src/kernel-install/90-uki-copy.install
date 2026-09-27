@@ -60,7 +60,13 @@ if ! [ -d "$UKI_DIR" ]; then
     mkdir -p "$UKI_DIR"
 fi
 
-TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+    TRIES_FILE="$KERNEL_INSTALL_CONF_ROOT/tries"
+elif [ -f /etc/kernel/tries ]; then
+    TRIES_FILE=/etc/kernel/tries
+else
+    TRIES_FILE=/usr/lib/kernel/tries
+fi
 
 if [ -f "$TRIES_FILE" ]; then
     read -r TRIES <"$TRIES_FILE"
