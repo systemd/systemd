@@ -214,6 +214,71 @@ TEST(packet_append_key_single_soa_any_class) {
         ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
 }
 
+TEST(packet_append_key_cache_flush_mdns) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_MDNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1, 0, 1, 0, 0, 0, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(packet)->ancount = htobe16(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.local");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_packet_append_key(packet, key, DNS_ANSWER_CACHE_FLUSH, NULL));
+        dns_resource_key_unref(key);
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_QR | BIT_AA, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x01,     0x00, 0x00,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x05, 'l', 'o', 'c', 'a', 'l',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN + cache-flush */
+                        0x80, 0x01
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
+/* mDNS probes carry the proposed RRs from our mDNS zone in the Authority Section. Those items carry
+ * DNS_ANSWER_CACHE_FLUSH, but the cache-flush bit is only set in responses, never in queries. See RFC 6762,
+ * sections 8.2 and 10.2. */
+TEST(packet_append_key_cache_flush_mdns_query) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        DnsResourceKey *key = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_MDNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 0, 0, 0, 0, DNS_RCODE_SUCCESS));
+        DNS_PACKET_HEADER(packet)->nscount = htobe16(1);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.local");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_packet_append_key(packet, key, DNS_ANSWER_CACHE_FLUSH, NULL));
+        dns_resource_key_unref(key);
+
+        const uint8_t data[] = {
+                        0x00, 0x00,     0x00, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x01,     0x00, 0x00,
+
+        /* name */      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
+                        0x05, 'l', 'o', 'c', 'a', 'l',
+                        0x00,
+        /* A */         0x00, 0x01,
+        /* IN */        0x00, 0x01
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+}
+
 /* ================================================================
  * dns_packet_append_question()
  * ================================================================ */
