@@ -173,6 +173,8 @@ struct clock_data {
 struct signal_data {
         WakeupType wakeup;
 
+        unsigned n_ref;
+
         /* For each priority we maintain one signal fd, so that we
          * only have to dequeue a single event per priority at a
          * time. */
@@ -220,6 +222,8 @@ struct inode_data {
 /* A structure encapsulating an inotify fd */
 struct inotify_data {
         WakeupType wakeup;
+
+        unsigned n_ref;
 
         /* For each priority we maintain one inotify fd, so that we only have to dequeue a single event per priority at
          * a time */
