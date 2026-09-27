@@ -1883,6 +1883,28 @@ TEST(vendor_mask_in_unrelated_target) {
         assert_state("vendor-two-targets.service", UNIT_FILE_ENABLED);
 }
 
+TEST(vendor_preset) {
+        const char *vendor_link, *mask;
+
+        write_vendor_file("system/vendor-preset.service", WANTED_BY_MULTI_USER);
+        write_vendor_file("system-preset/12-vendor.preset", "enable vendor-preset.service\n");
+
+        do_preset(UNIT_FILE_VENDOR, STRV_MAKE("vendor-preset.service"));
+
+        vendor_link = strjoina(vendor_root, VENDOR_WANTS"vendor-preset.service");
+        mask = strjoina(vendor_root, ETC_WANTS"vendor-preset.service");
+        ASSERT_TRUE(symlink_exists(vendor_link));
+        ASSERT_FALSE(symlink_exists(mask));
+        assert_state("vendor-preset.service", UNIT_FILE_ENABLED);
+
+        write_vendor_file("system-preset/12-vendor.preset", "disable vendor-preset.service\n");
+        do_preset(UNIT_FILE_VENDOR, STRV_MAKE("vendor-preset.service"));
+
+        ASSERT_FALSE(symlink_exists(vendor_link));
+        ASSERT_FALSE(symlink_exists(mask));
+        assert_state("vendor-preset.service", UNIT_FILE_DISABLED);
+}
+
 TEST(vendor_preset_leaves_vendor_enablement_alone) {
         const char *vendor_link, *mask;
 
@@ -1915,6 +1937,105 @@ TEST(vendor_preset_leaves_vendor_enablement_alone) {
         assert_state("vendor-preset-off.service", UNIT_FILE_ENABLED);
 }
 
+TEST(vendor_not_enableable_is_not_masked) {
+        write_vendor_file("system/vendor-static.service",
+                          "[Unit]\n"
+                          "Description=no Install section\n");
+        write_vendor_file("system/vendor-alias-only.service",
+                          "[Install]\n"
+                          "Alias=vendor-alias-only-alias.service\n");
+        write_vendor_file("system-preset/14-vendor-static.preset",
+                          "disable vendor-static.service\n"
+                          "disable vendor-alias-only.service\n");
+
+        FOREACH_STRING(name, "vendor-static.service", "vendor-alias-only.service") {
+                const char *mask = strjoina(vendor_root, ETC_WANTS, name);
+
+                write_vendor_symlink(strjoina("multi-user.target.wants/", name), strjoina("../", name));
+                assert_state(name, streq(name, "vendor-static.service") ? UNIT_FILE_STATIC : UNIT_FILE_DISABLED);
+
+                do_preset(0, STRV_MAKE(name));
+                ASSERT_FALSE(symlink_exists(mask));
+
+                do_disable(0, STRV_MAKE(name));
+                ASSERT_FALSE(symlink_exists(mask));
+
+                ASSERT_OK(mkdir_parents(mask, 0755));
+                ASSERT_OK_ERRNO(symlink("/dev/null", mask));
+                do_enable(0, STRV_MAKE(name));
+                ASSERT_TRUE(is_dependency_mask(mask));
+                ASSERT_OK_ERRNO(unlink(mask));
+        }
+
+        assert_state("vendor-static.service", UNIT_FILE_STATIC);
+
+        write_vendor_file("system/vendor-tmpl-static@.service",
+                          "[Unit]\n"
+                          "Description=statically wired template\n");
+        write_vendor_symlink("multi-user.target.wants/vendor-tmpl-static@one.service",
+                             "../vendor-tmpl-static@.service");
+        write_vendor_symlink("multi-user.target.wants/vendor-gone.service", "../vendor-gone.service");
+
+        do_preset_all(UNIT_FILE_VENDOR);
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, VENDOR_WANTS"vendor-tmpl-static@one.service")));
+
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+        (void) unit_file_disable(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, vendor_root,
+                                 STRV_MAKE("vendor-gone.service"), &changes, &n_changes);
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, VENDOR_WANTS"vendor-gone.service")));
+}
+
+TEST(vendor_unresolvable_specifier) {
+        const char *link, *wiring;
+
+        write_vendor_file("user/vendor-bad-alias.service",
+                          "[Install]\n"
+                          "WantedBy=multi-user.target %U-foo.target\n"
+                          "Alias=%U-vendor-bad-alias.service\n");
+
+        link = strjoina(vendor_root, USER_DATA_UNIT_DIR"/multi-user.target.wants/vendor-bad-alias.service");
+        ASSERT_OK(mkdir_parents(link, 0755));
+        ASSERT_OK_ERRNO(symlink("../vendor-bad-alias.service", link));
+
+        wiring = strjoina(vendor_root, USER_DATA_UNIT_DIR"/foo.target.wants/vendor-bad-alias.service");
+        ASSERT_OK(mkdir_parents(wiring, 0755));
+        ASSERT_OK_ERRNO(symlink("../vendor-bad-alias.service", wiring));
+
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_GLOBAL, UNIT_FILE_VENDOR, vendor_root,
+                                    STRV_MAKE("vendor-bad-alias.service"), &changes, &n_changes));
+        ASSERT_FALSE(symlink_exists(link));
+        ASSERT_TRUE(symlink_exists(wiring));
+}
+
+TEST(vendor_is_reported_unsupported_where_there_is_no_vendor_directory) {
+        char **names = STRV_MAKE("vendor-enabled.service");
+
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        ASSERT_ERROR(unit_file_enable(RUNTIME_SCOPE_USER, UNIT_FILE_VENDOR, NULL, names,
+                                      &changes, &n_changes), EOPNOTSUPP);
+        ASSERT_ERROR(unit_file_disable(RUNTIME_SCOPE_USER, UNIT_FILE_VENDOR, NULL, names,
+                                       &changes, &n_changes), EOPNOTSUPP);
+        ASSERT_ERROR(unit_file_reenable(RUNTIME_SCOPE_USER, UNIT_FILE_VENDOR, NULL, names,
+                                        &changes, &n_changes), EOPNOTSUPP);
+        ASSERT_ERROR(unit_file_preset(RUNTIME_SCOPE_USER, UNIT_FILE_VENDOR, NULL, names,
+                                      UNIT_FILE_PRESET_FULL, &changes, &n_changes), EOPNOTSUPP);
+        ASSERT_ERROR(unit_file_preset_all(RUNTIME_SCOPE_USER, UNIT_FILE_VENDOR, NULL,
+                                          UNIT_FILE_PRESET_FULL, &changes, &n_changes), EOPNOTSUPP);
+
+        ASSERT_ERROR(unit_file_mask(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, vendor_root, names,
+                                    &changes, &n_changes), EOPNOTSUPP);
+        ASSERT_ERROR(unit_file_unmask(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, vendor_root, names,
+                                      &changes, &n_changes), EOPNOTSUPP);
+}
+
 TEST(vendor_symlinked_dependency_dir_is_not_followed) {
         /* A dependency directory that is itself a symlink is not entered. An absolute one would resolve
          * against the host rather than against --root=, which would have us report on and mask in the
@@ -1931,6 +2052,35 @@ TEST(vendor_symlinked_dependency_dir_is_not_followed) {
 
         do_disable(/* flags= */ 0, STRV_MAKE("vendor-escape.service"));
         ASSERT_FALSE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/escape.target.wants/vendor-escape.service")));
+}
+
+TEST(vendor_preset_all) {
+        const char *vendor_link, *mask;
+
+        write_vendor_file("system/vendor-all.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-all.service", "../vendor-all.service");
+        write_vendor_file("system-preset/11-vendor-all.preset", "disable vendor-all.service\n");
+
+        do_preset_all(0);
+
+        vendor_link = strjoina(vendor_root, VENDOR_WANTS"vendor-all.service");
+        mask = strjoina(vendor_root, ETC_WANTS"vendor-all.service");
+        ASSERT_FALSE(symlink_exists(mask));
+        assert_state("vendor-all.service", UNIT_FILE_ENABLED);
+
+        do_preset_all(UNIT_FILE_VENDOR);
+        ASSERT_FALSE(symlink_exists(vendor_link));
+        ASSERT_FALSE(symlink_exists(mask));
+        assert_state("vendor-all.service", UNIT_FILE_DISABLED);
+
+        do_preset_all(UNIT_FILE_VENDOR);
+        ASSERT_FALSE(symlink_exists(vendor_link));
+
+        write_vendor_file("system-preset/11-vendor-all.preset", "enable vendor-all.service\n");
+        do_preset_all(UNIT_FILE_VENDOR);
+
+        ASSERT_TRUE(symlink_exists(vendor_link));
+        assert_state("vendor-all.service", UNIT_FILE_ENABLED);
 }
 
 TEST(vendor_requires_and_upholds) {
@@ -2190,6 +2340,17 @@ TEST(vendor_dry_run_writes_nothing) {
         assert_state("vendor-dry.service", UNIT_FILE_ENABLED);
 }
 
+TEST(vendor_no_pointless_mask_below_the_vendor_directory) {
+        write_vendor_file("system/vendor-local.service", WANTED_BY_MULTI_USER);
+
+        const char *high = strjoina(vendor_root, "/usr/local/lib/systemd/system/multi-user.target.wants/vendor-local.service");
+        ASSERT_OK(mkdir_parents(high, 0755));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/vendor-local.service", high));
+
+        do_disable(UNIT_FILE_VENDOR, STRV_MAKE("vendor-local.service"));
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, VENDOR_WANTS"vendor-local.service")));
+}
+
 TEST(vendor_also_keeps_sibling_preset_policy) {
         /* Presetting a unit must not drag its Also= units into the removal set: they have a preset policy of
          * their own, which by then has either already been applied or is yet to be. */
@@ -2215,6 +2376,190 @@ TEST(vendor_also_keeps_sibling_preset_policy) {
         do_preset_all(/* flags= */ 0);
         assert_state("vendor-main.service", UNIT_FILE_DISABLED);
         assert_state("vendor-aux.socket", UNIT_FILE_ENABLED);
+}
+TEST(vendor_keeps_symlinks_it_was_not_asked_for) {
+        const char *compat, *slot, *wiring;
+
+        write_vendor_file("system/vendor-named.service",
+                          "[Install]\n"
+                          "Alias=vendor-named-slot.service\n"
+                          "WantedBy=multi-user.target\n");
+
+        write_vendor_symlink("vendor-named-compat.service", "vendor-named.service");
+        write_vendor_symlink("vendor-named-slot.service", "vendor-named.service");
+        write_vendor_symlink("multi-user.target.wants/vendor-named.service", "../vendor-named.service");
+        write_vendor_file("system-preset/19-vendor-named.preset", "disable vendor-named.service\n");
+
+        do_preset(UNIT_FILE_VENDOR, STRV_MAKE("vendor-named.service"));
+
+        compat = strjoina(vendor_root, "/usr/lib/systemd/system/vendor-named-compat.service");
+        slot = strjoina(vendor_root, "/usr/lib/systemd/system/vendor-named-slot.service");
+        wiring = strjoina(vendor_root, VENDOR_WANTS"vendor-named.service");
+        ASSERT_FALSE(symlink_exists(wiring));
+        ASSERT_TRUE(symlink_exists(compat));
+        ASSERT_TRUE(symlink_exists(slot));
+
+        do_disable(UNIT_FILE_VENDOR, STRV_MAKE("vendor-named.service"));
+        ASSERT_TRUE(symlink_exists(compat));
+        ASSERT_FALSE(symlink_exists(slot));
+
+        write_vendor_file("system/vendor-unnamed.service",
+                          "[Unit]\n"
+                          "Description=no Install section\n");
+        write_vendor_symlink("vendor-unnamed-compat.service", "vendor-unnamed.service");
+
+        do_disable(UNIT_FILE_VENDOR, STRV_MAKE("vendor-unnamed.service"));
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, "/usr/lib/systemd/system/vendor-unnamed-compat.service")));
+}
+
+TEST(vendor_keeps_static_alias_dependencies) {
+        FOREACH_STRING(suffix, "wants", "requires", "upholds") {
+                const char *name = strjoina("vendor-static-name-", suffix, ".service");
+                const char *alias = strjoina("vendor-static-compat-", suffix, ".service");
+                const char *directory = strjoina("multi-user.target.", suffix, "/");
+                const char *entry = strjoina(vendor_root, SYSTEM_DATA_UNIT_DIR"/", directory, alias);
+                const char *enablement = strjoina(vendor_root, SYSTEM_DATA_UNIT_DIR"/", directory, name);
+                const char *key = streq(suffix, "wants") ? "WantedBy" :
+                                  streq(suffix, "requires") ? "RequiredBy" : "UpheldBy";
+
+                write_vendor_file(strjoina("system/", name), strjoina("[Install]\n", key, "=multi-user.target\n"));
+                write_vendor_file(strjoina("system-preset/18-", name, ".preset"), strjoina("disable ", name, "\n"));
+                write_vendor_symlink(alias, name);
+                write_vendor_symlink(strjoina(directory, alias), strjoina("../", alias));
+
+                do_enable(UNIT_FILE_VENDOR, STRV_MAKE(name));
+                ASSERT_TRUE(symlink_exists(enablement));
+                do_disable(UNIT_FILE_VENDOR, STRV_MAKE(name));
+                ASSERT_FALSE(symlink_exists(enablement));
+                ASSERT_TRUE(symlink_exists(entry));
+
+                do_enable(UNIT_FILE_VENDOR, STRV_MAKE(name));
+                do_preset(UNIT_FILE_VENDOR, STRV_MAKE(name));
+                ASSERT_FALSE(symlink_exists(enablement));
+                ASSERT_TRUE(symlink_exists(entry));
+        }
+}
+
+TEST(vendor_directory_symlink_stays_inside_root) {
+        _cleanup_(rm_rf_physical_and_freep) char *image = NULL, *outside = NULL;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        const char *unit, *vendor, *inside, *dependency, *static_dependency;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/vendor-image-XXXXXX", &image));
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/vendor-outside-XXXXXX", &outside));
+        unit = strjoina(image, SYSTEM_CONFIG_UNIT_DIR"/contained.service");
+        ASSERT_OK(mkdir_parents(unit, 0755));
+        ASSERT_OK(write_string_file(unit, WANTED_BY_MULTI_USER, WRITE_STRING_FILE_CREATE));
+
+        vendor = strjoina(image, SYSTEM_DATA_UNIT_DIR);
+        ASSERT_OK(mkdir_parents(vendor, 0755));
+        ASSERT_OK_ERRNO(symlink(outside, vendor));
+        inside = strjoina(image, outside);
+        dependency = strjoina(inside, "/multi-user.target.wants/contained.service");
+
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, image,
+                                   STRV_MAKE("contained.service"), &changes, &n_changes));
+        ASSERT_TRUE(symlink_exists(dependency));
+        ASSERT_FALSE(symlink_exists(strjoina(outside, "/multi-user.target.wants/contained.service")));
+
+        static_dependency = strjoina(inside, "/initrd-root-device.target.wants/contained.service");
+        ASSERT_OK(mkdir_parents(static_dependency, 0755));
+        ASSERT_OK_ERRNO(symlink(SYSTEM_CONFIG_UNIT_DIR"/contained.service", static_dependency));
+
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, image,
+                                    STRV_MAKE("contained.service"), &changes, &n_changes));
+        ASSERT_FALSE(symlink_exists(dependency));
+        ASSERT_TRUE(symlink_exists(static_dependency));
+}
+
+TEST(vendor_dependency_directory_symlink_stays_inside_root) {
+        _cleanup_(rm_rf_physical_and_freep) char *image = NULL, *outside = NULL;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/vendor-image-XXXXXX", &image));
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/vendor-outside-XXXXXX", &outside));
+
+        const char *unit = strjoina(image, SYSTEM_CONFIG_UNIT_DIR"/contained.service");
+        ASSERT_OK(mkdir_parents(unit, 0755));
+        ASSERT_OK(write_string_file(unit, WANTED_BY_MULTI_USER, WRITE_STRING_FILE_CREATE));
+
+        const char *directory = strjoina(image, SYSTEM_DATA_UNIT_DIR"/multi-user.target.wants");
+        ASSERT_OK(mkdir_parents(directory, 0755));
+        ASSERT_OK_ERRNO(symlink(outside, directory));
+        ASSERT_OK_ERRNO(symlink(".", strjoina(image, SYSTEM_DATA_UNIT_DIR"/cycle.target.wants")));
+        ASSERT_OK_ERRNO(symlink("loop.target.wants", strjoina(image, SYSTEM_DATA_UNIT_DIR"/loop.target.wants")));
+
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, image,
+                                   STRV_MAKE("contained.service"), &changes, &n_changes));
+        ASSERT_TRUE(symlink_exists(strjoina(image, outside, "/contained.service")));
+        ASSERT_FALSE(symlink_exists(strjoina(outside, "/contained.service")));
+
+        const char *entry = strjoina(image, outside, "/contained.service");
+        const char *static_entry = strjoina(image, outside, "/compat.service");
+        const char *host_entry = strjoina(outside, "/contained.service");
+        ASSERT_OK_ERRNO(symlink("/dev/null", host_entry));
+        ASSERT_OK_ERRNO(symlink(SYSTEM_CONFIG_UNIT_DIR"/contained.service", static_entry));
+
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, image,
+                                    STRV_MAKE("contained.service"), &changes, &n_changes));
+        ASSERT_FALSE(symlink_exists(entry));
+        ASSERT_TRUE(symlink_exists(static_entry));
+        ASSERT_TRUE(symlink_exists(host_entry));
+
+        const char *preset = strjoina(image, "/usr/lib/systemd/system-preset/00-contained.preset");
+        ASSERT_OK(mkdir_parents(preset, 0755));
+        ASSERT_OK(write_string_file(preset, "disable contained.service\n", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, image,
+                                   STRV_MAKE("contained.service"), &changes, &n_changes));
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, image,
+                                   STRV_MAKE("contained.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        ASSERT_FALSE(symlink_exists(entry));
+        ASSERT_TRUE(symlink_exists(static_entry));
+        ASSERT_TRUE(symlink_exists(host_entry));
+}
+
+TEST(vendor_legacy_alias_dependency) {
+        FOREACH_STRING(suffix, "wants", "requires") {
+                const char *name = strjoina("vendor-legacy-", suffix, ".service");
+                const char *rel = strjoina("multi-user.target.", suffix, "/", name);
+                const char *entry = strjoina(vendor_root, SYSTEM_DATA_UNIT_DIR"/", rel);
+
+                write_vendor_file(strjoina("system/", name), strjoina("[Install]\nAlias=", rel, "\n"));
+                do_enable(UNIT_FILE_VENDOR, STRV_MAKE(name));
+                ASSERT_TRUE(symlink_exists(entry));
+                assert_state(name, UNIT_FILE_ENABLED);
+
+                do_disable(UNIT_FILE_VENDOR, STRV_MAKE(name));
+                ASSERT_FALSE(symlink_exists(entry));
+                assert_state(name, UNIT_FILE_DISABLED);
+        }
+}
+
+TEST(vendor_disable_removes_linked_unit) {
+        const char *unit, *link, *alias;
+
+        unit = strjoina(vendor_root, "/opt/vendor-linked.service");
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "Alias=vendor-linked-alias.service\n", WRITE_STRING_FILE_CREATE));
+
+        do_enable(UNIT_FILE_VENDOR, STRV_MAKE("/opt/vendor-linked.service"));
+
+        link = strjoina(vendor_root, "/usr/lib/systemd/system/vendor-linked.service");
+        alias = strjoina(vendor_root, "/usr/lib/systemd/system/vendor-linked-alias.service");
+        ASSERT_TRUE(symlink_exists(link));
+        ASSERT_TRUE(symlink_exists(alias));
+
+        do_disable(UNIT_FILE_VENDOR, STRV_MAKE("vendor-linked.service"));
+        ASSERT_FALSE(symlink_exists(link));
+        ASSERT_FALSE(symlink_exists(alias));
 }
 
 static int intro(void) {
