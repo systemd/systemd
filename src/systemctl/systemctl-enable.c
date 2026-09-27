@@ -260,6 +260,10 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                 r = install_changes_dump(r, verb, changes, n_changes, arg_quiet);
                 if (r < 0)
                         return r;
+
+                r = daemon_reload_after_vendor_install();
+                if (r < 0)
+                        return r;
         }
 
         if (carries_install_info == 0 && !ignore_carries_install_info)
@@ -353,6 +357,8 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "--now cannot be used with --root=.");
                 case INSTALL_CLIENT_SIDE_GLOBAL_SCOPE:
                         return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "--now cannot be used with --global.");
+                case INSTALL_CLIENT_SIDE_VENDOR:
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "--now cannot be used with --vendor.");
                 }
 
                 assert(bus);

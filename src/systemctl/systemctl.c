@@ -59,6 +59,7 @@ bool arg_show_transaction = false;
 int arg_force = 0;
 bool arg_ask_password = false;
 bool arg_runtime = false;
+bool arg_vendor = false;
 UnitFilePresetMode arg_preset_mode = UNIT_FILE_PRESET_FULL;
 char **arg_wall = NULL;
 const char *arg_kill_whom = NULL;
@@ -618,6 +619,11 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
                         arg_runtime = true;
                         break;
 
+                OPTION_LONG("vendor", NULL,
+                            "Enable/disable/reenable/preset/preset-all in the vendor unit directory below /usr/"):
+                        arg_vendor = true;
+                        break;
+
                 OPTION('f', "force", NULL,
                        "When enabling unit files, override existing symlinks. "
                        "When shutting down, execute action immediately."):
@@ -877,6 +883,21 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Please specify either --root= or --image=, the combination of both is not supported.");
+
+        if (arg_vendor) {
+                if (!STRPTR_IN_SET(args[0], "enable", "disable", "reenable", "preset", "preset-all"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--vendor may only be used with 'enable', 'disable', "
+                                               "'reenable', 'preset' or 'preset-all'.");
+
+                if (arg_runtime)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--vendor may not be combined with --runtime.");
+
+                if (arg_runtime_scope == RUNTIME_SCOPE_USER)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--vendor is not supported for --user, use --global instead.");
+        }
 
         if (remaining_args)
                 *remaining_args = args;
