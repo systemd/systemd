@@ -5,7 +5,6 @@
 #include "list.h"
 #include "resolved-conf.h"
 #include "resolved-dns-transport.h"
-#include "resolved-dnstls.h"
 #include "resolved-forward.h"
 
 typedef enum DnsServerType {
@@ -18,81 +17,6 @@ typedef enum DnsServerType {
 } DnsServerType;
 
 DECLARE_STRING_TABLE_LOOKUP(dns_server_type, DnsServerType);
-
-/* What the server understands at the DNS message layer, independently of the transport carrying it */
-typedef enum DnsServerEdnsLevel {
-        DNS_SERVER_EDNS_LEVEL_NONE,   /* No OPT RR */
-        DNS_SERVER_EDNS_LEVEL_EDNS0,  /* OPT RR */
-        DNS_SERVER_EDNS_LEVEL_DO,     /* OPT RR with the DNSSEC OK bit set */
-        _DNS_SERVER_EDNS_LEVEL_MAX,
-        _DNS_SERVER_EDNS_LEVEL_INVALID = -EINVAL,
-} DnsServerEdnsLevel;
-
-/* A feature level combines two independent axes: the transport used to reach the server, and the EDNS level
- * spoken over it. Classic DNS additionally distinguishes whether UDP may be used, or only TCP.
- *
- * Feature levels are totally ordered, first by EDNS level, then by transport, then by UDP over TCP. This
- * yields, from worst to best: TCP < UDP < UDP+EDNS0 < TLS+EDNS0 < UDP+EDNS0+DO < TLS+EDNS0+DO. */
-typedef struct DnsServerFeatureLevel {
-        DnsTransportKind transport;
-        DnsServerEdnsLevel edns;
-        bool udp;                     /* DNS_TRANSPORT_DNS only: false if only TCP may be used */
-} DnsServerFeatureLevel;
-
-#define _DNS_SERVER_FEATURE_LEVEL_INVALID                               \
-        ((const DnsServerFeatureLevel) {                                \
-                .transport = _DNS_TRANSPORT_KIND_INVALID,               \
-                .edns = _DNS_SERVER_EDNS_LEVEL_INVALID,                 \
-        })
-
-/* Plain DNS, no EDNS0, via TCP only */
-#define DNS_SERVER_FEATURE_LEVEL_TCP                                    \
-        ((const DnsServerFeatureLevel) {                                \
-                .transport = DNS_TRANSPORT_DNS,                         \
-                .edns = DNS_SERVER_EDNS_LEVEL_NONE,                     \
-        })
-
-/* Plain DNS, no EDNS0, via UDP */
-#define DNS_SERVER_FEATURE_LEVEL_UDP                                    \
-        ((const DnsServerFeatureLevel) {                                \
-                .transport = DNS_TRANSPORT_DNS,                         \
-                .edns = DNS_SERVER_EDNS_LEVEL_NONE,                     \
-                .udp = true,                                            \
-        })
-
-#define DNS_SERVER_FEATURE_LEVEL_BEST                                   \
-        ((const DnsServerFeatureLevel) {                                \
-                .transport = _DNS_TRANSPORT_KIND_MAX - 1,               \
-                .edns = _DNS_SERVER_EDNS_LEVEL_MAX - 1,                 \
-        })
-
-static inline bool dns_server_feature_level_is_valid(DnsServerFeatureLevel l) {
-        return l.transport >= 0 && l.edns >= 0;
-}
-
-static inline bool DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(DnsServerFeatureLevel l) {
-        return l.edns >= DNS_SERVER_EDNS_LEVEL_EDNS0;
-}
-
-static inline bool DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(DnsServerFeatureLevel l) {
-        return l.edns >= DNS_SERVER_EDNS_LEVEL_DO;
-}
-
-static inline bool DNS_SERVER_FEATURE_LEVEL_IS_TLS(DnsServerFeatureLevel l) {
-        return l.transport == DNS_TRANSPORT_DOT;
-}
-
-static inline bool DNS_SERVER_FEATURE_LEVEL_IS_UDP(DnsServerFeatureLevel l) {
-        return l.transport == DNS_TRANSPORT_DNS && l.udp;
-}
-
-int dns_server_feature_level_compare(DnsServerFeatureLevel a, DnsServerFeatureLevel b) _const_;
-
-static inline bool dns_server_feature_level_equal(DnsServerFeatureLevel a, DnsServerFeatureLevel b) {
-        return dns_server_feature_level_compare(a, b) == 0;
-}
-
-const char* dns_server_feature_level_to_string(DnsServerFeatureLevel l) _const_;
 
 typedef struct DnsServer {
         Manager *manager;
@@ -112,28 +36,17 @@ typedef struct DnsServer {
         char *server_string;
         char *server_string_full;
 
-        /* The long-lived stream towards this server. */
-        DnsStream *stream;
-
-#if ENABLE_DNS_OVER_TLS
-        DnsTlsServerData dnstls_data;
-#endif
+        /* Transport specific state, one object per transport this build supports. See dns_server_transport(). */
+        DnsServerTransport *transports[_DNS_TRANSPORT_KIND_MAX];
 
         DnsServerFeatureLevel verified_feature_level;
         DnsServerFeatureLevel possible_feature_level;
 
-        size_t received_udp_fragment_max;   /* largest packet or fragment (without IP/UDP header) we saw so far */
-
-        unsigned n_failed_udp;
-        unsigned n_failed_tcp;
-        unsigned n_failed_tls;
-
-        bool packet_truncated:1;        /* Set when TC bit was set on reply */
+        /* What we learnt about the server at the DNS message layer, regardless of the transport */
         bool packet_bad_opt:1;          /* Set when OPT was missing or otherwise bad on reply */
         bool packet_rrsig_missing:1;    /* Set when RRSIG was missing */
         bool packet_invalid:1;          /* Set when we failed to parse a reply */
         bool packet_do_off:1;           /* Set when the server didn't copy DNSSEC DO flag from request to response */
-        bool packet_fragmented:1;       /* Set when we ever saw a fragmented packet */
 
         usec_t verified_usec;
         usec_t features_grace_period_usec;
@@ -228,7 +141,9 @@ void dns_server_reset_features_all(DnsServer *s);
 
 void dns_server_dump(DnsServer *s, FILE *f);
 
-void dns_server_unref_stream(DnsServer *s);
+void dns_server_unref_streams(DnsServer *s);
+
+DnsServerTransport* dns_server_transport(DnsServer *s, DnsTransportKind kind);
 
 DnsScope *dns_server_scope(DnsServer *s);
 
