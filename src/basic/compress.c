@@ -830,6 +830,111 @@ static int decompress_blob_lz4(
 #endif
 }
 
+/* Reads an LZ4 length: a 4-bit value from a token, continued, if it is 15, by bytes that are each added
+ * to it, up to and including the first byte that is not 255. */
+static int lz4_read_length(
+                const uint8_t *data,
+                size_t size,
+                size_t *offset,
+                unsigned nibble,
+                uint64_t max,
+                uint64_t *ret) {
+
+        uint64_t length = nibble;
+        size_t i;
+
+        assert(offset);
+        assert(ret);
+
+        i = *offset;
+
+        if (nibble == 15)
+                for (;;) {
+                        if (i >= size)
+                                return 0;
+
+                        uint8_t b = data[i++];
+
+                        /* Checked after each byte so that a long run of 255s cannot overflow. */
+                        length += b;
+                        if (length > max)
+                                return -EBADMSG;
+                        if (b != 255)
+                                break;
+                }
+
+        if (length > max)
+                return -EBADMSG;
+
+        *offset = i;
+        *ret = length;
+        return 1;
+}
+
+int lz4_blob_scan(const void *data, size_t size, LZ4BlobScan *scan) {
+        const uint8_t *p = data;
+        uint64_t decoded_size, decoded, length;
+        size_t i;
+        int r;
+
+        assert(data || size == 0);
+        assert(scan);
+
+        /* An LZ4 block is a series of sequences, each a token, the literal length's continuation bytes, the
+         * literals, a 2-byte offset and the match length's continuation bytes. The high 4 bits of the
+         * token are the start of the literal length, and the low 4 bits are the start of the match length
+         * minus 4. The last sequence has no offset or match, and the block ends after its literals, when
+         * the decoded length equals the size in the header.
+         * See https://github.com/lz4/lz4/blob/dev/doc/lz4_Block_format.md */
+
+        if (size < 8)
+                return 0;
+
+        decoded_size = unaligned_read_le64(p);
+        i = MAX(scan->offset, (size_t) 8);
+        decoded = scan->decoded;
+
+        for (;;) {
+                /* Resume from here if this sequence is incomplete. */
+                scan->offset = i;
+                scan->decoded = decoded;
+
+                if (i >= size)
+                        return 0;
+
+                uint8_t token = p[i++];
+
+                r = lz4_read_length(p, size, &i, token >> 4, decoded_size - decoded, &length);
+                if (r <= 0)
+                        return r;
+                if (length > size - i)
+                        return 0;
+
+                i += length;
+                decoded += length;
+
+                if (decoded == decoded_size) {
+                        scan->offset = i;
+                        return 1;
+                }
+
+                /* The offset is used only for decoding. */
+                if (size - i < 2)
+                        return 0;
+                i += 2;
+
+                r = lz4_read_length(p, size, &i, token & 0x0F, decoded_size - decoded, &length);
+                if (r <= 0)
+                        return r;
+
+                /* A match is 4 bytes longer than its encoded length. */
+                if (decoded_size - decoded - length < 4)
+                        return -EBADMSG;
+
+                decoded += length + 4;
+        }
+}
+
 size_t zstd_dstream_out_size(void) {
 #if HAVE_ZSTD
         if (dlopen_zstd(LOG_DEBUG) < 0)
