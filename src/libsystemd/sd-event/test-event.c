@@ -1,12 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if HAVE_LIBURING
+#include <liburing.h>
+#endif
+#include <poll.h>
+#include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "event-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
@@ -713,11 +720,24 @@ TEST(simple_timeout) {
 
         ASSERT_OK(sd_event_default(&e));
 
-        ASSERT_OK_ZERO(sd_event_prepare(e));
+        /* Freeing an io_uring ring makes the kernel run task work in every thread that used the ring. The
+         * task work interrupts the next blocking syscall of the thread once, and sd_event_wait() reports the
+         * resulting EINTR as a wakeup instead of retrying. An earlier test that used io_uring can
+         * therefore end one wait early with nothing pending. Take the timing reading from a wait that
+         * reported a timeout. */
+        int r;
+        for (;;) {
+                ASSERT_OK_ZERO(sd_event_prepare(e));
 
-        f = now(CLOCK_MONOTONIC);
-        ASSERT_OK(sd_event_wait(e, some_time));
-        t = now(CLOCK_MONOTONIC);
+                f = now(CLOCK_MONOTONIC);
+                r = ASSERT_OK(sd_event_wait(e, some_time));
+                t = now(CLOCK_MONOTONIC);
+
+                if (r == 0)
+                        break;
+
+                ASSERT_OK(sd_event_dispatch(e));
+        }
 
         /* The event loop may sleep longer than the specified time (timer accuracy, scheduling latencies, …),
          * but never shorter. Let's check that. */
@@ -1198,5 +1218,572 @@ TEST(child_autoreap_ebusy) {
         /* Restore original SIGCHLD disposition */
         ASSERT_OK_ERRNO(sigaction(SIGCHLD, &old_sa, NULL));
 }
+
+#if HAVE_LIBURING
+static bool io_uring_available_or_skip(sd_event *e) {
+        if (!event_io_uring_available(e)) {
+                log_tests_skipped("io_uring unavailable");
+                return false;
+        }
+
+        return true;
+}
+
+static int io_handler_count(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        unsigned *fired = userdata;
+        char buf[16];
+        ssize_t n;
+
+        n = read(fd, buf, sizeof buf);
+        ASSERT_OK(n);
+
+        (*fired)++;
+        if (*fired >= 2)
+                ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
+        return 0;
+}
+
+TEST(io_uring_available) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        int fd = ASSERT_OK(sd_event_get_fd(e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        ASSERT_TRUE(event_io_uring_available(e));
+
+        /* The ring fd is watched through the epoll fd, so sd_event_get_fd() keeps returning the epoll fd. */
+        ASSERT_EQ(sd_event_get_fd(e), fd);
+}
+
+/* Sources stay on epoll, so they keep working when the ring is created after them. */
+TEST(io_uring_available_with_source) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        unsigned fired = 0;
+        ASSERT_OK(sd_event_add_io(e, &s, sv[0], EPOLLIN, io_handler_count, &fired));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "a", 1)), (ssize_t) 1);
+        ASSERT_OK_POSITIVE(sd_event_run(e, 5 * USEC_PER_SEC));
+        ASSERT_EQ(fired, 1u);
+}
+
+static int sqe_nop_handler_count(sd_event_slot *s, int32_t res, uint32_t flags, void *userdata) {
+        unsigned *fired = ASSERT_PTR(userdata);
+        (*fired)++;
+        return 0;
+}
+
+static int sqe_nop_handler(sd_event_slot *s, int32_t res, uint32_t flags, void *userdata) {
+        ASSERT_EQ(res, 0);
+        ASSERT_OK(sd_event_exit(ASSERT_PTR(userdata), 42));
+        return 0;
+}
+
+TEST(io_uring_add_io_uring_sqe_nop) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+        struct io_uring_sqe *sqe;
+        ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_nop_handler, e));
+        io_uring_prep_nop(sqe);
+
+        /* sqe_nop_handler() exits the loop with 42. */
+        ASSERT_EQ(sd_event_loop(e), 42);
+}
+
+static int sqe_count_handler(sd_event_slot *s, int32_t res, uint32_t flags, void *userdata) {
+        unsigned *fired = userdata;
+        ASSERT_EQ(res, 0);
+        (*fired)++;
+        return 0;
+}
+
+/* More SQEs than the SQ depth, to exercise the get_sqe submit-and-retry fallback. */
+TEST(io_uring_add_io_uring_sqe_many) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        unsigned fired = 0;
+        for (unsigned i = 0; i < 512; i++) {
+                struct io_uring_sqe *sqe;
+                _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+                ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_count_handler, &fired));
+                io_uring_prep_nop(sqe);
+        }
+
+        while (fired < 512)
+                ASSERT_OK(sd_event_run(e, 1000000));
+
+        ASSERT_EQ(fired, 512u);
+}
+
+TEST(io_uring_add_io_uring_sqe_when_disabled) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_free_ char *saved = NULL;
+        const char *v;
+
+        v = getenv("SYSTEMD_EVENT_IO_URING");
+        if (v)
+                ASSERT_NOT_NULL(saved = strdup(v));
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_EVENT_IO_URING", "0", /* overwrite= */ true));
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_FALSE(event_io_uring_available(e));
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+        struct io_uring_sqe *sqe;
+        ASSERT_ERROR(event_add_io_uring_sqe(e, &s, &sqe, sqe_nop_handler, NULL), EOPNOTSUPP);
+
+        ASSERT_OK(set_unset_env("SYSTEMD_EVENT_IO_URING", saved, /* overwrite= */ true));
+}
+
+static int sqe_capture_res_handler(sd_event_slot *s, int32_t res, uint32_t flags, void *userdata) {
+        int32_t *got = userdata;
+        *got = res;
+        return 0;
+}
+
+TEST(io_uring_available_after_run) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_run(e, 0));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+        struct io_uring_sqe *sqe;
+        int32_t got_res = INT32_MAX;
+        ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_capture_res_handler, &got_res));
+        io_uring_prep_nop(sqe);
+
+        ASSERT_OK_POSITIVE(sd_event_run(e, 5 * USEC_PER_SEC));
+        ASSERT_EQ(got_res, 0);
+}
+
+TEST(io_uring_drain_on_exit) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
+
+        /* poll_add on a pipe read end that nobody writes to, so the SQE never completes naturally. */
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+        struct io_uring_sqe *sqe;
+        int32_t got_res = INT32_MAX;
+        ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_capture_res_handler, &got_res));
+        io_uring_prep_poll_add(sqe, p[0], POLLIN);
+
+        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_EQ(got_res, -ECANCELED);
+}
+
+struct multishot_state {
+        unsigned fired;
+        bool saw_terminal;
+        int32_t terminal_res;
+};
+
+static int sqe_multishot_handler(sd_event_slot *s, int32_t res, uint32_t flags, void *userdata) {
+        struct multishot_state *st = ASSERT_PTR(userdata);
+
+        st->fired++;
+
+        if (!FLAGS_SET(flags, IORING_CQE_F_MORE)) {
+                st->saw_terminal = true;
+                st->terminal_res = res;
+        }
+        return 0;
+}
+
+TEST(io_uring_slot_multishot_poll) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+        struct io_uring_sqe *sqe;
+        struct multishot_state st = {};
+        ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_multishot_handler, &st));
+        io_uring_prep_poll_multishot(sqe, sv[0], POLLIN);
+
+        /* F_MORE is set, so the submit-time ref stays held while the multishot SQE is armed. */
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "a", 1)), (ssize_t) 1);
+        ASSERT_OK(sd_event_run(e, 1000000));
+        ASSERT_EQ(st.fired, 1u);
+        ASSERT_FALSE(st.saw_terminal);
+        ASSERT_OK_ERRNO(read(sv[0], &(char){0}, 1));
+
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "b", 1)), (ssize_t) 1);
+        ASSERT_OK(sd_event_run(e, 1000000));
+        ASSERT_EQ(st.fired, 2u);
+        ASSERT_FALSE(st.saw_terminal);
+        ASSERT_OK_ERRNO(read(sv[0], &(char){0}, 1));
+
+        /* The terminal CQE (-ECANCELED, no F_MORE) is what drops the submit-time ref. */
+        ASSERT_OK(event_slot_cancel(s));
+        ASSERT_OK(sd_event_run(e, 1000000));
+        ASSERT_EQ(st.fired, 3u);
+        ASSERT_TRUE(st.saw_terminal);
+        ASSERT_EQ(st.terminal_res, -ECANCELED);
+}
+
+/* A multishot SQE can post several CQEs before the event loop dispatches the slot. Every CQE has to reach
+ * the callback. A multishot accept or recv would otherwise lose an fd or data. */
+TEST(io_uring_slot_multishot_two_cqes) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+        struct io_uring_sqe *sqe;
+        struct multishot_state st = {};
+        ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_multishot_handler, &st));
+        io_uring_prep_poll_multishot(sqe, sv[0], POLLIN);
+
+        /* sd_event_run() submits the SQE. The poll has to be armed before the writes below. */
+        ASSERT_OK(sd_event_run(e, 0));
+        ASSERT_EQ(st.fired, 0u);
+
+        /* Each write wakes up the poll, and each wakeup posts a CQE. */
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "a", 1)), (ssize_t) 1);
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "b", 1)), (ssize_t) 1);
+
+        ASSERT_OK_POSITIVE(sd_event_run(e, USEC_PER_SEC));
+        ASSERT_EQ(st.fired, 1u);
+        ASSERT_OK_POSITIVE(sd_event_run(e, USEC_PER_SEC));
+        ASSERT_EQ(st.fired, 2u);
+        ASSERT_FALSE(st.saw_terminal);
+
+        ASSERT_OK(event_slot_cancel(s));
+        ASSERT_OK(sd_event_run(e, USEC_PER_SEC));
+        ASSERT_TRUE(st.saw_terminal);
+}
+
+TEST(io_uring_slot_cancel) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+        struct io_uring_sqe *sqe;
+        int32_t got_res = INT32_MAX;
+        ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_capture_res_handler, &got_res));
+        io_uring_prep_poll_add(sqe, p[0], POLLIN);
+
+        /* The SQE has not been submitted yet. The second event_slot_cancel() call must not queue another
+         * cancel SQE. */
+        ASSERT_OK(event_slot_cancel(s));
+        ASSERT_OK(event_slot_cancel(s));
+
+        ASSERT_OK(sd_event_run(e, 1000000));
+
+        ASSERT_EQ(got_res, -ECANCELED);
+}
+
+TEST(io_uring_slot_cancel_after_submit) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+        struct io_uring_sqe *sqe;
+        int32_t got_res = INT32_MAX;
+        ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_capture_res_handler, &got_res));
+        io_uring_prep_poll_add(sqe, p[0], POLLIN);
+
+        /* sd_event_run() submits the SQE. Nobody writes to the pipe, so the poll stays armed. */
+        ASSERT_OK(sd_event_run(e, 0));
+        ASSERT_EQ(got_res, INT32_MAX);
+
+        ASSERT_OK(event_slot_cancel(s));
+        ASSERT_OK_POSITIVE(sd_event_run(e, 5 * USEC_PER_SEC));
+        ASSERT_ERROR(got_res, ECANCELED);
+}
+
+/* An external loop stops when sd_event_dispatch() returns 0. sqe_capture_res_handler() returns 0, and
+ * sd_event_dispatch() must still return a positive value. */
+TEST(io_uring_dispatch_slot_returns_positive) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+        struct io_uring_sqe *sqe;
+        int32_t got_res = INT32_MAX;
+        ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_capture_res_handler, &got_res));
+        io_uring_prep_nop(sqe);
+
+        int r = ASSERT_OK(sd_event_prepare(e));
+        if (r == 0)
+                ASSERT_OK_POSITIVE(sd_event_wait(e, 5 * USEC_PER_SEC));
+        ASSERT_OK_POSITIVE(sd_event_dispatch(e));
+        ASSERT_EQ(got_res, 0);
+}
+
+/* The external event loop documented in sd_event_wait(3): prepare() -> poll(sd_event_get_fd()) -> wait(0).
+ * sd_event_prepare() has to submit the queued SQEs before it reports ARMED. Otherwise the ring fd never
+ * becomes readable and poll() times out. */
+TEST(io_uring_external_poll_loop) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+        struct io_uring_sqe *sqe;
+        int32_t got_res = INT32_MAX;
+        ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_capture_res_handler, &got_res));
+        io_uring_prep_nop(sqe);
+
+        ASSERT_OK_ZERO(sd_event_prepare(e));
+        ASSERT_OK_EQ_ERRNO(poll(&(struct pollfd) {
+                .fd = ASSERT_OK(sd_event_get_fd(e)),
+                .events = POLLIN,
+        }, 1, 5000), 1);
+
+        ASSERT_OK_POSITIVE(sd_event_wait(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_dispatch(e));
+
+        ASSERT_EQ(got_res, 0);
+}
+
+TEST(io_uring_exit_on_idle_with_inflight_slot) {
+        /* Make sure exit_on_idle isn't triggered when there are still pending slots. */
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *s = NULL;
+        struct io_uring_sqe *sqe;
+        int32_t got_res = INT32_MAX;
+        ASSERT_OK(event_add_io_uring_sqe(e, &s, &sqe, sqe_capture_res_handler, &got_res));
+        io_uring_prep_poll_add(sqe, p[0], POLLIN);
+
+        /* sd_event_run() can return before the timeout without dispatching anything. Freeing the ring of an
+         * earlier test runs task work in this thread, and the task work interrupts epoll_wait(). */
+        ASSERT_OK(sd_event_run(e, 50 * USEC_PER_MSEC));
+        ASSERT_EQ(got_res, INT32_MAX);
+        ASSERT_ERROR(sd_event_get_exit_code(e, NULL), ENODATA);
+
+        /* Now genuinely wake the poll: the result should be the readiness mask, not -ECANCELED. */
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(p[1], "x", 1)), (ssize_t) 1);
+        ASSERT_OK_POSITIVE(sd_event_run(e, 1000000));
+        ASSERT_OK(got_res);
+}
+
+struct order_state {
+        unsigned next;
+        unsigned order[2];
+};
+
+struct order_marker {
+        struct order_state *state;
+        unsigned id;
+};
+
+static int sqe_marker_handler(sd_event_slot *s, int32_t res, uint32_t flags, void *userdata) {
+        struct order_marker *m = ASSERT_PTR(userdata);
+        ASSERT_EQ(res, 0);
+
+        m->state->order[m->state->next++] = m->id;
+        return 0;
+}
+
+TEST(io_uring_slot_priority_ordering) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        /* Both CQEs land in the same wait, so the dispatch order has to come from the priorities. */
+        _cleanup_(event_slot_unrefp) sd_event_slot *s_low = NULL, *s_high = NULL;
+        struct io_uring_sqe *sqe_low, *sqe_high;
+        struct order_state state = {};
+        struct order_marker m_low = { .state = &state, .id = 2 }, m_high = { .state = &state, .id = 1 };
+        ASSERT_OK(event_add_io_uring_sqe(e, &s_low, &sqe_low, sqe_marker_handler, &m_low));
+        io_uring_prep_nop(sqe_low);
+        ASSERT_OK(event_slot_set_priority(s_low, 10));
+
+        ASSERT_OK(event_add_io_uring_sqe(e, &s_high, &sqe_high, sqe_marker_handler, &m_high));
+        io_uring_prep_nop(sqe_high);
+        ASSERT_OK(event_slot_set_priority(s_high, -10));
+
+        while (state.next < 2)
+                ASSERT_OK(sd_event_run(e, 1000000));
+
+        ASSERT_EQ(state.order[0], 1u);   /* high-priority dispatched first */
+        ASSERT_EQ(state.order[1], 2u);   /* low-priority dispatched second */
+}
+
+static int sqe_exit_handler(sd_event_slot *s, int32_t res, uint32_t flags, void *userdata) {
+        ASSERT_EQ(res, 0);
+        ASSERT_OK(sd_event_exit(ASSERT_PTR(userdata), 0));
+        return 0;
+}
+
+/* Pending sources are never dispatched during the exit cascade, so one sitting ahead of a pending slot in the
+ * prioq must not hide that slot: the cascade has to keep draining slots or the loop never reaches FINISHED. */
+TEST(io_uring_exit_with_pending_source_ahead_of_slot) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "x", 1)), (ssize_t) 1);
+
+        /* Priorities put the exiting slot first, then the io source, then the slot the cascade has to find. */
+        _cleanup_(event_slot_unrefp) sd_event_slot *exiter = NULL, *trailer = NULL;
+        struct io_uring_sqe *sqe_exit, *sqe_trail;
+        ASSERT_OK(event_add_io_uring_sqe(e, &exiter, &sqe_exit, sqe_exit_handler, e));
+        io_uring_prep_nop(sqe_exit);
+        ASSERT_OK(event_slot_set_priority(exiter, -10));
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        unsigned fired = 0;
+        ASSERT_OK(sd_event_add_io(e, &s, sv[0], EPOLLIN, io_handler_count, &fired));
+        ASSERT_OK(sd_event_source_set_priority(s, -5));
+
+        unsigned trailed = 0;
+        ASSERT_OK(event_add_io_uring_sqe(e, &trailer, &sqe_trail, sqe_nop_handler_count, &trailed));
+        io_uring_prep_nop(sqe_trail);
+        ASSERT_OK(event_slot_set_priority(trailer, 0));
+
+        for (unsigned i = 0; i < 50 && sd_event_get_state(e) != SD_EVENT_FINISHED; i++)
+                ASSERT_OK(sd_event_run(e, 100 * USEC_PER_MSEC));
+
+        ASSERT_EQ(sd_event_get_state(e), SD_EVENT_FINISHED);
+        ASSERT_EQ(trailed, 1u);
+}
+
+
+/* Sources and slots share one pending queue, so priority has to order them against each other, not just
+ * within their own kind. fiber-io.c relies on this: it backs some operations with slots and others with io
+ * sources, and both inherit the same fiber priority. */
+static int order_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        struct order_marker *m = ASSERT_PTR(userdata);
+        char buf[16];
+
+        (void) read(fd, buf, sizeof buf);
+        m->state->order[m->state->next++] = m->id;
+        return 0;
+}
+
+static void test_source_slot_order_one(int64_t source_priority, int64_t slot_priority,
+                                       unsigned first, unsigned second) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+        ASSERT_EQ(ASSERT_OK_ERRNO(write(sv[1], "x", 1)), (ssize_t) 1);
+
+        struct order_state state = {};
+        struct order_marker src_marker = { .state = &state, .id = 1 };
+        struct order_marker slot_marker = { .state = &state, .id = 2 };
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *src = NULL;
+        ASSERT_OK(sd_event_add_io(e, &src, sv[0], EPOLLIN, order_io_handler, &src_marker));
+        ASSERT_OK(sd_event_source_set_priority(src, source_priority));
+
+        _cleanup_(event_slot_unrefp) sd_event_slot *slot = NULL;
+        struct io_uring_sqe *sqe;
+        ASSERT_OK(event_add_io_uring_sqe(e, &slot, &sqe, sqe_marker_handler, &slot_marker));
+        io_uring_prep_nop(sqe);
+        ASSERT_OK(event_slot_set_priority(slot, slot_priority));
+
+        while (state.next < 2)
+                ASSERT_OK(sd_event_run(e, USEC_PER_SEC));
+
+        ASSERT_EQ(state.order[0], first);
+        ASSERT_EQ(state.order[1], second);
+}
+
+TEST(io_uring_source_slot_priority_ordering) {
+        test_source_slot_order_one(/* source_priority= */ -10, /* slot_priority= */ 10,
+                                   /* first= */ 1, /* second= */ 2);
+        test_source_slot_order_one(/* source_priority= */ 10, /* slot_priority= */ -10,
+                                   /* first= */ 2, /* second= */ 1);
+}
+
+
+#endif
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
