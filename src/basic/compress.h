@@ -78,6 +78,17 @@ int decompress_blob(Compression compression,
                     const void *src, uint64_t src_size,
                     void **dst, size_t *dst_size, size_t dst_max);
 
+/* Finds the end of an LZ4 blob from compress_blob(): a little-endian 64-bit decoded size, then one raw
+ * LZ4 block whose length is not stored. Returns 1 with the blob's size in scan->offset, 0 if more data is
+ * needed, or -EBADMSG. Only the framing is checked. To continue after 0, pass the same scan and the same
+ * data with more appended. Zero-initialize scan for each blob. */
+typedef struct LZ4BlobScan {
+        size_t offset;
+        uint64_t decoded;
+} LZ4BlobScan;
+
+int lz4_blob_scan(const void *data, size_t size, LZ4BlobScan *scan);
+
 int decompress_zlib_raw(const void *src, uint64_t src_size,
                         void *dst, size_t dst_size, int wbits);
 

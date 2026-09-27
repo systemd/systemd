@@ -756,6 +756,69 @@ TEST(decompressor_xz_memory_limit) {
         free(result.buf);
 }
 
+TEST(lz4_blob_scan) {
+        /* Blobs followed by one byte of the next blob, which the scan must not include. */
+        static const struct {
+                uint8_t data[24];
+                size_t size;
+                int result;
+                size_t blob_size;
+        } cases[] = {
+                /* 5 literals. */
+                { { 5, 0, 0, 0, 0, 0, 0, 0, 0x50, 'h', 'e', 'l', 'l', 'o', 0xAA }, 15, 1, 14 },
+                /* The same, cut short. */
+                { { 5, 0, 0, 0, 0, 0, 0, 0, 0x50, 'h', 'e', 'l', 'l' }, 13, 0 },
+                /* 4 literals and a match of 4 at offset 4, then 5 literals. */
+                { { 13, 0, 0, 0, 0, 0, 0, 0, 0x40, 'a', 'b', 'c', 'd', 4, 0, 0x50, 'e', 'f', 'g', 'h', 'i', 0xAA },
+                  22, 1, 21 },
+                /* 1 literal and a match of 15 + 255 + 1 + 4 at offset 1, then 1 literal. */
+                { { 0x15, 1, 0, 0, 0, 0, 0, 0, 0x1F, 'a', 1, 0, 0xFF, 1, 0x10, 'b', 0xAA }, 17, 1, 16 },
+                /* 5 literals, with a decoded size of 3 in the header. */
+                { { 3, 0, 0, 0, 0, 0, 0, 0, 0x50, 'h', 'e', 'l', 'l', 'o' }, 14, -EBADMSG },
+                /* 15 + 10 literals, with a decoded size of 20 in the header. */
+                { { 20, 0, 0, 0, 0, 0, 0, 0, 0xF0, 10 }, 10, -EBADMSG },
+                /* 4 literals and a match of 5, with a decoded size of 8 in the header. */
+                { { 8, 0, 0, 0, 0, 0, 0, 0, 0x41, 'a', 'b', 'c', 'd', 4, 0 }, 15, -EBADMSG },
+        };
+
+        FOREACH_ELEMENT(c, cases) {
+                LZ4BlobScan whole = {}, bytewise = {};
+                int r = 0;
+
+                ASSERT_EQ(lz4_blob_scan(c->data, c->size, &whole), c->result);
+                if (c->result > 0)
+                        ASSERT_EQ(whole.offset, c->blob_size);
+
+                /* The result is the same when the scan resumes after each byte. */
+                for (size_t n = 0; n <= c->size && r == 0; n++)
+                        r = lz4_blob_scan(c->data, n, &bytewise);
+                ASSERT_EQ(r, c->result);
+                if (c->result > 0)
+                        ASSERT_EQ(bytewise.offset, c->blob_size);
+        }
+}
+
+TEST(lz4_blob_scan_compressed) {
+        if (!compression_supported(COMPRESSION_LZ4))
+                return (void) log_tests_skipped("LZ4 is not supported");
+
+        /* Two blobs back to back, whose literal and match lengths need continuation bytes. */
+        const size_t stream_size = 2 * HUGE_SIZE;
+        _cleanup_free_ uint8_t *stream = ASSERT_NOT_NULL(malloc(stream_size));
+        size_t first, second;
+        LZ4BlobScan scan = {};
+
+        ASSERT_OK(compress_blob(COMPRESSION_LZ4, data, sizeof(data), stream, stream_size, &first, -1));
+        ASSERT_OK(compress_blob(COMPRESSION_LZ4, huge, HUGE_SIZE, stream + first, stream_size - first, &second, -1));
+
+        ASSERT_OK_POSITIVE(lz4_blob_scan(stream, first + second, &scan));
+        ASSERT_EQ(scan.offset, first);
+
+        scan = (LZ4BlobScan) {};
+        ASSERT_OK_POSITIVE(lz4_blob_scan(stream + first, second, &scan));
+        ASSERT_EQ(scan.offset, second);
+}
+
 static int intro(void) {
         srcfile = saved_argc > 1 ? saved_argv[1] : saved_argv[0];
 
