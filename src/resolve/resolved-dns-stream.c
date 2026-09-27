@@ -13,6 +13,7 @@
 #include "missing-network.h"
 #include "ordered-set.h"
 #include "resolved-dns-server.h"
+#include "resolved-dns-transport.h"
 #include "resolved-dns-stream.h"
 #include "resolved-manager.h"
 #include "set.h"
@@ -602,13 +603,13 @@ int dns_stream_write_packet(DnsStream *s, DnsPacket *p) {
 void dns_stream_detach(DnsStream *s) {
         assert(s);
 
-        if (!s->server)
+        if (!s->transport)
                 return;
 
-        if (s->server->stream != s)
+        if (s->transport->stream != s)
                 return;
 
-        dns_server_unref_stream(s->server);
+        dns_server_transport_unref_stream(s->transport);
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
