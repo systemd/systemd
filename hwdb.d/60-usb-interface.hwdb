@@ -12,3 +12,11 @@
 # Permitted keys:
 #   Specify the directory below /dev for the by-id and by-path device symlinks
 #   ID_LINK_DIR=<name>
+#
+#   Specify if a device is a USB3 Vision device
+#   ID_USB3_VISION=0|1
+
+# USB3 Vision devices exposing the device control interface
+usb-interface:v*p*:ef0500:*
+ ID_USB3_VISION=1
+ ID_LINK_DIR=u3v
