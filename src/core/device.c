@@ -509,6 +509,28 @@ static const char *device_sub_state_to_string(Unit *u) {
         return device_state_to_string(d->state);
 }
 
+static int device_remove_old_on_move(Manager *m, sd_device *dev) {
+        int r;
+
+        assert(m);
+        assert(dev);
+
+        if (!device_for_action(dev, SD_DEVICE_MOVE))
+                return 0;
+
+        const char *devpath_old;
+        r = sd_device_get_property_value(dev, "DEVPATH_OLD", &devpath_old);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get DEVPATH_OLD= property on 'move' uevent: %m");
+
+        _cleanup_free_ char *syspath_old = path_join("/sys", devpath_old);
+        if (!syspath_old)
+                return log_oom_debug();
+
+        device_update_found_by_sysfs(m, syspath_old, DEVICE_NOT_FOUND, DEVICE_FOUND_UDEV);
+        return 0;
+}
+
 static int device_update_description(Unit *u, sd_device *dev, const char *path) {
         _cleanup_free_ char *j = NULL;
         const char *model, *label, *desc;
@@ -1122,25 +1144,6 @@ static void device_propagate_reload(Manager *m, Device *d) {
                 log_unit_warning_errno(UNIT(d), r, "Failed to propagate reload, ignoring: %m");
 }
 
-static void device_remove_old_on_move(Manager *m, sd_device *dev) {
-        _cleanup_free_ char *syspath_old = NULL;
-        const char *devpath_old;
-        int r;
-
-        assert(m);
-        assert(dev);
-
-        r = sd_device_get_property_value(dev, "DEVPATH_OLD", &devpath_old);
-        if (r < 0)
-                return (void) log_device_debug_errno(dev, r, "Failed to get DEVPATH_OLD= property on 'move' uevent, ignoring: %m");
-
-        syspath_old = path_join("/sys", devpath_old);
-        if (!syspath_old)
-                return (void) log_oom();
-
-        device_update_found_by_sysfs(m, syspath_old, DEVICE_NOT_FOUND, _DEVICE_FOUND_MASK);
-}
-
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         sd_device_action_t action;
@@ -1167,8 +1170,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         log_device_debug(dev, "Got '%s' action on syspath '%s'.", device_action_to_string(action), sysfs);
 
-        if (action == SD_DEVICE_MOVE)
-                device_remove_old_on_move(m, dev);
+        (void) device_remove_old_on_move(m, dev);
 
         /* When udevd failed to process the device, SYSTEMD_ALIAS or any other properties may contain invalid
          * values. Let's refuse to handle the uevent. */
