@@ -508,3 +508,56 @@ cmp "$D/sources/fake.efi" "$D/uki-boot/EFI/Linux/the-token-2.0.0+3.efi"
 ( ! uki_copy_add 2>"$D/err" )
 grep -qF "$D/uki-conf/tries does not contain an integer." "$D/err"
 test -f "$D/uki-boot/EFI/Linux/the-token-2.0.0+3.efi"
+
+###########################################
+# Test tries search precedence without depending on the host's configuration
+###########################################
+mkdir -p "$D/tries-etc" "$D/tries-run" "$D/tries-usr" "$D/tries-conf" "$D/tries-staging" "$D/tries-entry"
+for plugin in "$loaderentry_install" "$uki_copy_install"; do
+    sed -e "s|/etc/kernel/|$D/tries-etc/|g" -e "s|/run/kernel/|$D/tries-run/|g" \
+        -e "s|/usr/lib/kernel/|$D/tries-usr/|g" \
+        "$plugin" >"$D/${plugin##*/}"
+    chmod +x "$D/${plugin##*/}"
+done
+
+check_tries_search() {
+    local name="$1" suffix="$2" conf_root="$3"
+
+    KERNEL_INSTALL_CONF_ROOT="$conf_root" \
+    KERNEL_INSTALL_LAYOUT=bls \
+    KERNEL_INSTALL_VERBOSE=0 \
+    KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID" \
+    KERNEL_INSTALL_ENTRY_TOKEN=the-token \
+    KERNEL_INSTALL_ENTRY_NAME="$name" \
+    KERNEL_INSTALL_BOOT_ROOT="$D/tries-boot" \
+    KERNEL_INSTALL_STAGING_AREA="$D/tries-staging" \
+    BOOT_MNT="$D/tries-boot" \
+        "$D/${loaderentry_install##*/}" add 2.0.0 "$D/tries-entry" "$D/sources/linux"
+    test -f "$D/tries-boot/loader/entries/$name$suffix.conf"
+
+    KERNEL_INSTALL_CONF_ROOT="$conf_root" \
+    KERNEL_INSTALL_LAYOUT=uki \
+    KERNEL_INSTALL_VERBOSE=0 \
+    KERNEL_INSTALL_ENTRY_TOKEN=the-token \
+    KERNEL_INSTALL_ENTRY_NAME="$name" \
+    KERNEL_INSTALL_BOOT_ROOT="$D/tries-boot" \
+    KERNEL_INSTALL_STAGING_AREA="$D/tries-staging" \
+        "$D/${uki_copy_install##*/}" add 2.0.0 "$D/tries-entry" "$D/sources/fake.efi"
+    test -f "$D/tries-boot/EFI/Linux/$name$suffix.efi"
+}
+
+echo 3 >"$D/tries-usr/tries"
+check_tries_search usr +3 ''
+echo 4 >"$D/tries-run/tries"
+check_tries_search run +4 ''
+echo 5 >"$D/tries-etc/tries"
+check_tries_search etc +5 ''
+check_tries_search conf-missing '' "$D/tries-conf"
+rm "$D/tries-etc/tries"
+ln -s /dev/null "$D/tries-etc/tries"
+check_tries_search masked '' ''
+rm "$D/tries-etc/tries" "$D/tries-run/tries"
+ln -s /dev/null "$D/tries-run/tries"
+check_tries_search run-masked '' ''
+echo 7 >"$D/tries-conf/tries"
+check_tries_search conf +7 "$D/tries-conf"
