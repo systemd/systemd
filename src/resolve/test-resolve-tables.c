@@ -3,6 +3,7 @@
 #include "dns-packet.h"
 #include "dns-type.h"
 #include "resolved-dns-dnssec.h"
+#include "resolved-dns-transport.h"
 #include "test-tables.h"
 #include "tests.h"
 
@@ -14,6 +15,8 @@ int main(int argc, char **argv) {
         test_table(DnsProtocol, dns_protocol, DNS_PROTOCOL);
         test_table(DnssecResult, dnssec_result, DNSSEC_RESULT);
         test_table(DnssecVerdict, dnssec_verdict, DNSSEC_VERDICT);
+        test_table(DnsServerEdnsLevel, dns_server_edns_level, DNS_SERVER_EDNS_LEVEL);
+        test_table(DnsTransportKind, dns_transport_kind, DNS_TRANSPORT_KIND);
 
         test_table_sparse(int, dns_rcode, DNS_RCODE);
         test_table_sparse(int, dns_type, DNS_TYPE);

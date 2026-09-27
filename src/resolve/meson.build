@@ -23,6 +23,7 @@ systemd_resolved_export_sources = files(
         'resolved-dns-stub.c',
         'resolved-dns-synthesize.c',
         'resolved-dns-transaction.c',
+        'resolved-dns-transport-dns.c',
         'resolved-dns-transport.c',
         'resolved-dns-trust-anchor.c',
         'resolved-dns-zone.c',
@@ -64,6 +65,7 @@ systemd_resolved_export_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, re
 
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         systemd_resolved_export_sources += files(
+                'resolved-dns-transport-dot.c',
                 'resolved-dnstls.c',
         )
 endif

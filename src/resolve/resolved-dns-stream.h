@@ -79,6 +79,9 @@ typedef struct DnsStream {
 
         LIST_HEAD(DnsTransaction, transactions); /* when used by the transaction logic */
         DnsServer *server;                       /* when used by the transaction logic */
+        DnsServerTransport *transport;           /* when used by the transaction logic, the transport of
+                                                  * 'server' we belong to. Not a reference, the server keeps
+                                                  * its transports alive. */
         Set *queries;                            /* when used by the DNS stub logic */
 
         /* used when DNS-over-TLS is enabled */
