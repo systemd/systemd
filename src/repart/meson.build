@@ -17,6 +17,7 @@ executables += [
                         libblkid_cflags,
                         libcryptsetup_cflags,
                         libfdisk_cflags,
+                        libfido2_cflags,
                         libmount_cflags,
                         libopenssl_cflags,
                         tpm2_cflags,
