@@ -18,13 +18,13 @@
 #include <xen/xen.h>
 
 #include "errno-util.h"
+#include "fs-util.h"
 #endif
 
 #include "alloc-util.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "kernel-image.h"
 #include "log.h"
 #include "memfd-util.h"
