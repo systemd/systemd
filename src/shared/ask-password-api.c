@@ -452,7 +452,7 @@ int ask_password_plymouth(
                         if (p-5 < size)
                                 continue;
 
-                        l = strv_parse_nulstr(buffer + 5, size);
+                        l = size == 0 && buffer[0] == 2 ? strv_new("") : strv_parse_nulstr(buffer + 5, size);
                         if (!l)
                                 return -ENOMEM;
 
