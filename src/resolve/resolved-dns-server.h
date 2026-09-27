@@ -126,7 +126,12 @@ DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m, DnsServer *if_current);
 
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
-DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);
+DnsEncryptionMode dns_server_get_encryption_mode(DnsServer *s);
+void dns_server_transport_policy(DnsServer *s, DnsTransportPolicy *ret);
+
+bool dns_server_feature_level_permitted(DnsServer *s, DnsServerFeatureLevel level);
+DnsServerFeatureLevel dns_server_possible_feature_level_clamped(DnsServer *s, DnsServerFeatureLevel *clamp);
+bool dns_server_feature_level_reduce(DnsServer *s, DnsServerFeatureLevel level, DnsServerFeatureLevel *ret);
 
 size_t dns_server_get_mtu(DnsServer *s);
 
