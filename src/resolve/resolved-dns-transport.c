@@ -17,6 +17,79 @@ static const char* const dns_transport_kind_table[_DNS_TRANSPORT_KIND_MAX] = {
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transport_kind, DnsTransportKind);
 
+static const char* const dns_encryption_mode_table[_DNS_ENCRYPTION_MODE_MAX] = {
+        [DNS_ENCRYPTION_NO]            = "no",
+        [DNS_ENCRYPTION_OPPORTUNISTIC] = "opportunistic",
+        [DNS_ENCRYPTION_REQUIRED]      = "required",
+};
+DEFINE_STRING_TABLE_LOOKUP(dns_encryption_mode, DnsEncryptionMode);
+
+DnsEncryptionMode dns_encryption_mode_from_dns_over_tls_mode(DnsOverTlsMode m) {
+        switch (m) {
+        case DNS_OVER_TLS_OPPORTUNISTIC:
+                return DNS_ENCRYPTION_OPPORTUNISTIC;
+        case DNS_OVER_TLS_YES:
+                return DNS_ENCRYPTION_REQUIRED;
+        default:
+                return DNS_ENCRYPTION_NO;
+        }
+}
+
+void dns_transport_policy_init(DnsEncryptionMode mode, DnsTransportPolicy *ret) {
+        assert(ret);
+
+        /* Derives the transports permitted for a server, from the most to the least preferred one. For now
+         * servers are always configured by address, which leaves DNS-over-TLS as the only encrypted
+         * transport. */
+
+        switch (mode) {
+
+        case DNS_ENCRYPTION_OPPORTUNISTIC:
+                *ret = (DnsTransportPolicy) {
+                        .transports = { DNS_TRANSPORT_DOT, DNS_TRANSPORT_DNS },
+                        .n_transports = 2,
+                };
+                break;
+
+        case DNS_ENCRYPTION_REQUIRED:
+                *ret = (DnsTransportPolicy) {
+                        .transports = { DNS_TRANSPORT_DOT },
+                        .n_transports = 1,
+                };
+                break;
+
+        default:
+                *ret = (DnsTransportPolicy) {
+                        .transports = { DNS_TRANSPORT_DNS },
+                        .n_transports = 1,
+                };
+        }
+}
+
+bool dns_transport_policy_contains(const DnsTransportPolicy *p, DnsTransportKind kind) {
+        assert(p);
+        assert(p->n_transports <= ELEMENTSOF(p->transports));
+
+        FOREACH_ARRAY(k, p->transports, p->n_transports)
+                if (*k == kind)
+                        return true;
+
+        return false;
+}
+
+DnsTransportKind dns_transport_policy_next(const DnsTransportPolicy *p, DnsTransportKind kind) {
+        assert(p);
+        assert(p->n_transports <= ELEMENTSOF(p->transports));
+
+        /* Returns the transport to fall back to after 'kind', if any */
+
+        for (size_t i = 0; i + 1 < p->n_transports; i++)
+                if (p->transports[i] == kind)
+                        return p->transports[i + 1];
+
+        return _DNS_TRANSPORT_KIND_INVALID;
+}
+
 static const char* const dns_server_edns_level_table[_DNS_SERVER_EDNS_LEVEL_MAX] = {
         [DNS_SERVER_EDNS_LEVEL_NONE]  = "none",
         [DNS_SERVER_EDNS_LEVEL_EDNS0] = "edns0",
