@@ -7,7 +7,6 @@
 #include "sd-messages.h"
 
 #include "log.h"
-#include "resolve-util.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-transaction.h"
@@ -57,6 +56,7 @@ static int dns_transport_dot_open_stream(DnsServerTransport *tr, DnsTransaction 
         DnsTransportDot *d = ASSERT_PTR(DNS_TRANSPORT_TO_DOT(tr));
         DnsServer *server = ASSERT_PTR(tr->server);
         usec_t timeout_usec = DNS_STREAM_DEFAULT_TIMEOUT_USEC;
+        DnsEncryptionMode mode;
         int r;
 
         assert(ret);
@@ -65,7 +65,8 @@ static int dns_transport_dot_open_stream(DnsServerTransport *tr, DnsTransaction 
          * ICMP response overly long delays when contacting DoT servers are nasty, in particular if multiple
          * DNS servers are defined which we try in turn and all are blocked. Hence, substantially lower the
          * timeout in that case. */
-        if (dns_server_get_dns_over_tls_mode(server) == DNS_OVER_TLS_OPPORTUNISTIC)
+        mode = dns_server_get_encryption_mode(server);
+        if (mode == DNS_ENCRYPTION_OPPORTUNISTIC)
                 timeout_usec = DNS_STREAM_OPPORTUNISTIC_TLS_TIMEOUT_USEC;
 
         r = dns_server_transport_stream_new(tr, t, timeout_usec, &s);
@@ -77,7 +78,7 @@ static int dns_transport_dot_open_stream(DnsServerTransport *tr, DnsTransaction 
                         server->server_name,
                         server->family,
                         &server->address,
-                        /* verify= */ dns_server_get_dns_over_tls_mode(server) == DNS_OVER_TLS_YES,
+                        /* verify= */ mode == DNS_ENCRYPTION_REQUIRED,
                         &d->tls_data);
         if (r == -EOPNOTSUPP) {
                 /* If libcrypto is not available treat this like a TLS connection loss, so that opportunistic
