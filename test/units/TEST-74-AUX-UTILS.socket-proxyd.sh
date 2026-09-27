@@ -43,8 +43,10 @@ EOF
 systemctl daemon-reload
 systemctl start test-proxyd.socket
 
+PROXY_ECHO=/usr/lib/systemd/tests/testdata/TEST-74-AUX-UTILS.units/proxy-echo.py
+
 proxy_echo() {
-    /usr/lib/systemd/tests/testdata/TEST-74-AUX-UTILS.units/proxy-echo.py
+    "$PROXY_ECHO"
 }
 
 # Test basic forwarding
@@ -56,3 +58,18 @@ assert_eq "$(echo -n world | proxy_echo)" "world"
 # Test with larger data (64KB random, base64-encoded)
 LARGE_DATA="$(dd if=/dev/urandom bs=1024 count=64 status=none | base64)"
 assert_eq "$(echo -n "$LARGE_DATA" | proxy_echo)" "$LARGE_DATA"
+
+# --connections-max= is a hard cap: with one connection held open, the next one is refused
+systemctl stop test-proxyd.socket test-proxyd.service
+sed -i 's|systemd-socket-proxyd |systemd-socket-proxyd --connections-max=1 |' /run/systemd/system/test-proxyd.service
+systemctl daemon-reload
+systemctl start test-proxyd.socket
+
+exec {HELD}<>/dev/tcp/localhost/12345
+echo -n held >&"$HELD"
+read -r -N 4 -t 15 REPLY <&"$HELD"
+assert_eq "$REPLY" "held"
+assert_eq "$(echo -n refused | proxy_echo)" ""
+
+exec {HELD}>&-
+timeout 15 bash -c "until [[ \"\$(echo -n again | $PROXY_ECHO)\" == again ]]; do sleep 0.1; done"
