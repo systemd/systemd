@@ -96,6 +96,11 @@ All tools:
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
 
+* `$SYSTEMD_EVENT_IO_URING=` — takes a boolean. If true, every sd-event event
+  loop uses io_uring for fiber I/O. If false, no event loop uses io_uring. If
+  unset, only the event loops of programs that enable io_uring use it. Only
+  useful for testing.
+
 * `$SYSTEMD_BUS_TIMEOUT=SECS` — specifies the maximum time to wait for method call
   completion. If no time unit is specified, assumes seconds. The usual other units
   are understood, too (us, ms, s, min, h, d, w, month, y). If it is not set or set
