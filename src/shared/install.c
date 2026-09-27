@@ -297,6 +297,21 @@ static const char* dependency_dir_suffix(const char *dir) {
         return endswith(dir, ".wants") ?: endswith(dir, ".requires") ?: endswith(dir, ".upholds");
 }
 
+static int path_is_mask(const LookupPaths *lp, const char *path) {
+        int r;
+
+        assert(lp);
+        assert(path);
+
+        /* null_or_empty_path_with_root() fails on a dangling symlink. PID 1 does not treat a dangling
+         * symlink as a mask, so return false for it. */
+        r = null_or_empty_path_with_root(path, lp->root_dir);
+        if (r == -ENOMEM)
+                return r;
+
+        return r > 0;
+}
+
 static const char* config_path_from_flags(const LookupPaths *lp, UnitFileFlags flags) {
         assert(lp);
 
@@ -369,6 +384,12 @@ void install_change_dump_success(const InstallChange *change) {
 
         case INSTALL_CHANGE_UNLINK:
                 return log_info("Removed '%s'.", change->path);
+
+        case INSTALL_CHANGE_MASK_DEPENDENCY:
+                return log_info("Masked dependency '%s'.", change->path);
+
+        case INSTALL_CHANGE_UNMASK_DEPENDENCY:
+                return log_info("Unmasked dependency '%s'.", change->path);
 
         case INSTALL_CHANGE_IS_MASKED:
                 return log_info("Unit %s is masked, ignoring.", change->path);
@@ -797,6 +818,15 @@ static int remove_marked_symlinks_fd(
                         if (!found)
                                 continue;
 
+                        /* Disabling must not remove masks. Removing a dependency mask enables the unit
+                         * again, and removing a unit mask unmasks the unit. The template match above finds
+                         * a foo@bar.service mask when foo@.service is disabled. */
+                        r = path_is_mask(lp, p);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                continue;
+
                         if (!dry_run) {
                                 if (unlinkat(fd, de->d_name, 0) < 0 && errno != ENOENT) {
                                         RET_GATHER(ret, install_changes_add(changes, n_changes, -errno, p, NULL));
@@ -915,7 +945,12 @@ static int dependency_entry_is_symlink(const LookupPaths *lp, const char *path) 
 /* PID 1 looks up an entry name in the dependency directories of a unit in all unit directories, and uses
  * only the entry in the directory with the highest priority. PID 1 ignores that entry if it is a mask, if
  * it is not a symlink, or if it is not named after a unit. */
-static int dependency_entry_is_used(const LookupPaths *lp, const char *dir_path, const char *name) {
+static int dependency_entry_is_used(
+                const LookupPaths *lp,
+                char **search_path,
+                const char *dir_path,
+                const char *name) {
+
         _cleanup_free_ char *dir = NULL, *path = NULL, *unit = NULL, *winner = NULL;
         const char *suffix;
         int r;
@@ -949,7 +984,7 @@ static int dependency_entry_is_used(const LookupPaths *lp, const char *dir_path,
         /* PID 1 applies the entries in a directory such as target.wants/ to every unit of that type. The
          * directory name contains no unit name to look up, so only the entry itself is checked. */
         if (unit_name_is_valid(unit, UNIT_NAME_ANY)) {
-                r = unit_file_find_dropin_entry(lp->root_dir, lp->search_path, suffix, unit,
+                r = unit_file_find_dropin_entry(lp->root_dir, search_path, suffix, unit,
                                                 /* aliases= */ NULL, name, &winner);
                 if (r <= 0)
                         return r;
@@ -963,6 +998,191 @@ static int dependency_entry_is_used(const LookupPaths *lp, const char *dir_path,
         }
 
         return true;
+}
+
+static int dependency_name_matches(const InstallInfo *info, const char *name) {
+        _cleanup_free_ char *template = NULL;
+        int r;
+
+        assert(info);
+        assert(name);
+
+        if (streq(name, info->name))
+                return true;
+
+        /* Covers DefaultInstance= too: that is just one particular instance of the template. */
+        r = unit_name_template(name, &template);
+        if (r == -EINVAL)
+                return false;
+        if (r < 0)
+                return r;
+
+        return streq(template, info->name);
+}
+
+static int dependency_symlinks_list(const char *path, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_closedir_ DIR *dir = NULL;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        dir = opendir(path);
+        if (!dir) {
+                if (IN_SET(errno, ENOENT, ENOTDIR, EACCES)) {
+                        *ret = NULL;
+                        return 0;
+                }
+                return -errno;
+        }
+
+        FOREACH_DIRENT(de, dir, return -errno) {
+                _cleanup_closedir_ DIR *sub = NULL;
+                _cleanup_free_ char *dir_path = NULL;
+
+                /* A dependency directory that is a symlink could point outside of --root=. Skip it, as
+                 * find_symlinks() does. */
+                if (de->d_type != DT_DIR || !dependency_dir_suffix(de->d_name))
+                        continue;
+
+                sub = xopendirat(dirfd(dir), de->d_name, O_NOFOLLOW);
+                if (!sub) {
+                        if (IN_SET(errno, ENOENT, ENOTDIR, ELOOP, EACCES))
+                                continue;
+                        return -errno;
+                }
+
+                dir_path = path_join(path, de->d_name);
+                if (!dir_path)
+                        return -ENOMEM;
+
+                FOREACH_DIRENT(sde, sub, return -errno) {
+                        _cleanup_free_ char *p = NULL;
+
+                        /* Entries of every type are listed, because an empty file is a mask too. */
+                        if (!unit_name_is_valid(sde->d_name, UNIT_NAME_ANY))
+                                continue;
+
+                        p = path_join(dir_path, sde->d_name);
+                        if (!p)
+                                return -ENOMEM;
+
+                        r = strv_consume(&l, TAKE_PTR(p));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        /* Sorted, so that the reported changes come out in a stable order rather than in readdir order. */
+        strv_sort(l);
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
+/* Enablement that lives in the vendor unit directories cannot be removed on behalf of the administrator:
+ * /usr/ is frequently read-only, and anything we did there would be undone by the next image update. Shadow
+ * it with a symlink to /dev/null instead, which is what PID 1 looks for when deciding to ignore a dependency
+ * symlink. */
+static int install_info_mask_dependencies(
+                const InstallInfo *info,
+                const LookupPaths *lp,
+                char **vendor_search_path,
+                const char *config_path,
+                bool dry_run,
+                InstallChange **changes,
+                size_t *n_changes) {
+
+        _cleanup_strv_free_ char **vendor_symlinks = NULL;
+        int r, ret = 0;
+
+        assert(info);
+        assert(lp);
+        assert(config_path);
+
+        /* Only entries in the vendor directories are looked at. The caller removes the administrator's
+         * symlinks before calling this function. In a dry run the administrator's symlinks are still there,
+         * and they would hide the vendor entries. */
+        STRV_FOREACH(p, vendor_search_path) {
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = dependency_symlinks_list(*p, &l);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_strv_consume(&vendor_symlinks, TAKE_PTR(l), /* filter_duplicates= */ false);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(vendor_path, vendor_symlinks) {
+                _cleanup_free_ char *dir_path = NULL, *dir = NULL, *entry = NULL, *path = NULL;
+
+                r = path_extract_filename(*vendor_path, &entry);
+                if (r < 0)
+                        return r;
+
+                r = dependency_name_matches(info, entry);
+                if (r <= 0) {
+                        if (r < 0)
+                                return r;
+                        continue;
+                }
+
+                r = path_extract_directory(*vendor_path, &dir_path);
+                if (r < 0)
+                        return r;
+
+                r = dependency_entry_is_used(lp, vendor_search_path, dir_path, entry);
+                if (r <= 0) {
+                        if (r < 0)
+                                return r;
+                        continue;
+                }
+
+                r = path_extract_filename(dir_path, &dir);
+                if (r < 0)
+                        return r;
+
+                path = path_join(config_path, dir, entry);
+                if (!path)
+                        return -ENOMEM;
+
+                /* A non-symlink sitting here already shadows the vendor symlink, and PID 1 ignores it for
+                 * not being one, so the unit is off either way. Replacing it would fail on a directory and
+                 * destroy whatever it is otherwise, so leave anything we could not identify alone too.
+                 * -ENOENT is the normal case of there being nothing here yet. */
+                r = is_symlink(path);
+                if (r == 0)
+                        continue;
+                if (r < 0 && r != -ENOENT) {
+                        log_debug_errno(r, "Failed to look at '%s', not masking it: %m", path);
+                        continue;
+                }
+
+                /* Leave an existing mask alone too, so that disabling twice stays quiet. */
+                r = path_is_mask(lp, path);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                if (!dry_run) {
+                        (void) mkdir_parents_label(path, 0755);
+
+                        r = symlink_atomic("/dev/null", path);
+                        if (r < 0) {
+                                RET_GATHER(ret, install_changes_add(changes, n_changes, r, path, NULL));
+                                continue;
+                        }
+                }
+
+                RET_GATHER(ret, install_changes_add(changes, n_changes,
+                                                    INSTALL_CHANGE_MASK_DEPENDENCY, path, *vendor_path));
+        }
+
+        return ret;
 }
 
 static int find_symlinks_in_directory(
@@ -1043,7 +1263,7 @@ static int find_symlinks_in_directory(
                         *same_name_link = true;
                 else if (found_path || found_dest) {
                         if (ignore_destination) {
-                                r = dependency_entry_is_used(lp, dir_path, de->d_name);
+                                r = dependency_entry_is_used(lp, lp->search_path, dir_path, de->d_name);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -1963,6 +2183,171 @@ static int install_info_discover(
                 return install_changes_add(changes, n_changes, r, name_or_path, NULL);
 
         return r;
+}
+
+/* The [Install] section drives all of this, but the removal side of preset discovers its units without
+ * SEARCH_LOAD. Load into the caller's throwaway context rather than in place: doing it in place would make
+ * Also= drag sibling units into the removal set, past the point where their own preset policy is
+ * consulted. */
+static int install_info_load_rules(
+                InstallContext *ctx,
+                const LookupPaths *lp,
+                InstallInfo *info,
+                InstallInfo **ret) {
+
+        assert(ctx);
+        assert(lp);
+        assert(info);
+        assert(ret);
+
+        if (install_info_has_rules(info)) {
+                *ret = info;
+                return 0;
+        }
+
+        return install_info_discover(ctx, lp, info->name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                                     ret, /* changes= */ NULL, /* n_changes= */ NULL);
+}
+
+static int install_info_check_dependency_rules(
+                RuntimeScope scope,
+                const LookupPaths *lp,
+                InstallInfo *info) {
+
+        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+        InstallInfo *loaded;
+        int r;
+
+        assert(lp);
+        assert(info);
+
+        r = install_info_load_rules(&ctx, lp, info, &loaded);
+        if (r < 0)
+                return r;
+
+        return install_info_has_dependency_rules(loaded);
+}
+
+static int install_context_mask_dependencies(
+                InstallContext *ctx,
+                const LookupPaths *lp,
+                const char *config_path,
+                bool dry_run,
+                InstallChange **changes,
+                size_t *n_changes) {
+
+        _cleanup_strv_free_ char **vendor_search_path = NULL;
+        InstallInfo *i;
+        int r, ret = 0;
+
+        assert(ctx);
+        assert(lp);
+        assert(config_path);
+
+        if (ordered_hashmap_isempty(ctx->have_processed))
+                return 0;
+
+        STRV_FOREACH(p, lp->search_path)
+                if (path_is_vendor(lp, *p)) {
+                        r = strv_extend(&vendor_search_path, *p);
+                        if (r < 0)
+                                return r;
+                }
+
+        if (strv_isempty(vendor_search_path))
+                return 0;
+
+        ORDERED_HASHMAP_FOREACH(i, ctx->have_processed) {
+                if (i->install_mode != INSTALL_MODE_REGULAR)
+                        continue;
+
+                r = install_info_check_dependency_rules(ctx->scope, lp, i);
+                if (r <= 0) {
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to load %s, not masking its dependencies: %m", i->name);
+                        continue;
+                }
+
+                RET_GATHER(ret, install_info_mask_dependencies(i, lp, vendor_search_path, config_path,
+                                                               dry_run, changes, n_changes));
+        }
+
+        return ret;
+}
+
+/* Drops the dependency masks that disabling these units created. Enabling has to undo all of them, not just
+ * the ones the [Install] sections happen to name: the vendor is free to pull a unit into a target we know
+ * nothing about, and a mask left behind there would keep that part of the enablement off. */
+static int install_context_unmask_dependencies(
+                InstallContext *ctx,
+                const LookupPaths *lp,
+                const char *config_path,
+                InstallChange **changes,
+                size_t *n_changes) {
+
+        _cleanup_strv_free_ char **symlinks = NULL;
+        InstallInfo *i;
+        int r, ret = 0;
+
+        assert(ctx);
+        assert(lp);
+        assert(config_path);
+
+        /* Called after install_context_apply(), which is what discovers the Also= units and moves everything
+         * into have_processed. No dry run parameter unlike the masking side: nothing on the enabling path
+         * implements one, see create_symlink(), and honouring it here alone would make a dry run that is
+         * asked for anyway do half the work. */
+
+        if (ordered_hashmap_isempty(ctx->have_processed))
+                return 0;
+
+        r = dependency_symlinks_list(config_path, &symlinks);
+        if (r < 0)
+                return r;
+
+        ORDERED_HASHMAP_FOREACH(i, ctx->have_processed) {
+                if (i->install_mode != INSTALL_MODE_REGULAR)
+                        continue;
+
+                r = install_info_check_dependency_rules(ctx->scope, lp, i);
+                if (r <= 0) {
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to load %s, not unmasking its dependencies: %m", i->name);
+                        continue;
+                }
+
+                STRV_FOREACH(symlink, symlinks) {
+                        _cleanup_free_ char *entry = NULL;
+
+                        r = path_extract_filename(*symlink, &entry);
+                        if (r < 0)
+                                return r;
+
+                        r = dependency_name_matches(i, entry);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        r = path_is_mask(lp, *symlink);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        if (unlink(*symlink) < 0 && errno != ENOENT) {
+                                RET_GATHER(ret, install_changes_add(changes, n_changes, -errno, *symlink, NULL));
+                                continue;
+                        }
+
+                        (void) rmdir_parents(*symlink, config_path);
+
+                        RET_GATHER(ret, install_changes_add(changes, n_changes,
+                                                            INSTALL_CHANGE_UNMASK_DEPENDENCY, *symlink, NULL));
+                }
+        }
+
+        return ret;
 }
 
 static int install_info_discover_and_check(
@@ -2982,7 +3367,7 @@ static int do_unit_file_enable(
 
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         InstallInfo *info;
-        int r;
+        int q, r;
 
         STRV_FOREACH(name, names_or_paths) {
                 r = install_info_discover_and_check(&ctx, lp, *name,
@@ -2999,8 +3384,16 @@ static int do_unit_file_enable(
            is useful to determine whether the passed units had any
            installation data at all. */
 
-        return install_context_apply(&ctx, lp, flags, config_path,
-                                     SEARCH_LOAD, changes, n_changes);
+        r = install_context_apply(&ctx, lp, flags, config_path,
+                                  SEARCH_LOAD, changes, n_changes);
+        if (r < 0)
+                return r;
+
+        q = install_context_unmask_dependencies(&ctx, lp, config_path, changes, n_changes);
+        if (q < 0)
+                return q;
+
+        return r;
 }
 
 int unit_file_enable(
@@ -3071,6 +3464,9 @@ static int do_unit_file_disable(
         r = install_context_mark_for_removal(&ctx, lp, &remove_symlinks_to, config_path, changes, n_changes);
         if (r >= 0)
                 r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
+        if (r >= 0)
+                r = install_context_mask_dependencies(&ctx, lp, config_path, flags & UNIT_FILE_DRY_RUN,
+                                                      changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -3736,6 +4132,12 @@ static int execute_preset(
                 if (r < 0)
                         return r;
 
+                /* No masking here, unlike unit_file_disable(). A preset policy of "disable" applies to
+                 * what this command is responsible for, and enablement the vendor shipped below /usr/ is
+                 * not that: leaving a /dev/null in /etc/ for it would take units out of the boot on every
+                 * existing system whose preset files do not name what it wires up, which they never had to.
+                 * Presetting the vendor directories does turn those units off, by removing the symlink,
+                 * and an administrator asking for it by name with "systemctl disable" still gets a mask. */
                 r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, false, changes, n_changes);
         } else
                 r = 0;
@@ -3754,6 +4156,8 @@ static int execute_preset(
                         else
                                 r += q;
                 }
+
+                RET_GATHER(r, install_context_unmask_dependencies(plus, lp, config_path, changes, n_changes));
         }
 
         return r;
@@ -4033,6 +4437,8 @@ DEFINE_STRING_TABLE_LOOKUP(unit_file_state, UnitFileState);
 static const char* const install_change_type_table[_INSTALL_CHANGE_TYPE_MAX] = {
         [INSTALL_CHANGE_SYMLINK]                 = "symlink",
         [INSTALL_CHANGE_UNLINK]                  = "unlink",
+        [INSTALL_CHANGE_MASK_DEPENDENCY]         = "mask-dependency",
+        [INSTALL_CHANGE_UNMASK_DEPENDENCY]       = "unmask-dependency",
         [INSTALL_CHANGE_IS_MASKED]               = "masked",
         [INSTALL_CHANGE_IS_MASKED_GENERATOR]     = "masked by generator",
         [INSTALL_CHANGE_IS_DANGLING]             = "dangling",

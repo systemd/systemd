@@ -16,6 +16,8 @@ typedef enum UnitFilePresetMode {
 typedef enum InstallChangeType {
         INSTALL_CHANGE_SYMLINK,
         INSTALL_CHANGE_UNLINK,
+        INSTALL_CHANGE_MASK_DEPENDENCY,
+        INSTALL_CHANGE_UNMASK_DEPENDENCY,
         INSTALL_CHANGE_IS_MASKED,
         INSTALL_CHANGE_IS_MASKED_GENERATOR,
         INSTALL_CHANGE_IS_DANGLING,
@@ -59,7 +61,11 @@ typedef struct InstallChange {
 
 static inline bool install_changes_have_modification(const InstallChange *changes, size_t n_changes) {
         FOREACH_ARRAY(i, changes, n_changes)
-                if (IN_SET(i->type, INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK))
+                if (IN_SET(i->type,
+                           INSTALL_CHANGE_SYMLINK,
+                           INSTALL_CHANGE_UNLINK,
+                           INSTALL_CHANGE_MASK_DEPENDENCY,
+                           INSTALL_CHANGE_UNMASK_DEPENDENCY))
                         return true;
         return false;
 }
