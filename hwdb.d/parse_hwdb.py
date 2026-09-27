@@ -122,12 +122,17 @@ GENERAL_MATCHES = {
     'sdio',
     'tpm2',
     'usb',
+    'usb-interface',
     'vmbus',
 }
 
 
 def upperhex_word(length):
     return Word(nums + 'ABCDEF', exact=length)
+
+
+def lowerhex_word(length):
+    return Word(nums + 'abcdef', exact=length)
 
 
 @lru_cache
@@ -214,6 +219,7 @@ def property_grammar():
         ('ID_SOFTWARE_RADIO', zero_one),
         ('ID_MM_DEVICE_IGNORE', zero_one),
         ('ID_NET_AUTO_LINK_LOCAL_ONLY', zero_one),
+        ('ID_LINK_DIR', Word(alphanums + '-_')),
         ('POINTINGSTICK_SENSITIVITY', INTEGER),
         ('ID_INTEGRATION', Or(('internal', 'external'))),
         ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
@@ -322,10 +328,12 @@ def check_matches(groups):
     matches = sum((group[0] for group in groups), [])
 
     # This is a partial check. The other cases could be also done, but those
-    # three are the most commonly wrong.
+    # are the most commonly wrong.
+    usb_id = lowerhex_word(4) | '*'
     grammars = {
         'bluetooth': 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4) + Optional(':')) + '*',
         'usb': 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4) + Optional(':')) + '*',
+        'usb-interface': 'v' + usb_id + 'p' + usb_id + ':' + Word(nums + 'abcdef:*?') + stringEnd,
         'pci': 'v' + upperhex_word(8) + Optional('d' + upperhex_word(8) + Optional(':')) + '*',
     }
 
