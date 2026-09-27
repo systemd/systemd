@@ -726,15 +726,28 @@ static struct clock_data* event_get_clock_data(sd_event *e, EventSourceType t) {
         }
 }
 
-static void event_free_signal_data(sd_event *e, struct signal_data *d) {
+static struct signal_data* event_free_signal_data(struct signal_data *d) {
+        if (!d)
+                return NULL;
+
+        safe_close(d->fd);
+        return mfree(d);
+}
+
+DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(struct signal_data, signal_data, event_free_signal_data);
+
+/* Unhook from the event loop and drop our reference. Split from the free above because a backend may hold a
+ * reference of its own across an operation the kernel has not finished with yet. */
+static void signal_data_disconnect_and_unref(sd_event *e, struct signal_data *d) {
         assert(e);
 
         if (!d)
                 return;
 
         hashmap_remove(e->signal_data, &d->priority);
-        safe_close(d->fd);
-        free(d);
+
+        d->fd = safe_close(d->fd);
+        signal_data_unref(d);
 }
 
 static int event_make_signal_data(
@@ -772,6 +785,7 @@ static int event_make_signal_data(
 
                 *d = (struct signal_data) {
                         .wakeup = WAKEUP_SIGNAL_DATA,
+                        .n_ref = 1,
                         .fd = -EBADF,
                         .priority = priority,
                 };
@@ -823,7 +837,7 @@ static int event_make_signal_data(
 
 fail:
         if (added)
-                event_free_signal_data(e, d);
+                signal_data_disconnect_and_unref(e, d);
 
         return r;
 }
@@ -843,7 +857,7 @@ static void event_unmask_signal_data(sd_event *e, struct signal_data *d, int sig
 
         if (sigisemptyset(&d->sigset)) {
                 /* If all the mask is all-zero we can get rid of the structure */
-                event_free_signal_data(e, d);
+                signal_data_disconnect_and_unref(e, d);
                 return;
         }
 
@@ -2225,7 +2239,20 @@ _public_ int sd_event_add_io_pressure(
                         PRESSURE_IO);
 }
 
-static void event_free_inotify_data(sd_event *e, InotifyData *d) {
+static InotifyData* event_free_inotify_data(InotifyData *d) {
+        if (!d)
+                return NULL;
+
+        hashmap_free(d->inodes);
+        hashmap_free(d->wd);
+        safe_close(d->fd);
+        return mfree(d);
+}
+
+DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(InotifyData, inotify_data, event_free_inotify_data);
+
+/* See signal_data_disconnect_and_unref(). */
+static void inotify_data_disconnect_and_unref(sd_event *e, InotifyData *d) {
         assert(e);
 
         if (!d)
@@ -2237,19 +2264,14 @@ static void event_free_inotify_data(sd_event *e, InotifyData *d) {
         if (d->buffer_filled > 0)
                 LIST_REMOVE(buffered, e->buffered_inotify_data_list, d);
 
-        hashmap_free(d->inodes);
-        hashmap_free(d->wd);
-
         assert_se(hashmap_remove(e->inotify_data, &d->priority) == d);
 
-        if (d->fd >= 0) {
-                if (!event_origin_changed(e) &&
-                    epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, d->fd, NULL) < 0)
-                        log_debug_errno(errno, "Failed to remove inotify fd from epoll, ignoring: %m");
+        if (d->fd >= 0 && !event_origin_changed(e) &&
+            epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, d->fd, NULL) < 0)
+                log_debug_errno(errno, "Failed to remove inotify fd from epoll, ignoring: %m");
 
-                safe_close(d->fd);
-        }
-        free(d);
+        d->fd = safe_close(d->fd);
+        inotify_data_unref(d);
 }
 
 static int event_make_inotify_data(sd_event *e, int64_t priority, InotifyData **ret) {
@@ -2278,6 +2300,7 @@ static int event_make_inotify_data(sd_event *e, int64_t priority, InotifyData **
 
         *d = (InotifyData) {
                 .wakeup = WAKEUP_INOTIFY_DATA,
+                .n_ref = 1,
                 .fd = TAKE_FD(fd),
                 .priority = priority,
         };
@@ -2299,7 +2322,7 @@ static int event_make_inotify_data(sd_event *e, int64_t priority, InotifyData **
                 d->fd = safe_close(d->fd); /* let's close this ourselves, as event_free_inotify_data() would otherwise
                                             * remove the fd from the epoll first, which we don't want as we couldn't
                                             * add it in the first place. */
-                event_free_inotify_data(e, d);
+                inotify_data_disconnect_and_unref(e, d);
                 return r;
         }
 
@@ -2385,7 +2408,7 @@ static void event_gc_inotify_data(sd_event *e, InotifyData *d) {
         if (d->n_busy > 0)
                 return;
 
-        event_free_inotify_data(e, d);
+        inotify_data_disconnect_and_unref(e, d);
 }
 
 static void event_gc_inode_data(sd_event *e, InodeData *d) {
@@ -2963,7 +2986,7 @@ fail:
                 event_free_inode_data(s->event, new_inode_data);
 
         if (rm_inotify)
-                event_free_inotify_data(s->event, new_inotify_data);
+                inotify_data_disconnect_and_unref(s->event, new_inotify_data);
 
         return r;
 }
