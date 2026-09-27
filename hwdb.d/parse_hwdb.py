@@ -122,6 +122,7 @@ GENERAL_MATCHES = {
     'sdio',
     'tpm2',
     'usb',
+    'usb-interface',
     'vmbus',
 }
 
@@ -214,6 +215,7 @@ def property_grammar():
         ('ID_SOFTWARE_RADIO', zero_one),
         ('ID_MM_DEVICE_IGNORE', zero_one),
         ('ID_NET_AUTO_LINK_LOCAL_ONLY', zero_one),
+        ('ID_USB3_VISION', zero_one),
         ('POINTINGSTICK_SENSITIVITY', INTEGER),
         ('ID_INTEGRATION', Or(('internal', 'external'))),
         ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
