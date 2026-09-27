@@ -725,7 +725,13 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, const DnsAnswer
         if (r < 0)
                 goto fail;
 
-        class = flags & DNS_ANSWER_CACHE_FLUSH ? k->class | MDNS_RR_CACHE_FLUSH_OR_QU : k->class;
+        /* Bit 15 of the CLASS field of an RR is the cache-flush bit in mDNS only, and the rules for setting
+         * it apply to responses and announcements only, see RFC 6762, section 10.2. In unicast DNS it is
+         * part of the class value itself. Hence set it neither in unicast DNS packets (the RR might come
+         * from our mDNS zone, but be sent out via the DNS stub), nor in mDNS queries (the Authority Section
+         * of probes is filled from our mDNS zone too, see section 8.2). */
+        class = p->protocol == DNS_PROTOCOL_MDNS && DNS_PACKET_QR(p) && FLAGS_SET(flags, DNS_ANSWER_CACHE_FLUSH) ?
+                        k->class | MDNS_RR_CACHE_FLUSH_OR_QU : k->class;
         r = dns_packet_append_uint16(p, class, NULL);
         if (r < 0)
                 goto fail;
