@@ -1401,6 +1401,15 @@ static bool symlink_exists(const char *path) {
         return is_symlink(path) > 0;
 }
 
+static bool is_dependency_mask(const char *path) {
+        _cleanup_free_ char *dest = NULL;
+
+        if (readlink_malloc(path, &dest) < 0)
+                return false;
+
+        return path_equal(dest, "/dev/null");
+}
+
 static void write_vendor_file(const char *rel, const char *contents) {
         const char *p = strjoina(vendor_root, "/usr/lib/systemd/", rel);
 
@@ -1438,6 +1447,25 @@ static void do_disable(UnitFileFlags flags, char * const *names) {
         ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, flags, vendor_root, names, &changes, &n_changes));
 }
 
+static void do_preset(UnitFileFlags flags, char * const *names) {
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, flags, vendor_root, names, UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+}
+
+static void do_preset_all(UnitFileFlags flags) {
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+        ASSERT_OK(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, flags, vendor_root, UNIT_FILE_PRESET_FULL,
+                                       &changes, &n_changes));
+}
+
+#define VENDOR_WANTS "/usr/lib/systemd/system/multi-user.target.wants/"
 #define ETC_WANTS SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/"
 
 #define WANTED_BY_MULTI_USER \
@@ -1448,7 +1476,8 @@ TEST(dependency_mask) {
         const char *entry;
 
         /* A .wants/, .requires/ or .upholds/ entry that resolves to /dev/null tells PID 1 to ignore the
-         * dependency, see process_deps(). */
+         * dependency, see process_deps(). Disabling must leave the mask alone, because removing it would
+         * enable the unit again. */
 
         write_vendor_file("system/masked-dep.service", WANTED_BY_MULTI_USER);
 
@@ -1461,9 +1490,14 @@ TEST(dependency_mask) {
         ASSERT_OK_ERRNO(unlink(entry));
         ASSERT_OK_ERRNO(symlink("/dev/null", entry));
         assert_state("masked-dep.service", UNIT_FILE_DISABLED);
+
+        do_disable(0, STRV_MAKE("masked-dep.service"));
+        ASSERT_TRUE(is_dependency_mask(entry));
+        assert_state("masked-dep.service", UNIT_FILE_DISABLED);
 }
 
 TEST(dependency_mask_empty_file) {
+        _cleanup_free_ char *dest = NULL;
         const char *entry, *empty;
 
         /* PID 1 checks dependency entries with null_or_empty_path(), so a symlink to an empty file is a mask
@@ -1479,6 +1513,28 @@ TEST(dependency_mask_empty_file) {
         ASSERT_OK_ERRNO(unlink(entry));
         ASSERT_OK_ERRNO(symlink("/etc/empty-mask", entry));
         assert_state("empty-mask-dep.service", UNIT_FILE_DISABLED);
+
+        do_disable(0, STRV_MAKE("empty-mask-dep.service"));
+        ASSERT_OK(readlink_malloc(entry, &dest));
+        ASSERT_STREQ(dest, "/etc/empty-mask");
+        assert_state("empty-mask-dep.service", UNIT_FILE_DISABLED);
+}
+
+TEST(disable_template_keeps_instance_mask) {
+        const char *mask;
+
+        /* Disabling a template removes the symlinks of its instances. A mask of an instance is not an
+         * enablement symlink, so disabling must keep it. */
+
+        write_vendor_file("system/masked-tmpl@.service", WANTED_BY_MULTI_USER);
+
+        mask = strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/masked-tmpl@inst.service");
+        ASSERT_OK_ERRNO(symlink("/dev/null", mask));
+        assert_state("masked-tmpl@inst.service", UNIT_FILE_MASKED);
+
+        do_disable(0, STRV_MAKE("masked-tmpl@.service"));
+        ASSERT_TRUE(symlink_exists(mask));
+        assert_state("masked-tmpl@inst.service", UNIT_FILE_MASKED);
 }
 
 TEST(dependency_shadow) {
@@ -1600,6 +1656,108 @@ TEST(dependency_shadow_mask) {
         assert_state("shadow-masked-dep.service", UNIT_FILE_DISABLED);
 }
 
+TEST(vendor_enable) {
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        const char *vendor_link, *mask;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, vendor_root, "vendor-enabled.service", /* ret= */ NULL), ENOENT);
+
+        write_vendor_file("system/vendor-enabled.service", WANTED_BY_MULTI_USER);
+        assert_state("vendor-enabled.service", UNIT_FILE_DISABLED);
+
+        /* The vendor enables the unit from /usr/, the way distribution packages ship .wants/ symlinks. PID 1
+         * acts on those, so we must report the unit as enabled. */
+        write_vendor_symlink("multi-user.target.wants/vendor-enabled.service", "../vendor-enabled.service");
+        assert_state("vendor-enabled.service", UNIT_FILE_ENABLED);
+
+        /* Disabling it cannot remove the vendor symlink, so it has to shadow it with a symlink to /dev/null
+         * in the configuration directory. */
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, vendor_root,
+                                    STRV_MAKE("vendor-enabled.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1u);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_MASK_DEPENDENCY);
+
+        vendor_link = strjoina(vendor_root, VENDOR_WANTS"vendor-enabled.service");
+        mask = strjoina(vendor_root, ETC_WANTS"vendor-enabled.service");
+        ASSERT_STREQ(changes[0].path, mask);
+        ASSERT_STREQ(changes[0].source, vendor_link);
+
+        ASSERT_TRUE(is_dependency_mask(mask));
+        ASSERT_TRUE(symlink_exists(vendor_link));
+        assert_state("vendor-enabled.service", UNIT_FILE_DISABLED);
+
+        /* Disabling twice must not undo the mask. */
+        do_disable(0, STRV_MAKE("vendor-enabled.service"));
+        ASSERT_TRUE(is_dependency_mask(mask));
+        assert_state("vendor-enabled.service", UNIT_FILE_DISABLED);
+
+        /* Enabling drops the mask again. */
+        do_enable(0, STRV_MAKE("vendor-enabled.service"));
+        ASSERT_TRUE(symlink_exists(mask));
+        ASSERT_FALSE(is_dependency_mask(mask));
+        assert_state("vendor-enabled.service", UNIT_FILE_ENABLED);
+}
+
+TEST(vendor_mask_in_unrelated_target) {
+        const char *mask;
+
+        /* A dependency mask only shadows the entry of the same name in the same .wants/ directory. Masking
+         * the unit out of graphical.target must not make it look disabled when the vendor pulls it into
+         * multi-user.target. Enabling leaves that mask alone: disabling never creates a mask in a directory
+         * the [Install] section does not name, so it is the administrator's. */
+
+        write_vendor_file("system/vendor-two-targets.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-two-targets.service", "../vendor-two-targets.service");
+
+        mask = strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/graphical.target.wants/vendor-two-targets.service");
+        ASSERT_OK(mkdir_parents(mask, 0755));
+        ASSERT_OK_ERRNO(symlink("/dev/null", mask));
+
+        assert_state("vendor-two-targets.service", UNIT_FILE_ENABLED);
+
+        do_disable(0, STRV_MAKE("vendor-two-targets.service"));
+        assert_state("vendor-two-targets.service", UNIT_FILE_DISABLED);
+
+        do_enable(0, STRV_MAKE("vendor-two-targets.service"));
+        ASSERT_TRUE(is_dependency_mask(mask));
+        assert_state("vendor-two-targets.service", UNIT_FILE_ENABLED);
+}
+
+TEST(vendor_preset_leaves_vendor_enablement_alone) {
+        const char *vendor_link, *mask;
+
+        /* A preset policy of "disable" does not reach what the vendor enabled below /usr/. Masking it would
+         * take units out of the boot on every existing system whose preset files do not name what it wires
+         * up, which they never had to. Asking for it by name still works. */
+
+        write_vendor_file("system/vendor-preset-off.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-preset-off.service", "../vendor-preset-off.service");
+        write_vendor_file("system-preset/13-vendor-off.preset", "disable vendor-preset-off.service\n");
+
+        do_preset(0, STRV_MAKE("vendor-preset-off.service"));
+
+        vendor_link = strjoina(vendor_root, VENDOR_WANTS"vendor-preset-off.service");
+        mask = strjoina(vendor_root, ETC_WANTS"vendor-preset-off.service");
+        ASSERT_FALSE(symlink_exists(mask));
+        ASSERT_TRUE(symlink_exists(vendor_link));
+        assert_state("vendor-preset-off.service", UNIT_FILE_ENABLED);
+
+        /* An explicit disable is a different matter. */
+        do_disable(0, STRV_MAKE("vendor-preset-off.service"));
+        ASSERT_TRUE(is_dependency_mask(mask));
+        assert_state("vendor-preset-off.service", UNIT_FILE_DISABLED);
+
+        /* And presetting it back to "enable" clears that mask again. */
+        write_vendor_file("system-preset/13-vendor-off.preset", "enable vendor-preset-off.service\n");
+        do_preset(0, STRV_MAKE("vendor-preset-off.service"));
+
+        ASSERT_FALSE(is_dependency_mask(mask));
+        assert_state("vendor-preset-off.service", UNIT_FILE_ENABLED);
+}
+
 TEST(vendor_symlinked_dependency_dir_is_not_followed) {
         /* A dependency directory that is itself a symlink is not entered. An absolute one would resolve
          * against the host rather than against --root=, which would have us report on and mask in the
@@ -1616,6 +1774,89 @@ TEST(vendor_symlinked_dependency_dir_is_not_followed) {
 
         do_disable(0, STRV_MAKE("vendor-escape.service"));
         ASSERT_FALSE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/escape.target.wants/vendor-escape.service")));
+}
+
+TEST(vendor_requires_and_upholds) {
+        /* The three dependency directory kinds go through the same code, but only .wants/ is covered above. */
+
+        FOREACH_STRING(suffix, "requires", "upholds") {
+                _cleanup_free_ char *name = NULL, *rel = NULL, *mask = NULL, *unit = NULL;
+
+                ASSERT_NOT_NULL(name = strjoin("vendor-", suffix, ".service"));
+                ASSERT_NOT_NULL(rel = strjoin("multi-user.target.", suffix, "/", name));
+                ASSERT_NOT_NULL(mask = strjoin(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.",
+                                               suffix, "/", name));
+                ASSERT_NOT_NULL(unit = strjoin("[Install]\n",
+                                               streq(suffix, "requires") ? "RequiredBy" : "UpheldBy",
+                                               "=multi-user.target\n"));
+
+                write_vendor_file(strjoina("system/", name), unit);
+                write_vendor_symlink(rel, strjoina("../", name));
+                assert_state(name, UNIT_FILE_ENABLED);
+
+                do_disable(0, STRV_MAKE(name));
+                ASSERT_TRUE(is_dependency_mask(mask));
+                assert_state(name, UNIT_FILE_DISABLED);
+
+                do_enable(0, STRV_MAKE(name));
+                ASSERT_FALSE(is_dependency_mask(mask));
+                assert_state(name, UNIT_FILE_ENABLED);
+        }
+}
+
+TEST(vendor_template_instance) {
+        const char *mask;
+
+        /* Disabling a template has to mask the vendor's instance symlinks, the same way removal takes away
+         * the configured ones. Enabling the template only creates the symlink of the default instance, so
+         * the masks of the other instances have to be removed separately. */
+
+        write_vendor_file("system/vendor-tmpl@.service",
+                          "[Install]\n"
+                          "DefaultInstance=dflt\n"
+                          "WantedBy=multi-user.target\n");
+        write_vendor_symlink("multi-user.target.wants/vendor-tmpl@inst.service", "../vendor-tmpl@.service");
+
+        assert_state("vendor-tmpl@inst.service", UNIT_FILE_ENABLED);
+
+        /* Disabling the template must reach the instance the vendor wired up. */
+        do_disable(0, STRV_MAKE("vendor-tmpl@.service"));
+
+        mask = strjoina(vendor_root, ETC_WANTS"vendor-tmpl@inst.service");
+        ASSERT_TRUE(is_dependency_mask(mask));
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, VENDOR_WANTS"vendor-tmpl@inst.service")));
+        assert_state("vendor-tmpl@inst.service", UNIT_FILE_DISABLED);
+
+        do_enable(0, STRV_MAKE("vendor-tmpl@.service"));
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, ETC_WANTS"vendor-tmpl@dflt.service")));
+        ASSERT_FALSE(symlink_exists(mask));
+        assert_state("vendor-tmpl@inst.service", UNIT_FILE_ENABLED);
+}
+
+TEST(vendor_also) {
+        const char *mask;
+
+        /* Disabling has to mask the vendor symlinks of the Also= units too, and enabling has to clear them
+         * again. Those units are only discovered while the symlinks are being applied. */
+
+        write_vendor_file("system/vendor-also.service",
+                          "[Install]\n"
+                          "WantedBy=multi-user.target\n"
+                          "Also=vendor-also.socket\n");
+        write_vendor_file("system/vendor-also.socket",
+                          "[Install]\n"
+                          "WantedBy=sockets.target\n");
+        write_vendor_symlink("sockets.target.wants/vendor-also.socket", "../vendor-also.socket");
+
+        do_disable(0, STRV_MAKE("vendor-also.service"));
+
+        mask = strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/sockets.target.wants/vendor-also.socket");
+        ASSERT_TRUE(is_dependency_mask(mask));
+        assert_state("vendor-also.socket", UNIT_FILE_DISABLED);
+
+        do_enable(0, STRV_MAKE("vendor-also.service"));
+        ASSERT_FALSE(is_dependency_mask(mask));
+        assert_state("vendor-also.socket", UNIT_FILE_ENABLED);
 }
 
 TEST(vendor_mask_shadows_lower_priority_dir) {
@@ -1637,6 +1878,34 @@ TEST(vendor_mask_shadows_lower_priority_dir) {
 
         mask = strjoina(vendor_root, ETC_WANTS"vendor-shadow.service");
         ASSERT_FALSE(symlink_exists(mask));
+}
+
+TEST(vendor_multiple_units) {
+        /* Disabling and enabling several units at once, each with a symlink in two targets, must go
+         * through every unit and every mask rather than stop at the first. */
+
+        FOREACH_STRING(name, "vendor-multi-a.service", "vendor-multi-b.service", "vendor-multi-c.service") {
+                write_vendor_file(strjoina("system/", name),
+                                  "[Install]\n"
+                                  "WantedBy=multi-user.target graphical.target\n");
+
+                FOREACH_STRING(target, "multi-user.target", "graphical.target")
+                        write_vendor_symlink(strjoina(target, ".wants/", name), strjoina("../", name));
+        }
+
+        do_disable(0, STRV_MAKE("vendor-multi-a.service", "vendor-multi-b.service", "vendor-multi-c.service"));
+
+        FOREACH_STRING(name, "vendor-multi-a.service", "vendor-multi-b.service", "vendor-multi-c.service")
+                FOREACH_STRING(target, "multi-user.target", "graphical.target")
+                        ASSERT_TRUE(is_dependency_mask(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/", target,
+                                                                ".wants/", name)));
+
+        do_enable(0, STRV_MAKE("vendor-multi-a.service", "vendor-multi-b.service", "vendor-multi-c.service"));
+
+        FOREACH_STRING(name, "vendor-multi-a.service", "vendor-multi-b.service", "vendor-multi-c.service")
+                FOREACH_STRING(target, "multi-user.target", "graphical.target")
+                        ASSERT_FALSE(is_dependency_mask(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/", target,
+                                                                 ".wants/", name)));
 }
 
 TEST(vendor_entry_kinds) {
@@ -1703,6 +1972,13 @@ TEST(vendor_static_dependency) {
         write_vendor_symlink("multi-user.target.wants/vendor-static-dep.service", "../vendor-static-dep.service");
         assert_state("vendor-static-dep.service", UNIT_FILE_ENABLED);
 
+        /* Disabling masks the symlink that enables the unit and leaves the static dependency symlinks alone. */
+        do_disable(0, STRV_MAKE("vendor-static-dep.service"));
+        ASSERT_TRUE(is_dependency_mask(strjoina(vendor_root, ETC_WANTS"vendor-static-dep.service")));
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/initrd-root-device.target.wants/vendor-static-dep.service")));
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.requires/vendor-static-dep.service")));
+        assert_state("vendor-static-dep.service", UNIT_FILE_DISABLED);
+
         /* An instance with a static dependency symlink reports as "static", like an instance with an alias
          * symlink below /usr/ does. */
         write_vendor_file("system/vendor-static-dep@.service", WANTED_BY_MULTI_USER);
@@ -1711,6 +1987,61 @@ TEST(vendor_static_dependency) {
 
         write_vendor_symlink("multi-user.target.wants/vendor-static-dep@b.service", "../vendor-static-dep@.service");
         assert_state("vendor-static-dep@b.service", UNIT_FILE_ENABLED);
+
+        do_disable(0, STRV_MAKE("vendor-static-dep@.service"));
+        ASSERT_TRUE(is_dependency_mask(strjoina(vendor_root, ETC_WANTS"vendor-static-dep@b.service")));
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/initrd-root-device.target.wants/vendor-static-dep@a.service")));
+        assert_state("vendor-static-dep@a.service", UNIT_FILE_STATIC);
+        assert_state("vendor-static-dep@b.service", UNIT_FILE_DISABLED);
+}
+
+TEST(vendor_dry_run_writes_nothing) {
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        /* "is-enabled --full" drives a dry run through the masking code to list what enables the unit. A
+         * regression there would disable units from a read-only query. */
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        write_vendor_file("system/vendor-dry.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-dry.service", "../vendor-dry.service");
+
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_DRY_RUN, vendor_root,
+                                    STRV_MAKE("vendor-dry.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1u);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_MASK_DEPENDENCY);
+        ASSERT_STREQ(changes[0].source, strjoina(vendor_root, VENDOR_WANTS"vendor-dry.service"));
+
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, ETC_WANTS"vendor-dry.service")));
+        assert_state("vendor-dry.service", UNIT_FILE_ENABLED);
+}
+
+TEST(vendor_also_keeps_sibling_preset_policy) {
+        /* Presetting a unit must not drag its Also= units into the removal set: they have a preset policy of
+         * their own, which by then has either already been applied or is yet to be. */
+
+        write_vendor_file("system/vendor-main.service",
+                          "[Install]\n"
+                          "WantedBy=multi-user.target\n"
+                          "Also=vendor-aux.socket\n");
+        write_vendor_file("system/vendor-aux.socket",
+                          "[Install]\n"
+                          "WantedBy=sockets.target\n");
+        write_vendor_file("system-preset/20-vendor-mixed.preset",
+                          "disable vendor-main.service\n"
+                          "enable vendor-aux.socket\n");
+
+        do_enable(0, STRV_MAKE("vendor-aux.socket"));
+        assert_state("vendor-aux.socket", UNIT_FILE_ENABLED);
+
+        do_preset(0, STRV_MAKE("vendor-main.service"));
+        assert_state("vendor-main.service", UNIT_FILE_DISABLED);
+        assert_state("vendor-aux.socket", UNIT_FILE_ENABLED);
+
+        do_preset_all(0);
+        assert_state("vendor-main.service", UNIT_FILE_DISABLED);
+        assert_state("vendor-aux.socket", UNIT_FILE_ENABLED);
 }
 
 static int intro(void) {
