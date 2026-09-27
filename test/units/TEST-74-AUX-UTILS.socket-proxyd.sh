@@ -56,3 +56,8 @@ assert_eq "$(echo -n world | proxy_echo)" "world"
 # Test with larger data (64KB random, base64-encoded)
 LARGE_DATA="$(dd if=/dev/urandom bs=1024 count=64 status=none | base64)"
 assert_eq "$(echo -n "$LARGE_DATA" | proxy_echo)" "$LARGE_DATA"
+
+# Every connection costs the proxy several fds, so it raises its soft RLIMIT_NOFILE to the hard limit
+PROXY_PID="$(systemctl show -P MainPID test-proxyd.service)"
+read -r _ _ _ SOFT HARD _ < <(grep '^Max open files' "/proc/$PROXY_PID/limits")
+assert_eq "$SOFT" "$HARD"
