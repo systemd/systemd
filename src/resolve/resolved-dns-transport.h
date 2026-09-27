@@ -3,6 +3,7 @@
 
 #include <netinet/in.h>
 
+#include "resolve-util.h"
 #include "resolved-forward.h"
 
 /* The wire transports used to talk to unicast DNS servers. The enum order is significant: when comparing
@@ -15,6 +16,30 @@ typedef enum DnsTransportKind {
 } DnsTransportKind;
 
 DECLARE_STRING_TABLE_LOOKUP(dns_transport_kind, DnsTransportKind);
+
+/* Whether traffic to a server has to be encrypted. Derived from the DNSOverTLS= setting. */
+typedef enum DnsEncryptionMode {
+        DNS_ENCRYPTION_NO,             /* Classic DNS only */
+        DNS_ENCRYPTION_OPPORTUNISTIC,  /* Encrypted if that works, classic DNS otherwise */
+        DNS_ENCRYPTION_REQUIRED,       /* Encrypted, or not at all */
+        _DNS_ENCRYPTION_MODE_MAX,
+        _DNS_ENCRYPTION_MODE_INVALID = -EINVAL,
+} DnsEncryptionMode;
+
+DECLARE_STRING_TABLE_LOOKUP(dns_encryption_mode, DnsEncryptionMode);
+
+DnsEncryptionMode dns_encryption_mode_from_dns_over_tls_mode(DnsOverTlsMode m) _const_;
+
+/* The transports that may be used to talk to a server, as a mask of bits indexed by DnsTransportKind. Of the
+ * permitted transports the highest ranking one is preferred, and falls back to the next lower ranking one. */
+typedef uint64_t DnsTransportPolicy;
+
+assert_cc(_DNS_TRANSPORT_KIND_MAX <= sizeof(DnsTransportPolicy) * 8);
+
+void dns_transport_policy_init(DnsEncryptionMode mode, DnsTransportPolicy *ret);
+bool dns_transport_policy_contains(DnsTransportPolicy p, DnsTransportKind kind) _const_;
+DnsTransportKind dns_transport_policy_best(DnsTransportPolicy p) _const_;
+DnsTransportKind dns_transport_policy_next(DnsTransportPolicy p, DnsTransportKind kind) _const_;
 
 /* What the server understands at the DNS message layer, independently of the transport carrying it */
 typedef enum DnsServerEdnsLevel {
