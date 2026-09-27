@@ -23,6 +23,7 @@ systemd_resolved_export_sources = files(
         'resolved-dns-stub.c',
         'resolved-dns-synthesize.c',
         'resolved-dns-transaction.c',
+        'resolved-dns-transport.c',
         'resolved-dns-trust-anchor.c',
         'resolved-dns-zone.c',
         'resolved-dnssd-bus.c',
