@@ -209,7 +209,7 @@ static int file_system_get_originating_source(const FileSystem *f, char **ret) {
         dev_t devno;
         r = get_block_device_fd(f->fd, &devno);
         if (r < 0) {
-                return log_debug_errno(r, "Failed to get backing block device of '%s', ignoring: %m", file_system_path(f));
+                log_debug_errno(r, "Failed to get backing block device of '%s', ignoring: %m", file_system_path(f));
                 *ret = NULL;
                 return 0;
         }
