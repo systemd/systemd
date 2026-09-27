@@ -67,6 +67,7 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 
 /* From include/uapi/linux/magic.h, which vmlinux.h does not provide. */
 #define OVERLAYFS_SUPER_MAGIC 0x794c7630
+#define CGROUP2_SUPER_MAGIC 0x63677270
 
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
@@ -270,6 +271,14 @@ static int mount_map_id(struct vfsmount *mnt, struct user_namespace *fs_userns, 
         return uid_gid_map_translate(gid ? &fs_userns->gid_map : &fs_userns->uid_map, id, /* up= */ false, ret);
 }
 
+/* cgroupfs is exempt from this policy: there is a single cgroupfs superblock, owned by the initial user
+ * namespace (every mount of it shares that one), and it cannot be idmapped. That's fine: DAC makes sure a
+ * transient range only ever owns the cgroup delegated to it via AddControlGroupToUserNamespace(), which we
+ * remove along with the client, best-effort (a cgroup that refuses to go away outlives its range). */
+static bool mount_is_exempt(struct vfsmount *v) {
+        return v->mnt_sb->s_magic == CGROUP2_SUPER_MAGIC;
+}
+
 /* Common tail of the inode creation hooks: would the object the calling task is about to create end up
  * owned by a transient ID on a file system that outlives the user namespace that ID was handed to? */
 static int validate_mount(struct vfsmount *v, int ret) {
@@ -297,6 +306,9 @@ static int validate_mount(struct vfsmount *v, int ret) {
         if (r < 0)
                 return r;
         if (r == 0) /* Not provisioned by nsresourced? Then this is none of our business. */
+                return 0;
+
+        if (mount_is_exempt(v))
                 return 0;
 
         fs_userns = v->mnt_sb->s_user_ns;
@@ -349,6 +361,9 @@ int BPF_PROG(userns_restrict_path_chown, struct path *path, unsigned long long u
         if (r < 0)
                 return r;
         if (r == 0)
+                return 0;
+
+        if (mount_is_exempt(path->mnt))
                 return 0;
 
         r = userns_is_below(managed, path->mnt->mnt_sb->s_user_ns);
