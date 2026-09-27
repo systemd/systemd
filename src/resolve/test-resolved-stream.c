@@ -261,14 +261,14 @@ static void test_dns_stream(bool tls) {
                                  DNS_STREAM_DEFAULT_TIMEOUT_USEC) >= 0);
 #if ENABLE_DNS_OVER_TLS
         if (tls) {
-                DnsServer server = {
-                        .manager = &manager,
-                        .family = server_address.sa.sa_family,
-                        .address = *sockaddr_in_addr(&server_address.sa),
-                };
-
                 assert_se(dnstls_manager_init(&manager) >= 0);
-                assert_se(dnstls_stream_connect_tls(stream, &server) >= 0);
+                assert_se(dnstls_stream_connect_tls(
+                                        stream,
+                                        /* server_name= */ NULL,
+                                        server_address.sa.sa_family,
+                                        sockaddr_in_addr(&server_address.sa),
+                                        /* verify= */ manager.dns_over_tls_mode == DNS_OVER_TLS_YES,
+                                        /* server_data= */ NULL) >= 0);
         }
 #endif
 

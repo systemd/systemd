@@ -9,6 +9,7 @@
 #include "netlink-internal.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-server.h"
+#include "resolved-dns-transport-dns.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
 #include "tests.h"
@@ -199,14 +200,14 @@ TEST(link_allocate_scopes_resets_manager_dns_server) {
         env.link->unicast_relevant = false;
         env.manager.dns_servers->verified_feature_level = (DnsServerFeatureLevel) { DNS_TRANSPORT_DNS, DNS_SERVER_EDNS_LEVEL_EDNS0, true };
         env.manager.dns_servers->possible_feature_level = (DnsServerFeatureLevel) { DNS_TRANSPORT_DNS, DNS_SERVER_EDNS_LEVEL_DO, true };
-        env.manager.dns_servers->received_udp_fragment_max = 1024u;
+        DNS_TRANSPORT_TO_DNS(env.manager.dns_servers->transports[DNS_TRANSPORT_DNS])->received_udp_fragment_max = 1024u;
 
         link_allocate_scopes(env.link);
 
         ASSERT_TRUE(env.link->unicast_relevant);
         ASSERT_FALSE(dns_server_feature_level_is_valid(env.manager.dns_servers->verified_feature_level));
         ASSERT_TRUE(dns_server_feature_level_equal(env.manager.dns_servers->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_BEST));
-        ASSERT_EQ(env.manager.dns_servers->received_udp_fragment_max, DNS_PACKET_UNICAST_SIZE_MAX);
+        ASSERT_EQ(DNS_TRANSPORT_TO_DNS(env.manager.dns_servers->transports[DNS_TRANSPORT_DNS])->received_udp_fragment_max, DNS_PACKET_UNICAST_SIZE_MAX);
 
         ASSERT_FALSE(env.manager.dns_servers->packet_bad_opt);
         ASSERT_FALSE(env.manager.dns_servers->packet_rrsig_missing);
@@ -228,14 +229,14 @@ TEST(link_allocate_scopes_unicast) {
         env.link->unicast_relevant = true;
         env.link->dns_servers->verified_feature_level = (DnsServerFeatureLevel) { DNS_TRANSPORT_DNS, DNS_SERVER_EDNS_LEVEL_EDNS0, true };
         env.link->dns_servers->possible_feature_level = (DnsServerFeatureLevel) { DNS_TRANSPORT_DNS, DNS_SERVER_EDNS_LEVEL_DO, true };
-        env.link->dns_servers->received_udp_fragment_max = 1024u;
+        DNS_TRANSPORT_TO_DNS(env.link->dns_servers->transports[DNS_TRANSPORT_DNS])->received_udp_fragment_max = 1024u;
 
         link_allocate_scopes(env.link);
 
         ASSERT_TRUE(env.link->unicast_relevant);
         ASSERT_FALSE(dns_server_feature_level_is_valid(env.link->dns_servers->verified_feature_level));
         ASSERT_TRUE(dns_server_feature_level_equal(env.link->dns_servers->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_BEST));
-        ASSERT_EQ(env.link->dns_servers->received_udp_fragment_max, DNS_PACKET_UNICAST_SIZE_MAX);
+        ASSERT_EQ(DNS_TRANSPORT_TO_DNS(env.link->dns_servers->transports[DNS_TRANSPORT_DNS])->received_udp_fragment_max, DNS_PACKET_UNICAST_SIZE_MAX);
 
         ASSERT_FALSE(env.link->dns_servers->packet_bad_opt);
         ASSERT_FALSE(env.link->dns_servers->packet_rrsig_missing);
