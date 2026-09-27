@@ -65,3 +65,26 @@ PROXY_PID="$(systemctl show -P MainPID test-proxyd.service)"
 read -r _ _ _ SOFT HARD _ < <(grep '^Max open files' "/proc/$PROXY_PID/limits")
 assert_eq "$SOFT" 4096
 assert_eq "$HARD" 4096
+
+# --connections-max= is a hard cap: while one connection is held open, the next one is closed unserved
+systemctl stop test-proxyd.socket test-proxyd.service
+cat >/run/systemd/system/test-proxyd.service <<EOF
+[Service]
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd --connections-max=1 $BACKEND_SOCK
+EOF
+systemctl daemon-reload
+systemctl start test-proxyd.socket
+
+exec {HELD}<>/dev/tcp/127.0.0.1/12345
+echo -n held >&"$HELD"
+read -r -N 4 -t 15 REPLY <&"$HELD"
+assert_eq "$REPLY" "held"
+# Assigned rather than passed to assert_eq, so that set -e fails the test when the client errors out
+REFUSED="$(echo -n refused | proxy_echo)"
+assert_eq "$REFUSED" ""
+journalctl --sync
+journalctl -b -u test-proxyd.service --grep "Hit connection limit" >/dev/null
+echo -n still >&"$HELD"
+read -r -N 5 -t 15 REPLY <&"$HELD"
+assert_eq "$REPLY" "still"
+exec {HELD}>&-
