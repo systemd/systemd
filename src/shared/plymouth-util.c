@@ -4,8 +4,10 @@
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
+#include "nulstr-util.h"
 #include "plymouth-util.h"
 #include "socket-util.h"
+#include "strv.h"
 
 int plymouth_build_password_packet(const char *message, char **ret_packet, size_t *ret_size) {
         size_t l, sz;
@@ -34,6 +36,17 @@ int plymouth_build_password_packet(const char *message, char **ret_packet, size_
         *ret_packet = packet;
         *ret_size = sz;
         return 0;
+}
+
+char** plymouth_parse_password_reply(uint8_t type, const char *payload, size_t size) {
+        assert(IN_SET(type, 2, 9));
+        assert(payload);
+
+        /* A zero-length single answer refers to the empty password. */
+        if (size == 0 && type == 2)
+                return strv_new("");
+        else
+                return strv_parse_nulstr(payload, size);
 }
 
 int plymouth_connect(int flags) {
