@@ -9,7 +9,6 @@
 #include "alloc-util.h"
 #include "crypto-util.h"
 #include "log.h"
-#include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"
@@ -62,14 +61,25 @@ static int dnstls_flush_write_buffer(DnsStream *stream) {
         return 0;
 }
 
-int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
+int dnstls_stream_connect_tls(
+                DnsStream *stream,
+                const char *server_name,
+                int family,
+                const union in_addr_union *address,
+                bool verify,
+                DnsTlsServerData *server_data) {
+
         _cleanup_(BIO_freep) BIO *rb = NULL, *wb = NULL;
         _cleanup_(SSL_freep) SSL *s = NULL;
         int error, r;
 
         assert(stream);
         assert(stream->manager);
-        assert(server);
+        assert(address);
+
+        /* Starts a TLS handshake on the stream. If 'verify' is set, the peer certificate must be valid for
+         * 'server_name' if specified, for 'address' otherwise. The session is resumed from, and later saved
+         * to 'server_data' if specified. */
 
         r = dnstls_manager_init(stream->manager);
         if (r < 0)
@@ -96,30 +106,30 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
          * everything from a single event-loop thread), so the translation below reflects this
          * SSL_set_session() failure rather than a stale FIFO entry. */
         sym_ERR_clear_error();
-        r = sym_SSL_set_session(s, server->dnstls_data.session);
+        r = sym_SSL_set_session(s, server_data ? server_data->session : NULL);
         if (r == 0)
                 return openssl_to_errno(sym_ERR_get_error());
         sym_SSL_set_bio(s, TAKE_PTR(rb), TAKE_PTR(wb));
 
-        if (dns_server_get_dns_over_tls_mode(server) == DNS_OVER_TLS_YES) {
+        if (verify) {
                 X509_VERIFY_PARAM *v;
 
                 sym_SSL_set_verify(s, SSL_VERIFY_PEER, NULL);
                 v = sym_SSL_get0_param(s);
-                if (server->server_name) {
+                if (server_name) {
                         sym_X509_VERIFY_PARAM_set_hostflags(v, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
-                        if (sym_X509_VERIFY_PARAM_set1_host(v, server->server_name, 0) == 0)
+                        if (sym_X509_VERIFY_PARAM_set1_host(v, server_name, 0) == 0)
                                 return -ECONNREFUSED;
                 } else {
                         const unsigned char *ip;
-                        ip = server->family == AF_INET ? (const unsigned char*) &server->address.in.s_addr : server->address.in6.s6_addr;
-                        if (sym_X509_VERIFY_PARAM_set1_ip(v, ip, FAMILY_ADDRESS_SIZE(server->family)) == 0)
+                        ip = family == AF_INET ? (const unsigned char*) &address->in.s_addr : address->in6.s6_addr;
+                        if (sym_X509_VERIFY_PARAM_set1_ip(v, ip, FAMILY_ADDRESS_SIZE(family)) == 0)
                                 return -ECONNREFUSED;
                 }
         }
 
-        if (server->server_name) {
-                r = sym_SSL_set_tlsext_host_name(s, server->server_name);
+        if (server_name) {
+                r = sym_SSL_set_tlsext_host_name(s, server_name);
                 if (r <= 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Failed to set server name: %s", DNSTLS_ERROR_STRING(SSL_ERROR_SSL));
@@ -136,6 +146,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
 
         stream->encrypted = true;
         stream->dnstls_data.ssl = TAKE_PTR(s);
+        stream->dnstls_data.server_data = server_data;
 
         r = dnstls_flush_write_buffer(stream);
         if (r < 0 && r != -EAGAIN) {
@@ -240,13 +251,13 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
         assert(stream->encrypted);
         assert(stream->dnstls_data.ssl);
 
-        if (stream->server) {
+        if (stream->dnstls_data.server_data) {
                 s = sym_SSL_get1_session(stream->dnstls_data.ssl);
                 if (s) {
-                        if (stream->server->dnstls_data.session)
-                                sym_SSL_SESSION_free(stream->server->dnstls_data.session);
+                        if (stream->dnstls_data.server_data->session)
+                                sym_SSL_SESSION_free(stream->dnstls_data.server_data->session);
 
-                        stream->server->dnstls_data.session = s;
+                        stream->dnstls_data.server_data->session = s;
                 }
         }
 
@@ -394,11 +405,11 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         return ss;
 }
 
-void dnstls_server_free(DnsServer *server) {
-        assert(server);
+void dnstls_server_data_done(DnsTlsServerData *d) {
+        assert(d);
 
-        if (server->dnstls_data.session)
-                sym_SSL_SESSION_free(server->dnstls_data.session);
+        if (d->session)
+                sym_SSL_SESSION_free(TAKE_PTR(d->session));
 }
 
 int dnstls_manager_init(Manager *manager) {
