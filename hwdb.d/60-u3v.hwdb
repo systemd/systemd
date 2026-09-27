@@ -1,0 +1,11 @@
+# This file is part of systemd.
+#
+# Database for USB3 Vision industrial cameras.
+#
+# Permitted keys:
+#   Specify if a device is a U3V device
+#   ID_U3V_DEVICE=0|1
+
+# Devices exposing the USB3 Vision control interface
+u3v:usb:v*p*:ef0500:*
+ ID_U3V_DEVICE=1
