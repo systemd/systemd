@@ -57,4 +57,54 @@ TEST(feature_level_invalid) {
         }
 }
 
+TEST(encryption_mode_from_dns_over_tls_mode) {
+        ASSERT_EQ(dns_encryption_mode_from_dns_over_tls_mode(DNS_OVER_TLS_NO), DNS_ENCRYPTION_NO);
+        ASSERT_EQ(dns_encryption_mode_from_dns_over_tls_mode(DNS_OVER_TLS_OPPORTUNISTIC), DNS_ENCRYPTION_OPPORTUNISTIC);
+        ASSERT_EQ(dns_encryption_mode_from_dns_over_tls_mode(DNS_OVER_TLS_YES), DNS_ENCRYPTION_REQUIRED);
+        ASSERT_EQ(dns_encryption_mode_from_dns_over_tls_mode(_DNS_OVER_TLS_MODE_INVALID), DNS_ENCRYPTION_NO);
+}
+
+static void test_transport_policy_one(DnsEncryptionMode mode, const DnsTransportKind *expected, size_t n_expected) {
+        DnsTransportPolicy p;
+
+        log_debug("/* %s(%s) */", __func__, dns_encryption_mode_to_string(mode));
+
+        dns_transport_policy_init(&p, mode);
+
+        /* The permitted transports, in order of preference, each falling back to the next one */
+        ASSERT_EQ(p.n_transports, n_expected);
+        for (size_t i = 0; i < n_expected; i++) {
+                ASSERT_EQ(p.transports[i], expected[i]);
+                ASSERT_TRUE(dns_transport_policy_contains(&p, expected[i]));
+                ASSERT_EQ(dns_transport_policy_next(&p, expected[i]),
+                          i + 1 < n_expected ? expected[i + 1] : _DNS_TRANSPORT_KIND_INVALID);
+        }
+
+        /* Transports not permitted are neither contained nor fallen back from */
+        for (DnsTransportKind k = 0; k < _DNS_TRANSPORT_KIND_MAX; k++) {
+                bool permitted = false;
+
+                for (size_t i = 0; i < n_expected; i++)
+                        if (expected[i] == k)
+                                permitted = true;
+                if (permitted)
+                        continue;
+
+                ASSERT_FALSE(dns_transport_policy_contains(&p, k));
+                ASSERT_EQ(dns_transport_policy_next(&p, k), _DNS_TRANSPORT_KIND_INVALID);
+        }
+
+        ASSERT_FALSE(dns_transport_policy_contains(&p, _DNS_TRANSPORT_KIND_INVALID));
+        ASSERT_EQ(dns_transport_policy_next(&p, _DNS_TRANSPORT_KIND_INVALID), _DNS_TRANSPORT_KIND_INVALID);
+}
+
+TEST(transport_policy) {
+        test_transport_policy_one(DNS_ENCRYPTION_NO,
+                                  (const DnsTransportKind[]) { DNS_TRANSPORT_DNS }, 1);
+        test_transport_policy_one(DNS_ENCRYPTION_OPPORTUNISTIC,
+                                  (const DnsTransportKind[]) { DNS_TRANSPORT_DOT, DNS_TRANSPORT_DNS }, 2);
+        test_transport_policy_one(DNS_ENCRYPTION_REQUIRED,
+                                  (const DnsTransportKind[]) { DNS_TRANSPORT_DOT }, 1);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)
