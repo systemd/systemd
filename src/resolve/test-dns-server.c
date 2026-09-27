@@ -6,6 +6,18 @@
 #include "resolved-manager.h"
 #include "tests.h"
 
+/* The levels used here: classic DNS via UDP with EDNS0, and with the DO bit on top */
+static const DnsServerFeatureLevel level_edns0 = {
+        .transport = DNS_TRANSPORT_DNS, .edns = DNS_SERVER_EDNS_LEVEL_EDNS0, .udp = true,
+};
+static const DnsServerFeatureLevel level_do = {
+        .transport = DNS_TRANSPORT_DNS, .edns = DNS_SERVER_EDNS_LEVEL_DO, .udp = true,
+};
+
+static void assert_level(DnsServerFeatureLevel l, DnsServerFeatureLevel expected) {
+        ASSERT_STREQ(dns_server_feature_level_to_string(l), dns_server_feature_level_to_string(expected));
+}
+
 typedef struct ServerEnv {
         Manager manager;
         DnsServer *server;
@@ -24,7 +36,7 @@ static void server_env_setup(ServerEnv *env) {
 
         assert(env);
 
-        /* With DNSSEC enabled and no DNS-over-TLS the best feature level is DO. */
+        /* With DNSSEC enabled and no DNS-over-TLS the best feature level is UDP+EDNS0+DO. */
         env->manager = (Manager) {
                 .dnssec_mode = DNSSEC_ALLOW_DOWNGRADE,
         };
@@ -59,38 +71,38 @@ TEST(dns_server_grace_period_counts_from_feature_level_change) {
         s = env.server;
 
         /* Packet loss degrades the level before any reply arrived, restarting the grace period */
-        ASSERT_EQ(dns_server_possible_feature_level(s), DNS_SERVER_FEATURE_LEVEL_DO);
+        assert_level(dns_server_possible_feature_level(s), level_do);
         ASSERT_OK(sd_event_now(env.manager.event, CLOCK_BOOTTIME, &now_usec));
-        lose_packets(s, DNS_SERVER_FEATURE_LEVEL_DO);
-        ASSERT_EQ(dns_server_possible_feature_level(s), DNS_SERVER_FEATURE_LEVEL_EDNS0);
-        ASSERT_EQ(s->verified_feature_level, _DNS_SERVER_FEATURE_LEVEL_INVALID);
+        lose_packets(s, level_do);
+        assert_level(dns_server_possible_feature_level(s), level_edns0);
+        ASSERT_FALSE(dns_server_feature_level_is_valid(s->verified_feature_level));
         ASSERT_GE(s->verified_usec, now_usec);
 
         /* Verifying a new level restarts it too */
         s->verified_usec = now_usec - 1;
-        dns_server_packet_received(s, IPPROTO_UDP, DNS_SERVER_FEATURE_LEVEL_EDNS0, 512);
-        ASSERT_EQ(s->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
+        dns_server_packet_received(s, IPPROTO_UDP, level_edns0, 512);
+        assert_level(s->verified_feature_level, level_edns0);
         ASSERT_GE(s->verified_usec, now_usec);
 
         /* A further reply at the same level must not restart it. The clock is monotonic, so a restart
          * could not yield this value. */
         s->verified_usec = now_usec - 1;
-        dns_server_packet_received(s, IPPROTO_UDP, DNS_SERVER_FEATURE_LEVEL_EDNS0, 512);
+        dns_server_packet_received(s, IPPROTO_UDP, level_edns0, 512);
         ASSERT_EQ(s->verified_usec, now_usec - 1);
-        ASSERT_EQ(dns_server_possible_feature_level(s), DNS_SERVER_FEATURE_LEVEL_EDNS0);
+        assert_level(dns_server_possible_feature_level(s), level_edns0);
 
         /* Once it elapsed, the full feature set is retried and the grace period doubles. Shrink it rather
          * than moving the timestamp back, CLOCK_BOOTTIME may be below five minutes on a fresh test VM. */
         s->features_grace_period_usec = 1;
         s->verified_usec = now_usec - 1;
-        ASSERT_EQ(dns_server_possible_feature_level(s), DNS_SERVER_FEATURE_LEVEL_DO);
+        assert_level(dns_server_possible_feature_level(s), level_do);
         ASSERT_EQ(s->features_grace_period_usec, 2u);
 
         /* A failed retry restarts it again on the way down, even though the verified level doesn't change */
         s->verified_usec = now_usec - 1;
-        lose_packets(s, DNS_SERVER_FEATURE_LEVEL_DO);
-        ASSERT_EQ(dns_server_possible_feature_level(s), DNS_SERVER_FEATURE_LEVEL_EDNS0);
-        ASSERT_EQ(s->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
+        lose_packets(s, level_do);
+        assert_level(dns_server_possible_feature_level(s), level_edns0);
+        assert_level(s->verified_feature_level, level_edns0);
         ASSERT_GE(s->verified_usec, now_usec);
 }
 
@@ -107,18 +119,18 @@ TEST(dns_server_grace_period_restarts_on_rcode_downgrade) {
         s = env.server;
 
         /* Verify DO, like a server that has been responding fine so far */
-        ASSERT_EQ(dns_server_possible_feature_level(s), DNS_SERVER_FEATURE_LEVEL_DO);
-        dns_server_packet_received(s, IPPROTO_UDP, DNS_SERVER_FEATURE_LEVEL_DO, 512);
-        ASSERT_EQ(s->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_DO);
+        assert_level(dns_server_possible_feature_level(s), level_do);
+        dns_server_packet_received(s, IPPROTO_UDP, level_do, 512);
+        assert_level(s->verified_feature_level, level_do);
         ASSERT_OK(sd_event_now(env.manager.event, CLOCK_BOOTTIME, &now_usec));
 
         /* A SERVFAIL that a retry at a lower level made go away clamps the server to that level directly,
          * via dns_server_packet_rcode_downgrade() -> dns_server_reset_counters(), which must restart the
          * grace period just like a UDP packet-loss downgrade does. */
         s->verified_usec = now_usec - 1;
-        dns_server_packet_rcode_downgrade(s, DNS_SERVER_FEATURE_LEVEL_EDNS0);
-        ASSERT_EQ(s->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
-        ASSERT_EQ(s->verified_feature_level, DNS_SERVER_FEATURE_LEVEL_EDNS0);
+        dns_server_packet_rcode_downgrade(s, level_edns0);
+        assert_level(s->possible_feature_level, level_edns0);
+        assert_level(s->verified_feature_level, level_edns0);
         ASSERT_GE(s->verified_usec, now_usec);
 }
 
