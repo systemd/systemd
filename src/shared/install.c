@@ -262,7 +262,9 @@ static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) 
         if (path_startswith(rpath, "/usr"))
                 return true;
 
-        if (path_is_generator(lp, rpath))
+        /* Not rpath: the generator directories are root prefixed, so stripping the root here would keep
+         * this from ever matching under --root=. */
+        if (path_is_generator(lp, path))
                 return true;
 
         return path_equal(rpath, SYSTEM_DATA_UNIT_DIR);
@@ -3688,7 +3690,12 @@ int unit_file_preset(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
+        _cleanup_(install_context_done) InstallContext plus = {
+                .scope = scope,
+        };
+        _cleanup_(install_context_done) InstallContext minus = {
+                .scope = scope,
+        };
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path;
@@ -3727,7 +3734,12 @@ int unit_file_preset_all(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
+        _cleanup_(install_context_done) InstallContext plus = {
+                .scope = scope,
+        };
+        _cleanup_(install_context_done) InstallContext minus = {
+                .scope = scope,
+        };
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path = NULL;

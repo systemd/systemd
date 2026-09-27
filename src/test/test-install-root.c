@@ -10,6 +10,7 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -776,6 +777,25 @@ TEST(revert) {
         ASSERT_STREQ(changes[1].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
+
+        /* A unit a generator produced counts as having a vendor version too, so its override goes as well.
+         * The generator directories are root prefixed, so this only works if we look for them as such. */
+        p = strjoina(root, "/run/systemd/generator/zz.service");
+        assert_se(write_string_file(p, "# Empty\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/zz.service");
+        assert_se(write_string_file(p, "# Empty override\n", WRITE_STRING_FILE_CREATE) >= 0);
+
+        assert_se(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("zz.service"), &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_STREQ(changes[0].path, p);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        /* The other tests share this root and the order they run in is up to the linker, so do not leave a
+         * generated unit lying around for them to trip over. */
+        ASSERT_OK_ERRNO(unlink(strjoina(root, "/run/systemd/generator/zz.service")));
 }
 
 TEST(preset_order) {
@@ -1129,6 +1149,34 @@ TEST(preset_multiple_instances) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 
         install_changes_free(changes, n_changes);
+}
+
+TEST(preset_scope) {
+        const char *unit, *preset, *link;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        /* The specifiers in the names an [Install] section asks for are resolved in the scope the caller
+         * asked for. %U has no meaning in the global scope, so presetting a unit that uses it has to fail
+         * rather than quietly expand it as if this were the system scope. */
+
+        unit = strjoina(root, "/usr/lib/systemd/user/scoped.service");
+        ASSERT_OK(mkdir_parents(unit, 0755));
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "WantedBy=target-%U.target\n", WRITE_STRING_FILE_CREATE));
+
+        preset = strjoina(root, "/usr/lib/systemd/user-preset/50-scoped.preset");
+        ASSERT_OK(mkdir_parents(preset, 0755));
+        ASSERT_OK(write_string_file(preset, "enable scoped.service\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_ERROR(unit_file_preset(RUNTIME_SCOPE_GLOBAL, 0, root, STRV_MAKE("scoped.service"),
+                                      UNIT_FILE_PRESET_FULL, &changes, &n_changes), EINVAL);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        link = strjoina(root, USER_CONFIG_UNIT_DIR"/target-0.target.wants/scoped.service");
+        ASSERT_ERROR(is_symlink(link), ENOENT);
 }
 
 static void verify_one(
