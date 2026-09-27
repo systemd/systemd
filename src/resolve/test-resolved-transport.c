@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "resolved-dns-server.h"
 #include "resolved-dns-transport.h"
 #include "tests.h"
 
