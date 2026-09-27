@@ -298,6 +298,41 @@ static bool is_dependency_dir_name(const char *name) {
         return ENDSWITH_SET(name, ".wants", ".requires", ".upholds");
 }
 
+/* Does 'set' name the unit this symlink stands for? Callers pass whatever they have resolved so far, hence
+ * the nullable arguments: 'template' for an instance of a template, 'dest'/'dest_name' for what the symlink
+ * chases to. */
+static bool set_contains_symlink(
+                Set *set,
+                const char *name,
+                const char *template,
+                const char *dest,
+                const char *dest_name) {
+
+        assert(name);
+
+        return set_contains(set, name) ||
+               (template && set_contains(set, template)) ||
+               (dest && set_contains(set, dest)) ||
+               (dest_name && set_contains(set, dest_name));
+}
+
+/* Everything in /etc/ that points at a unit got there by enabling it, so disabling is free to take all of it
+ * away again. A vendor directory is not ours in that way: distributions ship default.target, the runlevel
+ * targets and all sorts of compatibility names below /usr/ that no [Install] section ever asked for, and
+ * removing those would break the image. install_context_mark_for_removal() therefore works out what is in
+ * fact ours before remove_marked_symlinks() goes looking. */
+typedef struct VendorSymlinks {
+        Set *static_units; /* Units that ask for no dependency symlinks: theirs are wiring, not enablement. */
+        Set *own_names;    /* Top level names an [Install] section asks for, i.e. the ones enabling creates. */
+} VendorSymlinks;
+
+static void vendor_symlinks_done(VendorSymlinks *v) {
+        assert(v);
+
+        v->static_units = set_free(v->static_units);
+        v->own_names = set_free(v->own_names);
+}
+
 static int path_is_dependency_dir(const char *path) {
         _cleanup_free_ char *name = NULL;
         int r;
@@ -337,13 +372,30 @@ static int dependency_is_masked(const LookupPaths *lp, const char *path) {
         return null_or_empty(&st);
 }
 
-static const char* config_path_from_flags(const LookupPaths *lp, UnitFileFlags flags) {
+static int config_path_from_flags(const LookupPaths *lp, UnitFileFlags flags, const char **ret) {
         assert(lp);
+        assert(ret);
+
+        if (FLAGS_SET(flags, UNIT_FILE_VENDOR)) {
+                /* The user scope has no vendor unit directory whose enablement PID 1 would honour, so an
+                 * absent one here is an unsupported request rather than a missing path. Report it the way
+                 * the verbs that never accept the flag do. */
+                if (!lp->vendor_config)
+                        return -EOPNOTSUPP;
+
+                *ret = lp->vendor_config;
+                return 0;
+        }
 
         if (FLAGS_SET(flags, UNIT_FILE_PORTABLE))
-                return FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? lp->runtime_attached : lp->persistent_attached;
+                *ret = FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? lp->runtime_attached : lp->persistent_attached;
         else
-                return FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? lp->runtime_config : lp->persistent_config;
+                *ret = FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? lp->runtime_config : lp->persistent_config;
+
+        if (!*ret)
+                return -ENXIO;
+
+        return 0;
 }
 
 InstallChangeType install_changes_add(
@@ -741,6 +793,7 @@ static int mark_symlink_for_removal(
 
 static int remove_marked_symlinks_fd(
                 Set *remove_symlinks_to,
+                const VendorSymlinks *vendor,
                 int fd,
                 const char *path,
                 const char *config_path,
@@ -791,6 +844,7 @@ static int remove_marked_symlinks_fd(
 
                         /* This will close nfd, regardless whether it succeeds or not */
                         RET_GATHER(ret, remove_marked_symlinks_fd(remove_symlinks_to,
+                                                                  vendor,
                                                                   TAKE_FD(nfd), p,
                                                                   config_path, lp,
                                                                   dry_run,
@@ -813,21 +867,15 @@ static int remove_marked_symlinks_fd(
                          * files sharing the same name as a file that is marked, and files sharing the same
                          * name after the instance has been removed. Do path chasing only if we don't already
                          * know that we want to remove the symlink. */
-                        found = set_contains(remove_symlinks_to, de->d_name);
+                        _cleanup_free_ char *template = NULL, *dest = NULL, *dest_name = NULL;
+
+                        r = unit_name_template(de->d_name, &template);
+                        if (r < 0 && r != -EINVAL)
+                                return r;
+
+                        found = set_contains_symlink(remove_symlinks_to, de->d_name, template, NULL, NULL);
 
                         if (!found) {
-                                _cleanup_free_ char *template = NULL;
-
-                                r = unit_name_template(de->d_name, &template);
-                                if (r < 0 && r != -EINVAL)
-                                        return r;
-                                if (r >= 0)
-                                        found = set_contains(remove_symlinks_to, template);
-                        }
-
-                        if (!found) {
-                                _cleanup_free_ char *dest = NULL, *dest_name = NULL;
-
                                 r = chase(p, lp->root_dir, CHASE_NONEXISTENT, &dest, NULL);
                                 if (r == -ENOENT)
                                         continue;
@@ -841,21 +889,35 @@ static int remove_marked_symlinks_fd(
                                 if (r < 0)
                                         return r;
 
-                                found = set_contains(remove_symlinks_to, dest) ||
-                                        set_contains(remove_symlinks_to, dest_name);
+                                found = set_contains_symlink(remove_symlinks_to, de->d_name, template,
+                                                             dest, dest_name);
                         }
 
                         if (!found)
                                 continue;
 
                         if (is_dependency_dir > 0) {
-                                /* Leave dependency masks alone. They are how a unit that has been disabled
-                                 * stays disabled, so dropping one here would silently re-enable it. */
+                                /* Leave dependency masks alone. They are how a unit that the vendor enabled
+                                 * below /usr/ is disabled, so dropping them here would silently re-enable it. */
                                 r = dependency_is_masked(lp, p);
                                 if (r < 0)
                                         log_debug_errno(r, "Failed to check if '%s' is a dependency mask, "
                                                            "assuming it isn't: %m", p);
                                 else if (r > 0)
+                                        continue;
+
+                                /* And leave static wiring in the vendor directories alone. Match the same way
+                                 * as above, or an instance of a protected template would slip through. */
+                                if (vendor && set_contains_symlink(vendor->static_units, de->d_name, template,
+                                                                   /* dest= */ NULL, dest_name))
+                                        continue;
+
+                        } else if (vendor) {
+                                /* At the top level of a vendor directory only the names some [Install]
+                                 * section asks for are ours. Match on the name the symlink carries, not on
+                                 * what it points at: the whole point of an alias is that the two differ. */
+                                if (!set_contains_symlink(vendor->own_names, de->d_name, template,
+                                                          /* dest= */ NULL, /* dest_name= */ NULL))
                                         continue;
                         }
 
@@ -888,6 +950,7 @@ static int remove_marked_symlinks_fd(
 
 static int remove_marked_symlinks(
                 Set *remove_symlinks_to,
+                const VendorSymlinks *vendor,
                 const char *config_path,
                 const LookupPaths *lp,
                 bool dry_run,
@@ -904,6 +967,10 @@ static int remove_marked_symlinks(
         if (set_isempty(remove_symlinks_to))
                 return 0;
 
+        /* Below, a non-NULL 'vendor' is what says we are in a vendor directory at all. */
+        if (vendor && !path_is_vendor(lp, config_path))
+                vendor = NULL;
+
         fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC);
         if (fd < 0)
                 return errno == ENOENT ? 0 : -errno;
@@ -918,6 +985,7 @@ static int remove_marked_symlinks(
 
                 /* This takes possession of cfd and closes it */
                 RET_GATHER(r, remove_marked_symlinks_fd(remove_symlinks_to,
+                                                        vendor,
                                                         cfd, config_path,
                                                         config_path, lp,
                                                         dry_run,
@@ -2318,6 +2386,67 @@ static int install_info_check_dependency_rules(
         return install_info_has_dependency_rules(loaded);
 }
 
+static int install_info_collect_vendor_symlinks(
+                RuntimeScope scope,
+                const LookupPaths *lp,
+                InstallInfo *info,
+                UnitFileFlags file_flags,
+                VendorSymlinks *vendor) {
+
+        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+        InstallInfo *loaded;
+        int r;
+
+        assert(lp);
+        assert(info);
+        assert(vendor);
+
+        r = install_info_load_rules(&ctx, lp, info, &loaded);
+        if (r < 0)
+                return r;
+
+        if (!install_info_has_dependency_rules(loaded)) {
+                r = set_put_strdup(&vendor->static_units, loaded->name);
+                if (r < 0)
+                        return r;
+        }
+
+        /* An Alias= symlink is a name in the unit namespace rather than a switch: taking it away does not
+         * turn the unit off, it takes the name away from everything that refers to the unit by it. Removing
+         * it is therefore something only an explicit disable gets to do. A preset applies a policy, and the
+         * policy is satisfied by dropping the dependency symlinks above, so leave the vendor's names in
+         * place, exactly as a preset into /etc/ would. */
+        if (FLAGS_SET(file_flags, UNIT_FILE_APPLYING_PRESET))
+                return 0;
+
+        /* install_info_symlink_link() puts a unit file that lives outside the search path here under its own
+         * name, so that one is ours as well. */
+        if (loaded->path) {
+                r = in_search_path(lp, loaded->path);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        r = set_put_strdup(&vendor->own_names, loaded->name);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        STRV_FOREACH(a, loaded->aliases) {
+                _cleanup_free_ char *dst = NULL;
+
+                r = install_name_printf(scope, loaded, *a, &dst);
+                if (r < 0)
+                        return r;
+
+                r = set_put_strdup(&vendor->own_names, dst);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int install_context_mask_dependencies(
                 InstallContext *ctx,
                 const LookupPaths *lp,
@@ -2333,6 +2462,11 @@ static int install_context_mask_dependencies(
         assert(ctx);
         assert(lp);
         assert(config_path);
+
+        /* Operating on the vendor directories themselves? Then there is nothing below them to mask, the
+         * symlinks are simply removed. */
+        if (path_is_vendor(lp, config_path))
+                return 0;
 
         if (ordered_hashmap_isempty(ctx->have_processed))
                 return 0;
@@ -2884,7 +3018,9 @@ static int install_context_apply(
 static int install_context_mark_for_removal(
                 InstallContext *ctx,
                 const LookupPaths *lp,
+                UnitFileFlags file_flags,
                 Set **remove_symlinks_to,
+                VendorSymlinks *vendor,
                 const char *config_path,
                 InstallChange **changes,
                 size_t *n_changes) {
@@ -2912,6 +3048,8 @@ static int install_context_mark_for_removal(
                         return r;
 
                 r = install_info_traverse(ctx, lp, i, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
+                bool found = r >= 0;
+
                 if (r == -ENOLINK) {
                         log_debug_errno(r, "Name %s leads to a dangling symlink, removing name.", i->name);
                         r = install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_DANGLING, i->path ?: i->name, NULL);
@@ -2945,6 +3083,26 @@ static int install_context_mark_for_removal(
                         continue;
                 }
 
+                /* In the vendor directories a unit that asks for no dependency symlinks is statically wired
+                 * up rather than enabled, and that wiring belongs to whoever built the image. Removing it
+                 * would take the unit out of the boot, which is not what disabling something that was never
+                 * enableable should do. Units we could not find at all are exempt: a symlink pointing at
+                 * one of those is not wiring, it is a leftover to clean up. */
+                if (found && vendor && path_is_vendor(lp, config_path)) {
+                        r = install_info_collect_vendor_symlinks(ctx->scope, lp, i, file_flags, vendor);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to read the [Install] section of %s, assuming it "
+                                                "is statically wired up: %m", i->name);
+
+                                /* We found the unit but cannot tell wiring from enablement, so err towards
+                                 * keeping both: calling it statically wired leaves its dependency symlinks
+                                 * alone, and the names we did not collect leave the top level alone. */
+                                r = set_put_strdup(&vendor->static_units, i->name);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
                 r = mark_symlink_for_removal(remove_symlinks_to, i->name);
                 if (r < 0)
                         return r;
@@ -2968,6 +3126,9 @@ int unit_file_mask(
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
 
+        /* Only the enable/disable/reenable/preset/preset-all family knows how to operate below /usr/. */
+        if (FLAGS_SET(flags, UNIT_FILE_VENDOR))
+                return -EOPNOTSUPP;
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -3015,6 +3176,9 @@ int unit_file_unmask(
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
 
+        /* Only the enable/disable/reenable/preset/preset-all family knows how to operate below /usr/. */
+        if (FLAGS_SET(flags, UNIT_FILE_VENDOR))
+                return -EOPNOTSUPP;
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -3105,7 +3269,7 @@ int unit_file_unmask(
                         return q;
         }
 
-        RET_GATHER(r, remove_marked_symlinks(remove_symlinks_to,
+        RET_GATHER(r, remove_marked_symlinks(remove_symlinks_to, /* vendor= */ NULL,
                                              config_path, &lp, dry_run, changes, n_changes));
 
         return r;
@@ -3129,6 +3293,9 @@ int unit_file_link(
         assert(changes);
         assert(n_changes);
 
+        /* Only the enable/disable/reenable/preset/preset-all family knows how to operate below /usr/. */
+        if (FLAGS_SET(flags, UNIT_FILE_VENDOR))
+                return -EOPNOTSUPP;
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -3365,12 +3532,12 @@ int unit_file_revert(
                         return q;
         }
 
-        q = remove_marked_symlinks(remove_symlinks_to,
+        q = remove_marked_symlinks(remove_symlinks_to, /* vendor= */ NULL,
                                    lp.runtime_config, &lp, false, changes, n_changes);
         if (r >= 0)
                 r = q;
 
-        q = remove_marked_symlinks(remove_symlinks_to,
+        q = remove_marked_symlinks(remove_symlinks_to, /* vendor= */ NULL,
                                    lp.persistent_config, &lp, false, changes, n_changes);
         if (r >= 0)
                 r = q;
@@ -3399,6 +3566,9 @@ int unit_file_add_dependency(
         assert(target);
         assert(IN_SET(dep, UNIT_WANTS, UNIT_REQUIRES));
 
+        /* Only the enable/disable/reenable/preset/preset-all family knows how to operate below /usr/. */
+        if (FLAGS_SET(file_flags, UNIT_FILE_VENDOR))
+                return -EOPNOTSUPP;
 
         if (!unit_name_is_valid(target, UNIT_NAME_ANY))
                 return install_changes_add(changes, n_changes, -EUCLEAN, target, NULL);
@@ -3508,9 +3678,10 @@ int unit_file_enable(
         if (r < 0)
                 return r;
 
-        const char *config_path = config_path_from_flags(&lp, flags);
-        if (!config_path)
-                return -ENXIO;
+        const char *config_path;
+        r = config_path_from_flags(&lp, flags, &config_path);
+        if (r < 0)
+                return r;
 
         return do_unit_file_enable(&lp, scope, flags, config_path, names_or_paths, changes, n_changes);
 }
@@ -3555,11 +3726,12 @@ static int do_unit_file_disable(
         }
 
         _cleanup_set_free_ Set *remove_symlinks_to = NULL;
+        _cleanup_(vendor_symlinks_done) VendorSymlinks vendor = {};
 
-        r = install_context_mark_for_removal(&ctx, lp, &remove_symlinks_to,
+        r = install_context_mark_for_removal(&ctx, lp, flags, &remove_symlinks_to, &vendor,
                                              config_path, changes, n_changes);
         if (r >= 0)
-                r = remove_marked_symlinks(remove_symlinks_to, config_path, lp,
+                r = remove_marked_symlinks(remove_symlinks_to, &vendor, config_path, lp,
                                            flags & UNIT_FILE_DRY_RUN, changes, n_changes);
         if (r >= 0)
                 r = install_context_mask_dependencies(&ctx, lp, config_path, flags & UNIT_FILE_DRY_RUN,
@@ -3589,9 +3761,10 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
-        const char *config_path = config_path_from_flags(&lp, flags);
-        if (!config_path)
-                return -ENXIO;
+        const char *config_path;
+        r = config_path_from_flags(&lp, flags, &config_path);
+        if (r < 0)
+                return r;
 
         return do_unit_file_disable(&lp, scope, flags, config_path, files, changes, n_changes);
 }
@@ -3677,9 +3850,10 @@ int unit_file_reenable(
         if (r < 0)
                 return r;
 
-        const char *config_path = config_path_from_flags(&lp, flags);
-        if (!config_path)
-                return -ENXIO;
+        const char *config_path;
+        r = config_path_from_flags(&lp, flags, &config_path);
+        if (r < 0)
+                return r;
 
         r = normalize_linked_files(scope, &lp, names_or_paths, &names, &files);
         if (r < 0)
@@ -3712,6 +3886,9 @@ int unit_file_set_default(
         assert(scope < _RUNTIME_SCOPE_MAX);
         assert(name);
 
+        /* Only the enable/disable/reenable/preset/preset-all family knows how to operate below /usr/. */
+        if (FLAGS_SET(flags, UNIT_FILE_VENDOR))
+                return -EOPNOTSUPP;
 
         if (unit_name_to_type(name) != UNIT_TARGET) /* this also validates the name */
                 return -EINVAL;
@@ -4225,8 +4402,10 @@ static int execute_preset(
 
         if (mode != UNIT_FILE_PRESET_ENABLE_ONLY) {
                 _cleanup_set_free_ Set *remove_symlinks_to = NULL;
+                _cleanup_(vendor_symlinks_done) VendorSymlinks vendor = {};
 
-                r = install_context_mark_for_removal(minus, lp, &remove_symlinks_to,
+                r = install_context_mark_for_removal(minus, lp, file_flags | UNIT_FILE_APPLYING_PRESET,
+                                                     &remove_symlinks_to, &vendor,
                                                      config_path, changes, n_changes);
                 if (r < 0)
                         return r;
@@ -4237,7 +4416,7 @@ static int execute_preset(
                  * existing system whose preset files do not name what it wires up, which they never had to.
                  * Presetting the vendor directories does turn those units off, by removing the symlink,
                  * and an administrator asking for it by name with "systemctl disable" still gets a mask. */
-                r = remove_marked_symlinks(remove_symlinks_to, config_path, lp,
+                r = remove_marked_symlinks(remove_symlinks_to, &vendor, config_path, lp,
                                            false, changes, n_changes);
         } else
                 r = 0;
@@ -4345,9 +4524,9 @@ int unit_file_preset(
         if (r < 0)
                 return r;
 
-        config_path = config_path_from_flags(&lp, file_flags);
-        if (!config_path)
-                return -ENXIO;
+        r = config_path_from_flags(&lp, file_flags, &config_path);
+        if (r < 0)
+                return r;
 
         r = read_presets(scope, root_dir, &presets);
         if (r < 0)
@@ -4389,9 +4568,9 @@ int unit_file_preset_all(
         if (r < 0)
                 return r;
 
-        config_path = config_path_from_flags(&lp, file_flags);
-        if (!config_path)
-                return -ENXIO;
+        r = config_path_from_flags(&lp, file_flags, &config_path);
+        if (r < 0)
+                return r;
 
         r = read_presets(scope, root_dir, &presets);
         if (r < 0)

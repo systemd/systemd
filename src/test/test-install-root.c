@@ -1543,6 +1543,32 @@ TEST(vendor_mask_in_unrelated_target) {
         ASSERT_FALSE(is_dependency_mask(mask));
 }
 
+TEST(vendor_preset) {
+        const char *vendor_link, *mask;
+
+        write_vendor_file("system/vendor-preset.service", WANTED_BY_MULTI_USER);
+        write_vendor_file("system-preset/12-vendor.preset", "enable vendor-preset.service\n");
+
+        /* "preset --vendor" installs the enablement symlink into the vendor directory, leaving /etc/ empty
+         * so that it stays available for the administrator. */
+        do_preset(UNIT_FILE_VENDOR, STRV_MAKE("vendor-preset.service"));
+
+        vendor_link = strjoina(vendor_root, VENDOR_WANTS"vendor-preset.service");
+        mask = strjoina(vendor_root, ETC_WANTS"vendor-preset.service");
+        ASSERT_TRUE(symlink_exists(vendor_link));
+        ASSERT_FALSE(symlink_exists(mask));
+        assert_state("vendor-preset.service", UNIT_FILE_ENABLED);
+
+        /* Flipping the policy and presetting the vendor directory again removes the symlink rather than
+         * masking it: /usr/ is writable at image build time, and a mask there would have nothing to shadow. */
+        write_vendor_file("system-preset/12-vendor.preset", "disable vendor-preset.service\n");
+        do_preset(UNIT_FILE_VENDOR, STRV_MAKE("vendor-preset.service"));
+
+        ASSERT_FALSE(symlink_exists(vendor_link));
+        ASSERT_FALSE(symlink_exists(mask));
+        assert_state("vendor-preset.service", UNIT_FILE_DISABLED);
+}
+
 TEST(vendor_preset_leaves_vendor_enablement_alone) {
         const char *vendor_link, *mask;
 
@@ -1575,6 +1601,118 @@ TEST(vendor_preset_leaves_vendor_enablement_alone) {
         assert_state("vendor-preset-off.service", UNIT_FILE_ENABLED);
 }
 
+TEST(vendor_not_enableable_is_not_masked) {
+        /* A unit that asks for no dependency symlinks is not enabled by a vendor one, it is statically wired
+         * up by it. Masking that would take it out of the boot, which a catch-all "disable *" preset policy
+         * would then do to half the OS. Alias= names a unit file rather than a dependency symlink, so a unit
+         * whose [Install] section has nothing else counts as statically wired up just the same. */
+
+        write_vendor_file("system/vendor-static.service",
+                          "[Unit]\n"
+                          "Description=no Install section\n");
+        write_vendor_file("system/vendor-alias-only.service",
+                          "[Install]\n"
+                          "Alias=vendor-alias-only-alias.service\n");
+        write_vendor_file("system-preset/14-vendor-static.preset",
+                          "disable vendor-static.service\n"
+                          "disable vendor-alias-only.service\n");
+
+        FOREACH_STRING(name, "vendor-static.service", "vendor-alias-only.service") {
+                const char *mask = strjoina(vendor_root, ETC_WANTS, name);
+
+                write_vendor_symlink(strjoina("multi-user.target.wants/", name), strjoina("../", name));
+                assert_state(name, streq(name, "vendor-static.service") ? UNIT_FILE_STATIC : UNIT_FILE_DISABLED);
+
+                do_preset(0, STRV_MAKE(name));
+                ASSERT_FALSE(symlink_exists(mask));
+
+                do_disable(0, STRV_MAKE(name));
+                ASSERT_FALSE(symlink_exists(mask));
+
+                /* An administrator who masked it by hand keeps that mask, though. */
+                ASSERT_OK(mkdir_parents(mask, 0755));
+                ASSERT_OK_ERRNO(symlink("/dev/null", mask));
+                do_enable(0, STRV_MAKE(name));
+                ASSERT_TRUE(is_dependency_mask(mask));
+                ASSERT_OK_ERRNO(unlink(mask));
+        }
+
+        assert_state("vendor-static.service", UNIT_FILE_STATIC);
+
+        /* The protection has to match the way removal does, or an instance of a statically wired template
+         * slips through it. A leftover pointing at a unit that no longer exists is not static wiring
+         * though, it is rubbish to clean up. */
+        write_vendor_file("system/vendor-tmpl-static@.service",
+                          "[Unit]\n"
+                          "Description=statically wired template\n");
+        write_vendor_symlink("multi-user.target.wants/vendor-tmpl-static@one.service",
+                             "../vendor-tmpl-static@.service");
+        write_vendor_symlink("multi-user.target.wants/vendor-gone.service", "../vendor-gone.service");
+
+        do_preset_all(UNIT_FILE_VENDOR);
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, VENDOR_WANTS"vendor-tmpl-static@one.service")));
+
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+        (void) unit_file_disable(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, vendor_root,
+                                 STRV_MAKE("vendor-gone.service"), &changes, &n_changes);
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, VENDOR_WANTS"vendor-gone.service")));
+}
+
+TEST(vendor_unresolvable_install_section_keeps_wiring) {
+        const char *link;
+
+        /* A unit we found but whose [Install] section we cannot resolve leaves us unable to tell wiring from
+         * enablement, so its dependency symlinks stay. %U does not resolve in the global scope, where the
+         * vendor directory is the one below /usr/lib/systemd/user/. */
+
+        write_vendor_file("user/vendor-bad-alias.service",
+                          "[Install]\n"
+                          "WantedBy=multi-user.target\n"
+                          "Alias=%U-vendor-bad-alias.service\n");
+
+        link = strjoina(vendor_root, USER_DATA_UNIT_DIR"/multi-user.target.wants/vendor-bad-alias.service");
+        ASSERT_OK(mkdir_parents(link, 0755));
+        ASSERT_OK_ERRNO(symlink("../vendor-bad-alias.service", link));
+
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_GLOBAL, UNIT_FILE_VENDOR, vendor_root,
+                                    STRV_MAKE("vendor-bad-alias.service"), &changes, &n_changes));
+        ASSERT_TRUE(symlink_exists(link));
+}
+
+TEST(vendor_is_reported_unsupported_where_there_is_no_vendor_directory) {
+        char **names = STRV_MAKE("vendor-enabled.service");
+
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        /* The user scope has no vendor unit directory whose enablement PID 1 would honour, so the verbs that
+         * do take the flag report it as unsupported there rather than as a missing configuration directory,
+         * which is what the verbs that never take it say in any scope. No root, as the user scope does not
+         * take one; all of these bail out before touching anything. */
+
+        ASSERT_ERROR(unit_file_enable(RUNTIME_SCOPE_USER, UNIT_FILE_VENDOR, NULL, names,
+                                      &changes, &n_changes), EOPNOTSUPP);
+        ASSERT_ERROR(unit_file_disable(RUNTIME_SCOPE_USER, UNIT_FILE_VENDOR, NULL, names,
+                                       &changes, &n_changes), EOPNOTSUPP);
+        ASSERT_ERROR(unit_file_reenable(RUNTIME_SCOPE_USER, UNIT_FILE_VENDOR, NULL, names,
+                                        &changes, &n_changes), EOPNOTSUPP);
+        ASSERT_ERROR(unit_file_preset(RUNTIME_SCOPE_USER, UNIT_FILE_VENDOR, NULL, names,
+                                      UNIT_FILE_PRESET_FULL, &changes, &n_changes), EOPNOTSUPP);
+        ASSERT_ERROR(unit_file_preset_all(RUNTIME_SCOPE_USER, UNIT_FILE_VENDOR, NULL,
+                                          UNIT_FILE_PRESET_FULL, &changes, &n_changes), EOPNOTSUPP);
+
+        ASSERT_ERROR(unit_file_mask(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, vendor_root, names,
+                                    &changes, &n_changes), EOPNOTSUPP);
+        ASSERT_ERROR(unit_file_unmask(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, vendor_root, names,
+                                      &changes, &n_changes), EOPNOTSUPP);
+}
+
 TEST(vendor_symlinked_dependency_dir_is_not_followed) {
         /* A dependency directory that is itself a symlink is not entered. An absolute one would resolve
          * against the host rather than against --root=, which would have us report on and mask in the
@@ -1591,6 +1729,40 @@ TEST(vendor_symlinked_dependency_dir_is_not_followed) {
 
         do_disable(0, STRV_MAKE("vendor-escape.service"));
         ASSERT_FALSE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/escape.target.wants/vendor-escape.service")));
+}
+
+TEST(vendor_preset_all) {
+        const char *vendor_link, *mask;
+
+        /* preset-all is the path distribution tooling actually uses, and it reaches the units by walking the
+         * search path rather than by name. Same rule: it leaves the vendor's enablement where it is, and
+         * only presetting the vendor directories takes it away. */
+
+        write_vendor_file("system/vendor-all.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-all.service", "../vendor-all.service");
+        write_vendor_file("system-preset/11-vendor-all.preset", "disable vendor-all.service\n");
+
+        do_preset_all(0);
+
+        vendor_link = strjoina(vendor_root, VENDOR_WANTS"vendor-all.service");
+        mask = strjoina(vendor_root, ETC_WANTS"vendor-all.service");
+        ASSERT_FALSE(symlink_exists(mask));
+        assert_state("vendor-all.service", UNIT_FILE_ENABLED);
+
+        do_preset_all(UNIT_FILE_VENDOR);
+        ASSERT_FALSE(symlink_exists(vendor_link));
+        ASSERT_FALSE(symlink_exists(mask));
+        assert_state("vendor-all.service", UNIT_FILE_DISABLED);
+
+        /* Running it again must converge rather than flip-flop. */
+        do_preset_all(UNIT_FILE_VENDOR);
+        ASSERT_FALSE(symlink_exists(vendor_link));
+
+        write_vendor_file("system-preset/11-vendor-all.preset", "enable vendor-all.service\n");
+        do_preset_all(UNIT_FILE_VENDOR);
+
+        ASSERT_TRUE(symlink_exists(vendor_link));
+        assert_state("vendor-all.service", UNIT_FILE_ENABLED);
 }
 
 TEST(vendor_requires_and_upholds) {
@@ -1793,6 +1965,20 @@ TEST(vendor_dry_run_writes_nothing) {
         assert_state("vendor-dry.service", UNIT_FILE_ENABLED);
 }
 
+TEST(vendor_no_pointless_mask_below_the_vendor_directory) {
+        /* --vendor operates on /usr/lib/systemd/system/, which is lower priority than /usr/local/lib/. A
+         * mask placed there would shadow nothing, so it must not be written at all. */
+
+        write_vendor_file("system/vendor-local.service", WANTED_BY_MULTI_USER);
+
+        const char *high = strjoina(vendor_root, "/usr/local/lib/systemd/system/multi-user.target.wants/vendor-local.service");
+        ASSERT_OK(mkdir_parents(high, 0755));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/vendor-local.service", high));
+
+        do_disable(UNIT_FILE_VENDOR, STRV_MAKE("vendor-local.service"));
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, VENDOR_WANTS"vendor-local.service")));
+}
+
 TEST(vendor_also_keeps_sibling_preset_policy) {
         /* Presetting a unit must not drag its Also= units into the removal set: they have a preset policy of
          * their own, which by then has either already been applied or is yet to be. */
@@ -1818,6 +2004,73 @@ TEST(vendor_also_keeps_sibling_preset_policy) {
         do_preset_all(0);
         assert_state("vendor-main.service", UNIT_FILE_DISABLED);
         assert_state("vendor-aux.socket", UNIT_FILE_ENABLED);
+}
+TEST(vendor_keeps_symlinks_it_was_not_asked_for) {
+        const char *compat, *slot, *wiring;
+
+        /* Distributions ship default.target, the runlevel targets and plenty of other symlinks below /usr/
+         * that no [Install] section ever asked for. Presetting into the vendor directories must leave every
+         * one of them alone, or building an image with "preset-all --vendor" takes the OS apart. */
+
+        write_vendor_file("system/vendor-named.service",
+                          "[Install]\n"
+                          "Alias=vendor-named-slot.service\n"
+                          "WantedBy=multi-user.target\n");
+
+        /* A name nothing declares, i.e. the vendor's own, and the one the [Install] section does declare. */
+        write_vendor_symlink("vendor-named-compat.service", "vendor-named.service");
+        write_vendor_symlink("vendor-named-slot.service", "vendor-named.service");
+        write_vendor_symlink("multi-user.target.wants/vendor-named.service", "../vendor-named.service");
+        write_vendor_file("system-preset/19-vendor-named.preset", "disable vendor-named.service\n");
+
+        do_preset(UNIT_FILE_VENDOR, STRV_MAKE("vendor-named.service"));
+
+        /* The dependency symlink is how the unit was on, so that goes. The names stay: dropping them would
+         * not turn anything off, it would take the name away from everything that refers to the unit by
+         * it. */
+        compat = strjoina(vendor_root, "/usr/lib/systemd/system/vendor-named-compat.service");
+        slot = strjoina(vendor_root, "/usr/lib/systemd/system/vendor-named-slot.service");
+        wiring = strjoina(vendor_root, VENDOR_WANTS"vendor-named.service");
+        ASSERT_FALSE(symlink_exists(wiring));
+        ASSERT_TRUE(symlink_exists(compat));
+        ASSERT_TRUE(symlink_exists(slot));
+
+        /* An explicit disable is a different matter: it may take back what enabling would have created. */
+        do_disable(UNIT_FILE_VENDOR, STRV_MAKE("vendor-named.service"));
+        ASSERT_TRUE(symlink_exists(compat));
+        ASSERT_FALSE(symlink_exists(slot));
+
+        /* Same for a unit that cannot be enabled at all: nothing below /usr/ that points at it is ours. */
+        write_vendor_file("system/vendor-unnamed.service",
+                          "[Unit]\n"
+                          "Description=no Install section\n");
+        write_vendor_symlink("vendor-unnamed-compat.service", "vendor-unnamed.service");
+
+        do_disable(UNIT_FILE_VENDOR, STRV_MAKE("vendor-unnamed.service"));
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, "/usr/lib/systemd/system/vendor-unnamed-compat.service")));
+}
+
+TEST(vendor_disable_removes_linked_unit) {
+        const char *unit, *link, *alias;
+
+        /* A unit file from outside the search path is linked into the vendor directory under its own name,
+         * so unlike the symlinks above that one is ours to take back. */
+
+        unit = strjoina(vendor_root, "/opt/vendor-linked.service");
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "Alias=vendor-linked-alias.service\n", WRITE_STRING_FILE_CREATE));
+
+        do_enable(UNIT_FILE_VENDOR, STRV_MAKE("/opt/vendor-linked.service"));
+
+        link = strjoina(vendor_root, "/usr/lib/systemd/system/vendor-linked.service");
+        alias = strjoina(vendor_root, "/usr/lib/systemd/system/vendor-linked-alias.service");
+        ASSERT_TRUE(symlink_exists(link));
+        ASSERT_TRUE(symlink_exists(alias));
+
+        do_disable(UNIT_FILE_VENDOR, STRV_MAKE("vendor-linked.service"));
+        ASSERT_FALSE(symlink_exists(link));
+        ASSERT_FALSE(symlink_exists(alias));
 }
 
 static int intro(void) {
