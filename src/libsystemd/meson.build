@@ -260,6 +260,7 @@ libsystemd_tests += [
         {
                 'sources' : files('sd-event/test-event.c'),
                 'timeout' : 120,
+                'io_uring' : true,
         },
         {
                 'sources' : files('sd-journal/test-journal-enum.c'),
