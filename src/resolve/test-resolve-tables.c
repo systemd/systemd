@@ -15,6 +15,7 @@ int main(int argc, char **argv) {
         test_table(DnsProtocol, dns_protocol, DNS_PROTOCOL);
         test_table(DnssecResult, dnssec_result, DNSSEC_RESULT);
         test_table(DnssecVerdict, dnssec_verdict, DNSSEC_VERDICT);
+        test_table(DnsEncryptionMode, dns_encryption_mode, DNS_ENCRYPTION_MODE);
         test_table(DnsTransportKind, dns_transport_kind, DNS_TRANSPORT_KIND);
 
         test_table_sparse(int, dns_rcode, DNS_RCODE);
