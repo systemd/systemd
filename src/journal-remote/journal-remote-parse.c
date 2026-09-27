@@ -23,6 +23,7 @@ RemoteSource* source_free(RemoteSource *source) {
         sd_event_source_unref(source->buffer_event);
 
         compressor_free(source->decompressor);
+        free(source->lz4_buffer);
         free(source->encoding);
         free(source->client_certificate_subject);
         return mfree(source);
