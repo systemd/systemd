@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "resolve-util.h"
 #include "resolved-forward.h"
 
 /* The wire transports used to talk to unicast DNS servers. The enum order is significant: when comparing
@@ -13,6 +14,29 @@ typedef enum DnsTransportKind {
 } DnsTransportKind;
 
 DECLARE_STRING_TABLE_LOOKUP(dns_transport_kind, DnsTransportKind);
+
+/* Whether traffic to a server has to be encrypted. Derived from the DNSOverTLS= setting. */
+typedef enum DnsEncryptionMode {
+        DNS_ENCRYPTION_NO,             /* Classic DNS only */
+        DNS_ENCRYPTION_OPPORTUNISTIC,  /* Encrypted if that works, classic DNS otherwise */
+        DNS_ENCRYPTION_REQUIRED,       /* Encrypted, or not at all */
+        _DNS_ENCRYPTION_MODE_MAX,
+        _DNS_ENCRYPTION_MODE_INVALID = -EINVAL,
+} DnsEncryptionMode;
+
+DECLARE_STRING_TABLE_LOOKUP(dns_encryption_mode, DnsEncryptionMode);
+
+DnsEncryptionMode dns_encryption_mode_from_dns_over_tls_mode(DnsOverTlsMode m) _const_;
+
+/* The transports that may be used to talk to a server, in order of preference */
+typedef struct DnsTransportPolicy {
+        DnsTransportKind transports[_DNS_TRANSPORT_KIND_MAX];
+        size_t n_transports;
+} DnsTransportPolicy;
+
+void dns_transport_policy_init(DnsEncryptionMode mode, DnsTransportPolicy *ret);
+bool dns_transport_policy_contains(const DnsTransportPolicy *p, DnsTransportKind kind) _pure_;
+DnsTransportKind dns_transport_policy_next(const DnsTransportPolicy *p, DnsTransportKind kind) _pure_;
 
 /* What the server understands at the DNS message layer, independently of the transport carrying it */
 typedef enum DnsServerEdnsLevel {
