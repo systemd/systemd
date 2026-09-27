@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import contextlib
+import ctypes
 import hashlib
 import http.client
 import lzma
 import os
 import signal
 import socket
+import struct
 import subprocess
 import tempfile
 import time
@@ -179,6 +181,56 @@ class XzStreamingTests(StreamingTests, ReceiverTestCase):
 
     def compress(self, data):
         return lzma.compress(data)
+
+
+class Lz4StreamingTests(StreamingTests, ReceiverTestCase):
+    encoding = 'lz4'
+
+    def test_many_small_blobs(self):
+        message = hashlib.shake_256(b'journal-remote LZ4 remainder').hexdigest(128 * 1024)
+        body = (
+            self.compress(entry('')[:-2])
+            + self.compress(b'x') * 9000
+            + self.compress(b'\n\n' + entry(message))
+        )
+        self.assertGreater(len(body), 128 * 1024)
+        self.assertEqual(self.post(body, self.encoding), 202)
+        self.assertEqual(self.journal(), ['x' * 9000, message])
+
+    def test_decoded_size_limit(self):
+        header = struct.pack('<Q', 2 * 1024 * 1024 + 1)
+        for prefix in (b'', self.compressed('before-limit')):
+            with self.subTest(prefix=bool(prefix)), self.connect() as connection:
+                connection.begin(self.encoding)
+                connection.chunk(prefix + header[:4])
+                connection.chunk(header[4:])
+                # libmicrohttpd cannot queue a response while it is receiving the
+                # body, so the server closes the connection without one.
+                with contextlib.suppress(ConnectionError):
+                    self.assertEqual(connection.status(), 413)
+        self.assertEqual(self.post(entry('after-size-limit')), 202)
+
+    def test_empty_upload(self):
+        for chunked in (False, True):
+            with self.subTest(chunked=chunked), self.connect() as connection:
+                connection.begin(self.encoding, length=None if chunked else 0)
+                if chunked:
+                    connection.chunk(b'')
+                self.assertEqual(connection.status(), 202)
+
+    def compress(self, data):
+        # systemd-journal-upload sends one compress_blob() output per 64 KiB
+        # libcurl upload buffer: the decoded size as a little-endian 64-bit
+        # integer, then one raw LZ4 block.
+        lz4 = ctypes.CDLL('liblz4.so.1')
+        body = b''
+        for offset in range(0, len(data), 64 * 1024):
+            piece = data[offset : offset + 64 * 1024]
+            block = ctypes.create_string_buffer(lz4.LZ4_compressBound(len(piece)))
+            size = lz4.LZ4_compress_default(piece, block, len(piece), len(block))
+            self.assertGreater(size, 0)
+            body += struct.pack('<Q', len(piece)) + block.raw[:size]
+        return body
 
 
 class ZstdStreamingTests(StreamingTests, ReceiverTestCase):
