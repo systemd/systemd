@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "resolved-dns-server.h"
 #include "resolved-dns-transport.h"
+#include "resolved-manager.h"
 #include "tests.h"
 
 /* All feature levels, in the documented order from worst to best */
@@ -77,6 +79,117 @@ TEST(feature_level_invalid) {
                 ASSERT_LT(dns_server_feature_level_compare(_DNS_SERVER_FEATURE_LEVEL_INVALID, *l), 0);
                 ASSERT_GT(dns_server_feature_level_compare(*l, _DNS_SERVER_FEATURE_LEVEL_INVALID), 0);
         }
+}
+
+TEST(encryption_mode_from_dns_over_tls_mode) {
+        ASSERT_EQ(dns_encryption_mode_from_dns_over_tls_mode(DNS_OVER_TLS_NO), DNS_ENCRYPTION_NO);
+        ASSERT_EQ(dns_encryption_mode_from_dns_over_tls_mode(DNS_OVER_TLS_OPPORTUNISTIC), DNS_ENCRYPTION_OPPORTUNISTIC);
+        ASSERT_EQ(dns_encryption_mode_from_dns_over_tls_mode(DNS_OVER_TLS_YES), DNS_ENCRYPTION_REQUIRED);
+        ASSERT_EQ(dns_encryption_mode_from_dns_over_tls_mode(_DNS_OVER_TLS_MODE_INVALID), DNS_ENCRYPTION_NO);
+}
+
+static void test_transport_policy_one(DnsEncryptionMode mode, const DnsTransportKind *expected, size_t n_expected) {
+        DnsTransportPolicy p;
+
+        log_debug("/* %s(%s) */", __func__, dns_encryption_mode_to_string(mode));
+
+        dns_transport_policy_init(&p, mode);
+
+        /* The permitted transports, in order of preference, each falling back to the next one */
+        ASSERT_EQ(p.n_transports, n_expected);
+        for (size_t i = 0; i < n_expected; i++) {
+                ASSERT_EQ(p.transports[i], expected[i]);
+                ASSERT_TRUE(dns_transport_policy_contains(&p, expected[i]));
+                ASSERT_EQ(dns_transport_policy_next(&p, expected[i]),
+                          i + 1 < n_expected ? expected[i + 1] : _DNS_TRANSPORT_KIND_INVALID);
+        }
+
+        /* Transports not permitted are neither contained nor fallen back from */
+        for (DnsTransportKind k = 0; k < _DNS_TRANSPORT_KIND_MAX; k++) {
+                bool permitted = false;
+
+                for (size_t i = 0; i < n_expected; i++)
+                        if (expected[i] == k)
+                                permitted = true;
+                if (permitted)
+                        continue;
+
+                ASSERT_FALSE(dns_transport_policy_contains(&p, k));
+                ASSERT_EQ(dns_transport_policy_next(&p, k), _DNS_TRANSPORT_KIND_INVALID);
+        }
+
+        ASSERT_FALSE(dns_transport_policy_contains(&p, _DNS_TRANSPORT_KIND_INVALID));
+        ASSERT_EQ(dns_transport_policy_next(&p, _DNS_TRANSPORT_KIND_INVALID), _DNS_TRANSPORT_KIND_INVALID);
+}
+
+TEST(transport_policy) {
+        test_transport_policy_one(DNS_ENCRYPTION_NO,
+                                  (const DnsTransportKind[]) { DNS_TRANSPORT_DNS }, 1);
+        test_transport_policy_one(DNS_ENCRYPTION_OPPORTUNISTIC,
+                                  (const DnsTransportKind[]) { DNS_TRANSPORT_DOT, DNS_TRANSPORT_DNS }, 2);
+        test_transport_policy_one(DNS_ENCRYPTION_REQUIRED,
+                                  (const DnsTransportKind[]) { DNS_TRANSPORT_DOT }, 1);
+}
+
+/* Indexes into levels_in_order[] */
+enum {
+        LEVEL_TCP,
+        LEVEL_UDP,
+        LEVEL_UDP_EDNS0,
+        LEVEL_TLS_EDNS0,
+        LEVEL_UDP_DO,
+        LEVEL_TLS_DO,
+        LEVEL_NONE = -1,        /* Nothing left to reduce to */
+};
+
+static void test_feature_level_reduce_one(DnsServer *s, int from, int expected) {
+        DnsServerFeatureLevel l;
+
+        log_debug("/* %s(%s → %s) */", __func__,
+                  level_names[from], expected >= 0 ? level_names[expected] : "none");
+
+        if (expected < 0) {
+                ASSERT_FALSE(dns_server_feature_level_reduce(s, levels_in_order[from], &l));
+                return;
+        }
+
+        ASSERT_TRUE(dns_server_feature_level_reduce(s, levels_in_order[from], &l));
+        ASSERT_STREQ(dns_server_feature_level_to_string(l), level_names[expected]);
+        ASSERT_TRUE(dns_server_feature_level_equal(l, levels_in_order[expected]));
+}
+
+TEST(feature_level_reduce) {
+        union in_addr_union address = { .in.s_addr = htobe32(0xc0000201) };
+        Manager manager = {};
+        DnsServer *s = NULL;
+
+        ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
+                                 AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
+
+        /* Classic DNS: first the EDNS level is lowered, down to plain UDP */
+        manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+        test_feature_level_reduce_one(s, LEVEL_UDP_DO, LEVEL_UDP_EDNS0);
+        test_feature_level_reduce_one(s, LEVEL_UDP_EDNS0, LEVEL_UDP);
+        test_feature_level_reduce_one(s, LEVEL_UDP, LEVEL_NONE);
+        test_feature_level_reduce_one(s, LEVEL_TCP, LEVEL_NONE);
+
+#if ENABLE_DNS_OVER_TLS
+        /* Opportunistic DNS-over-TLS: TLS requires EDNS0, below that we fall back to classic DNS */
+        manager.dns_over_tls_mode = DNS_OVER_TLS_OPPORTUNISTIC;
+        test_feature_level_reduce_one(s, LEVEL_TLS_DO, LEVEL_TLS_EDNS0);
+        test_feature_level_reduce_one(s, LEVEL_TLS_EDNS0, LEVEL_UDP_EDNS0);
+        test_feature_level_reduce_one(s, LEVEL_UDP_DO, LEVEL_UDP_EDNS0);
+        test_feature_level_reduce_one(s, LEVEL_UDP_EDNS0, LEVEL_UDP);
+        test_feature_level_reduce_one(s, LEVEL_UDP, LEVEL_NONE);
+
+        /* Strict DNS-over-TLS: never fall back to classic DNS */
+        manager.dns_over_tls_mode = DNS_OVER_TLS_YES;
+        test_feature_level_reduce_one(s, LEVEL_TLS_DO, LEVEL_TLS_EDNS0);
+        test_feature_level_reduce_one(s, LEVEL_TLS_EDNS0, LEVEL_NONE);
+#endif
+
+        dns_server_unlink(s);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG)
