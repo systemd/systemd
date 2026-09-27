@@ -60,13 +60,21 @@ static const char *const preset_action_past_tense_table[_PRESET_ACTION_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(preset_action_past_tense, PresetAction);
 
+/* Whether enabling this unit would create .wants/, .requires/ or .upholds/ symlinks for it. Alias= names a
+ * unit file and Also= names other units, so neither does. A dependency symlink pointing at a unit that asks
+ * for none is static wiring done by whoever shipped it rather than enablement, and must be left alone. */
+static bool install_info_has_dependency_rules(const InstallInfo *i) {
+        assert(i);
+
+        return !strv_isempty(i->wanted_by) ||
+               !strv_isempty(i->required_by) ||
+               !strv_isempty(i->upheld_by);
+}
+
 static bool install_info_has_rules(const InstallInfo *i) {
         assert(i);
 
-        return !strv_isempty(i->aliases) ||
-               !strv_isempty(i->wanted_by) ||
-               !strv_isempty(i->required_by) ||
-               !strv_isempty(i->upheld_by);
+        return !strv_isempty(i->aliases) || install_info_has_dependency_rules(i);
 }
 
 static bool install_info_has_also(const InstallInfo *i) {
@@ -250,26 +258,37 @@ static int path_is_runtime(const LookupPaths *lp, const char *path, bool check_p
                            lp->runtime_control);
 }
 
-static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
+/* Unit directories below /usr/, i.e. the ones holding vendor supplied units and vendor supplied enablement.
+ * PID 1 acts on dependency symlinks in these just like on the ones in /etc/, but they are off limits when we
+ * enable or disable a unit on behalf of the administrator. */
+static bool path_is_vendor(const LookupPaths *lp, const char *path) {
         const char *rpath;
-        int r;
 
         assert(lp);
         assert(path);
 
         rpath = skip_root(lp->root_dir, path);
         if (!rpath)
-                return 0;
+                return false;
 
         if (path_startswith(rpath, "/usr"))
                 return true;
 
-        /* The lookup paths are root prefixed, so we have to pass in a root prefixed path. */
-        r = path_is_generator(lp, path);
-        if (r != 0)
-                return r;
+        return PATH_IN_SET(rpath, SYSTEM_DATA_UNIT_DIR, USER_DATA_UNIT_DIR);
+}
 
-        return path_equal(rpath, SYSTEM_DATA_UNIT_DIR);
+static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
+        assert(lp);
+        assert(path);
+
+        if (!skip_root(lp->root_dir, path))
+                return 0;
+
+        if (path_is_vendor(lp, path))
+                return true;
+
+        /* The lookup paths are root prefixed, so we have to pass in a root prefixed path. */
+        return path_is_generator(lp, path);
 }
 
 static const char* dependency_dir_suffix(const char *dir) {
@@ -1050,19 +1069,23 @@ static int find_symlinks(
                 bool match_name,
                 bool ignore_same_name,
                 const char *config_path,
-                bool *same_name_link) {
+                bool *same_name_link,
+                bool *ret_dependency) {
 
         _cleanup_closedir_ DIR *config_dir = NULL;
         int r;
 
         assert(i);
         assert(config_path);
+        assert(ret_dependency);
         assert(same_name_link);
 
         config_dir = opendir(config_path);
         if (!config_dir) {
-                if (IN_SET(errno, ENOENT, ENOTDIR, EACCES))
+                if (IN_SET(errno, ENOENT, ENOTDIR, EACCES)) {
+                        *ret_dependency = false;
                         return 0;
+                }
                 return -errno;
         }
 
@@ -1089,8 +1112,10 @@ static int find_symlinks(
                                                /* ignore_same_name= */ ignore_same_name,
                                                config_path,
                                                same_name_link);
-                if (r > 0)
+                if (r > 0) {
+                        *ret_dependency = true;
                         return 1;
+                }
                 if (r < 0)
                         log_debug_errno(r, "Failed to look up symlinks in \"%s\": %m", path);
         }
@@ -1098,12 +1123,17 @@ static int find_symlinks(
         /* We didn't find any suitable symlinks in .wants, .requires or .upholds directories,
          * let's look for linked unit files in this directory. */
         rewinddir(config_dir);
-        return find_symlinks_in_directory(config_dir, config_path, lp, i,
-                                          /* ignore_destination= */ false,
-                                          /* match_name= */ match_name,
-                                          /* ignore_same_name= */ ignore_same_name,
-                                          config_path,
-                                          same_name_link);
+        r = find_symlinks_in_directory(config_dir, config_path, lp, i,
+                                       /* ignore_destination= */ false,
+                                       /* match_name= */ match_name,
+                                       /* ignore_same_name= */ ignore_same_name,
+                                       config_path,
+                                       same_name_link);
+        if (r < 0)
+                return r;
+
+        *ret_dependency = false;
+        return r;
 }
 
 static int find_symlinks_in_scope(
@@ -1114,7 +1144,7 @@ static int find_symlinks_in_scope(
                 UnitFileState *state) {
 
         bool same_name_link_runtime = false, same_name_link_config = false;
-        bool enabled_in_runtime = false, enabled_at_all = false;
+        bool enabled_in_runtime = false, enabled_at_all = false, aliased_at_all = false;
         bool ignore_same_name = false;
         int r;
 
@@ -1127,9 +1157,9 @@ static int find_symlinks_in_scope(
          * effectively masked, so we should ignore them. */
 
         STRV_FOREACH(p, lp->search_path)  {
-                bool same_name_link = false;
+                bool same_name_link = false, dependency = false;
 
-                r = find_symlinks(lp, info, match_name, ignore_same_name, *p, &same_name_link);
+                r = find_symlinks(lp, info, match_name, ignore_same_name, *p, &same_name_link, &dependency);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -1152,8 +1182,20 @@ static int find_symlinks_in_scope(
                                 return r;
                         if (r > 0)
                                 enabled_in_runtime = true;
-                        else
+                        else if (dependency && path_is_vendor(lp, *p) && install_info_has_dependency_rules(info))
+                                /* A .wants/, .requires/ or .upholds/ symlink shipped by the vendor below
+                                 * /usr/. PID 1 acts on these just like on the ones in /etc/, so the unit is
+                                 * enabled, and it stays overridable from /etc/.
+                                 *
+                                 * Only for units that ask for such symlinks though: for anything else the
+                                 * vendor is wiring the unit up statically, and reporting that as "enabled"
+                                 * would suggest it can be disabled again. */
                                 enabled_at_all = true;
+                        else
+                                /* Either not a dependency symlink but one carrying a different name for the
+                                 * same unit, i.e. an alias, or a symlink in one of the remaining directories
+                                 * such as the one portable services are attached to. Much weaker, see below. */
+                                aliased_at_all = true;
 
                 } else if (same_name_link) {
                         if (path_equal(*p, lp->persistent_config))
@@ -1178,11 +1220,19 @@ static int find_symlinks_in_scope(
                 return 1;
         }
 
+        /* Enabled by the vendor rather than by the administrator. Report it as plain "enabled": that is what
+         * it behaves like, and it remains overridable from /etc/, either by removing the dependency symlink
+         * that shadows the vendor one or by masking it with a symlink to /dev/null. */
+        if (enabled_at_all) {
+                *state = UNIT_FILE_ENABLED;
+                return 1;
+        }
+
         /* Here's a special rule: if the unit we are looking for is an instance, and it symlinked in the search path
          * outside of runtime and configuration directory, then we consider it statically enabled. Note we do that only
          * for instance, not for regular names, as those are merely aliases, while instances explicitly instantiate
          * something, and hence are a much stronger concept. */
-        if (enabled_at_all && unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+        if (aliased_at_all && unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
                 *state = UNIT_FILE_STATIC;
                 return 1;
         }
