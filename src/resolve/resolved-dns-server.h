@@ -4,7 +4,7 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "resolved-conf.h"
-#include "resolved-dnstls.h"
+#include "resolved-dns-transport.h"
 #include "resolved-forward.h"
 
 typedef enum DnsServerType {
@@ -17,26 +17,6 @@ typedef enum DnsServerType {
 } DnsServerType;
 
 DECLARE_STRING_TABLE_LOOKUP(dns_server_type, DnsServerType);
-
-typedef enum DnsServerFeatureLevel {
-        DNS_SERVER_FEATURE_LEVEL_TCP,
-        DNS_SERVER_FEATURE_LEVEL_UDP,
-        DNS_SERVER_FEATURE_LEVEL_EDNS0,
-        DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN,
-        DNS_SERVER_FEATURE_LEVEL_DO,
-        DNS_SERVER_FEATURE_LEVEL_TLS_DO,
-        _DNS_SERVER_FEATURE_LEVEL_MAX,
-        _DNS_SERVER_FEATURE_LEVEL_INVALID = -EINVAL,
-} DnsServerFeatureLevel;
-
-#define DNS_SERVER_FEATURE_LEVEL_WORST 0
-#define DNS_SERVER_FEATURE_LEVEL_BEST (_DNS_SERVER_FEATURE_LEVEL_MAX - 1)
-#define DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
-#define DNS_SERVER_FEATURE_LEVEL_IS_TLS(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN, DNS_SERVER_FEATURE_LEVEL_TLS_DO)
-#define DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_DO)
-#define DNS_SERVER_FEATURE_LEVEL_IS_UDP(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_UDP, DNS_SERVER_FEATURE_LEVEL_EDNS0, DNS_SERVER_FEATURE_LEVEL_DO)
-
-DECLARE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
 
 typedef struct DnsServer {
         Manager *manager;
@@ -56,28 +36,17 @@ typedef struct DnsServer {
         char *server_string;
         char *server_string_full;
 
-        /* The long-lived stream towards this server. */
-        DnsStream *stream;
-
-#if ENABLE_DNS_OVER_TLS
-        DnsTlsServerData dnstls_data;
-#endif
+        /* Transport specific state, one object per transport this build supports. See dns_server_transport(). */
+        DnsServerTransport *transports[_DNS_TRANSPORT_KIND_MAX];
 
         DnsServerFeatureLevel verified_feature_level;
         DnsServerFeatureLevel possible_feature_level;
 
-        size_t received_udp_fragment_max;   /* largest packet or fragment (without IP/UDP header) we saw so far */
-
-        unsigned n_failed_udp;
-        unsigned n_failed_tcp;
-        unsigned n_failed_tls;
-
-        bool packet_truncated:1;        /* Set when TC bit was set on reply */
+        /* What we learnt about the server at the DNS message layer, regardless of the transport */
         bool packet_bad_opt:1;          /* Set when OPT was missing or otherwise bad on reply */
         bool packet_rrsig_missing:1;    /* Set when RRSIG was missing */
         bool packet_invalid:1;          /* Set when we failed to parse a reply */
         bool packet_do_off:1;           /* Set when the server didn't copy DNSSEC DO flag from request to response */
-        bool packet_fragmented:1;       /* Set when we ever saw a fragmented packet */
 
         usec_t verified_usec;
         usec_t features_grace_period_usec;
@@ -157,7 +126,10 @@ DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m, DnsServer *if_current);
 
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
-DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);
+DnsEncryptionMode dns_server_get_encryption_mode(DnsServer *s);
+void dns_server_transport_policy(DnsServer *s, DnsTransportPolicy *ret);
+
+bool dns_server_feature_level_reduce(DnsServer *s, DnsServerFeatureLevel level, DnsServerFeatureLevel *ret);
 
 size_t dns_server_get_mtu(DnsServer *s);
 
@@ -172,7 +144,9 @@ void dns_server_reset_features_all(DnsServer *s);
 
 void dns_server_dump(DnsServer *s, FILE *f);
 
-void dns_server_unref_stream(DnsServer *s);
+void dns_server_unref_streams(DnsServer *s);
+
+DnsServerTransport* dns_server_transport(DnsServer *s, DnsTransportKind kind);
 
 DnsScope *dns_server_scope(DnsServer *s);
 
