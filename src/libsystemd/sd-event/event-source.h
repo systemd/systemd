@@ -46,6 +46,7 @@ typedef enum WakeupType {
 
 typedef struct inode_data InodeData;
 typedef struct inotify_data InotifyData;
+typedef struct signal_data SignalData;
 
 struct sd_event_source {
         WakeupType wakeup;

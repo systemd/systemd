@@ -727,7 +727,7 @@ static struct clock_data* event_get_clock_data(sd_event *e, EventSourceType t) {
         }
 }
 
-static void event_free_signal_data(sd_event *e, struct signal_data *d) {
+static void event_free_signal_data(sd_event *e, SignalData *d) {
         assert(e);
 
         if (!d)
@@ -741,9 +741,9 @@ static void event_free_signal_data(sd_event *e, struct signal_data *d) {
 static int event_make_signal_data(
                 sd_event *e,
                 int sig,
-                struct signal_data **ret) {
+                SignalData **ret) {
 
-        struct signal_data *d;
+        SignalData *d;
         bool added = false;
         sigset_t ss_copy;
         int64_t priority;
@@ -767,11 +767,11 @@ static int event_make_signal_data(
                         return 0;
                 }
         } else {
-                d = new(struct signal_data, 1);
+                d = new(SignalData, 1);
                 if (!d)
                         return -ENOMEM;
 
-                *d = (struct signal_data) {
+                *d = (SignalData) {
                         .wakeup = WAKEUP_SIGNAL_DATA,
                         .fd = -EBADF,
                         .priority = priority,
@@ -823,7 +823,7 @@ fail:
         return r;
 }
 
-static void event_unmask_signal_data(sd_event *e, struct signal_data *d, int sig) {
+static void event_unmask_signal_data(sd_event *e, SignalData *d, int sig) {
         assert(e);
         assert(d);
 
@@ -852,7 +852,7 @@ static void event_unmask_signal_data(sd_event *e, struct signal_data *d, int sig
 }
 
 static void event_gc_signal_data(sd_event *e, const int64_t *priority, int sig) {
-        struct signal_data *d;
+        SignalData *d;
         static const int64_t zero_priority = 0;
 
         assert(e);
@@ -1202,7 +1202,7 @@ static int source_set_pending(sd_event_source *s, bool b) {
                 event_source_time_prioq_reshuffle(s);
 
         if (s->type == SOURCE_SIGNAL && !b) {
-                struct signal_data *d;
+                SignalData *d;
 
                 d = hashmap_get(s->event->signal_data, &s->priority);
                 if (d && d->current == s)
@@ -1526,7 +1526,7 @@ _public_ int sd_event_add_signal(
                 void *userdata) {
 
         _cleanup_(source_freep) sd_event_source *s = NULL;
-        struct signal_data *d;
+        SignalData *d;
         sigset_t new_ss;
         bool block_it;
         int r;
@@ -2928,7 +2928,7 @@ _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) 
                 event_gc_inode_data(s->event, old_inode_data);
 
         } else if (s->type == SOURCE_SIGNAL && event_source_is_online(s)) {
-                struct signal_data *old, *d;
+                SignalData *old, *d;
 
                 /* Move us from the signalfd belonging to the old
                  * priority to the signalfd of the new priority */
@@ -3890,7 +3890,7 @@ static int process_pidfd(sd_event *e, sd_event_source *s, uint32_t revents) {
         return source_set_pending(s, true);
 }
 
-static int process_signal(sd_event *e, struct signal_data *d, uint32_t events, int64_t *min_priority) {
+static int process_signal(sd_event *e, SignalData *d, uint32_t events, int64_t *min_priority) {
         int r;
 
         assert(e);
