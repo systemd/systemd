@@ -34,6 +34,15 @@ executables += [
                 ),
         },
         libexec_template + {
+                'name' : 'systemd-report-diskhealth',
+                'sources' : files(
+                        'report-diskhealth.c',
+                        'report-diskhealth-ata.c',
+                        'report-diskhealth-nvme.c',
+                        'report-diskhealth-server.c',
+                ),
+        },
+        libexec_template + {
                 'name' : 'systemd-report-diskspace',
                 'sources' : files(
                         'report-diskspace.c',
