@@ -8,11 +8,14 @@
 
 typedef enum DnsAnswerFlags DnsAnswerFlags;
 typedef enum DnsCacheMode DnsCacheMode;
+typedef enum DnsEncryptionMode DnsEncryptionMode;
 typedef enum DnsProtocol DnsProtocol;
 typedef enum DnssecResult DnssecResult;
 typedef enum DnssecVerdict DnssecVerdict;
 typedef enum DnsScopeOrigin DnsScopeOrigin;
+typedef enum DnsStreamType DnsStreamType;
 typedef enum DnsTransactionState DnsTransactionState;
+typedef enum DnsTransportKind DnsTransportKind;
 typedef enum ResolveConfigSource ResolveConfigSource;
 
 typedef struct DnsAnswer DnsAnswer;
@@ -28,10 +31,12 @@ typedef struct DnssdService DnssdService;
 typedef struct DnssdTxtData DnssdTxtData;
 typedef struct DnsSearchDomain DnsSearchDomain;
 typedef struct DnsServer DnsServer;
+typedef struct DnsServerTransport DnsServerTransport;
 typedef struct DnsStream DnsStream;
 typedef struct DnsStubListenerExtra DnsStubListenerExtra;
 typedef struct DnsSvcParam DnsSvcParam;
 typedef struct DnsTransaction DnsTransaction;
+typedef struct DnsTransportVTable DnsTransportVTable;
 typedef struct DnsTxtItem DnsTxtItem;
 typedef struct DnsZoneItem DnsZoneItem;
 typedef struct HookQuery HookQuery;
