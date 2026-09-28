@@ -539,6 +539,10 @@ units = [
           'symlinks' : ['dbus-org.freedesktop.locale1.service'],
         },
         {
+          'file': 'systemd-logind-metrics.socket',
+          'conditions': ['ENABLE_LOGIND'],
+        },
+        {
           'file': 'systemd-logind-varlink.socket',
           'conditions': ['ENABLE_LOGIND'],
           'symlinks' : ['sockets.target.wants/'],
