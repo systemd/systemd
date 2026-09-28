@@ -22,7 +22,9 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
+#include "resolved-dns-transport-dot.h"
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"
 #include "sparse-endian.h"
@@ -320,6 +322,19 @@ static void test_dns_stream(bool tls) {
                 /* Shutting down the stream saves the TLS session for resumption */
                 assert_se(dnstls_stream_shutdown(stream, 0) >= 0);
                 assert_se(server_data.session);
+
+                /* Resetting a server's features forgets its TLS session, as the configuration might now
+                 * require verifying the certificate, which resuming the session would skip */
+                DnsServer *server = NULL;
+                assert_se(dns_server_new(&manager, &server, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
+                                         server_address.sa.sa_family, sockaddr_in_addr(&server_address.sa),
+                                         /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                         RESOLVE_CONFIG_SOURCE_DBUS) >= 0);
+                DnsTransportDot *dot = ASSERT_PTR(DNS_TRANSPORT_TO_DOT(server->transports[DNS_TRANSPORT_DOT]));
+                dot->tls_data.session = TAKE_PTR(server_data.session);
+                dns_server_reset_features(server);
+                assert_se(!dot->tls_data.session);
+                dns_server_unlink(server);
 
                 dnstls_manager_free(&manager);
         }

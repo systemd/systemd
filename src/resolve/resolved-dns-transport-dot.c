@@ -18,6 +18,15 @@ static void dns_transport_dot_done(DnsServerTransport *tr) {
         dnstls_server_data_done(&d->tls_data);
 }
 
+static void dns_transport_dot_reset_features(DnsServerTransport *tr) {
+        DnsTransportDot *d = ASSERT_PTR(DNS_TRANSPORT_TO_DOT(tr));
+
+        /* Forget the TLS session too. Whether the server certificate is verified is decided per connection
+         * from the current configuration, but resuming a session skips that verification. Hence a session
+         * negotiated without verification must not be resumed once verification is required. */
+        dnstls_server_data_done(&d->tls_data);
+}
+
 static void dns_transport_dot_reset_counters(DnsServerTransport *tr) {
         DnsTransportDot *d = ASSERT_PTR(DNS_TRANSPORT_TO_DOT(tr));
 
@@ -110,6 +119,7 @@ const DnsTransportVTable dns_transport_dot_vtable = {
         .default_port = 853,
         .edns_min = DNS_SERVER_EDNS_LEVEL_EDNS0, /* Our DNS-over-TLS implementation always requires EDNS0 */
         .done = dns_transport_dot_done,
+        .reset_features = dns_transport_dot_reset_features,
         .reset_counters = dns_transport_dot_reset_counters,
         .packet_received = dns_transport_dot_packet_received,
         .packet_lost = dns_transport_dot_packet_lost,
