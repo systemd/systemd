@@ -1,0 +1,47 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Disk Health Report Service
+Documentation=man:systemd-report-diskhealth@.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+# Note that the service needs to run as root, and needs access to the disk device nodes, hence DynamicUser=
+# and PrivateDevices= are not used here. The kernel requires CAP_SYS_ADMIN for the NVMe Get Log Page admin
+# command, and CAP_SYS_RAWIO for ATA pass-through via SG_IO. (PrivateDevices= would drop the latter.)
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_RAWIO
+DeviceAllow=block-blkext r
+DeviceAllow=block-sd r
+DevicePolicy=closed
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateIPC=yes
+PrivateNetwork=yes
+PrivateTmp=disconnected
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RuntimeMaxSec=1min
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+ExecStart={{LIBEXECDIR}}/systemd-report-diskhealth
