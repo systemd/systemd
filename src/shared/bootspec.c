@@ -234,7 +234,6 @@ static int parse_path_strv(
         return strv_consume(s, c);
 }
 
-
 static int parse_extra(
                 const char *fname,
                 unsigned line,

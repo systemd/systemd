@@ -23,6 +23,8 @@ struct fdt_header {
 #define FDT_V1_SIZE sizeof(struct fdt_header)
 #endif
 
+#define DEVICETREE_OVERLAY_MAX 1 * 1024 * 1024
+
 static EFI_STATUS devicetree_allocate(struct devicetree_state *state, size_t size) {
         size_t pages = DIV_ROUND_UP(size, EFI_PAGE_SIZE);
         EFI_STATUS err;
@@ -272,12 +274,12 @@ EFI_STATUS devicetree_apply_overlay(
                                         "Failed to open firmware devicetree for overlay: fdt error %d", fdterr);
         }
 
-        err = file_read(root_dir, name, 0, 1 * 1024 * 1024, &overlay, &overlay_len);
+        err = file_read(root_dir, name, 0, DEVICETREE_OVERLAY_MAX, &overlay, &overlay_len);
         if (err != EFI_SUCCESS)
                 return err;
         if (overlay_len < FDT_V1_SIZE)
                 return EFI_INVALID_PARAMETER;
-        if (overlay_len >= 1 * 1024 * 1024)
+        if (overlay_len >= DEVICETREE_OVERLAY_MAX)
                 return log_error_status(EFI_LOAD_ERROR,
                                 "Devicetree overlay %ls too large (possibly truncated)", name);
         if (fdt_check_full(overlay, overlay_len) < 0)
@@ -343,7 +345,7 @@ EFI_STATUS devicetree_apply_overlay(
 EFI_STATUS devicetree_install(struct devicetree_state *state) {
         assert(state);
 
-        /*there is no devicetree, so no-op*/
+        /* There is no devicetree, so no-op */
         if (!state->pages)
                 return EFI_SUCCESS;
 

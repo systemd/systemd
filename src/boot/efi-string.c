@@ -130,8 +130,8 @@ DEFINE_STRCPY(char16_t, strcpy16);
                         s++;                       \
                 }                                  \
                 if (c == '\0')                     \
-                        return (type *) s;          \
-                return (type *) last;               \
+                        return (type *) s;         \
+                return (type *) last;              \
         }
 
 DEFINE_STRRCHR(char, strrchr8);
