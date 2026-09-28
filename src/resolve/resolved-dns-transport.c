@@ -297,18 +297,39 @@ int dns_server_transport_open_datagram(DnsServerTransport *tr, DnsScope *scope) 
         return vt->open_datagram(tr, scope);
 }
 
+DnsStream* dns_server_transport_reusable_stream(DnsServerTransport *tr) {
+        const DnsTransportVTable *vt;
+
+        assert(tr);
+
+        /* Returns the long-lived stream, if there is one and the transport still considers it fit for use.
+         * If it doesn't, the stream is dropped. */
+
+        if (!tr->stream)
+                return NULL;
+
+        vt = DNS_TRANSPORT_VTABLE(tr);
+        if (!vt->stream_reusable || vt->stream_reusable(tr, tr->stream))
+                return tr->stream;
+
+        dns_server_transport_unref_stream(tr);
+        return NULL;
+}
+
 int dns_server_transport_open_stream(DnsServerTransport *tr, DnsTransaction *t, DnsStream **ret) {
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
+        DnsStream *reusable;
         int r;
 
         assert(tr);
         assert(ret);
 
-        /* Reuse the long-lived stream if there is one. Otherwise open a new one, which becomes the
-         * long-lived one. */
+        /* Reuse the long-lived stream if possible. Otherwise open a new one, which becomes the long-lived
+         * one. */
 
-        if (tr->stream) {
-                *ret = dns_stream_ref(tr->stream);
+        reusable = dns_server_transport_reusable_stream(tr);
+        if (reusable) {
+                *ret = dns_stream_ref(reusable);
                 return 0;
         }
 
