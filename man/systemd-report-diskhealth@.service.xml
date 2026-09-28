@@ -1,0 +1,217 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-report-diskhealth_.service" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-report-diskhealth@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-report-diskhealth@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-report-diskhealth@.service</refname>
+    <refname>systemd-report-diskhealth.socket</refname>
+    <refname>systemd-report-diskhealth</refname>
+    <refpurpose>Report disk identity and NVMe/ATA SMART health information as system report metrics</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-report-diskhealth@.service</filename></para>
+    <para><filename>systemd-report-diskhealth.socket</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-report-diskhealth</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-report-diskhealth@.service</command> is a metrics source for
+    <citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry>. It
+    reports basic identity information about the disks of the system, as well as the key health parameters
+    of NVMe and ATA disks, by implementing the <constant>io.systemd.Metrics</constant> Varlink interface on a
+    socket linked into the <filename>/run/systemd/report/</filename> directory.</para>
+
+    <para>All whole-disk block devices backed by hardware are reported, i.e. partitions, loopback devices,
+    device mapper devices and other virtual block devices, as well as drives without a medium, are skipped.
+    Only block devices that have been fully probed by
+    <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    are considered. The metric object is the device node of the block device, for example
+    <filename>/dev/nvme0n1</filename> or <filename>/dev/sda</filename>. No metric fields are set.</para>
+
+    <para>The following metrics are reported for all disks. The model, vendor and serial strings are taken
+    from the udev database, preferring information from the hardware database over the information the
+    device reports about itself. If the block device carries no model or vendor information, the one of the
+    PCI device of an NVMe disk or of the USB device of a USB disk is used instead. Metrics for which no
+    information is available are omitted.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.DiskLogicalSectorSizeBytes</literal></term>
+        <listitem><para>The logical sector size of the disk in bytes, i.e. the smallest unit the disk can
+        be addressed in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.DiskModel</literal></term>
+        <listitem><para>The model name of the disk.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.DiskPhysicalSectorSizeBytes</literal></term>
+        <listitem><para>The physical sector size of the disk in bytes, i.e. the smallest unit the disk can
+        write without a read-modify-write cycle, as reported by the kernel.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.DiskSerial</literal></term>
+        <listitem><para>The serial number of the disk.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.DiskSizeBytes</literal></term>
+        <listitem><para>The size of the disk in bytes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.DiskVendor</literal></term>
+        <listitem><para>The vendor name of the disk. Note that ATA disks do not report a vendor, hence this
+        metric is typically not available for them.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The following metrics are reported for NVMe disks and for ATA disks. For NVMe disks they are taken
+    from the SMART / Health Information log page, for ATA disks from the General Statistics page of the
+    Device Statistics log. ATA disks which do not implement the Device Statistics log do not report these
+    metrics.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.DiskPowerCycles</literal></term>
+        <listitem><para>The number of power cycles over the lifetime of the disk.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.DiskPowerOnHours</literal></term>
+        <listitem><para>The number of hours the disk has been powered on over its lifetime.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The following metrics are reported for NVMe disks only, and are taken from the SMART / Health
+    Information log page of the controller. If multiple namespaces are attached to the same controller, the
+    same values are reported for all of them.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.NVMeAvailableSparePercent</literal></term>
+        <listitem><para>The remaining spare capacity in percent.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.NVMeCriticalWarning</literal></term>
+        <listitem><para>The critical warning bitmask. This is zero if all is well. Otherwise, bit 0 indicates
+        that the spare capacity dropped below the threshold, bit 1 that a temperature threshold was
+        exceeded, bit 2 that the reliability is degraded due to media errors, bit 3 that the media has been
+        placed in read-only mode, bit 4 that a volatile memory backup device failed, and bit 5 that the
+        persistent memory region has become read-only.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.NVMeMediaErrors</literal></term>
+        <listitem><para>The number of unrecovered data integrity errors over the lifetime of the
+        disk.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.NVMePercentageUsed</literal></term>
+        <listitem><para>The vendor specific estimate of the used up life time of the disk in percent. Note
+        that this value may exceed 100.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The following metrics are reported for ATA disks with SMART enabled only. Disks attached via USB
+    are not queried. In order not to spin up disks merely for collecting metrics, disks in standby mode are
+    not queried either.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.ATAOfflineUncorrectable</literal></term>
+        <listitem><para>The number of uncorrectable sectors found during offline scans (SMART attribute
+        198).</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.ATAPendingSectors</literal></term>
+        <listitem><para>The number of unstable sectors waiting to be remapped (SMART attribute
+        197).</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.ATAReallocatedSectors</literal></term>
+        <listitem><para>The number of sectors remapped to the spare area (SMART attribute
+        5).</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>io.systemd.DiskHealth.ATASmartStatusFailing</literal></term>
+        <listitem><para>1 if the overall SMART status of the disk reports that a threshold has been exceeded,
+        i.e. that failure of the disk is predicted, 0 otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The disk temperature is not reported by this service, see
+    <citerefentry><refentrytitle>systemd-report-hwmon@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for that.</para>
+  </refsect1>
+
+  <!-- Note: we do not document the command line switches here. The systemd-report-diskhealth binary itself
+       should not be invoked by users, but only as a service. Use systemd-report(1) to acquire metrics. -->
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-report-hwmon@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
