@@ -14,6 +14,10 @@ _SKIPPED_TESTS=()
 # matching the skip code used by the integration test harness.
 _SUBTEST_SKIP_RC=77
 
+# Journal MESSAGE_ID under which per-subtest results are logged, so the integration test wrapper
+# can extract them from the forwarded journal. Keep in sync with integration-test-wrapper.py.
+_SUBTEST_RESULT_MESSAGE_ID=27479699ef7fb3465eb94a6a2224ac15
+
 # Like trap, but passes the signal name as the first argument
 _trap_with_sig() {
     local fun="${1:?}"
@@ -81,6 +85,21 @@ _show_summary() {(
     fi
 )}
 
+# _log_subtest_result SUBTEST RESULT
+# Log a machine-readable result record for one subtest to the journal. Best-effort: the record
+# only feeds reporting, so environments without a reachable journal lose nothing but that.
+_log_subtest_result() {
+    local subtest="${1:?}" result="${2:?}"
+
+    logger --journald <<EOF || :
+MESSAGE_ID=$_SUBTEST_RESULT_MESSAGE_ID
+MESSAGE=Subtest $subtest: $result
+SYSLOG_IDENTIFIER=test-control
+SUBTEST=$subtest
+SUBTEST_RESULT=$result
+EOF
+}
+
 _record_subtest_rc() {
     local subtest="${1:?}" rc="${2:?}"
 
@@ -88,11 +107,15 @@ _record_subtest_rc() {
 
     if [[ $rc -eq $_SUBTEST_SKIP_RC ]]; then
         echo "Subtest $subtest skipped"
+        _log_subtest_result "$subtest" skip
         _SKIPPED_TESTS+=("$subtest")
     elif [[ $rc -ne 0 ]]; then
         echo "Subtest $subtest failed"
+        _log_subtest_result "$subtest" fail
+        journalctl --sync || :
         return 1
     else
+        _log_subtest_result "$subtest" pass
         _PASSED_TESTS+=("$subtest")
     fi
 }
