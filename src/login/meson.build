@@ -16,6 +16,7 @@ systemd_logind_export_sources = files(
         'logind-dbus.c',
         'logind-device.c',
         'logind-inhibit.c',
+        'logind-metrics.c',
         'logind-polkit.c',
         'logind-seat-dbus.c',
         'logind-seat.c',
