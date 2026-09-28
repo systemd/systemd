@@ -22,11 +22,11 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
-#include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"
 #include "sparse-endian.h"
+#include "ssl-util.h"
 #include "tests.h"
 #include "time-util.h"
 
@@ -155,7 +155,7 @@ static void *tls_dns_server(void *p) {
                 /* Child */
                 execlp("openssl", "openssl", "s_server", "-accept", bind_str,
                        "-key", key_path, "-cert", cert_path,
-                       "-quiet", "-naccept", "1", NULL);
+                       "-quiet", "-naccept", "2", NULL);
                 log_error("exec failed, is something wrong with the 'openssl' command?");
                 _exit(EXIT_FAILURE);
         } else {
@@ -205,12 +205,44 @@ static int on_stream_complete_do_nothing(DnsStream *s, int error) {
         return 0;
 }
 
+#if ENABLE_DNS_OVER_TLS
+static int stream_error = 0;
+
+static int on_stream_complete_save_error(DnsStream *s, int error) {
+        stream_error = error;
+        return 0;
+}
+#endif
+
+static int connect_to_server(void) {
+        _cleanup_close_ int fd = -EBADF;
+        int r = -1;
+
+        /* The server may not be up immediately, so try to connect a few times before failing */
+        fd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0));
+
+        for (int i = 0; i < 100; i++) {
+                r = connect(fd, &server_address.sa, sockaddr_len(&server_address));
+                if (r >= 0)
+                        break;
+                usleep_safe(EVENT_TIMEOUT_USEC / 100);
+        }
+        ASSERT_OK_ERRNO(r);
+
+        /* systemd-resolved uses (and requires) the socket to be in nonblocking mode */
+        ASSERT_OK_ERRNO(fcntl(fd, F_SETFL, O_NONBLOCK));
+
+        return TAKE_FD(fd);
+}
+
 static void test_dns_stream(bool tls) {
         Manager manager = {};
+#if ENABLE_DNS_OVER_TLS
+        _cleanup_(dnstls_server_data_done) DnsTlsServerData server_data = {};
+#endif
          _cleanup_(dns_stream_unrefp) DnsStream *stream = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_close_ int clientfd = -EBADF;
-        int r;
 
         void *(*server_entrypoint)(void *);
         pthread_t server_thread;
@@ -239,20 +271,8 @@ static void test_dns_stream(bool tls) {
         assert_se(pthread_mutex_lock(&server_lock) == 0);
         assert_se(pthread_create(&server_thread, NULL, server_entrypoint, &server_lock) == 0);
 
-        /* Create a socket client and connect to the TCP or TLS server
-         * The server may not be up immediately, so try to connect a few times before failing */
-        assert_se((clientfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
-
-        for (int i = 0; i < 100; i++) {
-                r = connect(clientfd, &server_address.sa, sockaddr_len(&server_address));
-                if (r >= 0)
-                        break;
-                usleep_safe(EVENT_TIMEOUT_USEC / 100);
-        }
-        assert_se(r >= 0);
-
-        /* systemd-resolved uses (and requires) the socket to be in nonblocking mode */
-        assert_se(fcntl(clientfd, F_SETFL, O_NONBLOCK) >= 0);
+        /* Create a socket client and connect to the TCP or TLS server */
+        clientfd = connect_to_server();
 
         /* Initialize DNS stream (disabling the default self-destruction
            behaviour when no complete callback is set) */
@@ -261,14 +281,14 @@ static void test_dns_stream(bool tls) {
                                  DNS_STREAM_DEFAULT_TIMEOUT_USEC) >= 0);
 #if ENABLE_DNS_OVER_TLS
         if (tls) {
-                DnsServer server = {
-                        .manager = &manager,
-                        .family = server_address.sa.sa_family,
-                        .address = *sockaddr_in_addr(&server_address.sa),
-                };
-
                 assert_se(dnstls_manager_init(&manager) >= 0);
-                assert_se(dnstls_stream_connect_tls(stream, &server) >= 0);
+                assert_se(dnstls_stream_connect_tls(
+                                        stream,
+                                        /* server_name= */ NULL,
+                                        server_address.sa.sa_family,
+                                        sockaddr_in_addr(&server_address.sa),
+                                        /* verify= */ manager.dns_over_tls_mode == DNS_OVER_TLS_YES,
+                                        &server_data) >= 0);
         }
 #endif
 
@@ -314,8 +334,47 @@ static void test_dns_stream(bool tls) {
         n_received_packets = 0;
 
 #if ENABLE_DNS_OVER_TLS
-        if (tls)
+        if (tls) {
+                /* Shutting down the stream saves the TLS session for resumption, along with the fact that
+                 * the server certificate wasn't verified */
+                ASSERT_OK(dnstls_stream_shutdown(stream, 0));
+                ASSERT_NOT_NULL(server_data.session);
+                ASSERT_FALSE(server_data.session_verified);
+
+                /* Close the connection, so that the server accepts the next one */
+                stream = dns_stream_unref(stream);
+
+                /* Once verification is required, that session must not be resumed, as resuming a session
+                 * skips verifying the certificate. Hence it is forgotten, a full handshake is done, and that
+                 * fails, as the server's self-signed certificate doesn't verify. */
+                ASSERT_OK(dns_stream_new(&manager, &stream, DNS_STREAM_LOOKUP, DNS_PROTOCOL_DNS,
+                                         connect_to_server(), NULL, on_stream_packet, on_stream_complete_save_error,
+                                         DNS_STREAM_DEFAULT_TIMEOUT_USEC));
+                ASSERT_OK(dnstls_stream_connect_tls(
+                                        stream,
+                                        /* server_name= */ NULL,
+                                        server_address.sa.sa_family,
+                                        sockaddr_in_addr(&server_address.sa),
+                                        /* verify= */ true,
+                                        &server_data));
+                ASSERT_NULL(server_data.session);
+
+                while (stream_error == 0)
+                        ASSERT_OK_POSITIVE(sd_event_run(event, EVENT_TIMEOUT_USEC));
+
+                /* Make sure the handshake failed because the certificate didn't verify, and not for some
+                 * other reason */
+                ASSERT_EQ(stream_error, ECONNREFUSED);
+                ASSERT_EQ(sym_SSL_get_verify_result(stream->dnstls_data.ssl),
+                          (long) X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT);
+                ASSERT_EQ(n_received_packets, 0U);
+
+                /* A failed handshake leaves no session to resume */
+                ASSERT_NULL(server_data.session);
+
+                stream = dns_stream_unref(stream);
                 dnstls_manager_free(&manager);
+        }
 #endif
 
         /* Stop the DNS server */
