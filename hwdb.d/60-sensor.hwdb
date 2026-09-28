@@ -799,7 +799,7 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnMicrotech:pne-tabPro:*    # Microtech e
 #########################################
 
 sensor:modalias:acpi:SMOCF05:*:dmi:*:svnMicroComputer(HK)TechLimited:pnV3*:*    # V3, V3 SE
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
 # MPMAN
