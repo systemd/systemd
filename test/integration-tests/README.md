@@ -129,6 +129,10 @@ beforehand, into a separate output directory), allowing boot mode tests to run
 in environments that can't dissect disk images, such as unprivileged
 containers, where loop devices and udev are not available.
 
+`TEST_BIND_DIRS=directories`: Host directories (split like a shell command
+line) to bind read-only into the test container in nspawn boot mode, each at
+`/work/<basename>`.
+
 `TEST_MATCH_SUBTEST=subtest`:  If the test makes use of `run_subtests` use this
 variable to provide a POSIX extended regex to run only subtests matching the
 expression.
