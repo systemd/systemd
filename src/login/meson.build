@@ -12,6 +12,7 @@ systemd_logind_export_sources = files(
         'logind-brightness.c',
         'logind-button.c',
         'logind-core.c',
+        'logind-counters.c',
         'logind-dbus.c',
         'logind-device.c',
         'logind-inhibit.c',
