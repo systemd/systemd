@@ -621,6 +621,17 @@ def main() -> None:
 
     vm = args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1'
 
+    # Extra host directories to expose to the test, each bound read-only into the boot-mode
+    # container at /work/<basename>.
+    bind_dirs_args: list[str] = []
+    for bind_dir in shlex.split(os.getenv('TEST_BIND_DIRS', '')):
+        path = Path(bind_dir)
+        if not path.is_absolute() or path.name in ('', '..') or ':' in bind_dir:
+            sys.exit(f"TEST_BIND_DIRS entries must be absolute, named and without ':', got: {bind_dir}")
+        if not path.is_dir():
+            sys.exit(f'TEST_BIND_DIRS entry is not a directory: {bind_dir}')
+        bind_dirs_args += [f'--bind-ro={os.fspath(path)}:/work/{path.name}']
+
     # Tests that launch nested VMs need the mkosi-built images, which are build outputs rather than
     # installed test artifacts. Bind the output directory read-only into the boot-mode container at
     # /work/vm-images on request, instead of mounting the whole build tree via RuntimeBuildSources.
@@ -739,6 +750,7 @@ def main() -> None:
                     if in_userns()
                     else []
                 ),
+                *bind_dirs_args,
                 *vm_images_args,
                 *coco_boot_args,
             ]
