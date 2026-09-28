@@ -1087,6 +1087,54 @@ static int get_selinux_policy_root(int rfd, const char *root, char **ret) {
 }
 #endif
 
+int mac_selinux_get_run0_context(const char *user, char **ret_label) {
+#if HAVE_SELINUX
+        _cleanup_freecon_ char *mycon = NULL, *fcon = NULL, *newcon = NULL;
+        security_class_t sclass;
+        int r;
+
+        assert(user);
+        assert(ret_label);
+
+        r = dlopen_libselinux(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        if (sym_is_selinux_enabled() <= 0)
+                return -EOPNOTSUPP;
+
+        if (sym_getcon_raw(&mycon) < 0)
+                return log_debug_errno(errno, "Failed to get current SELinux context: %m");
+        if (!mycon)
+                return -EOPNOTSUPP;
+
+        /* Ask policy what context results from our domain executing the transition helper.
+         * If a type_transition rule exists (e.g. staff_t -> staff_run0_t via the helper's
+         * file type), we get the right intermediary domain. If no rule exists, we get our
+         * own context back unchanged which is the common unconfined case. */
+        if (sym_getfilecon_raw(SYSTEMD_SELINUX_EXEC_BINARY_PATH, &fcon) < 0) {
+                log_debug_errno(errno, "Failed to get file context of '%s', using caller context as-is: %m",
+                                SYSTEMD_SELINUX_EXEC_BINARY_PATH);
+                return strdup_to(ret_label, mycon);
+        }
+
+        sclass = sym_string_to_security_class("process");
+        if (sclass == 0) {
+                log_debug("Failed to resolve SELinux 'process' class, using caller context as-is.");
+                return strdup_to(ret_label, mycon);
+        }
+
+        if (sym_security_compute_create_raw(mycon, fcon, sclass, &newcon) < 0) {
+                log_debug_errno(errno, "Failed to compute SELinux transition context, using caller context as-is: %m");
+                return strdup_to(ret_label, mycon);
+        }
+
+        return strdup_to(ret_label, newcon);
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
 int mac_selinux_label_context_new(const char *root, LabelContext **ret) {
         assert(root);
         assert(!empty_or_root(root));
