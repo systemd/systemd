@@ -13,6 +13,7 @@
 #include "resolved-dns-transaction.h"
 #include "resolved-dns-transport.h"
 #include "resolved-dns-transport-dns.h"
+#include "resolved-dns-transport-dot.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
 #include "tests.h"
@@ -1061,6 +1062,167 @@ TEST(policy_drops_stream) {
         }
 
         dns_server_unlink(s);
+}
+
+TEST(reset_features_detaches_tls_streams) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        union in_addr_union address = { .in.s_addr = htobe32(0xc0000201) };
+        Manager manager = {};
+        _cleanup_close_ int peer_old = -EBADF, peer_cur = -EBADF, peer_dns = -EBADF;
+        DnsTlsServerData other = {};
+        DnsServer *s = NULL;
+        DnsStream *stream_old, *stream_cur, *stream_dns;
+
+        ASSERT_OK(sd_event_new(&event));
+        manager.event = event;
+
+        ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
+                                 AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
+
+        DnsTransportDot *dot = ASSERT_PTR(DNS_TRANSPORT_TO_DOT(s->transports[DNS_TRANSPORT_DOT]));
+
+        /* Two streams that save their TLS session to the server when shut down: one that has been replaced
+         * as the default stream but is still referenced (by us, standing in for a transaction), and the
+         * current default stream. */
+        stream_old = idle_stream_new(&manager, &peer_old);
+        stream_old->dnstls_data.server_data = &dot->tls_data;
+        dns_server_transport_set_stream(&dot->meta, stream_old);
+
+        stream_cur = idle_stream_new(&manager, &peer_cur);
+        stream_cur->dnstls_data.server_data = &dot->tls_data;
+        dns_server_transport_set_stream(&dot->meta, stream_cur);
+        ASSERT_PTR_EQ(dot->meta.stream, stream_cur);
+
+        /* A stream of another transport is left alone */
+        stream_dns = idle_stream_new(&manager, &peer_dns);
+        stream_dns->dnstls_data.server_data = &other;
+        dns_server_transport_set_stream(s->transports[DNS_TRANSPORT_DNS], stream_dns);
+
+        /* A session saved earlier. We have no real one without a TLS handshake, but forgetting the session
+         * clears its verification state too. */
+        dot->tls_data.session_verified = true;
+
+        /* Resetting the features must not only forget the session, but also keep streams that outlive the
+         * reset from saving theirs back, as it might have been negotiated without verifying the server. */
+        dns_server_reset_features(s);
+        ASSERT_NULL(dot->tls_data.session);
+        ASSERT_FALSE(dot->tls_data.session_verified);
+        ASSERT_NULL(dot->meta.stream);
+        ASSERT_NULL(stream_old->dnstls_data.server_data);
+        ASSERT_NULL(stream_cur->dnstls_data.server_data);
+        ASSERT_PTR_EQ(stream_dns->dnstls_data.server_data, &other);
+
+        dns_stream_unref(stream_old);
+        dns_stream_unref(stream_cur);
+        dns_stream_unref(stream_dns);
+        dns_server_unlink(s);
+}
+
+TEST(unverified_tls_stream_not_reused) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        union in_addr_union address = { .in.s_addr = htobe32(0xc0000201) };
+        Manager manager = {};
+        _cleanup_close_ int peer_unverified = -EBADF, peer_verified = -EBADF;
+        DnsServer *s = NULL;
+        DnsServerTransport *tr;
+        DnsStream *unverified, *verified;
+
+        ASSERT_OK(sd_event_new(&event));
+        manager.event = event;
+
+        ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
+                                 AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
+        tr = ASSERT_PTR(s->transports[DNS_TRANSPORT_DOT]);
+
+        /* A connection established in opportunistic mode, hence without verifying the server certificate,
+         * is reused as long as verification isn't required */
+        manager.dns_over_tls_mode = DNS_OVER_TLS_OPPORTUNISTIC;
+        unverified = idle_stream_new(&manager, &peer_unverified);
+        unverified->dnstls_data.verify = false;
+        dns_server_transport_set_stream(tr, unverified);
+        ASSERT_PTR_EQ(dns_server_transport_reusable_stream(tr), unverified);
+
+        /* Once verification is required, it is dropped, even if the server features weren't reset */
+        manager.dns_over_tls_mode = DNS_OVER_TLS_YES;
+        ASSERT_NULL(dns_server_transport_reusable_stream(tr));
+        ASSERT_NULL(tr->stream);
+
+        /* A verified connection is still good though */
+        verified = idle_stream_new(&manager, &peer_verified);
+        verified->dnstls_data.verify = true;
+        dns_server_transport_set_stream(tr, verified);
+        ASSERT_PTR_EQ(dns_server_transport_reusable_stream(tr), verified);
+
+        dns_stream_unref(unverified);
+        dns_stream_unref(verified);
+        dns_server_unlink(s);
+}
+
+TEST(open_stream_drops_last_reference) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        union in_addr_union address = { .in.s_addr = htobe32(INADDR_LOOPBACK) };
+        Manager manager = { .dns_over_tls_mode = DNS_OVER_TLS_YES };
+        _cleanup_close_ int peer = -EBADF;
+        DnsStream *unverified, *opened = NULL;
+        DnsScope *scope = NULL;
+        DnsServerTransport *tr;
+        DnsServer *s = NULL;
+        int r, tls;
+
+        ASSERT_OK(sd_event_new(&event));
+        manager.event = event;
+
+        ASSERT_OK(dns_scope_new(&manager, &scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL,
+                                DNS_PROTOCOL_DNS, AF_INET));
+        ASSERT_OK(dns_server_new(&manager, &s, DNS_SERVER_SYSTEM, /* link= */ NULL, /* delegate= */ NULL,
+                                 AF_INET, &address, /* port= */ 0, /* ifindex= */ 0, /* server_name= */ NULL,
+                                 RESOLVE_CONFIG_SOURCE_DBUS));
+        tr = ASSERT_PTR(s->transports[DNS_TRANSPORT_DOT]);
+
+        /* Leave a long-lived stream established without verification holding the only reference to the
+         * server. Unlinking drops the server's streams too, hence register the stream only afterwards, while
+         * we hold a reference. */
+        dns_server_ref(s);
+        dns_server_unlink(s);
+        unverified = idle_stream_new(&manager, &peer);
+        unverified->dnstls_data.verify = false;
+        dns_server_transport_set_stream(tr, unverified);
+        dns_stream_unref(unverified);
+        dns_server_unref(s);
+        ASSERT_EQ(s->n_ref, 1U);
+
+        tls = dnstls_manager_init(&manager);
+        if (tls != -EOPNOTSUPP)
+                ASSERT_OK(tls);
+
+        DnsTransaction t = {
+                .scope = scope,
+                .current_feature_level = dns_server_feature_level_for_transport(DNS_TRANSPORT_DOT,
+                                                                                DNS_SERVER_EDNS_LEVEL_EDNS0),
+        };
+
+        /* Verification is required, hence the stream may not be reused and is dropped. That releases the
+         * server, which is still needed to open a new stream though. This is only caught reliably by
+         * valgrind or ASan. */
+        r = dns_server_transport_open_stream(tr, &t, &opened);
+        if (r < 0)
+                /* Without libssl/libcrypto, or without network, no new stream is opened, and the server is
+                 * gone now */
+                ASSERT_TRUE((tls == -EOPNOTSUPP && r == -ECONNREFUSED) || loopback_unreachable(r));
+        else {
+                /* The new stream verifies the server, hence it is the long-lived one, which holds the last
+                 * reference now, and may be reused */
+                ASSERT_TRUE(opened->dnstls_data.verify);
+                ASSERT_PTR_EQ(tr->stream, opened);
+                ASSERT_PTR_EQ(dns_server_transport_reusable_stream(tr), opened);
+                dns_stream_unref(opened);
+                dns_server_unref_streams(tr->server);
+        }
+
+        dns_scope_free(scope);
+        dnstls_manager_free(&manager);
 }
 #endif
 
