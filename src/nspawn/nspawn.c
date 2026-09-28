@@ -6473,7 +6473,7 @@ static int run(int argc, char *argv[]) {
                                         &arg_verity_settings,
                                         arg_image, NULL, NULL);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to read verity artefacts for %s: %m", arg_image);
+                                log_error_errno(r, "Failed to read verity artifacts for %s: %m", arg_image);
                                 goto finish;
                         }
 
