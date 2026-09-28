@@ -114,6 +114,7 @@ def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
             'info',
             *(coredump['exe'] for coredump in coredumps),
         ],
+        stdout=sys.stderr,
         check=True,
     )  # fmt: skip
 
@@ -748,7 +749,8 @@ def main() -> None:
     ]  # fmt: skip
 
     try:
-        result = subprocess.run(cmd)
+        # All test output goes to stderr: stdout is reserved for machine-readable results.
+        result = subprocess.run(cmd, stdout=sys.stderr)
 
         # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
         if args.vm and result.returncode == 247 and args.exit_code != 247:
@@ -758,7 +760,7 @@ def main() -> None:
                 f'Test {args.name} failed due to QEMU crash (error 247), retrying...',
                 file=sys.stderr,
             )
-            result = subprocess.run(cmd)
+            result = subprocess.run(cmd, stdout=sys.stderr)
             if args.vm and result.returncode == 247 and args.exit_code != 247:
                 print(
                     f'Test {args.name} failed due to QEMU crash (error 247), ignoring',
