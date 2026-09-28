@@ -140,6 +140,8 @@ typedef struct Manager {
         dual_timestamp init_ts;
 
         sd_varlink_server *varlink_server;
+
+        LoginCounters *counters;
 } Manager;
 
 void manager_reset_config(Manager *m);
