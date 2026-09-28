@@ -37,6 +37,7 @@
 #include "journald-audit.h"
 #include "journald-config.h"
 #include "journald-context.h"
+#include "journald-counters.h"
 #include "journald-kmsg.h"
 #include "journald-manager.h"
 #include "journald-native.h"
@@ -2349,6 +2350,8 @@ int manager_init(Manager *m) {
 
         (void) mkdir_p(m->runtime_directory, 0755);
 
+        (void) manager_map_counters(m);
+
         m->user_journals = ordered_hashmap_new(&journal_file_hash_ops_offline_close);
         if (!m->user_journals)
                 return log_oom();
@@ -2596,6 +2599,7 @@ Manager* manager_free(Manager *m) {
 
         m->seqnum = munmap_safe(m->seqnum, sizeof(*m->seqnum));
         m->kernel_seqnum = munmap_safe(m->kernel_seqnum, sizeof(*m->kernel_seqnum));
+        m->counters = munmap_safe(m->counters, sizeof(*m->counters));
 
         free(m->buffer);
         free(m->cgroup_root);

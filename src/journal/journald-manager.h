@@ -69,6 +69,7 @@ typedef struct Manager {
         OrderedHashmap *user_journals;
 
         SeqnumData *seqnum;
+        JournalCounters *counters;
 
         char *buffer;
 

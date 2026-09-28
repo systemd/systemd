@@ -19,6 +19,7 @@
 #include "journald-client.h"
 #include "journald-console.h"
 #include "journald-context.h"
+#include "journald-counters.h"
 #include "journald-kmsg.h"
 #include "journald-manager.h"
 #include "journald-stream.h"
@@ -241,10 +242,13 @@ static int stdout_stream_log(
         if (s->level_prefix)
                 syslog_parse_priority(&p, &priority, false);
 
-        if (!client_context_test_priority(s->context, priority))
+        if (isempty(p))
                 return 0;
 
-        if (isempty(p))
+        /* Count before any filtering or rate limiting */
+        manager_count_message(s->manager, JOURNAL_TRANSPORT_STREAM, priority);
+
+        if (!client_context_test_priority(s->context, priority))
                 return 0;
 
         r = client_context_check_keep_log(s->context, p, strlen(p));

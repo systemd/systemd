@@ -10,6 +10,7 @@ systemd_journald_export_sources = files(
         'journald-config.c',
         'journald-console.c',
         'journald-context.c',
+        'journald-counters.c',
         'journald-kmsg.c',
         'journald-manager.c',
         'journald-native.c',
@@ -18,6 +19,7 @@ systemd_journald_export_sources = files(
         'journald-stream.c',
         'journald-sync.c',
         'journald-syslog.c',
+        'journald-transport.c',
         'journald-varlink.c',
         'journald-wall.c',
 )

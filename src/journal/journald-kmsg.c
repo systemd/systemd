@@ -17,6 +17,7 @@
 #include "format-util.h"
 #include "iovec-util.h"
 #include "journal-internal.h"
+#include "journald-counters.h"
 #include "journald-kmsg.h"
 #include "journald-manager.h"
 #include "journald-sync.h"
@@ -276,9 +277,14 @@ void dev_kmsg_record(Manager *m, char *p, size_t l) {
         xsprintf(syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority));
         iovec[n++] = IOVEC_MAKE_STRING(syslog_facility);
 
-        if (LOG_FAC(priority) == LOG_KERN)
+        /* Messages are counted below, i.e. after the kernel seqnum check above (so that messages we already
+         * saw before a restart of journald are not counted twice), but before any filtering or rate
+         * limiting. Our own messages are not counted. */
+        if (LOG_FAC(priority) == LOG_KERN) {
+                manager_count_message(m, JOURNAL_TRANSPORT_KERNEL, priority);
+
                 iovec[n++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=kernel");
-        else {
+        } else {
                 _cleanup_free_ char *identifier = NULL;
                 pid_t pid;
 
@@ -293,7 +299,8 @@ void dev_kmsg_record(Manager *m, char *p, size_t l) {
                         saved_log_max_level = log_get_max_level();
                         c = m->my_context;
                         log_set_max_level(LOG_NULL);
-                }
+                } else
+                        manager_count_message(m, JOURNAL_TRANSPORT_KERNEL, priority);
 
                 if (identifier) {
                         syslog_identifier = strjoin("SYSLOG_IDENTIFIER=", identifier);
