@@ -102,6 +102,12 @@ int dnstls_stream_connect_tls(
 
         sym_SSL_set_connect_state(s);
 
+        /* Resuming a session skips verifying the server certificate. Hence, if verification is required
+         * now, forget a session that was negotiated without it, e.g. before switching from opportunistic
+         * to strict mode. */
+        if (verify && server_data && server_data->session && !server_data->session_verified)
+                dnstls_server_data_done(server_data);
+
         /* Clear any errors left in the thread-local queue by a prior connection attempt (resolved drives
          * everything from a single event-loop thread), so the translation below reflects this
          * SSL_set_session() failure rather than a stale FIFO entry. */
@@ -146,6 +152,7 @@ int dnstls_stream_connect_tls(
 
         stream->encrypted = true;
         stream->dnstls_data.ssl = TAKE_PTR(s);
+        stream->dnstls_data.verify = verify;
         stream->dnstls_data.server_data = server_data;
 
         r = dnstls_flush_write_buffer(stream);
@@ -251,13 +258,16 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
         assert(stream->encrypted);
         assert(stream->dnstls_data.ssl);
 
-        if (stream->dnstls_data.server_data) {
+        /* Only save sessions of completed handshakes, as only those verified the server certificate if
+         * requested */
+        if (stream->dnstls_data.server_data && stream->dnstls_data.handshake > 0) {
                 s = sym_SSL_get1_session(stream->dnstls_data.ssl);
                 if (s) {
                         if (stream->dnstls_data.server_data->session)
                                 sym_SSL_SESSION_free(stream->dnstls_data.server_data->session);
 
                         stream->dnstls_data.server_data->session = s;
+                        stream->dnstls_data.server_data->session_verified = stream->dnstls_data.verify;
                 }
         }
 
@@ -410,6 +420,7 @@ void dnstls_server_data_done(DnsTlsServerData *d) {
 
         if (d->session)
                 sym_SSL_SESSION_free(TAKE_PTR(d->session));
+        d->session_verified = false;
 }
 
 int dnstls_manager_init(Manager *manager) {
