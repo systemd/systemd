@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -28,6 +29,7 @@
 #include "logind-session.h"
 #include "logind.h"
 #include "logind-button.h"
+#include "logind-counters.h"
 #include "logind-dbus.h"
 #include "logind-device.h"
 #include "logind-seat.h"
@@ -36,6 +38,7 @@
 #include "logind-utmp.h"
 #include "logind-varlink.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -172,6 +175,8 @@ static Manager* manager_free(Manager *m) {
         hashmap_free(m->polkit_registry);
 
         manager_varlink_done(m);
+
+        m->counters = munmap_safe(m->counters, sizeof(*m->counters));
 
         sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
@@ -1224,6 +1229,8 @@ static int manager_startup(Manager *m) {
         Inhibitor *inhibitor;
 
         assert(m);
+
+        (void) manager_map_counters(m);
 
         r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGHUP|SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
         if (r < 0)
