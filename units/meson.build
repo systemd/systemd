@@ -794,6 +794,8 @@ units = [
         },
         { 'file' : 'systemd-report-cgroup.socket' },
         { 'file' : 'systemd-report-cgroup@.service.in' },
+        { 'file' : 'systemd-report-diskhealth.socket' },
+        { 'file' : 'systemd-report-diskhealth@.service.in' },
         {
           'file' : 'systemd-report-diskspace.socket',
           'conditions' : ['HAVE_LIBMOUNT'],
