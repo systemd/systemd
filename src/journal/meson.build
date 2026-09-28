@@ -13,6 +13,7 @@ systemd_journald_export_sources = files(
         'journald-counters.c',
         'journald-kmsg.c',
         'journald-manager.c',
+        'journald-metrics.c',
         'journald-native.c',
         'journald-rate-limit.c',
         'journald-socket.c',
