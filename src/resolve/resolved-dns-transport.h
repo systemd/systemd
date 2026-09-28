@@ -167,6 +167,11 @@ typedef struct DnsTransportVTable {
          * datagrams. */
         int (*open_datagram)(DnsServerTransport *tr, DnsScope *scope);
 
+        /* Returns false if the long-lived stream may not serve further transactions, e.g. because the
+         * configuration changed since it was established. It is dropped then, and a new one opened. Optional,
+         * by default the long-lived stream is always reused. */
+        bool (*stream_reusable)(DnsServerTransport *tr, DnsStream *stream);
+
         /* Opens a new stream towards the server for the transaction. dns_server_transport_open_stream()
          * only invokes it if there's no long-lived stream to reuse, and remembers the new one as such.
          * Mandatory. */
@@ -194,6 +199,7 @@ void dns_server_transport_unref_stream(DnsServerTransport *tr);
 uint16_t dns_server_transport_port(const DnsServerTransport *tr);
 
 int dns_server_transport_open_datagram(DnsServerTransport *tr, DnsScope *scope);
+DnsStream* dns_server_transport_reusable_stream(DnsServerTransport *tr);
 int dns_server_transport_open_stream(DnsServerTransport *tr, DnsTransaction *t, DnsStream **ret);
 
 /* For casting a transport into the various transport kinds */
