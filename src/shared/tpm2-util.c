@@ -154,6 +154,7 @@ static DLSYM_PROTOTYPE(Esys_VerifySignature) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2_CC_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2_HANDLE_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_DIGEST_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_CONTEXT_DATA_Unmarshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_NAME_Marshal) = NULL;
@@ -174,6 +175,8 @@ static DLSYM_PROTOTYPE(Tss2_MU_TPMT_HA_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPMT_PUBLIC_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPMT_PUBLIC_Unmarshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Unmarshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_UINT64_Unmarshal) = NULL;
 
 static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
 
@@ -269,6 +272,7 @@ static int dlopen_tpm2_mu(int log_level) {
                         &libtss2_mu_dl, "libtss2-mu.so.0", log_level,
                         DLSYM_ARG(Tss2_MU_TPM2_CC_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2_HANDLE_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPM2B_CONTEXT_DATA_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_DIGEST_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal),
@@ -289,7 +293,9 @@ static int dlopen_tpm2_mu(int log_level) {
                         DLSYM_ARG(Tss2_MU_TPMT_HA_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Unmarshal),
-                        DLSYM_ARG(Tss2_MU_UINT32_Marshal));
+                        DLSYM_ARG(Tss2_MU_UINT32_Marshal),
+                        DLSYM_ARG(Tss2_MU_UINT32_Unmarshal),
+                        DLSYM_ARG(Tss2_MU_UINT64_Unmarshal));
 }
 
 _dlopen_loader_
@@ -1230,6 +1236,11 @@ int tpm2_read_public(
                         ret_public,
                         ret_name,
                         ret_qname);
+        /* If there is no object, we get TPM2_RC_REFERENCE_H0 if the handle is a transient one, or
+         * a TPM2_RC_HANDLE error for handle 1 if the handle is a persistent one. */
+        if (((rc & ~TPM2_RC_N_MASK) == TPM2_RC_HANDLE) || rc == TPM2_RC_REFERENCE_H0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "Failed to read public info for missing key");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to read public info: %s", sym_Tss2_RC_Decode(rc));
@@ -1521,6 +1532,77 @@ int tpm2_unmarshal_saved_handle_context(const void *data, size_t size, TPMS_CONT
         return 0;
 }
 
+/* Unmarshal a context blob saved by tpm2-tools into a TPMS_CONTEXT. */
+int tpm2_unmarshal_saved_tpm2_tools_context(const void *data, size_t size, TPMS_CONTEXT *ret) {
+        size_t offset = 0;
+        TPMS_CONTEXT context = {};
+        TSS2_RC rc;
+        int r;
+
+        assert(data);
+        assert(ret);
+
+        r = dlopen_tpm2(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        /* tpm2-tools serializes a tss2 created TPMS_CONTEXT using its own layout which looks like this:
+         *
+         * UINT32 magic (0xbadcc0de)
+         * UINT32 version (1)
+         * UINT32 hierarchy
+         * UINT32 savedHandle
+         * UINT64 sequence
+         * UINT16 contextBlob.size
+         * BYTE[] contextBlob.buffer
+         */
+
+        uint32_t magic;
+        rc = sym_Tss2_MU_UINT32_Unmarshal(data, size, &offset, &magic);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal magic field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+        if (magic != 0xbadcc0de)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Data is not a tpm2-tools context structure");
+
+        uint32_t version;
+        rc = sym_Tss2_MU_UINT32_Unmarshal(data, size, &offset, &version);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal version field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+        if (version != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal tpm2-tools context structure: unsupported version");
+
+        rc = sym_Tss2_MU_UINT32_Unmarshal(data, size, &offset, &context.hierarchy);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal hierarchy field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+
+        rc = sym_Tss2_MU_UINT32_Unmarshal(data, size, &offset, &context.savedHandle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal savedHandle field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+
+        rc = sym_Tss2_MU_UINT64_Unmarshal(data, size, &offset, &context.sequence);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal sequence field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+
+        rc = sym_Tss2_MU_TPM2B_CONTEXT_DATA_Unmarshal(data, size, &offset, &context.contextBlob);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal contextBlob field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+
+        if (offset != size)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Garbage at end of saved context structure data.");
+
+        *ret = context;
+        return 0;
+}
+
 int tpm2_load_saved_handle_context(Tpm2Context *c, const TPMS_CONTEXT *context, TPM2B_NAME **ret_name, Tpm2Handle **ret_handle) {
         TSS2_RC rc;
         int r;
@@ -1583,7 +1665,7 @@ int tpm2_save_handle_context(Tpm2Context *c, const Tpm2Handle *handle, TPMS_CONT
  * requested but all persistent handles are used, but it is extremely unlikely the TPM has enough internal
  * memory to store the entire persistent range, in which case an error will be returned if the TPM is out of
  * memory for persistent storage. The persistent handle is only provided when returning 1. */
-static int tpm2_persist_handle(
+int tpm2_persist_handle(
                 Tpm2Context *c,
                 const Tpm2Handle *transient_handle,
                 const Tpm2Handle *session,
@@ -1608,6 +1690,16 @@ static int tpm2_persist_handle(
                 first = last = persistent_handle_index;
         }
 
+        /* If supported by the current tss2 version, make sure the supplied transient handle actually
+         * corresponds to a transient resource. */
+        TPM2_HANDLE transient_handle_index;
+        r = tpm2_index_from_handle(c, transient_handle, &transient_handle_index);
+        if (r < 0 && r != -EOPNOTSUPP)
+                return log_debug_errno(r, "Failed to get TPM handle index for transient handle");
+        if (r == 0 && TPM2_HANDLE_TYPE(transient_handle_index) != TPM2_HT_TRANSIENT)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Transient handle is not a valid transient resource");
+
         for (TPMI_DH_PERSISTENT requested = first; requested <= last; requested++) {
                 _cleanup_(tpm2_handle_freep) Tpm2Handle *persistent_handle = NULL;
                 r = tpm2_handle_new(c, &persistent_handle);
@@ -1627,6 +1719,8 @@ static int tpm2_persist_handle(
                                 requested,
                                 &persistent_handle->esys_handle);
                 if (rc == TSS2_RC_SUCCESS) {
+                        if (persistent_handle->esys_handle == ESYS_TR_NONE)
+                                log_debug("Esys_TR_GetTpmHandle is not available and tpm2_persist_handle was called with a persistent handle.");
                         if (ret_persistent_handle)
                                 *ret_persistent_handle = TAKE_PTR(persistent_handle);
 
@@ -1634,6 +1728,8 @@ static int tpm2_persist_handle(
                 }
                 if ((rc & ~TPM2_RC_N_MASK) == TPM2_RC_BAD_AUTH)
                         return log_debug_errno(SYNTHETIC_ERRNO(EDEADLK), "Authorization failure while attempting to persist handle.");
+                if (rc == TPM2_RC_NV_SPACE)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC), "Not enough persistent storage space in TPM to persist handle.");
                 if (rc != TPM2_RC_NV_DEFINED)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to persist handle: %s", sym_Tss2_RC_Decode(rc));
@@ -1643,6 +1739,48 @@ static int tpm2_persist_handle(
                 *ret_persistent_handle = NULL;
 
         return 0;
+}
+
+/* Evict the object at the specified persistent handle from the TPM. Returns 1 if an object is evicted, 0
+ * if no object exists at the specified index, or <0 on error. */
+int tpm2_evict_handle(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPMI_DH_PERSISTENT handle_index) {
+
+        TSS2_RC rc;
+        int r;
+
+        /* Ideally we'd accept a Tpm2Handle, but we can't rely on Esys_TR_GetHandle being available. For now,
+         * it's better to just accept a handle index and create the Tpm2Handle locally. */
+        if (TPM2_HANDLE_TYPE(handle_index) != TPM2_HT_PERSISTENT)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Handle not in persistent range: 0x%x", handle_index);
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_index_to_handle(c, handle_index, /* session= */ NULL, /* ret_name= */ NULL, &handle);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get handle from persistent handle index.");
+        if (r == 0)
+                return r;
+
+        ESYS_TR unused; /* We need to pass something below. */
+        rc = sym_Esys_EvictControl(
+                        c->esys_context,
+                        ESYS_TR_RH_OWNER,
+                        handle->esys_handle,
+                        session ? session->esys_handle : ESYS_TR_PASSWORD,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        handle_index,
+                        &unused);
+        if ((rc & ~TPM2_RC_N_MASK) == TPM2_RC_BAD_AUTH)
+                return log_debug_errno(SYNTHETIC_ERRNO(EDEADLK), "Authorization failure while attempting to evict handle.");
+        if (rc != TPM2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to evict handle: %s", sym_Tss2_RC_Decode(rc));
+
+        return 1;
 }
 
 #define TPM2_CREDIT_RANDOM_FLAG_PATH "/run/systemd/tpm-rng-credited"
@@ -2665,7 +2803,6 @@ int tpm2_open_ek_user_policy_session(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 const Tpm2Handle *ek_handle,
-                const Tpm2Handle *tpm_key,
                 Tpm2Handle **ret_session) {
         int r;
 
@@ -2700,7 +2837,7 @@ int tpm2_open_ek_user_policy_session(
         /* Note that tpm2_make_policy_session is currently hardcoded to SHA256. That's ok for now because
          * we only get this far if the supplied ek_handle has a name algorithm of SHA256. */
         _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
-        r = tpm2_make_policy_session(c, tpm_key, /* encryption_session= */ NULL, &policy_session);
+        r = tpm2_make_policy_session(c, /* primary= */ NULL, /* encryption_session= */ NULL, &policy_session);
         if (r < 0)
                 return r;
 
@@ -4765,8 +4902,7 @@ int tpm2_calculate_pubkey_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) 
 
         if (public->nameAlg != TPM2_ALG_SHA256)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Unsupported nameAlg: 0x%x",
-                                       public->nameAlg);
+                                       "Unsupported nameAlg without OpenSSL support: 0x%x", public->nameAlg);
 
         _cleanup_free_ uint8_t *buf = NULL;
         size_t size = 0;
@@ -4786,10 +4922,10 @@ int tpm2_calculate_pubkey_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) 
                 return r;
 
         TPMT_HA ha = {
-                .hashAlg = TPM2_ALG_SHA256,
+                .hashAlg = public->nameAlg,
         };
         assert(digest.size <= sizeof(ha.digest.sha256));
-        memcpy_safe(ha.digest.sha256, digest.buffer, digest.size);
+        memcpy_safe(&ha.digest.sha256, digest.buffer, digest.size);
 
         TPM2B_NAME name;
         size = 0;

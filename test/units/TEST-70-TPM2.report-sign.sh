@@ -3,24 +3,28 @@
 set -eux
 set -o pipefail
 
-# Test report signing through the TPM2 backend (systemd-report-sign-tpm2), driven
-# via the io.systemd.Report Varlink interface (the GenerateSigned method). This is
+# Test report signing through the TPM2 backend (systemd-report-sign-tpm2). This is
 # the TPM2 counterpart to the plain software backend test in
 # TEST-74-AUX-UTILS.report.sh; it lives here because it needs a real TPM, which
 # only the TPM2 integration test provides.
 #
-# The TPM2 backend signs each report with every signing key it has been
-# provisioned with (generating a default one if it has none), returning one
-# signature record per key. Each record carries a set of signed TPM attestations
-# (a PCR quote, one NV certification per NvPCR, and a session audit digest),
-# together with the signing key's public area, the optional voucher for it and
-# the pcrlock event log. The public area, the attestations and the signatures are
-# all serialized as TCG TSS2 JSON. For each attestation we rebuild the public key,
-# re-marshal the TPMS_ATTEST that was signed, and verify the signature using the
-# embedded Python helper below. The helper also cross-checks the parallel PEM
-# encodings (publicKeyPEM and signaturePEM) against the JSON encodings. We also
-# confirm the report digest is carried in the extraData field of the session audit
-# attestation.
+# It exercises two Varlink interfaces:
+#
+#  - io.systemd.Report.TPM2SignerKeyManager for managing signing keys.
+#
+#  - io.systemd.Report (GenerateSigned) to produce a signed report via
+#    systemd-report. The TPM2 backend signs it with every configured key (generating
+#    a default one if it has none), returning one signature record for each. Each
+#    record carries a set of signed TPM attestations (a PCR quote, one NV
+#    certification per NvPCR, and a session audit digest), together with the
+#    signing key's public area, the optional voucher for it and the pcrlock event
+#    log, all serialized as TCG TSS2 JSON. For each attestation we rebuild the
+#    public key, re-marshal the TPMS_ATTEST that was signed, and verify the
+#    signature using the embedded Python helper below. The helper also
+#    cross-checks the parallel PEM encodings (publicKeyPEM and signaturePEM)
+#    against the JSON encodings, and confirms the report digest is carried in the
+#    extraData field of the session audit attestation. We also confirm each report
+#    was signed by the key we created for it.
 #
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
@@ -33,6 +37,13 @@ export PAGER=
 # skip if the socket isn't present.
 if ! systemctl cat systemd-report-sign-tpm2.socket &>/dev/null; then
     echo "systemd-report-sign-tpm2.socket is not installed, skipping TPM2 report signing test."
+    exit 0
+fi
+
+# The key manager Varlink interface (io.systemd.Report.TPM2SignerKeyManager) is
+# exposed on a separate socket. Skip if that's not installed.
+if ! systemctl cat systemd-report-sign-tpm2-key-manager.socket &>/dev/null; then
+    echo "systemd-report-sign-tpm2-key-manager.socket is not installed, skipping TPM2 report signing test."
     exit 0
 fi
 
@@ -51,12 +62,27 @@ fi
 
 WORK="$(mktemp -d)"
 
+# The key manager socket. Report signing itself is driven through systemd-report's
+# io.systemd.Report.GenerateSigned method.
+KEY_MANAGER="/run/systemd/io.systemd.Report.TPM2SignerKeyManager"
+
 # Where the backend keeps its keys and its cached key contexts.
 KEY_DIR="/var/lib/systemd/report.sign.tpm2"
 CONTEXT_DIR="/run/systemd/report.sign.tpm2"
 
-# Remove all keys, cached key contexts and vouchers, so each test starts fresh.
+# A persistent handle used by the "persistent" key tests.
+PERSISTENT_HANDLE="0x81020001"
+
+# A persistent handle used as a storage parent for some tests.
+PARENT_HANDLE="0x81030001"
+
+EK_HANDLE="0x81010001"
+
+# Remove all keys, cached key contexts, vouchers and created persistent objects,
+# so each test starts fresh.
 reset_state() {
+    tpm2_evictcontrol -C o -c "$PERSISTENT_HANDLE" >/dev/null 2>&1 || true
+    tpm2_evictcontrol -C o -c "$PARENT_HANDLE" >/dev/null 2>&1 || true
     rm -f "$KEY_DIR"/* "$CONTEXT_DIR"/* 2>/dev/null || true
 }
 
@@ -77,9 +103,10 @@ context_ids() {
 at_exit() {
     set +e
     # Don't leave the keys we provisioned behind. A default key is generated
-    # again on the next signing request.
+    # again on the next signing request. This also evicts any persistent object
+    # the persistent-key test may have left behind.
     reset_state
-    systemctl stop systemd-report.socket systemd-report-sign-tpm2.socket
+    systemctl stop systemd-report.socket systemd-report-sign-tpm2.socket systemd-report-sign-tpm2-key-manager.socket
     rm -rf "$WORK"
 }
 trap at_exit EXIT
@@ -88,7 +115,7 @@ trap at_exit EXIT
 # key. In a QEMU/swtpm guest there is no EK certificate, and the backend only
 # provisions an EK when a matching certificate is present. Create and persist
 # an EK directly. This fails if one already is already present, so ignore that.
-if ! tpm2_createek -c 0x81010001 -G ecc; then
+if ! tpm2_createek -c "$EK_HANDLE" -G ecc; then
     echo "tpm2_createek failed, assuming an EK is already present."
 fi
 
@@ -98,12 +125,13 @@ systemctl start systemd-pcrlock.socket
 
 systemctl start systemd-report.socket
 systemctl start systemd-report-sign-tpm2.socket
+systemctl start systemd-report-sign-tpm2-key-manager.socket
 
 # Use a python script for verifying the report component signatures because we
 # need to reconstruct the TPM2B_ATTEST bytes from the provided TPMS_ATTEST JSON
 # encoding, and construct a public key from the provided TPMT_PUBLIC JSON encoding.
-# It has two modes: "verify" checks a full report, and "make-template" marshals a
-# JSON encoded TPMT_PUBLIC into a base64 encoded TPM2B_PUBLIC.
+# It has two modes: "verify" checks a full report, and "pubkey-crosscheck"
+# crosschecks a JSON encoded TPMT_PUBLIC area with a PEM public key.
 VERIFY="$WORK/verify-report-sig.py"
 cat >"$VERIFY" <<'EOF'
 #!/usr/bin/env python3
@@ -402,11 +430,37 @@ def check_session_audit(alg, doc, key_name):
 def main():
     mode = sys.argv[1]
 
-    if mode == "make-template":
-        # Marshal the JSON encoded TPMT_PUBLIC read from stdin as a base64
-        # encoded TPM2B_PUBLIC.
-        pub = json.load(sys.stdin)
-        print(base64.b64encode(marshal_bytes_tpm2b(marshal_tpmt_public(pub))).decode())
+    if mode == "pubkey-crosscheck":
+        # Check that the JSON TPMT_PUBLIC public area and the PEM public key read
+        # from stdin (as {"public": <obj>, "pem": <str>}) describe the same key.
+        obj = json.load(sys.stdin)
+        key = build_pubkey(obj["public"])
+        key_pem = serialization.load_pem_public_key(obj["pem"].encode())
+        if key.public_numbers() != key_pem.public_numbers():
+            sys.exit("publicPEM does not match public")
+        return
+
+    if mode == "tpm2-tools-context":
+        # Convert a tpm2-tools context file (read from stdin) into the base64
+        # encoded, TSS2-marshaled TPMS_CONTEXT that the CreateKey parentContext
+        # field expects.
+        #
+        # The tpm2-tools format is: magic (u32, 0xBADCC0DE), version (u32, 1),
+        # then hierarchy (u32), savedHandle (u32), sequence (u64), and the
+        # context blob (u16 length + bytes). A marshaled TPMS_CONTEXT instead
+        # orders the fields sequence (u64), savedHandle (u32), hierarchy (u32),
+        # then the blob (u16 length + bytes).
+        blob = sys.stdin.buffer.read()
+        magic, version, hierarchy, saved_handle, sequence, blob_size = struct.unpack(">IIIIQH", blob[:26])
+        if magic != 0xBADCC0DE:
+            sys.exit(f"unexpected tpm2-tools context magic {magic:#x}")
+        if version != 1:
+            sys.exit(f"unsupported tpm2-tools context version {version}")
+        context_blob = blob[26:26 + blob_size]
+        if len(context_blob) != blob_size:
+            sys.exit("truncated tpm2-tools context blob")
+        tpms_context = struct.pack(">QII", sequence, saved_handle, hierarchy) + marshal_bytes_tpm2b(context_blob)
+        print(base64.b64encode(tpms_context).decode())
         return
 
     if mode != "verify":
@@ -489,29 +543,46 @@ nvpcrs_json="$(systemd-analyze nvpcrs --json=short)"
 expected_nvpcrs="$(echo "$nvpcrs_json" | jq 'length')"
 [ "$expected_nvpcrs" -gt 0 ]
 
-# Install a signing key that is recreated from a template on each use (ie, a
-# primary key, here in the owner hierarchy). There's no interface for creating
-# signing keys with specific parameters yet, so marshal the TPM2B_PUBLIC template
-# ourselves and write out the key data file that the backend consumes.
+# Create a signing key via the key manager.
 #
-# $1: key name (the key is installed as $KEY_DIR/$1.key).
-# $2: ECC curve (eg, NIST_P256).
-# $3: digest algorithm (eg, SHA256).
-install_primary_key() {
-    local name="${1:?}" curve="${2:?}" hash="${3:?}" template
+# $1: name.
+# $2: JSON parameters (the name is injected).
+#
+# Prints the reply.
+create_key() {
+    local name="$1" params="$2"
+    varlinkctl call "$KEY_MANAGER" io.systemd.Report.TPM2SignerKeyManager.CreateKey \
+        "$(jq -nc --arg name "$name" --argjson p "$params" '$p + {name: $name}')"
+}
 
-    # objectAttributes is FIXEDTPM|FIXEDPARENT|SENSITIVEDATAORIGIN|USERWITHAUTH|
-    # ADMINWITHPOLICY|RESTRICTED|SIGN_ENCRYPT, ie, a restricted signing key, which
-    # is what attestation requires.
-    template="$(jq -nc --arg h "$hash" --arg c "$curve" \
-                   '{type: "ECC",
-                     nameAlg: $h,
-                     objectAttributes: 327922,
-                     parameters: {scheme: {scheme: "ECDSA", details: {hashAlg: $h}}, curveID: $c},
-                     unique: {x: "", y: ""}}' | python3 "$VERIFY" make-template)"
+# Check that a CreateKey reply has the expected parameters.
+#
+# $1: the reply JSON.
+# $2: type (RSA|ECC).
+# $3: digest algorithm (SHA256|SHA384|SHA512).
+# $4: scheme (RSASSA|RSAPSS|ECDSA).
+# $5: RSA key size in bits, or ECC curve ID (NIST_P256|NIST_P384).
+check_reply() {
+    local reply="$1" kind="$2" name_alg="$3" scheme="$4" param="$5" pub
 
-    # 1073741825 is TPM2_RH_OWNER.
-    jq -nc --arg t "$template" '{type: "primary", hierarchy: 1073741825, template: $t}' >"$KEY_DIR/$name.key"
+    pub="$(jq -c .public <<<"$reply")"
+
+    jq -e --arg t "$kind"     '.type == $t'                              <<<"$pub" >/dev/null
+    jq -e --arg n "$name_alg" '.nameAlg == $n'                           <<<"$pub" >/dev/null
+    jq -e --arg s "$scheme"   '.parameters.scheme.scheme == $s'          <<<"$pub" >/dev/null
+    jq -e --arg h "$name_alg" '.parameters.scheme.details.hashAlg == $h' <<<"$pub" >/dev/null
+
+    # FIXEDTPM|FIXEDPARENT|SENSITIVEDATAORIGIN|USERWITHAUTH|RESTRICTED|SIGN_ENCRYPT
+    jq -e '.objectAttributes == 327794' <<<"$pub" >/dev/null
+
+    if [ "$kind" = "RSA" ]; then
+        jq -e --argjson kb "$param" '.parameters.keyBits == $kb' <<<"$pub" >/dev/null
+    else
+        jq -e --arg c "$param" '.parameters.curveID == $c' <<<"$pub" >/dev/null
+    fi
+
+    # public and publicPEM must be PEM/JSON encodings of the same key.
+    jq -c '{public: .public, pem: .publicPEM}' <<<"$reply" | python3 "$VERIFY" pubkey-crosscheck
 }
 
 # Ask systemd-report to generate a *signed* report over Varlink. Each TPM2
@@ -616,7 +687,57 @@ verify_tpm2_sig() {
     jq -Sc '.publicKey' <<<"$report"
 }
 
-# 1) With no signing keys provisioned, the backend generates a default one and
+# Create a single key, check the reply, then generate a signed report and verify
+# the signature produced with it.
+#
+# $1: signing key name.
+# $2: signing key JSON parameters (the name is injected).
+# $3: expected type (RSA|ECC).
+# $4: expected digest algorithm (SHA256|SHA384|SHA512).
+# $5: expected scheme (RSASSA|RSAPSS|ECDSA).
+# $6: expected RSA key size in bits, or ECC curve ID (NIST_P256|NIST_P384).
+test_single_key() {
+    local name="$1" params="$2" kind="$3" name_alg="$4" scheme="$5" param="$6"
+
+    # Make sure the TPM supports the requested parameters.
+    local tp_type
+    if [ "$kind" = "RSA" ]; then
+        tp_type="rsa$param"
+    else
+        tp_type="ecc_${param,,}"
+    fi
+    if ! tpm2_supports_params "$tp_type" "${scheme,,}-${name_alg,,}"; then
+        echo "TPM does not support ${tp_type}:${scheme,,}-${name_alg,,}, skipping test '$name'."
+        return 0
+    fi
+
+    local reply
+    reset_state
+    reply="$(create_key "$name" "$params")"
+    check_reply "$reply" "$kind" "$name_alg" "$scheme" "$param"
+
+    # Check the key was stored under the requested name.
+    test -e "$KEY_DIR/$name.key"
+
+    local created_pub digest signed_pub
+    local -a sig_files
+    created_pub="$(jq -Sc .public <<<"$reply")"
+
+    digest="$(generate_signed)"
+    mapfile -t sig_files < <(find "$WORK" -maxdepth 1 -name 'report.sig.*' | sort)
+
+    # There should only be a single signature.
+    [ "${#sig_files[@]}" -eq 1 ]
+
+    signed_pub="$(verify_tpm2_sig "${sig_files[0]}" "$digest")"
+
+    # The report must be signed by exactly the key we created.
+    [ "$signed_pub" = "$created_pub" ]
+
+    echo "OK: single-key test '$name'"
+}
+
+# 0) With no signing keys provisioned, the backend generates a default one and
 #    signs the report with it.
 test_default_key() {
     local digest pub ctx_before
@@ -657,53 +778,99 @@ test_default_key() {
 }
 test_default_key
 
-# 2) With several signing keys provisioned, the report is signed with each of
-#    them, and each key has its own cached key context and its own voucher.
-test_multiple_keys() {
-    local digest sig pub voucher ctx_before pub_p256="" pub_p384=""
+# 1) RSA, RSASSA, 2048-bit, SHA-256 (primary key).
+test_single_key "rsa-rsassa-2048-sha256" \
+    '{"type":"primary","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"hierarchy":"owner"}' \
+    RSA SHA256 RSASSA 2048
+
+# 2) RSA, RSAPSS, 3072-bit, SHA-384 (primary key).
+test_single_key "rsa-rsapss-3072-sha384" \
+    '{"type":"primary","scheme":"rsapss","hashAlg":"sha384","rsaKeyBits":3072,"hierarchy":"owner"}' \
+    RSA SHA384 RSAPSS 3072
+
+# 3) ECC, ECDSA, NIST P-256, SHA-256 (primary key).
+test_single_key "ecc-ecdsa-p256-sha256" \
+    '{"type":"primary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","hierarchy":"owner"}' \
+    ECC SHA256 ECDSA NIST_P256
+
+# 4) ECC, ECDSA, NIST P-384, SHA-512 (primary key).
+test_single_key "ecc-ecdsa-p384-sha512" \
+    '{"type":"primary","scheme":"ecdsa","hashAlg":"sha512","eccCurve":"nistp384","hierarchy":"owner"}' \
+    ECC SHA512 ECDSA NIST_P384
+
+# 5) RSA, RSASSA, 2048-bit, SHA-256 (primary key, EH).
+test_single_key "rsa-rsassa-2048-sha256" \
+    '{"type":"primary","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"hierarchy":"endorsement"}' \
+    RSA SHA256 RSASSA 2048
+
+# 6) RSA, RSASSA, 2048-bit, SHA-256 (primary key, NH).
+test_single_key "rsa-rsassa-2048-sha256" \
+    '{"type":"primary","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"hierarchy":"null"}' \
+    RSA SHA256 RSASSA 2048
+
+# 7) An ordinary key, as a child of the EK.
+test_single_key "ordinary-ecdsa-p256" \
+    "$(jq -nc --argjson ph "$((EK_HANDLE))" '{"type":"ordinary", "scheme":"ecdsa", "hashAlg":"sha256", "eccCurve":"nistp256", "parentHandle":$ph}')" \
+    ECC SHA256 ECDSA NIST_P256
+
+# 8) A persistent key created as a primary object in the owner hierarchy.
+test_single_key "persistent-rsassa-2048" \
+    "$(jq -nc --argjson ph "$((PERSISTENT_HANDLE))" '{"type":"persistent", "scheme":"rsassa", "hashAlg":"sha256", "rsaKeyBits":2048, "hierarchy":"owner", "persistentHandle":$ph}')" \
+    RSA SHA256 RSASSA 2048
+
+# 9) Multiple keys: the report must be signed with each configured key, i.e. we
+#    get one TPM2 signature record per key, and each key has its own cached key
+#    context and its own voucher.
+test_multi_key() {
+    if ! tpm2_supports_params rsa2048 rsassa-sha256 || ! tpm2_supports_params ecc_nist_p384 ecdsa-sha384; then
+        echo "TPM does not support the multi-key test parameters, skipping."
+        return 0
+    fi
+
+    local reply pub_rsa pub_ecc digest sig pub voucher ctx_before created_sorted report_sorted
     local -a sig_files report_pubs
 
     reset_state
 
-    install_primary_key key-a NIST_P256 SHA256
-    install_primary_key key-b NIST_P384 SHA384
+    reply="$(create_key "multi-rsa" '{"type":"primary","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"hierarchy":"owner"}')"
+    pub_rsa="$(jq -Sc .public <<<"$reply")"
 
-    # Only key-b gets a voucher, so we can tell that each signature carries the
-    # voucher belonging to the key that produced it, and only that one.
-    voucher="voucher for key-b"
-    printf '%s' "$voucher" >"$KEY_DIR/key-b.voucher"
+    reply="$(create_key "multi-ecc" '{"type":"primary","scheme":"ecdsa","hashAlg":"sha384","eccCurve":"nistp384","hierarchy":"owner"}')"
+    pub_ecc="$(jq -Sc .public <<<"$reply")"
+
+    test -e "$KEY_DIR/multi-rsa.key"
+    test -e "$KEY_DIR/multi-ecc.key"
+
+    # Only multi-ecc gets a voucher, so we can tell that each signature carries
+    # the voucher belonging to the key that produced it, and only that one.
+    voucher="voucher for multi-ecc"
+    printf '%s' "$voucher" >"$KEY_DIR/multi-ecc.voucher"
 
     digest="$(generate_signed)"
     mapfile -t sig_files < <(find "$WORK" -maxdepth 1 -name 'report.sig.*' | sort)
 
-    # One signature record per configured signing key.
+    # One TPM2 signature record per configured key.
     [ "${#sig_files[@]}" -eq 2 ]
 
     # We provisioned our own keys, so no default key may have been generated.
     test ! -e "$KEY_DIR/default.key"
 
     # Each key gets its own cached key context, named after the key.
-    test -e "$CONTEXT_DIR/key-a.context"
-    test -e "$CONTEXT_DIR/key-b.context"
+    test -e "$CONTEXT_DIR/multi-rsa.context"
+    test -e "$CONTEXT_DIR/multi-ecc.context"
 
+    report_pubs=()
     for sig in "${sig_files[@]}"; do
         pub="$(verify_tpm2_sig "$sig" "$digest")"
+        report_pubs+=("$pub")
 
-        # Each signature must have been produced by one of the keys we installed,
-        # which we can tell apart by their parameters.
-        case "$(jq -r '.parameters.curveID' <<<"$pub")" in
-            NIST_P256)
-                jq -e '.nameAlg == "SHA256" and .parameters.scheme.details.hashAlg == "SHA256"' <<<"$pub" >/dev/null
-                pub_p256="$pub"
-
-                # key-a has no voucher.
+        case "$pub" in
+            "$pub_rsa")
+                # multi-rsa has no voucher.
                 jq -e '.data.voucher == null' "$sig" >/dev/null
                 ;;
-            NIST_P384)
-                jq -e '.nameAlg == "SHA384" and .parameters.scheme.details.hashAlg == "SHA384"' <<<"$pub" >/dev/null
-                pub_p384="$pub"
-
-                # key-b's voucher is attached verbatim, base64 encoded.
+            "$pub_ecc")
+                # multi-ecc's voucher is attached verbatim, base64 encoded.
                 [ "$(jq -r '.data.voucher' "$sig")" = "$(printf '%s' "$voucher" | base64 -w0)" ]
                 ;;
             *)
@@ -713,15 +880,17 @@ test_multiple_keys() {
         esac
     done
 
-    # Both of the keys must have been used.
-    test -n "$pub_p256"
-    test -n "$pub_p384"
+    # The two reports must be signed by exactly the two (distinct) keys we created.
+    [ "$pub_rsa" != "$pub_ecc" ]
+    created_sorted="$(printf '%s\n' "$pub_rsa" "$pub_ecc" | sort)"
+    report_sorted="$(printf '%s\n' "${report_pubs[@]}" | sort)"
+    [ "$created_sorted" = "$report_sorted" ]
 
     # Signing again must reuse the cached key contexts, and still produce one
     # signature per key, signed by the same two keys. Both keys are primary
     # objects recreated from a template, so this covers the cache path taken for
     # those.
-    ctx_before="$(context_ids key-a key-b)"
+    ctx_before="$(context_ids multi-rsa multi-ecc)"
 
     digest="$(generate_signed)"
     mapfile -t sig_files < <(find "$WORK" -maxdepth 1 -name 'report.sig.*' | sort)
@@ -731,16 +900,57 @@ test_multiple_keys() {
     for sig in "${sig_files[@]}"; do
         report_pubs+=("$(verify_tpm2_sig "$sig" "$digest")")
     done
-    [ "$(printf '%s\n' "${report_pubs[@]}" | sort)" = "$(printf '%s\n' "$pub_p256" "$pub_p384" | sort)" ]
+    [ "$(printf '%s\n' "${report_pubs[@]}" | sort)" = "$created_sorted" ]
 
     # A cache miss would have recreated both keys and rewritten their contexts.
-    [ "$(context_ids key-a key-b)" = "$ctx_before" ]
+    [ "$(context_ids multi-rsa multi-ecc)" = "$ctx_before" ]
 
-    echo "OK: multiple keys test"
+    echo "OK: multi-key test"
 }
-test_multiple_keys
+test_multi_key
 
-# 3) A voucher for the default key with no matching key must not cause a default
+# 10) Creating a key with an existing name must fail with KeyExists rather than
+#    overwriting it.
+test_key_exists() {
+    if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
+        echo "TPM does not support the KeyExists test parameters, skipping."
+        return 0
+    fi
+
+    local dup_err
+
+    reset_state
+    create_key "dup-key" '{"type":"primary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","hierarchy":"owner"}' >/dev/null
+    dup_err="$(varlinkctl call "$KEY_MANAGER" io.systemd.Report.TPM2SignerKeyManager.CreateKey \
+        '{"name":"dup-key","type":"primary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","hierarchy":"owner"}' 2>&1 || true)"
+    echo "$dup_err" | grep "io.systemd.Report.TPM2SignerKeyManager.KeyExists" >/dev/null
+
+    echo "OK: KeyExists test"
+}
+test_key_exists
+
+# 11) A persistent key whose parent is an existing persistent storage key.
+test_single_key "persistent-parenthandle" \
+    "$(jq -nc --argjson ph "$((EK_HANDLE))" --argjson kh "$((PERSISTENT_HANDLE))" '{"type":"persistent","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"parentHandle":$ph,"persistentHandle":$kh}')" \
+    RSA SHA256 RSASSA 2048
+
+# 12) A persistent key whose parent is a transient storage key, supplied as a
+#     saved context.
+tpm2_createprimary -C o -G ecc -c "$WORK/parent.ctx" >/dev/null
+parent_context="$(python3 "$VERIFY" tpm2-tools-context <"$WORK/parent.ctx")"
+test_single_key "persistent-parentcontext" \
+    "$(jq -nc --arg ctx "$parent_context" --argjson kh "$((PERSISTENT_HANDLE))" '{"type":"persistent","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"parentContext":$ctx,"persistentHandle":$kh}')" \
+    RSA SHA256 RSASSA 2048
+
+# 13) The same as test 12, but the transient parent's context is the one written
+#     by tpm2-tools.
+tpm2_createprimary -C o -G ecc -c "$WORK/tools-parent.ctx" >/dev/null
+tools_parent_context="$(base64 -w0 "$WORK/tools-parent.ctx")"
+test_single_key "persistent-tools-parentcontext" \
+    "$(jq -nc --arg ctx "$tools_parent_context" --argjson kh "$((PERSISTENT_HANDLE))" '{"type":"persistent","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"parentContext":$ctx,"persistentHandle":$kh}')" \
+    RSA SHA256 RSASSA 2048
+
+# 14) A voucher for the default key with no matching key must not cause a default
 #    key to be generated. A voucher certifies the key it was issued for, but is
 #    paired to it by file name alone, so a generated key would end up shipping a
 #    voucher that certifies a different key.
@@ -760,3 +970,310 @@ test_voucher_without_key() {
     echo "OK: voucher without key test"
 }
 test_voucher_without_key
+
+# Delete a signing key via the key manager.
+#
+# $1: the name of the key to delete.
+delete_key() {
+    varlinkctl call "$KEY_MANAGER" io.systemd.Report.TPM2SignerKeyManager.DeleteKey \
+        "$(jq -nc --arg name "$1" '{name: $name}')"
+}
+
+# 15) Deleting a key removes all associated files.
+test_delete_key() {
+    if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
+        echo "TPM does not support the delete-key test parameters, skipping."
+        return 0
+    fi
+
+    reset_state
+    create_key "delete-me" '{"type":"primary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","hierarchy":"owner"}' >/dev/null
+
+    # Signing caches a key context in the runtime directory.
+    generate_signed >/dev/null
+
+    # Drop a dummy voucher next to the key, to confirm it's removed too.
+    echo "dummy voucher" >"$KEY_DIR/delete-me.voucher"
+
+    test -e "$KEY_DIR/delete-me.key"
+    test -e "$KEY_DIR/delete-me.voucher"
+    test -e "$CONTEXT_DIR/delete-me.context"
+
+    delete_key "delete-me" >/dev/null
+
+    # All of the key's files must be gone.
+    test ! -e "$KEY_DIR/delete-me.key"
+    test ! -e "$KEY_DIR/delete-me.voucher"
+    test ! -e "$CONTEXT_DIR/delete-me.context"
+
+    echo "OK: delete-key test"
+}
+test_delete_key
+
+# 16) Deleting a persistent key also evicts its object from the TPM.
+test_delete_persistent_key() {
+    if ! tpm2_supports_params rsa2048 rsassa-sha256; then
+        echo "TPM does not support the delete-persistent test parameters, skipping."
+        return 0
+    fi
+
+    reset_state
+    create_key "delete-persistent" \
+        "$(jq -nc --argjson ph "$((PERSISTENT_HANDLE))" '{"type":"persistent", "scheme":"rsassa", "hashAlg":"sha256", "rsaKeyBits":2048, "hierarchy":"owner", "persistentHandle":$ph}')" >/dev/null
+
+    test -e "$KEY_DIR/delete-persistent.key"
+    # The persistent object must exist in the TPM.
+    tpm2_readpublic -c "$PERSISTENT_HANDLE" >/dev/null
+
+    delete_key "delete-persistent" >/dev/null
+
+    test ! -e "$KEY_DIR/delete-persistent.key"
+    # ...and its persistent object must have been evicted.
+    assert_fail tpm2_readpublic -c "$PERSISTENT_HANDLE"
+
+    echo "OK: delete-persistent-key test"
+}
+test_delete_persistent_key
+
+# 17) Deleting a key that doesn't exist must fail with NoSuchKey.
+test_delete_no_such_key() {
+    local err
+
+    reset_state
+    err="$(varlinkctl call "$KEY_MANAGER" io.systemd.Report.TPM2SignerKeyManager.DeleteKey \
+        '{"name":"does-not-exist"}' 2>&1 || true)"
+    echo "$err" | grep "io.systemd.Report.TPM2SignerKeyManager.NoSuchKey" >/dev/null
+
+    echo "OK: delete-no-such-key test"
+}
+test_delete_no_such_key
+
+# List signing keys via the key manager.
+#
+# $1: optional JSON parameters.
+#
+# Prints one JSON object per key.
+list_keys() {
+    local params="${1:-}"
+    [ -n "$params" ] || params='{}'
+
+    # 'varlinkctl --more' emits its replies as JSON-SEQ (each object prefixed with
+    # an ASCII record separator, 0x1e), so strip those before handing the stream
+    # to jq. Also drop the terminating empty reply, which has no 'name'.
+    varlinkctl call --more "$KEY_MANAGER" io.systemd.Report.TPM2SignerKeyManager.ListKeys "$params" \
+        | tr -d '\036' \
+        | jq -c 'select(.name != null)'
+}
+
+# Assert that a list entry public key matches the one obtained from CreateKey.
+#
+# $1: ListKeys entry.
+# $2: CreateKey reply.
+assert_public_matches() {
+    local listed="$1" created="$2"
+
+    # The JSON public areas must match.
+    [ "$(jq -Sc .public <<<"$listed")" = "$(jq -Sc .public <<<"$created")" ]
+
+    # The entry's public and publicPEM must be PEM/JSON encodings of the same key.
+    jq -c '{public: .public, pem: .publicPEM}' <<<"$listed" | python3 "$VERIFY" pubkey-crosscheck
+}
+
+# 18) List keys of different types, and check the reported properties.
+test_list_keys() {
+    if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256 || ! tpm2_supports_params rsa2048 rsassa-sha256; then
+        echo "TPM does not support the list-keys test parameters, skipping."
+        return 0
+    fi
+
+    local ordinary_reply primary_reply persistent_reply
+    reset_state
+    ordinary_reply="$(create_key "list-ordinary" \
+        "$(jq -nc --argjson ph "$((EK_HANDLE))" '{"type":"ordinary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","parentHandle":$ph}')")"
+    primary_reply="$(create_key "list-primary" \
+        '{"type":"primary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","hierarchy":"owner"}')"
+    persistent_reply="$(create_key "list-persistent" \
+        "$(jq -nc --argjson ph "$((PERSISTENT_HANDLE))" '{"type":"persistent","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"hierarchy":"owner","persistentHandle":$ph}')")"
+
+    # Drop a voucher next to one key, to confirm it's returned (base64 encoded).
+    # We use some binary content to make sure the encoding round-trips faithfully.
+    local voucher
+    voucher="$(printf '\x00\x01\x02voucher\xff')"
+    printf '%s' "$voucher" >"$KEY_DIR/list-ordinary.voucher"
+
+    local keys ordinary primary persistent
+    keys="$(list_keys)"
+
+    ordinary="$(jq -c 'select(.name == "list-ordinary")' <<<"$keys")"
+    primary="$(jq -c 'select(.name == "list-primary")' <<<"$keys")"
+    persistent="$(jq -c 'select(.name == "list-persistent")' <<<"$keys")"
+    [ -n "$ordinary" ]
+    [ -n "$primary" ]
+    [ -n "$persistent" ]
+
+    # Ordinary key: no hierarchy or persistentHandle.
+    [ "$(jq -r .type <<<"$ordinary")" = "ordinary" ]
+    [ "$(jq -r .status <<<"$ordinary")" = "available" ]
+    [ "$(jq -r '.public.type' <<<"$ordinary")" = "ECC" ]
+    [ -z "$(jq -r '.hierarchy // empty' <<<"$ordinary")" ]
+    [ -z "$(jq -r '.persistentHandle // empty' <<<"$ordinary")" ]
+    assert_public_matches "$ordinary" "$ordinary_reply"
+    # The voucher we dropped is returned, base64 encoded.
+    [ "$(jq -r .voucher <<<"$ordinary" | base64 -d)" = "$voucher" ]
+
+    # Primary key: owner hierarchy is set, and no persistentHandle.
+    [ "$(jq -r .type <<<"$primary")" = "primary" ]
+    [ "$(jq -r .status <<<"$primary")" = "available" ]
+    [ "$(jq -r .hierarchy <<<"$primary")" = "owner" ]
+    [ "$(jq -r '.public.type' <<<"$primary")" = "ECC" ]
+    assert_public_matches "$primary" "$primary_reply"
+    # No voucher was created for this key, so none is reported.
+    [ -z "$(jq -r '.voucher // empty' <<<"$primary")" ]
+
+    # Persistent key: persistentHandle is set, and no hierarchy.
+    [ "$(jq -r .type <<<"$persistent")" = "persistent" ]
+    [ "$(jq -r .status <<<"$persistent")" = "available" ]
+    [ "$(jq -r .persistentHandle <<<"$persistent")" = "$((PERSISTENT_HANDLE))" ]
+    [ "$(jq -r '.public.type' <<<"$persistent")" = "RSA" ]
+    assert_public_matches "$persistent" "$persistent_reply"
+    [ -z "$(jq -r '.voucher // empty' <<<"$persistent")" ]
+
+    echo "OK: list-keys test"
+}
+test_list_keys
+
+# 19) The filter argument selects keys by name.
+test_list_keys_filter() {
+    if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
+        echo "TPM does not support the list-keys-filter test parameters, skipping."
+        return 0
+    fi
+
+    local name
+    reset_state
+    for name in filter-aaa filter-bbb other; do
+        create_key "$name" \
+            '{"type":"primary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","hierarchy":"owner"}' >/dev/null
+    done
+
+    local keys
+    keys="$(list_keys '{"filter":"filter-*"}')"
+
+    # Only the two filter-* keys must be returned.
+    [ "$(jq -s 'length' <<<"$keys")" -eq 2 ]
+    [ -n "$(jq -c 'select(.name == "filter-aaa")' <<<"$keys")" ]
+    [ -n "$(jq -c 'select(.name == "filter-bbb")' <<<"$keys")" ]
+    [ -z "$(jq -c 'select(.name == "other")' <<<"$keys")" ]
+
+    echo "OK: list-keys-filter test"
+}
+test_list_keys_filter
+
+# 20) A persistent key whose TPM object has gone away is reported as unavailable.
+test_list_keys_unavailable() {
+    if ! tpm2_supports_params rsa2048 rsassa-sha256; then
+        echo "TPM does not support the list-keys-unavailable test parameters, skipping."
+        return 0
+    fi
+
+    reset_state
+    create_key "gone-persistent" \
+        "$(jq -nc --argjson ph "$((PERSISTENT_HANDLE))" '{"type":"persistent","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"hierarchy":"owner","persistentHandle":$ph}')" >/dev/null
+
+    # Evict the persistent object out from under the key, so it can no longer be loaded.
+    tpm2_evictcontrol -C o -c "$PERSISTENT_HANDLE" >/dev/null
+
+    local keys key
+    keys="$(list_keys)"
+
+    key="$(jq -c 'select(.name == "gone-persistent")' <<<"$keys")"
+    [ -n "$key" ]
+    [ "$(jq -r .status <<<"$key")" = "unavailable" ]
+    # No public area is reported for an unavailable persistent key...
+    [ -z "$(jq -r '.public // empty' <<<"$key")" ]
+    # ...but the persistent handle it was stored at still is.
+    [ "$(jq -r .persistentHandle <<<"$key")" = "$((PERSISTENT_HANDLE))" ]
+
+    echo "OK: list-keys-unavailable test"
+}
+test_list_keys_unavailable
+
+# 21) An ordinary key whose parent object is incorrect is reported as unavailable.
+test_list_keys_ordinary_unavailable() {
+    if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
+        echo "TPM does not support the list-keys-ordinary-unavailable test parameters, skipping."
+        return 0
+    fi
+
+    reset_state
+    # Start from a clean parent handle.
+    tpm2_evictcontrol -C o -c "$PARENT_HANDLE" >/dev/null 2>&1 || true
+
+    # Create a temporary persistent storage key to act as the ordinary key's parent.
+    tpm2_createprimary -C o -G ecc -c "$WORK/parent.ctx" >/dev/null
+    tpm2_evictcontrol -C o -c "$WORK/parent.ctx" "$PARENT_HANDLE" >/dev/null
+    rm -f "$WORK/parent.ctx"
+
+    local reply created_public
+    reply="$(create_key "orphan-ordinary" \
+        "$(jq -nc --argjson ph "$((PARENT_HANDLE))" '{"type":"ordinary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","parentHandle":$ph}')")"
+    created_public="$(jq -Sc .public <<<"$reply")"
+
+    # Replace the object at the parent handle with a different one, so the ordinary
+    # key can no longer be loaded. This simulates, eg, trying to load a key under
+    # the SRK after a TPM2_Clear.
+    tpm2_evictcontrol -C o -c "$PARENT_HANDLE" >/dev/null
+    tpm2_createprimary -C o -G rsa -c "$WORK/parent.ctx" >/dev/null
+    tpm2_evictcontrol -C o -c "$WORK/parent.ctx" "$PARENT_HANDLE" >/dev/null
+    rm -f "$WORK/parent.ctx"
+
+    local keys key
+    keys="$(list_keys)"
+    key="$(jq -c 'select(.name == "orphan-ordinary")' <<<"$keys")"
+    [ -n "$key" ]
+    [ "$(jq -r .status <<<"$key")" = "unavailable" ]
+    # Even when unavailable, an ordinary key's public area is reported, as it's
+    # stored in the key file.
+    [ -n "$(jq -r '.public // empty' <<<"$key")" ]
+    [ "$(jq -Sc .public <<<"$key")" = "$created_public" ]
+
+    tpm2_evictcontrol -C o -c "$PARENT_HANDLE" >/dev/null
+
+    echo "OK: list-keys-ordinary-unavailable test"
+}
+test_list_keys_ordinary_unavailable
+
+# 22) A primary key whose recreated object no longer matches the stored name
+#     (e.g. because the hierarchy seed changed) is unavailable.
+test_list_keys_primary_unavailable() {
+    if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
+        echo "TPM does not support the list-keys-primary-unavailable test parameters, skipping."
+        return 0
+    fi
+
+    reset_state
+    mkdir -p "$KEY_DIR"
+
+    # A marshaled TPM2B_PUBLIC for a restricted ECDSA/SHA-256 signing key with NIST
+    # P-256 and an empty unique area.
+    local template
+    template="$(echo "00180023000b00050072000000100018000b0003001000000000" | basenc --base16 -d | basenc --base64)"
+    # A bogus expected name that the recreated key will never match.
+    local bogus_name="000b0000000000000000000000000000000000000000000000000000000000000000"
+
+    jq -nc --arg t "$template" --arg n "$bogus_name" \
+        '{type: "primary", hierarchy: "owner", template: $t, name: $n}' >"$KEY_DIR/bogus-primary.key"
+
+    local keys key
+    keys="$(list_keys)"
+    key="$(jq -c 'select(.name == "bogus-primary")' <<<"$keys")"
+    [ -n "$key" ]
+    [ "$(jq -r .status <<<"$key")" = "unavailable" ]
+    # No public area is reported for an unavailable primary key...
+    [ -z "$(jq -r '.public // empty' <<<"$key")" ]
+    # ...but the hierarchy it lives in still is.
+    [ "$(jq -r .hierarchy <<<"$key")" = "owner" ]
+
+    echo "OK: list-keys-primary-unavailable test"
+}
+test_list_keys_primary_unavailable
