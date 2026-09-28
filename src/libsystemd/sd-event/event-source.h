@@ -44,6 +44,7 @@ typedef enum WakeupType {
         _WAKEUP_TYPE_INVALID = -EINVAL,
 } WakeupType;
 
+typedef struct clock_data ClockData;
 typedef struct inode_data InodeData;
 typedef struct inotify_data InotifyData;
 typedef struct signal_data SignalData;
