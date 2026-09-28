@@ -14,6 +14,7 @@
 #include "journald-client.h"
 #include "journald-console.h"
 #include "journald-context.h"
+#include "journald-counters.h"
 #include "journald-kmsg.h"
 #include "journald-manager.h"
 #include "journald-native.h"
@@ -260,6 +261,9 @@ static int manager_process_entry(
         }
 
         r = 0; /* Success, we read the message. */
+
+        /* Count before any filtering or rate limiting */
+        manager_count_message(m, JOURNAL_TRANSPORT_NATIVE, priority);
 
         if (!client_context_test_priority(context, priority))
                 goto finish;
