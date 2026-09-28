@@ -519,6 +519,7 @@ units = [
           'file' : 'systemd-journald-dev-log.socket',
           'symlinks' : ['sockets.target.wants/'],
         },
+        { 'file' : 'systemd-journald-metrics.socket' },
         { 'file' : 'systemd-journald-sync@.service' },
         { 'file' : 'systemd-journald-varlink@.socket' },
         {
