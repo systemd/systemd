@@ -18,9 +18,6 @@
 #include "string-util.h"
 #include "time-util.h"
 
-/* We never keep any item longer than 2h in our cache unless StaleRetentionSec is greater than zero. */
-#define CACHE_TTL_MAX_USEC (2 * USEC_PER_HOUR)
-
 /* How long to cache strange rcodes, i.e. rcodes != SUCCESS and != NXDOMAIN (specifically: that's only SERVFAIL for
  * now) */
 #define CACHE_TTL_STRANGE_RCODE_USEC (10 * USEC_PER_SEC)
