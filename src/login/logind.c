@@ -32,6 +32,7 @@
 #include "logind-counters.h"
 #include "logind-dbus.h"
 #include "logind-device.h"
+#include "logind-metrics.h"
 #include "logind-seat.h"
 #include "logind-session-device.h"
 #include "logind-user.h"
@@ -175,6 +176,7 @@ static Manager* manager_free(Manager *m) {
         hashmap_free(m->polkit_registry);
 
         manager_varlink_done(m);
+        manager_metrics_done(m);
 
         m->counters = munmap_safe(m->counters, sizeof(*m->counters));
 
@@ -531,8 +533,8 @@ static int manager_attach_session_fd_one_consume(Manager *m, const char *fdname,
         s = hashmap_get(m->sessions, id);
         if (!s) {
                 /* If the session doesn't exist anymore, let's simply close this fd. */
-                r = log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
-                                    "Cannot attach fd '%s' to unknown session '%s', ignoring.", fdname, id);
+                log_debug("Cannot attach fd '%s' to unknown session '%s', ignoring.", fdname, id);
+                r = 0;
                 goto fail_close;
         }
 
@@ -589,12 +591,13 @@ static int manager_enumerate_sessions(Manager *m) {
         return r;
 }
 
-static int manager_enumerate_fds(Manager *m, int *ret_varlink_fd) {
+static int manager_enumerate_fds(Manager *m, int *ret_varlink_fd, int *ret_metrics_fd) {
         _cleanup_strv_free_ char **fdnames = NULL;
-        int varlink_fd = -EBADF, n, r = 0;
+        int varlink_fd = -EBADF, metrics_fd = -EBADF, n;
 
         assert(m);
         assert(ret_varlink_fd);
+        assert(ret_metrics_fd);
 
         n = sd_listen_fds_with_names(/* unset_environment= */ true, &fdnames);
         if (n < 0)
@@ -609,13 +612,18 @@ static int manager_enumerate_fds(Manager *m, int *ret_varlink_fd) {
                         continue;
                 }
 
-                RET_GATHER(r, manager_attach_session_fd_one_consume(m, fdnames[i], fd));
+                if (streq(fdnames[i], "varlink-metrics")) {
+                        assert(metrics_fd < 0);
+                        metrics_fd = fd;
+                        continue;
+                }
+
+                (void) manager_attach_session_fd_one_consume(m, fdnames[i], fd);
         }
 
-        if (r >= 0)
-                *ret_varlink_fd = varlink_fd;
-
-        return r;
+        *ret_varlink_fd = varlink_fd;
+        *ret_metrics_fd = metrics_fd;
+        return 0;
 }
 
 static int manager_enumerate_inhibitors(Manager *m) {
@@ -1220,7 +1228,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 }
 
 static int manager_startup(Manager *m) {
-        _cleanup_close_ int varlink_fd = -EBADF;
+        _cleanup_close_ int varlink_fd = -EBADF, metrics_fd = -EBADF;
         int r;
         Seat *seat;
         Session *session;
@@ -1280,7 +1288,7 @@ static int manager_startup(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Session enumeration failed: %m");
 
-        r = manager_enumerate_fds(m, &varlink_fd);
+        r = manager_enumerate_fds(m, &varlink_fd, &metrics_fd);
         if (r < 0)
                 log_warning_errno(r, "File descriptor enumeration failed: %m");
 
@@ -1293,6 +1301,10 @@ static int manager_startup(Manager *m) {
                 log_warning_errno(r, "Button enumeration failed: %m");
 
         r = manager_varlink_init(m, TAKE_FD(varlink_fd));
+        if (r < 0)
+                return r;
+
+        r = manager_metrics_init(m, TAKE_FD(metrics_fd));
         if (r < 0)
                 return r;
 
