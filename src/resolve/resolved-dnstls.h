@@ -16,11 +16,14 @@ typedef struct DnsTlsManagerData {
 /* Per-server TLS state, kept by the transport using TLS towards the server */
 typedef struct DnsTlsServerData {
         SSL_SESSION *session;
+        /* Whether the server certificate was verified when 'session' was negotiated */
+        bool session_verified;
 } DnsTlsServerData;
 
 typedef struct DnsTlsStreamData {
         int handshake;
         bool shutdown;
+        bool verify;
         SSL *ssl;
         BUF_MEM *write_buffer;
         size_t buffer_offset;
