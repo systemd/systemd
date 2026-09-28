@@ -32,6 +32,7 @@ enable systemd-userdbd.socket
 # The metrics sockets are disabled by default on OpenSUSE, and can't be started at runtime while the services
 # they belong to are already running.
 enable systemd-journald-metrics.socket
+enable systemd-logind-metrics.socket
 
 # We install dnf in some images but it's only going to be used rarely,
 # so let's not have dnf create its cache.
