@@ -890,7 +890,9 @@ def main() -> None:
             # coredumps/sanitizer findings failed the test. Report it as a point of its own.
             results = [*results, SubtestResult(name=args.name, result='fail')]
         emit_tap(results)
-        exit(1 if exit_str == 'failed' else 0)
+        # The TAP stream carries the verdict; a non-zero exit would make meson report ERROR
+        # instead of attributing the failure to the failed points.
+        exit(0)
 
     exit(exit_code)
 
