@@ -515,6 +515,7 @@ units = [
         { 'file' : 'systemd-journalctl-metrics@.service' },
         { 'file' : 'systemd-journalctl-metrics.socket' },
         { 'file' : 'systemd-journald-audit.socket' },
+        { 'file' : 'systemd-journald-metrics.socket' },
         {
           'file' : 'systemd-journald-dev-log.socket',
           'symlinks' : ['sockets.target.wants/'],
