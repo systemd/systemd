@@ -125,11 +125,11 @@ struct sd_event {
         /* timerfd_create() only supports these five clocks so far. We
          * can add support for more clocks when the kernel learns to
          * deal with them, too. */
-        struct clock_data realtime;
-        struct clock_data boottime;
-        struct clock_data monotonic;
-        struct clock_data realtime_alarm;
-        struct clock_data boottime_alarm;
+        ClockData realtime;
+        ClockData boottime;
+        ClockData monotonic;
+        ClockData realtime_alarm;
+        ClockData boottime_alarm;
 
         usec_t perturb;
 
@@ -340,7 +340,7 @@ static int exit_prioq_compare(const void *a, const void *b) {
         return CMP(x->priority, y->priority);
 }
 
-static void free_clock_data(struct clock_data *d) {
+static void free_clock_data(ClockData *d) {
         assert(d);
         assert(d->wakeup == WAKEUP_CLOCK_DATA);
 
@@ -702,7 +702,7 @@ static EventSourceType clock_to_event_source_type(clockid_t clock) {
         }
 }
 
-static struct clock_data* event_get_clock_data(sd_event *e, EventSourceType t) {
+static ClockData* event_get_clock_data(sd_event *e, EventSourceType t) {
         assert(e);
 
         switch (t) {
@@ -910,7 +910,7 @@ static void event_source_pp_prioq_reshuffle(sd_event_source *s) {
 }
 
 static void event_source_time_prioq_reshuffle(sd_event_source *s) {
-        struct clock_data *d;
+        ClockData *d;
 
         assert(s);
 
@@ -932,7 +932,7 @@ static void event_source_time_prioq_reshuffle(sd_event_source *s) {
 
 static void event_source_time_prioq_remove(
                 sd_event_source *s,
-                struct clock_data *d) {
+                ClockData *d) {
 
         assert(s);
         assert(d);
@@ -972,7 +972,7 @@ static void source_disconnect(sd_event_source *s) {
                  * differ: ratelimiting always uses CLOCK_BOOTTIME, but timer events might use any clock */
 
                 if (!s->ratelimited) {
-                        struct clock_data *d;
+                        ClockData *d;
                         assert_se(d = event_get_clock_data(s->event, s->type));
                         event_source_time_prioq_remove(s, d);
                 }
@@ -1349,7 +1349,7 @@ static void initialize_perturb(sd_event *e) {
 
 static int event_setup_timer_fd(
                 sd_event *e,
-                struct clock_data *d,
+                ClockData *d,
                 clockid_t clock) {
 
         int r;
@@ -1382,7 +1382,7 @@ static int time_exit_callback(sd_event_source *s, uint64_t usec, void *userdata)
         return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
 }
 
-static int setup_clock_data(sd_event *e, struct clock_data *d, clockid_t clock) {
+static int setup_clock_data(sd_event *e, ClockData *d, clockid_t clock) {
         int r;
 
         assert(d);
@@ -1406,7 +1406,7 @@ static int setup_clock_data(sd_event *e, struct clock_data *d, clockid_t clock) 
 
 static int event_source_time_prioq_put(
                 sd_event_source *s,
-                struct clock_data *d) {
+                ClockData *d) {
 
         int r;
 
@@ -1440,7 +1440,7 @@ _public_ int sd_event_add_time(
 
         EventSourceType type;
         _cleanup_(source_freep) sd_event_source *s = NULL;
-        struct clock_data *d;
+        ClockData *d;
         int r;
 
         assert_return(e, -EINVAL);
@@ -3631,7 +3631,7 @@ static usec_t sleep_between(sd_event *e, usec_t a, usec_t b) {
 
 static int event_arm_timer(
                 sd_event *e,
-                struct clock_data *d) {
+                ClockData *d) {
 
         struct itimerspec its = {};
         sd_event_source *a, *b;
@@ -3735,7 +3735,7 @@ static int flush_timer(sd_event *e, int fd, uint32_t events, usec_t *next) {
 static int process_timer(
                 sd_event *e,
                 usec_t n,
-                struct clock_data *d) {
+                ClockData *d) {
 
         sd_event_source *s;
         bool callback_invoked = false;
@@ -4797,7 +4797,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                         }
 
                         case WAKEUP_CLOCK_DATA: {
-                                struct clock_data *d = i->data.ptr;
+                                ClockData *d = i->data.ptr;
 
                                 r = flush_timer(e, d->fd, i->events, &d->next);
                                 break;
