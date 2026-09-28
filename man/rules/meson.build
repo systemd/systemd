@@ -1120,6 +1120,7 @@ manpages = [
   ['systemd-journald',
    'systemd-journald-audit.socket',
    'systemd-journald-dev-log.socket',
+   'systemd-journald-metrics.socket',
    'systemd-journald-varlink@.socket',
    'systemd-journald.socket',
    'systemd-journald@.service',

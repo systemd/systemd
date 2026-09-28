@@ -40,6 +40,7 @@
 #include "journald-counters.h"
 #include "journald-kmsg.h"
 #include "journald-manager.h"
+#include "journald-metrics.h"
 #include "journald-native.h"
 #include "journald-rate-limit.h"
 #include "journald-socket.h"
@@ -2333,7 +2334,7 @@ int manager_new(Manager **ret) {
 int manager_init(Manager *m) {
         const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
         _cleanup_fdset_free_ FDSet *fds = NULL;
-        int n, r, varlink_fd = -EBADF;
+        int n, r, varlink_fd = -EBADF, metrics_fd = -EBADF;
         bool no_sockets;
 
         assert(m);
@@ -2410,6 +2411,13 @@ int manager_init(Manager *m) {
                                                        "Too many varlink sockets passed.");
 
                         varlink_fd = fd;
+                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, JOURNALD_METRICS_SOCKET, 0) > 0) {
+
+                        if (metrics_fd >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many metrics varlink sockets passed.");
+
+                        metrics_fd = fd;
                 } else if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
 
                         if (m->audit_fd >= 0)
@@ -2474,6 +2482,10 @@ int manager_init(Manager *m) {
                 log_info("Collecting audit messages is disabled.");
 
         r = manager_open_varlink(m, varlink_socket, varlink_fd);
+        if (r < 0)
+                return r;
+
+        r = manager_open_metrics(m, metrics_fd);
         if (r < 0)
                 return r;
 
@@ -2568,6 +2580,7 @@ Manager* manager_free(Manager *m) {
         ordered_hashmap_free(m->user_journals);
 
         sd_varlink_server_unref(m->varlink_server);
+        sd_varlink_server_unref(m->metrics_varlink_server);
 
         sd_event_source_unref(m->syslog_event_source);
         sd_event_source_unref(m->native_event_source);
