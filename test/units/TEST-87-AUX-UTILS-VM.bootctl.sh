@@ -540,6 +540,9 @@ EOF
         --cmdline "match" \
         --uname "1.2.3-testkernel" \
         --output "$LINK_WORKDIR/match.addon.efi"
+    ukify build \
+        --cmdline "debug" \
+        --output "$LINK_WORKDIR/debug.addon.efi"
 
     # Pin an explicit entry token so the resulting filenames are deterministic
     local TOKEN="systemdtest"
@@ -696,6 +699,61 @@ EOF
     grep "^extra /${TOKEN}/match.addon.efi\$" "$ESP/loader/entries/${TOKEN}-commit_62.conf" >/dev/null
     "${BOOTCTL[@]}" unlink "${TOKEN}-commit_62.conf"
     test ! -e "$ESP/$TOKEN/match.addon.efi"
+
+    # --- Test 9c: unlink keeps addons (and other resources) still referenced by other entries ---
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" \
+        --entry-commit=70 \
+        --extra="$LINK_WORKDIR/hello.addon.efi" \
+        --extra="$LINK_WORKDIR/hello.cred"
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" \
+        --entry-commit=71 \
+        --extra="$LINK_WORKDIR/hello.addon.efi" \
+        --extra="$LINK_WORKDIR/debug.addon.efi"
+
+    grep "^extra /${TOKEN}/hello.addon.efi\$" "$ESP/loader/entries/${TOKEN}-commit_70.conf" >/dev/null
+    grep "^extra /${TOKEN}/hello.addon.efi\$" "$ESP/loader/entries/${TOKEN}-commit_71.conf" >/dev/null
+    grep "^extra /${TOKEN}/debug.addon.efi\$" "$ESP/loader/entries/${TOKEN}-commit_71.conf" >/dev/null
+
+    # The UKI and hello.addon.efi are still referenced by commit 71, hello.cred is not
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_70.conf"
+    test ! -e "$ESP/loader/entries/${TOKEN}-commit_70.conf"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_71.conf"
+    test -f "$ESP/$TOKEN/testuki.efi"
+    test -f "$ESP/$TOKEN/hello.addon.efi"
+    test -f "$ESP/$TOKEN/debug.addon.efi"
+    test ! -e "$ESP/$TOKEN/hello.cred"
+
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_71.conf"
+    test ! -e "$ESP/loader/entries/${TOKEN}-commit_71.conf"
+    test ! -e "$ESP/$TOKEN/testuki.efi"
+    test ! -e "$ESP/$TOKEN/hello.addon.efi"
+    test ! -e "$ESP/$TOKEN/debug.addon.efi"
+
+    # --- Test 9d: cleanup removes unreferenced files, but keeps referenced addons ---
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" \
+        --entry-commit=72 \
+        --extra="$LINK_WORKDIR/hello.addon.efi"
+    cp "$LINK_WORKDIR/debug.addon.efi" "$ESP/$TOKEN/orphan.addon.efi"
+    cp "$LINK_WORKDIR/testuki.efi" "$ESP/$TOKEN/orphan.efi"
+    cp "$LINK_WORKDIR/hello.cred" "$ESP/$TOKEN/orphan.cred"
+
+    # --dry-run leaves everything in place
+    "${BOOTCTL[@]}" -n cleanup
+    test -f "$ESP/$TOKEN/orphan.addon.efi"
+    test -f "$ESP/$TOKEN/orphan.efi"
+    test -f "$ESP/$TOKEN/orphan.cred"
+
+    "${BOOTCTL[@]}" cleanup
+    test ! -e "$ESP/$TOKEN/orphan.addon.efi"
+    test ! -e "$ESP/$TOKEN/orphan.efi"
+    test ! -e "$ESP/$TOKEN/orphan.cred"
+    test -f "$ESP/loader/entries/${TOKEN}-commit_72.conf"
+    test -f "$ESP/$TOKEN/testuki.efi"
+    test -f "$ESP/$TOKEN/hello.addon.efi"
+
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_72.conf"
+    test ! -e "$ESP/$TOKEN/testuki.efi"
+    test ! -e "$ESP/$TOKEN/hello.addon.efi"
 
     # === Varlink coverage ===
     #
