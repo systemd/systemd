@@ -329,10 +329,7 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
-                'sources' : files(
-                        'test-dlopen-so.c',
-                        'gcrypt-util.c',
-                ),
+                'sources' : files('test-dlopen-so.c'),
                 'dependencies' : [
                         libacl_cflags,
                         libapparmor_cflags,
@@ -344,7 +341,6 @@ executables += [
                         libcurl_cflags,
                         libfdisk_cflags,
                         libfido2_cflags,
-                        libgcrypt_cflags,
                         libgnutls_cflags,
                         libidn2_cflags,
                         libkmod_cflags,
