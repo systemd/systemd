@@ -165,6 +165,12 @@ static void device_set_state(Device *d, DeviceState state) {
 
         assert(d);
 
+        /* Didn't exist before, but does now? If so, generate a new invocation ID for it. */
+        if (state != DEVICE_DEAD &&
+            (!unit_has_invocation_id(UNIT(d)) ||
+             (d->state == DEVICE_DEAD && MANAGER_IS_RUNNING(UNIT(d)->manager))))
+                (void) unit_acquire_invocation_id(UNIT(d));
+
         if (d->state != state)
                 bus_unit_send_pending_change_signal(UNIT(d), false);
 
@@ -182,10 +188,6 @@ static void device_set_state(Device *d, DeviceState state) {
 
 static void device_found_changed(Device *d, DeviceFound previous, DeviceFound now) {
         assert(d);
-
-        /* Didn't exist before, but does now? If so, generate a new invocation ID for it. */
-        if (previous == DEVICE_NOT_FOUND && now != DEVICE_NOT_FOUND)
-                (void) unit_acquire_invocation_id(UNIT(d));
 
         if (FLAGS_SET(now, DEVICE_FOUND_UDEV))
                 /* When the device is known to udev we consider it plugged. */
