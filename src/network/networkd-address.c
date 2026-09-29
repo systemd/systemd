@@ -195,23 +195,31 @@ int address_new(Address **ret) {
         return 0;
 }
 
+static uint64_t address_limit_from_env(const char *name, uint64_t fallback, uint64_t *cached) {
+        uint64_t value;
+        int r;
+
+        if (*cached > 0)
+                return *cached;
+
+        r = secure_getenv_uint64(name, &value);
+        if (r >= 0 && value > 0)
+                *cached = value;
+        else {
+                if (r != -ENXIO)
+                        log_warning("Invalid value for $%s, ignoring and using the default limit.", name);
+
+                *cached = fallback;
+        }
+
+        return *cached;
+}
+
 static uint64_t get_static_addresses_per_network_max(void) {
-        uint64_t static_addresses_per_network_max;
+        static uint64_t cached;
 
-        int r = secure_getenv_uint64("SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX", &static_addresses_per_network_max);
-
-        if (r >= 0) {
-                return static_addresses_per_network_max;
-        }
-
-        if (r != -ENXIO){
-                char *e = secure_getenv("SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX");
-                if (e){
-                        log_debug("Can not parse $SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX, ignoring: %s", e);
-                }
-        }
-
-        return STATIC_ADDRESSES_PER_NETWORK_MAX_DEFAULT;
+        return address_limit_from_env("SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX",
+                                      STATIC_ADDRESSES_PER_NETWORK_MAX_DEFAULT, &cached);
 }
 
 int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
@@ -1711,22 +1719,9 @@ static int address_requeue_request(Request *req, Link *link, const Address *addr
 }
 
 static uint64_t get_addresses_per_link_max(void) {
-        uint64_t addresses_per_link_max;
+        static uint64_t cached;
 
-        int r = secure_getenv_uint64("SYSTEMD_ADDRESSES_PER_LINK_MAX", &addresses_per_link_max);
-
-        if (r >= 0) {
-                return addresses_per_link_max;
-        }
-
-        if (r != -ENXIO){
-                char *e = secure_getenv("SYSTEMD_ADDRESSES_PER_LINK_MAX");
-                if (e){
-                        log_debug("Can not parse $SYSTEMD_ADDRESSES_PER_LINK_MAX, ignoring: %s", e);
-                }
-        }
-
-        return ADDRESSES_PER_LINK_MAX_DEFAULT;
+        return address_limit_from_env("SYSTEMD_ADDRESSES_PER_LINK_MAX", ADDRESSES_PER_LINK_MAX_DEFAULT, &cached);
 }
 
 static int address_process_request(Request *req, Link *link, Address *address) {
