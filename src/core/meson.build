@@ -219,13 +219,16 @@ if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
         ]
 endif
 
+_systemd_link_arg_static = get_option('b_pie') ? '-static-pie' : '-static'
+systemd_link_args = get_option('build-static') ? [_systemd_link_arg_static] : []
+
 executables += [
         libexec_template + {
                 'name' : 'systemd',
                 'dbus' : true,
                 'public' : true,
                 'sources' : systemd_sources,
-                'link_args_static' : get_option('build-static') ? ['-static'] : [],
+                'link_args_static' : systemd_link_args,
                 'link_with' : [
                         libcore,
                         libshared,
