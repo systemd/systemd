@@ -565,7 +565,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 }
         }
 
-        if (!sd_id128_is_null(u->invocation_id))
+        if (unit_has_invocation_id(u))
                 fprintf(f, "%s\tInvocation ID: " SD_ID128_FORMAT_STR "\n",
                         prefix, SD_ID128_FORMAT_VAL(u->invocation_id));
 

@@ -804,7 +804,7 @@ Unit* unit_free(Unit *u) {
         if (u->id)
                 hashmap_remove_value(u->manager->units, u->id, u);
 
-        if (!sd_id128_is_null(u->invocation_id))
+        if (unit_has_invocation_id(u))
                 hashmap_remove_value(u->manager->units_by_invocation_id, &u->invocation_id, u);
 
         if (u->job) {
@@ -3401,10 +3401,16 @@ char* unit_dbus_path(Unit *u) {
 char* unit_dbus_path_invocation_id(Unit *u) {
         assert(u);
 
-        if (sd_id128_is_null(u->invocation_id))
+        if (!unit_has_invocation_id(u))
                 return NULL;
 
         return unit_dbus_path_from_name(u->invocation_id_string);
+}
+
+bool unit_has_invocation_id(Unit *u) {
+        assert(u);
+
+        return !sd_id128_is_null(u->invocation_id);
 }
 
 int unit_set_invocation_id(Unit *u, sd_id128_t id) {
@@ -3417,7 +3423,7 @@ int unit_set_invocation_id(Unit *u, sd_id128_t id) {
         if (sd_id128_equal(u->invocation_id, id))
                 return 0;
 
-        if (!sd_id128_is_null(u->invocation_id))
+        if (unit_has_invocation_id(u))
                 (void) hashmap_remove_value(u->manager->units_by_invocation_id, &u->invocation_id, u);
 
         if (sd_id128_is_null(id)) {
@@ -5902,7 +5908,7 @@ static int unit_export_invocation_id(Unit *u) {
         if (u->exported_invocation_id)
                 return 0;
 
-        if (sd_id128_is_null(u->invocation_id))
+        if (!unit_has_invocation_id(u))
                 return 0;
 
         r = unit_get_invocation_path(u, &p);
