@@ -3407,6 +3407,12 @@ char* unit_dbus_path_invocation_id(Unit *u) {
         return unit_dbus_path_from_name(u->invocation_id_string);
 }
 
+bool unit_has_invocation_id(Unit *u) {
+        assert(u);
+
+        return !sd_id128_is_null(u->invocation_id);
+}
+
 int unit_set_invocation_id(Unit *u, sd_id128_t id) {
         int r;
 
