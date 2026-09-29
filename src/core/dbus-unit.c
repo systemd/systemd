@@ -2551,23 +2551,7 @@ static int bus_unit_set_transient_property(
         if (d >= 0) {
                 const char *other;
 
-                if (!IN_SET(d,
-                            UNIT_REQUIRES,
-                            UNIT_REQUISITE,
-                            UNIT_WANTS,
-                            UNIT_BINDS_TO,
-                            UNIT_PART_OF,
-                            UNIT_UPHOLDS,
-                            UNIT_CONFLICTS,
-                            UNIT_BEFORE,
-                            UNIT_AFTER,
-                            UNIT_ON_SUCCESS,
-                            UNIT_ON_FAILURE,
-                            UNIT_PROPAGATES_RELOAD_TO,
-                            UNIT_RELOAD_PROPAGATED_FROM,
-                            UNIT_PROPAGATES_STOP_TO,
-                            UNIT_STOP_PROPAGATED_FROM,
-                            UNIT_JOINS_NAMESPACE_OF))
+                if (!unit_dependency_can_be_transient(d))
                     return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Dependency type %s may not be created transiently.", unit_dependency_to_string(d));
 
                 r = sd_bus_message_enter_container(message, 'a', "s");
