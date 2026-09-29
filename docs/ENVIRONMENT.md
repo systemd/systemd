@@ -768,6 +768,8 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX` – takes a positive integer. Defaults to 8192.
   Limits the number of static addresses per network that may be added by `systemd-networkd`.
   Invalid values for either variable are ignored, and the corresponding default is used.
+  Each value is read on first use and cached for the daemon's lifetime,
+  restart `systemd-networkd.service` to change it.
 
 `systemd-storagetm`:
 

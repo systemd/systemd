@@ -195,10 +195,11 @@ int address_new(Address **ret) {
         return 0;
 }
 
-static uint64_t address_limit_from_env(const char *name, uint64_t fallback, uint64_t *cached) {
+uint64_t address_limit_from_env(const char *name, uint64_t fallback, uint64_t *cached) {
         uint64_t value;
         int r;
 
+        /* The service environment is fixed for the daemon's lifetime. Parse each limit only on first use. */
         if (*cached > 0)
                 return *cached;
 
