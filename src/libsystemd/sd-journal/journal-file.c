@@ -1298,7 +1298,6 @@ int journal_file_append_object(
 
 static int journal_file_setup_data_hash_table(JournalFile *f) {
         uint64_t s, p;
-        Object *o;
         int r;
 
         assert(f);
@@ -1314,14 +1313,20 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
         log_debug("Reserving %"PRIu64" entries in data hash table.", s);
 
+        /* We deliberately don't zero the hash table items: the table is placed in a newly created file, in
+         * space that was just allocated via posix_fallocate() and hence reads as zeroes anyway. Writing the
+         * zeroes through the memory map would not only write out the whole table once for no reason: the
+         * sequential write faults would also make the kernel's mmap readahead instantiate most of the table
+         * in large folios, on file systems that support them. And since write faults on shared file mappings
+         * dirty the whole folio, each later update of a single hash bucket would then cause the whole folio
+         * to be written back. See #40262. */
+
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
                                        offsetof(Object, hash_table.items) + s * sizeof(HashItem),
-                                       &o, &p);
+                                       /* ret_object= */ NULL, &p);
         if (r < 0)
                 return r;
-
-        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->data_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->data_hash_table_size = htole64(s * sizeof(HashItem));
@@ -1331,7 +1336,6 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
 static int journal_file_setup_field_hash_table(JournalFile *f) {
         uint64_t s, p;
-        Object *o;
         int r;
 
         assert(f);
@@ -1343,14 +1347,13 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
         s = DEFAULT_FIELD_HASH_TABLE_SIZE;
         log_debug("Reserving %"PRIu64" entries in field hash table.", s);
 
+        /* No need to zero the items, see journal_file_setup_data_hash_table(). */
         r = journal_file_append_object(f,
                                        OBJECT_FIELD_HASH_TABLE,
                                        offsetof(Object, hash_table.items) + s * sizeof(HashItem),
-                                       &o, &p);
+                                       /* ret_object= */ NULL, &p);
         if (r < 0)
                 return r;
-
-        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->field_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->field_hash_table_size = htole64(s * sizeof(HashItem));
