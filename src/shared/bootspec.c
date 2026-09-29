@@ -406,6 +406,40 @@ nothing:
         return 0;
 }
 
+static int pe_find_addon_sections(int fd, const char *path, char **ret_cmdline);
+
+static void boot_entry_load_type1_addon_cmdlines(BootEntry *entry) {
+        assert(entry);
+
+        FOREACH_ARRAY(extra, entry->local_extras.items, entry->local_extras.n_items) {
+                if (extra->type != BOOT_ENTRY_ADDON)
+                        continue;
+
+                /* systemd-boot only passes addons listed in "extra" lines to UKIs referenced via "uki" */
+                if (!entry->uki) {
+                        log_syntax(NULL, LOG_WARNING, entry->path, /* config_line= */ 0, 0,
+                                   "Addon '%s' is only supported for entries with a 'uki' key, ignoring.",
+                                   extra->location);
+                        continue;
+                }
+
+                _cleanup_close_ int fd = chase_and_open(
+                                extra->location,
+                                entry->root,
+                                CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS,
+                                O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY,
+                                /* ret_path= */ NULL);
+                if (fd < 0) {
+                        log_debug_errno(fd, "Failed to open '%s', ignoring: %m", extra->location);
+                        continue;
+                }
+
+                /* Try to extract the command line, but let's handle any failures gracefully, but still
+                 * mention the extra file exists. */
+                (void) pe_find_addon_sections(fd, extra->location, &extra->cmdline);
+        }
+}
+
 static int boot_entry_load_type1(
                 FILE *f,
                 const char *root,
@@ -522,6 +556,8 @@ static int boot_entry_load_type1(
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Error while parsing: %m");
         }
+
+        boot_entry_load_type1_addon_cmdlines(&tmp);
 
         *ret = TAKE_STRUCT(tmp);
         return 0;
