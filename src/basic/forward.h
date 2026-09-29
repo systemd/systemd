@@ -27,6 +27,7 @@ typedef uint64_t nsec_t;
 
 /* Libc/Linux forward declarations */
 
+struct __kernel_timespec;
 struct dirent;
 struct ether_addr;
 struct fiemap;
