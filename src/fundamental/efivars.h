@@ -31,6 +31,7 @@
 #define EFI_LOADER_FEATURE_ENTRY_PREFERRED         (UINT64_C(1) << 19)
 #define EFI_LOADER_FEATURE_KEYBOARD_LAYOUT         (UINT64_C(1) << 20)
 #define EFI_LOADER_FEATURE_SMBIOS_MEASURED         (UINT64_C(1) << 21)
+#define EFI_LOADER_FEATURE_ENTRY_ADDONS            (UINT64_C(1) << 22)
 
 /* Features of the stub, i.e. systemd-stub */
 #define EFI_STUB_FEATURE_REPORT_BOOT_PARTITION     (UINT64_C(1) << 0)
@@ -46,6 +47,7 @@
 #define EFI_STUB_FEATURE_REPORT_STUB_PARTITION     (UINT64_C(1) << 10)
 #define EFI_STUB_FEATURE_REPORT_URL                (UINT64_C(1) << 11)
 #define EFI_STUB_FEATURE_SMBIOS_MEASURED           (UINT64_C(1) << 12)
+#define EFI_STUB_FEATURE_ENTRY_ADDONS              (UINT64_C(1) << 13)
 
 typedef enum SecureBootMode {
         SECURE_BOOT_UNSUPPORTED,
