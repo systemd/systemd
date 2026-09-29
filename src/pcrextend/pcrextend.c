@@ -365,8 +365,8 @@ static int extend_nvpcr_now(
                         secret,
                         event,
                         safe);
-        if (r == -ENOBUFS)
-                return r; /* NV space exhausted; let caller handle gracefully */
+        if (IN_SET(r, -ENOBUFS, -ENETDOWN))
+                return r; /* NV space exhausted or NvPCR not initialized; let caller handle gracefully */
         if (r < 0)
                 return log_error_errno(r, "Could not extend NvPCR: %m");
 
@@ -451,7 +451,7 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         if (p.nvpcr) {
                 r = extend_nvpcr_now(p.nvpcr, extend_iovec, &p.secret, p.event_type);
-                if (IN_SET(r, -ENOENT, -ENODEV))
+                if (IN_SET(r, -ENOENT, -ENODEV, -ENETDOWN))
                         return sd_varlink_error(link, "io.systemd.PCRExtend.NoSuchNvPCR", NULL);
                 if (r == -ENOBUFS)
                         return sd_varlink_error(link, "io.systemd.PCRExtend.NvPCRSpaceExhausted", NULL);
@@ -594,13 +594,21 @@ static int run(int argc, char *argv[]) {
          * no TPM device — see tpm2_context_new_for_measurement()) as -EOPNOTSUPP. Under --graceful we skip
          * those rather than fail and block boot. Genuine faults keep their own errno and are never
          * suppressed. */
-        if (arg_graceful && r == -EOPNOTSUPP) {
-                log_notice_errno(r, "TPM2 cannot be used for measurement (no usable PCR bank, missing device, or missing crypto support), skipping gracefully.");
-                return EXIT_SUCCESS;
-        }
-        if (arg_graceful && r == -ENOBUFS) {
-                log_notice_errno(r, "TPM NV index space is exhausted, NvPCR '%s' could not be initialized, skipping gracefully.", arg_nvpcr_name);
-                return EXIT_SUCCESS;
+        if (arg_graceful) {
+                if (r == -EOPNOTSUPP) {
+                        log_notice_errno(r, "TPM2 cannot be used for measurement (no usable PCR bank, missing device, or missing crypto support), skipping gracefully.");
+                        return EXIT_SUCCESS;
+                }
+                if (r == -ENETDOWN) {
+                        /* The NvPCR couldn't be initialized in this boot (e.g. because the booted kernel image
+                         * carries no suitable PCR signature), hence there's nothing to extend. */
+                        log_notice_errno(r, "NvPCR '%s' is not initialized, skipping gracefully.", arg_nvpcr_name);
+                        return EXIT_SUCCESS;
+                }
+                if (r == -ENOBUFS) {
+                        log_notice_errno(r, "TPM NV index space is exhausted, NvPCR '%s' could not be initialized, skipping gracefully.", arg_nvpcr_name);
+                        return EXIT_SUCCESS;
+                }
         }
         if (r < 0)
                 return r;
