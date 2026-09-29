@@ -3102,6 +3102,12 @@ int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link 
                 return 0;
 
         r = sd_netlink_message_get_errno(m);
+        if (r == -ENODEV) {
+                /* The link may have disappeared while the GETLINK request was in flight. Leave cleanup to
+                 * RTM_DELLINK instead of entering failed state and retrying configuration. */
+                log_link_debug(link, "Link vanished while querying its state, ignoring.");
+                return 0;
+        }
         if (r < 0) {
                 log_link_message_warning_errno(link, m, r, "%s", error_msg);
                 link_enter_failed(link);
