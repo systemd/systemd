@@ -158,6 +158,8 @@ Variables will be listed below using the Linux efivarfs naming,
                 EFI variable `LoaderKeyboardLayout-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
   * `1 << 21` → The boot loader measures SMBIOS information into a TPM2 PCR and reports the PCR index in the
                 EFI variable `LoaderPcrSMBIOS-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
+  * `1 << 22` → The boot loader passes the addons of the selected entry to the started Unified Kernel Image
+                in the EFI variable `LoaderEntryAddons-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
 
 * The EFI variable `LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains binary random data,

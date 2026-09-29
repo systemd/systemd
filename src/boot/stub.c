@@ -118,6 +118,7 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 EFI_STUB_FEATURE_REPORT_STUB_PARTITION |    /* We set StubDevicePartUUID + StubImageIdentifier */
                 EFI_STUB_FEATURE_REPORT_URL |               /* We set StubDeviceURL + LoaderDeviceURL */
                 EFI_STUB_FEATURE_SMBIOS_MEASURED |          /* We measure SMBIOS data into PCR 1 */
+                EFI_STUB_FEATURE_ENTRY_ADDONS |             /* We pick up addons listed in LoaderEntryAddons */
                 0;
 
         assert(loaded_image);
