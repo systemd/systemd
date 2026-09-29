@@ -8775,7 +8775,7 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
         _cleanup_fclose_ FILE *f = NULL;
         r = search_and_fopen_nulstr(fname, "re", /* root= */ NULL, CONF_PATHS_NULSTR("nvpcr"), &f, &path);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to open NvPCR definition '%s': %m", fname);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = sd_json_parse_file(
