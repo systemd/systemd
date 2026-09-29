@@ -1,14 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <limits.h>
 #include <net/if.h>
 
+#include "sd-event.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
+#include "netlink-internal.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-route-util.h"
@@ -205,6 +209,87 @@ TEST(request_netlink_handler_called) {
 
 TEST(request_netlink_handler_detached) {
         test_request_netlink_handler_one(/* detach= */ true);
+}
+
+static void test_getlink_error_one(LinkState state, int error, bool expect_retry) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(link_unrefp) Link *link = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *request = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *removed = NULL;
+        unsigned callbacks;
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_OK(sd_event_new(&manager->event));
+        ASSERT_OK(sd_netlink_open(&manager->rtnl));
+
+        /* Only send read-only requests, and first verify that this ifindex does not exist. */
+        ASSERT_OK(sd_rtnl_message_new_link(manager->rtnl, &request, RTM_GETLINK, INT_MAX));
+        ASSERT_ERROR(sd_netlink_call(manager->rtnl, request, 0, /* ret= */ NULL), ENODEV);
+
+        link = ASSERT_NOT_NULL(new(Link, 1));
+        *link = (Link) {
+                .manager = manager,
+                .n_ref = 1,
+                .ifindex = INT_MAX,
+                .state = state,
+                .n_dns = UINT_MAX,
+                .automatic_reconfigure_ratelimit = { .interval = 10 * USEC_PER_SEC, .burst = 5 },
+        };
+        link->ifname = ASSERT_NOT_NULL(strdup("test-vanished"));
+        ASSERT_OK(hashmap_ensure_put(
+                        &manager->links_by_index, &link_hash_ops, INT_TO_PTR(link->ifindex), link));
+        link_ref(link); /* The manager owns a reference in addition to the test fixture. */
+
+        ASSERT_OK(message_new_synthetic_error(manager->rtnl, error, 1, &reply));
+        ASSERT_OK_ZERO(link_getlink_handler_internal(
+                        manager->rtnl, reply, link, "Synthetic GETLINK failure"));
+        callbacks = netlink_get_reply_callback_count(manager->rtnl);
+
+        /* Drain any erroneous retries so the diagnostic includes the complete retry burst. */
+        for (unsigned i = 0; i < 16 && netlink_get_reply_callback_count(manager->rtnl) > 0; i++) {
+                ASSERT_OK(sd_netlink_wait(manager->rtnl, USEC_PER_SEC));
+                ASSERT_OK(sd_netlink_process(manager->rtnl, /* ret= */ NULL));
+        }
+        ASSERT_EQ(netlink_get_reply_callback_count(manager->rtnl), 0U);
+
+        log_info("GETLINK error=%i, initial state=%s, queued callbacks=%u, retry count=%u, final state=%s",
+                 error, link_state_to_string(state), callbacks, link->automatic_reconfigure_ratelimit.num,
+                 link_state_to_string(link->state));
+
+        ASSERT_EQ(callbacks, expect_retry ? 1U : 0U);
+        if (!expect_retry) {
+                ASSERT_EQ(link->automatic_reconfigure_ratelimit.num, 0U);
+                ASSERT_EQ(link->state, state);
+        }
+
+        /* The notification following a vanished link must still remove it from the manager. Process it
+         * locally, without sending a deletion request to the kernel. */
+        ASSERT_OK(sd_rtnl_message_new_link(manager->rtnl, &removed, RTM_DELLINK, link->ifindex));
+        ASSERT_OK(sd_netlink_message_append_string(removed, IFLA_IFNAME, link->ifname));
+        ASSERT_OK(sd_netlink_message_rewind(removed, manager->rtnl));
+        ASSERT_OK_POSITIVE(manager_rtnl_process_link(manager->rtnl, removed, manager));
+        ASSERT_EQ(link->state, LINK_STATE_LINGER);
+        ASSERT_TRUE(hashmap_isempty(manager->links_by_index));
+}
+
+TEST(getlink_enodev_pending) {
+        test_getlink_error_one(LINK_STATE_PENDING, -ENODEV, /* expect_retry= */ false);
+}
+
+TEST(getlink_enodev_unmanaged) {
+        test_getlink_error_one(LINK_STATE_UNMANAGED, -ENODEV, /* expect_retry= */ false);
+}
+
+TEST(getlink_enodev_configured) {
+        test_getlink_error_one(LINK_STATE_CONFIGURED, -ENODEV, /* expect_retry= */ false);
+}
+
+TEST(getlink_enodev_linger) {
+        test_getlink_error_one(LINK_STATE_LINGER, -ENODEV, /* expect_retry= */ false);
+}
+
+TEST(getlink_other_error_retries) {
+        test_getlink_error_one(LINK_STATE_CONFIGURED, -EIO, /* expect_retry= */ true);
 }
 
 TEST(manager_enumerate) {
