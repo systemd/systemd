@@ -748,20 +748,29 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, Set *
         return 0;
 }
 
-static bool device_is_ready(sd_device *dev) {
+typedef enum DeviceBusyFlag {
+        DEVICE_BUSY_NONE       = 0,
+        DEVICE_BUSY_REMOVING   = 1 << 0, /* on 'remove' event */
+        DEVICE_BUSY_RENAMING   = 1 << 1, /* has ID_RENAMING=1 */
+        DEVICE_BUSY_NO_TAG     = 1 << 2, /* currently does not have 'systemd' tag */
+        DEVICE_BUSY_NOT_READY  = 1 << 3, /* has SYSTEMD_READY=0 */
+} DeviceBusyFlag;
+
+static DeviceBusyFlag device_get_busy_flags(sd_device *dev) {
+        DeviceBusyFlag flags = DEVICE_BUSY_NONE;
         int r;
 
         assert(dev);
 
         if (device_for_action(dev, SD_DEVICE_REMOVE))
-                return false;
+                return DEVICE_BUSY_REMOVING;
 
         r = device_is_renaming(dev);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to check if device is renaming, assuming device is not renaming: %m");
         if (r > 0) {
-                log_device_debug(dev, "Device busy: device is renaming");
-                return false;
+                log_device_debug(dev, "Device busy: device is renaming.");
+                flags |= DEVICE_BUSY_RENAMING;
         }
 
         /* Is it really tagged as 'systemd' right now? */
@@ -769,17 +778,23 @@ static bool device_is_ready(sd_device *dev) {
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to check if device has \"systemd\" tag, assuming device is not tagged with \"systemd\": %m");
         if (r == 0)
-                log_device_debug(dev, "Device busy: device is not tagged with \"systemd\"");
+                log_device_debug(dev, "Device busy: device is not tagged with \"systemd\".");
         if (r <= 0)
-                return false;
+                flags |= DEVICE_BUSY_NO_TAG;
 
-        r = device_get_property_bool(dev, "SYSTEMD_READY");
+        r = device_get_property_bool(dev, "SYSTEMD_READY"); /* Defaults to ready. */
         if (r < 0 && r != -ENOENT)
                 log_device_warning_errno(dev, r, "Failed to get device SYSTEMD_READY property, assuming device does not have \"SYSTEMD_READY\" property: %m");
-        if (r == 0)
-                log_device_debug(dev, "Device busy: SYSTEMD_READY property from device is false");
+        if (r == 0) {
+                log_device_debug(dev, "Device busy: SYSTEMD_READY property from device is false.");
+                flags |= DEVICE_BUSY_NOT_READY;
+        }
 
-        return r != 0;
+        return flags;
+}
+
+static bool device_is_ready(sd_device *dev) {
+        return device_get_busy_flags(dev) == DEVICE_BUSY_NONE;
 }
 
 static int device_setup_devlink_unit_one(Manager *m, const char *devlink, Set **ready_units, Set **not_ready_units) {
