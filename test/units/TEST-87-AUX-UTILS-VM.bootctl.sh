@@ -526,6 +526,11 @@ EOF
         --cmdline "quiet" \
         --output "$LINK_WORKDIR/testuki.efi"
 
+    # Without --linux ukify builds a PE addon
+    ukify build \
+        --cmdline "addon=test" \
+        --output "$LINK_WORKDIR/hello.addon.efi"
+
     # Pin an explicit entry token so the resulting filenames are deterministic
     local TOKEN="systemdtest"
     local BOOTCTL=(bootctl "--entry-token=literal:$TOKEN")
@@ -646,6 +651,34 @@ EOF
     # --- Test 9: passing a non-UKI is rejected ---
     (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/vmlinuz")
 
+    # --- Test 9a: link with an addon, whose .cmdline shows up in bootctl list ---
+    "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" \
+        --entry-commit=60 \
+        --extra="$LINK_WORKDIR/hello.addon.efi"
+
+    ENTRY="$ESP/loader/entries/${TOKEN}-commit_60.conf"
+    test -f "$ENTRY"
+    test -f "$ESP/$TOKEN/hello.addon.efi"
+    grep "^extra /${TOKEN}/hello.addon.efi\$" "$ENTRY" >/dev/null
+
+    bootctl list --json=short |
+        jq -e --arg id "${TOKEN}-commit_60.conf" --arg addon "/${TOKEN}/hello.addon.efi" \
+           '.[] | select(.id == $id) | .addons[] | select(.localAddon == $addon and .options == "addon=test")' >/dev/null
+
+    # Unlink must also clean up the addon
+    "${BOOTCTL[@]}" unlink "${TOKEN}-commit_60.conf"
+    test ! -e "$ENTRY"
+    test ! -e "$ESP/$TOKEN/hello.addon.efi"
+
+    # --- Test 9b: *.addon.efi extras that are not PE addons are rejected ---
+    cp "$LINK_WORKDIR/vmlinuz" "$LINK_WORKDIR/notpe.addon.efi"
+    cp "$LINK_WORKDIR/testuki.efi" "$LINK_WORKDIR/uki.addon.efi"
+    (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=61 --extra="$LINK_WORKDIR/notpe.addon.efi")
+    (! "${BOOTCTL[@]}" link "$LINK_WORKDIR/testuki.efi" --entry-commit=61 --extra="$LINK_WORKDIR/uki.addon.efi")
+    test ! -e "$ESP/loader/entries/${TOKEN}-commit_61.conf"
+    test ! -e "$ESP/$TOKEN/notpe.addon.efi"
+    test ! -e "$ESP/$TOKEN/uki.addon.efi"
+
     # === Varlink coverage ===
     #
     # Exercise io.systemd.BootControl.Link/Unlink by forking bootctl as a
@@ -740,6 +773,25 @@ EOF
                    "$BOOTCTL_BIN" io.systemd.BootControl.Link \
                    '{"kernelFilename":"notauki.efi","kernelFileDescriptor":0}'
 
+    # --- Test 13a: addons passed as literal data via varlink are validated too ---
+    vreply="$(varlinkctl call --json=short \
+                  --push-fd="$LINK_WORKDIR/testuki.efi" \
+                  "$BOOTCTL_BIN" io.systemd.BootControl.Link \
+                  "{\"kernelFilename\":\"vluki4.efi\",\"kernelFileDescriptor\":0,\"entryCommit\":300,\"extraFiles\":[{\"filename\":\"hello.addon.efi\",\"data\":\"$(base64 -w0 "$LINK_WORKDIR/hello.addon.efi")\"}]}")"
+    vid="$(echo "$vreply" | jq -r '.ids[0]')"
+    assert_eq "$vid" "$vtoken-commit_300.conf"
+    cmp "$LINK_WORKDIR/hello.addon.efi" "$ESP/$vtoken/hello.addon.efi"
+    grep "^extra /$vtoken/hello.addon.efi\$" "$ESP/loader/entries/$vid" >/dev/null
+    varlinkctl call --quiet "$BOOTCTL_BIN" io.systemd.BootControl.Unlink "{\"id\":\"$vid\"}"
+    test ! -e "$ESP/$vtoken/hello.addon.efi"
+
+    (! varlinkctl call \
+                 --push-fd="$LINK_WORKDIR/testuki.efi" \
+                 "$BOOTCTL_BIN" io.systemd.BootControl.Link \
+                 "{\"kernelFilename\":\"vluki4.efi\",\"kernelFileDescriptor\":0,\"entryCommit\":301,\"extraFiles\":[{\"filename\":\"bad.addon.efi\",\"data\":\"$(echo notanaddon | base64 -w0)\"}]}")
+    test ! -e "$ESP/loader/entries/$vtoken-commit_301.conf"
+    test ! -e "$ESP/$vtoken/bad.addon.efi"
+
     # --- Test 14: Unlink with invalid argument combinations is rejected ---
     # Both id and oldest=true
     (! varlinkctl call "$BOOTCTL_BIN" io.systemd.BootControl.Unlink \
@@ -799,6 +851,9 @@ EOF
         --uname "1.2.3-testkernel" \
         --cmdline "quiet uki=b" \
         --output "$LINK_WORKDIR/uki_b.efi"
+    ukify build \
+        --cmdline "addon=test" \
+        --output "$LINK_WORKDIR/hello.addon.efi"
 
     local TOKEN="systemdtest"
     local BOOTCTL=(bootctl "--entry-token=literal:$TOKEN")
@@ -811,6 +866,7 @@ EOF
     echo "sysext-data"  >/run/systemd/uki/extras.d/hello.sysext.raw
     echo "confext-data" >/run/systemd/uki/extras.d/hello.confext.raw
     echo "cred-data"    >/run/systemd/uki/extras.d/hello.cred
+    cp "$LINK_WORKDIR/hello.addon.efi" /run/systemd/uki/extras.d/hello.addon.efi
 
     "${BOOTCTL[@]}" link-auto
 
@@ -820,14 +876,17 @@ EOF
     test -f "$ESP/$TOKEN/hello.sysext.raw"
     test -f "$ESP/$TOKEN/hello.confext.raw"
     test -f "$ESP/$TOKEN/hello.cred"
+    test -f "$ESP/$TOKEN/hello.addon.efi"
     grep "^uki /${TOKEN}/kernel.efi\$"          "$ENTRY" >/dev/null
     grep "^extra /${TOKEN}/hello.sysext.raw\$"  "$ENTRY" >/dev/null
     grep "^extra /${TOKEN}/hello.confext.raw\$" "$ENTRY" >/dev/null
     grep "^extra /${TOKEN}/hello.cred\$"        "$ENTRY" >/dev/null
+    grep "^extra /${TOKEN}/hello.addon.efi\$"   "$ENTRY" >/dev/null
 
     "${BOOTCTL[@]}" unlink "${TOKEN}-commit_1.conf"
     test ! -e "$ENTRY"
     test ! -e "$ESP/$TOKEN/kernel.efi"
+    test ! -e "$ESP/$TOKEN/hello.addon.efi"
 
     # --- Test 2: versioned kernel.efi.v/ and extras .v/ are resolved via vpick ---
     rm -rf /run/systemd/uki
