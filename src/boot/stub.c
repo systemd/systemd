@@ -737,6 +737,75 @@ static EFI_STATUS load_addons(
         return EFI_SUCCESS;
 }
 
+static EFI_STATUS load_entry_addons(
+                EFI_HANDLE stub_image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const char *uname,
+                char16_t **cmdline,                         /* Both input+output, extended with new addons we find */
+                NamedAddon **devicetree_addons,             /* Ditto */
+                size_t *n_devicetree_addons,
+                NamedAddon **initrd_addons,                 /* Ditto */
+                size_t *n_initrd_addons,
+                NamedAddon **ucode_addons,                  /* Ditto */
+                size_t *n_ucode_addons) {
+
+        _cleanup_free_ char16_t *buffer = NULL;
+        size_t size = 0;
+        EFI_STATUS err;
+
+        assert(stub_image);
+        assert(loaded_image);
+
+        /* Loads the addons referenced by the Type #1 entry we are booted from. The boot loader passes them
+         * to us in LoaderEntryAddons, as a series of NUL-terminated paths relative to the root of the
+         * volume we are loaded from. */
+
+        if (!loaded_image->DeviceHandle)
+                return EFI_SUCCESS;
+
+        err = efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderEntryAddons", (void**) &buffer, &size);
+        if (err == EFI_NOT_FOUND)
+                return EFI_SUCCESS; /* Not booted from a Type #1 entry with addons */
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Failed to read LoaderEntryAddons variable: %m");
+        if (size % sizeof(char16_t) != 0)
+                return log_error_status(EFI_INVALID_PARAMETER, "LoaderEntryAddons variable has invalid size.");
+
+        size_t n = size / sizeof(char16_t);
+        for (size_t i = 0; i < n;) {
+                const char16_t *path = buffer + i, *name = path;
+                size_t l = strnlen16(path, n - i);
+                if (l == n - i)
+                        return log_error_status(EFI_INVALID_PARAMETER, "LoaderEntryAddons variable is not NUL terminated.");
+                i += l + 1;
+
+                if (l == 0)
+                        continue;
+
+                for (const char16_t *p = path; *p; p++)
+                        if (*p == '\\')
+                                name = p + 1;
+
+                err = load_addon(
+                                stub_image,
+                                loaded_image->DeviceHandle,
+                                path,
+                                name,
+                                uname,
+                                cmdline,
+                                devicetree_addons,
+                                n_devicetree_addons,
+                                initrd_addons,
+                                n_initrd_addons,
+                                ucode_addons,
+                                n_ucode_addons);
+                if (err != EFI_SUCCESS)
+                        return err;
+        }
+
+        return EFI_SUCCESS;
+}
+
 static void refresh_random_seed(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         EFI_STATUS err;
 
@@ -1098,13 +1167,26 @@ static void load_all_addons(
 
         /* Some bootloaders always pass NULL in FilePath, so we need to check for it here. */
         _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
-        if (!dropin_dir)
-                return;
+        if (dropin_dir) {
+                err = load_addons(
+                                image,
+                                loaded_image,
+                                dropin_dir,
+                                uname,
+                                cmdline_addons,
+                                dt_addons,
+                                n_dt_addons,
+                                initrd_addons,
+                                n_initrd_addons,
+                                ucode_addons,
+                                n_ucode_addons);
+                if (err != EFI_SUCCESS)
+                        log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
+        }
 
-        err = load_addons(
+        err = load_entry_addons(
                         image,
                         loaded_image,
-                        dropin_dir,
                         uname,
                         cmdline_addons,
                         dt_addons,
@@ -1114,7 +1196,7 @@ static void load_all_addons(
                         ucode_addons,
                         n_ucode_addons);
         if (err != EFI_SUCCESS)
-                log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
+                log_error_status(err, "Error loading entry-specific addons, ignoring: %m");
 }
 
 static void display_splash(
