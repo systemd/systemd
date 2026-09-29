@@ -523,6 +523,153 @@ static void acquire_previous_initrd(struct iovec initrds[static _INITRD_MAX]) {
                 log_debug("Successfully loaded previously registered initrd (%zu bytes).", initrds[INITRD_PREVIOUS].iov_len);
 }
 
+/* Loads the addon at 'path' on 'device' and extends the passed cmdline and arrays with its contents. 'name'
+ * is used for logging and measurements. Addons that fail validation are logged and skipped, only other
+ * errors are returned. */
+static EFI_STATUS load_addon(
+                EFI_HANDLE stub_image,
+                EFI_HANDLE device,
+                const char16_t *path,
+                const char16_t *name,
+                const char *uname,
+                char16_t **cmdline,                         /* Both input+output, extended with the addon's contents */
+                NamedAddon **devicetree_addons,             /* Ditto */
+                size_t *n_devicetree_addons,
+                NamedAddon **initrd_addons,                 /* Ditto */
+                size_t *n_initrd_addons,
+                NamedAddon **ucode_addons,                  /* Ditto */
+                size_t *n_ucode_addons) {
+
+        PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
+        _cleanup_free_ EFI_DEVICE_PATH *addon_path = NULL;
+        _cleanup_(unload_imagep) EFI_HANDLE addon = NULL;
+        EFI_LOADED_IMAGE_PROTOCOL *loaded_addon = NULL;
+        EFI_STATUS err;
+
+        assert(stub_image);
+        assert(device);
+        assert(path);
+        assert(name);
+
+        err = make_file_device_path(device, path, &addon_path);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Error making device path for %ls: %m", path);
+
+        /* By using shim_load_image, we cover both the case where the PE files are signed with MoK
+         * and with DB, and running with or without shim. */
+        err = shim_load_image(stub_image, addon_path, /* boot_policy= */ false, &addon);
+        if (err != EFI_SUCCESS) {
+                log_error_status(err,
+                                 "Failed to read '%ls' from '%ls', ignoring: %m",
+                                 name,
+                                 path);
+                return EFI_SUCCESS;
+        }
+
+        err = BS->HandleProtocol(addon,
+                                 MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL),
+                                 (void **) &loaded_addon);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Failed to find protocol in %ls: %m", name);
+
+        err = pe_memory_locate_sections(loaded_addon->ImageBase, loaded_addon->ImageSize, unified_sections, sections);
+        if (err != EFI_SUCCESS) {
+                log_error_status(err,
+                                 "Unable to locate embedded .cmdline/.dtb/.dtbauto/.efifw/.initrd/.ucode sections in %ls, ignoring: %m",
+                                 name);
+                return EFI_SUCCESS;
+        }
+
+        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
+            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
+            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO) &&
+            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD) &&
+            !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
+                log_debug("No applicable .cmdline/.dtb/.dtbauto/.initrd/.ucode sections found in %ls, ignoring.",
+                          name);
+                return EFI_SUCCESS;
+        }
+
+        /* We want to enforce that addons are not UKIs, i.e.: they must not embed a kernel. */
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX)) {
+                log_error("%ls is a UKI, not an addon, ignoring.", name);
+                return EFI_SUCCESS;
+        }
+
+        /* Also enforce that, in case it is specified, .uname matches as a quick way to allow
+         * enforcing compatibility with a specific UKI only */
+        if (uname && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME) &&
+                        !strneq8(uname,
+                                 (const char *)loaded_addon->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
+                                 sections[UNIFIED_SECTION_UNAME].memory_size)) {
+                log_error(".uname mismatch between %ls and UKI, ignoring", name);
+                return EFI_SUCCESS;
+        }
+
+        if (cmdline && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
+                _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline),
+                        *extra16 = mangle_stub_cmdline(pe_section_to_str16(loaded_addon, sections + UNIFIED_SECTION_CMDLINE));
+
+                *cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
+        }
+
+        // FIXME: do we want to do something else here?
+        // This should behave exactly as .dtb/.dtbauto in the main UKI
+        if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO)) {
+                *devicetree_addons = xrealloc(*devicetree_addons,
+                                              *n_devicetree_addons * sizeof(NamedAddon),
+                                              (*n_devicetree_addons + 1) * sizeof(NamedAddon));
+
+                (*devicetree_addons)[(*n_devicetree_addons)++] = (NamedAddon) {
+                        .blob = {
+                                .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTBAUTO].memory_offset, sections[UNIFIED_SECTION_DTBAUTO].memory_size),
+                                .iov_len = sections[UNIFIED_SECTION_DTBAUTO].memory_size,
+                        },
+                        .filename = xstrdup16(name),
+                };
+        } else if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
+                *devicetree_addons = xrealloc(*devicetree_addons,
+                                              *n_devicetree_addons * sizeof(NamedAddon),
+                                              (*n_devicetree_addons + 1) * sizeof(NamedAddon));
+
+                (*devicetree_addons)[(*n_devicetree_addons)++] = (NamedAddon) {
+                        .blob = {
+                                .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset, sections[UNIFIED_SECTION_DTB].memory_size),
+                                .iov_len = sections[UNIFIED_SECTION_DTB].memory_size,
+                        },
+                        .filename = xstrdup16(name),
+                };
+        }
+
+        if (initrd_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD)) {
+                *initrd_addons = xrealloc(*initrd_addons,
+                                          *n_initrd_addons * sizeof(NamedAddon),
+                                          (*n_initrd_addons + 1)  * sizeof(NamedAddon));
+                (*initrd_addons)[(*n_initrd_addons)++] = (NamedAddon) {
+                        .blob = {
+                                .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_INITRD].memory_offset, sections[UNIFIED_SECTION_INITRD].memory_size),
+                                .iov_len = sections[UNIFIED_SECTION_INITRD].memory_size,
+                        },
+                        .filename = xstrdup16(name),
+                };
+        }
+
+        if (ucode_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
+                *ucode_addons = xrealloc(*ucode_addons,
+                                         *n_ucode_addons * sizeof(NamedAddon),
+                                         (*n_ucode_addons + 1)  * sizeof(NamedAddon));
+                (*ucode_addons)[(*n_ucode_addons)++] = (NamedAddon) {
+                        .blob = {
+                                .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_UCODE].memory_offset, sections[UNIFIED_SECTION_UCODE].memory_size),
+                                .iov_len = sections[UNIFIED_SECTION_UCODE].memory_size,
+                        },
+                        .filename = xstrdup16(name),
+                };
+        }
+
+        return EFI_SUCCESS;
+}
+
 static EFI_STATUS load_addons(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -568,128 +715,23 @@ static EFI_STATUS load_addons(
         sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) strcmp16);
 
         for (size_t i = 0; i < n_items; i++) {
-                PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
-                _cleanup_free_ EFI_DEVICE_PATH *addon_path = NULL;
-                _cleanup_(unload_imagep) EFI_HANDLE addon = NULL;
-                EFI_LOADED_IMAGE_PROTOCOL *loaded_addon = NULL;
-                _cleanup_free_ char16_t *addon_spath = NULL;
+                _cleanup_free_ char16_t *path = xasprintf("%ls\\%ls", prefix, items[i]);
 
-                addon_spath = xasprintf("%ls\\%ls", prefix, items[i]);
-                err = make_file_device_path(loaded_image->DeviceHandle, addon_spath, &addon_path);
+                err = load_addon(
+                                stub_image,
+                                loaded_image->DeviceHandle,
+                                path,
+                                items[i],
+                                uname,
+                                cmdline,
+                                devicetree_addons,
+                                n_devicetree_addons,
+                                initrd_addons,
+                                n_initrd_addons,
+                                ucode_addons,
+                                n_ucode_addons);
                 if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Error making device path for %ls: %m", addon_spath);
-
-                /* By using shim_load_image, we cover both the case where the PE files are signed with MoK
-                 * and with DB, and running with or without shim. */
-                err = shim_load_image(stub_image, addon_path, /* boot_policy= */ false, &addon);
-                if (err != EFI_SUCCESS) {
-                        log_error_status(err,
-                                         "Failed to read '%ls' from '%ls', ignoring: %m",
-                                         items[i],
-                                         addon_spath);
-                        continue;
-                }
-
-                err = BS->HandleProtocol(addon,
-                                         MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL),
-                                         (void **) &loaded_addon);
-                if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Failed to find protocol in %ls: %m", items[i]);
-
-                err = pe_memory_locate_sections(loaded_addon->ImageBase, loaded_addon->ImageSize, unified_sections, sections);
-                if (err != EFI_SUCCESS) {
-                        log_error_status(err,
-                                         "Unable to locate embedded .cmdline/.dtb/.dtbauto/.efifw/.initrd/.ucode sections in %ls, ignoring: %m",
-                                         items[i]);
-                        continue;
-                }
-
-                if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
-                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
-                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO) &&
-                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD) &&
-                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
-                        log_debug("No applicable .cmdline/.dtb/.dtbauto/.initrd/.ucode sections found in %ls, ignoring.",
-                                  items[i]);
-                        continue;
-                }
-
-                /* We want to enforce that addons are not UKIs, i.e.: they must not embed a kernel. */
-                if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_LINUX)) {
-                        log_error("%ls is a UKI, not an addon, ignoring.", items[i]);
-                        continue;
-                }
-
-                /* Also enforce that, in case it is specified, .uname matches as a quick way to allow
-                 * enforcing compatibility with a specific UKI only */
-                if (uname && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME) &&
-                                !strneq8(uname,
-                                         (const char *)loaded_addon->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
-                                         sections[UNIFIED_SECTION_UNAME].memory_size)) {
-                        log_error(".uname mismatch between %ls and UKI, ignoring", items[i]);
-                        continue;
-                }
-
-                if (cmdline && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
-                        _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline),
-                                *extra16 = mangle_stub_cmdline(pe_section_to_str16(loaded_addon, sections + UNIFIED_SECTION_CMDLINE));
-
-                        *cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
-                }
-
-                // FIXME: do we want to do something else here?
-                // This should behave exactly as .dtb/.dtbauto in the main UKI
-                if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO)) {
-                        *devicetree_addons = xrealloc(*devicetree_addons,
-                                                      *n_devicetree_addons * sizeof(NamedAddon),
-                                                      (*n_devicetree_addons + 1) * sizeof(NamedAddon));
-
-                        (*devicetree_addons)[(*n_devicetree_addons)++] = (NamedAddon) {
-                                .blob = {
-                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTBAUTO].memory_offset, sections[UNIFIED_SECTION_DTBAUTO].memory_size),
-                                        .iov_len = sections[UNIFIED_SECTION_DTBAUTO].memory_size,
-                                },
-                                .filename = xstrdup16(items[i]),
-                        };
-                } else if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
-                        *devicetree_addons = xrealloc(*devicetree_addons,
-                                                      *n_devicetree_addons * sizeof(NamedAddon),
-                                                      (*n_devicetree_addons + 1) * sizeof(NamedAddon));
-
-                        (*devicetree_addons)[(*n_devicetree_addons)++] = (NamedAddon) {
-                                .blob = {
-                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset, sections[UNIFIED_SECTION_DTB].memory_size),
-                                        .iov_len = sections[UNIFIED_SECTION_DTB].memory_size,
-                                },
-                                .filename = xstrdup16(items[i]),
-                        };
-                }
-
-                if (initrd_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD)) {
-                        *initrd_addons = xrealloc(*initrd_addons,
-                                                  *n_initrd_addons * sizeof(NamedAddon),
-                                                  (*n_initrd_addons + 1)  * sizeof(NamedAddon));
-                        (*initrd_addons)[(*n_initrd_addons)++] = (NamedAddon) {
-                                .blob = {
-                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_INITRD].memory_offset, sections[UNIFIED_SECTION_INITRD].memory_size),
-                                        .iov_len = sections[UNIFIED_SECTION_INITRD].memory_size,
-                                },
-                                .filename = xstrdup16(items[i]),
-                        };
-                }
-
-                if (ucode_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
-                        *ucode_addons = xrealloc(*ucode_addons,
-                                                 *n_ucode_addons * sizeof(NamedAddon),
-                                                 (*n_ucode_addons + 1)  * sizeof(NamedAddon));
-                        (*ucode_addons)[(*n_ucode_addons)++] = (NamedAddon) {
-                                .blob = {
-                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_UCODE].memory_offset, sections[UNIFIED_SECTION_UCODE].memory_size),
-                                        .iov_len = sections[UNIFIED_SECTION_UCODE].memory_size,
-                                },
-                                .filename = xstrdup16(items[i]),
-                        };
-                }
+                        return err;
         }
 
         return EFI_SUCCESS;
