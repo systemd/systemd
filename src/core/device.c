@@ -966,7 +966,7 @@ static int device_setup_units(Manager *m, sd_device *dev, Set **ret_ready_units,
         return 0;
 }
 
-static Unit *device_following(Unit *u) {
+static Unit* device_following(Unit *u) {
         Device *d = ASSERT_PTR(DEVICE(u)), *first = NULL;
 
         if (startswith(u->id, "sys-"))
