@@ -24,10 +24,10 @@ at_exit() {
 
     mv -f /run/systemd/tpm2-pcr-public-key.pem.bak /run/systemd/tpm2-pcr-public-key.pem
     mv -f /run/systemd/tpm2-pcr-signature.json.bak /run/systemd/tpm2-pcr-signature.json
-    rm -f /tmp/tpm2-pcr-private-key.pem
+    rm -f /tmp/tpm2-pcr-private-key.pem /tmp/tpm2-pcr-public-key.pem /tmp/tpm2-pcr-signature.json.valid
     rm -rf /run/nvpcr /tmp/nvpcr
     rm -f /var/tmp/nvpcr.raw /run/verity.d/test-70-nvpcr.crt
-    rm -f /run/systemd/nvpcr/test.auth /run/systemd/nvpcr/test2.auth /run/systemd/nvpcr/aaa.auth /run/systemd/nvpcr/zzz.auth
+    rm -f /run/systemd/nvpcr/test.auth /run/systemd/nvpcr/test2.auth /run/systemd/nvpcr/aaa.auth /run/systemd/nvpcr/zzz.auth /run/systemd/nvpcr/unauth.auth
     rm -f /tmp/test.policy
 }
 
@@ -156,11 +156,66 @@ AAA_LINE="$(echo "$SETUP_LOG" | grep -n "Setting up NvPCR 'aaa'" | cut -d: -f1)"
 ZZZ_LINE="$(echo "$SETUP_LOG" | grep -n "Setting up NvPCR 'zzz'" | cut -d: -f1)"
 test "$ZZZ_LINE" -lt "$AAA_LINE"
 
+# Verify that systemd-tpm2-setup skips (rather than fails) NvPCR initialization if the booted kernel
+# image carries no PCR public key or no signed PCR policy with the "initrd" reference, and that it
+# doesn't allocate the NV index in that case. systemd-pcrextend must then treat the NvPCR as not
+# initialized.
+cat >/run/nvpcr/unauth.nvpcr <<EOF
+{"name":"unauth","algorithm":"sha256","nvIndex":30474774}
+EOF
+cp /run/systemd/tpm2-pcr-signature.json /tmp/tpm2-pcr-signature.json.valid
+
+check_nvpcr_unauth_skipped() {
+    local log rc=0
+
+    # systemd-tpm2-setup returns EX_CONFIG if the NvPCR initialization was skipped for this reason
+    log="$("$SD_TPM2SETUP" --early=yes 2>&1)" || rc=$?
+    [[ "$rc" -eq 78 ]]
+    grep -F "Skipped 1 NvPCR(s) because the booted kernel image carries no PCR public key or no signed PCR policy" <<<"$log" >/dev/null
+    test ! -f /run/systemd/nvpcr/unauth.auth
+    (! tpm2_nvreadpublic 0x01d10216)
+
+    (! "$SD_PCREXTEND" --nvpcr=unauth foo)
+    "$SD_PCREXTEND" --graceful --nvpcr=unauth foo
+    log="$(varlinkctl call /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend.Extend '{"nvpcr":"unauth","text":"foo"}' 2>&1 || :)"
+    grep -F "io.systemd.PCRExtend.NoSuchNvPCR" <<<"$log" >/dev/null
+}
+
+# No PCR public key
+mv /run/systemd/tpm2-pcr-public-key.pem /tmp/tpm2-pcr-public-key.pem
+check_nvpcr_unauth_skipped
+mv /tmp/tpm2-pcr-public-key.pem /run/systemd/tpm2-pcr-public-key.pem
+
+# No PCR signature file
+rm -f /run/systemd/tpm2-pcr-signature.json
+check_nvpcr_unauth_skipped
+
+# PCR signature without a policy with the "initrd" reference
+"$SD_MEASURE" sign --current --bank sha256 --private-key="/tmp/tpm2-pcr-private-key.pem" --public-key="/run/systemd/tpm2-pcr-public-key.pem" --phase=":" --policyref="foo" >"/run/systemd/tpm2-pcr-signature.json"
+check_nvpcr_unauth_skipped
+"$SD_MEASURE" sign --current --bank sha256 --private-key="/tmp/tpm2-pcr-private-key.pem" --public-key="/run/systemd/tpm2-pcr-public-key.pem" --phase=":" >"/run/systemd/tpm2-pcr-signature.json"
+check_nvpcr_unauth_skipped
+
+# A policy with the "initrd" reference but an invalid signature must still fail
+jq --arg sig "$(openssl rand -base64 256 | tr -d '\n')" '.sha256[].sig = $sig' </tmp/tpm2-pcr-signature.json.valid >/run/systemd/tpm2-pcr-signature.json
+SETUP_LOG="$(rc=0; $SD_TPM2SETUP --early=yes 2>&1 || rc=$?; [[ "$rc" -ne 0 ]] && [[ "$rc" -ne 69 ]] && [[ "$rc" -ne 78 ]])"
+grep -F "Failed to initialize NvPCR index: State not recoverable" <<<"$SETUP_LOG" >/dev/null
+test ! -f /run/systemd/nvpcr/unauth.auth
+tpm2_nvundefine -C o 0x01d10216
+
+# And with the valid signature restored, the NvPCR gets initialized
+cp /tmp/tpm2-pcr-signature.json.valid /run/systemd/tpm2-pcr-signature.json
+run_tpm2_setup
+test -f /run/systemd/nvpcr/unauth.auth
+"$SD_PCREXTEND" --nvpcr=unauth foo
+rm -f /run/nvpcr/unauth.nvpcr /run/systemd/nvpcr/unauth.auth
+tpm2_nvundefine -C o 0x01d10216
+
 # Verify that we can't redefine an NvPCR once we've exitted early boot by extending PCR11.
 rm -f /run/systemd/nvpcr/test.auth
 tpm2_nvundefine -C o 0x01d1020a
 "$SD_PCREXTEND" --pcr 11 "foo"
-SETUP_LOG="$(rc=0; $SD_TPM2SETUP --early=yes 2>&1 || rc=$?; [[ "$rc" -ne 0 ]] && [[ "$rc" -ne 69 ]])"
+SETUP_LOG="$(rc=0; $SD_TPM2SETUP --early=yes 2>&1 || rc=$?; [[ "$rc" -ne 0 ]] && [[ "$rc" -ne 69 ]] && [[ "$rc" -ne 78 ]])"
 grep -F "Failed to initialize NvPCR index: Device not a stream" <<<"$SETUP_LOG" >/dev/null
 
 # Test the --login= mode and the 'login' NvPCR, used in production by systemd-pcrlogin@.service.
