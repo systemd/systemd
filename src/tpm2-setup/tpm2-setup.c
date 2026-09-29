@@ -417,6 +417,7 @@ typedef struct SetupNvPCRContext {
         Tpm2Context *tpm2_context;
         size_t n_already, n_initialized, n_failed, n_skipped;
         bool nv_space_exhausted; /* Set once the TPM ran out of NV index space, so we skip the rest. */
+        bool nvpcr_unauthorized; /* Set if NvPCR initialization is not authorized in this boot, so we skip the rest. */
         Set *done;
 } SetupNvPCRContext;
 
@@ -448,6 +449,12 @@ static int setup_nvpcr_one(
                 return 0;
         }
 
+        if (c->nvpcr_unauthorized) {
+                log_debug("NvPCR initialization is not authorized in this boot, skipping allocation of NvPCR '%s'.", name);
+                c->n_skipped++;
+                return 0;
+        }
+
         r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name);
         if (r == -EOPNOTSUPP) {
                 c->n_failed++;
@@ -464,6 +471,17 @@ static int setup_nvpcr_one(
                 return log_struct_errno(LOG_NOTICE, r,
                                         LOG_MESSAGE("The TPM's NV index space is exhausted, skipping allocation of NvPCR '%s' and any less important ones: %m", name),
                                         LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVINDEX_EXHAUSTED_STR));
+        }
+        if (r == -ENOKEY) {
+                /* NvPCR initialization is not authorized in this boot, because the booted UKI carries no
+                 * PCR public key or no signed PCR policy for NvPCR initialization, or because we're not
+                 * running in the initrd. This is not an error, the NvPCR simply won't be available in
+                 * this boot. */
+                c->nvpcr_unauthorized = true;
+                c->n_skipped++;
+                return log_struct_errno(LOG_NOTICE, r,
+                                        LOG_MESSAGE("NvPCR initialization is not authorized in this boot (no PCR public key, no signed PCR policy for NvPCR initialization, or not running in the initrd), unable to allocate NvPCR '%s' and any others: %m", name),
+                                        LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVPCR_UNAUTHORIZED_STR));
         }
         if (r < 0) {
                 c->n_failed++;
@@ -564,6 +582,9 @@ static int setup_nvpcr(void) {
         if (c.nv_space_exhausted)
                 log_notice("Skipped %zu lowest-priority NvPCR(s) because the TPM's NV index space is exhausted, proceeding anyway.", c.n_skipped);
 
+        if (c.nvpcr_unauthorized)
+                log_notice("Skipped %zu NvPCR(s) because NvPCR initialization is not authorized in this boot, proceeding anyway.", c.n_skipped);
+
         if (c.n_failed > 0)
                 log_warning("%zu NvPCRs failed to initialize, proceeding anyway.", c.n_failed);
 
@@ -583,6 +604,8 @@ static int setup_nvpcr(void) {
                 return EX_UNAVAILABLE;   /* e.g. no NvPCR support in TPM */
         if (ret == -ENOBUFS)
                 return EX_CANTCREAT;     /* NV index space on TPM exhausted */
+        if (ret == -ENOKEY)
+                return EX_CONFIG;        /* NvPCR initialization not authorized in this boot */
 
         return ret;
 }
