@@ -1082,6 +1082,7 @@ static const char* const auto_link_extra_suffixes[] = {
         ".sysext.raw",
         ".confext.raw",
         ".cred",
+        ".addon.efi",
 };
 
 static int link_context_add_extra(LinkContext *c, int dir_fd, const char *path, const char *filename) {
