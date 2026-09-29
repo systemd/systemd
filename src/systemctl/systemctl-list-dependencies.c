@@ -6,6 +6,7 @@
 #include "ansi-color.h"
 #include "bus-unit-util.h"
 #include "glyph-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "pager.h"
 #include "sort-util.h"
@@ -93,24 +94,25 @@ static int list_dependencies_compare(char * const *a, char * const *b) {
         return strcasecmp(*a, *b);
 }
 
-static int list_dependencies_one(
-                sd_bus *bus,
-                const char *name,
-                int level,
-                char ***units,
-                unsigned branches) {
-
+/* In tree mode a unit is shown once for every path that leads to it, which with --all quickly adds up to
+ * tens of thousands of lines for only a few hundred distinct units. Remember what we already asked the
+ * manager, so that each unit's dependencies and state are only queried once per invocation. */
+static int get_dependencies_cached(sd_bus *bus, const char *name, Hashmap **cache, char ***ret) {
         _cleanup_strv_free_ char **deps = NULL;
+        _cleanup_free_ char *key = NULL;
+        char **cached;
         int r;
-        bool circular = false;
 
         assert(bus);
         assert(name);
-        assert(units);
+        assert(cache);
+        assert(ret);
 
-        r = strv_extend(units, name);
-        if (r < 0)
-                return log_oom();
+        cached = hashmap_get(*cache, name);
+        if (cached) {
+                *ret = cached;
+                return 0;
+        }
 
         r = unit_get_dependencies(bus, name, &deps);
         if (r < 0)
@@ -118,9 +120,91 @@ static int list_dependencies_one(
 
         typesafe_qsort(deps, strv_length(deps), list_dependencies_compare);
 
+        /* Store an empty strv rather than NULL, so that units without dependencies are cached too */
+        if (!deps) {
+                deps = strv_new(NULL);
+                if (!deps)
+                        return log_oom();
+        }
+
+        key = strdup(name);
+        if (!key)
+                return log_oom();
+
+        r = hashmap_ensure_put(cache, &string_hash_ops_free_strv_free, key, deps);
+        if (r < 0)
+                return log_oom();
+
+        TAKE_PTR(key);
+        *ret = TAKE_PTR(deps);
+        return 0;
+}
+
+static int get_state_cached(sd_bus *bus, const char *name, Hashmap **cache, UnitActiveState *ret) {
+        _cleanup_free_ char *key = NULL;
+        UnitActiveState state;
+        void *cached;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(cache);
+        assert(ret);
+
+        /* Values are stored offset by one, so that UNIT_ACTIVE (0) can be told apart from a missing entry */
+        cached = hashmap_get(*cache, name);
+        if (cached) {
+                *ret = PTR_TO_INT(cached) - 1;
+                return 0;
+        }
+
+        r = get_state_one_unit(bus, name, &state);
+        if (r < 0)
+                return r;
+
+        key = strdup(name);
+        if (!key)
+                return log_oom();
+
+        r = hashmap_ensure_put(cache, &string_hash_ops_free, key, INT_TO_PTR(state + 1));
+        if (r < 0)
+                return log_oom();
+
+        TAKE_PTR(key);
+        *ret = state;
+        return 0;
+}
+
+static int list_dependencies_one(
+                sd_bus *bus,
+                const char *name,
+                int level,
+                char ***units,
+                Hashmap **deps_cache,
+                Hashmap **state_cache,
+                unsigned branches) {
+
+        char **deps = NULL;
+        int r;
+        bool circular = false;
+
+        assert(bus);
+        assert(name);
+        assert(units);
+        assert(deps_cache);
+        assert(state_cache);
+
+        r = strv_extend(units, name);
+        if (r < 0)
+                return log_oom();
+
+        r = get_dependencies_cached(bus, name, deps_cache, &deps);
+        if (r < 0)
+                return r;
+
         STRV_FOREACH(c, deps) {
                 _cleanup_free_ char *load_state = NULL, *sub_state = NULL;
-                UnitActiveState active_state;
+                UnitActiveState active_state = _UNIT_ACTIVE_STATE_INVALID;
 
                 if (strv_contains(*units, *c)) {
                         circular = true;
@@ -130,7 +214,7 @@ static int list_dependencies_one(
                 if (arg_types && !strv_contains(arg_types, unit_type_suffix(*c)))
                         continue;
 
-                r = get_state_one_unit(bus, *c, &active_state);
+                r = get_state_cached(bus, *c, state_cache, &active_state);
                 if (r < 0)
                         return r;
 
@@ -152,7 +236,7 @@ static int list_dependencies_one(
                         return r;
 
                 if (arg_all || unit_name_to_type(*c) == UNIT_TARGET) {
-                       r = list_dependencies_one(bus, *c, level + 1, units, (branches << 1) | (c[1] == NULL ? 0 : 1));
+                       r = list_dependencies_one(bus, *c, level + 1, units, deps_cache, state_cache, (branches << 1) | (c[1] == NULL ? 0 : 1));
                        if (r < 0)
                                return r;
                 }
@@ -172,6 +256,7 @@ static int list_dependencies_one(
 
 int verb_list_dependencies(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_strv_free_ char **units = NULL, **done = NULL;
+        _cleanup_hashmap_free_ Hashmap *deps_cache = NULL, *state_cache = NULL;
         char **patterns;
         sd_bus *bus;
         int r;
@@ -201,7 +286,7 @@ int verb_list_dependencies(int argc, char *argv[], uintptr_t _data, void *userda
                         puts("");
 
                 puts(*u);
-                r = list_dependencies_one(bus, *u, 0, &done, 0);
+                r = list_dependencies_one(bus, *u, 0, &done, &deps_cache, &state_cache, 0);
                 if (r < 0)
                         return r;
         }
