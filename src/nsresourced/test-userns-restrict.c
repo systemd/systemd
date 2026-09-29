@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "cgroup-setup.h"
+#include "cgroup-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -344,6 +346,64 @@ TEST(userns_restrict_overlayfs) {
          * removed. */
         (void) umount(ti);
         (void) umount(tb);
+}
+
+TEST(userns_restrict_cgroupfs) {
+        _cleanup_close_ int userns_fd = -EBADF, undelegated_fd = -EBADF, delegated_fd = -EBADF;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_free_ char *cg = NULL, *undelegated = NULL, *delegated = NULL, *idmap = NULL;
+        int r;
+
+        if (cg_is_available() <= 0)
+                return (void) log_tests_skipped("cgroupfs is not mounted");
+
+        /* Shifted, as cg_create() and friends prefix what we return here with /sys/fs/cgroup, which in a
+         * container without its own cgroup namespace is not where the unshifted path is rooted. */
+        r = cg_pid_get_path_shifted(0, /* root= */ NULL, &cg);
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "Failed to determine our own cgroup");
+
+        ASSERT_NOT_NULL(undelegated = path_join(cg, "test-userns-restrict"));
+        ASSERT_NOT_NULL(delegated = path_join(undelegated, "delegated"));
+
+        /* Always start clean, in case an earlier run failed halfway through */
+        (void) cg_trim(undelegated, /* delete_root= */ true);
+
+        r = cg_create(undelegated);
+        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(r) || r == -ENOENT)
+                return (void) log_tests_skipped_errno(r, "Failed to create cgroup %s", undelegated);
+        ASSERT_OK(r);
+
+        ASSERT_OK(cg_create(delegated));
+
+        undelegated_fd = ASSERT_OK(cg_path_open(undelegated));
+        delegated_fd = ASSERT_OK(cg_path_open(delegated));
+
+        /* Hand the inner cgroup to the transient range, the way AddControlGroupToUserNamespace() does. */
+        ASSERT_OK_ERRNO(fchown(delegated_fd, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
+
+        ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
+        userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
+
+        ASSERT_OK(userns_restrict_register_by_fd(bpf_obj, userns_fd));
+
+        r = ASSERT_OK(pidref_safe_fork("(test-cgroup)", FORK_DEATHSIG_SIGKILL, &pidref));
+        if (r == 0) {
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
+
+                /* The delegated cgroup is owned by our transient range, so this must work. */
+                ASSERT_OK_ERRNO(mkdirat(delegated_fd, "payload", 0755));
+                /* chown() is subject to the same policy, and hence exempt here as well. */
+                ASSERT_OK_ERRNO(fchownat(delegated_fd, "payload", UID_INVALID, 0, 0));
+                /* Its parent is not ours, so we should get EACCES from DAC. */
+                ASSERT_ERROR_ERRNO(mkdirat(undelegated_fd, "payload", 0755), EACCES);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(test-cgroup)", &pidref, WAIT_LOG));
+
+        ASSERT_OK(cg_trim(undelegated, /* delete_root= */ true));
 }
 
 static void write_child_mappings(PidRef *child, int parent_userns_fd) {
