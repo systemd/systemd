@@ -935,7 +935,7 @@ static int static_routing_policy_rule_configure_handler(
                 }
         } else if (r < 0) {
                 log_link_message_warning_errno(link, m, r, "Could not add routing policy rule");
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 1;
         }
 

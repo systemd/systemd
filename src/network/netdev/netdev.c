@@ -919,7 +919,7 @@ static int create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_message *m
         else {
                 log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
                 netdev_enter_failed(netdev);
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 0;
         }
 

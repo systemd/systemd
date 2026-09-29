@@ -685,7 +685,7 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
                 (void) route_get_link(route->manager, route, &link);
                 log_link_warning_errno(link, r, "Could not remove route: %m");
                 if (link)
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
         }
 
         return 1;
@@ -809,7 +809,7 @@ int route_configure_handler_internal(sd_netlink_message *m, Request *req, Route 
                 r = route_update_on_existing(req);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Failed to update existing route: %m");
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                         return 0;
                 }
 
@@ -820,7 +820,7 @@ int route_configure_handler_internal(sd_netlink_message *m, Request *req, Route 
                 (void) route_to_string(route, link->manager, &str);
                 log_link_message_warning_errno(link, m, r, "Failed to configure %s route (%s)",
                                                network_config_source_to_string(route->source), strna(str));
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 0;
         }
 
@@ -1176,7 +1176,7 @@ static int process_route_one(
                         r = route_update_by_request(route, req);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to update route by request: %m");
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return 0;
                         }
 
@@ -1215,7 +1215,7 @@ static int process_route_one(
                 r = dhcp4_update_ipv6_connectivity(link);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Failed to notify IPv6 connectivity to DHCPv4 client: %m");
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                 }
         }
 

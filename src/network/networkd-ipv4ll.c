@@ -135,28 +135,28 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
                 case SD_IPV4LL_EVENT_STOP:
                         r = ipv4ll_address_lost(link);
                         if (r < 0) {
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return;
                         }
                         break;
                 case SD_IPV4LL_EVENT_CONFLICT:
                         r = ipv4ll_address_lost(link);
                         if (r < 0) {
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return;
                         }
 
                         r = sd_ipv4ll_restart(ll);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                         }
                         break;
                 case SD_IPV4LL_EVENT_BIND:
                         r = ipv4ll_address_claimed(ll, link);
                         if (r < 0) {
                                 log_link_error_errno(link, r, "Failed to configure ipv4ll address: %m");
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return;
                         }
                         break;

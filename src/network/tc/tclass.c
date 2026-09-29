@@ -387,7 +387,7 @@ static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req,
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_message_error_errno(link, m, r, "Could not set TClass");
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 1;
         }
 

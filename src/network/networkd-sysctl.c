@@ -392,7 +392,7 @@ static int link_set_ip_forwarding(Link *link, int family) {
                 HASHMAP_FOREACH(other, link->manager->links_by_index) {
                         r = link_reapply_ip_forwarding(other, family);
                         if (r < 0)
-                                link_enter_failed(other);
+                                link_enter_failed(other, r);
                 }
 
                 return 0;

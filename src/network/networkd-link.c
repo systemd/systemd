@@ -458,8 +458,9 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
         return ret;
 }
 
-void link_enter_failed(Link *link) {
+void link_enter_failed(Link *link, int error) {
         assert(link);
+        assert(error < 0);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
@@ -467,6 +468,11 @@ void link_enter_failed(Link *link) {
         log_link_warning(link, "Failed");
 
         link_set_state(link, LINK_STATE_FAILED);
+
+        /* The interface may have disappeared while a request was in flight. Wait for RTM_DELLINK to
+         * remove it rather than starting another request that would fail with the same error. */
+        if (error == -ENODEV)
+                goto stop;
 
         if (!ratelimit_below(&link->automatic_reconfigure_ratelimit)) {
                 log_link_warning(link, "The interface entered the failed state frequently, refusing to reconfigure it automatically.");
@@ -1650,7 +1656,7 @@ static int link_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
 
         r = link_reconfigure_impl(link, data->flags);
         if (r < 0) {
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 0;
         }
 
@@ -1709,7 +1715,7 @@ int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_mess
 
 failed:
         log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-        link_enter_failed(link);
+        link_enter_failed(link, r);
         return r;
 }
 
@@ -1744,7 +1750,7 @@ static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
 
         r = link_initialized_and_synced(link);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 0;
 }
@@ -1866,7 +1872,7 @@ int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t 
 
         r = link_initialized(link, device);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 0;
 }
@@ -1969,7 +1975,7 @@ static int link_carrier_lost_handler(sd_event_source *s, uint64_t usec, void *us
         r = link_carrier_lost_impl(link);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Failed to process carrier lost event: %m");
-                link_enter_failed(link);
+                link_enter_failed(link, r);
         }
 
         return 0;
@@ -3029,7 +3035,7 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                         r = link_update(link, message);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Could not process link message: %m");
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return 0;
                         }
 
@@ -3046,14 +3052,14 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                         r = link_check_initialized(link);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to check link is initialized: %m");
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return 0;
                         }
                 } else {
                         r = link_update(link, message);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Could not process link message: %m");
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return 0;
                         }
                         if (r == 0)
@@ -3072,7 +3078,7 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                         r = link_reconfigure_impl(link, /* flags= */ 0);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return 0;
                         }
                 }
@@ -3104,7 +3110,7 @@ int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
                 log_link_message_warning_errno(link, m, r, "%s", error_msg);
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 0;
         }
 
@@ -3120,7 +3126,7 @@ int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link 
 
         r = link_update(link, m);
         if (r < 0) {
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 0;
         }
 

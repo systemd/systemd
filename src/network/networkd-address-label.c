@@ -107,7 +107,7 @@ static int link_address_label_configure_handler(
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, "Could not set address label");
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 1;
         }
 

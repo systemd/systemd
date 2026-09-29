@@ -154,7 +154,7 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 
         r = dhcp6_check_ready(link);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 1;
 }
@@ -428,7 +428,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                         log_link_warning(link, "DHCPv6 unknown event: %d", event);
         }
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 }
 
 int dhcp6_start_on_ra(Link *link, bool information_request) {

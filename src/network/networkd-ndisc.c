@@ -392,7 +392,7 @@ static int ndisc_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 
         r = ndisc_check_ready(link);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 1;
 }
@@ -464,7 +464,7 @@ static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
 
         r = ndisc_check_ready(link);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 1;
 }
@@ -694,7 +694,7 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 
         r = ndisc_check_ready(link);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
         return 1;
 }
@@ -2900,7 +2900,7 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, void *message, v
         case SD_NDISC_EVENT_ROUTER:
                 r = ndisc_router_handler(link, ASSERT_PTR(message));
                 if (r < 0 && r != -EBADMSG) {
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                         return;
                 }
                 break;
@@ -2908,7 +2908,7 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, void *message, v
         case SD_NDISC_EVENT_NEIGHBOR:
                 r = ndisc_neighbor_handler(link, ASSERT_PTR(message));
                 if (r < 0 && r != -EBADMSG) {
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                         return;
                 }
                 break;
@@ -2917,7 +2917,7 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, void *message, v
                 r = ndisc_redirect_handler(link, ASSERT_PTR(message));
                 if (r < 0 && r != -EBADMSG) {
                         log_link_warning_errno(link, r, "Failed to process Redirect message: %m");
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                         return;
                 }
                 break;

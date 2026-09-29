@@ -277,7 +277,7 @@ int manager_genl_process_nl80211_mlme(sd_netlink *genl, sd_netlink_message *mess
                         r = link_get_wlan_interface(link);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to update wireless LAN interface: %m");
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return 0;
                         }
                 }
@@ -293,7 +293,7 @@ int manager_genl_process_nl80211_mlme(sd_netlink *genl, sd_netlink_message *mess
                         r = link_reconfigure_impl(link, /* flags= */ 0);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                                link_enter_failed(link);
+                                link_enter_failed(link, r);
                                 return 0;
                         }
                 }
@@ -324,7 +324,7 @@ int manager_genl_process_nl80211_mlme(sd_netlink *genl, sd_netlink_message *mess
                 r = link_get_wlan_interface(link);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Failed to update wireless LAN interface: %m");
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                         return 0;
                 }
 
@@ -332,7 +332,7 @@ int manager_genl_process_nl80211_mlme(sd_netlink *genl, sd_netlink_message *mess
                 r = link_reconfigure_impl(link, /* flags= */ 0);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                         return 0;
                 }
 

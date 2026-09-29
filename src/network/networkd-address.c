@@ -938,7 +938,7 @@ static int address_drop(Address *in, bool removed_by_us) {
         if (!removed_by_us) {
                 r = address_removed_maybe_kernel_dad(link, address);
                 if (r < 0) {
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                         return r;
                 }
         }
@@ -1562,7 +1562,7 @@ int address_configure_handler_internal(sd_netlink_message *m, Link *link, Addres
                 log_link_message_warning_errno(link, m, r, "Failed to set %s address %s",
                                                network_config_source_to_string(address->source),
                                                IN_ADDR_TO_STRING(address->family, &address->in_addr));
-                link_enter_failed(link);
+                link_enter_failed(link, r);
                 return 0;
         }
 
@@ -2069,14 +2069,14 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         /* address_update() logs internally, so we don't need to here. */
         r = address_update(address);
         if (r < 0)
-                link_enter_failed(link);
+                link_enter_failed(link, r);
 
 finalize:
         if (tmp->family == AF_INET6) {
                 r = dhcp4_update_ipv6_connectivity(link);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Failed to notify IPv6 connectivity to DHCPv4 client: %m");
-                        link_enter_failed(link);
+                        link_enter_failed(link, r);
                 }
         }
 
