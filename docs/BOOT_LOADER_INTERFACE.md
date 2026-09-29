@@ -109,6 +109,17 @@ Variables will be listed below using the Linux efivarfs naming,
   It is set by the boot loader and read by the OS
   in order to identify which entry has been used for the current boot.
 
+* The EFI variable `LoaderEntryAddons-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
+  may contain a series of paths to PE addon binaries (`*.addon.efi`),
+  one after the other, each individually NUL terminated.
+  The paths are relative to the root of the file system the booted Unified Kernel Image is loaded from.
+  It is set by the boot loader as a volatile variable right before starting a Unified Kernel Image,
+  and read by the UKI's stub,
+  in order to load addons specific to the selected boot loader entry
+  (for example configured via `extra` lines in Type #1 entries).
+  The boot loader should remove it if the entry has no such addons,
+  and when the started image returns.
+
 * The EFI variable `LoaderFeatures-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains a 64-bit unsigned integer with a number of flags bits
   that are set by the boot loader and passed to the OS

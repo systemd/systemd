@@ -448,6 +448,17 @@
       <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       for details on configuration extension images. The generated <command>cpio</command> archive is
       measured into TPM PCR 12 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Files with the <filename>.addon.efi</filename> suffix are not packed into a
+      <command>cpio</command> archive. Instead, their paths are passed to the UKI via the
+      <varname>LoaderEntryAddons</varname> EFI variable (see below), in the order they are listed in the
+      entry. The <command>systemd-stub</command> UEFI stub embedded in the UKI will then load, verify and
+      measure them like any other addon, allowing to pass additional kernel command line parameters,
+      DeviceTree blobs, initrds and microcode updates specific to this entry. This means the same UKI may be
+      shared by multiple entries, each with its own set of addons. See
+      <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+      details on addons. This is only supported for entries using the <literal>uki</literal> key, not for
+      <literal>uki-url</literal>.</para></listitem>
     </itemizedlist>
 
     <para>When the booted kernel is a UKI, the <command>systemd-stub</command> UEFI stub embedded in it will
@@ -466,7 +477,8 @@ machine-id  6a9857a393724b7a981ebb5b8495b9ea
 uki         /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/img.efi
 extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/foo.cred
 extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/bar.sysext.raw
-extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/baz.confext.raw</programlisting>
+extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/baz.confext.raw
+extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/debug.addon.efi</programlisting>
   </refsect1>
 
   <refsect1>
@@ -541,6 +553,19 @@ extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/baz.confext.raw</programlist
         loader.</para>
 
         <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntryAddons</varname></term>
+
+        <listitem><para>A list of paths to the <filename>*.addon.efi</filename> files configured via
+        <literal>extra</literal> lines in the Type #1 boot loader entry being booted, each individually NUL
+        terminated. Set by the boot loader (volatile) right before starting a UKI, removed if the entry has no
+        such addons or when the started image returns. Read by
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        See above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
