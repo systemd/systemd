@@ -294,13 +294,6 @@ static int parse_extra(
                         continue;
                 }
 
-                /* Let's filter out EFI addons for now. We have no protocol for passing them from sd-boot to
-                 * sd-stub, hence supporting them would require major plumbing first. */
-                if (type == BOOT_ENTRY_ADDON) {
-                        log_debug("EFI addons are currently not supported for Type #1 entries, skipping '%s'.", c);
-                        continue;
-                }
-
                 r = boot_entry_extras_add(extras, type, c, /* cmdline= */ NULL);
                 if (r < 0)
                         return r;
