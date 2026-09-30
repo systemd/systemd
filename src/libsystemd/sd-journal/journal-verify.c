@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -391,8 +392,9 @@ static int write_uint64(FILE *fp, uint64_t p) {
 }
 
 typedef struct OffsetArray {
-        uint64_t *items;
+        uint64_t *items; /* NULL if the list couldn't be mapped, it is then read from fd instead */
         uint64_t n;
+        int fd;
 } OffsetArray;
 
 static void offset_array_done(OffsetArray *a) {
@@ -419,32 +421,70 @@ static int offset_array_map(FILE *fp, uint64_t n, OffsetArray *ret) {
                 return 0;
         }
 
-        if (n > SIZE_MAX / sizeof(uint64_t))
-                return -EFBIG;
+        if (n <= SIZE_MAX / sizeof(uint64_t)) {
+                p = mmap(NULL, n * sizeof(uint64_t), PROT_READ, MAP_SHARED, fileno(fp), 0);
+                if (p != MAP_FAILED) {
+                        *ret = (OffsetArray) {
+                                .items = p,
+                                .n = n,
+                        };
+                        return 0;
+                }
+                if (errno != ENOMEM)
+                        return -errno;
+        }
 
-        p = mmap(NULL, n * sizeof(uint64_t), PROT_READ, MAP_SHARED, fileno(fp), 0);
-        if (p == MAP_FAILED)
-                return -errno;
+        /* A large journal might not fit into the address space of a 32-bit system. Fall back to reading
+         * the items one by one then, which is slower but works with any size. */
+        log_debug("Offset list of %"PRIu64" items does not fit into the address space, reading it instead.",
+                  n);
 
         *ret = (OffsetArray) {
-                .items = p,
                 .n = n,
+                .fd = fileno(fp),
         };
         return 0;
 }
 
-static bool contains_uint64(const OffsetArray *a, uint64_t p) {
+static int offset_array_get(const OffsetArray *a, uint64_t i, uint64_t *ret) {
+        ssize_t l;
+
+        assert(a);
+        assert(i < a->n);
+        assert(ret);
+
+        if (a->items) {
+                *ret = a->items[i];
+                return 0;
+        }
+
+        l = pread(a->fd, ret, sizeof(uint64_t), i * sizeof(uint64_t));
+        if (l < 0)
+                return log_error_errno(errno, "Failed to read offset list: %m");
+        if (l != sizeof(uint64_t))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read from offset list.");
+
+        return 0;
+}
+
+static int offset_array_contains(const OffsetArray *a, uint64_t p) {
+        int r;
+
         assert(a);
 
         /* Bisection ... */
 
         uint64_t lo = 0, hi = a->n;
         while (lo < hi) {
-                uint64_t c = lo + (hi - lo) / 2;
+                uint64_t c = lo + (hi - lo) / 2, v;
 
-                if (a->items[c] == p)
+                r = offset_array_get(a, c, &v);
+                if (r < 0)
+                        return r;
+
+                if (v == p)
                         return true;
-                if (a->items[c] < p)
+                if (v < p)
                         lo = c + 1;
                 else
                         hi = c;
@@ -483,7 +523,10 @@ static int verify_data(
         assert(o->data.entry_offset);
 
         last = q = le64toh(o->data.entry_offset);
-        if (!contains_uint64(entries, q)) {
+        r = offset_array_contains(entries, q);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 error(p, "Data object references invalid entry at "OFSfmt, q);
                 return -EBADMSG;
         }
@@ -497,7 +540,10 @@ static int verify_data(
                         return -EBADMSG;
                 }
 
-                if (!contains_uint64(entry_arrays, a)) {
+                r = offset_array_contains(entry_arrays, a);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
                         error(p, "Invalid array offset "OFSfmt, a);
                         return -EBADMSG;
                 }
@@ -522,7 +568,10 @@ static int verify_data(
                         }
                         last = q;
 
-                        if (!contains_uint64(entries, q)) {
+                        r = offset_array_contains(entries, q);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
                                 error(p, "Data object references invalid entry at "OFSfmt, q);
                                 return -EBADMSG;
                         }
@@ -570,7 +619,10 @@ static int verify_data_hash_table(
                         Object *o;
                         uint64_t next;
 
-                        if (!contains_uint64(data, p)) {
+                        r = offset_array_contains(data, p);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
                                 error(p, "Invalid data object at hash entry %"PRIu64" of %"PRIu64, i, n);
                                 return -EBADMSG;
                         }
@@ -662,7 +714,10 @@ static int verify_entry(
 
                 q = journal_file_entry_item_object_offset(f, o, i);
 
-                if (!contains_uint64(data, q)) {
+                r = offset_array_contains(data, q);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
                         error(p, "Invalid data object of entry");
                         return -EBADMSG;
                 }
@@ -731,7 +786,10 @@ static int verify_entry_array(
                         return -EBADMSG;
                 }
 
-                if (!contains_uint64(entry_arrays, a)) {
+                r = offset_array_contains(entry_arrays, a);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
                         error(a, "Invalid array %"PRIu64" of %"PRIu64, i, n);
                         return -EBADMSG;
                 }
@@ -757,7 +815,10 @@ static int verify_entry_array(
                         }
                         last = p;
 
-                        if (!contains_uint64(entries, p)) {
+                        r = offset_array_contains(entries, p);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
                                 error(a, "Invalid array entry at %"PRIu64" of %"PRIu64, i, n);
                                 return -EBADMSG;
                         }
