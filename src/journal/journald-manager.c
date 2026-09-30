@@ -299,6 +299,7 @@ static int manager_open_journal(
                                 m->config.compress.threshold_bytes,
                                 metrics,
                                 m->mmap,
+                                m->seqnum ? &m->seqnum->id : NULL,
                                 &f);
         else
                 r = journal_file_open(
@@ -372,6 +373,13 @@ static int manager_system_journal_open(
                         (void) mkdir_parents(m->system_storage.path, 0755);
 
                 (void) mkdir(m->system_storage.path, 0755);
+
+                /* The implicit flush below copies the entries of the runtime journal with new sequence
+                 * numbers. Reset the sequence number data before the system journal is opened, so that a new
+                 * one does not take the sequence number ID of the runtime journal. manager_flush_to_var()
+                 * does the same for an explicit flush. */
+                if (!flush_requested && m->runtime_journal && !m->namespace && m->seqnum)
+                        zero(*m->seqnum);
 
                 fn = strjoina(m->system_storage.path, "/system.journal");
                 r = manager_open_journal(
@@ -564,7 +572,7 @@ static int manager_do_rotate(
 
         log_debug("Rotating journal file %s.", (*f)->path);
 
-        r = journal_file_rotate(f, m->mmap, manager_get_file_flags(m, seal), m->config.compress.threshold_bytes, m->deferred_closes);
+        r = journal_file_rotate(f, m->mmap, manager_get_file_flags(m, seal), m->config.compress.threshold_bytes, m->seqnum ? &m->seqnum->id : NULL, m->deferred_closes);
         if (r < 0) {
                 if (*f)
                         return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -1321,6 +1329,11 @@ int manager_flush_to_var(Manager *m, bool require_flag_file) {
         if (require_flag_file && !manager_flushed_flag_is_set(m))
                 return 0;
 
+        /* Reset current seqnum data to avoid unnecessary rotation when switching to system journal.
+         * See issue #30092. Before opening it, so that a new system journal does not take the ID of the
+         * runtime journal, whose entries are copied with new sequence numbers. */
+        zero(*m->seqnum);
+
         (void) manager_system_journal_open(m, /* flush_requested= */ true, /* relinquish_requested= */ false);
 
         if (!m->system_journal)
@@ -1329,10 +1342,6 @@ int manager_flush_to_var(Manager *m, bool require_flag_file) {
         /* Offline and close the 'main' runtime journal file to allow the runtime journal to be opened with
          * the SD_JOURNAL_ASSUME_IMMUTABLE flag in the below. */
         m->runtime_journal = journal_file_offline_close(m->runtime_journal);
-
-        /* Reset current seqnum data to avoid unnecessary rotation when switching to system journal.
-         * See issue #30092. */
-        zero(*m->seqnum);
 
         log_debug("Flushing to %s...", m->system_storage.path);
 
