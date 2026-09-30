@@ -169,7 +169,7 @@ bool drm_connector_is_external(const char *sysname);
 bool drm_connector_is_active(const char *status, const char *enabled);
 
 bool manager_is_lid_closed(Manager *m);
-bool manager_is_docked_or_external_displays(Manager *m);
+bool manager_is_docked(Manager *m);
 bool manager_is_on_external_power(void);
 bool manager_all_buttons_ignored(Manager *m);
 
