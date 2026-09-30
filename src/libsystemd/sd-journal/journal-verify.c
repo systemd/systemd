@@ -525,6 +525,24 @@ static int verify_data(
         return 0;
 }
 
+static int data_hash_chain_next(uint64_t p, const Object *o, uint64_t h, uint64_t n, uint64_t *ret) {
+        uint64_t next;
+
+        assert(o);
+        assert(ret);
+
+        /* Objects are only ever appended, hence a hash chain has to move strictly forward. Anything else
+         * is corruption, and following it could make us loop forever. */
+        next = le64toh(o->data.next_hash_offset);
+        if (next != 0 && next <= p) {
+                error(p, "Hash chain has a cycle in hash entry %"PRIu64" of %"PRIu64, h, n);
+                return -EBADMSG;
+        }
+
+        *ret = next;
+        return 0;
+}
+
 static int verify_data_hash_table(
                 JournalFile *f,
                 MMapFileDescriptor *cache_data_fd, uint64_t n_data,
@@ -570,11 +588,9 @@ static int verify_data_hash_table(
                         if (r < 0)
                                 return r;
 
-                        next = le64toh(o->data.next_hash_offset);
-                        if (next != 0 && next <= p) {
-                                error(p, "Hash chain has a cycle in hash entry %"PRIu64" of %"PRIu64, i, n);
-                                return -EBADMSG;
-                        }
+                        r = data_hash_chain_next(p, o, i, n, &next);
+                        if (r < 0)
+                                return r;
 
                         if (le64toh(o->data.hash) % n != i) {
                                 error(p, "Hash value mismatch in hash entry %"PRIu64" of %"PRIu64, i, n);
@@ -619,6 +635,7 @@ static int data_object_in_hash_table(JournalFile *f, uint64_t hash, uint64_t p) 
         q = le64toh(f->data_hash_table[h].head_hash_offset);
         while (q != 0) {
                 Object *o;
+                uint64_t next;
 
                 if (p == q)
                         return 1;
@@ -627,7 +644,11 @@ static int data_object_in_hash_table(JournalFile *f, uint64_t hash, uint64_t p) 
                 if (r < 0)
                         return r;
 
-                q = le64toh(o->data.next_hash_offset);
+                r = data_hash_chain_next(q, o, h, n, &next);
+                if (r < 0)
+                        return r;
+
+                q = next;
         }
 
         return 0;
