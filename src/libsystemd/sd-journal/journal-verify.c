@@ -602,7 +602,7 @@ static int verify_data_hash_table(
 }
 
 static int data_object_in_hash_table(JournalFile *f, uint64_t hash, uint64_t p) {
-        uint64_t n, h, q;
+        uint64_t n, h, q, next;
         int r;
         assert(f);
 
@@ -627,7 +627,13 @@ static int data_object_in_hash_table(JournalFile *f, uint64_t hash, uint64_t p) 
                 if (r < 0)
                         return r;
 
-                q = le64toh(o->data.next_hash_offset);
+                next = le64toh(o->data.next_hash_offset);
+                if (next != 0 && next <= q) {
+                        error(q, "Hash chain has a cycle in hash entry %"PRIu64" of %"PRIu64, h, n);
+                        return -EBADMSG;
+                }
+
+                q = next;
         }
 
         return 0;
