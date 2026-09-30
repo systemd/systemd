@@ -390,7 +390,8 @@ static Compression compression_requested(void) {
 static int journal_file_init_header(
                 JournalFile *f,
                 JournalFileFlags file_flags,
-                JournalFile *template) {
+                JournalFile *template,
+                const sd_id128_t *seqnum_id) {
 
         ssize_t k;
         int r;
@@ -423,10 +424,16 @@ static int journal_file_init_header(
                 return r; /* If we have no valid machine ID (test environment?), let's simply leave the
                            * machine ID field all zeroes. */
 
-        if (template) {
-                h.seqnum_id = template->header->seqnum_id;
+        if (template)
                 h.tail_entry_seqnum = template->header->tail_entry_seqnum;
-        } else
+
+        /* The creator's sequence number ID wins over the template's, like it does for the first entry
+         * appended to an empty file. */
+        if (seqnum_id && !sd_id128_is_null(*seqnum_id))
+                h.seqnum_id = *seqnum_id;
+        else if (template)
+                h.seqnum_id = template->header->seqnum_id;
+        else
                 h.seqnum_id = h.file_id;
 
         k = pwrite(f->fd, &h, sizeof(h), 0);
@@ -4239,7 +4246,7 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                   m->n_max_files);
 }
 
-int journal_file_open(
+int journal_file_open_full(
                 int fd,
                 const char *fname,
                 int open_flags,
@@ -4249,6 +4256,7 @@ int journal_file_open(
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret) {
 
         bool newly_created = false;
@@ -4344,7 +4352,7 @@ int journal_file_open(
                  * solely on mtime/atime/ctime of the file. */
                 (void) fd_setcrtime(f->fd, 0);
 
-                r = journal_file_init_header(f, file_flags, template);
+                r = journal_file_init_header(f, file_flags, template, seqnum_id);
                 if (r < 0)
                         goto fail;
 

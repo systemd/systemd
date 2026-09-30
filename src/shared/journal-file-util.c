@@ -449,6 +449,7 @@ int journal_file_rotate(
                 MMapCache *mmap_cache,
                 JournalFileFlags file_flags,
                 uint64_t compress_threshold_bytes,
+                const sd_id128_t *seqnum_id,
                 Set *deferred_closes) {
 
         _cleanup_free_ char *path = NULL;
@@ -468,7 +469,7 @@ int journal_file_rotate(
 
         set_clear(deferred_closes);
 
-        r = journal_file_open(
+        r = journal_file_open_full(
                         /* fd= */ -EBADF,
                         path,
                         (*f)->open_flags,
@@ -478,6 +479,7 @@ int journal_file_rotate(
                         /* metrics= */ NULL,
                         mmap_cache,
                         /* template= */ *f,
+                        seqnum_id,
                         &new_file);
 
         journal_file_initiate_close(*f, deferred_closes);
@@ -494,12 +496,13 @@ int journal_file_open_reliably(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret) {
 
         _cleanup_(journal_file_offline_closep) JournalFile *old_file = NULL;
         int r;
 
-        r = journal_file_open(
+        r = journal_file_open_full(
                         /* fd= */ -EBADF,
                         fname,
                         open_flags,
@@ -509,6 +512,7 @@ int journal_file_open_reliably(
                         metrics,
                         mmap_cache,
                         /* template= */ NULL,
+                        seqnum_id,
                         ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
@@ -547,8 +551,8 @@ int journal_file_open_reliably(
         if (r < 0)
                 return r;
 
-        return journal_file_open(-EBADF, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                                 mmap_cache, /* template= */ old_file, ret);
+        return journal_file_open_full(-EBADF, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
+                                      mmap_cache, /* template= */ old_file, seqnum_id, ret);
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
