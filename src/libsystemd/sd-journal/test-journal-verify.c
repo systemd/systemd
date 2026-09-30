@@ -171,6 +171,100 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         return 0;
 }
 
+static void test_hash_chain_cycle(void) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        char t[] = "/var/tmp/journal-XXXXXX";
+        JournalFile *f;
+        uint64_t n, head = 0;
+        le64_t self;
+        int fd;
+
+        if (sd_id128_get_machine(NULL) < 0)
+                return (void) log_tests_skipped("No valid machine ID found");
+
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        ASSERT_NOT_NULL(mkdtemp(t));
+        ASSERT_OK_ERRNO(chdir(t));
+
+        ASSERT_OK_ZERO(journal_file_open(
+                                /* fd= */ -EBADF,
+                                "test.journal",
+                                O_RDWR|O_CREAT,
+                                /* file_flags= */ 0,
+                                0666,
+                                /* compress_threshold_bytes= */ UINT64_MAX,
+                                /* metrics= */ NULL,
+                                m,
+                                /* template= */ NULL,
+                                &f));
+
+        /* Enough distinct data objects that some of them share a bucket of the data hash table */
+        for (size_t i = 0; i < 3000; i++) {
+                _cleanup_free_ char *s = NULL;
+                struct iovec iovec;
+                struct dual_timestamp ts;
+
+                dual_timestamp_now(&ts);
+                ASSERT_OK_ERRNO(asprintf(&s, "CYCLE=%zu", i));
+                iovec = IOVEC_MAKE_STRING(s);
+                ASSERT_OK_ZERO(journal_file_append_entry(
+                                        f,
+                                        &ts,
+                                        /* boot_id= */ NULL,
+                                        &iovec,
+                                        /* n_iovec= */ 1,
+                                        /* seqnum= */ NULL,
+                                        /* seqnum_id= */ NULL,
+                                        /* ret_object= */ NULL,
+                                        /* ret_offset= */ NULL));
+        }
+
+        (void) journal_file_offline_close(f);
+
+        /* Find the head of a hash chain with at least two data objects in it */
+        ASSERT_OK_ZERO(journal_file_open(
+                                /* fd= */ -EBADF,
+                                "test.journal",
+                                O_RDONLY,
+                                /* file_flags= */ 0,
+                                0666,
+                                /* compress_threshold_bytes= */ UINT64_MAX,
+                                /* metrics= */ NULL,
+                                m,
+                                /* template= */ NULL,
+                                &f));
+        ASSERT_OK(journal_file_map_data_hash_table(f));
+
+        n = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
+        for (uint64_t i = 0; i < n && head == 0; i++) {
+                uint64_t p = le64toh(f->data_hash_table[i].head_hash_offset);
+                Object *o;
+
+                if (p == 0)
+                        continue;
+
+                ASSERT_OK(journal_file_move_to_object(f, OBJECT_DATA, p, &o));
+                if (o->data.next_hash_offset != 0)
+                        head = p;
+        }
+
+        (void) journal_file_close(f);
+        ASSERT_NE(head, 0u);
+
+        /* Point the head of that chain back at itself. Looking up any other data object of the chain,
+         * which verifying the entry that references it does, then runs into the cycle. */
+        self = htole64(head);
+        ASSERT_OK_ERRNO(fd = open("test.journal", O_RDWR|O_CLOEXEC));
+        ASSERT_EQ(pwrite(fd, &self, sizeof(self), head + offsetof(Object, data.next_hash_offset)),
+                  (ssize_t) sizeof(self));
+        safe_close(fd);
+
+        ASSERT_ERROR(raw_verify("test.journal", /* verification_key= */ NULL), EBADMSG);
+
+        ASSERT_OK(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
+}
+
 int main(int argc, char *argv[]) {
         const char *verification_key = NULL;
         int max_iterations = 512;
@@ -183,6 +277,8 @@ int main(int argc, char *argv[]) {
                 verification_key = argv[1];
                 max_iterations = -1;
         }
+
+        test_hash_chain_cycle();
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
         run_test(verification_key, max_iterations);
