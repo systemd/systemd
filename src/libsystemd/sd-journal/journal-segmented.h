@@ -7,6 +7,7 @@
 /* The segmented journal file format, see docs/JOURNAL_SEGMENTED.md. */
 
 typedef struct Match Match;
+typedef struct SegmentedWriter SegmentedWriter;
 
 /* Inotify notifications bypass the refresh interval. */
 #define SEGMENTED_REFRESH_USEC (10 * USEC_PER_MSEC)
@@ -84,6 +85,8 @@ typedef struct Segmented {
 
         SegmentedResult results[SEGMENTED_RESULTS_MAX];
         uint64_t result_counter;
+
+        SegmentedWriter *writer;
 } Segmented;
 
 bool segmented_requested(void);
@@ -166,3 +169,25 @@ int segmented_enumerate_unique(
                 SegmentedCursor *c,
                 const void **ret_data,
                 size_t *ret_size);
+
+int segmented_append_entry(
+                JournalFile *f,
+                const dual_timestamp *ts,
+                const sd_id128_t *boot_id,
+                const struct iovec iovec[],
+                size_t n_iovec,
+                uint64_t *seqnum,
+                sd_id128_t *seqnum_id,
+                Object **ret_object,
+                uint64_t *ret_offset);
+int segmented_append_tag(JournalFile *f, TagObject *tag);
+int segmented_checkpoint(JournalFile *f);
+int segmented_flush(JournalFile *f);
+
+/* The steps of journal_file_set_offline(). Only segmented_offline() may run in the offline thread. It
+ * returns true if it archived the file. */
+void segmented_offline_prepare(JournalFile *f);
+bool segmented_offline(JournalFile *f);
+int segmented_offline_finish(JournalFile *f);
+
+int segmented_has_value(JournalFile *f, const void *data, size_t size, size_t n_indexes, bool include_tail);
