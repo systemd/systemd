@@ -73,6 +73,7 @@ enum {
         OBJECT_COMPRESSED_LZ4   = 1 << 1,
         OBJECT_COMPRESSED_ZSTD  = 1 << 2,
         _OBJECT_COMPRESSED_MASK = OBJECT_COMPRESSED_XZ | OBJECT_COMPRESSED_LZ4 | OBJECT_COMPRESSED_ZSTD,
+        OBJECT_UNINDEXED        = 1 << 3, /* segmented files: data object without a data table item */
 };
 
 struct ObjectHeader {
@@ -189,7 +190,18 @@ struct ContextObject {
 enum {
         ENTRY_ITEM_DATA    = 0, /* offset of a data object */
         ENTRY_ITEM_CONTEXT = 1, /* offset of a context object */
+        ENTRY_ITEM_INLINE  = 2, /* offset of an inline value, relative to the entry object */
         _ENTRY_ITEM_TYPE_MASK = 7,
+};
+
+typedef struct InlineData {
+        le32_t size;
+        uint8_t payload[];
+} _packed_ InlineData;
+
+enum {
+        INDEX_FIELD_UNINDEXED = 1 << 0, /* the field has data objects without data table items */
+        INDEX_FIELD_INLINE    = 1 << 1, /* the field has inline values */
 };
 
 struct IndexFieldItem {
@@ -238,6 +250,8 @@ struct IndexObject {
         le32_t field_table_offset;
         le32_t n_data_items;
         le32_t data_table_offset;
+        le32_t n_unindexed;
+        le32_t unindexed_offset;
         le32_t payload_checksum;
         le32_t reserved;
         uint8_t payload[];
