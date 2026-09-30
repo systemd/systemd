@@ -848,7 +848,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         return journal_file_fstat(f);
 }
 
-static int journal_file_move_to(
+int journal_file_move_to(
                 JournalFile *f,
                 ObjectType type,
                 bool keep_always,
@@ -2086,6 +2086,47 @@ uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
                 return 0;
 
         return (sz - offsetof(Object, entry.items)) / journal_file_entry_item_size(f);
+}
+
+int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret) {
+        assert(f);
+        assert(o);
+        assert(ret);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return -EBADMSG;
+
+        *ret = journal_file_entry_n_items(f, o);
+        return 0;
+}
+
+int journal_file_entry_field_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        assert(f);
+        assert(o);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return -EBADMSG;
+
+        if (i >= journal_file_entry_n_items(f, o))
+                return -EADDRNOTAVAIL;
+
+        return journal_file_data_payload(
+                        f,
+                        /* o= */ NULL,
+                        journal_file_entry_item_object_offset(f, o, i),
+                        field, field_length,
+                        data_threshold,
+                        ret_data, ret_size);
 }
 
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) {
@@ -3848,6 +3889,43 @@ int journal_file_move_to_entry_by_realtime_for_data(
                         test_object_realtime,
                         direction,
                         ret, ret_offset);
+}
+
+int journal_file_seek_for_match(
+                JournalFile *f,
+                const void *data,
+                uint64_t size,
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret_object,
+                uint64_t *ret_offset) {
+
+        Object *d;
+        int r;
+
+        assert(f);
+        assert(data || size == 0);
+
+        r = journal_file_find_data_object(f, data, size, &d, NULL);
+        if (r <= 0)
+                return r;
+
+        switch (where) {
+        case JOURNAL_SEEK_FIRST:
+                return journal_file_move_to_entry_for_data(f, d, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_OFFSET:
+                return journal_file_move_to_entry_by_offset_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_SEQNUM:
+                return journal_file_move_to_entry_by_seqnum_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_REALTIME:
+                return journal_file_move_to_entry_by_realtime_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_MONOTONIC:
+                return journal_file_move_to_entry_by_monotonic_for_data(f, d, boot_id, needle, direction, ret_object, ret_offset);
+        default:
+                assert_not_reached();
+        }
 }
 
 void journal_file_dump(JournalFile *f) {
