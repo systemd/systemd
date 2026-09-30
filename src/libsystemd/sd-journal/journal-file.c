@@ -4142,6 +4142,73 @@ static int journal_file_move_to_entry_by_realtime_for_data(
                         ret, ret_offset);
 }
 
+int journal_file_seek_for_expression(
+                JournalFile *f,
+                Match *m,
+                uint64_t generation,
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret_object,
+                uint64_t *ret_offset) {
+
+        assert(f);
+        assert(m);
+
+        if (!f->segmented)
+                return -EOPNOTSUPP;
+
+        return segmented_seek(
+                        f, m,
+                        (const uint64_t[2]) { SEGMENTED_KEY_EXPRESSION, generation },
+                        where, boot_id, needle, direction,
+                        ret_object, ret_offset);
+}
+
+int journal_file_enumerate_unique(
+                JournalFile *f,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                SegmentedCursor *c,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        assert(f);
+
+        if (!f->segmented)
+                return -EOPNOTSUPP;
+
+        return segmented_enumerate_unique(f, field, field_length, data_threshold, c, ret_data, ret_size);
+}
+
+int journal_file_enumerate_fields(JournalFile *f, SegmentedCursor *c, const void **ret_name, size_t *ret_size) {
+        assert(f);
+
+        if (!f->segmented)
+                return -EOPNOTSUPP;
+
+        return segmented_enumerate_fields(f, c, ret_name, ret_size);
+}
+
+int journal_file_refresh(JournalFile *f, usec_t ts) {
+        assert(f);
+
+        if (!f->segmented)
+                return 0;
+
+        return segmented_refresh(f, ts);
+}
+
+void journal_file_request_refresh(JournalFile *f) {
+        assert(f);
+
+        /* The next refresh skips the rate limit, for example because inotify reported a change */
+        if (f->segmented)
+                f->segmented->refresh_pending = true;
+}
+
 int journal_file_seek_for_match(
                 JournalFile *f,
                 const void *data,
