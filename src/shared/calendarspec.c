@@ -1199,20 +1199,23 @@ static int tm_within_bounds(struct tm *tm, bool utc) {
         /*
          * Did any normalization take place? If so, it was out of bounds before.
          * Normalization could skip next elapse, e.g. result of normalizing 3-33
-         * is 4-2. This skips 4-1. So reset the sub time unit if upper unit was
-         * out of bounds. Normalization has occurred implies find_matching_component() > 0,
-         * other sub time units are already reset in find_next().
+         * is 4-2. This skips 4-1. So reset all sub time units if an upper unit was
+         * out of bounds. The overflow may carry over more than one unit, e.g. 23:63
+         * is normalized to 00:03 of the next day, so resetting only the hour would
+         * skip 00:00.
          */
         int cmp;
         if ((cmp = CMP(t.tm_year, tm->tm_year)) != 0) {
                 t.tm_mon = 0;
                 t.tm_mday = 1;
-        } else if ((cmp = CMP(t.tm_mon, tm->tm_mon)) != 0)
+                t.tm_hour = t.tm_min = t.tm_sec = 0;
+        } else if ((cmp = CMP(t.tm_mon, tm->tm_mon)) != 0) {
                 t.tm_mday = 1;
-        else if ((cmp = CMP(t.tm_mday, tm->tm_mday)) != 0)
-                t.tm_hour = 0;
+                t.tm_hour = t.tm_min = t.tm_sec = 0;
+        } else if ((cmp = CMP(t.tm_mday, tm->tm_mday)) != 0)
+                t.tm_hour = t.tm_min = t.tm_sec = 0;
         else if ((cmp = CMP(t.tm_hour, tm->tm_hour)) != 0)
-                t.tm_min = 0;
+                t.tm_min = t.tm_sec = 0;
         else if ((cmp = CMP(t.tm_min, tm->tm_min)) != 0)
                 t.tm_sec = 0;
         else
@@ -1432,8 +1435,11 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
                         c.tm_sec = tm_usec = 0;
                         continue;
                 }
-                if (r == 0)
+                if (r == 0) {
+                        /* The seconds were carried over into the next minute, which starts at 0 μs */
+                        tm_usec = 0;
                         continue;
+                }
 
                 r = tm_compare(tm, &c);
                 if (r == 0) {
