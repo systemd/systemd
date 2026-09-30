@@ -110,6 +110,9 @@ typedef struct JournalFile {
 
         JournalAuthContext *auth_context;
 
+        /* Set for segmented files. 'header' then points to a private copy (the shadow header). */
+        struct Segmented *segmented;
+
         /* When we insert this file into the per-boot priority queue 'newest_by_boot_id' in sd_journal, then by these keys */
         sd_id128_t newest_boot_id;
         sd_id128_t newest_machine_id;
@@ -216,8 +219,12 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPACT(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
 
+#define JOURNAL_HEADER_SEGMENTED(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_SEGMENTED)
+
 int journal_file_move_to(JournalFile *f, ObjectType type, bool keep_always, uint64_t offset, uint64_t size, void **ret);
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
+int journal_file_check_entry_header(Object *o, uint64_t offset);
 int journal_file_pin_object(JournalFile *f, Object *o);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
 
@@ -271,12 +278,18 @@ int journal_file_data_payload_pinned(
                 size_t *ret_size);
 
 static inline size_t journal_file_data_payload_offset(JournalFile *f) {
+        if (JOURNAL_HEADER_SEGMENTED(f->header))
+                return offsetof(Object, segmented_data.payload);
+
         return JOURNAL_HEADER_COMPACT(f->header)
                         ? offsetof(Object, data.compact.payload)
                         : offsetof(Object, data.regular.payload);
 }
 
 static inline uint8_t* journal_file_data_payload_field(JournalFile *f, Object *o) {
+        if (JOURNAL_HEADER_SEGMENTED(f->header))
+                return o->segmented_data.payload;
+
         return JOURNAL_HEADER_COMPACT(f->header) ? o->data.compact.payload : o->data.regular.payload;
 }
 
