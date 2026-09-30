@@ -119,12 +119,21 @@ static int journal_file_punch_holes(JournalFile *f) {
                 for (size_t j = 0; j < (size_t) n / sizeof(HashItem); j++) {
                         Object o;
 
-                        for (uint64_t q = le64toh(items[j].head_hash_offset); q != 0;
-                             q = le64toh(o.data.next_hash_offset)) {
+                        for (uint64_t q = le64toh(items[j].head_hash_offset), next; q != 0; q = next) {
 
                                 r = journal_file_read_object_header(f, OBJECT_DATA, q, &o);
                                 if (r < 0) {
                                         log_debug_errno(r, "Invalid data object: %m, ignoring");
+                                        break;
+                                }
+
+                                /* Objects are only ever appended, hence the hash chain has to move
+                                 * strictly forward. If it doesn't the file is corrupted, and following
+                                 * it would make us loop forever. Unlike for entry arrays this is not
+                                 * checked when the object is read. */
+                                next = le64toh(o.data.next_hash_offset);
+                                if (next != 0 && next <= q) {
+                                        log_debug("Data hash chain has a cycle at %"PRIu64", ignoring.", q);
                                         break;
                                 }
 
