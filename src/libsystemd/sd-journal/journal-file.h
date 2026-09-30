@@ -310,6 +310,11 @@ static inline size_t journal_file_entry_array_item_size(JournalFile *f) {
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret_object, uint64_t *ret_offset);
+uint64_t journal_file_next_seqnum(JournalFile *f, const uint64_t *seqnum);
+int journal_file_check_keep_free(JournalFile *f, uint64_t old_size, uint64_t new_size);
+int journal_file_check_entry_order(JournalFile *f, const dual_timestamp *ts, const sd_id128_t *boot_id);
+int journal_file_maybe_compress_payload(JournalFile *f, uint8_t *dst, const uint8_t *src, uint64_t size, size_t *rsize, Compression *ret_compression);
+
 int journal_file_append_entry(
                 JournalFile *f,
                 const dual_timestamp *ts,
