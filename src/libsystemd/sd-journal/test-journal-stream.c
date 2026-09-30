@@ -195,5 +195,8 @@ int main(int argc, char *argv[]) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         run_test();
 
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
+        run_test();
+
         return 0;
 }
