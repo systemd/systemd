@@ -37,7 +37,7 @@ at_exit() {
         "$SD_PCRLOCK" unlock-raw --pcrlock=/var/lib/pcrlock.d/920-test70.pcrlock
     fi
 
-    rm -rf /tmp/fakexbootldr /var/lib/pcrlock.d/123-empty.pcrlock.d /run/systemd/system/systemd-pcrlock.socket.d
+    rm -rf /tmp/fakexbootldr /var/lib/pcrlock.d/123-empty.pcrlock.d /var/lib/pcrlock.d/930-many.pcrlock.d /run/systemd/system/systemd-pcrlock.socket.d
     if [[ -n "${img:-}" ]]; then
         rm -f "$img" "$img".private.pem "$img".public.pem "$img".pcrsign
     fi
@@ -169,6 +169,29 @@ echo -n test70-take-two | "$SD_PCRLOCK" lock-raw --pcrlock=/var/lib/pcrlock.d/92
 
 "$SD_PCRLOCK" cel --json=pretty
 
+systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
+systemd-cryptsetup detach pcrlock
+
+# Now exercise the PolicyOR tree code path: more than 8 alternatives for a PCR. Add a component with nine
+# variants touching PCR 16, rebuild the policy (the current PCR 16 state still matches the policy generated
+# above, so the recovery PIN is not needed), then extend PCR 16 with the fifth variant and unlock again. A
+# flat PolicyOR could only hold 8 of these.
+mkdir -p /var/lib/pcrlock.d/930-many.pcrlock.d
+for i in $(seq -w 1 9); do
+    echo -n "test70-many-$i" | "$SD_PCRLOCK" lock-raw \
+        --pcrlock="/var/lib/pcrlock.d/930-many.pcrlock.d/${i}.pcrlock" --pcr=16
+done
+
+"$SD_PCRLOCK" predict --pcr="$PCRS"
+
+# The extra variants for PCR 16 must actually end up in the prediction, otherwise this block silently stops
+# covering the nested PolicyOR code path.
+"$SD_PCRLOCK" predict --json=short --pcr="$PCRS" | \
+    jq -e 'to_entries[] | .value[] | select(.pcr == 16) | .values | length > 8' >/dev/null
+
+"$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+
+"$SD_PCREXTEND" --pcr=16 test70-many-5
 systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
 systemd-cryptsetup detach pcrlock
 
