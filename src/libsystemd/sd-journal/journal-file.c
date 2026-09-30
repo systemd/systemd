@@ -786,7 +786,7 @@ int journal_file_fstat(JournalFile *f) {
         return 0;
 }
 
-static int journal_file_check_keep_free(JournalFile *f, uint64_t old_size, uint64_t new_size) {
+int journal_file_check_keep_free(JournalFile *f, uint64_t old_size, uint64_t new_size) {
         struct statvfs svfs;
         uint64_t available;
 
@@ -1309,7 +1309,7 @@ static uint64_t inc_seqnum(uint64_t seqnum) {
         return 1; /* skip over UINT64_MAX and 0 when we run out of seqnums and start again */
 }
 
-static uint64_t journal_file_next_seqnum(JournalFile *f, const uint64_t *seqnum) {
+uint64_t journal_file_next_seqnum(JournalFile *f, const uint64_t *seqnum) {
         uint64_t next_seqnum;
 
         assert(f);
@@ -1943,7 +1943,7 @@ static int journal_file_append_field(
         return 0;
 }
 
-static int maybe_compress_payload(
+int journal_file_maybe_compress_payload(
                 JournalFile *f,
                 uint8_t *dst,
                 const uint8_t *src,
@@ -2020,7 +2020,7 @@ static int journal_file_append_data(
         o->data.hash = htole64(hash);
 
         Compression c;
-        r = maybe_compress_payload(f, journal_file_data_payload_field(f, o), data, size, &rsize, &c);
+        r = journal_file_maybe_compress_payload(f, journal_file_data_payload_field(f, o), data, size, &rsize, &c);
         if (r <= 0)
                 /* We don't really care failures, let's continue without compression */
                 memcpy_safe(journal_file_data_payload_field(f, o), data, size);
@@ -2514,7 +2514,7 @@ static void write_entry_item(JournalFile *f, Object *o, uint64_t i, const EntryI
         }
 }
 
-static int journal_file_check_entry_order(JournalFile *f, const dual_timestamp *ts, const sd_id128_t *boot_id) {
+int journal_file_check_entry_order(JournalFile *f, const dual_timestamp *ts, const sd_id128_t *boot_id) {
         assert(f);
         assert(f->header);
         assert(ts);
