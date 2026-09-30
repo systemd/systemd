@@ -3877,6 +3877,43 @@ int journal_file_move_to_entry_by_realtime_for_data(
                         ret, ret_offset);
 }
 
+int journal_file_seek_for_match(
+                JournalFile *f,
+                const void *data,
+                uint64_t size,
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret_object,
+                uint64_t *ret_offset) {
+
+        Object *d;
+        int r;
+
+        assert(f);
+        assert(data || size == 0);
+
+        r = journal_file_find_data_object(f, data, size, &d, NULL);
+        if (r <= 0)
+                return r;
+
+        switch (where) {
+        case JOURNAL_SEEK_FIRST:
+                return journal_file_move_to_entry_for_data(f, d, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_OFFSET:
+                return journal_file_move_to_entry_by_offset_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_SEQNUM:
+                return journal_file_move_to_entry_by_seqnum_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_REALTIME:
+                return journal_file_move_to_entry_by_realtime_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_MONOTONIC:
+                return journal_file_move_to_entry_by_monotonic_for_data(f, d, boot_id, needle, direction, ret_object, ret_offset);
+        default:
+                assert_not_reached();
+        }
+}
+
 void journal_file_dump(JournalFile *f) {
         Object *o;
         uint64_t p;
