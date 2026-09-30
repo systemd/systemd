@@ -1131,6 +1131,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
 
 typedef struct VerifyField {
         uint64_t hash;
+        uint32_t flags;
         uint32_t n_values;
         bool seen;              /* in the field table of the index */
         char name[];
@@ -1252,6 +1253,14 @@ static int verify_segmented_entry(VerifyState *v, Object *o, uint64_t p) {
                         good = r > 0;
                         break;
 
+                case ENTRY_ITEM_INLINE: {
+                        const InlineData *d = (const InlineData*) ((const uint8_t*) o + q);
+                        const char *eq = memchr(d->payload, '=', le32toh(d->size));
+
+                        good = eq && journal_field_valid((const char*) d->payload, eq - (const char*) d->payload, /* allow_protected= */ true);
+                        break;
+                }
+
                 default:
                         good = false;
                 }
@@ -1283,19 +1292,19 @@ static bool verify_segmented_index_fits(VerifyState *v, const SegmentedIndex *i)
                                        newest ? newest->n_entries : 0);
 }
 
-static int verify_field_get(JournalFile *f, Hashmap **fields, uint64_t hash, uint64_t data_offset, VerifyField **ret) {
+static int verify_field_get(
+                Hashmap **fields,
+                uint64_t hash,
+                const void *payload,
+                size_t size,
+                VerifyField **ret) {
+
         VerifyField *field;
-        const void *payload;
         const char *eq;
-        size_t size;
         int r;
 
         assert(fields);
         assert(ret);
-
-        r = journal_file_data_payload(f, NULL, data_offset, NULL, 0, &payload, &size);
-        if (r < 0)
-                return r;
 
         eq = memchr(payload, '=', size);
         assert(eq);
@@ -1405,6 +1414,29 @@ static int verify_segmented_rebuild(VerifyState *v, const SegmentedIndex *i, uin
                         return r;
 
                 for (size_t m = 0; m < n_entry_fields; m++) {
+                        VerifyField *field;
+
+                        if (entry_fields[m].type == SEGMENTED_FIELD_INLINE) {
+                                const void *payload;
+                                const char *eq;
+                                size_t size;
+
+                                r = segmented_inline_payload(f, entry_fields[m].offset, /* field= */ NULL, /* field_length= */ 0, &payload, &size);
+                                if (r < 0)
+                                        return r;
+
+                                eq = memchr(payload, '=', size);
+                                assert(eq);
+
+                                r = verify_field_get(&fields, journal_file_hash_data(f, payload, eq - (const char*) payload),
+                                                     payload, size, &field);
+                                if (r < 0)
+                                        return r;
+
+                                field->flags |= INDEX_FIELD_INLINE;
+                                continue;
+                        }
+
                         uint64_t offset = entry_fields[m].offset;
                         VerifyDataCache *c = v->cache + (offset / 8) % VERIFY_DATA_CACHE_MAX;
 
@@ -1428,7 +1460,7 @@ static int verify_segmented_rebuild(VerifyState *v, const SegmentedIndex *i, uin
                                 };
                                 *c = (VerifyDataCache) { .offset = offset };
 
-                                r = verify_field_get(f, &fields, d.field_hash, offset, &c->field);
+                                r = verify_field_get(&fields, d.field_hash, payload, size, &c->field);
                                 if (r < 0)
                                         return r;
 
@@ -1469,7 +1501,7 @@ static int verify_segmented_rebuild(VerifyState *v, const SegmentedIndex *i, uin
                 memcpy(key, name, name_size);
                 key[name_size] = 0;
                 VerifyField *field = hashmap_get(fields, key);
-                if (!field || field->seen || le64toh(item.hash) != field->hash || le32toh(item.flags) != 0) {
+                if (!field || field->seen || le64toh(item.hash) != field->hash || le32toh(item.flags) != field->flags) {
                         error(i->offset, "Index field %" PRIu32 " does not match the log", k);
                         return -EBADMSG;
                 }
