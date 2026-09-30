@@ -1,0 +1,16 @@
+{
+  "_about": "Curated introduction versions for Varlink interfaces whose wire API predates the introspectable IDL macros (late 2023).",
+  "io.systemd.Journal": "242",
+  "io.systemd.JournalAccess": ">= 0.62.0",
+  "io.systemd.Login": ">= 0.60.0",
+  "io.systemd.Machine": ">= 0.60.0",
+  "io.systemd.ManagedOOM": "246",
+  "io.systemd.PCRExtend": "254",
+  "io.systemd.PCRLock": "255",
+  "io.systemd.Resolve": "246",
+  "io.systemd.UserDatabase": "244",
+  "io.systemd.oom": "249",
+  "io.systemd.service": ">= 0.60.0",
+  "io.systemd.sysext": "254",
+  "org.varlink.service": "242"
+}

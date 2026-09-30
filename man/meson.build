@@ -40,6 +40,7 @@ man_pages = []
 html_pages = []
 source_xml_files = []
 dbus_docs = []
+varlink_docs = []
 foreach tuple : manpages
         stem = tuple[0]
         section = tuple[1]
@@ -72,6 +73,9 @@ foreach tuple : manpages
                 source_xml_files += file
                 if tuple[0].startswith('org.freedesktop.')
                         dbus_docs += file
+                endif
+                if tuple[0].startswith('io.systemd.') or tuple[0].startswith('org.varlink.')
+                        varlink_docs += file
                 endif
 
                 if xsltproc.found()
@@ -131,8 +135,15 @@ systemd_index_xml = custom_target(
         output : 'systemd.index.xml',
         command : [make_man_index_py, '@OUTPUT@'] + nonindex_xml_files)
 
+# The Varlink interface index is generated from the Varlink interface pages only.
+systemd_varlink_xml = custom_target(
+        input : varlink_docs,
+        output : 'systemd.varlink.xml',
+        command : [make_varlink_index_py, '@OUTPUT@'] + varlink_docs)
+
 foreach tuple : xsltproc.found() and have_lxml ? [['systemd.directives', '7', systemd_directives_xml],
-                                                  ['systemd.index',      '7', systemd_index_xml]] : []
+                                                  ['systemd.index',      '7', systemd_index_xml],
+                                                  ['systemd.varlink',    '7', systemd_varlink_xml]] : []
         stem = tuple[0]
         section = tuple[1]
         xml = tuple[2]
@@ -222,12 +233,30 @@ update_dbus_docs = custom_target(
         input : dbus_docs,
         depends : dbus_programs)
 
+if varlink_docs.length() > 0 and not meson.is_cross_build()
+        update_varlink_docs = custom_target(
+                output : 'update-varlink-docs',
+                command : [update_varlink_docs_py, '--build-dir', meson.project_build_root(), '@INPUT@'],
+                input : varlink_docs,
+                depends : executables_by_name['systemd-varlink-introspect'])
+
+        alias_target('update-varlink-docs', update_varlink_docs)
+endif
+
 if conf.get('BUILD_MODE_DEVELOPER') == 1
         test('dbus-docs-fresh',
              update_dbus_docs_py,
              suite : 'dist',
              args : ['--build-dir', meson.project_build_root(), '--test', dbus_docs],
              depends : dbus_programs)
+
+        if varlink_docs.length() > 0 and not meson.is_cross_build()
+                test('varlink-docs-fresh',
+                     update_varlink_docs_py,
+                     suite : 'dist',
+                     args : ['--build-dir', meson.project_build_root(), '--test', varlink_docs],
+                     depends : executables_by_name['systemd-varlink-introspect'])
+        endif
 
         test('check-version-history',
              check_version_history_py,
