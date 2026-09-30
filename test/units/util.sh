@@ -597,3 +597,95 @@ wait_for_machine() {
         done
     "
 }
+
+assert_unit_state() {
+    local unit=${1:?}
+    local activestate=${2:?}
+    local substate=${3:?}
+    local syspath=${4:-}
+
+    assert_eq "$(systemctl show -q --property=ActiveState --value "$unit")" "$activestate"
+    assert_eq "$(systemctl show -q --property=SubState --value "$unit")" "$substate"
+
+    if [[ -n "$syspath" ]]; then
+        assert_eq "$(systemctl show -q --property=SysFSPath --value "$unit")" "$syspath"
+    fi
+}
+
+assert_wc_l() {
+    local path=${1:?}
+    local expected=${2:?}
+
+    if [[ "$expected" -eq 0 ]]; then
+        [[ ! -f "$path" ]]
+    else
+        [[ -f "$path" ]]
+        assert_eq "$(wc -l "$path" | awk '{ print $1 }')" "$expected"
+    fi
+}
+
+start_bound_service() {
+    local path=${1:?}
+    local name=${2:?}
+    local escaped
+
+    escaped=$(systemd-escape --path "$path")
+    escaped=${escaped//\\/\\\\} # escape backslash, as systemd-run unescapes it.
+
+    systemd-run \
+        -p After="${escaped}.device" \
+        -p BindsTo="${escaped}.device" \
+        -p ReloadPropagatedFrom="${escaped}.device" \
+        -p ExecStartPre="rm -f /tmp/testsleep-reload-${name}.txt" \
+        -p ExecReload="bash -c 'echo reloaded >>/tmp/testsleep-reload-${name}.txt'" \
+        -u "testsleep-${name}.service" \
+        sleep 1h
+
+    assert_unit_state "testsleep-${name}.service" active running
+    assert_wc_l "/tmp/testsleep-reload-${name}.txt" 0
+}
+
+get_invocation_id() {
+    local unit=${1:?}
+
+    systemctl show -q --property=InvocationID --value "$unit"
+}
+
+wait_for_inactive() {
+    local unit=${1:?}
+
+    # Note that do not use 'systemctl stop foo.device' to wait for the device unit to become inactive. Unlike
+    # 'systemctl start foo.device', which waits for the device unit to become active,
+    # 'systemctl stop foo.device' also kills device units with the same sysfs path and the units that depend
+    # on these device units.
+
+    # shellcheck disable=SC2016
+    timeout 30 bash -c 'until [[ "$(systemctl show -q --property=ActiveState --value '"$unit"')" == inactive ]]; do sleep .5; done'
+}
+
+kill_sleep_by_udevd() {
+    local pid comm
+    local -a pids
+
+    # Collect PIDs first, then kill: killing while reading cgroup.procs would
+    # mutate the set we are iterating over.
+
+    while read -r pid; do
+        read -r comm <"/proc/$pid/comm" 2>/dev/null || continue
+        [[ "${comm##*/}" == sleep ]] && pids+=("$pid")
+    done <"/sys/fs/cgroup$(systemctl show -P ControlGroup systemd-udevd.service)/workers/cgroup.procs"
+
+    for pid in "${pids[@]}"; do
+        kill "$pid" || :
+    done
+
+    return 0
+}
+
+device_get_udev_db() {
+    local dev=${1:?}
+    local id
+
+    id=$(udevadm info "$dev" | awk '/^J:/ { print $2 }')
+    echo /run/udev/data/"$id"
+}

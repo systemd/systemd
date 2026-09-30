@@ -229,7 +229,10 @@ run_testcases() {
         #       unexpectedly inherit a RETURN trap handler from the called
         #       function and call it for the second time once we return,
         #       causing a "double-free"
-        ("$testcase")
+        if ! ("$testcase"); then
+            echo "+++ $testcase FAILED ***"
+            exit 1
+        fi
         : "+++ $testcase END +++"
     done
 }
