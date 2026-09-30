@@ -3098,10 +3098,24 @@ int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link 
         assert(link);
         assert(error_msg);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        if (link->state == LINK_STATE_LINGER)
                 return 0;
 
         r = sd_netlink_message_get_errno(m);
+        if (r == -ENODEV) {
+                NetDev *netdev = NULL;
+
+                /* The link disappeared while the GETLINK request was in flight. Drop the link here, instead
+                 * of entering failed state and restarting configuration, as the RTM_DELLINK notification
+                 * that normally removes the link has already been processed or lost. */
+                (void) netdev_get(link->manager, link->ifname, &netdev);
+                log_link_debug(link, "Link vanished while querying its state, dropping.");
+                link_drop(link);
+                netdev_drop(netdev);
+                return 0;
+        }
+        if (link->state == LINK_STATE_FAILED)
+                return 0;
         if (r < 0) {
                 log_link_message_warning_errno(link, m, r, "%s", error_msg);
                 link_enter_failed(link);
