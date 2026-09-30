@@ -21,6 +21,7 @@
 #include "journal-vacuum.h"
 #include "journal-verify.h"
 #include "log.h"
+#include "memfd-util.h"
 #include "memory-util.h"
 #include "mmap-cache.h"
 #include "random-util.h"
@@ -893,6 +894,54 @@ TEST(copy) {
         classic = journal_file_offline_close(classic);
         segmented = journal_file_offline_close(segmented);
         copy = journal_file_offline_close(copy);
+}
+
+TEST(get_data_to_fd) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ char *path = NULL;
+        dual_timestamp ts;
+        JournalFile *f;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        /* The writer stores _SOURCE_REALTIME_TIMESTAMP= in the entry and MESSAGE= in a data object. */
+        struct iovec iovec[] = {
+                IOVEC_MAKE_STRING("_SOURCE_REALTIME_TIMESTAMP=1234567"),
+                IOVEC_MAKE_STRING("MESSAGE=hello"),
+        };
+
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_NOT_NULL(path = strdup(f->path));
+        dual_timestamp_now(&ts);
+        ASSERT_OK(journal_file_append_entry(f, &ts, NULL, iovec, ELEMENTSOF(iovec), NULL, NULL, NULL, NULL));
+        f = journal_file_offline_close(f);
+
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { path, NULL }, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+
+        FOREACH_ELEMENT(i, iovec) {
+                const char *eq = memchr(i->iov_base, '=', i->iov_len);
+                _cleanup_free_ char *field = NULL;
+
+                ASSERT_NOT_NULL(eq);
+                ASSERT_NOT_NULL(field = strndup(i->iov_base, eq - (const char*) i->iov_base));
+
+                sd_journal_data_flags_t flags;
+                FOREACH_ARGUMENT(flags, 0, SD_JOURNAL_DATA_SKIP_FIELD) {
+                        size_t skip = FLAGS_SET(flags, SD_JOURNAL_DATA_SKIP_FIELD) ? strlen(field) + 1 : 0;
+                        _cleanup_close_ int fd = ASSERT_OK(memfd_new("segmented-data-to-fd"));
+                        char buf[64];
+                        size_t sz;
+
+                        ASSERT_OK(sd_journal_get_data_to_fd(j, field, flags, fd, &sz));
+                        ASSERT_EQ(sz, i->iov_len - skip);
+                        ASSERT_OK_EQ_ERRNO(pread(fd, buf, sizeof(buf), 0), (ssize_t) sz);
+                        ASSERT_EQ(memcmp(buf, (const char*) i->iov_base + skip, sz), 0);
+                }
+        }
 }
 
 TEST(batch) {
