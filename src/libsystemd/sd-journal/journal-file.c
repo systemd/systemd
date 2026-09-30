@@ -927,7 +927,7 @@ static int journal_file_move_to_full(
         return 0;
 }
 
-static int journal_file_move_to(
+int journal_file_move_to(
                 JournalFile *f,
                 ObjectType type,
                 bool keep_always,
@@ -1007,7 +1007,7 @@ static int check_object_header(JournalFile *f, Object *o, ObjectType type, uint6
         return 0;
 }
 
-static int journal_file_check_entry_header(Object *o, uint64_t offset) {
+int journal_file_check_entry_header(Object *o, uint64_t offset) {
         assert(o);
 
         if (le64toh(o->entry.seqnum) <= 0)
