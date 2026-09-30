@@ -3,6 +3,8 @@
 sd_journal_sources = files(
         'sd-journal/catalog.c',
         'sd-journal/journal-authenticate-internal.c',
+        'sd-journal/journal-segmented.c',
+        'sd-journal/journal-segmented-query.c',
         'sd-journal/journal-file.c',
         'sd-journal/journal-postings.c',
         'sd-journal/journal-send.c',
