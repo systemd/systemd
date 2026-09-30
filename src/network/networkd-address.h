@@ -89,6 +89,8 @@ bool address_can_update(const Address *existing, const Address *requesting);
 
 DECLARE_TRIVIAL_REF_UNREF_FUNC(Address, address);
 
+uint64_t address_limit_from_env(const char *name, uint64_t fallback, uint64_t *cached);
+
 int address_new(Address **ret);
 int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret);
 int address_get(Link *link, const Address *in, Address **ret);

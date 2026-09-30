@@ -11,6 +11,7 @@
 #include "bitfield.h"
 #include "conf-parser.h"
 #include "errno-util.h"
+#include "env-util.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "logarithm.h"
@@ -38,8 +39,8 @@
 #include "string-util.h"
 #include "strv.h"
 
-#define ADDRESSES_PER_LINK_MAX 16384U
-#define STATIC_ADDRESSES_PER_NETWORK_MAX 8192U
+#define ADDRESSES_PER_LINK_MAX_DEFAULT 16384U
+#define STATIC_ADDRESSES_PER_NETWORK_MAX_DEFAULT 8192U
 
 #define KNOWN_FLAGS                             \
         (IFA_F_SECONDARY |                      \
@@ -194,6 +195,34 @@ int address_new(Address **ret) {
         return 0;
 }
 
+uint64_t address_limit_from_env(const char *name, uint64_t fallback, uint64_t *cached) {
+        uint64_t value;
+        int r;
+
+        /* The service environment is fixed for the daemon's lifetime. Parse each limit only on first use. */
+        if (*cached > 0)
+                return *cached;
+
+        r = secure_getenv_uint64(name, &value);
+        if (r >= 0 && value > 0)
+                *cached = value;
+        else {
+                if (r != -ENXIO)
+                        log_warning("Invalid value for $%s, ignoring and using the default limit.", name);
+
+                *cached = fallback;
+        }
+
+        return *cached;
+}
+
+static uint64_t get_static_addresses_per_network_max(void) {
+        static uint64_t cached;
+
+        return address_limit_from_env("SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX",
+                                      STATIC_ADDRESSES_PER_NETWORK_MAX_DEFAULT, &cached);
+}
+
 int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(address_unrefp) Address *address = NULL;
@@ -214,7 +243,7 @@ int address_new_static(Network *network, const char *filename, unsigned section_
                 return 0;
         }
 
-        if (ordered_hashmap_size(network->addresses_by_section) >= STATIC_ADDRESSES_PER_NETWORK_MAX)
+        if (ordered_hashmap_size(network->addresses_by_section) >= get_static_addresses_per_network_max())
                 return -E2BIG;
 
         r = address_new(&address);
@@ -1690,6 +1719,12 @@ static int address_requeue_request(Request *req, Link *link, const Address *addr
         return 1; /* A new request is queued. it is not necessary to process this request anymore. */
 }
 
+static uint64_t get_addresses_per_link_max(void) {
+        static uint64_t cached;
+
+        return address_limit_from_env("SYSTEMD_ADDRESSES_PER_LINK_MAX", ADDRESSES_PER_LINK_MAX_DEFAULT, &cached);
+}
+
 static int address_process_request(Request *req, Link *link, Address *address) {
         Address *existing;
         struct ifa_cacheinfo c;
@@ -1703,7 +1738,7 @@ static int address_process_request(Request *req, Link *link, Address *address) {
                 return 0;
 
         /* Refuse adding more than the limit */
-        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
+        if (set_size(link->addresses) >= get_addresses_per_link_max())
                 return 0;
 
         r = address_requeue_request(req, link, address);
