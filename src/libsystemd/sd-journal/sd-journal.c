@@ -3440,6 +3440,32 @@ _public_ int sd_journal_get_usage(sd_journal *j, uint64_t *ret_bytes) {
         return 0;
 }
 
+static int journal_seen_before(
+                sd_journal *j,
+                JournalFile *current,
+                const void *data,
+                size_t size,
+                int (*find)(JournalFile *f, const void *data, uint64_t size, Object **ret_object, uint64_t *ret_offset)) {
+
+        JournalFile *of;
+        int r;
+
+        ORDERED_HASHMAP_FOREACH(of, j->files) {
+                if (of == current)
+                        break;
+
+                /* Skip this file it didn't have any fields indexed */
+                if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
+                        continue;
+
+                r = find(of, data, size, NULL, NULL);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
         int r;
 
@@ -3458,6 +3484,47 @@ _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
         j->unique_file_lost = false;
 
         return 0;
+}
+
+static int unique_next_in_file(sd_journal *j, size_t k, const void **ret_data, size_t *ret_size) {
+        JournalFile *f = ASSERT_PTR(ASSERT_PTR(j)->unique_file);
+        Object *o;
+        int r;
+
+        /* Proceed to next data object in the field's linked list */
+        if (j->unique_offset == 0) {
+                r = journal_file_find_field_object(f, j->unique_field, k, &o, NULL);
+                if (r < 0)
+                        return r;
+
+                j->unique_offset = r > 0 ? le64toh(o->field.head_data_offset) : 0;
+        } else {
+                r = journal_file_move_to_object(f, OBJECT_DATA, j->unique_offset, &o);
+                if (r < 0)
+                        return r;
+
+                j->unique_offset = le64toh(o->data.next_field_offset);
+        }
+
+        if (j->unique_offset == 0)
+                return 0;
+
+        r = journal_file_data_payload_pinned(f, j->unique_offset, NULL, 0, j->data_threshold, ret_data, ret_size);
+        if (r < 0)
+                return r;
+
+        /* Check if we have at least the field name and "=". */
+        if (*ret_size <= k)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "%s:offset " OFSfmt ": object has size %zu, expected at least %zu",
+                                       f->path, j->unique_offset, *ret_size, k + 1);
+
+        if (memcmp(*ret_data, j->unique_field, k) != 0 || ((const char*) *ret_data)[k] != '=')
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "%s:offset " OFSfmt ": object does not start with \"%s=\"",
+                                       f->path, j->unique_offset, j->unique_field);
+
+        return 1;
 }
 
 _public_ int sd_journal_enumerate_unique(
@@ -3487,97 +3554,33 @@ _public_ int sd_journal_enumerate_unique(
         }
 
         for (;;) {
-                JournalFile *of;
-                Object *o;
                 const void *odata;
                 size_t ol;
-                bool found;
                 int r;
 
-                /* Proceed to next data object in the field's linked list */
-                if (j->unique_offset == 0) {
-                        r = journal_file_find_field_object(j->unique_file, j->unique_field, k, &o, NULL);
-                        if (r < 0)
-                                return r;
-
-                        j->unique_offset = r > 0 ? le64toh(o->field.head_data_offset) : 0;
-                } else {
-                        r = journal_file_move_to_object(j->unique_file, OBJECT_DATA, j->unique_offset, &o);
-                        if (r < 0)
-                                return r;
-
-                        j->unique_offset = le64toh(o->data.next_field_offset);
-                }
-
-                /* We reached the end of the list? Then start again, with the next file */
-                if (j->unique_offset == 0) {
+                r = unique_next_in_file(j, k, &odata, &ol);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        /* We reached the end of the list? Then start again, with the next file */
                         j->unique_file = ordered_hashmap_next(j->files, j->unique_file->path);
+                        j->unique_offset = 0;
                         if (!j->unique_file)
                                 return 0;
 
                         continue;
                 }
 
-                r = journal_file_move_to_object(j->unique_file, OBJECT_DATA, j->unique_offset, &o);
-                if (r < 0)
-                        return r;
-
-                /* Let's pin the data object, so we can look at it at the same time as one on another file. */
-                r = journal_file_pin_object(j->unique_file, o);
-                if (r < 0)
-                        return r;
-
-                r = journal_file_data_payload(j->unique_file, o, j->unique_offset, NULL, 0,
-                                              j->data_threshold, &odata, &ol);
-                if (r < 0)
-                        return r;
-
-                /* Check if we have at least the field name and "=". */
-                if (ol <= k)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "%s:offset " OFSfmt ": object has size %zu, expected at least %zu",
-                                               j->unique_file->path,
-                                               j->unique_offset, ol, k + 1);
-
-                if (memcmp(odata, j->unique_field, k) != 0 || ((const char*) odata)[k] != '=')
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "%s:offset " OFSfmt ": object does not start with \"%s=\"",
-                                               j->unique_file->path,
-                                               j->unique_offset,
-                                               j->unique_field);
-
                 /* OK, now let's see if we already returned this data object by checking if it exists in the
                  * earlier traversed files. */
-                found = false;
-                ORDERED_HASHMAP_FOREACH(of, j->files) {
-                        if (of == j->unique_file)
-                                break;
-
-                        /* Skip this file it didn't have any fields indexed */
-                        if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
-                                continue;
-
-                        /* We can reuse the hash from our current file only on old-style journal files
-                         * without keyed hashes. On new-style files we have to calculate the hash anew, to
-                         * take the per-file hash seed into consideration. */
-                        if (!JOURNAL_HEADER_KEYED_HASH(j->unique_file->header) && !JOURNAL_HEADER_KEYED_HASH(of->header))
-                                r = journal_file_find_data_object_with_hash(of, odata, ol, le64toh(o->data.hash), NULL, NULL);
-                        else
-                                r = journal_file_find_data_object(of, odata, ol, NULL, NULL);
-                        if (r < 0)
-                                return r;
-                        if (r > 0) {
-                                found = true;
-                                break;
-                        }
-                }
-
-                if (found)
+                r = journal_seen_before(j, j->unique_file, odata, ol, journal_file_find_data_object);
+                if (r < 0)
+                        return r;
+                if (r > 0)
                         continue;
 
                 *ret_data = odata;
                 *ret_size = ol;
-
                 return 1;
         }
 }
@@ -3605,36 +3608,14 @@ _public_ void sd_journal_restart_unique(sd_journal *j) {
         j->unique_file_lost = false;
 }
 
-_public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
+static int fields_next_in_file(sd_journal *j, const void **ret_name, size_t *ret_size) {
+        JournalFile *f = ASSERT_PTR(ASSERT_PTR(j)->fields_file);
+        Object *o;
         int r;
 
-        assert_return(j, -EINVAL);
-        assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(ret, -EINVAL);
-
-        if (!j->fields_file) {
-                if (j->fields_file_lost)
-                        return 0;
-
-                j->fields_file = ordered_hashmap_first(j->files);
-                if (!j->fields_file)
-                        return 0;
-
-                j->fields_hash_table_index = 0;
-                j->fields_offset = 0;
-        }
-
         for (;;) {
-                JournalFile *f, *of;
-                uint64_t m;
-                Object *o;
-                size_t sz;
-                bool found;
-
-                f = j->fields_file;
-
                 if (j->fields_offset == 0) {
-                        bool eof = false;
+                        uint64_t m;
 
                         /* We are not yet positioned at any field. Let's pick the first one */
                         r = journal_file_map_field_hash_table(f);
@@ -3643,11 +3624,9 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
 
                         m = le64toh(f->header->field_hash_table_size) / sizeof(HashItem);
                         for (;;) {
-                                if (j->fields_hash_table_index >= m) {
-                                        /* Reached the end of the hash table, go to the next file. */
-                                        eof = true;
-                                        break;
-                                }
+                                if (j->fields_hash_table_index >= m)
+                                        /* Reached the end of the hash table */
+                                        return 0;
 
                                 j->fields_offset = le64toh(f->field_hash_table[j->fields_hash_table_index].head_hash_offset);
 
@@ -3657,20 +3636,6 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                                 /* Empty hash table bucket, go to next one */
                                 j->fields_hash_table_index++;
                         }
-
-                        if (eof) {
-                                /* Proceed with next file */
-                                j->fields_file = ordered_hashmap_next(j->files, f->path);
-                                if (!j->fields_file) {
-                                        *ret = NULL;
-                                        return 0;
-                                }
-
-                                j->fields_offset = 0;
-                                j->fields_hash_table_index = 0;
-                                continue;
-                        }
-
                 } else {
                         /* We are already positioned at a field. If so, let's figure out the next field from it */
 
@@ -3698,36 +3663,60 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                                                f->path, j->fields_offset,
                                                o->object.type, OBJECT_FIELD);
 
-                sz = le64toh(o->object.size) - offsetof(Object, field.payload);
+                *ret_name = o->field.payload;
+                *ret_size = le64toh(o->object.size) - offsetof(Object, field.payload);
+                return 1;
+        }
+}
 
-                /* Let's see if we already returned this field name before. */
-                found = false;
-                ORDERED_HASHMAP_FOREACH(of, j->files) {
-                        if (of == f)
-                                break;
+_public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
+        int r;
 
-                        /* Skip this file it didn't have any fields indexed */
-                        if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
-                                continue;
+        assert_return(j, -EINVAL);
+        assert_return(!journal_origin_changed(j), -ECHILD);
+        assert_return(ret, -EINVAL);
 
-                        if (!JOURNAL_HEADER_KEYED_HASH(f->header) && !JOURNAL_HEADER_KEYED_HASH(of->header))
-                                r = journal_file_find_field_object_with_hash(of, o->field.payload, sz,
-                                                                             le64toh(o->field.hash), NULL, NULL);
-                        else
-                                r = journal_file_find_field_object(of, o->field.payload, sz, NULL, NULL);
-                        if (r < 0)
-                                return r;
-                        if (r > 0) {
-                                found = true;
-                                break;
+        if (!j->fields_file) {
+                if (j->fields_file_lost)
+                        return 0;
+
+                j->fields_file = ordered_hashmap_first(j->files);
+                if (!j->fields_file)
+                        return 0;
+
+                j->fields_hash_table_index = 0;
+                j->fields_offset = 0;
+        }
+
+        for (;;) {
+                const void *name;
+                size_t sz;
+
+                r = fields_next_in_file(j, &name, &sz);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        /* Proceed with next file */
+                        j->fields_file = ordered_hashmap_next(j->files, j->fields_file->path);
+                        j->fields_offset = 0;
+                        j->fields_hash_table_index = 0;
+                        if (!j->fields_file) {
+                                *ret = NULL;
+                                return 0;
                         }
+
+                        continue;
                 }
 
-                if (found)
+                /* Let's see if we already returned this field name before. */
+                r = journal_seen_before(j, j->fields_file, name, sz, journal_file_find_field_object);
+                if (r < 0)
+                        return r;
+                if (r > 0)
                         continue;
 
                 /* Check if this is really a valid string containing no NUL byte */
-                if (memchr(o->field.payload, 0, sz))
+                if (memchr(name, 0, sz))
                         return -EBADMSG;
 
                 if (j->data_threshold > 0 && sz > j->data_threshold)
@@ -3736,7 +3725,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                 if (!GREEDY_REALLOC(j->fields_buffer, sz + 1))
                         return -ENOMEM;
 
-                memcpy(j->fields_buffer, o->field.payload, sz);
+                memcpy(j->fields_buffer, name, sz);
                 j->fields_buffer[sz] = 0;
 
                 if (!field_is_valid(j->fields_buffer))
