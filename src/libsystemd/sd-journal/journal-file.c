@@ -777,6 +777,25 @@ int journal_file_fstat(JournalFile *f) {
         return 0;
 }
 
+int journal_file_check_keep_free(JournalFile *f, uint64_t old_size, uint64_t new_size) {
+        struct statvfs svfs;
+        uint64_t available;
+
+        assert(f);
+
+        if (new_size <= f->metrics.min_size || f->metrics.keep_free == 0)
+                return 0;
+
+        if (fstatvfs(f->fd, &svfs) < 0)
+                return 0;
+
+        available = LESS_BY(u64_multiply_safe(svfs.f_bfree, svfs.f_bsize), f->metrics.keep_free);
+        if (new_size - old_size > available)
+                return -E2BIG;
+
+        return 0;
+}
+
 static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size) {
         uint64_t old_size, new_size, old_header_size, old_arena_size;
         int r;
@@ -825,18 +844,9 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (JOURNAL_HEADER_COMPACT(f->header) && new_size > UINT32_MAX)
                 return -E2BIG;
 
-        if (new_size > f->metrics.min_size && f->metrics.keep_free > 0) {
-                struct statvfs svfs;
-
-                if (fstatvfs(f->fd, &svfs) >= 0) {
-                        uint64_t available;
-
-                        available = LESS_BY(u64_multiply_safe(svfs.f_bfree, svfs.f_bsize), f->metrics.keep_free);
-
-                        if (new_size - old_size > available)
-                                return -E2BIG;
-                }
-        }
+        r = journal_file_check_keep_free(f, old_size, new_size);
+        if (r < 0)
+                return r;
 
         /* Increase by larger blocks at once */
         new_size = ROUND_UP(new_size, FILE_SIZE_INCREASE);
@@ -1239,6 +1249,21 @@ static uint64_t inc_seqnum(uint64_t seqnum) {
         return 1; /* skip over UINT64_MAX and 0 when we run out of seqnums and start again */
 }
 
+uint64_t journal_file_next_seqnum(JournalFile *f, const uint64_t *seqnum) {
+        uint64_t next_seqnum;
+
+        assert(f);
+        assert(f->header);
+
+        next_seqnum = inc_seqnum(le64toh(f->header->tail_entry_seqnum));
+
+        /* If an external seqnum counter was passed, use the maximum of both */
+        if (seqnum)
+                next_seqnum = MAX(inc_seqnum(*seqnum), next_seqnum);
+
+        return next_seqnum;
+}
+
 static uint64_t journal_file_entry_seqnum(
                 JournalFile *f,
                 uint64_t *seqnum) {
@@ -1248,14 +1273,12 @@ static uint64_t journal_file_entry_seqnum(
         assert(f);
         assert(f->header);
 
-        /* Picks a new sequence number for the entry we are about to add and returns it. */
+        /* Picks the sequence number of the next entry and returns it. If an external seqnum counter was
+         * passed, it is updated too. */
 
-        next_seqnum = inc_seqnum(le64toh(f->header->tail_entry_seqnum));
-
-        /* If an external seqnum counter was passed, we update both the local and the external one, and set
-         * it to the maximum of both */
+        next_seqnum = journal_file_next_seqnum(f, seqnum);
         if (seqnum)
-                *seqnum = next_seqnum = MAX(inc_seqnum(*seqnum), next_seqnum);
+                *seqnum = next_seqnum;
 
         f->header->tail_entry_seqnum = htole64(next_seqnum);
 
@@ -1860,7 +1883,7 @@ static int journal_file_append_field(
         return 0;
 }
 
-static int maybe_compress_payload(
+int journal_file_maybe_compress_payload(
                 JournalFile *f,
                 uint8_t *dst,
                 const uint8_t *src,
@@ -1937,7 +1960,7 @@ static int journal_file_append_data(
         o->data.hash = htole64(hash);
 
         Compression c;
-        r = maybe_compress_payload(f, journal_file_data_payload_field(f, o), data, size, &rsize, &c);
+        r = journal_file_maybe_compress_payload(f, journal_file_data_payload_field(f, o), data, size, &rsize, &c);
         if (r <= 0)
                 /* We don't really care failures, let's continue without compression */
                 memcpy_safe(journal_file_data_payload_field(f, o), data, size);
@@ -2428,6 +2451,45 @@ static void write_entry_item(JournalFile *f, Object *o, uint64_t i, const EntryI
         }
 }
 
+int journal_file_check_entry_order(JournalFile *f, const dual_timestamp *ts, const sd_id128_t *boot_id) {
+        assert(f);
+        assert(f->header);
+        assert(ts);
+        assert(boot_id);
+
+        if (!f->strict_order)
+                return 0;
+
+        /* If requested be stricter with ordering in this journal file, to make searching via
+         * bisection fully deterministic. This is an optional feature, so that if desired journal
+         * files can be written where the ordering is not strictly enforced (in which case bisection
+         * will yield *a* result, but not the *only* result, when searching for points in
+         * time). Strict ordering mode is enabled when journald originally writes the files, but
+         * might not necessarily be if other tools (the remoting tools for example) write journal
+         * files from combined sources.
+         *
+         * Typically, if any of the errors generated here are seen journald will just rotate the
+         * journal files and start anew. */
+
+        if (ts->realtime < le64toh(f->header->tail_entry_realtime))
+                return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
+                                       "Realtime timestamp %" PRIu64 " smaller than previous realtime "
+                                       "timestamp %" PRIu64 ", refusing entry.",
+                                       ts->realtime, le64toh(f->header->tail_entry_realtime));
+
+        if (sd_id128_equal(*boot_id, f->header->tail_entry_boot_id) &&
+            ts->monotonic < le64toh(f->header->tail_entry_monotonic))
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(ENOTNAM),
+                                "Monotonic timestamp %" PRIu64
+                                " smaller than previous monotonic timestamp %" PRIu64
+                                " while having the same boot ID, refusing entry.",
+                                ts->monotonic,
+                                le64toh(f->header->tail_entry_monotonic));
+
+        return 0;
+}
+
 static int journal_file_append_entry_internal(
                 JournalFile *f,
                 const dual_timestamp *ts,
@@ -2453,34 +2515,9 @@ static int journal_file_append_entry_internal(
         assert(!sd_id128_is_null(*boot_id));
         assert(items || n_items == 0);
 
-        if (f->strict_order) {
-                /* If requested be stricter with ordering in this journal file, to make searching via
-                 * bisection fully deterministic. This is an optional feature, so that if desired journal
-                 * files can be written where the ordering is not strictly enforced (in which case bisection
-                 * will yield *a* result, but not the *only* result, when searching for points in
-                 * time). Strict ordering mode is enabled when journald originally writes the files, but
-                 * might not necessarily be if other tools (the remoting tools for example) write journal
-                 * files from combined sources.
-                 *
-                 * Typically, if any of the errors generated here are seen journald will just rotate the
-                 * journal files and start anew. */
-
-                if (ts->realtime < le64toh(f->header->tail_entry_realtime))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
-                                               "Realtime timestamp %" PRIu64 " smaller than previous realtime "
-                                               "timestamp %" PRIu64 ", refusing entry.",
-                                               ts->realtime, le64toh(f->header->tail_entry_realtime));
-
-                if (sd_id128_equal(*boot_id, f->header->tail_entry_boot_id) &&
-                    ts->monotonic < le64toh(f->header->tail_entry_monotonic))
-                        return log_debug_errno(
-                                        SYNTHETIC_ERRNO(ENOTNAM),
-                                        "Monotonic timestamp %" PRIu64
-                                        " smaller than previous monotonic timestamp %" PRIu64
-                                        " while having the same boot ID, refusing entry.",
-                                        ts->monotonic,
-                                        le64toh(f->header->tail_entry_monotonic));
-        }
+        r = journal_file_check_entry_order(f, ts, boot_id);
+        if (r < 0)
+                return r;
 
         if (seqnum_id) {
                 /* Settle the passed in sequence number ID */
