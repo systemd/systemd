@@ -216,6 +216,9 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPACT(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
 
+#define JOURNAL_HEADER_SEGMENTED(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_SEGMENTED)
+
 /* Reading an object fails with EBADMSG if the object is corrupted, and with EADDRNOTAVAIL if it lies outside
  * of the file. Readers skip objects that fail with either error. */
 static inline bool ERRNO_IS_NEG_JOURNAL_CORRUPTION(intmax_t r) {

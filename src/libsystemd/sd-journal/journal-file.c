@@ -480,7 +480,7 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                                   f->path, type, flags & ~any);
                 flags = (flags & any) & ~supported;
                 if (flags) {
-                        const char* strv[6];
+                        const char* strv[7];
                         size_t n = 0;
                         _cleanup_free_ char *t = NULL;
 
@@ -500,6 +500,8 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                                         strv[n++] = "keyed-hash";
                                 if (flags & HEADER_INCOMPATIBLE_COMPACT)
                                         strv[n++] = "compact";
+                                if (flags & HEADER_INCOMPATIBLE_SEGMENTED)
+                                        strv[n++] = "segmented";
                         }
                         strv[n] = NULL;
                         assert(n < ELEMENTSOF(strv));
@@ -981,6 +983,11 @@ static int check_object_header(JournalFile *f, Object *o, ObjectType type, uint6
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Attempt to move to object with invalid type (%u): %" PRIu64,
                                        o->object.type, offset);
+
+        if (IN_SET(o->object.type, OBJECT_CONTEXT, OBJECT_INDEX) && !JOURNAL_HEADER_SEGMENTED(f->header))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Found %s object in file that is not segmented: %" PRIu64,
+                                       journal_object_type_to_string(o->object.type), offset);
 
         if (type > OBJECT_UNUSED && o->object.type != type)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
@@ -4146,7 +4153,7 @@ void journal_file_print_header(JournalFile *f) {
                "Sequential number ID: %s\n"
                "State: %s\n"
                "Compatible flags:%s%s%s%s\n"
-               "Incompatible flags:%s%s%s%s%s%s\n"
+               "Incompatible flags:%s%s%s%s%s%s%s\n"
                "Header size: %"PRIu64"\n"
                "Arena size: %"PRIu64"\n"
                "Data hash table size: %"PRIu64"\n"
@@ -4176,6 +4183,7 @@ void journal_file_print_header(JournalFile *f) {
                JOURNAL_HEADER_COMPRESSED_ZSTD(f->header) ? " COMPRESSED-ZSTD" : "",
                JOURNAL_HEADER_KEYED_HASH(f->header) ? " KEYED-HASH" : "",
                JOURNAL_HEADER_COMPACT(f->header) ? " COMPACT" : "",
+               JOURNAL_HEADER_SEGMENTED(f->header) ? " SEGMENTED" : "",
                (le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_ANY) ? " ???" : "",
                le64toh(f->header->header_size),
                le64toh(f->header->arena_size),
@@ -4986,6 +4994,8 @@ static const char * const journal_object_type_table[] = {
         [OBJECT_FIELD_HASH_TABLE] = "field hash table",
         [OBJECT_ENTRY_ARRAY]      = "entry array",
         [OBJECT_TAG]              = "tag",
+        [OBJECT_CONTEXT]          = "context",
+        [OBJECT_INDEX]            = "index",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(journal_object_type, ObjectType);
