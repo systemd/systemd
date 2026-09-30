@@ -44,10 +44,16 @@
 /* A context is only worth it if it replaces at least this many items */
 #define CONTEXT_ITEMS_MIN 2U
 
+/* A value of an inline field is stored as a data object if the field name, the '=', and the value take this
+ * many bytes or more */
+#define INLINE_SIZE_MAX 256U
+
 typedef struct SegmentField {
         char *name;
         size_t name_size;
         uint64_t hash;
+        bool in_line;    /* values smaller than INLINE_SIZE_MAX are stored in the entry */
+        uint32_t flags;  /* INDEX_FIELD_xyz */
         uint32_t next; /* see table_put() */
         bool referenced; /* by an entry of the segment */
 } SegmentField;
@@ -199,6 +205,21 @@ static int segment_data_index(SegmentedWriter *w, size_t position) {
         return table_put(&w->data_by_hash, w->data[position].hash, position, &w->data[position].next);
 }
 
+
+static bool field_is_inline(const char *name, size_t size) {
+        static const char * const in_line[] = {
+                "_SOURCE_REALTIME_TIMESTAMP",
+                "_SOURCE_MONOTONIC_TIMESTAMP",
+                "_SOURCE_BOOTTIME_TIMESTAMP",
+        };
+
+        FOREACH_ELEMENT(i, in_line)
+                if (memcmp_nn(name, size, *i, strlen(*i)) == 0)
+                        return true;
+
+        return false;
+}
+
 static int segment_field_acquire(JournalFile *f, const char *name, size_t size, uint32_t *ret) {
         SegmentedWriter *w = ASSERT_PTR(ASSERT_PTR(ASSERT_PTR(f)->segmented)->writer);
         uint64_t key = segmented_process_hash(name, size);
@@ -223,6 +244,7 @@ static int segment_field_acquire(JournalFile *f, const char *name, size_t size, 
                 .name = memdup(name, size),
                 .name_size = size,
                 .hash = journal_file_hash_data(f, name, size),
+                .in_line = field_is_inline(name, size),
         };
         if (!field.name)
                 return -ENOMEM;
@@ -259,6 +281,24 @@ static void segment_clear(SegmentedWriter *w) {
         segment_fields_clear(w);
 }
 
+static int segment_inline_reference(JournalFile *f, const char *data, size_t size) {
+        SegmentedWriter *w = ASSERT_PTR(ASSERT_PTR(ASSERT_PTR(f)->segmented)->writer);
+        const char *eq;
+        uint32_t k;
+        int r;
+
+        eq = memchr(data, '=', size);
+        if (!eq)
+                return -EBADMSG;
+
+        r = segment_field_acquire(f, data, eq - data, &k);
+        if (r < 0)
+                return r;
+
+        w->fields[k].referenced = true;
+        w->fields[k].flags |= INDEX_FIELD_INLINE;
+        return 0;
+}
 /* Writing objects */
 
 static void entry_reset(SegmentedWriter *w) {
@@ -529,6 +569,7 @@ static int segment_index(JournalFile *f, IndexBuilder *b) {
                         .hash = field->hash,
                         .name = field->name,
                         .name_size = field->name_size,
+                        .flags = field->flags,
                 };
         }
 
@@ -893,9 +934,10 @@ int segmented_append_entry(
         Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
         SegmentedWriter *w = a->writer;
         _cleanup_free_ DataReference *direct = NULL, *shared = NULL;
+        _cleanup_free_ size_t *in_line = NULL;
         _cleanup_free_ uint32_t *items = NULL;
         _cleanup_(batch_restore) BatchState saved = {};
-        size_t n_direct = 0, n_shared = 0, n_items, entry;
+        size_t n_direct = 0, n_shared = 0, n_inline = 0, n_items, inline_size = 0, entry;
         uint64_t p, xor_hash = 0, context_hash = 0, context_offset = 0, entry_offset, entry_size, next_seqnum;
         SegmentContext *context = NULL;
         bool new_context = false;
@@ -939,7 +981,8 @@ int segmented_append_entry(
 
         direct = new(DataReference, n_iovec);
         shared = new(DataReference, n_iovec);
-        if (!direct || !shared)
+        in_line = new(size_t, n_iovec);
+        if (!direct || !shared || !in_line)
                 return -ENOMEM;
 
         p = a->scan_offset;
@@ -947,6 +990,7 @@ int segmented_append_entry(
         for (size_t i = 0; i < n_iovec; i++) {
                 const char *data = iovec[i].iov_base, *eq;
                 uint64_t size = iovec[i].iov_len;
+                SegmentField *field;
                 SegmentData *d;
                 uint32_t k;
                 size_t q;
@@ -962,6 +1006,24 @@ int segmented_append_entry(
                 if (r < 0)
                         return r;
 
+                field = w->fields + k;
+
+                if (field->in_line && size < INLINE_SIZE_MAX) {
+                        bool duplicate = false;
+
+                        /* As in classic files, xor_hash covers each payload passed, duplicates included */
+                        xor_hash ^= jenkins_hash64(data, size);
+
+                        for (size_t j = 0; j < n_inline && !duplicate; j++)
+                                duplicate = iovec_equal(iovec + in_line[j], iovec + i);
+                        if (duplicate)
+                                continue;
+
+                        inline_size += ALIGN64(sizeof(InlineData) + size);
+                        in_line[n_inline++] = i;
+                        continue;
+                }
+
                 r = segment_data_acquire(f, &p, k, data, size, &q);
                 if (r < 0)
                         return r;
@@ -974,7 +1036,7 @@ int segmented_append_entry(
                 d->entry = w->entry_counter;
 
                 /* Trusted fields other than _SOURCE_* tend to be the same for all entries of a process */
-                if (data[0] == '_' && !startswith(data, "_SOURCE_"))
+                if (data[0] == '_' && !memory_startswith(data, size, "_SOURCE_"))
                         shared[n_shared++] = (DataReference) { q, d->offset };
                 else
                         direct[n_direct++] = (DataReference) { q, d->offset };
@@ -1027,12 +1089,12 @@ int segmented_append_entry(
                 n_direct += n_shared;
         }
 
-        n_items = n_direct + (context_offset != 0);
+        n_items = n_direct + n_inline + (context_offset != 0);
         if (n_items == 0)
                 return -EUCLEAN;
 
         entry_offset = p;
-        entry_size = offsetof(Object, entry.items) + ALIGN64(n_items * sizeof(le32_t));
+        entry_size = offsetof(Object, entry.items) + ALIGN64(n_items * sizeof(le32_t)) + inline_size;
         p += ALIGN64(entry_size);
 
         r = batch_add(w, ALIGN64(entry_size), &entry);
@@ -1048,6 +1110,19 @@ int segmented_append_entry(
                 items[n_items++] = i->offset | ENTRY_ITEM_DATA;
         if (context_offset != 0)
                 items[n_items++] = context_offset | ENTRY_ITEM_CONTEXT;
+
+        uint64_t q = offsetof(Object, entry.items) + ALIGN64((n_items + n_inline) * sizeof(le32_t));
+        FOREACH_ARRAY(i, in_line, n_inline) {
+                InlineData *d = (InlineData*) (w->buffer + entry + q);
+
+                d->size = htole32(iovec[*i].iov_len);
+                memcpy(d->payload, iovec[*i].iov_base, iovec[*i].iov_len);
+
+                items[n_items++] = q | ENTRY_ITEM_INLINE;
+                q += ALIGN64(sizeof(InlineData) + iovec[*i].iov_len);
+        }
+
+        assert(q == entry_size);
 
         typesafe_qsort(items, n_items, cmp_unsigned);
 
@@ -1126,6 +1201,12 @@ int segmented_append_entry(
 
         if (context_offset == 0 && new_context) {
                 r = context_add(w, shared, n_shared, context_hash);
+                if (r < 0)
+                        return r;
+        }
+
+        FOREACH_ARRAY(i, in_line, n_inline) {
+                r = segment_inline_reference(f, iovec[*i].iov_base, iovec[*i].iov_len);
                 if (r < 0)
                         return r;
         }
@@ -1285,13 +1366,26 @@ static int segment_replay_entry(JournalFile *f, uint64_t offset, uint64_t ordina
                 return r;
 
         FOREACH_ARRAY(i, fields, n) {
-                size_t q;
+                if (i->type == SEGMENTED_FIELD_INLINE) {
+                        const void *payload;
+                        size_t size;
 
-                r = segment_data_load(f, i->offset, &q);
-                if (r < 0)
-                        return r;
+                        r = segmented_inline_payload(f, i->offset, /* field= */ NULL, 0, &payload, &size);
+                        if (r < 0)
+                                return r;
 
-                r = segment_data_reference(w, q, ordinal);
+                        r = segment_inline_reference(f, payload, size);
+                        if (r == -EUCLEAN)
+                                return -EBADMSG; /* The file's fault after all */
+                } else {
+                        size_t q;
+
+                        r = segment_data_load(f, i->offset, &q);
+                        if (r < 0)
+                                return r;
+
+                        r = segment_data_reference(w, q, ordinal);
+                }
                 if (r < 0)
                         return r;
         }

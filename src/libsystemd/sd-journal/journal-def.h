@@ -189,7 +189,17 @@ struct ContextObject {
 enum {
         ENTRY_ITEM_DATA    = 0, /* offset of a data object */
         ENTRY_ITEM_CONTEXT = 1, /* offset of a context object */
+        ENTRY_ITEM_INLINE  = 2, /* offset of an inline value, relative to the entry object */
         _ENTRY_ITEM_TYPE_MASK = 7,
+};
+
+typedef struct InlineData {
+        le32_t size;
+        uint8_t payload[];
+} _packed_ InlineData;
+
+enum {
+        INDEX_FIELD_INLINE = 1 << 0, /* the field has inline values */
 };
 
 struct IndexFieldItem {
