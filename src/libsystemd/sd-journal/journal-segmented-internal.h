@@ -35,3 +35,64 @@ typedef enum SegmentedIndexPlace {
 /* 'head' is the offset of the newest live index, or the end of the header if there is none, and 'n_before'
  * the number of entries that this index counts */
 SegmentedIndexPlace segmented_index_place(const SegmentedIndex *i, uint64_t header_size, uint64_t head, uint64_t n_before);
+
+/* Copies the state of the file at the position of an index from the header to the index */
+static inline void index_object_set_state(IndexObject *o, const Header *h) {
+        o->n_objects = h->n_objects;
+        o->n_entries = h->n_entries;
+        o->n_data = h->n_data;
+        o->n_tags = h->n_tags;
+        o->head_entry_seqnum = h->head_entry_seqnum;
+        o->tail_entry_seqnum = h->tail_entry_seqnum;
+        o->head_entry_realtime = h->head_entry_realtime;
+        o->tail_entry_realtime = h->tail_entry_realtime;
+        o->tail_entry_monotonic = h->tail_entry_monotonic;
+        o->tail_entry_boot_id = h->tail_entry_boot_id;
+        o->tail_entry_offset = h->tail_entry_offset;
+}
+
+/* An index before it is serialized. index_builder_finish() sorts it the way the format requires. */
+
+typedef struct IndexBuilderData {
+        uint64_t hash;
+        uint64_t hash2;
+        uint64_t data_offset;
+        uint64_t n_entries;
+        void *postings;          /* run-length encoded */
+        size_t postings_size;
+        uint32_t field;          /* position in the fields array */
+} IndexBuilderData;
+
+typedef struct IndexBuilderField {
+        uint64_t hash;
+        const char *name;
+        size_t name_size;
+        uint32_t flags;
+        uint32_t first_data;     /* position of the first data item of the field, once sorted */
+        uint32_t n_data;
+} IndexBuilderField;
+
+typedef struct IndexBuilder {
+        uint32_t *entries;
+        size_t n_entries;
+
+        IndexBuilderData *data;
+        size_t n_data;
+
+        IndexBuilderField *fields;
+        size_t n_fields;
+} IndexBuilder;
+
+void index_builder_done(IndexBuilder *b);
+int index_builder_add_postings(IndexBuilderData *d, PostingEncoder *e);
+int index_builder_finish(IndexBuilder *b);
+int index_builder_serialize(
+                IndexBuilder *b,
+                const Header *header,   /* the state of the file at the offset of the index */
+                uint64_t offset,
+                uint64_t head_offset,
+                void **ret,
+                size_t *ret_size);
+
+int segmented_writer_open(JournalFile *f, bool newly_created);
+void segmented_writer_close(JournalFile *f);
