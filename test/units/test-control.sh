@@ -224,7 +224,7 @@ run_subtests_with_signals_and_exit() {
 
 # Run all test cases (i.e. functions prefixed with testcase_ in the current namespace)
 run_testcases() {
-    local testcase testcases
+    local testcase testcases rc
 
     # Create a list of all functions prefixed with testcase_
     mapfile -t testcases < <(declare -F | awk '$3 ~ /^testcase_/ {print $3;}')
@@ -252,7 +252,14 @@ run_testcases() {
         #       unexpectedly inherit a RETURN trap handler from the called
         #       function and call it for the second time once we return,
         #       causing a "double-free"
-        ("$testcase")
+        set +e
+        (set -e; "$testcase")
+        rc=$?
+        set -e
+        if [[ "$rc" -ne 0 ]]; then
+            echo "+++ $testcase FAILED +++"
+            exit 1
+        fi
         : "+++ $testcase END +++"
     done
 }
