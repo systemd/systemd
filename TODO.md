@@ -1987,7 +1987,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - pre-calc cryptsetup root key measurement
   - maybe make systemd-repart generate .pcrlock for old and new GPT header in
     /run?
-  - Add support for more than 8 branches per PCR OR
   - add "systemd-pcrlock lock-kernel-current" or so which synthesizes .pcrlock
     policy from currently booted kernel/event log, to close gap for first boot
     for pre-built images
