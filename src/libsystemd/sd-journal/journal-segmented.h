@@ -27,11 +27,19 @@ typedef struct SegmentedIndex {
         uint32_t field_table_offset;
         uint32_t n_data_items;
         uint32_t data_table_offset;
+        uint32_t n_unindexed;
+        uint32_t unindexed_offset;
         uint32_t payload_checksum;
 } SegmentedIndex;
 
+typedef enum SegmentedFieldType {
+        SEGMENTED_FIELD_DATA,
+        SEGMENTED_FIELD_INLINE,
+} SegmentedFieldType;
+
 typedef struct SegmentedField {
-        uint64_t offset; /* of the data object */
+        SegmentedFieldType type;
+        uint64_t offset; /* of the data object, or of the InlineData structure */
 } SegmentedField;
 
 typedef struct SegmentedResult {
@@ -39,8 +47,10 @@ typedef struct SegmentedResult {
         uint64_t last_used;
         bool used;
 
-        uint64_t n_evaluated; /* the ordinals below this are covered by the bitmap */
+        uint64_t n_evaluated; /* the ordinals below this are covered by the bitmaps */
+        bool exact;           /* if false, candidates need to be verified before they are returned */
         PostingBitmap candidates;
+        PostingBitmap verified;
 
         /* For each value of the match expression, in the order they appear in it */
         uint64_t *hashes;
@@ -85,6 +95,8 @@ typedef struct Segmented {
         SegmentedField *fields;
         size_t n_fields;
 
+        uint8_t *inline_buffer;
+
         SegmentedResult results[SEGMENTED_RESULTS_MAX];
         uint64_t result_counter;
 
@@ -128,6 +140,7 @@ uint64_t segmented_n_entries(JournalFile *f);
 int segmented_entry_load(JournalFile *f, uint64_t ordinal, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 int segmented_bisect(JournalFile *f, SegmentedKey key, uint64_t needle, const PostingBitmap *among, direction_t direction, uint64_t *ret);
 int segmented_entry_fields(JournalFile *f, Object *o, uint64_t offset, const SegmentedField **ret, size_t *ret_n);
+int segmented_inline_payload(JournalFile *f, uint64_t offset, const char *field, size_t field_length, const void **ret_data, size_t *ret_size);
 int segmented_entry_ordinal(JournalFile *f, uint64_t offset, direction_t direction, uint64_t *ret);
 int segmented_next_entry(JournalFile *f, uint64_t p, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 int segmented_move_to_entry_by_seqnum(JournalFile *f, uint64_t seqnum, direction_t direction, Object **ret_object, uint64_t *ret_offset);
@@ -163,6 +176,7 @@ int segmented_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, usec
 typedef struct SegmentedCursor {
         unsigned generation;
         uint64_t position;
+        uint64_t item;
 } SegmentedCursor;
 
 int segmented_enumerate_fields(JournalFile *f, SegmentedCursor *c, const void **ret_name, size_t *ret_size);
