@@ -23,6 +23,7 @@
 #include "dissect-image.h"
 #include "dlopen-note.h"
 #include "env-file.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -59,6 +60,7 @@
 #include "user-util.h"
 #include "vconsole-util.h"
 #include "verbs.h"
+#include "virt.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -747,7 +749,7 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
         return 0;
 }
 
-static int process_hostname(int rfd, sd_varlink **mute_console_link) {
+static int process_hostname(int rfd, sd_varlink **mute_console_link, bool offline) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
         int r;
@@ -787,14 +789,18 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
                 else {
                         hostname = resolved;
 
-                        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to connect to systemd-hostnamed, writing /etc/hostname directly: %m");
+                        if (!offline) {
+                                r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to connect to systemd-hostnamed, "
+                                                            "writing /etc/hostname directly: %m");
+                        }
                 }
         }
 
         if (vl) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+                /* Both the reply and error ID are borrowed from the connection. */
+                sd_json_variant *reply = NULL;
                 const char *error_id = NULL;
                 r = sd_varlink_callbo(
                                 vl,
@@ -1722,6 +1728,24 @@ static void end_marker(void) {
         fflush(stdout);
 }
 
+static bool firstboot_is_offline(void) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_OFFLINE");
+        if (r >= 0)
+                return r > 0;
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_OFFLINE, ignoring: %m");
+
+        r = running_in_chroot();
+        if (r < 0) {
+                log_debug_errno(r, "Failed to check if we're running in a chroot, assuming offline: %m");
+                return true;
+        }
+
+        return r > 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
@@ -1745,7 +1769,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        bool offline = arg_root || arg_image;
+        bool offline = arg_root || arg_image || firstboot_is_offline();
 
         if (!offline) {
                 /* If we are called without --root=/--image= let's honour the systemd.firstboot kernel
@@ -1844,7 +1868,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = process_hostname(rfd, &mute_console_link);
+        r = process_hostname(rfd, &mute_console_link, offline);
         if (r < 0)
                 return r;
 
