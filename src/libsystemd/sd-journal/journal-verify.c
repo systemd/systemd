@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -390,52 +391,121 @@ static int write_uint64(FILE *fp, uint64_t p) {
         return 0;
 }
 
-static int contains_uint64(MMapFileDescriptor *f, uint64_t n, uint64_t p) {
-        uint64_t a, b;
+typedef struct OffsetArray {
+        uint64_t *items; /* NULL if the list couldn't be mapped, it is then read from fd instead */
+        uint64_t n;
+        int fd;
+} OffsetArray;
+
+static void offset_array_done(OffsetArray *a) {
+        assert(a);
+
+        if (a->items)
+                assert_se(munmap(a->items, a->n * sizeof(uint64_t)) >= 0);
+
+        *a = (OffsetArray) {};
+}
+
+static int offset_array_map(FILE *fp, uint64_t n, OffsetArray *ret) {
+        void *p;
+
+        assert(fp);
+        assert(ret);
+
+        /* The offsets were written in the order in which the objects were found in the file, i.e. they are
+         * sorted. Map them in one go, so that looking them up is a plain bisection over memory rather than a
+         * trip through the mmap cache for every step. */
+
+        if (n == 0) {
+                *ret = (OffsetArray) {};
+                return 0;
+        }
+
+        if (n <= SIZE_MAX / sizeof(uint64_t)) {
+                p = mmap(NULL, n * sizeof(uint64_t), PROT_READ, MAP_SHARED, fileno(fp), 0);
+                if (p != MAP_FAILED) {
+                        *ret = (OffsetArray) {
+                                .items = p,
+                                .n = n,
+                        };
+                        return 0;
+                }
+                if (errno != ENOMEM)
+                        return -errno;
+        }
+
+        /* A large journal might not fit into the address space of a 32-bit system. Fall back to reading
+         * the items one by one then, which is slower but works with any size. */
+        log_debug("Offset list of %"PRIu64" items does not fit into the address space, reading it instead.",
+                  n);
+
+        *ret = (OffsetArray) {
+                .n = n,
+                .fd = fileno(fp),
+        };
+        return 0;
+}
+
+static int offset_array_get(const OffsetArray *a, uint64_t i, uint64_t *ret) {
+        ssize_t l;
+
+        assert(a);
+        assert(i < a->n);
+        assert(ret);
+
+        if (a->items) {
+                *ret = a->items[i];
+                return 0;
+        }
+
+        l = pread(a->fd, ret, sizeof(uint64_t), i * sizeof(uint64_t));
+        if (l < 0)
+                return log_error_errno(errno, "Failed to read offset list: %m");
+        if (l != sizeof(uint64_t))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read from offset list.");
+
+        return 0;
+}
+
+static int offset_array_contains(const OffsetArray *a, uint64_t p) {
         int r;
 
-        assert(f);
+        assert(a);
 
         /* Bisection ... */
 
-        a = 0; b = n;
-        while (a < b) {
-                uint64_t c, *z;
+        uint64_t lo = 0, hi = a->n;
+        while (lo < hi) {
+                uint64_t c = lo + (hi - lo) / 2, v;
 
-                c = (a + b) / 2;
-
-                r = mmap_cache_fd_get(f, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z);
+                r = offset_array_get(a, c, &v);
                 if (r < 0)
                         return r;
 
-                if (*z == p)
-                        return 1;
-
-                if (a + 1 >= b)
-                        return 0;
-
-                if (p < *z)
-                        b = c;
+                if (v == p)
+                        return true;
+                if (v < p)
+                        lo = c + 1;
                 else
-                        a = c;
+                        hi = c;
         }
 
-        return 0;
+        return false;
 }
 
 static int verify_data(
                 JournalFile *f,
                 Object *o, uint64_t p,
-                MMapFileDescriptor *cache_entry_fd, uint64_t n_entries,
-                MMapFileDescriptor *cache_entry_array_fd, uint64_t n_entry_arrays) {
+                const OffsetArray *entries,
+                const OffsetArray *entry_arrays) {
 
         uint64_t i, n, a, last, q;
         int r;
 
         assert(f);
         assert(o);
-        assert(cache_entry_fd);
-        assert(cache_entry_array_fd);
+        assert(entries);
+        assert(entry_arrays);
 
         n = le64toh(o->data.n_entries);
         a = le64toh(o->data.entry_array_offset);
@@ -453,16 +523,11 @@ static int verify_data(
         assert(o->data.entry_offset);
 
         last = q = le64toh(o->data.entry_offset);
-        if (!contains_uint64(cache_entry_fd, n_entries, q)) {
-                error(p, "Data object references invalid entry at "OFSfmt, q);
-                return -EBADMSG;
-        }
-
-        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, NULL, NULL);
+        r = offset_array_contains(entries, q);
         if (r < 0)
                 return r;
         if (r == 0) {
-                error(q, "Entry object doesn't exist in the main entry array");
+                error(p, "Data object references invalid entry at "OFSfmt, q);
                 return -EBADMSG;
         }
 
@@ -475,7 +540,10 @@ static int verify_data(
                         return -EBADMSG;
                 }
 
-                if (!contains_uint64(cache_entry_array_fd, n_entry_arrays, a)) {
+                r = offset_array_contains(entry_arrays, a);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
                         error(p, "Invalid array offset "OFSfmt, a);
                         return -EBADMSG;
                 }
@@ -500,23 +568,13 @@ static int verify_data(
                         }
                         last = q;
 
-                        if (!contains_uint64(cache_entry_fd, n_entries, q)) {
-                                error(p, "Data object references invalid entry at "OFSfmt, q);
-                                return -EBADMSG;
-                        }
-
-                        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, NULL, NULL);
+                        r = offset_array_contains(entries, q);
                         if (r < 0)
                                 return r;
                         if (r == 0) {
-                                error(q, "Entry object doesn't exist in the main entry array");
+                                error(p, "Data object references invalid entry at "OFSfmt, q);
                                 return -EBADMSG;
                         }
-
-                        /* Pointer might have moved, reposition */
-                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
-                        if (r < 0)
-                                return r;
                 }
 
                 a = next;
@@ -527,9 +585,9 @@ static int verify_data(
 
 static int verify_data_hash_table(
                 JournalFile *f,
-                MMapFileDescriptor *cache_data_fd, uint64_t n_data,
-                MMapFileDescriptor *cache_entry_fd, uint64_t n_entries,
-                MMapFileDescriptor *cache_entry_array_fd, uint64_t n_entry_arrays,
+                const OffsetArray *data,
+                const OffsetArray *entries,
+                const OffsetArray *entry_arrays,
                 usec_t *last_usec,
                 bool show_progress) {
 
@@ -537,9 +595,9 @@ static int verify_data_hash_table(
         int r;
 
         assert(f);
-        assert(cache_data_fd);
-        assert(cache_entry_fd);
-        assert(cache_entry_array_fd);
+        assert(data);
+        assert(entries);
+        assert(entry_arrays);
         assert(last_usec);
 
         n = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
@@ -561,7 +619,10 @@ static int verify_data_hash_table(
                         Object *o;
                         uint64_t next;
 
-                        if (!contains_uint64(cache_data_fd, n_data, p)) {
+                        r = offset_array_contains(data, p);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
                                 error(p, "Invalid data object at hash entry %"PRIu64" of %"PRIu64, i, n);
                                 return -EBADMSG;
                         }
@@ -581,7 +642,7 @@ static int verify_data_hash_table(
                                 return -EBADMSG;
                         }
 
-                        r = verify_data(f, o, p, cache_entry_fd, n_entries, cache_entry_array_fd, n_entry_arrays);
+                        r = verify_data(f, o, p, entries, entry_arrays);
                         if (r < 0)
                                 return r;
 
@@ -636,7 +697,7 @@ static int data_object_in_hash_table(JournalFile *f, uint64_t hash, uint64_t p) 
 static int verify_entry(
                 JournalFile *f,
                 Object *o, uint64_t p,
-                MMapFileDescriptor *cache_data_fd, uint64_t n_data,
+                const OffsetArray *data,
                 bool last) {
 
         uint64_t i, n;
@@ -644,7 +705,7 @@ static int verify_entry(
 
         assert(f);
         assert(o);
-        assert(cache_data_fd);
+        assert(data);
 
         n = journal_file_entry_n_items(f, o);
         for (i = 0; i < n; i++) {
@@ -653,7 +714,10 @@ static int verify_entry(
 
                 q = journal_file_entry_item_object_offset(f, o, i);
 
-                if (!contains_uint64(cache_data_fd, n_data, q)) {
+                r = offset_array_contains(data, q);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
                         error(p, "Invalid data object of entry");
                         return -EBADMSG;
                 }
@@ -693,9 +757,9 @@ static int verify_entry(
 
 static int verify_entry_array(
                 JournalFile *f,
-                MMapFileDescriptor *cache_data_fd, uint64_t n_data,
-                MMapFileDescriptor *cache_entry_fd, uint64_t n_entries,
-                MMapFileDescriptor *cache_entry_array_fd, uint64_t n_entry_arrays,
+                const OffsetArray *data,
+                const OffsetArray *entries,
+                const OffsetArray *entry_arrays,
                 usec_t *last_usec,
                 bool show_progress) {
 
@@ -703,9 +767,9 @@ static int verify_entry_array(
         int r;
 
         assert(f);
-        assert(cache_data_fd);
-        assert(cache_entry_fd);
-        assert(cache_entry_array_fd);
+        assert(data);
+        assert(entries);
+        assert(entry_arrays);
         assert(last_usec);
 
         n = le64toh(f->header->n_entries);
@@ -722,7 +786,10 @@ static int verify_entry_array(
                         return -EBADMSG;
                 }
 
-                if (!contains_uint64(cache_entry_array_fd, n_entry_arrays, a)) {
+                r = offset_array_contains(entry_arrays, a);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
                         error(a, "Invalid array %"PRIu64" of %"PRIu64, i, n);
                         return -EBADMSG;
                 }
@@ -748,7 +815,10 @@ static int verify_entry_array(
                         }
                         last = p;
 
-                        if (!contains_uint64(cache_entry_fd, n_entries, p)) {
+                        r = offset_array_contains(entries, p);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
                                 error(a, "Invalid array entry at %"PRIu64" of %"PRIu64, i, n);
                                 return -EBADMSG;
                         }
@@ -757,7 +827,7 @@ static int verify_entry_array(
                         if (r < 0)
                                 return r;
 
-                        r = verify_entry(f, o, p, cache_data_fd, n_data, /* last= */ i + 1 == n);
+                        r = verify_entry(f, o, p, data, /* last= */ i + 1 == n);
                         if (r < 0)
                                 return r;
 
@@ -829,11 +899,10 @@ int journal_file_verify(
         usec_t last_usec = 0;
         _cleanup_close_ int data_fd = -EBADF, entry_fd = -EBADF, entry_array_fd = -EBADF;
         _cleanup_fclose_ FILE *data_fp = NULL, *entry_fp = NULL, *entry_array_fp = NULL;
-        MMapFileDescriptor *cache_data_fd = NULL, *cache_entry_fd = NULL, *cache_entry_array_fd = NULL;
+        _cleanup_(offset_array_done) OffsetArray data = {}, entries = {}, entry_arrays = {};
         unsigned i;
         bool found_last = false;
         const char *tmp_dir = NULL;
-        MMapCache *m;
 
         assert(f);
 
@@ -872,25 +941,6 @@ int journal_file_verify(
         if (entry_array_fd < 0) {
                 r = log_error_errno(entry_array_fd,
                                     "Failed to create entry array file: %m");
-                goto fail;
-        }
-
-        m = mmap_cache_fd_cache(f->cache_fd);
-        r = mmap_cache_add_fd(m, data_fd, PROT_READ|PROT_WRITE, &cache_data_fd);
-        if (r < 0) {
-                log_error_errno(r, "Failed to cache data file: %m");
-                goto fail;
-        }
-
-        r = mmap_cache_add_fd(m, entry_fd, PROT_READ|PROT_WRITE, &cache_entry_fd);
-        if (r < 0) {
-                log_error_errno(r, "Failed to cache entry file: %m");
-                goto fail;
-        }
-
-        r = mmap_cache_add_fd(m, entry_array_fd, PROT_READ|PROT_WRITE, &cache_entry_array_fd);
-        if (r < 0) {
-                log_error_errno(r, "Failed to cache entry array file: %m");
                 goto fail;
         }
 
@@ -1375,6 +1425,24 @@ int journal_file_verify(
                 goto fail;
         }
 
+        r = offset_array_map(data_fp, n_data, &data);
+        if (r < 0) {
+                log_error_errno(r, "Failed to map data file: %m");
+                goto fail;
+        }
+
+        r = offset_array_map(entry_fp, n_entries, &entries);
+        if (r < 0) {
+                log_error_errno(r, "Failed to map entry file: %m");
+                goto fail;
+        }
+
+        r = offset_array_map(entry_array_fp, n_entry_arrays, &entry_arrays);
+        if (r < 0) {
+                log_error_errno(r, "Failed to map entry array file: %m");
+                goto fail;
+        }
+
         /* Second iteration: we follow all objects referenced from the
          * two entry points: the object hash table and the entry
          * array. We also check that everything referenced (directly
@@ -1384,18 +1452,18 @@ int journal_file_verify(
          * referenced is consistent. */
 
         r = verify_entry_array(f,
-                               cache_data_fd, n_data,
-                               cache_entry_fd, n_entries,
-                               cache_entry_array_fd, n_entry_arrays,
+                               &data,
+                               &entries,
+                               &entry_arrays,
                                &last_usec,
                                show_progress);
         if (r < 0)
                 goto fail;
 
         r = verify_data_hash_table(f,
-                                   cache_data_fd, n_data,
-                                   cache_entry_fd, n_entries,
-                                   cache_entry_array_fd, n_entry_arrays,
+                                   &data,
+                                   &entries,
+                                   &entry_arrays,
                                    &last_usec,
                                    show_progress);
         if (r < 0)
@@ -1403,10 +1471,6 @@ int journal_file_verify(
 
         if (show_progress)
                 flush_progress();
-
-        mmap_cache_fd_free(cache_data_fd);
-        mmap_cache_fd_free(cache_entry_fd);
-        mmap_cache_fd_free(cache_entry_array_fd);
 
         if (ret_first_contained)
                 *ret_first_contained = le64toh(f->header->head_entry_realtime);
@@ -1426,15 +1490,6 @@ fail:
                   p,
                   (uint64_t) f->last_stat.st_size,
                   100U * p / (uint64_t) f->last_stat.st_size);
-
-        if (cache_data_fd)
-                mmap_cache_fd_free(cache_data_fd);
-
-        if (cache_entry_fd)
-                mmap_cache_fd_free(cache_entry_fd);
-
-        if (cache_entry_array_fd)
-                mmap_cache_fd_free(cache_entry_array_fd);
 
         return r;
 }
