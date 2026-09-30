@@ -999,6 +999,7 @@ typedef struct VerifyData {
         uint64_t hash;
         uint64_t hash2;
         uint64_t field_hash;
+        uint8_t flags;
 } VerifyData;
 
 typedef struct VerifyValue {
@@ -1040,8 +1041,11 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
 
 typedef struct VerifyField {
         uint64_t hash;
+        uint32_t flags;
         uint32_t n_values;
         bool seen;              /* in the field table of the index */
+        size_t name_size;
+        char name[];
 } VerifyField;
 
 typedef struct VerifyDataCache {
@@ -1144,8 +1148,9 @@ static int verify_segmented_data(VerifyState *v, Object *o, uint64_t p) {
         v->data[v->n_data++] = (VerifyData) {
                 .offset = p,
                 .hash = le64toh(o->segmented_data.hash),
-                .hash2 = segmented_hash2(f, payload, size),
+                .hash2 = FLAGS_SET(o->object.flags, OBJECT_UNINDEXED) ? 0 : segmented_hash2(f, payload, size),
                 .field_hash = journal_file_hash_data(f, payload, eq - (const char*) payload),
+                .flags = o->object.flags & OBJECT_UNINDEXED,
         };
         return 0;
 }
@@ -1186,6 +1191,14 @@ static int verify_segmented_entry(VerifyState *v, Object *o, uint64_t p) {
                         good = offset_in_array(v->contexts, v->n_contexts, q);
                         break;
 
+                case ENTRY_ITEM_INLINE: {
+                        const InlineData *d = (const InlineData*) ((const uint8_t*) o + q);
+                        const char *eq = memchr(d->payload, '=', le32toh(d->size));
+
+                        good = eq && journal_field_valid((const char*) d->payload, eq - (const char*) d->payload, /* allow_protected= */ true);
+                        break;
+                }
+
                 default:
                         good = false;
                 }
@@ -1223,8 +1236,17 @@ static bool verify_segmented_index_fits(VerifyState *v, const SegmentedIndex *i)
         return i->head_offset == head && i->first_ordinal == n_before;
 }
 
-static int verify_field_get(Hashmap **fields, uint64_t hash, VerifyField **ret) {
+static int verify_field_get(
+                JournalFile *f,
+                Hashmap **fields,
+                uint64_t hash,
+                uint64_t data_offset,
+                const void *payload,
+                size_t size,
+                VerifyField **ret) {
+
         VerifyField *field;
+        const char *eq;
         int r;
 
         assert(fields);
@@ -1236,13 +1258,24 @@ static int verify_field_get(Hashmap **fields, uint64_t hash, VerifyField **ret) 
                 return 0;
         }
 
-        field = new(VerifyField, 1);
+        if (!payload) {
+                r = journal_file_data_payload(f, NULL, data_offset, NULL, 0, 0, &payload, &size);
+                if (r < 0)
+                        return r;
+        }
+
+        eq = memchr(payload, '=', size);
+        assert(eq);
+
+        field = malloc(offsetof(VerifyField, name) + (eq - (const char*) payload));
         if (!field)
                 return -ENOMEM;
 
         *field = (VerifyField) {
                 .hash = hash,
+                .name_size = eq - (const char*) payload,
         };
+        memcpy(field->name, payload, field->name_size);
 
         r = hashmap_ensure_put(fields, &uint64_hash_ops_value_free, &field->hash, field);
         if (r < 0) {
@@ -1307,6 +1340,7 @@ static int verify_segmented_rebuild(VerifyState *v, const SegmentedIndex *i, uin
         JournalFile *f = v->f;
         _cleanup_set_free_ Set *values = NULL;
         _cleanup_hashmap_free_ Hashmap *fields = NULL;
+        _cleanup_set_free_ Set *unindexed = NULL;
         int r;
 
         /* Rebuilds the index from the log and compares it with the stored one. */
@@ -1333,6 +1367,29 @@ static int verify_segmented_rebuild(VerifyState *v, const SegmentedIndex *i, uin
                         return r;
 
                 for (size_t m = 0; m < n_entry_fields; m++) {
+                        VerifyField *field;
+
+                        if (entry_fields[m].type == SEGMENTED_FIELD_INLINE) {
+                                const void *payload;
+                                const char *eq;
+                                size_t size;
+
+                                r = segmented_inline_payload(f, entry_fields[m].offset, NULL, 0, &payload, &size);
+                                if (r < 0)
+                                        return r;
+
+                                eq = memchr(payload, '=', size);
+                                assert(eq);
+
+                                r = verify_field_get(f, &fields, journal_file_hash_data(f, payload, eq - (const char*) payload),
+                                                     0, payload, size, &field);
+                                if (r < 0)
+                                        return r;
+
+                                field->flags |= INDEX_FIELD_INLINE;
+                                continue;
+                        }
+
                         const VerifyData *d = verify_data_find(v, entry_fields[m].offset);
                         assert(d);
                         VerifyDataCache *c = v->cache + (d - v->data);
@@ -1342,18 +1399,28 @@ static int verify_segmented_rebuild(VerifyState *v, const SegmentedIndex *i, uin
                                         .generation = v->generation,
                                 };
 
-                                r = verify_field_get(&fields, d->field_hash, &c->field);
+                                r = verify_field_get(f, &fields, d->field_hash, d->offset, NULL, 0, &c->field);
                                 if (r < 0)
                                         return r;
 
-                                r = verify_value_get(&values, d, c->field, &c->value);
+                                if (FLAGS_SET(d->flags, OBJECT_UNINDEXED)) {
+                                        c->field->flags |= INDEX_FIELD_UNINDEXED;
+
+                                        r = set_ensure_put(&unindexed, &uint64_hash_ops, &d->hash);
+                                        if (r < 0)
+                                                return r;
+                                } else {
+                                        r = verify_value_get(&values, d, c->field, &c->value);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+
+                        if (c->value) {
+                                r = posting_encoder_add(&c->value->postings, ordinal);
                                 if (r < 0)
                                         return r;
                         }
-
-                        r = posting_encoder_add(&c->value->postings, ordinal);
-                        if (r < 0)
-                                return r;
                 }
         }
 
@@ -1373,11 +1440,20 @@ static int verify_segmented_rebuild(VerifyState *v, const SegmentedIndex *i, uin
                         return r;
 
                 VerifyField *field = hashmap_get(fields, &(uint64_t) { le64toh(item.hash) });
-                if (!field || field->seen || le32toh(item.flags) != 0) {
+                if (!field || field->seen || le32toh(item.flags) != field->flags) {
                         error(i->offset, "Index field %" PRIu32 " does not match the log", k);
                         return -EBADMSG;
                 }
                 field->seen = true;
+
+                const void *name;
+                r = segmented_index_field_name(f, i, &item, &name);
+                if (r < 0)
+                        return r;
+                if (memcmp_nn(name, le32toh(item.name_size), field->name, field->name_size) != 0) {
+                        error(i->offset, "Index field %" PRIu32 " has a name that does not match the log", k);
+                        return -EBADMSG;
+                }
 
                 if (k > 0 && le64toh(item.hash) < previous_hash) {
                         error(i->offset, "Index field %" PRIu32 " is out of order", k);
@@ -1501,6 +1577,22 @@ static int verify_segmented_rebuild(VerifyState *v, const SegmentedIndex *i, uin
                         }
                         if (r == 0)
                                 break;
+                }
+        }
+
+        if (i->n_unindexed != set_size(unindexed)) {
+                error(i->offset, "Index has %" PRIu32 " unindexed values, expected %u", i->n_unindexed, set_size(unindexed));
+                return -EBADMSG;
+        }
+
+        const uint64_t *hash;
+        SET_FOREACH(hash, unindexed) {
+                r = segmented_index_has_unindexed(f, i, *hash);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        error(i->offset, "Index lacks unindexed value that is in the log");
+                        return -EBADMSG;
                 }
         }
 

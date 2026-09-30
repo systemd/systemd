@@ -24,6 +24,7 @@ void index_builder_done(IndexBuilder *b) {
         free(b->entries);
         free(b->data);
         free(b->fields);
+        free(b->unindexed);
 
         *b = (IndexBuilder) {};
 }
@@ -109,6 +110,7 @@ static int builder_field_compare(const IndexBuilderField *a, const IndexBuilderF
 
 int index_builder_finish(IndexBuilder *b) {
         _cleanup_free_ uint32_t *positions = NULL;
+        size_t n = 0;
 
         assert(b);
 
@@ -151,6 +153,12 @@ int index_builder_finish(IndexBuilder *b) {
                 next = field->first_data + field->n_data;
         }
 
+        typesafe_qsort(b->unindexed, b->n_unindexed, uint64_compare_func);
+        FOREACH_ARRAY(u, b->unindexed, b->n_unindexed)
+                if (n == 0 || b->unindexed[n - 1] != *u)
+                        b->unindexed[n++] = *u;
+        b->n_unindexed = n;
+
         return 0;
 }
 
@@ -163,7 +171,7 @@ int index_builder_serialize(
                 size_t *ret_size) {
 
         uint64_t size, entry_array_offset, field_table_offset, names_offset, data_table_offset,
-                postings_offset, p;
+                unindexed_offset, postings_offset, p;
         _cleanup_free_ uint8_t *buffer = NULL;
         IndexObject *o;
 
@@ -187,6 +195,9 @@ int index_builder_serialize(
 
         data_table_offset = size;
         size += b->n_data * sizeof(IndexDataItem);
+
+        unindexed_offset = size;
+        size += b->n_unindexed * sizeof(le64_t);
 
         postings_offset = size;
         FOREACH_ARRAY(d, b->data, b->n_data)
@@ -224,6 +235,8 @@ int index_builder_serialize(
                 .field_table_offset = htole32(field_table_offset),
                 .n_data_items = htole32(b->n_data),
                 .data_table_offset = htole32(data_table_offset),
+                .n_unindexed = htole32(b->n_unindexed),
+                .unindexed_offset = htole32(unindexed_offset),
         };
 
         for (size_t i = 0; i < b->n_entries; i++)
@@ -272,6 +285,9 @@ int index_builder_serialize(
 
                 memcpy(buffer + data_table_offset + i * sizeof(IndexDataItem), &item, sizeof(item));
         }
+
+        for (size_t i = 0; i < b->n_unindexed; i++)
+                unaligned_write_le64(buffer + unindexed_offset + i * sizeof(le64_t), b->unindexed[i]);
 
         assert(p == size);
 
@@ -539,12 +555,15 @@ int segmented_index_merge(
                 if (i->first_ordinal != b.n_entries)
                         return -EBADMSG;
 
-                if (!GREEDY_REALLOC(b.entries, b.n_entries + i->n_index_entries))
+                if (!GREEDY_REALLOC(b.entries, b.n_entries + i->n_index_entries) ||
+                    !GREEDY_REALLOC(b.unindexed, b.n_unindexed + i->n_unindexed))
                         return -ENOMEM;
 
                 for (uint32_t k = 0; k < i->n_index_entries; k++)
                         b.entries[b.n_entries++] = unaligned_read_le32(input->buffer + i->entry_array_offset + (uint64_t) k * sizeof(le32_t));
 
+                for (uint32_t k = 0; k < i->n_unindexed; k++)
+                        b.unindexed[b.n_unindexed++] = unaligned_read_le64(input->buffer + i->unindexed_offset + (uint64_t) k * sizeof(le64_t));
         }
 
         /* Comparing inputs requires the field positions */

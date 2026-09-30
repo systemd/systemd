@@ -227,6 +227,40 @@ int segmented_index_find_data(
         return 0;
 }
 
+int segmented_index_has_unindexed(JournalFile *f, const SegmentedIndex *i, uint64_t hash) {
+        uint32_t left = 0, right = i->n_unindexed;
+        int r;
+
+        while (left < right) {
+                uint32_t m = left + (right - left) / 2, first, last;
+                uint64_t h;
+                le64_t *p;
+
+                /* The section is only checked when used, so check that the neighbors ascend too */
+                first = m > 0 ? m - 1 : m;
+                last = m + 1 < i->n_unindexed ? m + 1 : m;
+
+                r = index_map(f, i, OBJECT_INDEX, i->unindexed_offset + (uint64_t) first * sizeof(le64_t), (last - first + 1) * sizeof(le64_t), (void**) &p);
+                if (r < 0)
+                        return r;
+
+                h = le64toh(p[m - first]);
+                if ((first < m && le64toh(p[0]) >= h) || (last > m && le64toh(p[last - first]) <= h))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Index at %" PRIu64 " of %s has unindexed hashes out of order.",
+                                               i->offset, f->path);
+
+                if (h == hash)
+                        return 1;
+                if (h < hash)
+                        left = m + 1;
+                else
+                        right = m;
+        }
+
+        return 0;
+}
+
 int segmented_index_postings(JournalFile *f, const SegmentedIndex *i, const IndexDataItem *item, PostingDecoder *ret) {
         PostingEncoding encoding;
         uint64_t size;
@@ -323,6 +357,7 @@ void segmented_result_done(SegmentedResult *result) {
         assert(result);
 
         posting_bitmap_done(&result->candidates);
+        posting_bitmap_done(&result->verified);
         free(result->hashes);
         free(result->confirmed);
         free(result->value);
@@ -394,16 +429,19 @@ static int evaluate_index(
                 SegmentedResult *result,
                 Match *m,
                 size_t *value,
-                PostingBitmap *ret) {
+                PostingBitmap *ret,
+                bool *exact) {
 
         int r;
 
         assert(m);
         assert(value);
         assert(ret);
+        assert(exact);
 
         /* Sets the bits of the matching entries in 'ret', by ordinal relative to the segment. 'ret' must be
-         * zeroed and have one bit per entry of the segment. */
+         * zeroed and have one bit per entry of the segment. Sets 'exact' to false if the result is a
+         * superset. */
 
         if (m->type == MATCH_DISCRETE) {
                 uint64_t hash = result->hashes[(*value)++];
@@ -419,6 +457,22 @@ static int evaluate_index(
                 r = segmented_index_find_field(f, i, m->data, e - m->data, &field);
                 if (r <= 0)
                         return r;
+
+                if (FLAGS_SET(le32toh(field.flags), INDEX_FIELD_INLINE))
+                        r = 1;
+                else if (FLAGS_SET(le32toh(field.flags), INDEX_FIELD_UNINDEXED))
+                        r = segmented_index_has_unindexed(f, i, hash);
+                else
+                        r = 0;
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* The index can't tell which entries have the value. All of them are
+                         * candidates that need to be checked. */
+                        posting_bitmap_set_range(ret, 0, ret->n_bits);
+                        *exact = false;
+                        return 0;
+                }
 
                 r = segmented_index_find_data(f, i, &field, m->data, m->size, hash, &item);
                 if (r <= 0)
@@ -447,7 +501,7 @@ static int evaluate_index(
                 _cleanup_(posting_bitmap_done) PostingBitmap b = {};
 
                 if (first) {
-                        r = evaluate_index(f, i, result, c, value, ret);
+                        r = evaluate_index(f, i, result, c, value, ret, exact);
                         if (r < 0)
                                 return r;
 
@@ -459,7 +513,7 @@ static int evaluate_index(
                 if (r < 0)
                         return r;
 
-                r = evaluate_index(f, i, result, c, value, &b);
+                r = evaluate_index(f, i, result, c, value, &b, exact);
                 if (r < 0)
                         return r;
 
@@ -494,6 +548,20 @@ static int evaluate_entry(
                 size_t v = (*value)++;
 
                 for (size_t i = 0; i < e->n_fields; i++) {
+                        if (e->fields[i].type == SEGMENTED_FIELD_INLINE) {
+                                const void *d;
+                                size_t l;
+
+                                r = segmented_inline_payload(f, e->fields[i].offset, /* field= */ NULL, 0, &d, &l);
+                                if (r < 0)
+                                        return r;
+
+                                if (memcmp_nn(d, l, m->data, m->size) == 0)
+                                        return 1;
+
+                                continue;
+                        }
+
                         if (e->hashes[i] != result->hashes[v])
                                 continue;
 
@@ -560,6 +628,9 @@ static int evaluate_ordinal(JournalFile *f, SegmentedResult *result, Match *m, u
         for (size_t i = 0; i < e.n_fields; i++) {
                 hashes[i] = 0;
 
+                if (e.fields[i].type != SEGMENTED_FIELD_DATA)
+                        continue;
+
                 r = data_hash(f, e.fields[i].offset, hashes + i);
                 if (r < 0 && !IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
                         return r;
@@ -570,6 +641,23 @@ static int evaluate_ordinal(JournalFile *f, SegmentedResult *result, Match *m, u
         return evaluate_entry(f, result, &e, m, &value);
 }
 
+static int result_set_inexact(SegmentedResult *result) {
+        int r;
+
+        assert(result);
+
+        if (!result->exact)
+                return 0;
+
+        /* Everything evaluated so far is exact, hence verified. */
+        r = posting_bitmap_resize(&result->verified, result->candidates.n_bits);
+        if (r < 0)
+                return r;
+
+        posting_bitmap_set_range(&result->verified, 0, result->n_evaluated);
+        result->exact = false;
+        return 0;
+}
 static Match* result_match(SegmentedResult *result, Match *m, Match *storage) {
         assert(result);
         assert(storage);
@@ -607,9 +695,16 @@ static int result_extend(JournalFile *f, SegmentedResult *result, Match *m) {
         if (r < 0)
                 return r;
 
+        if (!result->exact) {
+                r = posting_bitmap_resize(&result->verified, n);
+                if (r < 0)
+                        return r;
+        }
+
         for (size_t k = 0; k < a->n_indexes; k++) {
                 _cleanup_(posting_bitmap_done) PostingBitmap b = {};
                 const SegmentedIndex *i = a->indexes + k;
+                bool exact = true;
                 size_t value = 0;
                 uint64_t skip;
 
@@ -620,11 +715,18 @@ static int result_extend(JournalFile *f, SegmentedResult *result, Match *m) {
                 if (r < 0)
                         return r;
 
-                r = evaluate_index(f, i, result, m, &value, &b);
+                r = evaluate_index(f, i, result, m, &value, &b, &exact);
                 if (r < 0)
                         return r;
 
                 skip = LESS_BY(result->n_evaluated, i->first_ordinal);
+
+                if (!exact) {
+                        r = result_set_inexact(result);
+                        if (r < 0)
+                                return r;
+                } else if (!result->exact)
+                        posting_bitmap_set_range(&result->verified, i->first_ordinal + skip, i->n_index_entries - skip);
 
                 bitmap_merge_shifted(&result->candidates, i->first_ordinal, &b, skip);
                 result->n_evaluated = i->n_entries;
@@ -636,6 +738,8 @@ static int result_extend(JournalFile *f, SegmentedResult *result, Match *m) {
                         return r;
                 if (r > 0)
                         posting_bitmap_set_range(&result->candidates, o, 1);
+                if (!result->exact)
+                        posting_bitmap_set_range(&result->verified, o, 1);
         }
 
         result->n_evaluated = n;
@@ -665,6 +769,7 @@ static int result_acquire(JournalFile *f, Match *m, const uint64_t key[static 2]
                 segmented_result_done(result);
 
                 result->used = true;
+                result->exact = true;
                 result->key[0] = key[0];
                 result->key[1] = key[1];
 
@@ -698,16 +803,79 @@ static int result_acquire(JournalFile *f, Match *m, const uint64_t key[static 2]
         return 0;
 }
 
-static bool result_find(const SegmentedResult *result, uint64_t from, direction_t direction, uint64_t *ret) {
+static int result_find(
+                JournalFile *f,
+                SegmentedResult *result,
+                Match *m,
+                uint64_t from,
+                direction_t direction,
+                uint64_t *ret) {
+
+        Match storage;
+        uint64_t o;
+        int r;
+
         assert(result);
         assert(ret);
 
         /* Finds the first match at or after 'from', or with DIRECTION_UP the last one at or before it. */
 
-        if (direction == DIRECTION_DOWN)
-                return posting_bitmap_find_first(&result->candidates, from, UINT64_MAX, ret);
+        m = result_match(result, m, &storage);
 
-        return posting_bitmap_find_last(&result->candidates, 0, from == UINT64_MAX ? from : from + 1, ret);
+        for (;;) {
+                if (direction == DIRECTION_DOWN) {
+                        if (!posting_bitmap_find_first(&result->candidates, from, UINT64_MAX, &o))
+                                return 0;
+                } else {
+                        if (!posting_bitmap_find_last(&result->candidates, 0, from == UINT64_MAX ? from : from + 1, &o))
+                                return 0;
+                }
+
+                if (result->exact || posting_bitmap_isset(&result->verified, o)) {
+                        *ret = o;
+                        return 1;
+                }
+
+                r = evaluate_ordinal(f, result, m, o);
+                if (r < 0)
+                        return r;
+
+                posting_bitmap_set_range(&result->verified, o, 1);
+                if (r > 0) {
+                        *ret = o;
+                        return 1;
+                }
+
+                posting_bitmap_clear_range(&result->candidates, o, 1);
+
+                /* Do not search the cleared range again */
+                if (direction == DIRECTION_DOWN)
+                        from = o + 1;
+                else {
+                        if (o == 0)
+                                return 0;
+                        from = o - 1;
+                }
+        }
+}
+
+static int result_make_exact(JournalFile *f, SegmentedResult *result, Match *m) {
+        uint64_t o = 0;
+        int r;
+
+        assert(result);
+
+        if (result->exact)
+                return 0;
+
+        while ((r = result_find(f, result, m, o, DIRECTION_DOWN, &o)) > 0)
+                o++;
+        if (r < 0)
+                return r;
+
+        posting_bitmap_done(&result->verified);
+        result->exact = true;
+        return 0;
 }
 
 static int result_ensure(JournalFile *f, SegmentedResult *result, Match *m, SegmentedResult *among) {
@@ -725,6 +893,11 @@ static int result_ensure(JournalFile *f, SegmentedResult *result, Match *m, Segm
 
         if (among && among->n_evaluated < segmented_n_entries(f)) {
                 r = result_extend(f, among, /* m= */ NULL);
+                if (r < 0)
+                        return r;
+
+                /* Callers take 'among' as the exact set of entries */
+                r = result_make_exact(f, among, /* m= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -753,7 +926,10 @@ static int result_load(
                 return r;
 
         for (;;) {
-                if (!result_find(result, from, direction, &o))
+                r = result_find(f, result, m, from, direction, &o);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return 0;
 
                 if (!among || posting_bitmap_isset(&among->candidates, o)) {
@@ -794,6 +970,10 @@ static int boot_acquire(JournalFile *f, sd_id128_t boot_id, SegmentedResult **re
         };
 
         r = result_acquire(f, &m, key, &result);
+        if (r < 0)
+                return r;
+
+        r = result_make_exact(f, result, &m);
         if (r < 0)
                 return r;
 
@@ -972,6 +1152,51 @@ enum {
         STAGE_DONE,
 };
 
+static int enumerate_inline(
+                JournalFile *f,
+                uint64_t offset,
+                uint64_t *item,
+                const char *field,
+                size_t field_length,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        Object *o;
+        int r;
+
+        assert(item);
+
+        /* Returns the next inline value of the entry, starting at item '*item', and advances '*item'. */
+
+        r = journal_file_move_to_object(f, OBJECT_ENTRY, offset, &o);
+        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+                return 0;
+        if (r < 0)
+                return r;
+
+        for (uint64_t n = le16toh(o->object.aux); *item < n;) {
+                uint64_t v = le32toh(o->entry.items.compact[(*item)++].object_offset);
+
+                if ((v & _ENTRY_ITEM_TYPE_MASK) != ENTRY_ITEM_INLINE)
+                        continue;
+
+                r = segmented_inline_payload(
+                                f,
+                                offset + (v & ~(uint64_t) _ENTRY_ITEM_TYPE_MASK),
+                                field, field_length,
+                                ret_data, ret_size);
+                if (r != 0)
+                        return r;
+
+                /* Mapping the inline value might have unmapped the entry */
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, offset, &o);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int enumerate_objects(
                 JournalFile *f,
                 SegmentedCursor *c,
@@ -984,8 +1209,8 @@ static int enumerate_objects(
 
         int r;
 
-        /* Returns the payload of the next data object in the range [c->position, end). If a field is
-         * specified, only the values of this field are returned. */
+        /* Returns the payload of the next data object or inline value in the range [c->position, end).
+         * If a field is specified, only the values of this field are returned. */
 
         for (;;) {
                 uint64_t p = c->position, q;
@@ -995,7 +1220,14 @@ static int enumerate_objects(
                 if (r <= 0)
                         return r;
 
+                if (h.type == OBJECT_ENTRY) {
+                        r = enumerate_inline(f, q, &c->item, field, field_length, ret_data, ret_size);
+                        if (r != 0)
+                                return r;
+                }
+
                 c->position = p;
+                c->item = 0;
 
                 if (h.type != OBJECT_DATA)
                         continue;
@@ -1027,6 +1259,7 @@ static void cursor_next_stage(SegmentedCursor *c) {
 
         c->index = 0;
         c->position = 0;
+        c->item = 0;
         c->stage++;
 }
 
@@ -1114,7 +1347,7 @@ int segmented_enumerate_unique(
         cursor_check(a, c);
 
         if (c->stage == STAGE_INDEXES) {
-                for (; c->index < a->n_indexes; c->index++, c->position = 0) {
+                for (; c->index < a->n_indexes; c->index++, c->position = 0, c->item = 0) {
                         const SegmentedIndex *i = a->indexes + c->index;
                         IndexFieldItem item;
 
@@ -1123,6 +1356,20 @@ int segmented_enumerate_unique(
                                 return r;
                         if (r == 0)
                                 continue;
+
+                        if ((le32toh(item.flags) & (INDEX_FIELD_UNINDEXED|INDEX_FIELD_INLINE)) != 0) {
+                                /* Unindexed and inline values are not in the data table, so read the
+                                 * objects of the segment */
+
+                                if (c->position == 0)
+                                        c->position = i->head_offset;
+
+                                r = enumerate_objects(f, c, i->offset, field, field_length, data_threshold, ret_data, ret_size);
+                                if (r != 0)
+                                        return r;
+
+                                continue;
+                        }
 
                         while (c->position < le32toh(item.n_data)) {
                                 IndexDataItem data;

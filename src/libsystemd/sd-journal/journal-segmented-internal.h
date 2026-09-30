@@ -19,6 +19,7 @@ int segmented_index_data(JournalFile *f, const SegmentedIndex *i, uint32_t k, In
 int segmented_index_postings(JournalFile *f, const SegmentedIndex *i, const IndexDataItem *item, PostingDecoder *ret);
 int segmented_index_find_field(JournalFile *f, const SegmentedIndex *i, const void *name, size_t size, IndexFieldItem *ret);
 int segmented_index_find_data(JournalFile *f, const SegmentedIndex *i, const IndexFieldItem *field, const void *data, size_t size, uint64_t hash, IndexDataItem *ret);
+int segmented_index_has_unindexed(JournalFile *f, const SegmentedIndex *i, uint64_t hash);
 int segmented_index_payload_verify(JournalFile *f, const SegmentedIndex *i);
 
 /* An index before it is serialized. index_builder_finish() sorts it the way the format requires. */
@@ -53,6 +54,9 @@ typedef struct IndexBuilder {
 
         IndexBuilderField *fields;
         size_t n_fields;
+
+        uint64_t *unindexed;
+        size_t n_unindexed;
 } IndexBuilder;
 
 void index_builder_done(IndexBuilder *b);
