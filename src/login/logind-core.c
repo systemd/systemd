@@ -622,7 +622,35 @@ static bool manager_is_docked(Manager *m) {
         return false;
 }
 
-static int manager_count_external_displays(Manager *m) {
+bool drm_connector_is_external(const char *sysname) {
+        assert(sysname);
+
+        /* The connector type is the second dash-separated item of the sysfs
+         * name, the first being the card name and the last the connector
+         * number. */
+        const char *dash = strchr(sysname, '-');
+        if (!dash)
+                return false;
+
+        return STARTSWITH_SET(dash + 1,
+                              "Component-", "Composite-", "DIN-", "DP-", "DVI-A-", "DVI-D-", "DVI-I-",
+                              "HDMI-A-", "HDMI-B-", "SVIDEO-", "TV-", "VGA-");
+}
+
+/* Returns true if the given values of a DRM connector's 'status' and 'enabled' sysfs
+ * attributes show that a display is currently being driven on it. Passing in NULL as
+ * a value is interpreted as the attribute not existing. */
+bool drm_connector_is_active(const char *status, const char *enabled) {
+
+        if (!streq_ptr(enabled, "enabled"))
+                return false;
+
+        /* Connectors without reliable hotplug detection have a status of
+         * "unknown", so count anything that is not explicitly "disconnected". */
+        return status && !streq(status, "disconnected");
+}
+
+static int manager_count_external_displays(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r, n = 0;
 
@@ -653,38 +681,26 @@ static int manager_count_external_displays(Manager *m) {
                 if (r == 0)
                         continue;
 
-                const char *nn;
-                r = sd_device_get_sysname(d, &nn);
+                const char *sysname;
+                r = sd_device_get_sysname(d, &sysname);
                 if (r < 0)
                         return r;
 
-                /* Ignore internal displays: the type is encoded in the sysfs name, as the second dash
-                 * separated item (the first is the card name, the last the connector number). We implement a
-                 * deny list of external displays here, rather than an allow list of internal ones, to ensure
-                 * we don't block suspends too eagerly. */
-                const char *dash = strchr(nn, '-');
-                if (!dash)
+                if (!drm_connector_is_external(sysname))
                         continue;
 
-                dash++;
-                if (!STARTSWITH_SET(dash,
-                                    "VGA-", "DVI-I-", "DVI-D-", "DVI-A-"
-                                    "Composite-", "SVIDEO-", "Component-",
-                                    "DIN-", "DP-", "HDMI-A-", "HDMI-B-", "TV-"))
-                        continue;
+                /* A connector may lack either attribute, which leaves the respective pointer at NULL. */
+                const char *status = NULL, *enabled = NULL;
 
-                /* Ignore ports that are not enabled */
-                r = device_get_sysattr_streq(d, "enabled", "enabled");
-                if (IN_SET(r, 0, -ENOENT))
-                        continue;
-                if (r < 0)
-                        return r;
-
-                /* We count any connector which is not explicitly "disconnected" as connected. */
-                r = device_get_sysattr_streq(d, "status", "disconnected");
+                r = sd_device_get_sysattr_value(d, "status", &status);
                 if (r < 0 && r != -ENOENT)
                         return r;
-                if (r <= 0)
+
+                r = sd_device_get_sysattr_value(d, "enabled", &enabled);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
+                if (drm_connector_is_active(status, enabled))
                         n++;
         }
 
@@ -702,7 +718,7 @@ bool manager_is_docked_or_external_displays(Manager *m) {
 
         /* If we have more than one display connected,
          * assume that we are docked. */
-        n = manager_count_external_displays(m);
+        n = manager_count_external_displays();
         if (n < 0)
                 log_warning_errno(n, "Display counting failed: %m");
         else if (n >= 1) {
