@@ -4,6 +4,7 @@
 #include "hashmap.h"
 #include "journal-file-util.h"
 #include "journal-remote.h"
+#include "journal-segmented.h"
 #include "journal-vacuum.h"
 #include "log.h"
 #include "path-util.h"
@@ -84,6 +85,25 @@ static Writer* writer_free(Writer *w) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, writer_free);
 
+static void writer_sync(Writer *w) {
+        Segmented *a = w->journal->segmented;
+        uint64_t index;
+        int r;
+
+        if (!a || a->n_indexes == 0)
+                return;
+
+        index = a->indexes[a->n_indexes - 1].offset;
+        if (index == w->synced_index)
+                return;
+
+        r = journal_file_set_offline(w->journal, /* wait= */ false);
+        if (r < 0)
+                log_warning_errno(r, "Failed to sync %s: %m", w->journal->path);
+        else
+                w->synced_index = index;
+}
+
 int writer_write(Writer *w,
                  const struct iovec_wrapper *iovw,
                  const dual_timestamp *ts,
@@ -98,6 +118,7 @@ int writer_write(Writer *w,
                 log_info("%s: Journal header limits reached or header out-of-date, rotating",
                          w->journal->path);
 
+                w->synced_index = 0;
                 r = do_rotate(&w->journal, w->mmap, file_flags);
                 if (r < 0)
                         return r;
@@ -118,6 +139,7 @@ int writer_write(Writer *w,
                         /* ret_object= */ NULL,
                         /* ret_offset= */ NULL);
         if (r >= 0) {
+                writer_sync(w);
                 if (w->server)
                         w->server->event_count += 1;
                 return 0;
@@ -126,6 +148,7 @@ int writer_write(Writer *w,
                 return r;
 
         log_debug_errno(r, "%s: Write failed, rotating: %m", w->journal->path);
+        w->synced_index = 0;
         r = do_rotate(&w->journal, w->mmap, file_flags);
         if (r < 0)
                 return r;
@@ -148,6 +171,7 @@ int writer_write(Writer *w,
         if (r < 0)
                 return r;
 
+        writer_sync(w);
         if (w->server)
                 w->server->event_count += 1;
         return 0;
