@@ -232,6 +232,14 @@ int journal_file_data_payload(
                 size_t data_threshold,
                 const void **ret_data,
                 size_t *ret_size);
+int journal_file_data_payload_pinned(
+                JournalFile *f,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size);
 
 static inline size_t journal_file_data_payload_offset(JournalFile *f) {
         return JOURNAL_HEADER_COMPACT(f->header)
@@ -272,10 +280,8 @@ int journal_file_append_entry(
                 uint64_t *ret_offset);
 
 int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret_object, uint64_t *ret_offset);
-int journal_file_find_data_object_with_hash(JournalFile *f, const void *data, uint64_t size, uint64_t hash, Object **ret_object, uint64_t *ret_offset);
 
 int journal_file_find_field_object(JournalFile *f, const void *field, uint64_t size, Object **ret_object, uint64_t *ret_offset);
-int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, uint64_t size, uint64_t hash, Object **ret_object, uint64_t *ret_offset);
 
 void journal_file_reset_location(JournalFile *f);
 void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset);
@@ -290,8 +296,6 @@ int journal_file_move_to_entry_for_data(JournalFile *f, Object *d, direction_t d
 
 int journal_file_move_to_entry_by_offset_for_data(JournalFile *f, Object *d, uint64_t p, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 int journal_file_move_to_entry_by_seqnum_for_data(JournalFile *f, Object *d, uint64_t seqnum, direction_t direction, Object **ret_object, uint64_t *ret_offset);
-int journal_file_move_to_entry_by_realtime_for_data(JournalFile *f, Object *d, uint64_t realtime, direction_t direction, Object **ret_object, uint64_t *ret_offset);
-int journal_file_move_to_entry_by_monotonic_for_data(JournalFile *f, Object *d, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 
 /* Same as the _for_data() calls above, but take the data itself instead of a data object. */
 int journal_file_seek_for_match(JournalFile *f, const void *data, uint64_t size, JournalSeek where, sd_id128_t boot_id, uint64_t needle, direction_t direction, Object **ret_object, uint64_t *ret_offset);
