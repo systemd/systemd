@@ -180,23 +180,33 @@ static void test_journal_flush_one(int argc, char *argv[]) {
         ASSERT_OK(journal_file_archive(new_journal, NULL));
         ASSERT_OK(journal_file_set_offline(new_journal, /* wait= */ true));
 
-        /* Read the archived and offline journal. */
-        for (uint64_t q = ALIGN64(p + 1); q < (uint64_t) j->current_file->last_stat.st_size; q = ALIGN64(q + 1)) {
-                Object *o;
+        /* Read the archived and offline journal. Archiving a segmented file appends the merged index and
+         * the final mark after the tail, which the reader then finds there. */
+        if (!j->current_file->segmented)
+                for (uint64_t q = ALIGN64(p + 1); q < (uint64_t) j->current_file->last_stat.st_size; q = ALIGN64(q + 1)) {
+                        Object *o;
 
-                r = journal_file_move_to_object(j->current_file, OBJECT_UNUSED, q, &o);
-                ASSERT_TRUE(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL, -EIDRM));
-        }
+                        r = journal_file_move_to_object(j->current_file, OBJECT_UNUSED, q, &o);
+                        ASSERT_TRUE(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL, -EIDRM));
+                }
 }
 
 TEST(journal_flush) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1));
         test_journal_flush_one(saved_argc, saved_argv);
 }
 
 TEST(journal_flush_compact) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "0", 1));
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         test_journal_flush_one(saved_argc, saved_argv);
+}
+
+TEST(journal_flush_segmented) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
+        test_journal_flush_one(saved_argc, saved_argv);
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_SEGMENTED"));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
