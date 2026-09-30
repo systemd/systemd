@@ -231,8 +231,8 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
 int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);
 int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset);
 
-/* Items of segmented files may also refer to contexts. Use journal_file_entry_n_fields() and
- * journal_file_entry_field_payload() to get the data of an entry. */
+/* Items of segmented files may also refer to contexts and inline values. Use
+ * journal_file_entry_n_fields() and journal_file_entry_field_payload() to get the data of an entry. */
 static inline uint64_t journal_file_entry_item_object_offset(JournalFile *f, Object *o, size_t i) {
         assert(f);
         assert(o);
