@@ -933,6 +933,11 @@ static int check_object_header(JournalFile *f, Object *o, ObjectType type, uint6
                                        "Attempt to move to object with invalid type (%u): %" PRIu64,
                                        o->object.type, offset);
 
+        if (IN_SET(o->object.type, OBJECT_CONTEXT, OBJECT_INDEX))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Found object of type %u in file that is not segmented: %" PRIu64,
+                                       o->object.type, offset);
+
         if (type > OBJECT_UNUSED && o->object.type != type)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Found %s object while expecting %s object: %" PRIu64,
