@@ -13,6 +13,7 @@
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
+#include "journal-segmented.h"
 #include "log.h"
 #include "memory-util.h"
 #include "string-util.h"
@@ -411,6 +412,28 @@ static int journal_auth_put_object(JournalAuthContext *c, JournalFile *f, Object
         } else if (type > OBJECT_UNUSED && o->object.type != type)
                 return -EBADMSG;
 
+        if (f->segmented) {
+                uint64_t size = le64toh(o->object.size);
+
+                /* Objects are immutable, so they are covered in full, except for the checksum, which for tags
+                 * is only computed after the HMAC, and the tag itself. Indexes are derived data and are not
+                 * covered. */
+
+                if (o->object.type == OBJECT_INDEX)
+                        return 0;
+                if (!IN_SET(o->object.type, OBJECT_DATA, OBJECT_CONTEXT, OBJECT_ENTRY, OBJECT_TAG))
+                        return -EINVAL;
+                if (o->object.type == OBJECT_TAG)
+                        size = offsetof(TagObject, tag);
+
+                if (sym_EVP_MAC_update(c->hmac_ctx, (void*) o, offsetof(ObjectHeader, checksum)) <= 0)
+                        return -EIO;
+                if (sym_EVP_MAC_update(c->hmac_ctx, (uint8_t*) o + offsetof(ObjectHeader, size), size - offsetof(ObjectHeader, size)) <= 0)
+                        return -EIO;
+
+                return 0;
+        }
+
         if (sym_EVP_MAC_update(c->hmac_ctx, (void*) o, offsetof(ObjectHeader, payload)) <= 0)
                 return -EIO;
 
@@ -464,29 +487,42 @@ static int journal_auth_append_tag(JournalAuthContext *c, JournalFile *f) {
         assert(c);
         assert(f);
 
+        /* The tag covers the objects that the HMAC saw so far. Objects of segmented files are added to it
+         * when they are written, hence write them first. */
+        if (f->segmented) {
+                r = segmented_flush(f);
+                if (r < 0)
+                        return r;
+        }
+
         r = journal_auth_start(c);
         if (r < 0)
                 return r;
 
-        Object *o;
-        uint64_t p;
-        r = journal_file_append_object(f, OBJECT_TAG, sizeof(struct TagObject), &o, &p);
-        if (r < 0)
-                return r;
+        Object buffer = {
+                .tag.object.type = OBJECT_TAG,
+                .tag.object.size = htole64(sizeof(TagObject)),
+        }, *o = &buffer;
+        uint64_t p = 0, epoch, seqnum = le64toh(f->header->n_tags) + 1;
 
-        uint64_t seqnum = le64toh(f->header->n_tags) + 1;
-        f->header->n_tags = htole64(seqnum);
+        /* Segmented files get the tag appended once it is complete, classic files have it written in
+         * place. */
+        if (!f->segmented) {
+                r = journal_file_append_object(f, OBJECT_TAG, sizeof(struct TagObject), &o, &p);
+                if (r < 0)
+                        return r;
 
-        o->tag.seqnum = htole64(seqnum);
+                f->header->n_tags = htole64(seqnum);
+        }
 
-        uint64_t epoch;
         r = fsprg_get_epoch(&c->fsprg_state, &epoch);
         if (r < 0)
                 return r;
+
+        o->tag.seqnum = htole64(seqnum);
         o->tag.epoch = htole64(epoch);
 
-        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"",
-                  le64toh(o->tag.seqnum), epoch);
+        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"", seqnum, epoch);
 
         /* Add the tag object itself, so that we can protect its
          * header. This will exclude the actual hash value in it */
@@ -495,7 +531,14 @@ static int journal_auth_append_tag(JournalAuthContext *c, JournalFile *f) {
                 return r;
 
         /* Get the HMAC tag and store it in the object */
-        return journal_auth_end(c, o->tag.tag);
+        r = journal_auth_end(c, o->tag.tag);
+        if (r < 0)
+                return r;
+
+        if (f->segmented)
+                return segmented_append_tag(f, &o->tag);
+
+        return 0;
 }
 
 static int journal_auth_append_tag_first(JournalAuthContext *c, JournalFile *f) {
@@ -510,6 +553,9 @@ static int journal_auth_append_tag_first(JournalAuthContext *c, JournalFile *f) 
         r = journal_auth_put_header(c, f);
         if (r < 0)
                 return r;
+
+        if (f->segmented)
+                return journal_auth_append_tag(c, f); /* There are no hash tables */
 
         p = le64toh(f->header->field_hash_table_offset);
         if (p < offsetof(Object, hash_table.items))
