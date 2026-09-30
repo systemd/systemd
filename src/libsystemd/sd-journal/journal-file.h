@@ -27,6 +27,16 @@ typedef enum direction {
         _DIRECTION_INVALID = -EINVAL,
 } direction_t;
 
+typedef enum JournalSeek {
+        JOURNAL_SEEK_FIRST,     /* the first (or last) entry */
+        JOURNAL_SEEK_OFFSET,    /* the entry at or after (or before) the offset */
+        JOURNAL_SEEK_SEQNUM,
+        JOURNAL_SEEK_REALTIME,
+        JOURNAL_SEEK_MONOTONIC, /* within the boot */
+        _JOURNAL_SEEK_MAX,
+        _JOURNAL_SEEK_INVALID = -EINVAL,
+} JournalSeek;
+
 typedef enum LocationType {
         /* The first and last entries, resp. */
         LOCATION_HEAD,
@@ -282,6 +292,9 @@ int journal_file_move_to_entry_by_offset_for_data(JournalFile *f, Object *d, uin
 int journal_file_move_to_entry_by_seqnum_for_data(JournalFile *f, Object *d, uint64_t seqnum, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 int journal_file_move_to_entry_by_realtime_for_data(JournalFile *f, Object *d, uint64_t realtime, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 int journal_file_move_to_entry_by_monotonic_for_data(JournalFile *f, Object *d, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret_object, uint64_t *ret_offset);
+
+/* Same as the _for_data() calls above, but take the data itself instead of a data object. */
+int journal_file_seek_for_match(JournalFile *f, const void *data, uint64_t size, JournalSeek where, sd_id128_t boot_id, uint64_t needle, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, sd_id128_t *seqnum_id);
 
