@@ -4651,7 +4651,8 @@ static int find_signature(
         int r;
 
         /* Searches for a signature blob in the specified JSON object. Search keys are PCR bank, PCR mask,
-         * public key, and policy digest. */
+         * public key, policy reference and policy digest. If 'policy' is NULL, matches any policy digest.
+         * If 'ret_signature' is NULL, only checks whether a matching entry exists. */
 
         if (!sd_json_variant_is_object(v))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature is not a JSON object.");
@@ -4721,17 +4722,22 @@ static int find_signature(
                 if (!polj)
                         continue;
 
-                r = sd_json_variant_unhex(polj, &polj_data, &polj_size);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to decode policy hash JSON data: %m");
+                if (policy) {
+                        r = sd_json_variant_unhex(polj, &polj_data, &polj_size);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to decode policy hash JSON data: %m");
 
-                if (memcmp_nn(policy, policy_size, polj_data, polj_size) != 0)
-                        continue;
+                        if (memcmp_nn(policy, policy_size, polj_data, polj_size) != 0)
+                                continue;
+                }
 
                 /* This entry matches all our expectations, now return the signature included in it */
                 sigj = sd_json_variant_by_key(i, "sig");
                 if (!sigj)
                         continue;
+
+                if (!ret_signature)
+                        return 0;
 
                 return sd_json_variant_unbase64(sigj, ret_signature, ret_signature_size);
         }
@@ -9135,8 +9141,13 @@ int tpm2_nvpcr_extend_bytes(
                 return r;
 
         /* The NvPCR isn't initialized yet, i.e. systemd-tpm2-setup hasn't run.
-         * Initialize it now and extend again. */
+         * Initialize it now and extend again. This can only run in the initrd. */
+        if (!in_initrd())
+                return log_debug_errno(r, "NvPCR is not initialized and lazy initialization is only available in the initrd, refusing.");
+
         r = tpm2_nvpcr_initialize(c, session, name);
+        if (r == -ENOKEY) /* Can't be initialized in this boot, report it as not initialized. */
+                return -ENETDOWN;
         if (r < 0)
                 return log_debug_errno(r, "Failed to initialize NvPCR '%s': %m", name);
 
@@ -9261,6 +9272,41 @@ int tpm2_nvpcr_initialize(
         TPM2B_PUBLIC public;
         _cleanup_(iovec_done) struct iovec fingerprint = {};
         r = tpm2_nvpcr_load_pcr_public_key(/* path= */ NULL, &public, &fingerprint);
+        if (r == -ENOENT)
+                /* Avoid failing systemd-tpm2-setup if there is no PCR public key attached to the UKI. */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "No PCR public key available, cannot initialize NvPCR '%s'.", name);
+        if (r < 0)
+                return r;
+
+        /* Load the signed PCR policy, which authorizes the initializing write. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
+        r = tpm2_load_pcr_signature(/* path= */ NULL, &signature_json);
+        if (r == -ENOENT)
+                /* Avoid failing systemd-tpm2-setup if there are no PCR signatures attached to the UKI. */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "No signed PCR policy available, cannot initialize NvPCR '%s'.", name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load PCR signature for NvPCR initialization: %m");
+
+        /* Check that there's a signed policy for the initializing write at all before we allocate anything
+         * on the TPM. This avoids failing systemd-tpm2-setup if there are no policies signed for the "initrd"
+         * policy reference. We don't check the policy digest here: if there is a matching policy but it doesn't
+         * match the current PCR state, or its signature is invalid, then that's a real error which we
+         * want to report below. */
+        TPML_PCR_SELECTION pcr_selection;
+        tpm2_tpml_pcr_selection_from_mask(NVPCR_PUBKEY_PCRMASK, TPM2_ALG_SHA256, &pcr_selection);
+        r = find_signature(
+                        signature_json,
+                        &pcr_selection,
+                        fingerprint.iov_base, fingerprint.iov_len,
+                        NVPCR_INIT_POLICY_REF,
+                        /* policy= */ NULL, /* policy_size= */ 0,
+                        /* ret_signature= */ NULL, /* ret_signature_size= */ NULL);
+        if (r == -ENOSTR)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "No signed PCR policy with reference '%s' available, cannot initialize NvPCR '%s'.",
+                                       NVPCR_INIT_POLICY_REF, name);
         if (r < 0)
                 return r;
 
@@ -9280,12 +9326,6 @@ int tpm2_nvpcr_initialize(
                 return r;
 
         log_debug("Successfully acquired handle to NV index 0x%" PRIx32 ".", p.nv_index);
-
-        /* Load the signed PCR policy, which authorizes the initializing write. */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
-        r = tpm2_load_pcr_signature(/* path= */ NULL, &signature_json);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to load PCR signature for NvPCR initialization: %m");
 
         bool reset_marker;
         for (unsigned i = RETRY_NVPCR_INIT_MAX;; i--) {
