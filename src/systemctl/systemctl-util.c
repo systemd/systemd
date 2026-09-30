@@ -762,7 +762,7 @@ int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
                 if (strv_extend(&with_deps, *name) < 0)
                         return log_oom();
 
-                (void) unit_get_dependencies(bus, *name, &deps);
+                (void) unit_get_dependencies(bus, *name, &deps, /* ret_active_state= */ NULL);
 
                 if (strv_extend_strv_consume(&with_deps, deps, /* filter_duplicates= */ true) < 0)
                         return log_oom();
@@ -790,34 +790,52 @@ int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list) {
         return strv_free_and_replace(*list, list_with_deps);
 }
 
-int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
-        _cleanup_strv_free_ char **deps = NULL;
+typedef struct UnitDependencyInfo {
+        char **deps;
+        char *active_state;
+} UnitDependencyInfo;
 
-        static const struct bus_properties_map map[_DEPENDENCY_MAX][7] = {
+static void unit_dependency_info_done(UnitDependencyInfo *info) {
+        assert(info);
+
+        info->deps = strv_free(info->deps);
+        info->active_state = mfree(info->active_state);
+}
+
+int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret, UnitActiveState *ret_active_state) {
+        _cleanup_(unit_dependency_info_done) UnitDependencyInfo info = {};
+
+        /* The "as" properties are all stored at the same offset, i.e. merged into one strv. ActiveState
+         * comes with the same GetAll() reply, so callers that also want the state get it for free. */
+        static const struct bus_properties_map map[_DEPENDENCY_MAX][8] = {
                 [DEPENDENCY_FORWARD] = {
-                        { "Requires",    "as", NULL, 0 },
-                        { "Requisite",   "as", NULL, 0 },
-                        { "Wants",       "as", NULL, 0 },
-                        { "ConsistsOf",  "as", NULL, 0 },
-                        { "BindsTo",     "as", NULL, 0 },
-                        { "Upholds",     "as", NULL, 0 },
+                        { "Requires",    "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "Requisite",   "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "Wants",       "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "ConsistsOf",  "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "BindsTo",     "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "Upholds",     "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "ActiveState", "s",  NULL, offsetof(UnitDependencyInfo, active_state) },
                         {}
                 },
                 [DEPENDENCY_REVERSE] = {
-                        { "RequiredBy",  "as", NULL, 0 },
-                        { "RequisiteOf", "as", NULL, 0 },
-                        { "WantedBy",    "as", NULL, 0 },
-                        { "PartOf",      "as", NULL, 0 },
-                        { "BoundBy",     "as", NULL, 0 },
-                        { "UpheldBy",    "as", NULL, 0 },
+                        { "RequiredBy",  "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "RequisiteOf", "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "WantedBy",    "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "PartOf",      "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "BoundBy",     "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "UpheldBy",    "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "ActiveState", "s",  NULL, offsetof(UnitDependencyInfo, active_state) },
                         {}
                 },
                 [DEPENDENCY_AFTER] = {
-                        { "After",       "as", NULL, 0 },
+                        { "After",       "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "ActiveState", "s",  NULL, offsetof(UnitDependencyInfo, active_state) },
                         {}
                 },
                 [DEPENDENCY_BEFORE] = {
-                        { "Before",      "as", NULL, 0 },
+                        { "Before",      "as", NULL, offsetof(UnitDependencyInfo, deps)         },
+                        { "ActiveState", "s",  NULL, offsetof(UnitDependencyInfo, active_state) },
                         {}
                 },
         };
@@ -841,13 +859,24 @@ int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
                                    BUS_MAP_STRDUP,
                                    &error,
                                    NULL,
-                                   &deps);
+                                   &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties of %s: %s", name, bus_error_message(&error, r));
 
-        strv_uniq(deps); /* Sometimes a unit might have multiple deps on the other unit,
-                          * but we still want to show it just once. */
-        *ret = TAKE_PTR(deps);
+        if (ret_active_state) {
+                UnitActiveState state;
+
+                state = unit_active_state_from_string(info.active_state);
+                if (state < 0)
+                        return log_error_errno(state, "Invalid unit state '%s' for: %s",
+                                               strna(info.active_state), name);
+
+                *ret_active_state = state;
+        }
+
+        strv_uniq(info.deps); /* Sometimes a unit might have multiple deps on the other unit,
+                               * but we still want to show it just once. */
+        *ret = TAKE_PTR(info.deps);
 
         return 0;
 }
