@@ -48,7 +48,6 @@ int mmap_cache_fd_pin(
         size_t size);
 
 int mmap_cache_add_fd(MMapCache *m, int fd, int prot, MMapFileDescriptor **ret);
-MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f);
 MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f);
 
 void mmap_cache_stats_log_debug(MMapCache *m);
