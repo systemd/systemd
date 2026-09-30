@@ -75,6 +75,10 @@
     then stored in an NV index in the TPM2. This may be used to then lock secrets (such as disk encryption
     keys) to these policies (via a TPM2 <function>PolicyAuthorizeNV</function> policy).</para>
 
+    <para>If a single PCR has more than eight alternative values, the <function>PolicyOR</function> items are
+    nested into a balanced tree. The current implementation supports at most 5 nesting levels, i.e. up to
+    32768 alternatives per PCR.</para>
+
     <para>Use tools such as
     <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     or <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> to
