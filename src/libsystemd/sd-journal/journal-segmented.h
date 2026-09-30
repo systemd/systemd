@@ -1,0 +1,168 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include "journal-file.h"
+#include "journal-postings.h"
+
+/* The segmented journal file format, see docs/JOURNAL_SEGMENTED.md. */
+
+typedef struct Match Match;
+
+/* Inotify notifications bypass the refresh interval. */
+#define SEGMENTED_REFRESH_USEC (10 * USEC_PER_MSEC)
+
+#define SEGMENTED_RESULTS_MAX 4U
+
+typedef struct SegmentedIndex {
+        uint64_t offset;
+        uint64_t size;
+        uint64_t head_offset;
+        uint64_t n_entries;      /* entries of the file up to the index */
+        uint64_t first_ordinal;  /* ordinal of the first entry of the segment */
+
+        uint32_t n_index_entries;
+        uint32_t entry_array_offset;
+        uint32_t n_fields;
+        uint32_t field_table_offset;
+        uint32_t n_data_items;
+        uint32_t data_table_offset;
+        uint32_t payload_checksum;
+} SegmentedIndex;
+
+typedef struct SegmentedField {
+        uint64_t offset; /* of the data object */
+} SegmentedField;
+
+typedef struct SegmentedResult {
+        uint64_t key[2];
+        uint64_t last_used;
+        bool used;
+
+        uint64_t n_evaluated;
+        bool uncached;
+        PostingBitmap candidates;
+
+        /* For each value of the match expression, in the order they appear in it */
+        uint64_t *hashes;
+        size_t n_values;
+
+        /* For a single value, so that the result can be rebuilt without the match */
+        char *value;
+        size_t value_size;
+} SegmentedResult;
+
+/* The two kinds of keys for match results: expressions of sd_journal objects are identified by a counter,
+ * single values by their hash. */
+#define SEGMENTED_KEY_EXPRESSION UINT64_C(1)
+#define SEGMENTED_KEY_VALUE UINT64_C(2)
+
+typedef struct Segmented {
+        Header *disk_header;
+
+        SegmentedIndex *indexes;
+        size_t n_indexes;
+
+        unsigned indexes_generation;
+
+        /* The tail. Its first entry has the ordinal n_indexed_entries. */
+        uint64_t n_indexed_entries;
+        uint64_t tail_offset;  /* the newest index, which counts as the first tail object, or the end of the header */
+        uint64_t scan_offset;  /* where scanning continues */
+        uint64_t scan_base;    /* the start of the segment at scan_offset: the newest index, or the end of the header */
+        uint32_t *tail_entries; /* offsets relative to tail_offset */
+        size_t n_tail_entries;
+
+        usec_t last_refresh_usec;
+        bool refresh_pending;
+
+        uint64_t current_offset;
+        uint64_t current_ordinal;
+
+        uint64_t fields_offset;
+        SegmentedField *fields;
+        size_t n_fields;
+
+        SegmentedResult results[SEGMENTED_RESULTS_MAX];
+        uint64_t result_counter;
+} Segmented;
+
+bool segmented_requested(void);
+
+uint64_t segmented_object_size_min(uint8_t type);
+/* 'distance' is the offset of the object relative to the start of its segment */
+uint32_t segmented_checksum(JournalFile *f, uint64_t distance, const void *object, size_t size);
+size_t segmented_checked_size(const ObjectHeader *h);
+int segmented_check_object(JournalFile *f, Object *o, uint64_t offset, size_t available);
+int segmented_index_parse(JournalFile *f, const IndexObject *o, uint64_t offset, SegmentedIndex *ret);
+
+int segmented_open(JournalFile *f, bool newly_created);
+void segmented_close(JournalFile *f);
+int segmented_verify_header(JournalFile *f);
+int segmented_refresh(JournalFile *f, usec_t ts);
+
+int segmented_entry_field_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                sd_journal_data_flags_t flags,
+                int fd,
+                const void **ret_data,
+                size_t *ret_size);
+
+typedef enum SegmentedKey {
+        SEGMENTED_KEY_SEQNUM,
+        SEGMENTED_KEY_REALTIME,
+        SEGMENTED_KEY_MONOTONIC,
+} SegmentedKey;
+
+uint64_t segmented_n_entries(JournalFile *f);
+int segmented_entry_load(JournalFile *f, uint64_t ordinal, direction_t direction, Object **ret_object, uint64_t *ret_offset);
+int segmented_bisect(JournalFile *f, SegmentedKey key, uint64_t needle, const PostingBitmap *among, direction_t direction, uint64_t *ret);
+int segmented_entry_fields(JournalFile *f, Object *o, uint64_t offset, const SegmentedField **ret, size_t *ret_n);
+int segmented_entry_ordinal(JournalFile *f, uint64_t offset, direction_t direction, uint64_t *ret);
+int segmented_next_entry(JournalFile *f, uint64_t p, direction_t direction, Object **ret_object, uint64_t *ret_offset);
+int segmented_move_to_entry_by_seqnum(JournalFile *f, uint64_t seqnum, direction_t direction, Object **ret_object, uint64_t *ret_offset);
+int segmented_move_to_entry_by_realtime(JournalFile *f, uint64_t realtime, direction_t direction, Object **ret_object, uint64_t *ret_offset);
+int segmented_move_to_entry_by_monotonic(JournalFile *f, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret_object, uint64_t *ret_offset);
+
+void segmented_result_done(SegmentedResult *result);
+int segmented_seek(
+                JournalFile *f,
+                Match *m,
+                const uint64_t key[static 2],
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret_object,
+                uint64_t *ret_offset);
+int segmented_move_to_entry_for_match(
+                JournalFile *f,
+                const void *data,
+                uint64_t size,
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret_object,
+                uint64_t *ret_offset);
+
+int segmented_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, usec_t *ret_from, usec_t *ret_to);
+
+/* SegmentedCursor must start out zeroed. */
+typedef struct SegmentedCursor {
+        unsigned generation;
+        uint64_t position;
+} SegmentedCursor;
+
+int segmented_enumerate_fields(JournalFile *f, SegmentedCursor *c, const void **ret_name, size_t *ret_size);
+int segmented_enumerate_unique(
+                JournalFile *f,
+                const char *field,
+                size_t field_length,
+                SegmentedCursor *c,
+                const void **ret_data,
+                size_t *ret_size);
