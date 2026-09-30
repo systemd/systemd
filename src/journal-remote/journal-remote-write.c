@@ -14,7 +14,7 @@ static int do_rotate(JournalFile **f, MMapCache *m, JournalFileFlags file_flags)
 
         assert(f);
 
-        r = journal_file_rotate(f, m, file_flags, UINT64_MAX, NULL);
+        r = journal_file_rotate(f, m, file_flags, UINT64_MAX, /* seqnum_id= */ NULL, NULL);
         if (r < 0) {
                 if (*f)
                         log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
