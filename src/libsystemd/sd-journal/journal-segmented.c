@@ -256,10 +256,12 @@ int segmented_check_object(JournalFile *f, Object *o, uint64_t offset, size_t av
         }
 
         case OBJECT_ENTRY: {
-                uint64_t n = le16toh(o->object.aux), previous = 0;
+                uint64_t n = le16toh(o->object.aux), inline_offset, previous = 0;
                 bool context = false;
 
-                if (n == 0 || size != ENTRY_ITEMS_OFFSET + ALIGN64(n * sizeof(le32_t)))
+                inline_offset = ENTRY_ITEMS_OFFSET + ALIGN64(n * sizeof(le32_t));
+
+                if (n == 0 || size < inline_offset)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Bad entry size %" PRIu64 " for %" PRIu64 " items: %" PRIu64,
                                                size, n, offset);
@@ -287,6 +289,13 @@ int segmented_check_object(JournalFile *f, Object *o, uint64_t offset, size_t av
                                  * reading it stays bounded by its size */
                                 good = !context && reference_is_valid(f, p, offset);
                                 context = true;
+                                break;
+
+                        case ENTRY_ITEM_INLINE:
+                                good = p >= inline_offset &&
+                                        p <= size - sizeof(InlineData) &&
+                                        le32toh(((const InlineData*) ((const uint8_t*) o + p))->size) > 0 &&
+                                        le32toh(((const InlineData*) ((const uint8_t*) o + p))->size) <= size - p - sizeof(InlineData);
                                 break;
 
                         default:
@@ -863,6 +872,7 @@ void segmented_close(JournalFile *f) {
         free(a->indexes);
         free(a->tail_entries);
         free(a->fields);
+        free(a->inline_buffer);
 
         free(f->header);
         f->header = a->disk_header;
@@ -1318,7 +1328,17 @@ static int fields_load(JournalFile *f, Object *o, uint64_t offset) {
                 switch (item & _ENTRY_ITEM_TYPE_MASK) {
 
                 case ENTRY_ITEM_DATA:
-                        a->fields[a->n_fields++] = (SegmentedField) { .offset = p };
+                        a->fields[a->n_fields++] = (SegmentedField) {
+                                .type = SEGMENTED_FIELD_DATA,
+                                .offset = p,
+                        };
+                        break;
+
+                case ENTRY_ITEM_INLINE:
+                        a->fields[a->n_fields++] = (SegmentedField) {
+                                .type = SEGMENTED_FIELD_INLINE,
+                                .offset = offset + p,
+                        };
                         break;
 
                 case ENTRY_ITEM_CONTEXT: {
@@ -1340,7 +1360,10 @@ static int fields_load(JournalFile *f, Object *o, uint64_t offset) {
                                 return -ENOMEM;
 
                         for (uint64_t k = 0; k < m; k++)
-                                a->fields[a->n_fields++] = (SegmentedField) { .offset = le32toh(c->context.items[k]) };
+                                a->fields[a->n_fields++] = (SegmentedField) {
+                                        .type = SEGMENTED_FIELD_DATA,
+                                        .offset = le32toh(c->context.items[k]),
+                                };
                         break;
                 }
 
@@ -1370,6 +1393,58 @@ int segmented_entry_fields(JournalFile *f, Object *o, uint64_t offset, const Seg
         return 0;
 }
 
+int segmented_inline_payload(
+                JournalFile *f,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
+        InlineData *d;
+        uint64_t size;
+        int r;
+
+        r = journal_file_move_to(f, OBJECT_ENTRY, /* keep_always= */ false, offset, sizeof(InlineData), (void**) &d);
+        if (r < 0)
+                return r;
+
+        size = le32toh(READ_NOW(d->size));
+        if (size == 0)
+                return -EBADMSG;
+
+        r = journal_file_move_to(f, OBJECT_ENTRY, /* keep_always= */ false, offset, sizeof(InlineData) + size, (void**) &d);
+        if (r < 0)
+                return r;
+
+        if (field && (size < field_length + 1 ||
+                      memcmp(d->payload, field, field_length) != 0 ||
+                      d->payload[field_length] != '=')) {
+                if (ret_data)
+                        *ret_data = NULL;
+                if (ret_size)
+                        *ret_size = 0;
+                return 0;
+        }
+
+        if (ret_data) {
+                /* Callers expect the data to live longer than the mmap window of the entry does, hence
+                 * return a copy. Decompressed payloads are followed by a NUL byte, and callers treat
+                 * payloads as strings, hence add one here too. */
+                if (!GREEDY_REALLOC(a->inline_buffer, size + 1))
+                        return -ENOMEM;
+
+                memcpy(a->inline_buffer, d->payload, size);
+                a->inline_buffer[size] = 0;
+                *ret_data = a->inline_buffer;
+        }
+        if (ret_size)
+                *ret_size = size;
+
+        return 1;
+}
+
 int segmented_entry_field_payload(
                 JournalFile *f,
                 Object *o,
@@ -1390,6 +1465,9 @@ int segmented_entry_field_payload(
 
         if (i >= a->n_fields)
                 return -EADDRNOTAVAIL;
+
+        if (a->fields[i].type == SEGMENTED_FIELD_INLINE)
+                return segmented_inline_payload(f, a->fields[i].offset, field, field_length, ret_data, ret_size);
 
         return journal_file_data_payload(
                         f,
