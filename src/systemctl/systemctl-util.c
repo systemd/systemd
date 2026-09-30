@@ -757,7 +757,7 @@ int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
         assert(ret);
 
         STRV_FOREACH(name, names) {
-                char **deps;
+                char **deps = NULL;
 
                 if (strv_extend(&with_deps, *name) < 0)
                         return log_oom();
