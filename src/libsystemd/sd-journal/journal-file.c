@@ -22,10 +22,13 @@
 #include "hashmap.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "journal-authenticate-internal.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-internal.h"
+#include "journal-segmented.h"
+#include "journal-segmented-internal.h"
 #include "log.h"
 #include "log-ratelimit.h"
 #include "lookup3.h"
@@ -209,6 +212,9 @@ int journal_file_set_offline_thread_join(JournalFile *f) {
         if (mmap_cache_fd_got_sigbus(f->cache_fd))
                 return -EIO;
 
+        if (f->segmented && f->segmented->writer)
+                return segmented_offline_finish(f);
+
         return 0;
 }
 
@@ -293,6 +299,15 @@ JournalFile* journal_file_close(JournalFile *f) {
         assert(f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL);
 
         sd_event_source_disable_unref(f->post_change_timer);
+
+        if (f->segmented) {
+                /* The file might still be synced or archived in the background */
+                if (f->segmented->writer && f->offline_state != OFFLINE_JOINED)
+                        (void) journal_file_set_offline_thread_join(f);
+
+                segmented_writer_close(f);
+                segmented_close(f);
+        }
 
         if (f->cache_fd)
                 mmap_cache_fd_free(f->cache_fd);
@@ -392,7 +407,8 @@ static int journal_file_init_header(
                 JournalFile *f,
                 JournalFileFlags file_flags,
                 JournalFile *template,
-                const sd_id128_t *seqnum_id) {
+                const sd_id128_t *seqnum_id,
+                bool segmented) {
 
         int r;
 
@@ -406,8 +422,9 @@ static int journal_file_init_header(
                 .header_size = htole64(ALIGN64(sizeof(h))),
                 .incompatible_flags = htole32(
                                 FLAGS_SET(file_flags, JOURNAL_COMPRESS) * COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(compression_requested()) |
-                                keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
-                                compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT),
+                                (segmented || keyed_hash_requested()) * HEADER_INCOMPATIBLE_KEYED_HASH |
+                                (segmented || compact_mode_requested()) * HEADER_INCOMPATIBLE_COMPACT |
+                                segmented * HEADER_INCOMPATIBLE_SEGMENTED),
                 .compatible_flags = htole32(
                                 (seal * (HEADER_COMPATIBLE_SEALED | HEADER_COMPATIBLE_SEALED_CONTINUOUS) ) |
                                 HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID),
@@ -427,6 +444,12 @@ static int journal_file_init_header(
 
         if (template)
                 h.tail_entry_seqnum = template->header->tail_entry_seqnum;
+
+        /* Released versions of systemd delete archived files whose header counts no entries when they
+         * vacuum, without looking at the flags. The header of a segmented file is never rewritten, hence
+         * its entry count is set to a value that is never 0. */
+        if (segmented)
+                h.n_entries = htole64(UINT64_MAX);
 
         /* The sequence number ID of the caller takes precedence over the one of the template. The first
          * entry appended to an empty file also replaces the ID in the header with the one of the caller. */
@@ -556,6 +579,11 @@ static int journal_file_verify_machine_id(JournalFile *f) {
         else if (r < 0)
                 return r;
 
+        /* The header of a segmented file is never rewritten. A file that was created before the machine ID
+         * was set keeps the null ID, while a classic file takes the ID with its first entry. */
+        if (JOURNAL_HEADER_SEGMENTED(f->header) && sd_id128_is_null(f->header->machine_id))
+                return 0;
+
         if (!sd_id128_equal(machine_id, f->header->machine_id))
                 return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
                                        "Trying to open journal file from different host for writing, refusing.");
@@ -581,7 +609,8 @@ static int journal_file_verify_header(JournalFile *f) {
         if (journal_file_writable(f) && warn_wrong_flags(f, true))
                 return -EPROTONOSUPPORT;
 
-        if (f->header->state >= _STATE_MAX)
+        /* Segmented files take their state from the log, not from the header */
+        if (!JOURNAL_HEADER_SEGMENTED(f->header) && f->header->state >= _STATE_MAX)
                 return -EBADMSG;
 
         header_size = le64toh(READ_NOW(f->header->header_size));
@@ -601,6 +630,20 @@ static int journal_file_verify_header(JournalFile *f) {
 
         if (JOURNAL_HEADER_SEALED(f->header) && !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
                 return -EBADMSG;
+
+        if (JOURNAL_HEADER_SEGMENTED(f->header)) {
+                int r;
+
+                r = segmented_verify_header(f);
+                if (r < 0)
+                        return r;
+
+                /* The final mark tells whether the file is archived, see segmented_writer_open() */
+                if (journal_file_writable(f))
+                        return journal_file_verify_machine_id(f);
+
+                return 0;
+        }
 
         arena_size = le64toh(READ_NOW(f->header->arena_size));
 
@@ -915,7 +958,17 @@ static int journal_file_move_to_full(
                         return -EADDRNOTAVAIL;
         }
 
-        r = mmap_cache_fd_get(f->cache_fd, type_to_category(type), keep_always, offset, size, &f->last_stat, ret, &window_size);
+        /* Segmented files grow with each entry, and windows clamped to the file size would have to be
+         * replaced all the time. Mapping beyond the end is fine, the check above prevents access to it. */
+        r = mmap_cache_fd_get(
+                        f->cache_fd,
+                        type_to_category(type),
+                        keep_always,
+                        offset,
+                        size,
+                        f->segmented ? NULL : &f->last_stat,
+                        ret,
+                        &window_size);
         if (r < 0)
                 return r;
 
@@ -952,6 +1005,9 @@ static uint64_t minimum_header_size(JournalFile *f, Object *o) {
 
         assert(f);
         assert(o);
+
+        if (f->segmented && segmented_object_size_min(o->object.type) != UINT64_MAX)
+                return segmented_object_size_min(o->object.type);
 
         if (o->object.type == OBJECT_DATA)
                 return journal_file_data_payload_offset(f);
@@ -1038,9 +1094,18 @@ int journal_file_check_entry_header(Object *o, uint64_t offset) {
 
 /* Lightweight object checks. We want this to be fast, so that we won't
  * slowdown every journal_file_move_to_object() call too much. */
-static int check_object(JournalFile *f, Object *o, uint64_t offset) {
+static int check_object(JournalFile *f, Object *o, uint64_t offset, size_t available) {
         assert(f);
         assert(o);
+
+        if (f->segmented) {
+                if (IN_SET(o->object.type, OBJECT_FIELD, OBJECT_DATA_HASH_TABLE, OBJECT_FIELD_HASH_TABLE, OBJECT_ENTRY_ARRAY))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Found %s object in segmented file: %" PRIu64,
+                                               journal_object_type_to_string(o->object.type), offset);
+
+                return segmented_check_object(f, o, offset, available);
+        }
 
         switch (o->object.type) {
 
@@ -1233,7 +1298,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                         return r;
         }
 
-        r = check_object(f, o, offset);
+        r = check_object(f, o, offset, SIZE_MAX);
         if (r < 0)
                 return r;
 
@@ -1292,7 +1357,7 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
                                        "Short read while reading %s object: %" PRIu64,
                                        journal_object_type_to_string(type), offset);
 
-        r = check_object(f, &o, offset);
+        r = check_object(f, &o, offset, n);
         if (r < 0)
                 return r;
 
@@ -1363,6 +1428,9 @@ int journal_file_append_object(
         assert(f->header);
         assert(type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX);
         assert(size >= offsetof(ObjectHeader, payload));
+
+        if (f->segmented)
+                return -EOPNOTSUPP;
 
         r = journal_file_set_online(f);
         if (r < 0)
@@ -1669,6 +1737,9 @@ static int journal_file_find_field_object_with_hash(
         assert(field);
         assert(size > 0);
 
+        if (f->segmented)
+                return -EOPNOTSUPP; /* There are no field objects */
+
         /* If the field hash table is empty, we can't find anything */
         if (le64toh(f->header->field_hash_table_size) <= 0)
                 return 0;
@@ -1770,6 +1841,9 @@ static int journal_file_find_data_object_with_hash(
         assert(f);
         assert(f->header);
         assert(data || size == 0);
+
+        if (f->segmented)
+                return -EOPNOTSUPP; /* There is no data hash table, use journal_file_seek_for_match() */
 
         /* If there's no data hash table, then there's no entry. */
         if (le64toh(f->header->data_hash_table_size) <= 0)
@@ -2205,6 +2279,8 @@ uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
         assert(f);
         assert(o);
 
+        assert(!f->segmented); /* Items of segmented entries are not all data objects */
+
         if (o->object.type != OBJECT_ENTRY)
                 return 0;
 
@@ -2222,6 +2298,18 @@ int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint
 
         if (o->object.type != OBJECT_ENTRY)
                 return -EBADMSG;
+
+        if (f->segmented) {
+                size_t n;
+                int r;
+
+                r = segmented_entry_fields(f, o, offset, /* ret= */ NULL, &n);
+                if (r < 0)
+                        return r;
+
+                *ret = n;
+                return 0;
+        }
 
         *ret = journal_file_entry_n_items(f, o);
         return 0;
@@ -2249,6 +2337,9 @@ int journal_file_entry_field_payload(
                 return r;
         if (i >= n)
                 return -EADDRNOTAVAIL;
+
+        if (f->segmented)
+                return segmented_entry_field_payload(f, o, offset, i, field, field_length, data_threshold, ret_data, ret_size);
 
         return journal_file_data_payload(
                         f,
@@ -2639,6 +2730,12 @@ void journal_file_post_change(JournalFile *f) {
         if (f->fd < 0)
                 return;
 
+        if (f->segmented) {
+                /* pwritev() triggers IN_MODIFY itself */
+                (void) segmented_flush(f);
+                return;
+        }
+
         /* inotify() does not receive IN_MODIFY events from file
          * accesses done via mmap(). After each access we hence
          * trigger IN_MODIFY by truncating the journal file to its
@@ -2807,6 +2904,18 @@ int journal_file_append_entry(
         if (r < 0)
                 return r;
 
+        if (f->segmented) {
+                /* Join a finished background sync, so that its mark is appended before the entry. */
+                if (__atomic_load_n(&f->offline_state, __ATOMIC_SEQ_CST) == OFFLINE_DONE) {
+                        r = journal_file_set_offline_thread_join(f);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = segmented_append_entry(f, ts, boot_id, iovec, n_iovec, seqnum, seqnum_id, ret_object, ret_offset);
+                goto finish;
+        }
+
         if (n_iovec < ALLOCA_MAX / sizeof(EntryItem) / 2)
                 items = newa(EntryItem, n_iovec);
         else {
@@ -2863,6 +2972,7 @@ int journal_file_append_entry(
                         ret_object,
                         ret_offset);
 
+finish:
         /* If the memory mapping triggered a SIGBUS then we return an
          * IO error and ignore the error code passed down to us, since
          * it is very likely just an effect of a nullified replacement
@@ -3566,6 +3676,17 @@ int journal_file_move_to_entry_by_offset(
         assert(f);
         assert(f->header);
 
+        if (f->segmented) {
+                uint64_t ordinal;
+                int r;
+
+                r = segmented_entry_ordinal(f, p, direction, &ordinal);
+                if (r <= 0)
+                        return r;
+
+                return segmented_entry_load(f, ordinal, direction, ret_object, ret_offset);
+        }
+
         return generic_array_bisect(
                         f,
                         le64toh(f->header->entry_array_offset),
@@ -3606,6 +3727,9 @@ int journal_file_move_to_entry_by_seqnum(
         assert(f);
         assert(f->header);
 
+        if (f->segmented)
+                return segmented_move_to_entry_by_seqnum(f, seqnum, direction, ret_object, ret_offset);
+
         return generic_array_bisect(
                         f,
                         le64toh(f->header->entry_array_offset),
@@ -3645,6 +3769,9 @@ int journal_file_move_to_entry_by_realtime(
 
         assert(f);
         assert(f->header);
+
+        if (f->segmented)
+                return segmented_move_to_entry_by_realtime(f, realtime, direction, ret_object, ret_offset);
 
         return generic_array_bisect(
                         f,
@@ -3702,6 +3829,9 @@ int journal_file_move_to_entry_by_monotonic(
         int r;
 
         assert(f);
+
+        if (f->segmented)
+                return segmented_move_to_entry_by_monotonic(f, boot_id, monotonic, direction, ret_object, ret_offset);
 
         r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
         if (r <= 0)
@@ -3772,6 +3902,9 @@ int journal_file_next_entry(
         assert(f->header);
 
         /* FIXME: fix return value assignment. */
+
+        if (f->segmented)
+                return segmented_next_entry(f, p, direction, ret_object, ret_offset);
 
         n = le64toh(READ_NOW(f->header->n_entries));
         if (n <= 0)
@@ -4052,6 +4185,9 @@ int journal_file_seek_for_match(
         assert(f);
         assert(data || size == 0);
 
+        if (f->segmented)
+                return segmented_move_to_entry_for_match(f, data, size, where, boot_id, needle, direction, ret_object, ret_offset);
+
         r = journal_file_find_data_object(f, data, size, &d, NULL);
         if (r <= 0)
                 return r;
@@ -4083,6 +4219,10 @@ void journal_file_dump(JournalFile *f) {
         journal_file_print_header(f);
 
         p = le64toh(READ_NOW(f->header->header_size));
+
+        if (p >= le64toh(f->header->header_size) + le64toh(f->header->arena_size))
+                return; /* No objects */
+
         while (p != 0) {
                 const char *s;
                 Compression c;
@@ -4112,6 +4252,24 @@ void journal_file_dump(JournalFile *f) {
                                  s,
                                  le64toh(o->tag.seqnum),
                                  le64toh(o->tag.epoch));
+                        break;
+
+                case OBJECT_CONTEXT:
+                        assert(s);
+
+                        log_info("Type: %s items=%u\n", s, le16toh(o->object.aux));
+                        break;
+
+                case OBJECT_INDEX:
+                        assert(s);
+
+                        log_info("Type: %s head=%"PRIu64" entries=%"PRIu32" fields=%"PRIu32" values=%"PRIu32" size=%"PRIu64"\n",
+                                 s,
+                                 le64toh(o->index.head_offset),
+                                 le32toh(o->index.n_index_entries),
+                                 le32toh(o->index.n_fields),
+                                 le32toh(o->index.n_data_items),
+                                 le64toh(o->object.size));
                         break;
 
                 default:
@@ -4198,7 +4356,14 @@ void journal_file_print_header(JournalFile *f) {
                le64toh(f->header->n_objects),
                le64toh(f->header->n_entries));
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, n_data)) {
+        if (f->segmented)
+                printf("Data objects: %"PRIu64"\n"
+                       "Indexes: %zu\n"
+                       "Not indexed: %s\n",
+                       le64toh(f->header->n_data),
+                       f->segmented->n_indexes,
+                       FORMAT_BYTES(f->segmented->scan_offset - f->segmented->tail_offset));
+        else if (JOURNAL_HEADER_CONTAINS(f->header, n_data)) {
                 size_t n_data_items = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
                 printf("Data objects: %"PRIu64"\n"
                        "Data hash table fill: %.1f%%\n",
@@ -4206,7 +4371,7 @@ void journal_file_print_header(JournalFile *f) {
                        100.0 * (double) le64toh(f->header->n_data) / (double) n_data_items);
         }
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields)) {
+        if (!f->segmented && JOURNAL_HEADER_CONTAINS(f->header, n_fields)) {
                 size_t n_field_items = le64toh(f->header->field_hash_table_size) / sizeof(HashItem);
                 printf("Field objects: %"PRIu64"\n"
                        "Field hash table fill: %.1f%%\n",
@@ -4217,7 +4382,7 @@ void journal_file_print_header(JournalFile *f) {
         if (JOURNAL_HEADER_CONTAINS(f->header, n_tags))
                 printf("Tag objects: %"PRIu64"\n",
                        le64toh(f->header->n_tags));
-        if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
+        if (!f->segmented && JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
                 printf("Entry array objects: %"PRIu64"\n",
                        le64toh(f->header->n_entry_arrays));
 
@@ -4231,6 +4396,13 @@ void journal_file_print_header(JournalFile *f) {
 
         if (fstat(f->fd, &st) >= 0)
                 printf("Disk usage: %s\n", FORMAT_BYTES((uint64_t) st.st_blocks * 512ULL));
+}
+
+static bool journal_file_fd_is_segmented(int fd) {
+        le32_t flags;
+
+        return pread(fd, &flags, sizeof(flags), offsetof(Header, incompatible_flags)) == sizeof(flags) &&
+                FLAGS_SET(le32toh(flags), HEADER_INCOMPATIBLE_SEGMENTED);
 }
 
 static int journal_file_warn_btrfs(JournalFile *f) {
@@ -4366,7 +4538,7 @@ int journal_file_open_full(
                 const sd_id128_t *seqnum_id,
                 JournalFile **ret) {
 
-        bool newly_created = false;
+        bool newly_created = false, segmented = false;
         JournalFile *f;
         void *h;
         int r;
@@ -4445,12 +4617,21 @@ int journal_file_open_full(
                 newly_created = f->last_stat.st_size == 0 && journal_file_writable(f);
         }
 
-        r = mmap_cache_add_fd(mmap_cache, f->fd, mmap_prot_from_open_flags(open_flags), &f->cache_fd);
+        /* Segmented files are mapped read-only, hence the format must be known before the mmap cache is
+         * set up. */
+        segmented = !newly_created && journal_file_fd_is_segmented(f->fd);
+
+        r = mmap_cache_add_fd(mmap_cache, f->fd, segmented ? PROT_READ : mmap_prot_from_open_flags(open_flags), &f->cache_fd);
         if (r < 0)
                 goto fail;
 
         if (newly_created) {
-                (void) journal_file_warn_btrfs(f);
+                /* The journal directory may pass on the NOCOW attribute, which only helps files that are
+                 * rewritten in place. Without it, btrfs keeps checksums and compression. */
+                if (segmented)
+                        (void) chattr_fd(f->fd, 0, FS_NOCOW_FL);
+                else
+                        (void) journal_file_warn_btrfs(f);
 
                 /* Let's attach the creation time to the journal file, so that the vacuuming code knows the age of this
                  * file even if the file might end up corrupted one day... Ideally we'd just use the creation time many
@@ -4459,7 +4640,7 @@ int journal_file_open_full(
                  * solely on mtime/atime/ctime of the file. */
                 (void) fd_setcrtime(f->fd, 0);
 
-                r = journal_file_init_header(f, file_flags, template, seqnum_id);
+                r = journal_file_init_header(f, file_flags, template, seqnum_id, segmented);
                 if (r < 0)
                         goto fail;
 
@@ -4486,8 +4667,19 @@ int journal_file_open_full(
 
         f->header = h;
 
+        if (segmented != JOURNAL_HEADER_SEGMENTED(f->header)) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
         if (!newly_created) {
                 r = journal_file_verify_header(f);
+                if (r < 0)
+                        goto fail;
+        }
+
+        if (segmented) {
+                r = segmented_open(f, newly_created);
                 if (r < 0)
                         goto fail;
         }
@@ -4505,19 +4697,31 @@ int journal_file_open_full(
                 } else if (template)
                         f->metrics = template->metrics;
 
-                r = journal_file_refresh_header(f);
-                if (r < 0)
-                        goto fail;
+                if (segmented) {
+                        r = segmented_writer_open(f, newly_created);
+                        if (r < 0)
+                                goto fail;
+
+                        /* Sync the header to disk, and the directory the file is located in. */
+                        if (newly_created)
+                                (void) fsync_full(f->fd);
+                } else {
+                        r = journal_file_refresh_header(f);
+                        if (r < 0)
+                                goto fail;
+                }
         }
 
         if (newly_created) {
-                r = journal_file_setup_field_hash_table(f);
-                if (r < 0)
-                        goto fail;
+                if (!segmented) {
+                        r = journal_file_setup_field_hash_table(f);
+                        if (r < 0)
+                                goto fail;
 
-                r = journal_file_setup_data_hash_table(f);
-                if (r < 0)
-                        goto fail;
+                        r = journal_file_setup_data_hash_table(f);
+                        if (r < 0)
+                                goto fail;
+                }
 
                 r = journal_file_auth_append_tag_first(f);
                 if (r < 0)
@@ -4692,11 +4896,15 @@ int journal_file_copy_entry(
                 sd_id128_t *seqnum_id) {
 
         _cleanup_free_ EntryItem *items_alloc = NULL;
-        EntryItem *items;
+        EntryItem *items = NULL;
+        struct iovec *iovec = NULL;
+        size_t n_iovec = 0;
         uint64_t n, m = 0, xor_hash = 0;
         sd_id128_t boot_id;
         dual_timestamp ts;
         int r;
+
+        CLEANUP_ARRAY(iovec, n_iovec, iovec_array_free);
 
         assert(from);
         assert(to);
@@ -4718,7 +4926,13 @@ int journal_file_copy_entry(
         if (n == 0)
                 return 0;
 
-        if (n < ALLOCA_MAX / sizeof(EntryItem) / 2)
+        /* The segmented writer takes the payloads of the whole entry at once. Classic files get each data
+         * object appended right away. */
+        if (to->segmented) {
+                iovec = new0(struct iovec, n);
+                if (!iovec)
+                        return -ENOMEM;
+        } else if (n < ALLOCA_MAX / sizeof(EntryItem) / 2)
                 items = newa(EntryItem, n);
         else {
                 items_alloc = new(EntryItem, n);
@@ -4734,6 +4948,13 @@ int journal_file_copy_entry(
                 size_t l;
                 Object *u;
 
+                if (from->segmented) {
+                        /* Reading the previous field may have unmapped the entry */
+                        r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
+                        if (r < 0)
+                                return r;
+                }
+
                 r = journal_file_entry_field_payload(
                                 from, o, p, i,
                                 /* field= */ NULL, /* field_length= */ 0,
@@ -4746,6 +4967,23 @@ int journal_file_copy_entry(
                 if (r < 0)
                         return r;
                 assert(r > 0);
+
+                if (to->segmented) {
+                        /* The segmented writer refuses the whole entry if one field name is invalid, while
+                         * journal_file_append_data() refuses only that field */
+                        const char *eq = memchr(data, '=', l);
+                        if (!eq || !journal_field_valid(data, eq - (const char*) data, /* allow_protected= */ true)) {
+                                log_debug("Entry item %"PRIu64" invalid, skipping over it.", i);
+                                continue;
+                        }
+
+                        /* Reading the next field may unmap this payload */
+                        if (!iovec_memdup(&IOVEC_MAKE(data, l), iovec + n_iovec))
+                                return -ENOMEM;
+
+                        n_iovec++;
+                        continue;
+                }
 
                 r = journal_file_append_data(to, data, l, &u, &h);
                 if (r == -EUCLEAN) {
@@ -4766,21 +5004,35 @@ int journal_file_copy_entry(
                 };
         }
 
-        if (m == 0)
-                return 0;
+        if (to->segmented) {
+                if (n_iovec == 0)
+                        return 0;
 
-        r = journal_file_append_entry_internal(
-                        to,
-                        &ts,
-                        &boot_id,
-                        &from->header->machine_id,
-                        xor_hash,
-                        items,
-                        m,
-                        seqnum,
-                        seqnum_id,
-                        /* ret_object= */ NULL,
-                        /* ret_offset= */ NULL);
+                r = segmented_append_entry(to, &ts, &boot_id, iovec, n_iovec, seqnum, seqnum_id,
+                                           /* ret_object= */ NULL, /* ret_offset= */ NULL);
+
+                /* The entry is written to the file later, as for appended entries */
+                if (to->post_change_timer)
+                        schedule_post_change(to);
+                else
+                        journal_file_post_change(to);
+        } else {
+                if (m == 0)
+                        return 0;
+
+                r = journal_file_append_entry_internal(
+                                to,
+                                &ts,
+                                &boot_id,
+                                &from->header->machine_id,
+                                xor_hash,
+                                items,
+                                m,
+                                seqnum,
+                                seqnum_id,
+                                /* ret_object= */ NULL,
+                                /* ret_offset= */ NULL);
+        }
 
         if (mmap_cache_fd_got_sigbus(to->cache_fd))
                 return -EIO;
@@ -4855,6 +5107,9 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
 
         /* FIXME: fix return value assignment on success with 0. */
 
+        if (f->segmented)
+                return segmented_get_cutoff_monotonic_usec(f, boot_id, ret_from, ret_to);
+
         r = find_data_object_by_boot_id(f, boot_id, &o, &p);
         if (r <= 0)
                 return r;
@@ -4899,9 +5154,10 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
 
         /* Let's check if the hash tables grew over a certain fill level (75%, borrowing this value from
          * Java's hash table implementation), and if so suggest a rotation. To calculate the fill level we
-         * need the n_data field, which only exists in newer versions. */
+         * need the n_data field, which only exists in newer versions. Segmented files have no hash
+         * tables. */
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
+        if (!f->segmented && JOURNAL_HEADER_CONTAINS(f->header, n_data))
                 if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
                         size_t n_data_items = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
                         log_ratelimit_full(
@@ -4950,7 +5206,8 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
         }
 
         /* Are the data objects properly indexed by field objects? */
-        if (JOURNAL_HEADER_CONTAINS(f->header, n_data) &&
+        if (!f->segmented &&
+            JOURNAL_HEADER_CONTAINS(f->header, n_data) &&
             JOURNAL_HEADER_CONTAINS(f->header, n_fields) &&
             le64toh(f->header->n_data) > 0 &&
             le64toh(f->header->n_fields) == 0) {
