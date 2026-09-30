@@ -38,6 +38,11 @@ typedef struct EntryObject EntryObject;
 typedef struct HashTableObject HashTableObject;
 typedef struct EntryArrayObject EntryArrayObject;
 typedef struct TagObject TagObject;
+typedef struct SegmentedDataObject SegmentedDataObject;
+typedef struct ContextObject ContextObject;
+typedef struct IndexObject IndexObject;
+typedef struct IndexFieldItem IndexFieldItem;
+typedef struct IndexDataItem IndexDataItem;
 
 typedef struct HashItem HashItem;
 
@@ -56,6 +61,8 @@ typedef enum ObjectType {
         OBJECT_FIELD_HASH_TABLE,
         OBJECT_ENTRY_ARRAY,
         OBJECT_TAG,
+        OBJECT_CONTEXT,
+        OBJECT_INDEX,
         _OBJECT_TYPE_MAX,
         _OBJECT_TYPE_INVALID = -EINVAL,
 } ObjectType;
@@ -71,7 +78,8 @@ enum {
 struct ObjectHeader {
         uint8_t type;
         uint8_t flags;
-        uint8_t reserved[6];
+        le16_t aux;      /* segmented files: number of items of entry and context objects, otherwise 0 */
+        le32_t checksum; /* segmented files: checksum of the object, otherwise 0 */
         le64_t size;
         uint8_t payload[0]; /* The struct is embedded in other objects, hence flex array (i.e. payload[])
                              * cannot be used. */
@@ -164,6 +172,77 @@ struct TagObject {
         uint8_t tag[TAG_LENGTH]; /* SHA-256 HMAC */
 } _packed_;
 
+/* Objects of segmented files, see docs/JOURNAL_SEGMENTED.md. */
+
+struct SegmentedDataObject {
+        ObjectHeader object;
+        le64_t hash;
+        uint8_t payload[];
+} _packed_;
+
+struct ContextObject {
+        ObjectHeader object;
+        le32_t items[];
+} _packed_;
+
+/* The three low bits of an entry item are its tag. The item with these bits cleared is the offset. */
+enum {
+        ENTRY_ITEM_DATA    = 0, /* offset of a data object */
+        ENTRY_ITEM_CONTEXT = 1, /* offset of a context object */
+        _ENTRY_ITEM_TYPE_MASK = 7,
+};
+
+struct IndexFieldItem {
+        le64_t hash;
+        le32_t name_offset;
+        le32_t name_size;
+        le32_t flags;
+        le32_t n_data;
+        le32_t first_data;      /* position in the data table */
+        le32_t reserved;
+} _packed_;
+
+#define INDEX_POSTINGS_ENCODING_SHIFT 30
+#define INDEX_POSTINGS_SIZE_MASK ((UINT32_C(1) << INDEX_POSTINGS_ENCODING_SHIFT) - 1)
+
+struct IndexDataItem {
+        le64_t hash;
+        le64_t hash2;
+        le32_t data_offset;
+        le32_t n_entries;
+        le32_t postings_offset;
+        le32_t postings_size; /* the upper two bits are the encoding */
+} _packed_;
+
+struct IndexObject {
+        ObjectHeader object;
+        le64_t head_offset;     /* end of the header, or the offset of the previous index */
+
+        /* The state of the file at the index */
+        le64_t n_objects;
+        le64_t n_entries;
+        le64_t n_data;
+        le64_t n_tags;
+        le64_t head_entry_seqnum;
+        le64_t tail_entry_seqnum;
+        le64_t head_entry_realtime;
+        le64_t tail_entry_realtime;
+        le64_t tail_entry_monotonic;
+        sd_id128_t tail_entry_boot_id;
+        le64_t tail_entry_offset;
+
+        /* Sections. Offsets are relative to the beginning of the object. */
+        le32_t n_index_entries;
+        le32_t entry_array_offset;
+        le32_t n_fields;
+        le32_t field_table_offset;
+        le32_t n_data_items;
+        le32_t data_table_offset;
+        le32_t payload_checksum;
+        le32_t reserved;
+        uint8_t payload[];
+} _packed_;
+
 union Object {
         ObjectHeader object;
         DataObject data;
@@ -172,6 +251,9 @@ union Object {
         HashTableObject hash_table;
         EntryArrayObject entry_array;
         TagObject tag;
+        SegmentedDataObject segmented_data;
+        ContextObject context;
+        IndexObject index;
 };
 
 enum {
@@ -188,12 +270,14 @@ enum {
         HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
         HEADER_INCOMPATIBLE_COMPACT         = 1 << 4,
+        HEADER_INCOMPATIBLE_SEGMENTED     = 1 << 5,
 
         HEADER_INCOMPATIBLE_ANY             = HEADER_INCOMPATIBLE_COMPRESSED_XZ |
                                               HEADER_INCOMPATIBLE_COMPRESSED_LZ4 |
                                               HEADER_INCOMPATIBLE_KEYED_HASH |
                                               HEADER_INCOMPATIBLE_COMPRESSED_ZSTD |
-                                              HEADER_INCOMPATIBLE_COMPACT,
+                                              HEADER_INCOMPATIBLE_COMPACT |
+                                              HEADER_INCOMPATIBLE_SEGMENTED,
 
         HEADER_INCOMPATIBLE_SUPPORTED       = (HAVE_XZ ? HEADER_INCOMPATIBLE_COMPRESSED_XZ : 0) |
                                               (HAVE_LZ4 ? HEADER_INCOMPATIBLE_COMPRESSED_LZ4 : 0) |
@@ -239,7 +323,12 @@ enum {
         le64_t n_entries;                               \
         le64_t tail_entry_seqnum;                       \
         le64_t head_entry_seqnum;                       \
-        le64_t entry_array_offset;                      \
+        union {                                         \
+                le64_t entry_array_offset;              \
+                /* segmented files: the newest index    \
+                 * that a sync covered, or 0 */         \
+                le64_t synced_index_offset;             \
+        };                                              \
         le64_t head_entry_realtime;                     \
         le64_t tail_entry_realtime;                     \
         le64_t tail_entry_monotonic;                    \
