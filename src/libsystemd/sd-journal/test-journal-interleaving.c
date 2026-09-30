@@ -1630,6 +1630,7 @@ static void append_test_entry_full(
                                         m,
                                         /* file_flags= */ JOURNAL_STRICT_ORDER,
                                         /* compress_threshold_bytes= */ UINT64_MAX,
+                                        /* seqnum_id= */ NULL,
                                         /* deferred_closes= */ NULL));
         }
 
