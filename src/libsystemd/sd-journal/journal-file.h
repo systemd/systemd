@@ -231,6 +231,8 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
 int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);
 int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset);
 
+/* Items of segmented files may also refer to contexts. Use journal_file_entry_n_fields() and
+ * journal_file_entry_field_payload() to get the data of an entry. */
 static inline uint64_t journal_file_entry_item_object_offset(JournalFile *f, Object *o, size_t i) {
         assert(f);
         assert(o);
@@ -245,19 +247,6 @@ static inline size_t journal_file_entry_item_size(JournalFile *f) {
 }
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
-
-/* The fields of an entry. Unlike the items of an entry object these never refer to anything but data. */
-int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret);
-int journal_file_entry_field_payload(
-                JournalFile *f,
-                Object *o,
-                uint64_t offset,
-                uint64_t i,
-                const char *field,
-                size_t field_length,
-                size_t data_threshold,
-                const void **ret_data,
-                size_t *ret_size);
 
 int journal_file_data_payload(
                 JournalFile *f,
@@ -292,6 +281,19 @@ static inline uint8_t* journal_file_data_payload_field(JournalFile *f, Object *o
 
         return JOURNAL_HEADER_COMPACT(f->header) ? o->data.compact.payload : o->data.regular.payload;
 }
+
+/* The fields of an entry, with contexts resolved. These work for all formats. */
+int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret);
+int journal_file_entry_field_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size);
 
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
 
@@ -367,6 +369,7 @@ int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *ret_from, usec
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *ret_from, usec_t *ret_to);
 
 bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log_level);
+bool journal_file_fd_is_segmented(int fd);
 
 int journal_file_map_data_hash_table(JournalFile *f);
 int journal_file_map_field_hash_table(JournalFile *f);
