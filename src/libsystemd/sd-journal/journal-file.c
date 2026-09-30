@@ -1579,7 +1579,7 @@ static bool chain_tail_lost(JournalFile *f, int r, uint64_t offset, ObjectType t
         return true;
 }
 
-int journal_file_find_field_object_with_hash(
+static int journal_file_find_field_object_with_hash(
                 JournalFile *f,
                 const void *field,
                 uint64_t size,
@@ -1682,7 +1682,7 @@ int journal_file_find_field_object(
                         ret_object, ret_offset);
 }
 
-int journal_file_find_data_object_with_hash(
+static int journal_file_find_data_object_with_hash(
                 JournalFile *f,
                 const void *data,
                 uint64_t size,
@@ -2097,6 +2097,32 @@ int journal_file_data_payload(
 
         return maybe_decompress_payload(f, journal_file_data_payload_field(f, o), size, c, field,
                                         field_length, data_threshold, ret_data, ret_size);
+}
+
+int journal_file_data_payload_pinned(
+                JournalFile *f,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        Object *o;
+        int r;
+
+        /* Callers look up the payload in other files afterwards. Data objects of all files share one window
+         * per category, hence pin the window, so that the payload stays mapped. */
+
+        r = journal_file_move_to_object(f, OBJECT_DATA, offset, &o);
+        if (r < 0)
+                return r;
+
+        r = journal_file_pin_object(f, o);
+        if (r < 0)
+                return r;
+
+        return journal_file_data_payload(f, o, offset, field, field_length, data_threshold, ret_data, ret_size);
 }
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
@@ -3759,7 +3785,7 @@ int journal_file_move_to_entry_by_offset_for_data(
                         ret, ret_offset);
 }
 
-int journal_file_move_to_entry_by_monotonic_for_data(
+static int journal_file_move_to_entry_by_monotonic_for_data(
                 JournalFile *f,
                 Object *d,
                 sd_id128_t boot_id,
@@ -3855,7 +3881,7 @@ int journal_file_move_to_entry_by_seqnum_for_data(
                         ret_object, ret_offset);
 }
 
-int journal_file_move_to_entry_by_realtime_for_data(
+static int journal_file_move_to_entry_by_realtime_for_data(
                 JournalFile *f,
                 Object *d,
                 uint64_t realtime,
