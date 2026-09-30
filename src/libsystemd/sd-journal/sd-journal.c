@@ -679,24 +679,10 @@ static int next_for_match(
         assert(m);
         assert(f);
 
-        if (m->type == MATCH_DISCRETE) {
-                Object *d;
-                uint64_t hash;
+        if (m->type == MATCH_DISCRETE)
+                return journal_file_seek_for_match(f, m->data, m->size, JOURNAL_SEEK_OFFSET, SD_ID128_NULL, after_offset, direction, ret, ret_offset);
 
-                /* If the keyed hash logic is used, we need to calculate the hash fresh per file. Otherwise
-                 * we can use what we pre-calculated. */
-                if (JOURNAL_HEADER_KEYED_HASH(f->header))
-                        hash = journal_file_hash_data(f, m->data, m->size);
-                else
-                        hash = m->hash;
-
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, &d, NULL);
-                if (r <= 0)
-                        return r;
-
-                return journal_file_move_to_entry_by_offset_for_data(f, d, after_offset, direction, ret, ret_offset);
-
-        } else if (m->type == MATCH_OR_TERM) {
+        if (m->type == MATCH_OR_TERM) {
 
                 /* Find the earliest match beyond after_offset */
 
@@ -761,18 +747,66 @@ static int next_for_match(
         return 1;
 }
 
-static int move_by_boot_for_data(
-                sd_journal *j,
+typedef int (*seek_func_t)(
+                JournalFile *f,
+                void *userdata,
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret,
+                uint64_t *ret_offset);
+
+static int seek_for_match(
+                JournalFile *f,
+                void *userdata,
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret,
+                uint64_t *ret_offset) {
+
+        Match *m = ASSERT_PTR(userdata);
+
+        return journal_file_seek_for_match(f, m->data, m->size, where, boot_id, needle, direction, ret, ret_offset);
+}
+
+static int seek_without_match(
+                JournalFile *f,
+                void *userdata,
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret,
+                uint64_t *ret_offset) {
+
+        switch (where) {
+        case JOURNAL_SEEK_FIRST:
+                return journal_file_next_entry(f, 0, direction, ret, ret_offset);
+        case JOURNAL_SEEK_SEQNUM:
+                return journal_file_move_to_entry_by_seqnum(f, needle, direction, ret, ret_offset);
+        case JOURNAL_SEEK_REALTIME:
+                return journal_file_move_to_entry_by_realtime(f, needle, direction, ret, ret_offset);
+        case JOURNAL_SEEK_MONOTONIC:
+                return journal_file_move_to_entry_by_monotonic(f, boot_id, needle, direction, ret, ret_offset);
+        default:
+                assert_not_reached();
+        }
+}
+
+static int move_by_boot(
                 JournalFile *f,
                 direction_t direction,
                 sd_id128_t boot_id,
-                uint64_t data_offset,
+                seek_func_t seek,
+                void *userdata,
                 Object **ret,
                 uint64_t *ret_offset) {
 
         int r;
 
-        assert(j);
         assert(f);
         assert(IN_SET(direction, DIRECTION_DOWN, DIRECTION_UP));
 
@@ -788,26 +822,72 @@ static int move_by_boot_for_data(
 
                 /* Then, move to the first entry of the next boot (or the last entry of the previous boot with DIRECTION_UP). */
                 Object *entry;
-                r = journal_file_next_entry(f, p, direction, &entry, NULL);
+                uint64_t q;
+                r = journal_file_next_entry(f, p, direction, &entry, &q);
                 if (r <= 0) /* r == 0 means that no next (or previous) boot found. That is, we are at HEAD or TAIL now. */
                         return r;
 
                 assert(entry->object.type == OBJECT_ENTRY);
+
+                /* Without a match, that entry is the one. Seeking in its boot again could go back further
+                 * in files that interleave boots. */
+                if (seek == seek_without_match) {
+                        if (ret)
+                                *ret = entry;
+                        if (ret_offset)
+                                *ret_offset = q;
+                        return 1;
+                }
+
                 boot_id = entry->entry.boot_id;
 
-                /* Note, this object cannot be reused, as journal_file_move_to_entry_by_monotonic() may invalidate the object. */
-                Object *data;
-                r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &data);
-                if (r < 0)
-                        return r;
-
                 /* Then, move to the matching entry. */
-                r = journal_file_move_to_entry_by_monotonic_for_data(f, data, boot_id,
-                                                                     direction == DIRECTION_DOWN ? 0 : USEC_INFINITY, direction,
-                                                                     ret, ret_offset);
+                r = seek(f, userdata, JOURNAL_SEEK_MONOTONIC, boot_id,
+                         direction == DIRECTION_DOWN ? 0 : USEC_INFINITY, direction,
+                         ret, ret_offset);
                 if (r != 0) /* Here r == 0 is OK, as that means the boot contains no entry matching with the data. */
                         return r;
         }
+}
+
+static int find_location_seek(
+                sd_journal *j,
+                JournalFile *f,
+                direction_t direction,
+                seek_func_t seek,
+                void *userdata,
+                Object **ret,
+                uint64_t *ret_offset) {
+
+        Location *l;
+        int r;
+
+        assert(j);
+        assert(f);
+
+        l = &j->current_location;
+
+        if (l->type == LOCATION_HEAD)
+                return direction == DIRECTION_DOWN ? seek(f, userdata, JOURNAL_SEEK_FIRST, SD_ID128_NULL, 0, DIRECTION_DOWN, ret, ret_offset) : 0;
+        if (l->type == LOCATION_TAIL)
+                return direction == DIRECTION_UP ? seek(f, userdata, JOURNAL_SEEK_FIRST, SD_ID128_NULL, 0, DIRECTION_UP, ret, ret_offset) : 0;
+        if (l->seqnum_set && sd_id128_equal(l->seqnum_id, f->header->seqnum_id))
+                return seek(f, userdata, JOURNAL_SEEK_SEQNUM, SD_ID128_NULL, l->seqnum, direction, ret, ret_offset);
+        if (l->monotonic_set) {
+                r = seek(f, userdata, JOURNAL_SEEK_MONOTONIC, l->boot_id, l->monotonic, direction, ret, ret_offset);
+                if (r != 0)
+                        return r;
+
+                /* If not found, fall back to realtime if set, or go to the first entry of the next boot
+                 * (or the last entry of the previous boot when DIRECTION_UP). */
+        }
+        if (l->realtime_set)
+                return seek(f, userdata, JOURNAL_SEEK_REALTIME, SD_ID128_NULL, l->realtime, direction, ret, ret_offset);
+
+        if (l->monotonic_set)
+                return move_by_boot(f, direction, l->boot_id, seek, userdata, ret, ret_offset);
+
+        return seek(f, userdata, JOURNAL_SEEK_FIRST, SD_ID128_NULL, 0, direction, ret, ret_offset);
 }
 
 static int find_location_for_match(
@@ -825,46 +905,16 @@ static int find_location_for_match(
         assert(f);
 
         if (m->type == MATCH_DISCRETE) {
-                Object *d;
-                uint64_t dp, hash;
-
-                if (JOURNAL_HEADER_KEYED_HASH(f->header))
-                        hash = journal_file_hash_data(f, m->data, m->size);
-                else
-                        hash = m->hash;
-
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, &d, &dp);
+                /* A file without the value has no matching entry. Look it up first, so that a monotonic
+                 * seek does not walk all later boots of the file in vain. */
+                r = journal_file_find_data_object(f, m->data, m->size, NULL, NULL);
                 if (r <= 0)
                         return r;
 
-                if (j->current_location.type == LOCATION_HEAD)
-                        return direction == DIRECTION_DOWN ? journal_file_move_to_entry_for_data(f, d, DIRECTION_DOWN, ret, ret_offset) : 0;
-                if (j->current_location.type == LOCATION_TAIL)
-                        return direction == DIRECTION_UP ? journal_file_move_to_entry_for_data(f, d, DIRECTION_UP, ret, ret_offset) : 0;
-                if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
-                        return journal_file_move_to_entry_by_seqnum_for_data(f, d, j->current_location.seqnum, direction, ret, ret_offset);
-                if (j->current_location.monotonic_set) {
-                        r = journal_file_move_to_entry_by_monotonic_for_data(f, d, j->current_location.boot_id, j->current_location.monotonic, direction, ret, ret_offset);
-                        if (r != 0)
-                                return r;
+                return find_location_seek(j, f, direction, seek_for_match, m, ret, ret_offset);
+        }
 
-                        /* The data object might have been invalidated. */
-                        r = journal_file_move_to_object(f, OBJECT_DATA, dp, &d);
-                        if (r < 0)
-                                return r;
-
-                        /* If not found, fall back to realtime if set, or go to the first entry of the next boot
-                         * (or the last entry of the previous boot when DIRECTION_UP). */
-                }
-                if (j->current_location.realtime_set)
-                        return journal_file_move_to_entry_by_realtime_for_data(f, d, j->current_location.realtime, direction, ret, ret_offset);
-
-                if (j->current_location.monotonic_set)
-                        return move_by_boot_for_data(j, f, direction, j->current_location.boot_id, dp, ret, ret_offset);
-
-                return journal_file_move_to_entry_for_data(f, d, direction, ret, ret_offset);
-
-        } else if (m->type == MATCH_OR_TERM) {
+        if (m->type == MATCH_OR_TERM) {
                 uint64_t np = 0;
 
                 /* Find the earliest match */
@@ -928,49 +978,13 @@ static int find_location_with_matches(
                 Object **ret,
                 uint64_t *ret_offset) {
 
-        int r;
-
         assert(j);
         assert(f);
 
         if (j->level0)
                 return find_location_for_match(j, j->level0, f, direction, ret, ret_offset);
 
-        /* No matches is simple */
-
-        if (j->current_location.type == LOCATION_HEAD)
-                return direction == DIRECTION_DOWN ? journal_file_next_entry(f, 0, DIRECTION_DOWN, ret, ret_offset) : 0;
-        if (j->current_location.type == LOCATION_TAIL)
-                return direction == DIRECTION_UP ? journal_file_next_entry(f, 0, DIRECTION_UP, ret, ret_offset) : 0;
-        if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
-                return journal_file_move_to_entry_by_seqnum(f, j->current_location.seqnum, direction, ret, ret_offset);
-        if (j->current_location.monotonic_set) {
-                r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id, j->current_location.monotonic, direction, ret, ret_offset);
-                if (r != 0)
-                        return r;
-
-                /* If not found, fall back to realtime if set, or go to the first entry of the next boot
-                 * (or the last entry of the previous boot when DIRECTION_UP). */
-        }
-        if (j->current_location.realtime_set)
-                return journal_file_move_to_entry_by_realtime(f, j->current_location.realtime, direction, ret, ret_offset);
-
-        if (j->current_location.monotonic_set) {
-                uint64_t p = 0;
-
-                /* If not found in the above, first move to the last (or first when DIRECTION_UP) entry for the boot. */
-                r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id,
-                                                            direction == DIRECTION_DOWN ? USEC_INFINITY : 0,
-                                                            direction == DIRECTION_DOWN ? DIRECTION_UP : DIRECTION_DOWN,
-                                                            NULL, &p);
-                if (r <= 0)
-                        return r;
-
-                /* Then, move to the next or previous boot. */
-                return journal_file_next_entry(f, p, direction, ret, ret_offset);
-        }
-
-        return journal_file_next_entry(f, 0, direction, ret, ret_offset);
+        return find_location_seek(j, f, direction, seek_without_match, NULL, ret, ret_offset);
 }
 
 static int next_with_matches(
