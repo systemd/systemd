@@ -279,6 +279,10 @@ libsystemd_tests += [
                 'type' : 'manual',
         },
         {
+                'sources' : files('sd-journal/test-journal-segmented.c'),
+                'timeout' : 360,
+        },
+        {
                 'sources' : files('sd-journal/test-journal-dump.c'),
                 'type' : 'manual',
         },
