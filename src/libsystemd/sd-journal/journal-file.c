@@ -4168,6 +4168,23 @@ static int journal_file_move_to_entry_by_realtime_for_data(
                         ret, ret_offset);
 }
 
+int journal_file_refresh(JournalFile *f, usec_t ts) {
+        assert(f);
+
+        if (!f->segmented)
+                return 0;
+
+        return segmented_refresh(f, ts);
+}
+
+void journal_file_request_refresh(JournalFile *f) {
+        assert(f);
+
+        /* The next refresh skips the rate limit, for example because inotify reported a change */
+        if (f->segmented)
+                f->segmented->refresh_pending = true;
+}
+
 int journal_file_seek_for_match(
                 JournalFile *f,
                 const void *data,
