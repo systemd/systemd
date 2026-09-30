@@ -612,7 +612,7 @@ bool manager_is_lid_closed(Manager *m) {
         return false;
 }
 
-static bool manager_is_docked(Manager *m) {
+static bool manager_dock_switch_engaged(Manager *m) {
         Button *b;
 
         HASHMAP_FOREACH(b, m->buttons)
@@ -649,9 +649,16 @@ bool drm_connector_is_active(const char *status, const char *enabled) {
         return status && !streq(status, "disconnected");
 }
 
-static int count_external_displays(void) {
+/* Counts the external display connectors of the system. A display is counted as
+ * active if it's driven by a display server. A display is counted as attached if
+ * its "status" sysattr equals "connected".  */
+static int count_external_displays(unsigned *ret_active, unsigned *ret_attached) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        int r, n = 0;
+        unsigned active = 0, attached = 0;
+        int r;
+
+        assert(ret_active);
+        assert(ret_attached);
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
@@ -700,32 +707,93 @@ static int count_external_displays(void) {
                         return r;
 
                 if (drm_connector_is_active(status, enabled))
-                        n++;
+                        active++;
+
+                /* Hotplug detection is the one signal that survives the display being put to sleep. */
+                if (streq_ptr(status, "connected"))
+                        attached++;
         }
 
-        return n;
+        *ret_active = active;
+        *ret_attached = attached;
+        return 0;
 }
 
-bool manager_is_docked_or_external_displays(Manager *m) {
-        int n;
+/* Looks for a keyboard that is not part of the chassis, i.e. one somebody plugged in or paired. Returns > 0
+ * if there is one. */
+static int has_external_keyboard(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
 
-        /* If we are docked don't react to lid closing */
-        if (manager_is_docked(m)) {
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        /* Stick to initialized devices so we can match udev properties */
+        r = sd_device_enumerator_add_match_subsystem(e, "input", true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_property_required(e, "ID_INPUT_KEYBOARD", "1");
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_property_required(e, "ID_INTEGRATION", "external");
+        if (r < 0)
+                return r;
+
+        sd_device *d = sd_device_enumerator_get_device_first(e);
+        if (!d)
+                return 0;
+
+        const char *sysname;
+        if (sd_device_get_sysname(d, &sysname) >= 0)
+                log_debug("Found external keyboard '%s'.", sysname);
+
+        return 1;
+}
+
+bool manager_is_docked(Manager *m) {
+        unsigned active, attached;
+        int r;
+
+        assert(m);
+
+        if (manager_dock_switch_engaged(m)) {
                 log_debug("System is docked.");
                 return true;
         }
 
-        /* If we have more than one display connected,
-         * assume that we are docked. */
-        n = count_external_displays();
-        if (n < 0)
-                log_warning_errno(n, "Display counting failed: %m");
-        else if (n >= 1) {
-                log_debug("External (%i) displays connected.", n);
+        r = count_external_displays(&active, &attached);
+        if (r < 0) {
+                log_warning_errno(r, "Display counting failed, ignoring: %m");
+                return false;
+        }
+
+        /* A display that is being driven is enough on its own. */
+        if (active > 0) {
+                log_debug("%u external display(s) enabled.", active);
                 return true;
         }
 
-        return false;
+        /* Failing that, a display may still be plugged in but asleep. That alone is too weak to act on (a
+         * laptop can have a cable dangling from it anywhere), so we also require an external keyboard as
+         * corroboration that somebody set the machine up on a desk. Without this, the system would suspend
+         * the moment its monitor blanked on an idle timer, see
+         * https://github.com/systemd/systemd/issues/41898. */
+        if (attached == 0)
+                return false;
+
+        r = has_external_keyboard();
+        if (r < 0) {
+                log_warning_errno(r, "Failed to look for external keyboards, ignoring: %m");
+                return false;
+        }
+        if (r == 0)
+                return false;
+
+        log_debug("%u external display(s) attached, along with an external keyboard.", attached);
+        return true;
 }
 
 bool manager_is_on_external_power(void) {

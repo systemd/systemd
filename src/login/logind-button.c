@@ -145,7 +145,7 @@ static void button_lid_switch_handle_action(Manager *manager, bool is_edge, cons
 
         /* If we are docked or on external power, handle the lid switch
          * differently */
-        if (manager_is_docked_or_external_displays(manager))
+        if (manager_is_docked(manager))
                 handle_action = manager->handle_lid_switch_docked;
         else if (handle_action_valid(manager->handle_lid_switch_ep) && manager_is_on_external_power())
                 handle_action = manager->handle_lid_switch_ep;
