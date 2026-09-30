@@ -76,21 +76,24 @@ static void test_non_empty_one(void) {
         ASSERT_EQ(journal_file_next_entry(f, 0, DIRECTION_DOWN, &o, &p), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(1));
 
-        ASSERT_EQ(journal_file_find_data_object(f, test, strlen(test), &d, NULL), 1);
-        ASSERT_EQ(journal_file_move_to_entry_for_data(f, d, DIRECTION_DOWN, &o, NULL), 1);
+        if (!f->segmented)
+                ASSERT_EQ(journal_file_find_data_object(f, test, strlen(test), &d, NULL), 1);
+        ASSERT_EQ(journal_file_seek_for_match(f, test, strlen(test), JOURNAL_SEEK_FIRST, SD_ID128_NULL, 0, DIRECTION_DOWN, &o, NULL), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(1));
 
-        ASSERT_EQ(journal_file_move_to_entry_for_data(f, d, DIRECTION_UP, &o, NULL), 1);
+        ASSERT_EQ(journal_file_seek_for_match(f, test, strlen(test), JOURNAL_SEEK_FIRST, SD_ID128_NULL, 0, DIRECTION_UP, &o, NULL), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(3));
 
-        ASSERT_EQ(journal_file_find_data_object(f, test2, strlen(test2), &d, NULL), 1);
-        ASSERT_EQ(journal_file_move_to_entry_for_data(f, d, DIRECTION_UP, &o, NULL), 1);
+        if (!f->segmented)
+                ASSERT_EQ(journal_file_find_data_object(f, test2, strlen(test2), &d, NULL), 1);
+        ASSERT_EQ(journal_file_seek_for_match(f, test2, strlen(test2), JOURNAL_SEEK_FIRST, SD_ID128_NULL, 0, DIRECTION_UP, &o, NULL), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(2));
 
-        ASSERT_EQ(journal_file_move_to_entry_for_data(f, d, DIRECTION_DOWN, &o, NULL), 1);
+        ASSERT_EQ(journal_file_seek_for_match(f, test2, strlen(test2), JOURNAL_SEEK_FIRST, SD_ID128_NULL, 0, DIRECTION_DOWN, &o, NULL), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(2));
 
-        ASSERT_OK_ZERO(journal_file_find_data_object(f, "quux", 4, &d, NULL));
+        if (!f->segmented)
+                ASSERT_OK_ZERO(journal_file_find_data_object(f, "quux", 4, &d, NULL));
 
         ASSERT_EQ(journal_file_move_to_entry_by_seqnum(f, 1, DIRECTION_DOWN, &o, NULL), 1);
         ASSERT_EQ(le64toh(o->entry.seqnum), UINT64_C(1));
@@ -127,6 +130,10 @@ TEST(non_empty) {
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         test_non_empty_one();
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
+        test_non_empty_one();
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_SEGMENTED"));
 }
 
 TEST(duplicate_entry_storage) {
@@ -247,6 +254,10 @@ TEST(empty) {
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         test_empty_one();
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
+        test_empty_one();
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_SEGMENTED"));
 }
 
 #if HAVE_COMPRESSION
@@ -335,6 +346,10 @@ TEST(min_compress_size) {
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1));
         test_min_compress_size_one();
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
+        test_min_compress_size_one();
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_SEGMENTED"));
 }
 #endif
 
