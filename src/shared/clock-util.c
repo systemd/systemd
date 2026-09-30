@@ -10,11 +10,20 @@
 #include "string-util.h"
 #include "time-util.h"
 
+const char* etc_adjtime(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_ETC_ADJTIME") ?: "/etc/adjtime";
+
+        return cached;
+}
+
 int clock_is_localtime(const char *adjtime_path) {
         int r;
 
         if (!adjtime_path)
-                adjtime_path = "/etc/adjtime";
+                adjtime_path = etc_adjtime();
 
         /*
          * The third line of adjtime is "UTC" or "LOCAL" or nothing.

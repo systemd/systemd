@@ -315,15 +315,6 @@ static int context_write_data_timezone(Context *c) {
                                      !secure_getenv("SYSTEMD_ETC_LOCALTIME") ? SYMLINK_MAKE_RELATIVE : 0);
 }
 
-static const char* etc_adjtime(void) {
-        static const char *cached = NULL;
-
-        if (!cached)
-                cached = secure_getenv("SYSTEMD_ETC_ADJTIME") ?: "/etc/adjtime";
-
-        return cached;
-}
-
 static int context_write_data_local_rtc(Context *c) {
         _cleanup_free_ char *s = NULL, *w = NULL;
         int r;
