@@ -458,14 +458,6 @@ static int verify_data(
                 return -EBADMSG;
         }
 
-        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, NULL, NULL);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                error(q, "Entry object doesn't exist in the main entry array");
-                return -EBADMSG;
-        }
-
         i = 1;
         while (i < n) {
                 uint64_t next, m, j;
@@ -504,19 +496,6 @@ static int verify_data(
                                 error(p, "Data object references invalid entry at "OFSfmt, q);
                                 return -EBADMSG;
                         }
-
-                        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, NULL, NULL);
-                        if (r < 0)
-                                return r;
-                        if (r == 0) {
-                                error(q, "Entry object doesn't exist in the main entry array");
-                                return -EBADMSG;
-                        }
-
-                        /* Pointer might have moved, reposition */
-                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
-                        if (r < 0)
-                                return r;
                 }
 
                 a = next;
