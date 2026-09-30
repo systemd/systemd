@@ -59,6 +59,7 @@
 #include "user-util.h"
 #include "vconsole-util.h"
 #include "verbs.h"
+#include "virt.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -787,9 +788,14 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
                 else {
                         hostname = resolved;
 
-                        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to connect to systemd-hostnamed, writing /etc/hostname directly: %m");
+                        /* A chroot may share the host's /run, so only connect when we know
+                         * we're outside one. */
+                        if (running_in_chroot() == 0) {
+                                r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to connect to systemd-hostnamed, "
+                                                            "writing /etc/hostname directly: %m");
+                        }
                 }
         }
 
