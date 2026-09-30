@@ -963,6 +963,35 @@ static int check_object_header(JournalFile *f, Object *o, ObjectType type, uint6
         return 0;
 }
 
+int journal_file_check_entry_header(Object *o, uint64_t offset) {
+        assert(o);
+
+        if (le64toh(o->entry.seqnum) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid entry seqnum: %" PRIx64 ": %" PRIu64,
+                                       le64toh(o->entry.seqnum),
+                                       offset);
+
+        if (!VALID_REALTIME(le64toh(o->entry.realtime)))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid entry realtime timestamp: %" PRIu64 ": %" PRIu64,
+                                       le64toh(o->entry.realtime),
+                                       offset);
+
+        if (!VALID_MONOTONIC(le64toh(o->entry.monotonic)))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid entry monotonic timestamp: %" PRIu64 ": %" PRIu64,
+                                       le64toh(o->entry.monotonic),
+                                       offset);
+
+        if (sd_id128_is_null(o->entry.boot_id))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid object entry with an empty boot ID: %" PRIu64,
+                                       offset);
+
+        return 0;
+}
+
 /* Lightweight object checks. We want this to be fast, so that we won't
  * slowdown every journal_file_move_to_object() call too much. */
 static int check_object(JournalFile *f, Object *o, uint64_t offset) {
@@ -1034,30 +1063,7 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                (sz - offsetof(Object, entry.items)) / journal_file_entry_item_size(f),
                                                offset);
 
-                if (le64toh(o->entry.seqnum) <= 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid entry seqnum: %" PRIx64 ": %" PRIu64,
-                                               le64toh(o->entry.seqnum),
-                                               offset);
-
-                if (!VALID_REALTIME(le64toh(o->entry.realtime)))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid entry realtime timestamp: %" PRIu64 ": %" PRIu64,
-                                               le64toh(o->entry.realtime),
-                                               offset);
-
-                if (!VALID_MONOTONIC(le64toh(o->entry.monotonic)))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid entry monotonic timestamp: %" PRIu64 ": %" PRIu64,
-                                               le64toh(o->entry.monotonic),
-                                               offset);
-
-                if (sd_id128_is_null(o->entry.boot_id))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid object entry with an empty boot ID: %" PRIu64,
-                                               offset);
-
-                break;
+                return journal_file_check_entry_header(o, offset);
         }
 
         case OBJECT_DATA_HASH_TABLE:
