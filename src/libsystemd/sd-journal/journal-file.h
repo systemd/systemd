@@ -355,6 +355,11 @@ int journal_file_move_to_entry_by_seqnum_for_data(JournalFile *f, Object *d, uin
 /* Same as the _for_data() calls above, but take the data itself instead of a data object. */
 int journal_file_seek_for_match(JournalFile *f, const void *data, uint64_t size, JournalSeek where, sd_id128_t boot_id, uint64_t needle, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 
+/* Looks for entries that were appended since the last call, and returns > 0 if there are any. Only needed for
+ * segmented files, whose header does not count entries. */
+int journal_file_refresh(JournalFile *f, usec_t ts);
+void journal_file_request_refresh(JournalFile *f);
+
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, sd_id128_t *seqnum_id);
 
 void journal_file_dump(JournalFile *f);
