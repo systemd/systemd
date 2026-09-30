@@ -5496,55 +5496,80 @@ int tpm2_policy_authorize_nv(
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
 }
 
-int tpm2_policy_or(
-                Tpm2Context *c,
-                const Tpm2Handle *session,
-                const TPM2B_DIGEST *branches, size_t n_branches,
-                TPM2B_DIGEST **ret_policy_digest) {
+/* TPM2_PolicyOR() takes at most TPM2_POLICY_OR_MAX_BRANCHES digests. To support more alternatives we nest
+ * ORs into a balanced tree with that fanout. All leaves are at the same depth and the upper levels contain
+ * only ORs, as the TCG TSS JSON policy format requires. The exact partition below is part of the on-disk
+ * policy format: sealing (tpm2_calculate_policy_or()) and unsealing (tpm2_policy_or()) must derive the same
+ * tree forever, so group sizes and ordering must not change. */
 
-        TPML_DIGEST hash_list;
-        TSS2_RC rc;
-
-        assert(c);
-        assert(session);
-
-        if (n_branches > ELEMENTSOF(hash_list.digests))
-                return -EOPNOTSUPP;
-
-        log_debug("Submitting OR policy.");
-
-        hash_list = (TPML_DIGEST) {
-                .count = n_branches,
-        };
-
-        memcpy(hash_list.digests, branches, n_branches * sizeof(TPM2B_DIGEST));
-
-        if (DEBUG_LOGGING)
-                for (size_t i = 0; i < hash_list.count; i++) {
-                        _cleanup_free_ char *h = hexmem(hash_list.digests[i].buffer, hash_list.digests[i].size);
-                        log_debug("Submitting OR Branch #%zu: %s", i, h);
-                }
-
-        rc = sym_Esys_PolicyOR(
-                        c->esys_context,
-                        session->esys_handle,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &hash_list);
-        if ((rc & ~(TPM2_RC_N_MASK|TPM2_RC_P)) == TPM2_RC_VALUE) /* Return a recognizable error if none of the OR branches matched */
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOANO),
-                                       "None of the PolicyOR branches matched the current policy state.");
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to add OR policy to TPM: %s",
-                                       sym_Tss2_RC_Decode(rc));
-
-        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+/* Number of ORs needed to combine 'n' nodes into one level up. */
+static size_t tpm2_policy_or_tree_n_groups(size_t n) {
+        return DIV_ROUND_UP(n, TPM2_POLICY_OR_MAX_BRANCHES);
 }
 
-/* Extend 'digest' with the PolicyOR calculated hash. */
-int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST *digest) {
+/* Number of nested OR levels needed to collapse 'n' branches into one digest. A flat OR (n <= 8) has
+ * depth 1, i.e. one level, and the tree has depth+1 levels in total including the leaves. Because the fanout
+ * is TPM2_POLICY_OR_MAX_BRANCHES, depth 'd' supports up to TPM2_POLICY_OR_MAX_BRANCHES^d alternatives, i.e.
+ * TPM2_POLICY_OR_MAX_DEPTH = 5 levels allow up to 8^5 = 32768 alternatives per PCR. */
+static size_t tpm2_policy_or_tree_depth(size_t n) {
+        size_t depth = 0;
+
+        while (n > 1) {
+                n = tpm2_policy_or_tree_n_groups(n);
+                depth++;
+        }
+
+        return depth;
+}
+
+/* Whether a PolicyOR expression over 'n' branches stays within TPM2_POLICY_OR_MAX_DEPTH levels. Callers use
+ * this to reject overly large branch lists before they build them, so that the offending PCR can be named
+ * and no work is wasted on the TPM round trips preceding it. */
+static bool tpm2_policy_or_branches_supported(size_t n) {
+        return n > 0 && tpm2_policy_or_tree_depth(n) <= TPM2_POLICY_OR_MAX_DEPTH;
+}
+
+/* Distribute 'n' nodes evenly over tpm2_policy_or_tree_n_groups(n) groups, with the first n%g groups getting
+ * one extra node. This avoids single-branch ORs. Return the slice [*ret_start, *ret_start + *ret_size) held
+ * by group 'group'. */
+static void tpm2_policy_or_tree_group_slice(size_t n, size_t group, size_t *ret_start, size_t *ret_size) {
+        size_t g, base, rem;
+
+        assert(n > 0);
+        assert(ret_start);
+        assert(ret_size);
+
+        g = tpm2_policy_or_tree_n_groups(n);
+        base = n / g;
+        rem = n % g;
+
+        *ret_size = base + (group < rem);
+        *ret_start = group < rem ? group * (base + 1) :
+                                   rem * (base + 1) + (group - rem) * base;
+}
+
+/* Inverse of tpm2_policy_or_tree_group_slice(): return which group of a level with 'n' nodes holds 'index'. */
+static size_t tpm2_policy_or_tree_group_of(size_t n, size_t index) {
+        size_t g, base, rem, first_big;
+
+        assert(n > 0);
+        assert(index < n);
+
+        g = tpm2_policy_or_tree_n_groups(n);
+        base = n / g;
+        rem = n % g;
+        first_big = rem * (base + 1);
+
+        return index < first_big ? index / (base + 1) :
+                                   rem + (index - first_big) / base;
+}
+
+/* Extend 'digest' with the PolicyOR calculated hash, for a single flat OR with 1…8 branches. */
+static int tpm2_calculate_policy_or_flat(
+                const TPM2B_DIGEST *branches,
+                size_t n_branches,
+                TPM2B_DIGEST *digest) {
+
         TPM2_CC command = TPM2_CC_PolicyOR;
         TSS2_RC rc;
         int r;
@@ -5554,10 +5579,10 @@ int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TP
 
         if (n_branches == 0)
                 return -EINVAL;
+        if (n_branches > TPM2_POLICY_OR_MAX_BRANCHES)
+                return -E2BIG;
         if (n_branches == 1)
                 log_warning("PolicyOR with a single branch submitted, this is weird.");
-        if (n_branches > 8)
-                return -E2BIG;
 
         r = dlopen_tpm2(LOG_ERR);
         if (r < 0)
@@ -5597,6 +5622,216 @@ int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TP
 
         tpm2_log_debug_digest(digest, "PolicyOR calculated digest");
 
+        return 0;
+}
+
+/* A fully materialized balanced PolicyOR tree: levels[0] are the n_level[0] leaves, and the last level holds
+ * exactly one digest (the root). Intermediate levels hold the flat OR of each group of the level below. */
+typedef struct Tpm2PolicyORTree {
+        TPM2B_DIGEST **levels;
+        size_t *n_level;
+        size_t n_levels;
+} Tpm2PolicyORTree;
+
+static void tpm2_policy_or_tree_done(Tpm2PolicyORTree *t) {
+        if (!t)
+                return;
+
+        if (t->levels)
+                for (size_t i = 0; i < t->n_levels; i++)
+                        free(t->levels[i]);
+
+        free(t->levels);
+        free(t->n_level);
+        *t = (Tpm2PolicyORTree) {};
+}
+
+static int tpm2_policy_or_tree_build(
+                const TPM2B_DIGEST *branches,
+                size_t n_branches,
+                Tpm2PolicyORTree *ret) {
+
+        size_t depth;
+        int r;
+
+        assert(branches);
+        assert(n_branches > TPM2_POLICY_OR_MAX_BRANCHES);
+        assert(ret);
+
+        depth = tpm2_policy_or_tree_depth(n_branches);
+        if (depth > TPM2_POLICY_OR_MAX_DEPTH)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                       "PolicyOR tree for %zu branches exceeds %u levels.",
+                                       n_branches, TPM2_POLICY_OR_MAX_DEPTH);
+
+        _cleanup_(tpm2_policy_or_tree_done) Tpm2PolicyORTree tree = {
+                .n_levels = depth + 1,
+        };
+
+        tree.levels = new0(TPM2B_DIGEST*, tree.n_levels);
+        tree.n_level = new0(size_t, tree.n_levels);
+        if (!tree.levels || !tree.n_level)
+                return log_oom_debug();
+
+        tree.n_level[0] = n_branches;
+        tree.levels[0] = newdup(TPM2B_DIGEST, branches, n_branches);
+        if (!tree.levels[0])
+                return log_oom_debug();
+
+        for (size_t i = 0; i + 1 < tree.n_levels; i++) {
+                size_t n_groups = tpm2_policy_or_tree_n_groups(tree.n_level[i]);
+
+                tree.n_level[i + 1] = n_groups;
+                tree.levels[i + 1] = new0(TPM2B_DIGEST, n_groups);
+                if (!tree.levels[i + 1])
+                        return log_oom_debug();
+
+                for (size_t g = 0; g < n_groups; g++) {
+                        size_t start, size;
+
+                        tree.levels[i + 1][g].size = SHA256_DIGEST_SIZE;
+
+                        tpm2_policy_or_tree_group_slice(tree.n_level[i], g, &start, &size);
+                        r = tpm2_calculate_policy_or_flat(
+                                        tree.levels[i] + start,
+                                        size,
+                                        &tree.levels[i + 1][g]);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_STRUCT(tree);
+        return 0;
+}
+
+/* Submit a single flat PolicyOR (1…8 branches) to the TPM. */
+static int tpm2_policy_or_submit_flat(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const TPM2B_DIGEST *branches,
+                size_t n_branches) {
+
+        TPML_DIGEST hash_list;
+        TSS2_RC rc;
+
+        assert_cc(ELEMENTSOF(((TPML_DIGEST) {}).digests) == TPM2_POLICY_OR_MAX_BRANCHES);
+
+        assert(c);
+        assert(session);
+        assert(n_branches <= TPM2_POLICY_OR_MAX_BRANCHES);
+
+        log_debug("Submitting OR policy.");
+
+        hash_list = (TPML_DIGEST) {
+                .count = n_branches,
+        };
+
+        memcpy(hash_list.digests, branches, n_branches * sizeof(TPM2B_DIGEST));
+
+        if (DEBUG_LOGGING)
+                for (size_t i = 0; i < hash_list.count; i++) {
+                        _cleanup_free_ char *h = hexmem(hash_list.digests[i].buffer, hash_list.digests[i].size);
+                        log_debug("Submitting OR Branch #%zu: %s", i, h);
+                }
+
+        rc = sym_Esys_PolicyOR(
+                        c->esys_context,
+                        session->esys_handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &hash_list);
+        if (TPM2_RC_IS_POLICY_OR_NO_MATCH(rc)) /* Return a recognizable error if none of the OR branches matched */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOANO),
+                                       "None of the PolicyOR branches matched the current policy state.");
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add OR policy to TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
+int tpm2_policy_or(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const TPM2B_DIGEST *branches, size_t n_branches,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        int r;
+
+        assert(c);
+        assert(session);
+
+        if (n_branches <= TPM2_POLICY_OR_MAX_BRANCHES) {
+                r = tpm2_policy_or_submit_flat(c, session, branches, n_branches);
+                if (r < 0)
+                        return r;
+
+                return tpm2_get_policy_digest(c, session, ret_policy_digest);
+        }
+
+        _cleanup_(tpm2_policy_or_tree_done) Tpm2PolicyORTree tree = {};
+        r = tpm2_policy_or_tree_build(branches, n_branches, &tree);
+        if (r < 0)
+                return r;
+
+        /* The immediately preceding policy command (typically PolicyPCR) left the session digest equal to
+         * one of our leaves. Find it, then walk from it up to the root, one OR per level. */
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *current = NULL;
+        r = tpm2_get_policy_digest(c, session, &current);
+        if (r < 0)
+                return r;
+
+        size_t index = SIZE_MAX;
+        for (size_t i = 0; i < tree.n_level[0]; i++)
+                if (memcmp_nn(tree.levels[0][i].buffer, tree.levels[0][i].size,
+                              current->buffer, current->size) == 0) {
+                        index = i;
+                        break;
+                }
+
+        if (index == SIZE_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOANO),
+                                       "None of the PolicyOR branches matched the current policy state.");
+
+        for (size_t i = 0; i + 1 < tree.n_levels; i++) {
+                size_t group, start, size;
+
+                /* PolicyOR can only fail with TPM2_RC_VALUE if the session digest is not one of the submitted
+                 * digests. Every slice we submit does contain it: level 0's slice contains the leaf we just
+                 * matched, and after each OR the session digest is exactly levels[i + 1][group], which the
+                 * slice for the next level contains by construction. */
+                group = tpm2_policy_or_tree_group_of(tree.n_level[i], index);
+                tpm2_policy_or_tree_group_slice(tree.n_level[i], group, &start, &size);
+
+                r = tpm2_policy_or_submit_flat(c, session, tree.levels[i] + start, size);
+                if (r < 0)
+                        return r;
+
+                index = group;
+        }
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
+/* Extend 'digest' with the PolicyOR calculated hash. */
+int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST *digest) {
+        assert(digest);
+        assert(digest->size == SHA256_DIGEST_SIZE);
+
+        if (n_branches <= TPM2_POLICY_OR_MAX_BRANCHES)
+                return tpm2_calculate_policy_or_flat(branches, n_branches, digest);
+
+        _cleanup_(tpm2_policy_or_tree_done) Tpm2PolicyORTree tree = {};
+        int r;
+
+        r = tpm2_policy_or_tree_build(branches, n_branches, &tree);
+        if (r < 0)
+                return r;
+
+        *digest = tree.levels[tree.n_levels - 1][0];
         return 0;
 }
 
@@ -10168,17 +10403,20 @@ int tpm2_calculate_policy_super_pcr(
         /* Now deal with the PCRs for which we have variants, i.e. more than one allowed values */
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
                 _cleanup_free_ TPM2B_DIGEST *pcr_policy_digest_variants = NULL;
-                size_t n_pcr_policy_digest_variants = 0;
+                size_t n_pcr_policy_digest_variants = 0, n_variants;
                 Tpm2PCRPredictionResult *banks;
 
                 if (!BIT_SET(prediction->pcrs, pcr))
                         continue;
 
-                if (ordered_set_size(prediction->results[pcr]) <= 1) /* We only care for PCRs with 2 or more variants in this loop */
+                n_variants = ordered_set_size(prediction->results[pcr]);
+                if (n_variants <= 1) /* We only care for PCRs with 2 or more variants in this loop */
                         continue;
 
-                if (ordered_set_size(prediction->results[pcr]) > 8)
-                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "PCR policies with more than 8 alternatives per PCR are currently not supported.");
+                if (!tpm2_policy_or_branches_supported(n_variants))
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "PCR %" PRIu32 " has %zu predicted values, which needs more than the %u nested PolicyOR levels we support.",
+                                               pcr, n_variants, TPM2_POLICY_OR_MAX_DEPTH);
 
                 ORDERED_SET_FOREACH(banks, prediction->results[pcr]) {
                         /* Start from the super PCR policy from the previous PCR we looked at so far. */
@@ -10209,7 +10447,6 @@ int tpm2_calculate_policy_super_pcr(
                 }
 
                 assert_se(n_pcr_policy_digest_variants >= 2);
-                assert_se(n_pcr_policy_digest_variants <= 8);
 
                 /* Now combine all our variant into one OR policy */
                 r = tpm2_calculate_policy_or(
@@ -10282,8 +10519,13 @@ int tpm2_policy_super_pcr(
                         continue;
 
                 n_branches = ordered_set_size(prediction->results[pcr]);
-                if (n_branches < 1 || n_branches > 8)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Number of variants per PCR not in range 1…8");
+                if (n_branches < 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "PCR %" PRIu32 " has no predicted values.", pcr);
+                if (!tpm2_policy_or_branches_supported(n_branches))
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "PCR %" PRIu32 " has %zu predicted values, which needs more than the %u nested PolicyOR levels we support.",
+                                               pcr, n_branches, TPM2_POLICY_OR_MAX_DEPTH);
 
                 if (n_branches == 1) /* Single choice PCRs are already covered by the loop above */
                         continue;
