@@ -74,6 +74,7 @@ typedef struct TableData {
         unsigned weight;            /* the horizontal weight for this column, in case the table is expanded/compressed */
         unsigned ellipsize_percent; /* 0 … 100, where to place the ellipsis when compression is needed */
         unsigned align_percent;     /* 0 … 100, where to pad with spaces when expanding is needed. 0: left-aligned, 100: right-aligned */
+        unsigned decimals;          /* digits after the decimal point of TABLE_DOUBLE */
 
         bool uppercase:1;           /* Uppercase string on display */
         bool underline:1;
@@ -103,6 +104,7 @@ typedef struct TableData {
                 uint16_t uint16;
                 uint32_t uint32;
                 uint64_t uint64;
+                double double_val;
                 int percent;        /* we use 'int' as datatype for percent values in order to match the result of parse_percent() */
                 int ifindex;
                 union in_addr_union address;
@@ -324,6 +326,9 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_BPS:
                 return sizeof(uint64_t);
 
+        case TABLE_DOUBLE:
+                return sizeof(double);
+
         case TABLE_INT32:
         case TABLE_UINT32:
         case TABLE_UINT32_HEX:
@@ -531,6 +536,8 @@ int table_add_cell_full(
                 d = table_data_new(dt, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase);
                 if (!d)
                         return -ENOMEM;
+
+                d->decimals = p ? p->decimals : 2;
         }
 
         if (!GREEDY_REALLOC(t->data, MAX(t->n_cells + 1, t->n_columns)))
@@ -638,6 +645,7 @@ static int table_dedup_cell(Table *t, TableCell *cell) {
         if (!nd)
                 return -ENOMEM;
 
+        nd->decimals = od->decimals;
         nd->color = od->color;
         nd->rgap_color = od->rgap_color;
         nd->underline = od->underline;
@@ -734,6 +742,20 @@ int table_set_align_percent(Table *t, TableCell *cell, unsigned percent) {
                 return r;
 
         table_get_data(t, cell)->align_percent = percent;
+        return 0;
+}
+
+int table_set_decimals(Table *t, TableCell *cell, unsigned decimals) {
+        int r;
+
+        assert(t);
+        assert(cell);
+
+        r = table_dedup_cell(t, cell);
+        if (r < 0)
+                return r;
+
+        table_get_data(t, cell)->decimals = decimals;
         return 0;
 }
 
@@ -897,6 +919,7 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
         if (!nd)
                 return -ENOMEM;
 
+        nd->decimals = od->decimals;
         nd->color = od->color;
         nd->rgap_color = od->rgap_color;
         nd->underline = od->underline;
@@ -935,6 +958,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         uint16_t uint16;
                         uint32_t uint32;
                         uint64_t uint64;
+                        double double_val;
                         int percent;
                         int ifindex;
                         int tristate;
@@ -1070,6 +1094,11 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         data = &buffer.uint64;
                         break;
 
+                case TABLE_DOUBLE:
+                        buffer.double_val = va_arg(ap, double);
+                        data = &buffer.double_val;
+                        break;
+
                 case TABLE_PERCENT:
                         buffer.percent = va_arg(ap, int);
                         data = &buffer.percent;
@@ -1154,6 +1183,12 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_SET_ELLIPSIZE_PERCENT: {
                         unsigned p = va_arg(ap, unsigned);
                         r = table_set_ellipsize_percent(t, last_cell, p);
+                        goto check;
+                }
+
+                case TABLE_SET_DECIMALS: {
+                        unsigned n = va_arg(ap, unsigned);
+                        r = table_set_decimals(t, last_cell, n);
                         goto check;
                 }
 
@@ -1516,6 +1551,9 @@ static int cell_data_compare(TableData *a, TableData *b) {
         case TABLE_UINT64_HEX_0x:
                 return CMP(a->uint64, b->uint64);
 
+        case TABLE_DOUBLE:
+                return CMP(a->double_val, b->double_val);
+
         case TABLE_PERCENT:
                 return CMP(a->percent, b->percent);
 
@@ -1834,6 +1872,9 @@ static const char* table_data_format(
 
         case TABLE_UINT64_HEX_0x:
                 return (d->formatted = asprintf_safe("0x%" PRIx64, d->uint64));
+
+        case TABLE_DOUBLE:
+                return (d->formatted = asprintf_safe("%.*f", (int) MIN(d->decimals, (unsigned) INT_MAX), d->double_val));
 
         case TABLE_PERCENT:
                 return (d->formatted = asprintf_safe("%i%%" , d->percent));
@@ -2860,6 +2901,9 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
         case TABLE_UINT64_HEX:
         case TABLE_UINT64_HEX_0x:
                 return sd_json_variant_new_unsigned(ret, d->uint64);
+
+        case TABLE_DOUBLE:
+                return sd_json_variant_new_real(ret, d->double_val);
 
         case TABLE_PERCENT:
                 return sd_json_variant_new_integer(ret, d->percent);
