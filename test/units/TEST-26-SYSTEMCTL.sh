@@ -96,6 +96,9 @@ systemctl list-dependencies --before systemd-journald
 systemctl list-dependencies --after --reverse systemd-journald
 systemctl list-dependencies --before --reverse systemd-journald
 systemctl list-dependencies --plain systemd-journald
+systemctl list-dependencies --all sysinit.target >/dev/null
+systemctl list-dependencies --all --reverse systemd-journald >/dev/null
+systemctl list-dependencies --all sysinit.target basic.target >/dev/null
 
 # list-* verbs
 systemctl list-units
