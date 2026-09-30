@@ -191,9 +191,9 @@ static void assert_file(JournalFile *f, const Model *model) {
                 "PRIORITY=5",                            /* frequent */
                 "NUMBER=77",                             /* once */
                 "NUMBER=100000000",                      /* never */
-                "MESSAGE=This is message 3 of 17",
+                "MESSAGE=This is message 3 of 17",       /* not indexed */
                 "MESSAGE=This is message 170 of 17",
-                "_SOURCE_REALTIME_TIMESTAMP=1000697",
+                "_SOURCE_REALTIME_TIMESTAMP=1000697",    /* inline */
                 "_HOSTNAME=test",                        /* all */
                 "NOSUCHFIELD=1",
         };
