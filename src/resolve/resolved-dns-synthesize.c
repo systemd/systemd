@@ -135,7 +135,8 @@ static int answer_add_addresses_rr(
                 DnsAnswer **answer,
                 const char *name,
                 struct local_address *addresses,
-                unsigned n_addresses) {
+                unsigned n_addresses,
+                bool allow_link_local) {
 
         unsigned j;
         int r;
@@ -149,6 +150,10 @@ static int answer_add_addresses_rr(
 
         for (j = 0; j < n_addresses; j++) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+                if (!allow_link_local &&
+                    in_addr_is_link_local(addresses[j].family, &addresses[j].address) > 0)
+                        continue;
 
                 r = dns_resource_record_new_address(&rr, addresses[j].family, &addresses[j].address, name);
                 if (r < 0)
@@ -206,7 +211,12 @@ static int answer_add_addresses_ptr(
         return added;
 }
 
-static int synthesize_system_hostname_rr(Manager *m, const DnsResourceKey *key, int ifindex, DnsAnswer **answer) {
+static int synthesize_system_hostname_rr(
+                Manager *m,
+                const DnsResourceKey *key,
+                int ifindex,
+                bool allow_link_local,
+                DnsAnswer **answer) {
         _cleanup_free_ struct local_address *addresses = NULL;
         int n = 0, af;
 
@@ -241,11 +251,16 @@ static int synthesize_system_hostname_rr(Manager *m, const DnsResourceKey *key, 
 
                         return answer_add_addresses_rr(answer,
                                                        dns_resource_key_name(key),
-                                                       buffer, n);
+                                                       buffer, n,
+                                                       allow_link_local);
                 }
         }
 
-        return answer_add_addresses_rr(answer, dns_resource_key_name(key), addresses, n);
+        /* If all addresses are link-local and those are not allowed, the answer stays empty, i.e. we
+         * synthesize NODATA. We don't fall back to the loopback addresses above in that case, as e.g. ::1
+         * next to a routable IPv4 address would be preferred by clients sorting by RFC 6724, and would
+         * point clients of DNSStubListenerExtra= on other hosts to themselves. */
+        return answer_add_addresses_rr(answer, dns_resource_key_name(key), addresses, n, allow_link_local);
 }
 
 static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_addr_union *address, int ifindex, DnsAnswer **answer) {
@@ -314,6 +329,7 @@ static int synthesize_gateway_rr(
                 const DnsResourceKey *key,
                 int ifindex,
                 int (*lookup)(sd_netlink *context, int ifindex, int af, struct local_address **ret), /* either local_gateways() or local_outbound() */
+                bool allow_link_local,
                 DnsAnswer **answer) {
         _cleanup_free_ struct local_address *addresses = NULL;
         int n = 0, af, r;
@@ -346,7 +362,8 @@ static int synthesize_gateway_rr(
                 }
         }
 
-        r = answer_add_addresses_rr(answer, dns_resource_key_name(key), addresses, n);
+        /* If all gateways are link-local and those are not allowed, this synthesizes NODATA. */
+        r = answer_add_addresses_rr(answer, dns_resource_key_name(key), addresses, n, allow_link_local);
         if (r < 0)
                 return r;
 
@@ -469,6 +486,7 @@ int dns_synthesize_answer(
                 Manager *m,
                 DnsQuestion *q,
                 int ifindex,
+                bool allow_link_local,
                 DnsAnswer **ret) {
 
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
@@ -508,13 +526,14 @@ int dns_synthesize_answer(
                         if (!shall_synthesize_own_hostname_rrs())
                                 continue;
 
-                        r = synthesize_system_hostname_rr(m, key, ifindex, &answer);
+                        r = synthesize_system_hostname_rr(m, key, ifindex, allow_link_local, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize system hostname RRs: %m");
 
                 } else if (is_gateway_hostname(name)) {
 
-                        r = synthesize_gateway_rr(m, key, ifindex, local_gateways, &answer);
+                        r = synthesize_gateway_rr(
+                                        m, key, ifindex, local_gateways, allow_link_local, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize gateway RRs: %m");
                         if (r == 0) { /* if we have no gateway return NXDOMAIN */
@@ -524,7 +543,8 @@ int dns_synthesize_answer(
 
                 } else if (is_outbound_hostname(name)) {
 
-                        r = synthesize_gateway_rr(m, key, ifindex, local_outbounds, &answer);
+                        r = synthesize_gateway_rr(
+                                        m, key, ifindex, local_outbounds, allow_link_local, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize outbound RRs: %m");
                         if (r == 0) { /* if we have no gateway return NXDOMAIN */

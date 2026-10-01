@@ -147,6 +147,15 @@
       see <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       </para></listitem>
     </itemizedlist>
+
+    <para>Replies sent via the local DNS stub listener (including additional listeners configured with
+    <varname>DNSStubListenerExtra=</varname>, see
+    <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>) do
+    not include link-local addresses for the local hostname, <literal>_gateway</literal> and
+    <literal>_outbound</literal>, since DNS packets cannot carry the network interface index that is needed
+    to use such addresses. If only link-local addresses of the requested address family are configured,
+    such replies contain no addresses. Lookups via the D-Bus and Varlink interfaces still return
+    link-local addresses together with the interface index.</para>
   </refsect1>
 
   <refsect1>
