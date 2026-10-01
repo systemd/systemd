@@ -56,6 +56,7 @@ in particular realize that they may include binary non-text data (though usually
 and the same field might have multiple values assigned within the same entry.
 
 This document describes the current format of systemd 246.
+The segmented variant of the format is described in [Segmented Journal File Format](JOURNAL_SEGMENTED.md).
 The documented format is compatible with the format used in the first versions of the journal,
 but received various compatible and incompatible additions since.
 
@@ -112,7 +113,7 @@ progresses. Most data stored in these objects is not altered anymore after
 having been written once, with the exception of records necessary for
 indexing. When new data is appended to a file the writer first writes all new
 objects to the end of the file, and then links them up at front after that's
-done. Currently, seven different object types are known:
+done. Currently, nine different object types are known:
 
 ```c
 enum {
@@ -124,9 +125,14 @@ enum {
         OBJECT_FIELD_HASH_TABLE,
         OBJECT_ENTRY_ARRAY,
         OBJECT_TAG,
+        OBJECT_CONTEXT,
+        OBJECT_INDEX,
         _OBJECT_TYPE_MAX
 };
 ```
+
+CONTEXT and INDEX objects only occur in segmented files, see
+[Segmented Journal File Format](JOURNAL_SEGMENTED.md).
 
 * A **DATA** object, which encapsulates the contents of one field of an entry, i.e. a string such as `_SYSTEMD_UNIT=avahi-daemon.service`, or `MESSAGE=Foobar made a booboo.` but possibly including large or binary data, and always prefixed by the field name and "=".
 * A **FIELD** object, which encapsulates a field name, i.e. a string such as `_SYSTEMD_UNIT` or `MESSAGE`, without any `=` or even value.
@@ -274,7 +280,7 @@ unconditionally exist in all revisions of the file format, all fields starting
 with **n_data** needs to be explicitly checked for via a size check, since they
 were additions after the initial release.
 
-Currently only five extensions flagged in the flags fields are known:
+Currently only six extensions flagged in the flags fields are known:
 
 ```c
 enum {
@@ -283,6 +289,7 @@ enum {
         HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
         HEADER_INCOMPATIBLE_COMPACT         = 1 << 4,
+        HEADER_INCOMPATIBLE_SEGMENTED       = 1 << 5,
 };
 
 enum {
@@ -303,6 +310,9 @@ tables, see below.
 
 `HEADER_INCOMPATIBLE_COMPACT` indicates that the journal file uses the new binary
 format that uses less space on disk compared to the original format.
+
+`HEADER_INCOMPATIBLE_SEGMENTED` indicates that the journal file uses the segmented
+variant of the format, see [Segmented Journal File Format](JOURNAL_SEGMENTED.md).
 
 `HEADER_COMPATIBLE_SEALED` indicates that the file includes TAG objects required
 for Forward Secure Sealing.
@@ -413,7 +423,9 @@ the data payload is compressed with XZ/LZ4/ZSTD. If one of the
 `HEADER_INCOMPATIBLE_COMPRESSED_XZ`/`HEADER_INCOMPATIBLE_COMPRESSED_LZ4`/`HEADER_INCOMPATIBLE_COMPRESSED_ZSTD`
 flag must be set for the file as well. At most one of these three bits may be
 set. The **size** field encodes the size of the object including all its
-headers and payload.
+headers and payload. In segmented files, the **reserved** bytes hold an auxiliary
+field and a checksum, and DATA objects of values that are not indexed have the
+`OBJECT_UNINDEXED` (`1 << 3`) flag, see [Segmented Journal File Format](JOURNAL_SEGMENTED.md).
 
 
 ## Data Objects
