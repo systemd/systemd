@@ -20,6 +20,8 @@ static inline int loop_write(int fd, const void *buf, size_t nbytes) {
         return loop_write_full(fd, buf, nbytes, 0);
 }
 
+int pwritev_full(int fd, struct iovec *iovec, size_t n, uint64_t offset, uint64_t *ret_written);
+
 int pipe_eof(int fd);
 
 int ppoll_usec_full(struct pollfd *fds, size_t n_fds, usec_t timeout, const sigset_t *ss) _nonnull_if_nonzero_(1, 2);
