@@ -1559,8 +1559,8 @@ EOF
 testcase_verity_encrypt() {
     local defs imgs output loop drh hrh part_size dm_devno verity_dep
 
-    if ( . /etc/os-release && [[ "$ID" == "postmarketos" ]] ); then
-        echo "Skipping verity+encrypt test on postmarketOS."
+    if ( . /etc/os-release && [[ "$ID" == "nura" ]] ); then
+        echo "Skipping verity+encrypt test on Nura."
         return
     fi
 
@@ -3337,7 +3337,7 @@ EOF
     assert_eq "$(findmnt "${btrfs_mntpoint_plain}" -o SOURCE -n)" "${loop}p1"
     dm_btrfs_encrypted="$(findmnt "${btrfs_mntpoint_encrypted}" -o SOURCE -n)"
     if [[ "$dm_btrfs_encrypted" != "/dev/mapper/btrfs-replace-encrypted" ]]; then
-        # When libdevmapper is built without UDEV_SYNC_SUPPORT (e.g. on Alpine/postmarketOS),
+        # When libdevmapper is built without UDEV_SYNC_SUPPORT (e.g. on Alpine/Nura),
         # it creates a device node under /dev/mapper/ instead of relying on udev to create a symlink.
         # In this case, verify that both device nodes refer to the same underlying device.
         assert_eq "$(stat -c %Hr:%Lr "$dm_btrfs_encrypted")" "$(stat -c %Hr:%Lr /dev/mapper/btrfs-replace-encrypted)"

@@ -11,7 +11,7 @@ set -o pipefail
 
 . /etc/os-release
 if [[ "${ID_LIKE:-}" == alpine ]]; then
-    # Alpine/postmarketOS builds libdevmapper and so on without systemd support, and seems to not wait for
+    # Alpine/Nura builds libdevmapper and so on without systemd support, and seems to not wait for
     # uevents for dm-X devices being processed by systemd-udevd. That causes a significant issue in
     # dissect-image.c especially when multiple dm-X devices are activated/deactivated in parallel.
     exit 0
