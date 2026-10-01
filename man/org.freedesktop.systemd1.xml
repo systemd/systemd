@@ -5210,7 +5210,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>ConfigurationDirectorySymlink</varname> exposes the same <varname>flags</varname> parameter
       for them. Unlike the other directory types, <varname>ConfigurationDirectory</varname> does not
       support symlinks, so the destination member of <varname>ConfigurationDirectorySymlink</varname>
-      must be left empty and is always returned as an empty string.</para>
+      must be left empty and is always returned as an empty string. The property retains the same
+      tuple signature and naming convention as the other directory types so clients can handle their
+      flags uniformly.</para>
 
       <para><varname>ExtraFileDescriptorNames</varname> contains file descriptor names passed to the service via
       the <varname>ExtraFileDescriptors</varname> property in the <function>StartTransientUnit()</function>

@@ -1674,7 +1674,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <para>Because <literal>:</literal> separates the parameters, a directory name that contains a
         literal colon must have it escaped as <literal>\:</literal>. Note that when these settings are
-        passed over D-Bus when creating a transient unit instead, for example with
+        instead passed over D-Bus to create a transient unit, for example with
         <command>systemd-run --property=</command>, the value is unescaped once more by the client, so a
         literal colon requires <literal>\\:</literal> in the value received by the client after shell
         quoting. For example:

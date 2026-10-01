@@ -4296,9 +4296,7 @@ int bus_exec_context_set_transient_property(
                                 }
 
                                 const char *flags_string = exec_directory_flags_to_string(symlink_flags);
-                                if (!flags_string)
-                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                                                 "Invalid 'flags' parameter '%" PRIu64 "'", symlink_flags);
+                                assert(flags_string); /* Validated before applying the property. */
 
                                 unit_write_settingf(
                                                 u, flags|UNIT_ESCAPE_SPECIFIERS, exec_directory_type_to_string(i),

@@ -21,6 +21,11 @@ CHANGES WITH 263 in spe:
           DynamicUser= directories. Unit files reject these symlink destinations
           too, matching the existing restriction on source paths.
 
+        * systemctl show now includes directory flags in *DirectorySymlink
+          values. Read-only entries are shown as source:destination:ro instead
+          of source:destination. Unknown flags are shown numerically so newer
+          manager properties can still be displayed.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:

@@ -11,6 +11,16 @@
 static sd_bus *arg_bus = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_bus, sd_bus_unrefp);
 
+TEST(exec_directory_flags) {
+        ASSERT_STREQ(exec_directory_flags_to_string(0), "");
+        ASSERT_STREQ(exec_directory_flags_to_string(EXEC_DIRECTORY_READ_ONLY), "ro");
+        ASSERT_NULL(exec_directory_flags_to_string(EXEC_DIRECTORY_ONLY_CREATE));
+        ASSERT_NULL(exec_directory_flags_to_string(UINT64_C(1) << 32));
+        ASSERT_NULL(exec_directory_flags_to_string((UINT64_C(1) << 32) | EXEC_DIRECTORY_READ_ONLY));
+        ASSERT_NULL(exec_directory_flags_to_string(UINT64_C(1) << 63));
+        ASSERT_NULL(exec_directory_flags_to_string(UINT64_MAX));
+}
+
 static void test_transient_settings_one(UnitType type, const char* const* lines) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;

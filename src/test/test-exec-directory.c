@@ -53,6 +53,7 @@ static void test_transient_directory_one(
                 const char *source,
                 const char *destination,
                 bool tuple,
+                uint64_t flags,
                 int expected) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
@@ -71,10 +72,19 @@ static void test_transient_directory_one(
 
         ASSERT_OK(sd_bus_message_new(bus, &message, SD_BUS_MESSAGE_METHOD_CALL));
         if (tuple)
-                ASSERT_OK(sd_bus_message_append(message, "a(sst)", 1, source, strempty(destination), (uint64_t) EXEC_DIRECTORY_READ_ONLY));
+                ASSERT_OK(sd_bus_message_append(message, "a(sst)", 1, source, strempty(destination), flags));
         else
                 ASSERT_OK(sd_bus_message_append(message, "as", 1, source));
         ASSERT_OK(sd_bus_message_seal(message, 1, 0));
+        ASSERT_OK(sd_bus_message_rewind(message, true));
+
+        /* Validate first without applying anything, matching the manager's two-pass handling. */
+        ASSERT_EQ(bus_exec_context_set_transient_property(
+                          unit, &context,
+                          tuple ? exec_directory_type_symlink_to_string(type) : exec_directory_type_to_string(type),
+                          message, 0, &error), expected);
+        ASSERT_EQ(context.directories[type].n_items, 0U);
+        sd_bus_error_free(&error);
         ASSERT_OK(sd_bus_message_rewind(message, true));
 
         ASSERT_EQ(bus_exec_context_set_transient_property(
@@ -88,13 +98,13 @@ static void test_transient_directory_one(
         }
 
         ASSERT_OK_ERRNO(fflush(f));
-        assert_directory(&context.directories[type], source, destination, tuple ? EXEC_DIRECTORY_READ_ONLY : 0);
+        assert_directory(&context.directories[type], source, destination, flags);
         char *value = ASSERT_NOT_NULL(strchr(text, '=')) + 1;
         delete_trailing_chars(value, "\n");
         ASSERT_OK(config_parse_exec_directories(
                           "test.service", "test.conf", 1, "Service", 1,
                           exec_directory_type_to_string(type), 0, value, &parsed, unit));
-        assert_directory(&parsed, source, destination, tuple ? EXEC_DIRECTORY_READ_ONLY : 0);
+        assert_directory(&parsed, source, destination, flags);
 }
 
 TEST(transient_directory_roundtrip) {
@@ -116,18 +126,28 @@ TEST(transient_directory_roundtrip) {
         for (ExecDirectoryType type = 0; type < _EXEC_DIRECTORY_TYPE_MAX; type++) {
                 FOREACH_ELEMENT(path, paths) {
                         test_transient_directory_one(bus, manager, type, *path,
-                                                     /* destination= */ NULL, /* tuple= */ false, 1);
-                        test_transient_directory_one(bus, manager, type, *path,
-                                                     /* destination= */ NULL, /* tuple= */ true, 1);
-                        test_transient_directory_one(bus, manager, type, "source", *path,
-                                                     /* tuple= */ true,
-                                                     type == EXEC_DIRECTORY_CONFIGURATION ? -EINVAL : 1);
+                                                     /* destination= */ NULL, /* tuple= */ false,
+                                                     /* flags= */ 0, 1);
+                        FOREACH_ELEMENT(flags, ((const uint64_t[]) {
+                                        0, EXEC_DIRECTORY_READ_ONLY, EXEC_DIRECTORY_ONLY_CREATE,
+                                        UINT64_C(1) << 32, (UINT64_C(1) << 32) | EXEC_DIRECTORY_READ_ONLY,
+                                        UINT64_C(1) << 63, UINT64_MAX })) {
+                                bool valid_flags = (*flags & ~((uint64_t) _EXEC_DIRECTORY_FLAGS_PUBLIC)) == 0;
+
+                                test_transient_directory_one(bus, manager, type, *path,
+                                                             /* destination= */ NULL, /* tuple= */ true,
+                                                             *flags, valid_flags ? 1 : -EINVAL);
+                                test_transient_directory_one(bus, manager, type, "source", *path,
+                                                             /* tuple= */ true, *flags,
+                                                             valid_flags && type != EXEC_DIRECTORY_CONFIGURATION ? 1 : -EINVAL);
+                        }
                 }
                 FOREACH_STRING(path, "private", "private/nested") {
                         test_transient_directory_one(bus, manager, type, path,
-                                                     /* destination= */ NULL, /* tuple= */ true, -EINVAL);
+                                                     /* destination= */ NULL, /* tuple= */ true,
+                                                     EXEC_DIRECTORY_READ_ONLY, -EINVAL);
                         test_transient_directory_one(bus, manager, type, "source", path,
-                                                     /* tuple= */ true, -EINVAL);
+                                                     /* tuple= */ true, EXEC_DIRECTORY_READ_ONLY, -EINVAL);
                 }
         }
 }
@@ -140,9 +160,17 @@ TEST(executor_directory_roundtrip) {
                 _cleanup_(exec_command_done) ExecCommand command = {};
                 _cleanup_fdset_free_ FDSet *fds = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
-                DynamicCreds creds = {};
-                ExecSharedRuntime shared = {};
-                ExecRuntime runtime = { .shared = &shared, .dynamic_creds = &creds };
+                _cleanup_(exec_shared_runtime_done) ExecSharedRuntime shared = {
+                        .userns_storage_socket = EBADF_PAIR,
+                        .netns_storage_socket = EBADF_PAIR,
+                        .ipcns_storage_socket = EBADF_PAIR,
+                };
+                _cleanup_(dynamic_creds_done) DynamicCreds creds = {};
+                _cleanup_(exec_runtime_clear) ExecRuntime runtime = {
+                        .ephemeral_storage_socket = EBADF_PAIR,
+                        .shared = &shared,
+                        .dynamic_creds = &creds,
+                };
 
                 exec_context_init(&context);
                 exec_context_init(&parsed);
@@ -182,7 +210,11 @@ TEST(fragment_private_destination) {
         ASSERT_OK(manager_startup(manager, NULL, NULL, NULL, NULL));
         ASSERT_OK(unit_new_for_name(manager, sizeof(Service), "test-exec-directory.service", &unit));
 
-        for (ExecDirectoryType type = 0; type < _EXEC_DIRECTORY_TYPE_MAX; type++)
+        for (ExecDirectoryType type = 0; type < _EXEC_DIRECTORY_TYPE_MAX; type++) {
+                /* This type rejects any destination before checking the reserved prefix. */
+                if (type == EXEC_DIRECTORY_CONFIGURATION)
+                        continue;
+
                 FOREACH_STRING(value, "source:private", "source:private/nested") {
                         _cleanup_(exec_directory_done) ExecDirectory directory = {};
 
@@ -191,6 +223,7 @@ TEST(fragment_private_destination) {
                                           exec_directory_type_to_string(type), 0, value, &directory, unit));
                         ASSERT_EQ(directory.n_items, 0U);
                 }
+        }
 }
 
 static int intro(void) {

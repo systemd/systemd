@@ -2112,12 +2112,13 @@ static int print_property(
 
                         while ((r = sd_bus_message_read(m, "(sst)", &a, &p, &symlink_flags)) > 0) {
                                 const char *flags_string = exec_directory_flags_to_string(symlink_flags);
-                                if (!flags_string)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Invalid flags for %s=.", name);
-
-                                bus_print_property_valuef(name, expected_value, flags, "%s:%s%s%s", a, p,
-                                                          isempty(flags_string) ? "" : ":", flags_string);
+                                if (flags_string)
+                                        bus_print_property_valuef(name, expected_value, flags, "%s:%s%s%s", a, p,
+                                                                  isempty(flags_string) ? "" : ":", flags_string);
+                                else
+                                        /* Preserve unknown bits from a newer manager without aborting the dump. */
+                                        bus_print_property_valuef(name, expected_value, flags, "%s:%s:%" PRIu64,
+                                                                  a, p, symlink_flags);
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
