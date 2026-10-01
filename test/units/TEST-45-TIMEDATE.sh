@@ -537,6 +537,16 @@ LOCAL"
         echo "/run/alternate-path/myadjtime still exists" >&2
         exit 1
     fi
+
+    # Test that the correct /etc/adjtime is read on restart.
+    printf '0.0 0 0\n0\nUTC\n' > /run/alternate-path/myadjtime
+    systemctl reset-failed systemd-timedated
+    systemctl restart systemd-timedated
+    assert_in "RTC in local TZ: no" "$(timedatectl --no-pager)"
+    printf '0.0 0 0\n0\nLOCAL\n' > /run/alternate-path/myadjtime
+    systemctl reset-failed systemd-timedated
+    systemctl restart systemd-timedated
+    assert_in "RTC in local TZ: yes" "$(timedatectl --no-pager)"
 }
 
 run_testcases
