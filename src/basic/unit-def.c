@@ -395,6 +395,17 @@ static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
 
+/* This table maps ExecDirectoryType to the symlink setting it is configured with in the unit */
+static const char* const exec_directory_type_symlink_table[_EXEC_DIRECTORY_TYPE_MAX] = {
+        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectorySymlink",
+        [EXEC_DIRECTORY_STATE]         = "StateDirectorySymlink",
+        [EXEC_DIRECTORY_CACHE]         = "CacheDirectorySymlink",
+        [EXEC_DIRECTORY_LOGS]          = "LogsDirectorySymlink",
+        [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectorySymlink",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
+
 Glyph unit_active_state_to_glyph(UnitActiveState state) {
         static const Glyph map[_UNIT_ACTIVE_STATE_MAX] = {
                 [UNIT_ACTIVE]       = GLYPH_BLACK_CIRCLE,

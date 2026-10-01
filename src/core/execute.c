@@ -3243,17 +3243,6 @@ static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);
 
-/* This table maps ExecDirectoryType to the symlink setting it is configured with in the unit */
-static const char* const exec_directory_type_symlink_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectorySymlink",
-        [EXEC_DIRECTORY_STATE]         = "StateDirectorySymlink",
-        [EXEC_DIRECTORY_CACHE]         = "CacheDirectorySymlink",
-        [EXEC_DIRECTORY_LOGS]          = "LogsDirectorySymlink",
-        [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectorySymlink",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
-
 static const char* const exec_directory_type_mode_table[_EXEC_DIRECTORY_TYPE_MAX] = {
         [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectoryMode",
         [EXEC_DIRECTORY_STATE]         = "StateDirectoryMode",
