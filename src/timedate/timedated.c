@@ -315,15 +315,6 @@ static int context_write_data_timezone(Context *c) {
                                      !secure_getenv("SYSTEMD_ETC_LOCALTIME") ? SYMLINK_MAKE_RELATIVE : 0);
 }
 
-static const char* etc_adjtime(void) {
-        static const char *cached = NULL;
-
-        if (!cached)
-                cached = secure_getenv("SYSTEMD_ETC_ADJTIME") ?: "/etc/adjtime";
-
-        return cached;
-}
-
 static int context_write_data_local_rtc(Context *c) {
         _cleanup_free_ char *s = NULL, *w = NULL;
         int r;
@@ -722,7 +713,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         tzset();
 
         /* 3. Tell the kernel our timezone */
-        r = clock_set_timezone(NULL);
+        r = clock_set_timezone(c->local_rtc, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to tell kernel about timezone, ignoring: %m");
 
@@ -798,7 +789,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         }
 
         /* 2. Tell the kernel our timezone */
-        r = clock_set_timezone(NULL);
+        r = clock_set_timezone(c->local_rtc, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to tell kernel about timezone, ignoring: %m");
 
