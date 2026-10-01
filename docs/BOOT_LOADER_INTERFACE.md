@@ -197,6 +197,10 @@ Variables will be listed below using the Linux efivarfs naming,
   first sets the variable, and its presence suppresses a second measurement of
   the same data into the same PCR during the same boot.
 
+* The EFI variable `LoaderInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
+  contains the version string of the boot loader that was booted,
+  e.g. `systemd-boot 262`. It is formatted as a NUL-terminated UTF-16 string.
+
 If `LoaderTimeInitUSec` and `LoaderTimeExecUSec` are set, `systemd-analyze`
 will include them in its boot-time analysis.  If `LoaderDevicePartUUID` is set,
 systemd will mount the ESP that was used for the boot to `/boot`, but only if
