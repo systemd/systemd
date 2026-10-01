@@ -84,6 +84,11 @@ static int exec_list(
 
         assert(e);
 
+        _cleanup_strv_free_ char **args = NULL;
+        r = device_build_default_trigger_args(/* with_timestamp= */ true, &args);
+        if (r < 0)
+                return log_oom();
+
         sd_device *d;
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
 
@@ -101,7 +106,7 @@ static int exec_list(
                         continue;
 
                 sd_id128_t id;
-                r = sd_device_trigger_with_uuid(d, action, &id);
+                r = sd_device_trigger_with_args(d, action, args, &id);
                 if (r < 0) {
                         /* ENOENT may be returned when a device does not have /uevent or is already
                          * removed. Hence, this is logged at debug level and ignored.

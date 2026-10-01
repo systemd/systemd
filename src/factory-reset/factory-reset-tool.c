@@ -13,6 +13,7 @@
 #include "json-util.h"
 #include "main-func.h"
 #include "os-util.h"
+#include "strv.h"
 #include "udev-util.h"
 #include "varlink-io.systemd.FactoryReset.h"
 #include "varlink-util.h"
@@ -215,8 +216,13 @@ static int retrigger_block_devices(void) {
         if (!arg_quiet)
                 log_info("Retriggering block devices.");
 
+        _cleanup_strv_free_ char **args = NULL;
+        r = device_build_default_trigger_args(/* with_timestamp= */ true, &args);
+        if (r < 0)
+                return log_oom();
+
         FOREACH_DEVICE(e, d) {
-                r = sd_device_trigger(d, SD_DEVICE_CHANGE);
+                r = sd_device_trigger_with_args(d, SD_DEVICE_CHANGE, args, /* ret_uuid= */ NULL);
                 if (r < 0)
                         /* Devices can appear anytime, let's not loudly log about that. */
                         log_device_full_errno(
