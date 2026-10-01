@@ -1,11 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-id128.h"
+
 #include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "fd-util.h"
+#include "path-util.h"
+#include "pidfd-util.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 
 int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
@@ -228,4 +234,137 @@ bool device_property_can_set(const char *property) {
                 /* Similar to SYNTH_UUID, but set based on KEY=VALUE arguments passed by userspace.
                  * See kernel's f36776fafbaa0094390dd4e7e3e29805e0b82730 (v4.13) */
                 !startswith(property, "SYNTH_ARG_");
+}
+
+int device_build_default_trigger_args(bool with_timestamp, char ***ret) {
+        _cleanup_strv_free_ char **args = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret);
+
+        r = strv_extend_with_size(&args, &n, "PID");
+        if (r < 0)
+                return r;
+
+        r = strv_extendf_with_size(&args, &n, PID_FMT, getpid_cached());
+        if (r < 0)
+                return r;
+
+        uint64_t pidfdid;
+        if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                r = strv_extend_with_size(&args, &n, "PIDFDID");
+                if (r < 0)
+                        return r;
+
+                r = strv_extendf_with_size(&args, &n, "%"PRIu64, pidfdid);
+                if (r < 0)
+                        return r;
+        }
+
+        sd_id128_t invocation_id = SD_ID128_NULL;
+        if (sd_id128_get_invocation(&invocation_id) >= 0) {
+                r = strv_extend_with_size(&args, &n, "InvocationID");
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_with_size(&args, &n, SD_ID128_TO_STRING(invocation_id));
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_free_ char *comm = NULL;
+        _cleanup_strv_free_ char **cmdline = NULL;
+        if (pid_get_cmdline_strv(/* pid= */ 0, PROCESS_CMDLINE_COMM_FALLBACK, &cmdline) >= 0)
+                /* arg[0] typically contains path. Let's drop it. */
+                (void) path_extract_filename(cmdline[0], &comm);
+
+        if (isempty(comm))
+                (void) pid_get_comm(/* pid= */ 0, &comm);
+
+        char *q = comm;
+        for (char *p = comm; *p != '\0'; p++) {
+                if (strchr(ALPHANUMERICAL, *p))
+                        *q++ = *p;
+        }
+
+        *q = '\0';
+        if (!isempty(comm)) {
+                r = strv_extend_with_size(&args, &n, "Comm");
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_with_size(&args, &n, comm);
+                if (r < 0)
+                        return r;
+        }
+
+        if (with_timestamp) {
+                triple_timestamp ts;
+                triple_timestamp_now(&ts);
+
+                r = strv_extend_with_size(&args, &n, "TimestampRealtime");
+                if (r < 0)
+                        return r;
+
+                r = strv_extendf_with_size(&args, &n, USEC_FMT, ts.realtime);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_with_size(&args, &n, "TimestampMonotonic");
+                if (r < 0)
+                        return r;
+
+                r = strv_extendf_with_size(&args, &n, USEC_FMT, ts.monotonic);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_with_size(&args, &n, "TimestampBoottime");
+                if (r < 0)
+                        return r;
+
+                r = strv_extendf_with_size(&args, &n, USEC_FMT, ts.boottime);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(args);
+        return 0;
+}
+
+int device_trigger_with_timestamp(
+                sd_device *dev,
+                sd_device_action_t action,
+                char * const * args,
+                sd_id128_t *ret_uuid) {
+
+        assert(dev);
+
+        _cleanup_free_ char **args_with_ts = new(char*, strv_length(args) + 6 + 1);
+        if (!args_with_ts)
+                return -ENOMEM;
+
+        char **p = args_with_ts;
+        STRV_FOREACH(s, args)
+                *p++ = *s;
+
+        triple_timestamp ts;
+        triple_timestamp_now(&ts);
+
+        char realtime_str[DECIMAL_STR_MAX(usec_t)],
+                monotonic_str[DECIMAL_STR_MAX(usec_t)],
+                boottime_str[DECIMAL_STR_MAX(usec_t)];
+        xsprintf(realtime_str, USEC_FMT, ts.realtime);
+        xsprintf(monotonic_str, USEC_FMT, ts.monotonic);
+        xsprintf(boottime_str, USEC_FMT, ts.boottime);
+
+        *p++ = (char*) "TimestampRealtime";
+        *p++ = realtime_str;
+        *p++ = (char*) "TimestampMonotonic";
+        *p++ = monotonic_str;
+        *p++ = (char*) "TimestampBoottime";
+        *p++ = boottime_str;
+        *p = NULL;
+
+        return sd_device_trigger_with_args(dev, action, args_with_ts, ret_uuid);
 }
