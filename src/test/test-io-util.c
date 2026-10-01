@@ -6,7 +6,9 @@
 
 #include "fd-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_sparse_write_one(int fd, const char *buffer, size_t n) {
         char check[n];
@@ -41,6 +43,41 @@ TEST(sparse_write) {
         test_sparse_write_one(fd, test_c, sizeof(test_c));
         test_sparse_write_one(fd, test_d, sizeof(test_d));
         test_sparse_write_one(fd, test_e, sizeof(test_e));
+}
+
+TEST(pwritev_full) {
+        _cleanup_close_ int fd = -EBADF;
+        struct iovec iovec[2 + 2 * IOV_MAX];
+        char expected[3 + 2 * IOV_MAX], buf[sizeof(expected)];
+        uint64_t written;
+        size_t n = 0;
+
+        ASSERT_OK(fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC));
+
+        /* Nothing, or only empty iovecs, writes nothing */
+        ASSERT_OK(pwritev_full(fd, NULL, 0, 0, &written));
+        ASSERT_EQ(written, 0U);
+        iovec[0] = (struct iovec) {};
+        ASSERT_OK(pwritev_full(fd, iovec, 1, 0, &written));
+        ASSERT_EQ(written, 0U);
+
+        /* More iovecs than one pwritev() takes, some of them empty */
+        iovec[n++] = IOVEC_MAKE_STRING("abc");
+        iovec[n++] = (struct iovec) {};
+        memcpy(expected, "abc", 3);
+        for (size_t k = 0; k < 2 * IOV_MAX; k++) {
+                expected[3 + k] = 'a' + k % 26;
+                iovec[n++] = IOVEC_MAKE(expected + 3 + k, 1);
+        }
+
+        ASSERT_OK(pwritev_full(fd, iovec, n, 7, &written));
+        ASSERT_EQ(written, sizeof(expected));
+        ASSERT_EQ(pread(fd, buf, sizeof(buf), 7), (ssize_t) sizeof(buf));
+        ASSERT_EQ(memcmp(buf, expected, sizeof(expected)), 0);
+
+        /* Written iovecs are advanced past the data */
+        FOREACH_ARRAY(i, iovec, n)
+                ASSERT_FALSE(iovec_is_set(i));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
