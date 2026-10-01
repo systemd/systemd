@@ -1559,8 +1559,8 @@ EOF
 testcase_verity_encrypt() {
     local defs imgs output loop drh hrh part_size dm_devno verity_dep
 
-    if ( . /etc/os-release && [[ "$ID" == "postmarketos" ]] ); then
-        echo "Skipping verity+encrypt test on postmarketOS."
+    if ( . /etc/os-release && [[ "$ID" == "nura" ]] ); then
+        echo "Skipping verity+encrypt test on Nura."
         return
     fi
 

@@ -84,7 +84,7 @@ jobs:
             release: "9"
           - distro: centos
             release: "10"
-          - distro: postmarketos
+          - distro: nura
             release: edge
             libc: musl
             skip: TEST-92-TPM2-SWTPM
