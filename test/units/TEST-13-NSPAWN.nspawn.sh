@@ -410,7 +410,7 @@ testcase_check_default_inaccessible_paths() {
         "/proc/timer_list"
     )
 
-    # /proc/kcore may not exist on some kernels, e.g. Alpine/postmarketOS.
+    # /proc/kcore may not exist on some kernels, e.g. Alpine/Nura.
     if [[ -e /proc/kcore ]]; then
         inaccessible_paths+=(
             "/proc/kcore"

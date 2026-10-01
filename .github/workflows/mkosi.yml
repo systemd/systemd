@@ -84,7 +84,7 @@ jobs:
             release: "9"
           - distro: centos
             release: "10"
-          - distro: postmarketos
+          - distro: nura
             release: edge
             libc: musl
             skip: TEST-92-TPM2-SWTPM
@@ -95,8 +95,8 @@ jobs:
           persist-credentials: false
       - uses: systemd/mkosi@71d7b67e01dc47ab5c51f24866c3e2195b9701d2
         with:
-          # Bootstrapping a postmarketOS tools tree on the Ubuntu host needs apk
-          apk: ${{ matrix.distro == 'postmarketos' }}
+          # Bootstrapping a Nura tools tree on the Ubuntu host needs apk
+          apk: ${{ matrix.distro == 'nura' }}
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
