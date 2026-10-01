@@ -64,7 +64,10 @@ static int intro(void) {
                 return log_tests_skipped("Lacking privileges");
         ASSERT_OK(r);
 
-        ASSERT_OK(userns_restrict_attach(bpf_obj, /* pin= */ false));
+        r = userns_restrict_attach(bpf_obj, /* pin= */ false);
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return log_tests_skipped("LSM-BPF programs cannot be attached");
+        ASSERT_OK(r);
 
         return 0;
 }
