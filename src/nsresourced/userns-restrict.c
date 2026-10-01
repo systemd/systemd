@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 #if HAVE_VMLINUX_H
 #include "userns-restrict-skel.h"
@@ -128,12 +129,29 @@ int userns_restrict_install(
 #endif
 }
 
+#if HAVE_VMLINUX_H
+static char** unpin_links_and_free(char **paths) {
+        STRV_FOREACH(p, paths)
+                if (unlink(*p) < 0 && errno != ENOENT)
+                        log_debug_errno(errno, "Failed to unpin '%s', ignoring: %m", *p);
+
+        return strv_free(paths);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(char**, unpin_links_and_free);
+#endif
+
 int userns_restrict_attach(struct userns_restrict_bpf *obj, bool pin) {
 
 #if HAVE_VMLINUX_H
         int r;
 
         assert(obj);
+
+        /* If a program fails to attach, the programs attached before it stay attached, because their links
+         * are pinned. The caller then drops its BPF state and no longer reaps dead namespaces from the maps.
+         * Remove the pins created here, so that destroying the object detaches the programs. */
+        _cleanup_(unpin_links_and_freep) char **pinned = NULL;
 
         for (int i = 0; i < obj->skeleton->prog_cnt; i++) {
                 _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
@@ -177,10 +195,17 @@ int userns_restrict_attach(struct userns_restrict_bpf *obj, bool pin) {
                         r = sym_bpf_link__pin(link, fn);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to pin LSM attachment: %m");
+
+                        if (strv_extend(&pinned, fn) < 0) {
+                                (void) unlink(fn);
+                                return log_oom();
+                        }
                 }
 
                 *ps->link = TAKE_PTR(link);
         }
+
+        pinned = strv_free(pinned);
 
         /* Only now that our own programs enforce the policy, drop the ones the previous version left
          * pinned. Removing their links detaches them, so doing this any earlier would hand the namespaces
