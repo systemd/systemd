@@ -621,14 +621,14 @@ The only supported recovery key type at the moment is `modhex64`, for details se
 An account may have any number of recovery keys defined, and the array should have one entry for each.
 
 `capabilityBoundingSet` → An array of strings, each specifying a POSIX capability to add to the bounding set for this user.
-The bounding set limits the capabilities that can be acquired by the user's processes.
+The bounding set limits which capabilities the user's processes may gain through `execve(2)`.
 These strings should specify capability names as defined in the kernel (e.g., `CAP_KILL`, `CAP_NET_BIND_SERVICE`).
 If not specified, the system's default capability bounding set is used.
 
 `capabilityAmbientSet` → An array of strings, each specifying a POSIX capability to add to the ambient set for this user.
 Ambient capabilities are automatically inherited by child processes and can provide capabilities to programs without requiring them to be explicitly granted via file capabilities.
 These strings should specify capability names as defined in the kernel (e.g., `CAP_NET_BIND_SERVICE`).
-If not specified, the user's processes have no ambient capabilities.
+If not specified, the system default ambient capability set applies, which may include `CAP_WAKE_ALARM` for regular users logging in on a seat or via the per-user service manager.
 
 `selfModifiableFields` → An array of strings, each corresponding to a field name that can appear
 in the `regular` or `perMachine` sections. The user may be allowed to edit any field in this list
