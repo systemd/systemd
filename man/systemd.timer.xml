@@ -355,6 +355,37 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MinIntervalSec=</varname></term>
+
+        <listitem><para>Takes a time span. If set, calendar events that would elapse earlier than the
+        specified time after the timer last triggered the unit are skipped, and the timer elapses on the first
+        calendar event after that time instead. This allows schedules that calendar expressions cannot
+        describe on their own, such as "every second Monday". Defaults to 0, which disables this
+        logic.</para>
+
+        <para>For example, the following settings trigger the unit every second Monday at 10:00 local time.
+        Since the time of day is determined by the calendar expression, this remains true across daylight
+        saving time changes:</para>
+
+        <programlisting>OnCalendar=Mon 10:00
+MinIntervalSec=8d
+Persistent=yes</programlisting>
+
+        <para>The time span is measured from the time the unit was actually triggered, which may be later than
+        the calendar event, for example because of <varname>AccuracySec=</varname> or
+        <varname>RandomizedDelaySec=</varname>, or because the system was powered off at that time. Hence, it
+        is recommended to set it only slightly longer than the time between the last trigger and the last
+        calendar event that shall be skipped (one week in the example above), as this leaves the most room
+        for such delays. Without <varname>Persistent=yes</varname>, the time of the last trigger is not
+        retained across reboots, and the timer elapses on the first calendar event after boot.</para>
+
+        <para>This setting has an effect only if a realtime timer has been specified with
+        <varname>OnCalendar=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>OnClockChange=</varname></term>
         <term><varname>OnTimezoneChange=</varname></term>
 
