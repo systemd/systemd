@@ -39,6 +39,12 @@
       <arg choice="plain">inspect</arg>
       <arg choice="plain" rep="repeat">FILE</arg>
     </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>ukify</command>
+      <arg choice="plain">completion</arg>
+      <arg choice="plain">SHELL</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -169,6 +175,15 @@
       <option>-p</option> and <command>pe-inspect</command>.
       <!-- TODO: add link to pe-inspect man page when it gets one -->
       </para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>completion</command> <replaceable>SHELL</replaceable></title>
+
+      <para>Generate a shell completion script and write it to standard output.
+      The arguments <literal>bash</literal>, <literal>fish</literal>, and <literal>zsh</literal>
+      are supported.</para>
+      <xi:include href="version-info.xml" xpointer="v263"/>
     </refsect2>
   </refsect1>
 
