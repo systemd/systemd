@@ -90,7 +90,8 @@ truncate -s 32M "$WORKDIR/extra2.raw"
 # three device_add commands — all pipelined without waiting for responses.
 
 MACHINE_MULTI="test-vmspawn-drives-$$"
-systemd-vmspawn \
+# Debug logging shows QEMU's replies to the feature probes, see the node name check below.
+SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
     --machine="$MACHINE_MULTI" \
     --ram=256M \
     --image="$WORKDIR/root.raw" \
@@ -122,6 +123,15 @@ if grep -E '(add-fd|blockdev-add|blockdev-create|device_add|getfd|netdev_add|cha
     exit 1
 fi
 echo "No QMP device setup errors in log"
+
+# Probe failures are expected and only logged at debug level, but a rejected node name
+# makes a probe fail regardless of QEMU's features.
+if grep -a 'Invalid node-name' "$WORKDIR/vmspawn-multi.log"; then
+    echo "Full vmspawn log:"
+    cat "$WORKDIR/vmspawn-multi.log"
+    exit 1
+fi
+echo "QEMU accepted all node names"
 
 machinectl terminate "$MACHINE_MULTI"
 timeout 10 bash -c "while machinectl status '$MACHINE_MULTI' &>/dev/null; do sleep .5; done"
