@@ -111,6 +111,7 @@ int portable_get_state(
                 sd_bus_error *error);
 
 int portable_get_profiles(RuntimeScope scope, char ***ret);
+int portable_profile_exists(RuntimeScope scope, const char *profile, sd_bus_error *error);
 
 void portable_changes_free(PortableChange *array, size_t n);
 
