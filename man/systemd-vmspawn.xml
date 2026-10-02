@@ -127,8 +127,8 @@
           file until the VM terminates. The VM can therefore fill up the file system that contains the
           file.</para>
 
-          <para>Note that <option>--ephemeral</option> will not work with
-          <option>--extra-drive=</option>.</para>
+          <para>Drives added via <option>--extra-drive=</option> are not snapshotted, so in combination with
+          <option>--ephemeral</option> they have to be read-only.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/></listitem>
         </varlistentry>
@@ -661,7 +661,8 @@
           the disk type defaults to the value of <option>--image-disk-type=</option> (which itself defaults
           to <literal>virtio-blk</literal>). The disk type <literal>scsi-cd</literal> is always read-only, and
           <literal>nvme</literal> cannot be read-only.
-          Note that <literal>qcow2</literal> is only supported for regular files, not block devices.</para>
+          Note that <literal>qcow2</literal> is only supported for regular files, not block devices.
+          With <option>--ephemeral</option>, only read-only drives are allowed.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
