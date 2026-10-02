@@ -92,3 +92,9 @@ typedef struct Tpm2PCRValue Tpm2PCRValue;
 typedef struct UnitInfo UnitInfo;
 typedef struct UserRecord UserRecord;
 typedef struct VeritySettings VeritySettings;
+
+typedef int (*qmp_event_callback_t)(
+                QmpClient *client,
+                const char *event,
+                sd_json_variant *data,
+                void *userdata);
