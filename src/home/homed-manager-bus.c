@@ -993,10 +993,15 @@ static int method_add_signing_key(sd_bus_message *message, void *userdata, sd_bu
         if (hashmap_contains(m->public_keys, fn))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key name already exists: %s", fn);
 
+        const char *details[] = {
+                "signing_key", fn,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.home1.manage-signing-keys",
-                        /* details= */ NULL,
+                        details,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1083,10 +1088,15 @@ static int method_remove_signing_key(sd_bus_message *message, void *userdata, sd
         if (!hashmap_contains(m->public_keys, fn))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key name does not exist: %s", fn);
 
+        const char *details[] = {
+                "signing_key", fn,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.home1.manage-signing-keys",
-                        /* details= */ NULL,
+                        details,
                         &m->polkit_registry,
                         error);
         if (r < 0)
