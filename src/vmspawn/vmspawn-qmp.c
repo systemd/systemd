@@ -1758,6 +1758,9 @@ QmpClient* vmspawn_qmp_bridge_get_qmp(VmspawnQmpBridge *b) {
  * are best-effort — failing to delete a private probe node leaves a harmless /dev/null
  * blockdev in QEMU until it exits. */
 
+/* QEMU node names must start with a letter. */
+#define IO_URING_PROBE_NODE_NAME "vmspawn-io-uring-probe"
+
 static int on_io_uring_probe_del_reply(
                 QmpClient *c,
                 sd_json_variant *result,
@@ -1797,7 +1800,7 @@ static int on_io_uring_probe_add_reply(
 
         /* Best-effort cleanup; the chained reply keeps the pump busy via the slots set. */
         r = sd_json_buildo(&del_args,
-                        SD_JSON_BUILD_PAIR_STRING("node-name", "__io_uring_probe"));
+                        SD_JSON_BUILD_PAIR_STRING("node-name", IO_URING_PROBE_NODE_NAME));
         if (r < 0)
                 return r;
 
@@ -1814,7 +1817,7 @@ static int probe_io_uring(QmpClient *c, VmspawnQmpBridge *bridge) {
 
         r = sd_json_buildo(
                         &args,
-                        SD_JSON_BUILD_PAIR_STRING("node-name", "__io_uring_probe"),
+                        SD_JSON_BUILD_PAIR_STRING("node-name", IO_URING_PROBE_NODE_NAME),
                         SD_JSON_BUILD_PAIR_STRING("driver", "file"),
                         SD_JSON_BUILD_PAIR_STRING("filename", "/dev/null"),
                         SD_JSON_BUILD_PAIR_BOOLEAN("read-only", true),
