@@ -892,6 +892,20 @@ bool output_show_unit(const UnitInfo *u, char **patterns) {
         return true;
 }
 
+void print_unit_completion_names(const char *name) {
+        const char *e;
+
+        assert(name);
+
+        puts(name);
+
+        /* Unit names without a suffix are taken to be .service units, hence also offer the base name for
+         * completion. For templates this is "foo@", which is useful as a prefix for typing an instance. */
+        e = endswith(name, ".service");
+        if (e && e > name)
+                printf("%.*s\n", (int) (e - name), name);
+}
+
 InstallClientSide install_client_side(void) {
         /* Decides whether to execute enable/disable/… client-side offline operation rather than
          * server-side. */
