@@ -204,7 +204,7 @@ static int vl_method_enroll(
                         link,
                         /* bus= */ NULL,
                         "io.systemd.cryptenroll.enroll",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("device", p.node),
                         polkit_registry);
         if (r <= 0)
                 return r;
