@@ -78,6 +78,7 @@ const char *arg_host = NULL;
 unsigned arg_lines = 10;
 OutputMode arg_output = OUTPUT_SHORT;
 bool arg_plain = false;
+bool arg_completion_names = false;
 bool arg_firmware_setup = false;
 usec_t arg_boot_loader_menu = USEC_INFINITY;
 const char *arg_boot_loader_entry = NULL;
@@ -749,6 +750,14 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
 
                 OPTION_LONG("plain", NULL, "Print unit dependencies as a list instead of a tree"):
                         arg_plain = true;
+                        break;
+
+                OPTION_LONG("completion-names", NULL, "Include base names for shell completion"):
+                        arg_completion_names = true;
+                        /* Automatically enable flags needed for completion */
+                        arg_plain = true;
+                        arg_legend = 0;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 OPTION_LONG("timestamp", "FORMAT",
