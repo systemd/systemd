@@ -1082,6 +1082,8 @@ VERB_SCOPE(, verb_start_system_special, "hybrid-sleep",  NULL,         VERB_ANY,
            "Hibernate and suspend the system");
 VERB_SCOPE(, verb_start_system_special, "suspend-then-hibernate", NULL, VERB_ANY, 1,       VERB_ONLINE_ONLY,
            "Suspend the system, wake after a period of time, and hibernate");
+VERB_SCOPE(, verb_start_system_special, "factory-reset", NULL,         VERB_ANY, 1,        VERB_ONLINE_ONLY,
+           "Factory reset the system");
 
 /* Compatibility aliases / deprecated verbs hidden from --help. */
 VERB_SCOPE(, verb_trivial_method,    "clear-jobs",       NULL, VERB_ANY, 1,      VERB_ONLINE_ONLY, /* help= */ NULL); /* systemctl < 4 */

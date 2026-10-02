@@ -57,6 +57,7 @@ int logind_reboot(enum action a) {
                 [ACTION_REBOOT]                 = "Reboot",
                 [ACTION_KEXEC]                  = "Reboot",
                 [ACTION_SOFT_REBOOT]            = "Reboot",
+                [ACTION_FACTORY_RESET]          = "FactoryReset",
                 [ACTION_HALT]                   = "Halt",
                 [ACTION_SUSPEND]                = "Suspend",
                 [ACTION_HIBERNATE]              = "Hibernate",
@@ -83,7 +84,7 @@ int logind_reboot(enum action a) {
         polkit_agent_open_maybe();
         (void) logind_set_wall_message(bus);
 
-        const char *method_with_flags = a == ACTION_SLEEP ? actions[a] : strjoina(actions[a], "WithFlags");
+        const char *method_with_flags = IN_SET(a, ACTION_SLEEP, ACTION_FACTORY_RESET) ? actions[a] : strjoina(actions[a], "WithFlags");
 
         log_debug("%s org.freedesktop.login1.Manager %s dbus call.",
                   arg_dry_run ? "Would execute" : "Executing", method_with_flags);

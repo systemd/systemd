@@ -14,7 +14,8 @@ typedef enum HandleAction {
         HANDLE_HALT,
         HANDLE_KEXEC,
         HANDLE_SOFT_REBOOT,
-        _HANDLE_ACTION_SHUTDOWN_LAST = HANDLE_SOFT_REBOOT,
+        HANDLE_FACTORY_RESET, /* A reboot that also happens to wipe the user data partition */
+        _HANDLE_ACTION_SHUTDOWN_LAST = HANDLE_FACTORY_RESET,
 
         HANDLE_SUSPEND,
         _HANDLE_ACTION_SLEEP_FIRST = HANDLE_SUSPEND,
@@ -26,7 +27,6 @@ typedef enum HandleAction {
 
         HANDLE_SECURE_ATTENTION_KEY,
         HANDLE_LOCK,
-        HANDLE_FACTORY_RESET,
 
         _HANDLE_ACTION_MAX,
         _HANDLE_ACTION_INVALID = -EINVAL,
