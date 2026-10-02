@@ -3035,6 +3035,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (arg_confidential_computing == COCO_NO) {
                 r = qemu_config_section(config_file, "device", "balloon0",
                                         "driver", "virtio-balloon",
+                                        "deflate-on-oom", "on",
                                         "free-page-reporting", "on");
                 if (r < 0)
                         return r;
