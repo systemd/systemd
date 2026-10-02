@@ -8,7 +8,7 @@ set -o pipefail
 
 . /etc/os-release
 if [[ "${ID_LIKE:-}" == alpine ]]; then
-    # FIXME: For some reasons (maybe this test requires nss module??), the test fails on alpine/postmarketos.
+    # FIXME: For some reasons (maybe this test requires nss module??), the test fails on Alpine/Nura.
     exit 77
 fi
 

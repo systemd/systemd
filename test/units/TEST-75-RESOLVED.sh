@@ -1129,7 +1129,7 @@ testcase_11_nft() {
 
     . /etc/os-release
     if [[ "${ID_LIKE:-}" == alpine ]]; then
-        # FIXME: For some reasons, the following tests will fail on alpine/postmarketos.
+        # FIXME: For some reasons, the following tests will fail on Alpine/Nura.
         return 0
     fi
 
