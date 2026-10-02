@@ -123,6 +123,11 @@ CHANGES WITH 263 in spe:
           does not exist. Previously the image was attached without the
           profile's settings.
 
+        * systemd-importd's Varlink method io.systemd.Import.Pull() now passes
+          the name of the destination image to polkit in the "image" detail
+          instead of "local", like the other import methods do. Polkit rules
+          that match on the "local" detail need to be updated.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
