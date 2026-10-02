@@ -1070,6 +1070,47 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         return 1;
 }
 
+#define PULL_POLKIT_DETAILS_MAX 13
+
+/* Fills in the polkit details for pulling 'remote' into image 'local' of 'class' (or, if 'local' is NULL, into
+ * an image named after the remote), below 'image_root' instead of the pool if not NULL. */
+static void pull_polkit_details(
+                const char *details[PULL_POLKIT_DETAILS_MAX],
+                const char *remote,
+                const char *local,
+                ImageClass class,
+                ImportType type,
+                ImportVerify verify,
+                const char *image_root) {
+
+        size_t n = 0;
+
+        assert(details);
+        assert(remote);
+
+        details[n++] = "remote";
+        details[n++] = remote;
+        if (local) {
+                details[n++] = "image";
+                details[n++] = local;
+        }
+        details[n++] = "class";
+        details[n++] = image_class_to_string(class);
+        details[n++] = "type";
+        details[n++] = import_type_to_string(type);
+        if (verify >= 0) {
+                details[n++] = "verify";
+                details[n++] = import_verify_to_string(verify);
+        }
+        if (image_root) {
+                details[n++] = "image_root";
+                details[n++] = image_root;
+        }
+
+        assert(n < PULL_POLKIT_DETAILS_MAX);
+        details[n] = NULL;
+}
+
 static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         ImageClass class = _IMAGE_CLASS_INVALID;
@@ -1081,19 +1122,6 @@ static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd
         int r;
 
         assert(msg);
-
-        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
-                r = bus_verify_polkit_async(
-                                msg,
-                                "org.freedesktop.import1.pull",
-                                /* details= */ NULL,
-                                &m->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 1; /* Will call us back */
-        }
 
         if (streq(sd_bus_message_get_member(msg), "PullOci")) {
                 const char *sclass;
@@ -1171,6 +1199,31 @@ static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd
                 if (v < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Unknown verification mode %s", verify);
+        }
+
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[PULL_POLKIT_DETAILS_MAX];
+
+                pull_polkit_details(
+                                details,
+                                remote,
+                                local,
+                                class,
+                                type == TRANSFER_PULL_TAR ? IMPORT_TAR :
+                                type == TRANSFER_PULL_RAW ? IMPORT_RAW : IMPORT_OCI,
+                                v,
+                                /* image_root= */ NULL);
+
+                r = bus_verify_polkit_async(
+                                msg,
+                                "org.freedesktop.import1.pull",
+                                details,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
         }
 
         if (class == IMAGE_MACHINE) {
@@ -1937,16 +1990,15 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 return sd_varlink_errorbo(link, "io.systemd.Import.AlreadyInProgress", SD_JSON_BUILD_PAIR_STRING("remote", p.remote));
 
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[PULL_POLKIT_DETAILS_MAX];
+
+                pull_polkit_details(details, p.remote, p.local, p.class, p.type, p.verify, p.image_root);
+
                 r = varlink_verify_polkit_async(
                                 link,
                                 m->system_bus,
                                 "org.freedesktop.import1.pull",
-                                (const char**) STRV_MAKE(
-                                                "remote", p.remote,
-                                                "local",  p.local,
-                                                "class",  image_class_to_string(p.class),
-                                                "type",   import_type_to_string(p.type),
-                                                "verify", import_verify_to_string(p.verify)),
+                                details,
                                 &m->polkit_registry);
                 if (r <= 0)
                         return r;
