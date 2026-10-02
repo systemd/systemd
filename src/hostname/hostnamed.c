@@ -1478,7 +1478,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         r = bus_verify_polkit_async_full(
                         m,
                         "org.freedesktop.hostname1.set-static-hostname",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("hostname_type", "static"),
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
@@ -1556,7 +1556,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
         r = bus_verify_polkit_async_full(
                         m,
                         prop == PROP_PRETTY_HOSTNAME ? "org.freedesktop.hostname1.set-static-hostname" : "org.freedesktop.hostname1.set-machine-info",
-                        /* details= */ NULL,
+                        prop == PROP_PRETTY_HOSTNAME ? (const char**) STRV_MAKE("hostname_type", "pretty") : NULL,
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
@@ -2352,7 +2352,7 @@ static int vl_method_set_static_hostname(sd_varlink *link, sd_json_variant *para
                         link,
                         c->bus,
                         "org.freedesktop.hostname1.set-static-hostname",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("hostname_type", "static"),
                         &c->polkit_registry);
         if (r <= 0)
                 return r;
@@ -2454,7 +2454,7 @@ static int vl_set_machine_info(sd_varlink *link, sd_json_variant *parameters, vo
                         link,
                         c->bus,
                         polkit_action,
-                        /* details= */ NULL,
+                        prop == PROP_PRETTY_HOSTNAME ? (const char**) STRV_MAKE("hostname_type", "pretty") : NULL,
                         &c->polkit_registry);
         if (r <= 0)
                 return r;
