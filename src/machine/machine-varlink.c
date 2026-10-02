@@ -162,12 +162,18 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         if (!MACHINE_CLASS_CAN_REGISTER(machine->class))
                 return sd_varlink_error_invalid_parameter_name(link, "class");
 
+        /* The machine will be owned by the client */
+        r = sd_varlink_get_peer_uid(link, &machine->uid);
+        if (r < 0)
+                return r;
+
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 r = varlink_verify_polkit_async_full(
                                 link,
                                 manager->system_bus,
                                 machine->allocate_unit ? "org.freedesktop.machine1.create-machine" : "org.freedesktop.machine1.register-machine",
                                 (const char**) STRV_MAKE("machine", machine->name,
+                                                         "owner_uid", FORMAT_UID(machine->uid),
                                                          "class", machine_class_to_string(machine->class)),
                                 /* good_user= */ UID_INVALID,
                                 /* flags= */ 0,
@@ -192,10 +198,6 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 if (!pidref_equal(&client_pidref, &machine->leader))
                         machine->supervisor = TAKE_PIDREF(client_pidref);
         }
-
-        r = sd_varlink_get_peer_uid(link, &machine->uid);
-        if (r < 0)
-                return r;
 
         /* In system scope, ensure an unprivileged user cannot claim any process they don't
          * control as their own machine. In user scope the varlink socket is already
