@@ -1957,6 +1957,8 @@ static int on_qmp_event(
         /* Notification still fans out below. */
         if (streq(event, "DEVICE_DELETED"))
                 (void) vmspawn_qmp_dispatch_device_deleted(bridge, data);
+        else if (streq(event, "RESET"))
+                bridge->reset_pending = false;
 
         if (!bridge->event_callback)
                 return 0;
@@ -2007,8 +2009,9 @@ int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event) {
         return 0;
 }
 
-/* Canonical sync-on-async pump, matching varlink_call_internal(). The QMP client tracks
- * outstanding replies in its own slots set; drain until it's idle. */
+/* Canonical sync-on-async pump, matching varlink_call_internal(): drive the QMP client until all
+ * outstanding command replies have been delivered, all pending jobs have concluded, and a pending reset
+ * has happened. The QMP client tracks outstanding replies in its own slots set; drain until it's idle. */
 static int vmspawn_qmp_bridge_drain(VmspawnQmpBridge *bridge) {
         int r;
 
@@ -2026,7 +2029,8 @@ static int vmspawn_qmp_bridge_drain(VmspawnQmpBridge *bridge) {
                         return log_error_errno(SYNTHETIC_ERRNO(ECANCELED), "Exit requested during QMP device setup.");
                 }
 
-                if (qmp_client_is_idle(bridge->qmp) && hashmap_isempty(bridge->pending_jobs))
+                if (qmp_client_is_idle(bridge->qmp) && hashmap_isempty(bridge->pending_jobs) &&
+                    !bridge->reset_pending)
                         return 0;
 
                 r = qmp_client_process(bridge->qmp);
@@ -2090,7 +2094,26 @@ static int on_cont_complete(
         return 0;
 }
 
-int vmspawn_qmp_start(VmspawnQmpBridge *bridge) {
+/* QEMU treats any device_add after machine creation as hotplug, even if the vCPUs never ran. With
+ * native PCIe hotplug, the slots then stay powered off. EDK2 (OVMF, edk2-aarch64) does not power
+ * them on, so the firmware does not see the devices. A machine reset powers the populated slots, as
+ * for cold-plugged devices. As the firmware has not run yet, this only takes a few milliseconds. */
+static int vmspawn_qmp_bridge_reset(VmspawnQmpBridge *bridge) {
+        int r;
+
+        assert(bridge);
+
+        log_debug("Resetting machine, so that boot-time devices appear cold-plugged.");
+        bridge->reset_pending = true;
+        r = qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "system_reset", /* args= */ NULL,
+                              on_qmp_complete, (void*) "system_reset");
+        if (r < 0)
+                return log_error_errno(r, "Failed to send system_reset: %m");
+
+        return vmspawn_qmp_bridge_drain(bridge);
+}
+
+int vmspawn_qmp_start(VmspawnQmpBridge *bridge, bool reset_machine) {
         int r;
 
         assert(bridge);
@@ -2099,6 +2122,12 @@ int vmspawn_qmp_start(VmspawnQmpBridge *bridge) {
         r = vmspawn_qmp_bridge_drain(bridge);
         if (r < 0)
                 return r;
+
+        if (reset_machine) {
+                r = vmspawn_qmp_bridge_reset(bridge);
+                if (r < 0)
+                        return r;
+        }
 
         return qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "cont", /* args= */ NULL, on_cont_complete, bridge);
 }
