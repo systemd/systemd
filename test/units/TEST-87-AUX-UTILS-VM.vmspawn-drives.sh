@@ -177,7 +177,7 @@ ln "$WORKDIR/root.raw" "$WORKDIR/ro/root.raw"
 mount --bind -o ro "$WORKDIR/ro" "$WORKDIR/ro"
 
 MACHINE_EPHEMERAL="test-vmspawn-ephemeral-$$"
-TMPDIR="$WORKDIR/large-tmp" systemd-vmspawn \
+TMPDIR="$WORKDIR/large-tmp" SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
     --machine="$MACHINE_EPHEMERAL" \
     --ram=256M \
     --image="$WORKDIR/ro/root.raw" \
@@ -209,6 +209,16 @@ echo "No QMP device setup errors in ephemeral log"
 
 OVERLAY="$(find_overlay_fd "$MACHINE_EPHEMERAL" "$WORKDIR/large-tmp")"
 echo "Ephemeral overlay was created in \$TMPDIR and is QEMU fd ${OVERLAY##*/}"
+
+# The continuation's device_add must happen before the VM gets resumed.
+if ! DISK_ADD_LINE="$(grep -a -n -m1 '"execute":"device_add".*"id":"vmspawn-0-disk"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+   ! CONT_LINE="$(grep -a -n -m1 '"execute":"cont"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+   (( DISK_ADD_LINE > CONT_LINE )); then
+    echo "Ephemeral boot disk was not added before resuming the VM. Full vmspawn log:"
+    cat "$WORKDIR/vmspawn-ephemeral.log"
+    exit 1
+fi
+echo "Ephemeral boot disk was added before resuming the VM"
 
 machinectl terminate "$MACHINE_EPHEMERAL"
 timeout 10 bash -c "while machinectl status '$MACHINE_EPHEMERAL' &>/dev/null; do sleep .5; done"
