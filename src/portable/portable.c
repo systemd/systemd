@@ -1605,9 +1605,9 @@ static int install_profile_dropin(
         r = find_portable_profile(scope, profile, m->name, &from);
         if (r < 0) {
                 if (r != -ENOENT)
-                        return log_debug_errno(errno, "Profile '%s' is not accessible: %m", profile);
+                        return log_debug_errno(r, "Profile '%s' is not accessible: %m", profile);
 
-                log_debug_errno(errno, "Skipping link to profile '%s', as it does not exist: %m", profile);
+                log_debug_errno(r, "Skipping link to profile '%s', as it does not exist: %m", profile);
                 return 0;
         }
 
