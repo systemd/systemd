@@ -8,20 +8,6 @@
 
 #define VMSPAWN_PCIE_HOTPLUG_SPARES 10
 
-/* Pending job continuation — called when a QMP background job reaches "concluded" state.
- * Used by blockdev-create to chain remaining drive setup after the job completes. */
-typedef int (*pending_job_callback_t)(QmpClient *qmp, void *userdata);
-typedef void (*pending_job_free_t)(void *userdata);
-
-typedef struct PendingJob {
-        pending_job_callback_t on_concluded;
-        pending_job_free_t free_userdata;
-        void *userdata;
-} PendingJob;
-
-PendingJob* pending_job_free(PendingJob *j);
-DEFINE_TRIVIAL_CLEANUP_FUNC(PendingJob *, pending_job_free);
-
 typedef enum VmspawnQmpFeatureFlags {
         VMSPAWN_QMP_FEATURE_IO_URING         = 1u << 0,
         VMSPAWN_QMP_FEATURE_DISCARD_NO_UNREF = 1u << 1,
@@ -60,13 +46,6 @@ int vmspawn_qmp_probe_features(VmspawnQmpBridge *bridge);
 
 /* Phase 3: Resume vCPUs. All commands are async — responses arrive during sd_event_loop(). */
 int vmspawn_qmp_start(VmspawnQmpBridge *bridge);
-
-int vmspawn_qmp_bridge_register_job(
-                VmspawnQmpBridge *b,
-                const char *job_id,
-                pending_job_callback_t on_concluded,
-                void *userdata,
-                pending_job_free_t free_userdata);
 
 typedef enum QmpDriveFlags {
         QMP_DRIVE_BLOCK_DEVICE     = 1u << 0,
