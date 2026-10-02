@@ -43,6 +43,7 @@ int bus_image_method_remove(
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "image", image->name,
+                        "class", image_class_to_string(image->class),
                         "verb", "remove",
                         NULL
                 };
@@ -106,6 +107,7 @@ int bus_image_method_rename(
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "image", image->name,
+                        "class", image_class_to_string(image->class),
                         "verb", "rename",
                         "new_name", new_name,
                         NULL
@@ -157,6 +159,7 @@ int bus_image_method_clone(
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "image", image->name,
+                        "class", image_class_to_string(image->class),
                         "verb", "clone",
                         "new_name", new_name,
                         NULL
@@ -217,6 +220,7 @@ int bus_image_method_mark_read_only(
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "image", image->name,
+                        "class", image_class_to_string(image->class),
                         "verb", "mark_read_only",
                         "read_only", one_zero(read_only),
                         NULL
@@ -262,6 +266,7 @@ int bus_image_method_set_limit(
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "image", image->name,
+                        "class", image_class_to_string(image->class),
                         "verb", "set_limit",
                         NULL
                 };
