@@ -189,21 +189,34 @@ static int property_get_linger(
         return sd_bus_message_append(reply, "b", r > 0);
 }
 
+static int user_verify_polkit_async(User *u, sd_bus_message *message, sd_bus_error *error) {
+        assert(u);
+        assert(message);
+
+        const char *details[] = {
+                "uid", FORMAT_UID(u->user_record->uid),
+                NULL
+        };
+
+        /* Users may always manage themselves */
+        return bus_verify_polkit_async_full(
+                        message,
+                        "org.freedesktop.login1.manage",
+                        details,
+                        u->user_record->uid,
+                        /* flags= */ 0,
+                        &u->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+}
+
 int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         User *u = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
 
-        r = bus_verify_polkit_async_full(
-                        message,
-                        "org.freedesktop.login1.manage",
-                        /* details= */ NULL,
-                        u->user_record->uid,
-                        /* flags= */ 0,
-                        &u->manager->polkit_registry,
-                        /* ret_admin= */ NULL,
-                        error);
+        r = user_verify_polkit_async(u, message, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -223,15 +236,7 @@ int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
 
         assert(message);
 
-        r = bus_verify_polkit_async_full(
-                        message,
-                        "org.freedesktop.login1.manage",
-                        /* details= */ NULL,
-                        u->user_record->uid,
-                        /* flags= */ 0,
-                        &u->manager->polkit_registry,
-                        /* ret_admin= */ NULL,
-                        error);
+        r = user_verify_polkit_async(u, message, error);
         if (r < 0)
                 return r;
         if (r == 0)
