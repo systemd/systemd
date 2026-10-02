@@ -454,6 +454,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 
                 const char *details[] = {
                         "machine", m->name,
+                        "verb", "shell",
                         "user", user,
                         "program", path,
                         "command_line", command_line,
