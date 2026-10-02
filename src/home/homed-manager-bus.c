@@ -26,6 +26,7 @@
 #include "log.h"
 #include "path-util.h"
 #include "set.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-record-sign.h"
@@ -491,6 +492,30 @@ static int validate_and_allocate_home(Manager *m, UserRecord *hr, Hashmap *blobs
         return r;
 }
 
+static int home_record_verify_polkit_async(Manager *m, sd_bus_message *message, UserRecord *hr, sd_bus_error *error) {
+        assert(m);
+        assert(message);
+        assert(hr);
+
+        /* The home is identified by its user name. Its UID may not be allocated yet. */
+        char uid[DECIMAL_STR_MAX(uid_t)];
+        const char *details[5] = {
+                "username", hr->user_name,
+        };
+        if (uid_is_valid(hr->uid)) {
+                xsprintf(uid, UID_FMT, hr->uid);
+                details[2] = "uid";
+                details[3] = uid;
+        }
+
+        return bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.home1.create-home",
+                        details,
+                        &m->polkit_registry,
+                        error);
+}
+
 static int method_register_home(
                 sd_bus_message *message,
                 void *userdata,
@@ -507,12 +532,7 @@ static int method_register_home(
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.home1.create-home",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
+        r = home_record_verify_polkit_async(m, message, hr, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -552,10 +572,15 @@ static int method_adopt_home(
         if (flags != 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags field must be zero.");
 
+        const char *details[] = {
+                "image_path", image_path,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.home1.create-home",
-                        /* details= */ NULL,
+                        details,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -602,12 +627,7 @@ static int method_create_home(sd_bus_message *message, void *userdata, sd_bus_er
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
         }
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.home1.create-home",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
+        r = home_record_verify_polkit_async(m, message, hr, error);
         if (r < 0)
                 return r;
         if (r == 0)
