@@ -58,6 +58,17 @@
                         <allow_inactive>auth_admin</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.systemd1.set-show-status</annotate>
+        </action>
+
+        <action id="org.freedesktop.systemd1.set-show-status">
+                <description gettext-domain="systemd">Configure the display of status messages</description>
+                <message gettext-domain="systemd">Authentication is required to configure the display of status messages.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
         </action>
 
         <action id="org.freedesktop.systemd1.reload-daemon">
