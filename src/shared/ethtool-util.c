@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/ethtool.h>
+#include <linux/ethtool_netlink_generated.h>
 #include <linux/sockios.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "conf-parser.h"
@@ -1000,6 +1003,70 @@ int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const
         return RET_NERRNO(ioctl(*ethtool_fd, SIOCETHTOOL, &ifr));
 }
 
+int ethtool_set_nic_cqe_coalesce_settings(
+                sd_netlink **genl,
+                int ifindex,
+                const netdev_coalesce_param *coalesce) {
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
+
+        assert(genl);
+        assert(ifindex > 0);
+        assert(coalesce);
+
+        /* The settings below are not supported by the ioctl interface. The kernel merges the
+         * passed attributes with the current settings, so we do not need to fill in
+         * all the attributes in the set request. */
+
+        if (!coalesce->rx_cqe_frames.set &&
+            !coalesce->rx_cqe_nsecs.set)
+                return 0;
+
+        if (!*genl) {
+                r = sd_genl_socket_open(genl);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_genl_message_new(*genl, ETHTOOL_GENL_NAME, ETHTOOL_MSG_COALESCE_SET, &m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container(m, ETHTOOL_A_COALESCE_HEADER);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u32(m, ETHTOOL_A_HEADER_DEV_INDEX, ifindex);
+        if (r < 0)
+                return r;
+
+        /* ETHTOOL_MSG_COALESCE_SET does not send a reply, but make sure we only ever get the ACK. */
+        r = sd_netlink_message_append_u32(m, ETHTOOL_A_HEADER_FLAGS, ETHTOOL_FLAG_OMIT_REPLY);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        if (coalesce->rx_cqe_frames.set) {
+                r = sd_netlink_message_append_u32(m, ETHTOOL_A_COALESCE_RX_CQE_FRAMES,
+                                                  coalesce->rx_cqe_frames.value);
+                if (r < 0)
+                        return r;
+        }
+
+        if (coalesce->rx_cqe_nsecs.set) {
+                r = sd_netlink_message_append_u32(m, ETHTOOL_A_COALESCE_RX_CQE_NSECS,
+                                                  coalesce->rx_cqe_nsecs.value);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_netlink_call(*genl, m, 0, NULL);
+}
+
 int ethtool_set_eee_settings(
                 int *ethtool_fd,
                 const char *ifname,
@@ -1313,7 +1380,8 @@ int config_parse_coalesce_sec(
                 void *data,
                 void *userdata) {
         u32_opt *dst = data;
-        usec_t usec;
+        bool nsec = ltype;
+        uint64_t t;
         int r;
 
         if (isempty(rvalue)) {
@@ -1322,26 +1390,26 @@ int config_parse_coalesce_sec(
                 return 0;
         }
 
-        r = parse_sec(rvalue, &usec);
+        r = nsec ? parse_nsec(rvalue, &t) : parse_sec(rvalue, &t);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse coalesce setting value, ignoring: %s", rvalue);
                 return 0;
         }
 
-        if (usec > UINT32_MAX) {
+        if (t > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Too large %s= value, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
-        if (STR_IN_SET(lvalue, "StatisticsBlockCoalesceSec", "CoalescePacketRateSampleIntervalSec") && usec < 1) {
+        if (STR_IN_SET(lvalue, "StatisticsBlockCoalesceSec", "CoalescePacketRateSampleIntervalSec") && t < 1) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid %s= value, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
-        dst->value = (uint32_t) usec;
+        dst->value = (uint32_t) t;
         dst->set = true;
 
         return 0;

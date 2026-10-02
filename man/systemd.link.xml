@@ -1376,6 +1376,25 @@
           <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>RxMaxCoalescedCQEFrames=</varname></term>
+        <listitem>
+          <para>Configures the maximum number of received frames that can be
+          coalesced into a single Completion Queue Entry (CQE) or descriptor writeback. An unsigned integer
+          in the range 0…4294967294. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RxCoalesceCQENSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. This configures the maximum time a coalesced CQE or writeback can be
+          delayed after the first packet arrives. If unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
 
       <varlistentry>
         <term><varname>MDI=</varname></term>
