@@ -47,7 +47,7 @@ char** taint_strv(void) {
 
         /* Note that the check is different from default_PATH(), as we want to taint on uncanonical symlinks
          * too. */
-        if (readlink_malloc("/usr/sbin", &usr_sbin) < 0 || !PATH_IN_SET(usr_sbin, "bin", "/usr/bin"))
+        if (access_nofollow("/usr/sbin", F_OK) >= 0 && (readlink_malloc("/usr/sbin", &usr_sbin) < 0 || !PATH_IN_SET(usr_sbin, "bin", "/usr/bin")))
                 stage[n++] = "unmerged-bin";
 
         if (readlink_malloc("/var/run", &var_run) < 0 || !PATH_IN_SET(var_run, "../run", "/run"))
