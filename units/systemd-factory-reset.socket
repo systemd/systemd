@@ -23,6 +23,3 @@ MaxConnectionsPerSource=16
 XAttrEntryPoint=user.varlink=entrypoint
 XAttrListen=user.varlink=listen
 XAttrAccept=user.varlink=server
-
-[Install]
-WantedBy=sockets.target
