@@ -948,8 +948,13 @@ static int parse_argv(int argc, char *argv[]) {
              arg_forward_journal_max_files != UINT64_MAX) && !arg_forward_journal)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--forward-journal-max-use=/--forward-journal-keep-free=/--forward-journal-max-file-size=/--forward-journal-max-files= require --forward-journal=.");
 
-        if (arg_ephemeral && arg_extra_drives.n_drives > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral with --extra-drive=");
+        /* Extra drives get no ephemeral overlay, so the guest must not be able to write to them. */
+        if (arg_ephemeral)
+                FOREACH_ARRAY(d, arg_extra_drives.drives, arg_extra_drives.n_drives)
+                        if (!disk_type_is_read_only(extra_drive_disk_type(d)))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--ephemeral only supports read-only --extra-drive= (disk type scsi-cd), not '%s'.",
+                                                       d->path);
 
         if (arg_uid_shift != UID_INVALID && !arg_directory)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--private-users= is only supported in combination with --directory=.");
