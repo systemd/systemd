@@ -989,19 +989,6 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 
         assert(msg);
 
-        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
-                r = bus_verify_polkit_async(
-                                msg,
-                                "org.freedesktop.import1.export",
-                                /* details= */ NULL,
-                                &m->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 1; /* Will call us back */
-        }
-
         if (endswith(sd_bus_message_get_member(msg), "Ex")) {
                 const char *sclass;
 
@@ -1039,6 +1026,12 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 
         if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode))
                 return -EINVAL;
+
+        r = verify_polkit_for_image(m, msg, "org.freedesktop.import1.export", class, local, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         type = startswith(sd_bus_message_get_member(msg), "ExportTar") ?
                 TRANSFER_EXPORT_TAR : TRANSFER_EXPORT_RAW;
