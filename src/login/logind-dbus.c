@@ -1738,19 +1738,18 @@ static int trigger_device(Manager *m, sd_device *parent) {
         return 0;
 }
 
-static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus_error *error) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+static int attach_device(Manager *m, const char *seat, sd_device *d, sd_bus_error *error) {
         _cleanup_free_ char *file = NULL;
-        const char *id_for_seat;
+        const char *sysfs, *id_for_seat;
         int r;
 
         assert(m);
         assert(seat);
-        assert(sysfs);
+        assert(d);
 
-        r = sd_device_new_from_syspath(&d, sysfs);
+        r = sd_device_get_syspath(d, &sysfs);
         if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to open device '%s': %m", sysfs);
+                return r;
 
         if (sd_device_has_current_tag(d, "seat") <= 0)
                 return sd_bus_error_set_errnof(error, ENODEV, "Device '%s' lacks 'seat' udev tag.", sysfs);
@@ -1799,7 +1798,8 @@ static int flush_devices(Manager *m) {
 }
 
 static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *sysfs, *seat;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        const char *sysfs, *syspath, *seat;
         Manager *m = ASSERT_PTR(userdata);
         int interactive, r;
 
@@ -1826,10 +1826,26 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         } else if (!seat_name_is_valid(seat)) /* Note that a seat does not have to exist yet for this operation to succeed */
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Seat name %s is not valid", seat);
 
+        /* Resolve the path before asking polkit, so that it is told the canonical syspath of the device
+         * that is actually going to be attached, not some symlink to it. */
+        r = sd_device_new_from_syspath(&d, sysfs);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to open device '%s': %m", sysfs);
+
+        r = sd_device_get_syspath(d, &syspath);
+        if (r < 0)
+                return r;
+
+        const char *details[] = {
+                "device", syspath,
+                "seat", seat,
+                NULL
+        };
+
         r = bus_verify_polkit_async_full(
                         message,
                         "org.freedesktop.login1.attach-device",
-                        /* details= */ NULL,
+                        details,
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
@@ -1840,7 +1856,7 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = attach_device(m, seat, sysfs, error);
+        r = attach_device(m, seat, d, error);
         if (r < 0)
                 return r;
 
