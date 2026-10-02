@@ -906,6 +906,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--completion-names</option></term>
+
+        <listitem><para>When used with <option>-F</option>/<option>--field=</option> and one of the fields
+        <varname>_SYSTEMD_UNIT=</varname>, <varname>_SYSTEMD_USER_UNIT=</varname> or
+        <varname>USER_UNIT=</varname>, follow each <literal>.service</literal> unit name with the name
+        without that suffix, as is useful for shell completion, since unit names without a suffix are taken
+        to refer to service units. May not be used without <option>-F</option>/<option>--field=</option>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--list-boots</option></term>
 
         <listitem>
