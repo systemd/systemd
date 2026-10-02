@@ -194,21 +194,45 @@ static int property_get_locked_hint(
         return sd_bus_message_append(reply, "b", session_get_locked_hint(s) > 0);
 }
 
+static int session_verify_polkit_async(
+                Session *s,
+                sd_bus_message *message,
+                const char *action,
+                const char *verb,
+                sd_bus_error *error) {
+
+        assert(s);
+        assert(message);
+        assert(action);
+        assert(verb);
+
+        const char *details[] = {
+                "session", s->id,
+                "uid", FORMAT_UID(s->user->user_record->uid),
+                "username", s->user->user_record->user_name,
+                "verb", verb,
+                NULL
+        };
+
+        /* The session's owner may always manage it */
+        return bus_verify_polkit_async_full(
+                        message,
+                        action,
+                        details,
+                        s->user->user_record->uid,
+                        /* flags= */ 0,
+                        &s->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+}
+
 int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
 
-        r = bus_verify_polkit_async_full(
-                        message,
-                        "org.freedesktop.login1.manage",
-                        /* details= */ NULL,
-                        s->user->user_record->uid,
-                        /* flags= */ 0,
-                        &s->manager->polkit_registry,
-                        /* ret_admin= */ NULL,
-                        error);
+        r = session_verify_polkit_async(s, message, "org.freedesktop.login1.manage", "terminate", error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -357,15 +381,7 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         if (!SIGNAL_VALID(signo))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
-        r = bus_verify_polkit_async_full(
-                        message,
-                        "org.freedesktop.login1.manage",
-                        /* details= */ NULL,
-                        s->user->user_record->uid,
-                        /* flags= */ 0,
-                        &s->manager->polkit_registry,
-                        /* ret_admin= */ NULL,
-                        error);
+        r = session_verify_polkit_async(s, message, "org.freedesktop.login1.manage", "kill", error);
         if (r < 0)
                 return r;
         if (r == 0)
