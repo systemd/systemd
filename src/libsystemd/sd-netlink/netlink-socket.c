@@ -296,6 +296,7 @@ static int netlink_queue_partially_received_message(sd_netlink *nl, sd_netlink_m
 
 static int parse_message_one(sd_netlink *nl, uint32_t group, const struct nlmsghdr *hdr, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        const NLAPolicySet *policy_set;
         size_t size;
         int r;
 
@@ -311,8 +312,10 @@ static int parse_message_one(sd_netlink *nl, uint32_t group, const struct nlmsgh
         if (hdr->nlmsg_type == NLMSG_NOOP)
                 goto finalize;
 
-        /* check that we support this message type */
-        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, hdr->nlmsg_flags, NULL, &size);
+        /* check that we support this message type. Also request the policy set, as some netlink
+         * families only support requests, and the check for that is done only when requesting it. */
+        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, hdr->nlmsg_flags,
+                                                   &policy_set, &size);
         if (r == -EOPNOTSUPP) {
                 log_debug("sd-netlink: ignored message with unknown type: %i", hdr->nlmsg_type);
                 goto finalize;

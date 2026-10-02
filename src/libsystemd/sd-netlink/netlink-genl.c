@@ -16,6 +16,7 @@ typedef struct GenericNetlinkFamily {
         sd_netlink *genl;
 
         const NLAPolicySet *policy_set;
+        bool policy_set_indexed_by_command;
 
         uint16_t id; /* a.k.a nlmsg_type */
         char *name;
@@ -87,6 +88,7 @@ static int genl_family_new_unsupported(
 
         *f = (GenericNetlinkFamily) {
                 .policy_set = policy_set,
+                .policy_set_indexed_by_command = genl_family_is_indexed_by_command(family_name),
         };
 
         f->name = strdup(family_name);
@@ -126,6 +128,7 @@ static int genl_family_new(
 
         *f = (GenericNetlinkFamily) {
                 .policy_set = policy_set,
+                .policy_set_indexed_by_command = genl_family_is_indexed_by_command(expected_family_name),
         };
 
         r = sd_genl_message_get_family_name(nl, message, &family_name);
@@ -245,6 +248,12 @@ static int genl_message_new(
         policy_set = genl_family_get_policy_set(family);
         if (!policy_set)
                 return -EOPNOTSUPP;
+
+        if (family->policy_set_indexed_by_command) {
+                policy_set = policy_set_get_policy_set(policy_set, cmd);
+                if (!policy_set)
+                        return -EOPNOTSUPP;
+        }
 
         r = message_new_full(nl, family->id, NLM_F_REQUEST | NLM_F_ACK, policy_set,
                              sizeof(struct genlmsghdr) + family->additional_header_size, &m);
@@ -366,6 +375,12 @@ int genl_get_policy_set_and_header_size(
 
         if (ret_policy_set) {
                 const NLAPolicySet *p;
+
+                /* For families whose policy sets are indexed by command, the kernel to userspace commands
+                 * are numbered separately from the userspace to kernel commands and the two overlap.
+                 * Parsing replies and notifications of such families is not supported yet. */
+                if (f->policy_set_indexed_by_command)
+                        return -EOPNOTSUPP;
 
                 p = genl_family_get_policy_set(f);
                 if (!p)
