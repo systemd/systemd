@@ -15,6 +15,11 @@ fi
 # Name of the guest self-check unit lib.sh injects.
 COCO_GUEST_UNIT="coco-guest.service"
 
+# Artifacts the guest checks export for host-side verification, by file name:
+# written to $COCO_ARTIFACTS_DIR by the guest (see guest-test-runner.sh)
+# collected into WORKDIR/artifacts on the host (see lib.sh)
+COCO_ARTIFACT_SIGNED_REPORT="signed-report.seq"
+
 # Credentials by channel
 COCO_CRED_TRUSTED_ID="coco.trusted"
 COCO_CRED_TRUSTED_VALUE="trusted-via-vmspawn"
