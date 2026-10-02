@@ -285,6 +285,25 @@ int bus_image_method_set_limit(
         return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
+static int image_verify_inspect(sd_bus_message *message, Image *image, sd_bus_error *error) {
+        Manager *m = ASSERT_PTR(image->userdata);
+
+        if (m->runtime_scope == RUNTIME_SCOPE_USER)
+                return 1;
+
+        const char *details[] = {
+                "image", image->name,
+                NULL
+        };
+
+        return bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.machine1.inspect-images",
+                        details,
+                        &m->polkit_registry,
+                        error);
+}
+
 int bus_image_method_get_hostname(
                 sd_bus_message *message,
                 void *userdata,
@@ -293,6 +312,12 @@ int bus_image_method_get_hostname(
         Image *image = ASSERT_PTR(userdata);
         Manager *m = ASSERT_PTR(image->userdata);
         int r;
+
+        r = image_verify_inspect(message, image, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         if (!image->metadata_valid) {
                 r = image_read_metadata(image, /* root= */ NULL, &image_policy_container, m->runtime_scope, /* extra_flags= */ 0);
@@ -312,6 +337,12 @@ int bus_image_method_get_machine_id(
         Image *image = ASSERT_PTR(userdata);
         Manager *m = ASSERT_PTR(image->userdata);
         int r;
+
+        r = image_verify_inspect(message, image, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         if (!image->metadata_valid) {
                 r = image_read_metadata(image, /* root= */ NULL, &image_policy_container, m->runtime_scope, /* extra_flags= */ 0);
@@ -342,6 +373,12 @@ int bus_image_method_get_machine_info(
         Manager *m = ASSERT_PTR(image->userdata);
         int r;
 
+        r = image_verify_inspect(message, image, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         if (!image->metadata_valid) {
                 r = image_read_metadata(image, /* root= */ NULL, &image_policy_container, m->runtime_scope, /* extra_flags= */ 0);
                 if (r < 0)
@@ -359,6 +396,12 @@ int bus_image_method_get_os_release(
         Image *image = ASSERT_PTR(userdata);
         Manager *m = ASSERT_PTR(image->userdata);
         int r;
+
+        r = image_verify_inspect(message, image, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         if (!image->metadata_valid) {
                 r = image_read_metadata(image, /* root= */ NULL, &image_policy_container, m->runtime_scope, /* extra_flags= */ 0);
