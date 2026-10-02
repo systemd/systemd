@@ -2295,18 +2295,18 @@ static int resolve_disk_driver(DiskType dt, const char *filename, DriveInfo *inf
                 serial_max = DISK_SERIAL_MAX_LEN_VIRTIO_BLK;
                 break;
         case DISK_TYPE_VIRTIO_SCSI:
+        case DISK_TYPE_VIRTIO_SCSI_CDROM:
                 serial_max = DISK_SERIAL_MAX_LEN_SCSI;
                 break;
         case DISK_TYPE_NVME:
                 serial_max = DISK_SERIAL_MAX_LEN_NVME;
                 break;
-        case DISK_TYPE_VIRTIO_SCSI_CDROM:
-                serial_max = DISK_SERIAL_MAX_LEN_SCSI;
-                info->flags |= QMP_DRIVE_READ_ONLY;
-                break;
         default:
                 assert_not_reached();
         }
+
+        if (disk_type_is_read_only(dt))
+                info->flags |= QMP_DRIVE_READ_ONLY;
 
         info->disk_driver = strdup(ASSERT_PTR(qemu_device_driver_to_string(dt)));
         if (!info->disk_driver)
@@ -3251,8 +3251,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                                        arg_image);
                 }
 
-                if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI_CDROM) {
-                        /* CD-ROMs are read-only, so override any "rw" on the kernel command line. */
+                if (disk_type_is_read_only(arg_image_disk_type)) {
+                        /* Override any "rw" on the kernel command line. */
                         if (strv_contains(arg_kernel_cmdline_extra, "rw") &&
                             strv_extend(&arg_kernel_cmdline_extra, "ro") < 0)
                                 return log_oom();
@@ -4231,13 +4231,15 @@ static int verify_arguments(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--firmware=none requires --linux= to be specified.");
 
-        if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI_CDROM) {
+        if (disk_type_is_read_only(arg_image_disk_type)) {
+                const char *disk_type = disk_type_to_string(arg_image_disk_type);
+
                 if (arg_ephemeral)
-                        log_warning("--ephemeral has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
+                        log_warning("--ephemeral has no effect with read-only --image-disk-type=%s.", disk_type);
                 if (arg_discard_disk)
-                        log_warning("--discard-disk has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
+                        log_warning("--discard-disk has no effect with read-only --image-disk-type=%s.", disk_type);
                 if (arg_grow_image)
-                        log_warning("--grow-image has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
+                        log_warning("--grow-image has no effect with read-only --image-disk-type=%s.", disk_type);
         }
 
         /* In ephemeral mode the size is picked when creating the qcow2 overlay, so the base image format
