@@ -14,6 +14,17 @@ custom_target(
         install : true,
         install_dir : zshcompletiondir)
 
+if want_ukify
+        custom_target(
+                'ukify-zsh-completion',
+                input : ukify,
+                output : '_ukify',
+                command : [python, '@INPUT@', 'completion', 'zsh'],
+                capture : true,
+                install : true,
+                install_dir : zshcompletiondir)
+endif
+
 foreach item : [
         ['_bootctl',                  ''],
         ['_busctl',                   ''],
