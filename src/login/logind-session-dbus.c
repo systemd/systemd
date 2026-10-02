@@ -242,7 +242,7 @@ int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_
 
         assert(message);
 
-        r = check_polkit_chvt(message, s->manager, error);
+        r = check_polkit_chvt(message, s->manager, s->seat, error);
         if (r < 0)
                 return r;
         if (r == 0)
