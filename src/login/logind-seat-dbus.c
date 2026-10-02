@@ -175,7 +175,7 @@ static int method_activate_session(sd_bus_message *message, void *userdata, sd_b
         if (session->seat != s)
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", name, s->id);
 
-        r = check_polkit_chvt(message, s->manager, error);
+        r = check_polkit_chvt(message, s, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -202,7 +202,7 @@ static int method_switch_to(sd_bus_message *message, void *userdata, sd_bus_erro
         if (to <= 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid virtual terminal");
 
-        r = check_polkit_chvt(message, s->manager, error);
+        r = check_polkit_chvt(message, s, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -221,7 +221,7 @@ static int method_switch_to_next(sd_bus_message *message, void *userdata, sd_bus
 
         assert(message);
 
-        r = check_polkit_chvt(message, s->manager, error);
+        r = check_polkit_chvt(message, s, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -240,7 +240,7 @@ static int method_switch_to_previous(sd_bus_message *message, void *userdata, sd
 
         assert(message);
 
-        r = check_polkit_chvt(message, s->manager, error);
+        r = check_polkit_chvt(message, s, error);
         if (r < 0)
                 return r;
         if (r == 0)
