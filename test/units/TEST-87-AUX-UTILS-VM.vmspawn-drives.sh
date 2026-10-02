@@ -147,7 +147,7 @@ echo "Multi-drive VM terminated cleanly"
 # panics — vmspawn exits without registering.
 
 MACHINE_EPHEMERAL="test-vmspawn-ephemeral-$$"
-systemd-vmspawn \
+SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
     --machine="$MACHINE_EPHEMERAL" \
     --ram=256M \
     --image="$WORKDIR/root.raw" \
@@ -176,6 +176,12 @@ if grep -E '(add-fd|blockdev-add|blockdev-create|device_add|getfd|netdev_add|cha
     exit 1
 fi
 echo "No QMP device setup errors in ephemeral log"
+
+# The continuation's device_add must happen before the VM gets resumed.
+DISK_ADD_LINE="$(grep -a -n -m1 '"execute":"device_add".*"id":"vmspawn-0-disk"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)"
+CONT_LINE="$(grep -a -n -m1 '"execute":"cont"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)"
+assert_le "$DISK_ADD_LINE" "$CONT_LINE"
+echo "Ephemeral boot disk was added before resuming the VM"
 
 machinectl terminate "$MACHINE_EPHEMERAL"
 timeout 10 bash -c "while machinectl status '$MACHINE_EPHEMERAL' &>/dev/null; do sleep .5; done"
