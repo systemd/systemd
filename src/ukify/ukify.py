@@ -2017,7 +2017,8 @@ class ConfigItem:
         return (section_name, key, value)
 
 
-VERBS = ('build', 'genkey', 'inspect')
+VERBS = ('build', 'genkey', 'inspect', 'completion')
+COMPLETION_SHELLS = ('bash', 'fish', 'zsh')
 
 CONFIG_ITEMS = [
     ConfigItem(
@@ -2230,12 +2231,14 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--secureboot-private-key',
         dest='sb_key',
+        metavar='PATH|URI',
         help='required by --signtool=sbsign|systemd-sbsign. Path to key file or engine/provider designation for SB signing',
         config_key='UKI/SecureBootPrivateKey',
     ),
     ConfigItem(
         '--secureboot-certificate',
         dest='sb_cert',
+        metavar='PATH|URI',
         help=(
             'required by --signtool=sbsign. sbsign needs a path to certificate file or engine-specific designation for SB signing'
         ),
@@ -2251,6 +2254,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--secureboot-certificate-dir',
         dest='sb_certdir',
+        metavar='DIR',
         default='/etc/pki/pesign',
         help=(
             'required by --signtool=pesign. Path to nss certificate database directory for PE signing. Default is /etc/pki/pesign'
@@ -2285,6 +2289,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--pcr-private-key',
         dest='pcr_private_keys',
+        metavar='PATH|URI',
         action='append',
         help='private part of the keypair or engine/provider designation for signing PCR signatures',
         config_key='PCRSignature:/PCRPrivateKey',
@@ -2329,6 +2334,7 @@ CONFIG_ITEMS = [
     ),
     ConfigItem(
         '--tools',
+        metavar='DIR',
         type=Path,
         action='append',
         help='Directories to search for tools (systemd-measure, …)',
@@ -2466,6 +2472,7 @@ def create_parser() -> argparse.ArgumentParser:
           ukify {b}build{e} [--linux=LINUX] [--initrd=INITRD] [options…]
             ukify {b}genkey{e} [options…]
             ukify {b}inspect{e} FILE… [options…]
+            ukify {b}completion{e} SHELL
         ''').format(b=Style.bold, e=Style.reset),
         allow_abbrev=False,
         add_help=False,
@@ -2487,6 +2494,227 @@ def create_parser() -> argparse.ArgumentParser:
     )  # fmt: skip
 
     return p
+
+
+@dataclasses.dataclass(frozen=True)
+class CompletionItem:
+    names: list[str]
+    help: str
+    choices: list[str]
+    takes_argument: bool
+    repeatable: bool
+    compgen: Literal['default', 'files', 'dirs']
+
+
+def collect_completion_arguments() -> list[CompletionItem]:
+    options = []
+
+    for action in create_parser()._actions:  # pylint: disable=protected-access
+        if not action.option_strings or action.help == argparse.SUPPRESS:
+            continue
+
+        compgen: Literal['default', 'files', 'dirs'] = 'default'
+        if action.metavar == 'DIR':
+            compgen = 'dirs'
+        elif action.type is Path or action.metavar in ('PATH', 'PATH|URI'):
+            compgen = 'files'
+
+        options.append(
+            CompletionItem(
+                names=action.option_strings,
+                help=action.help or '',
+                choices=[str(c) for c in action.choices] if action.choices is not None else [],
+                takes_argument=action.nargs != 0,
+                repeatable=isinstance(action, argparse._AppendAction),  # pylint: disable=protected-access
+                compgen=compgen,
+            )
+        )
+
+    return options
+
+
+def finalize_completion_bash(options: list[CompletionItem]) -> str:
+    def assignments(entries: dict[str, str]) -> str:
+        return ' '.join(f'[{shlex.quote(k)}]={shlex.quote(v)}' for k, v in entries.items())
+
+    by_name = {name: option for option in options for name in option.names}
+    template = textwrap.dedent(r'''
+        # SPDX-License-Identifier: LGPL-2.1-or-later
+        # shellcheck shell=bash
+
+        _ukify_completion() {
+            local cur="${COMP_WORDS[COMP_CWORD]}" word option="" verb="" prefix="" end_options=""
+            local -i i position=0
+            local -a options=(##OPTIONS##)
+            local -A choices=(##CHOICES##)
+            local -A arguments=(##ARGUMENTS##)
+
+            COMPREPLY=()
+
+            for ((i = 1; i < COMP_CWORD; i++)); do
+                word=${COMP_WORDS[i]}
+                if [[ -n $option ]]; then
+                    [[ $word == = ]] || option=""
+                elif [[ -z $end_options && $word == -- ]]; then
+                    end_options=yes
+                elif [[ -z $end_options && $word == -* ]]; then
+                    if [[ $word != *=* && -n ${arguments[$word]-} ]]; then
+                        option=$word
+                    fi
+                else
+                    [[ -n $verb ]] || verb=$word
+                    position=$((position + 1))
+                fi
+            done
+
+            if [[ -n $option ]]; then
+                [[ $cur != = ]] || cur=""
+            elif [[ -z $end_options && $cur == --*=* ]]; then
+                option=${cur%%=*}
+                prefix=$option=
+                cur=${cur#*=}
+            elif [[ -z $end_options && $cur == -* ]]; then
+                readarray -t COMPREPLY < <(compgen -W "${options[*]}" -- "$cur")
+                return
+            fi
+
+            if [[ -n $option ]]; then
+                if [[ -n ${choices[$option]-} ]]; then
+                    readarray -t COMPREPLY < <(compgen -W "${choices[$option]}" -- "$cur")
+                elif [[ ${arguments[$option]-} == files ]]; then
+                    readarray -t COMPREPLY < <(compgen -f -- "$cur")
+                elif [[ ${arguments[$option]-} == dirs ]]; then
+                    readarray -t COMPREPLY < <(compgen -d -- "$cur")
+                fi
+            elif [[ -z $verb ]]; then
+                readarray -t COMPREPLY < <(compgen -W "##VERBS##" -- "$cur")
+            elif [[ $verb == completion && $position == 1 ]]; then
+                readarray -t COMPREPLY < <(compgen -W "##SHELLS##" -- "$cur")
+            elif [[ $verb == inspect || ( $verb != build && $verb != genkey && $verb != completion ) ]]; then
+                readarray -t COMPREPLY < <(compgen -f -- "$cur")
+            fi
+
+            COMPREPLY=("${COMPREPLY[@]/#/$prefix}")
+        }
+
+        complete -o filenames -F _ukify_completion ukify
+    ''').lstrip('\n')
+
+    return (
+        template.replace('##OPTIONS##', shlex.join(by_name))
+        .replace('##CHOICES##', assignments({name: ' '.join(o.choices) for name, o in by_name.items() if o.choices}))
+        .replace('##ARGUMENTS##', assignments({name: o.compgen for name, o in by_name.items() if o.takes_argument}))
+        .replace('##VERBS##', ' '.join(VERBS))
+        .replace('##SHELLS##', ' '.join(COMPLETION_SHELLS))
+    )
+
+
+def finalize_completion_fish(options: list[CompletionItem]) -> str:
+    def quote(value: str) -> str:
+        return "'" + value.replace('\\', '\\\\').replace("'", "\\'") + "'"
+
+    arguments = ' '.join(
+        quote(name.lstrip('-') + ('=' if option.takes_argument else ''))
+        for option in options
+        for name in option.names
+    )
+    template = textwrap.dedent('''\
+        # SPDX-License-Identifier: LGPL-2.1-or-later
+
+        function __ukify_command
+            set -l expected $argv[1]
+            set -l tokens (commandline -opc)
+            argparse -i ##ARGUMENTS## -- $tokens[2..-1] 2>/dev/null
+            or return 1
+            if test "$expected" = none
+                test (count $argv) -eq 0
+            else if test "$expected" = completion
+                test (count $argv) -eq 1; and test "$argv[1]" = completion
+            else
+                test (count $argv) -gt 0; and test "$argv[1]" = "$expected"
+            end
+        end
+
+        complete -c ukify -f
+        complete -c ukify -n '__ukify_command none' -a '##VERBS##'
+        complete -c ukify -n '__ukify_command inspect' -F
+        complete -c ukify -n '__ukify_command completion' -a '##SHELLS##'
+    ''')
+    lines = [
+        template.replace('##ARGUMENTS##', arguments)
+        .replace('##VERBS##', ' '.join(VERBS))
+        .replace('##SHELLS##', ' '.join(COMPLETION_SHELLS))
+    ]
+
+    for option in options:
+        for name in option.names:
+            line = f'complete -c ukify {"-l" if name.startswith("--") else "-s"} {name.lstrip("-")}'
+            if option.takes_argument:
+                line += ' -r'
+            if option.choices:
+                line += f' -a {quote(" ".join(option.choices))}'
+            elif option.compgen == 'files':
+                line += ' -F'
+            elif option.compgen == 'dirs':
+                line += " -a '(__fish_complete_directories)'"
+            if option.help:
+                line += f' -d {quote(option.help)}'
+            lines.append(line + '\n')
+
+    return ''.join(lines)
+
+
+def finalize_completion_zsh(options: list[CompletionItem]) -> str:
+    template = textwrap.dedent('''\
+        #compdef ukify
+        # SPDX-License-Identifier: LGPL-2.1-or-later
+
+        _ukify_verb() {
+            local -a verbs=(##VERBS##) shells=(##SHELLS##)
+            if (( CURRENT == 1 )); then
+                _describe -t commands 'ukify verb' verbs
+            elif [[ $words[1] == completion ]] && (( CURRENT == 2 )); then
+                _describe 'shell' shells
+            elif [[ $words[1] == inspect ]]; then
+                _files
+            fi
+        }
+
+    ''')
+    lines = [
+        template.replace('##VERBS##', shlex.join(VERBS)).replace('##SHELLS##', shlex.join(COMPLETION_SHELLS)),
+        '_arguments -s -S \\\n',
+    ]
+
+    for option in options:
+        help = option.help.replace('\\', '\\\\').replace('[', r'\[').replace(']', r'\]')
+        for name in option.names:
+            spec = '*' if option.repeatable else f'({" ".join(option.names)})'
+            spec += name
+            if option.takes_argument:
+                spec += '=' if name.startswith('--') else '+'
+            spec += f'[{help}]'
+            if option.takes_argument:
+                spec += ':argument:'
+                if option.choices:
+                    spec += '(' + ' '.join(option.choices) + ')'
+                elif option.compgen == 'files':
+                    spec += '_files'
+                elif option.compgen == 'dirs':
+                    spec += '_files -/'
+            lines.append(f'    {shlex.quote(spec)} \\\n')
+
+    lines.append("    '*::ukify verb:_ukify_verb'\n")
+    return ''.join(lines)
+
+
+def print_completion(shell: str) -> None:
+    func = {
+        'bash': finalize_completion_bash,
+        'fish': finalize_completion_fish,
+        'zsh': finalize_completion_zsh,
+    }[shell]
+    print(func(collect_completion_arguments()), end='')
 
 
 def resolve_at_path(value: Optional[str]) -> Union[Path, str, None]:
@@ -2673,12 +2901,22 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
 
 def parse_args(args: Optional[list[str]] = None) -> argparse.Namespace:
-    opts = create_parser().parse_args(args)
+    parser = create_parser()
+    opts = parser.parse_args(args)
 
     # argparse puts some unknown options in opts.positional. Make sure we don't
     # try to interpret something that is an option as a positional argument.
     if any((bad_opt := o).startswith('-') for o in opts.positional):
         raise ValueError(f'Unknown option: {bad_opt.partition("=")[0]}')
+
+    if opts.positional and opts.positional[0] == 'completion':
+        if len(opts.positional) != 2:
+            parser.error('completion requires exactly one shell: ' + ', '.join(COMPLETION_SHELLS))
+        if opts.positional[1] not in COMPLETION_SHELLS:
+            parser.error(f'unsupported shell {opts.positional[1]!r}: choose from ' + ', '.join(COMPLETION_SHELLS))
+        opts.verb = 'completion'
+        opts.shell = opts.positional[1]
+        return opts
 
     apply_config(opts)
     finalize_options(opts)
@@ -2686,7 +2924,12 @@ def parse_args(args: Optional[list[str]] = None) -> argparse.Namespace:
 
 
 def main() -> None:
-    opts = UkifyConfig.from_namespace(parse_args())
+    args = parse_args()
+    if args.verb == 'completion':
+        print_completion(args.shell)
+        return
+
+    opts = UkifyConfig.from_namespace(args)
     if opts.summary:
         # TODO: replace pprint() with some fancy formatting.
         pprint.pprint(vars(opts))
