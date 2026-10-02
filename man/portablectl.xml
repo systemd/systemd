@@ -320,7 +320,8 @@
         <term><option>--profile=<replaceable>PROFILE</replaceable></option></term>
 
         <listitem><para>When attaching an image, select the profile to use. By default, the <literal>default</literal>
-        profile is used. For details about profiles, see below.</para>
+        profile is used. Attaching fails if the selected profile does not exist. For details about profiles, see
+        below.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
