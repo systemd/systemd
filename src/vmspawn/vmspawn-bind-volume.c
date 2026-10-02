@@ -82,7 +82,7 @@ int vmspawn_bind_volume_acquire(
 
         if (reply.type == VOLUME_BLK || S_ISBLK(st.st_mode))
                 d->flags |= QMP_DRIVE_BLOCK_DEVICE;
-        if (reply.read_only > 0 || dt == DISK_TYPE_VIRTIO_SCSI_CDROM)
+        if (reply.read_only > 0 || disk_type_is_read_only(dt))
                 d->flags |= QMP_DRIVE_READ_ONLY;
         if (removable)
                 d->flags |= QMP_DRIVE_REMOVABLE;
@@ -147,7 +147,7 @@ int vmspawn_bind_volume_attach_fd(
         d->fd = TAKE_FD(owned_fd);
         if (S_ISBLK(st.st_mode))
                 d->flags |= QMP_DRIVE_BLOCK_DEVICE;
-        if (dt == DISK_TYPE_VIRTIO_SCSI_CDROM || (oflags & O_ACCMODE_STRICT) == O_RDONLY)
+        if (disk_type_is_read_only(dt) || (oflags & O_ACCMODE_STRICT) == O_RDONLY)
                 d->flags |= QMP_DRIVE_READ_ONLY;
         d->flags |= QMP_DRIVE_REMOVABLE;
         d->link = sd_varlink_ref(link);
