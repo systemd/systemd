@@ -18,6 +18,7 @@
 #include "journalctl-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "macro.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "time-util.h"
@@ -217,9 +218,20 @@ int action_list_fields(void) {
                         break;
 
                 eq = memchr(data, '=', size);
-                if (eq)
-                        printf("%.*s\n", (int) (size - ((const uint8_t*) eq - (const uint8_t*) data + 1)), (const char*) eq + 1);
-                else
+                if (eq) {
+                        const char *value = (const char*) eq + 1;
+                        size_t n = size - ((const uint8_t*) eq - (const uint8_t*) data + 1);
+
+                        printf("%.*s\n", (int) n, value);
+
+                        /* Unit names without a suffix are taken to be .service units, hence also offer the
+                         * base name for completion. */
+                        if (arg_completion_names &&
+                            STR_IN_SET(arg_field, "_SYSTEMD_UNIT", "_SYSTEMD_USER_UNIT", "USER_UNIT") &&
+                            n > STRLEN(".service") &&
+                            memcmp(value + n - STRLEN(".service"), ".service", STRLEN(".service")) == 0)
+                                printf("%.*s\n", (int) (n - STRLEN(".service")), value);
+                } else
                         printf("%.*s\n", (int) size, (const char*) data);
 
                 n_shown++;
