@@ -2,6 +2,7 @@
 #pragma once
 
 #include "systemctl.h"
+#include "unit-def.h"
 
 /* The init script exit codes for the LSB 'status' verb. (This is different from the 'start' verb, whose exit
    codes are defined in exit-status.h.)
@@ -64,7 +65,19 @@ int unit_find_paths(sd_bus *bus, const char *unit_name, LookupPaths *lp, bool fo
 int unit_is_masked(sd_bus *bus, const char *unit);
 int unit_exists(LookupPaths *lp, const char *unit);
 
-int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret);
+typedef struct UnitDependencyInfo {
+        char *name;
+        char **deps;
+        UnitActiveState active_state;
+} UnitDependencyInfo;
+
+UnitDependencyInfo* unit_dependency_info_free(UnitDependencyInfo *info);
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitDependencyInfo*, unit_dependency_info_free);
+
+/* Keyed by UnitDependencyInfo.name, frees the value */
+extern const struct hash_ops unit_dependency_info_hash_ops;
+
+int unit_get_dependencies(sd_bus *bus, const char *name, UnitDependencyInfo **ret);
 
 const char* unit_type_suffix(const char *unit);
 bool output_show_unit(const UnitInfo *u, char **patterns);
