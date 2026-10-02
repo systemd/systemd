@@ -2026,7 +2026,7 @@ static int vmspawn_qmp_bridge_drain(VmspawnQmpBridge *bridge) {
                         return log_error_errno(SYNTHETIC_ERRNO(ECANCELED), "Exit requested during QMP device setup.");
                 }
 
-                if (qmp_client_is_idle(bridge->qmp))
+                if (qmp_client_is_idle(bridge->qmp) && hashmap_isempty(bridge->pending_jobs))
                         return 0;
 
                 r = qmp_client_process(bridge->qmp);
@@ -2091,7 +2091,14 @@ static int on_cont_complete(
 }
 
 int vmspawn_qmp_start(VmspawnQmpBridge *bridge) {
+        int r;
+
         assert(bridge);
+
+        /* Device setup is asynchronous, let it complete before the guest runs. */
+        r = vmspawn_qmp_bridge_drain(bridge);
+        if (r < 0)
+                return r;
 
         return qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "cont", /* args= */ NULL, on_cont_complete, bridge);
 }
