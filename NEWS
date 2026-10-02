@@ -101,6 +101,15 @@ CHANGES WITH 263 in spe:
           validates, because the policy for trusted images refuses such an
           image too.
 
+        * systemd-machined now passes the machine name to polkit in the
+          "machine" detail and the image name in the "image" detail for all
+          operations, over both D-Bus and Varlink. Previously, the Varlink
+          methods and the D-Bus methods creating or registering a machine
+          passed the machine name as "name", io.systemd.MachineImage.List
+          passed the image name as "name", and the D-Bus method SetLimit() of
+          images passed the image name as "machine". Polkit rules that match
+          on the old detail names need to be updated.
+
         * By default, the image policies that portablectl attach and reattach
           generate only pin the file system type of each partition, the
           partition flags and which data partitions exist. The new

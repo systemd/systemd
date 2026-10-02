@@ -261,7 +261,7 @@ int bus_image_method_set_limit(
 
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
-                        "machine", image->name,
+                        "image", image->name,
                         "verb", "set_limit",
                         NULL
                 };
