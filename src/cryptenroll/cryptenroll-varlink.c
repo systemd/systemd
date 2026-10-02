@@ -17,6 +17,7 @@
 #include "path-util.h"
 #include "recovery-key.h"
 #include "string-util.h"
+#include "strv.h"
 #include "varlink-io.systemd.CryptEnroll.h"
 #include "varlink-util.h"
 
@@ -204,7 +205,7 @@ static int vl_method_enroll(
                         link,
                         /* bus= */ NULL,
                         "io.systemd.cryptenroll.enroll",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("device", p.node),
                         polkit_registry);
         if (r <= 0)
                 return r;
