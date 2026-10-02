@@ -3910,8 +3910,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        /* Resume vCPUs and switch to async event processing */
-        r = vmspawn_qmp_start(bridge);
+        /* Resume vCPUs and switch to async event processing. The reset is only needed to power the
+         * PCIe root port slots of boot-time devices. QEMU can only reset confidential guests if it can
+         * rebuild their protected state, older versions shut them down instead. They only exist on x86,
+         * where q35's default ACPI hotplug does not need the reset. */
+        r = vmspawn_qmp_start(bridge, /* reset_machine= */ ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS &&
+                                                           arg_confidential_computing == COCO_NO);
         if (r < 0)
                 return r;
 
