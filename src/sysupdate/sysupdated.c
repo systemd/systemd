@@ -597,10 +597,16 @@ static int job_method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *
         }
 
         if (action) {
+                const char *details[] = {
+                        "class", target_class_to_string(j->target->class),
+                        "name", j->target->name,
+                        NULL
+                };
+
                 r = bus_verify_polkit_async(
                                 msg,
                                 action,
-                                /* details= */ NULL,
+                                details,
                                 &j->manager->polkit_registry,
                                 error);
                 if (r < 0)
