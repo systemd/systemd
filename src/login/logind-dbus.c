@@ -1641,11 +1641,16 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
+        const char *details[] = {
+                "uid", FORMAT_UID(uid),
+                NULL
+        };
+
         r = bus_verify_polkit_async_full(
                         message,
                         uid == auth_uid ? "org.freedesktop.login1.set-self-linger" :
                                           "org.freedesktop.login1.set-user-linger",
-                        /* details= */ NULL,
+                        details,
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
