@@ -261,15 +261,7 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
 
         assert(message);
 
-        r = bus_verify_polkit_async_full(
-                        message,
-                        "org.freedesktop.login1.lock-sessions",
-                        /* details= */ NULL,
-                        s->user->user_record->uid,
-                        /* flags= */ 0,
-                        &s->manager->polkit_registry,
-                        /* ret_admin= */ NULL,
-                        error);
+        r = session_verify_polkit_async(s, message, "org.freedesktop.login1.lock-sessions", error);
         if (r < 0)
                 return r;
         if (r == 0)
