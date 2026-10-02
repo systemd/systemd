@@ -2232,7 +2232,7 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
         r = varlink_verify_polkit_async_full(
                         link,
                         c->bus,
-                        "org.freedesktop.hostname1.get-hardware-serial",
+                        "org.freedesktop.hostname1.get-description",
                         /* details= */ NULL,
                         UID_INVALID,
                         POLKIT_DONT_REPLY,
