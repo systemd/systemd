@@ -54,7 +54,7 @@ WORKDIR="$(mktemp -d)"
 
 at_exit() {
     set +e
-    for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}" "${MACHINE_RO:-}"; do
+    for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}" "${MACHINE_RO:-}" "${MACHINE_FW:-}"; do
         [[ -n "$m" ]] || continue
         if machinectl status "$m" &>/dev/null; then
             machinectl terminate "$m" 2>/dev/null
@@ -65,6 +65,7 @@ at_exit() {
     [[ -n "${VMSPAWN_EPHEMERAL_PID:-}" ]] && kill "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null && wait "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null
     [[ -n "${VMSPAWN_GROW_PID:-}" ]] && kill "$VMSPAWN_GROW_PID" 2>/dev/null && wait "$VMSPAWN_GROW_PID" 2>/dev/null
     [[ -n "${VMSPAWN_RO_PID:-}" ]] && kill "$VMSPAWN_RO_PID" 2>/dev/null && wait "$VMSPAWN_RO_PID" 2>/dev/null
+    [[ -n "${VMSPAWN_FW_PID:-}" ]] && kill "$VMSPAWN_FW_PID" 2>/dev/null && wait "$VMSPAWN_FW_PID" 2>/dev/null
     mountpoint -q "$WORKDIR/ro" && umount "$WORKDIR/ro"
     rm -rf "$WORKDIR"
 }
@@ -222,6 +223,19 @@ if ! DISK_ADD_LINE="$(grep -a -n -m1 '"execute":"device_add".*"id":"vmspawn-0-di
 fi
 echo "Ephemeral boot disk was added before resuming the VM"
 
+# Architectures with PCIe root ports (ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS) also need a machine
+# reset in between, which must have happened (RESET event received) before the VM gets resumed.
+if [[ "$(uname -m)" =~ ^(x86_64|i[3-6]86|aarch64|arm.*|riscv64|loongarch64)$ ]]; then
+    if ! RESET_LINE="$(grep -a -n -m1 '"execute":"system_reset"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+       ! RESET_EVENT_LINE="$(grep -a -n -m1 'Received message: .*"event":"RESET"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+       (( DISK_ADD_LINE > RESET_LINE || RESET_LINE > RESET_EVENT_LINE || RESET_EVENT_LINE > CONT_LINE )); then
+        echo "Machine was not reset between adding the ephemeral boot disk and resuming the VM. Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-ephemeral.log"
+        exit 1
+    fi
+    echo "Machine was reset between adding the ephemeral boot disk and resuming the VM"
+fi
+
 machinectl terminate "$MACHINE_EPHEMERAL"
 timeout 10 bash -c "while machinectl status '$MACHINE_EPHEMERAL' &>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_EPHEMERAL_PID' 2>/dev/null; do sleep .5; done"
@@ -360,5 +374,49 @@ for disk_type in "" virtio-blk virtio-scsi nvme; do
     fi
 done
 echo "Writable extra drives are refused with --ephemeral"
+
+# --- Test 6: Boot-time drives are visible to the firmware ---
+# vmspawn adds boot-time drives via QMP device_add, which QEMU treats as a PCIe
+# hotplug. The firmware must still see them as present and powered. The disk doesn't
+# need to be bootable: EDK2 creates a "UEFI Misc Device" boot option for every disk it
+# finds and tries it. Afterwards the firmware may start other boot options such as the
+# UEFI shell, so don't wait for it to give up with "No bootable option".
+
+if ! [[ "$(uname -m)" =~ ^(x86_64|aarch64)$ ]]; then
+    echo "No EDK2 firmware with native PCIe hotplug on $(uname -m), skipping firmware drive test"
+elif ! systemd-vmspawn --firmware=describe &>/dev/null; then
+    # Tests 1 to 3 boot with --linux, which works without UEFI firmware.
+    echo "No UEFI firmware found, skipping firmware drive test"
+else
+    # aarch64 'virt' uses native PCIe hotplug. On x86_64, q35 defaults to ACPI hotplug,
+    # which hides the problem, so force native hotplug there.
+    FW_QEMU_EXTRA=""
+    if [[ "$(uname -m)" == x86_64 ]]; then
+        FW_QEMU_EXTRA="-global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off"
+    fi
+
+    MACHINE_FW="test-vmspawn-fw-$$"
+    SYSTEMD_VMSPAWN_QEMU_EXTRA="$FW_QEMU_EXTRA" SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
+        --machine="$MACHINE_FW" \
+        --ram=256M \
+        --image="$WORKDIR/root.raw" \
+        --tpm=no \
+        --console=read-only \
+        &>"$WORKDIR/vmspawn-fw.log" &
+    VMSPAWN_FW_PID=$!
+
+    wait_for_machine "$MACHINE_FW" "$VMSPAWN_FW_PID" "$WORKDIR/vmspawn-fw.log"
+    if ! timeout 60 bash -c "until grep -a -E >/dev/null 'BdsDxe: (loading|failed to load) Boot[0-9A-F]{4} \"UEFI Misc Device\"' '$WORKDIR/vmspawn-fw.log'; do sleep .5; done"; then
+        echo "Firmware did not see the boot-time drive. Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-fw.log"
+        exit 1
+    fi
+    echo "Firmware found the boot-time drive"
+
+    machinectl terminate "$MACHINE_FW"
+    timeout 10 bash -c "while machinectl status '$MACHINE_FW' &>/dev/null; do sleep .5; done"
+    timeout 10 bash -c "while kill -0 '$VMSPAWN_FW_PID' 2>/dev/null; do sleep .5; done"
+    echo "Firmware drive VM terminated cleanly"
+fi
 
 echo "All vmspawn drive setup tests passed"
