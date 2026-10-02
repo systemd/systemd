@@ -94,6 +94,7 @@
 #include "utf8.h"
 #include "verbs.h"
 #include "vmspawn-bind-volume.h"
+#include "vmspawn-memory.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
 #include "vmspawn-qmp.h"
@@ -4082,6 +4083,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return r;
 
         r = vmspawn_qmp_setup_vsock(bridge, &config.vsock);
+        if (r < 0)
+                return r;
+
+        r = vmspawn_memory_setup(bridge,
+                                DIV_ROUND_UP(arg_ram, U64_MB) * U64_MB,
+                                arg_confidential_computing == COCO_NO);
         if (r < 0)
                 return r;
 
