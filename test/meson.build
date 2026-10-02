@@ -61,6 +61,12 @@ if want_tests != 'false'
                      systemd_id128.full_path()],
              depends : [systemctl, systemd_id128],
              suite : 'systemctl')
+
+        test('test-completion',
+             files('test-completion.sh'),
+             args : systemctl.full_path(),
+             depends : systemctl,
+             suite : 'completion')
 endif
 
 ############################################################

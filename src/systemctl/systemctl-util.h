@@ -68,6 +68,7 @@ int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret);
 
 const char* unit_type_suffix(const char *unit);
 bool output_show_unit(const UnitInfo *u, char **patterns);
+void print_unit_completion_names(const char *name);
 
 typedef enum InstallClientSide {
         INSTALL_CLIENT_SIDE_NO = 0,
