@@ -291,6 +291,13 @@ static int parse_ram(const char *s) {
         return 0;
 }
 
+/* Only valid once all options are parsed, --image-disk-type= may come after --extra-drive=. */
+static DiskType extra_drive_disk_type(const ExtraDrive *d) {
+        assert(d);
+
+        return d->disk_type >= 0 ? d->disk_type : arg_image_disk_type;
+}
+
 static int parse_argv(int argc, char *argv[]) {
         int r;
 
@@ -2434,13 +2441,11 @@ static int prepare_extra_drives(DriveInfos *drives) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract filename from path '%s': %m", drive->path);
 
-                DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
-
                 _cleanup_(drive_info_unrefp) DriveInfo *d = drive_info_new();
                 if (!d)
                         return log_oom();
 
-                r = resolve_disk_driver(dt, drive_fn, d);
+                r = resolve_disk_driver(extra_drive_disk_type(drive), drive_fn, d);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve disk driver for '%s': %m", drive_fn);
 
@@ -3715,11 +3720,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 size_t n_drive_ports = 0;
                 if (!IN_SET(arg_image_disk_type, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM))
                         n_drive_ports++;
-                FOREACH_ARRAY(d, arg_extra_drives.drives, arg_extra_drives.n_drives) {
-                        DiskType dt = d->disk_type >= 0 ? d->disk_type : arg_image_disk_type;
-                        if (!IN_SET(dt, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM))
+                FOREACH_ARRAY(d, arg_extra_drives.drives, arg_extra_drives.n_drives)
+                        if (!IN_SET(extra_drive_disk_type(d), DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM))
                                 n_drive_ports++;
-                }
                 FOREACH_ARRAY(bv, arg_bind_volumes.items, arg_bind_volumes.n_items) {
                         DiskType dt = disk_type_from_bind_volume_config((*bv)->config);
                         if (dt < 0)
