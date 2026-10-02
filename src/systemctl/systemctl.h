@@ -10,6 +10,7 @@ enum action {
         ACTION_REBOOT,
         ACTION_KEXEC,
         ACTION_SOFT_REBOOT,
+        ACTION_FACTORY_RESET,
         ACTION_EXIT,
         ACTION_SLEEP,
         ACTION_SUSPEND,
