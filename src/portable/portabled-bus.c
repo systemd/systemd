@@ -375,10 +375,15 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[] = {
+                        "class", image_class_to_string(IMAGE_PORTABLE),
+                        NULL
+                };
+
                 r = bus_verify_polkit_async(
                                 message,
                                 "org.freedesktop.portable1.manage-images",
-                                /* details= */ NULL,
+                                details,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
