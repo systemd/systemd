@@ -87,6 +87,8 @@ project's license as documented in LICENSES/README.md.
   * `good-to-merge/waiting-for-ci` if the pull request should be merged without further review
   * `good-to-merge/with-minor-suggestions` if the pull request should be merged after an update without going through another round of reviews
 
+  See [GitHub Labels](https://systemd.io/LABELS) for a description of all labels.
+
 Unfortunately only members of the `systemd` organization on github can change labels.
 If your pull request is mislabeled, make a comment in the pull request and somebody will fix it.
 Reviews from non-members are still welcome.
