@@ -25,6 +25,7 @@ typedef struct VmspawnQmpBridge {
         void *event_userdata;
         VmspawnQmpFeatureFlags features;
         bool setup_done;
+        bool reset_pending;            /* boot-time system_reset sent, RESET event not seen yet */
         bool scsi_controller_created;  /* virtio-scsi-pci has been device_add'd */
 } VmspawnQmpBridge;
 
@@ -44,9 +45,10 @@ int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event);
  * are consumed by vmspawn_qmp_setup_drives(). */
 int vmspawn_qmp_probe_features(VmspawnQmpBridge *bridge);
 
-/* Phase 3: Wait for device setup to complete, then resume vCPUs. The resume reply and all later
- * commands are async — responses arrive during sd_event_loop(). */
-int vmspawn_qmp_start(VmspawnQmpBridge *bridge);
+/* Phase 3: Wait for device setup to complete, optionally reset the machine so that the boot-time
+ * devices appear cold-plugged, then resume vCPUs. The resume reply and all later commands are
+ * async — responses arrive during sd_event_loop(). */
+int vmspawn_qmp_start(VmspawnQmpBridge *bridge, bool reset_machine);
 
 typedef enum QmpDriveFlags {
         QMP_DRIVE_BLOCK_DEVICE     = 1u << 0,
