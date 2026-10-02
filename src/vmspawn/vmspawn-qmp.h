@@ -5,6 +5,7 @@
 
 #include "forward.h"
 #include "machine-util.h"
+#include "qmp-client.h"
 
 #define VMSPAWN_PCIE_HOTPLUG_SPARES 10
 
@@ -35,6 +36,8 @@ typedef struct VmspawnQmpBridge {
         char *hotplug_port_owner[VMSPAWN_PCIE_HOTPLUG_SPARES];  /* owner id per port; NULL = free */
         int scsi_controller_port_idx;  /* hotplug port idx taken by virtio-scsi-pci, -1 if none */
         uint64_t next_block_counter;   /* monotonic counter feeding internal QMP names (vmspawn-<N>-*) */
+        qmp_event_callback_t event_callback;  /* receives the events the bridge doesn't consume itself */
+        void *event_userdata;
         VmspawnQmpFeatureFlags features;
         bool setup_done;
         bool scsi_controller_created;  /* virtio-scsi-pci has been device_add'd */
@@ -44,6 +47,8 @@ VmspawnQmpBridge* vmspawn_qmp_bridge_free(VmspawnQmpBridge *b);
 DEFINE_TRIVIAL_CLEANUP_FUNC(VmspawnQmpBridge *, vmspawn_qmp_bridge_free);
 
 QmpClient* vmspawn_qmp_bridge_get_qmp(VmspawnQmpBridge *b);
+
+void vmspawn_qmp_bridge_bind_event(VmspawnQmpBridge *b, qmp_event_callback_t callback, void *userdata);
 
 /* Phase 1: Connect to VMM backend. Returns an opaque bridge ready for device setup. */
 int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event);
@@ -194,4 +199,3 @@ int vmspawn_qmp_replace_block_device(
                 const char *id,
                 int fd,
                 QmpDriveFlags fd_flags);
-int vmspawn_qmp_dispatch_device_deleted(VmspawnQmpBridge *bridge, sd_json_variant *data);
