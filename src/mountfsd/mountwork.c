@@ -472,7 +472,11 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
 
+        _cleanup_free_ char *image_path = NULL;
+        (void) fd_get_path(image_fd, &image_path);
+
         const char *polkit_details[] = {
+                "image_path", strna(image_path),
                 "read_only", one_zero(p.read_only > 0),
                 !isempty(mount_options_concat) ? "mount_options" : NULL, mount_options_concat,
                 NULL,
