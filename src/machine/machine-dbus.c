@@ -60,6 +60,7 @@ int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bu
         if (m->manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "machine", m->name,
+                        "owner_uid", FORMAT_UID(m->uid),
                         "verb", "unregister",
                         NULL
                 };
@@ -95,6 +96,7 @@ int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus
         if (m->manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "machine", m->name,
+                        "owner_uid", FORMAT_UID(m->uid),
                         "verb", "terminate",
                         NULL
                 };
@@ -148,6 +150,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         if (m->manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "machine", m->name,
+                        "owner_uid", FORMAT_UID(m->uid),
                         "verb", "kill",
                         NULL
                 };
@@ -527,6 +530,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (m->manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "machine", m->name,
+                        "owner_uid", FORMAT_UID(m->uid),
                         "verb", "bind",
                         "src", src,
                         "dest", dest,
@@ -615,6 +619,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "machine", m->name,
+                        "owner_uid", FORMAT_UID(m->uid),
                         "verb", "copy",
                         "src", src,
                         "dest", dest,
@@ -663,6 +668,7 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
         if (m->manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "machine", m->name,
+                        "owner_uid", FORMAT_UID(m->uid),
                         "verb", "open_root_directory",
                         NULL
                 };
