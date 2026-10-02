@@ -21,6 +21,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "vmspawn-memory.h"
 #include "vmspawn-qmp.h"
 #include "vmspawn-util.h"
 
@@ -1756,6 +1757,8 @@ VmspawnQmpBridge* vmspawn_qmp_bridge_free(VmspawnQmpBridge *b) {
         hashmap_free(b->block_devices);
         hashmap_free(b->pending_jobs);
 
+        vmspawn_memory_free(b->memory);
+
         FOREACH_ELEMENT(owner, b->hotplug_port_owner)
                 free(*owner);
 
@@ -1961,6 +1964,8 @@ static int on_qmp_event(
                 (void) vmspawn_qmp_dispatch_device_deleted(bridge, data);
         else if (streq(event, "RESET"))
                 bridge->reset_pending = false;
+        else if (streq(event, "BALLOON_CHANGE") && bridge->memory)
+                (void) vmspawn_memory_dispatch_balloon_change(bridge->memory, data);
 
         if (!bridge->event_callback)
                 return 0;

@@ -17,6 +17,7 @@
 #include "varlink-io.systemd.VirtualMachineInstance.h"
 #include "varlink-util.h"
 #include "vmspawn-bind-volume.h"
+#include "vmspawn-memory.h"
 #include "vmspawn-qmp.h"
 #include "vmspawn-varlink.h"
 
