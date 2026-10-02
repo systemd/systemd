@@ -24,10 +24,68 @@
 #include "vmspawn-qmp.h"
 #include "vmspawn-util.h"
 
+/* Pending job continuation — called when a QMP background job reaches "concluded" state.
+ * Used by blockdev-create to chain remaining drive setup after the job completes. */
+typedef int (*pending_job_callback_t)(QmpClient *qmp, void *userdata);
+typedef void (*pending_job_free_t)(void *userdata);
+
+typedef struct PendingJob {
+        pending_job_callback_t on_concluded;
+        pending_job_free_t free_userdata;
+        void *userdata;
+} PendingJob;
+
+static PendingJob* pending_job_free(PendingJob *j) {
+        if (!j)
+                return NULL;
+        if (j->free_userdata)
+                j->free_userdata(j->userdata);
+        return mfree(j);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(PendingJob *, pending_job_free);
+
 DEFINE_PRIVATE_HASH_OPS_FULL(
                 pending_job_hash_ops,
                 char, string_hash_func, string_compare_func, free,
                 PendingJob, pending_job_free);
+
+static int vmspawn_qmp_bridge_register_job(
+                VmspawnQmpBridge *b,
+                const char *job_id,
+                pending_job_callback_t on_concluded,
+                void *userdata,
+                pending_job_free_t free_userdata) {
+
+        _cleanup_free_ PendingJob *job = NULL;
+        _cleanup_free_ char *id = NULL;
+        int r;
+
+        assert(b);
+        assert(job_id);
+
+        id = strdup(job_id);
+        if (!id)
+                return -ENOMEM;
+
+        job = new(PendingJob, 1);
+        if (!job)
+                return -ENOMEM;
+
+        *job = (PendingJob) {
+                .on_concluded  = on_concluded,
+                .free_userdata = free_userdata,
+                .userdata      = userdata,
+        };
+
+        r = hashmap_ensure_put(&b->pending_jobs, &pending_job_hash_ops, id, job);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(id);
+        TAKE_PTR(job);
+        return 0;
+}
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 block_devices_hash_ops,
@@ -1685,14 +1743,6 @@ int vmspawn_qmp_setup_drives(VmspawnQmpBridge *bridge, DriveInfos *drives) {
         return 0;
 }
 
-PendingJob* pending_job_free(PendingJob *j) {
-        if (!j)
-                return NULL;
-        if (j->free_userdata)
-                j->free_userdata(j->userdata);
-        return mfree(j);
-}
-
 VmspawnQmpBridge* vmspawn_qmp_bridge_free(VmspawnQmpBridge *b) {
         if (!b)
                 return NULL;
@@ -1708,43 +1758,6 @@ VmspawnQmpBridge* vmspawn_qmp_bridge_free(VmspawnQmpBridge *b) {
                 free(*owner);
 
         return mfree(b);
-}
-
-int vmspawn_qmp_bridge_register_job(
-                VmspawnQmpBridge *b,
-                const char *job_id,
-                pending_job_callback_t on_concluded,
-                void *userdata,
-                pending_job_free_t free_userdata) {
-
-        _cleanup_free_ PendingJob *job = NULL;
-        _cleanup_free_ char *id = NULL;
-        int r;
-
-        assert(b);
-        assert(job_id);
-
-        id = strdup(job_id);
-        if (!id)
-                return -ENOMEM;
-
-        job = new(PendingJob, 1);
-        if (!job)
-                return -ENOMEM;
-
-        *job = (PendingJob) {
-                .on_concluded  = on_concluded,
-                .free_userdata = free_userdata,
-                .userdata      = userdata,
-        };
-
-        r = hashmap_ensure_put(&b->pending_jobs, &pending_job_hash_ops, id, job);
-        if (r < 0)
-                return r;
-
-        TAKE_PTR(id);
-        TAKE_PTR(job);
-        return 0;
 }
 
 QmpClient* vmspawn_qmp_bridge_get_qmp(VmspawnQmpBridge *b) {
