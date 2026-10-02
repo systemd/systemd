@@ -1619,7 +1619,11 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
                         link,
                         manager->system_bus,
                         "org.freedesktop.systemd1.manage-units",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE(
+                                        "unit", unit->id,
+                                        "verb", "set-property",
+                                        "polkit.message", N_("Authentication is required to set properties on '$(unit)'."),
+                                        "polkit.gettext_domain", GETTEXT_PACKAGE),
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
