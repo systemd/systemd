@@ -1,0 +1,215 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.MachineImage"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.MachineImage</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.MachineImage</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.MachineImage</refname>
+    <refpurpose>Varlink interface io.systemd.MachineImage</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.MachineImage</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.MachineImage">
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.MachineImage
+
+<emphasis role="varlink-comment"># A enum field allowing to gracefully get metadata</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> AcquireMetadata(
+	<emphasis role="varlink-comment"># Do not include metadata in the output</emphasis>
+	no,
+	<emphasis role="varlink-comment"># Include metadata in the output</emphasis>
+	yes,
+	<emphasis role="varlink-comment"># Include metadata in the output, but gracefully eat up errors</emphasis>
+	graceful
+)
+
+<emphasis role="varlink-comment"># A enum field allowing to control what type of images are cleaned up</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> CleanPoolMode(
+	<emphasis role="varlink-comment"># Remove all unused images</emphasis>
+	all,
+	<emphasis role="varlink-comment"># Remove only hidden images</emphasis>
+	hidden
+)
+
+<emphasis role="varlink-comment"># List images</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> List(
+	<emphasis role="varlink-comment"># If non-null the name of a image to report details on.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># If true the output will include image metadata fields such as 'machineInfo' and 'OSRelease'.</emphasis>
+	acquireMetadata: ?AcquireMetadata,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># Name of the image</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># The file system path where image is stored</emphasis>
+	path: ?string,
+	<emphasis role="varlink-comment"># The type of this image</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: string,
+	<emphasis role="varlink-comment"># The class of this image</emphasis>
+	class: string,
+	<emphasis role="varlink-comment"># Whether the image is read-only</emphasis>
+	readOnly: bool,
+	<emphasis role="varlink-comment"># The image creation timestamp</emphasis>
+	creationTimestamp: ?int,
+	<emphasis role="varlink-comment"># The image creation timestamp</emphasis>
+	modificationTimestamp: ?int,
+	<emphasis role="varlink-comment"># The image creation timestamp</emphasis>
+	usage: ?int,
+	<emphasis role="varlink-comment"># The image disk usage (exclusive)</emphasis>
+	usageExclusive: ?int,
+	<emphasis role="varlink-comment"># The image disk usage (exclusive)</emphasis>
+	limit: ?int,
+	<emphasis role="varlink-comment"># The image disk usage limit (exclusive)</emphasis>
+	limitExclusive: ?int,
+	<emphasis role="varlink-comment"># The hostname of the image</emphasis>
+	hostname: ?string,
+	<emphasis role="varlink-comment"># The machine ID of the image</emphasis>
+	machineId: ?string,
+	<emphasis role="varlink-comment"># Machine info information of an image. It contains an array of key value pairs read from the machine-info(5) file in the image.</emphasis>
+	machineInfo: ?[]string,
+	<emphasis role="varlink-comment"># OS release information of an image. It contains an array of key value pairs read from the os-release(5) file in the image.</emphasis>
+	OSRelease: ?[]string
+)
+
+<emphasis role="varlink-comment"># Update image allowing to rename, toggle read-only flag, or set a limit</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Update(
+	<emphasis role="varlink-comment"># The name of an image</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># If non-null the new name of the image</emphasis>
+	newName: ?string,
+	<emphasis role="varlink-comment"># If non-null value of the read-only flag of the image</emphasis>
+	readOnly: ?bool,
+	<emphasis role="varlink-comment"># If non-null value of image quota limit</emphasis>
+	limit: ?int
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Clone image</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Clone(
+	<emphasis role="varlink-comment"># The name of an image</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># The new name of the image</emphasis>
+	newName: string,
+	<emphasis role="varlink-comment"># If non-null value of the read-only flag of the image</emphasis>
+	readOnly: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Remove image</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Remove(
+	<emphasis role="varlink-comment"># The name of an image</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Sets an overall quota limit on the pool of images</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetPoolLimit(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># New image quota limit</emphasis>
+	limit: int
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Clean unused images depending on the specified mode. Note that it does not process vendon and host images.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> CleanPool(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># Allows removing all or only hidden images</emphasis>
+	mode: CleanPoolMode
+) -&gt; (
+	<emphasis role="varlink-comment"># Image name</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># The image disk usage (exclusive)</emphasis>
+	usageExclusive: ?int
+)
+
+<emphasis role="varlink-comment"># No matching image exists</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchImage()
+
+<emphasis role="varlink-comment"># Too many ongoing background operations</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> TooManyOperations()
+
+<emphasis role="varlink-comment"># Requested operation is not supported</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NotSupported()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.MachineImage"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AcquireMetadata"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="List()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Update()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Clone()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Remove()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetPoolLimit()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CleanPoolMode"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="CleanPool()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchImage"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="TooManyOperations"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NotSupported"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.MachineImage</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.MachineImage.List '{}'</screen>
+    invokes its <function>List()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.MachineImage interface was added in version 257.</para><para><varname>AcquireMetadata</varname>, <function>Clone()</function>, <function>List()</function>, <varname>NoSuchImage</varname>, <function>Remove()</function>, <varname>TooManyOperations</varname>, and <function>Update()</function> were added in version 257.</para><para><function>CleanPool()</function>, <varname>CleanPoolMode</varname>, <varname>NotSupported</varname>, and <function>SetPoolLimit()</function> were added in version 258.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

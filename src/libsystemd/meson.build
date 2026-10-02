@@ -91,13 +91,19 @@ sd_json_sources = files(
 
 ############################################################
 
+# Varlink IDL interface definitions compiled into libsystemd. The file names double as the
+# interface names they define ('varlink-org.varlink.service.c' defines 'org.varlink.service'),
+# which tools/generate-varlink-introspect.py relies upon to enumerate all interfaces.
+sd_varlink_idl_interface_sources = files(
+        'sd-varlink/varlink-io.systemd.c',
+        'sd-varlink/varlink-org.varlink.service.c',
+)
+
 sd_varlink_sources = files(
         'sd-varlink/sd-varlink.c',
         'sd-varlink/sd-varlink-idl.c',
-        'sd-varlink/varlink-io.systemd.c',
-        'sd-varlink/varlink-org.varlink.service.c',
         'sd-varlink/varlink-util.c',
-)
+) + sd_varlink_idl_interface_sources
 
 ############################################################
 
