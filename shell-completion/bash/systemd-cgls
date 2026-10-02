@@ -32,11 +32,7 @@ __get_machines() {
 }
 
 __get_units_have_cgroup() {
-    systemctl $1 --full --no-legend --no-pager --plain list-units 2>/dev/null | {
-        while read -r a b c d; do
-            [[ $c == "active" && ${a##*.} =~ (service|socket|mount|swap|slice|scope) ]] && echo " $a"
-        done
-    }
+    systemctl $1 list-units --completion-names --state=active -t service,socket,mount,swap,slice,scope 2>/dev/null
 }
 
 _systemd_cgls() {
