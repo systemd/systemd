@@ -467,10 +467,16 @@ static int bus_image_method_detach(
         }
 
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[] = {
+                        "image", image->name,
+                        "class", image_class_to_string(IMAGE_PORTABLE),
+                        NULL
+                };
+
                 r = bus_verify_polkit_async(
                                 message,
                                 "org.freedesktop.portable1.attach-images",
-                                /* details= */ NULL,
+                                details,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
