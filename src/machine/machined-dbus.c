@@ -1005,6 +1005,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
+                        "class", image_class_to_string(IMAGE_MACHINE),
                         "verb", "clean_pool",
                         "mode", mm,
                         NULL
@@ -1046,6 +1047,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
 
         if (m->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
+                        "class", image_class_to_string(IMAGE_MACHINE),
                         "verb", "set_pool_limit",
                         NULL
                 };
