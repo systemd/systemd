@@ -257,6 +257,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
         if (m->manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "machine", m->name,
+                        "owner_uid", FORMAT_UID(m->uid),
                         "verb", "get_os_release",
                         NULL
                 };
