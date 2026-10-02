@@ -1099,7 +1099,7 @@ int vmspawn_qmp_remove_block_device(VmspawnQmpBridge *bridge, sd_varlink *link, 
 
 /* DEVICE_DELETED arrives once the guest has acked the eject; only then is it
  * safe to drop the blockdev node and release the registry slot (and PCIe port). */
-int vmspawn_qmp_dispatch_device_deleted(VmspawnQmpBridge *bridge, sd_json_variant *data) {
+static int vmspawn_qmp_dispatch_device_deleted(VmspawnQmpBridge *bridge, sd_json_variant *data) {
         assert(bridge);
 
         if (!data)
@@ -1864,6 +1864,96 @@ static int probe_schema(QmpClient *c, VmspawnQmpBridge *bridge) {
                         on_probe_schema_reply, bridge);
 }
 
+static int on_job_dismiss_complete(
+                QmpClient *client,
+                sd_json_variant *result,
+                const char *error_desc,
+                int error,
+                void *userdata) {
+
+        if (error < 0)
+                log_debug_errno(error, "job-dismiss failed: %s", strna(error_desc));
+
+        return 0;
+}
+
+static int dispatch_pending_job(VmspawnQmpBridge *bridge, sd_json_variant *data) {
+        const char *job_id, *status;
+        int r;
+
+        assert(bridge);
+
+        if (!data)
+                return 0;
+
+        job_id = sd_json_variant_string(sd_json_variant_by_key(data, "id"));
+        status = sd_json_variant_string(sd_json_variant_by_key(data, "status"));
+
+        if (!job_id || !streq_ptr(status, "concluded"))
+                return 0;
+
+        _cleanup_free_ char *key = NULL;
+        _cleanup_(pending_job_freep) PendingJob *job = hashmap_remove2(bridge->pending_jobs, job_id, (void**) &key);
+        if (!job)
+                return 0;
+
+        log_debug("QMP job '%s' concluded, firing continuation", job_id);
+
+        /* Dismiss the concluded job before running the continuation */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *dismiss_args = NULL;
+        r = sd_json_buildo(&dismiss_args, SD_JSON_BUILD_PAIR_STRING("id", job_id));
+        if (r < 0)
+                return sd_event_exit(qmp_client_get_event(bridge->qmp), r);
+
+        r = qmp_client_invoke(bridge->qmp, /* ret_slot= */ NULL, "job-dismiss", QMP_CLIENT_ARGS(dismiss_args),
+                              on_job_dismiss_complete, /* userdata= */ NULL);
+        if (r < 0)
+                return sd_event_exit(qmp_client_get_event(bridge->qmp), r);
+
+        if (!job->on_concluded)
+                return 1;
+
+        r = job->on_concluded(bridge->qmp, TAKE_PTR(job->userdata));
+        if (r < 0) {
+                log_error_errno(r, "Job continuation failed: %m");
+                return sd_event_exit(qmp_client_get_event(bridge->qmp), r);
+        }
+
+        return 1;
+}
+
+static int on_qmp_event(
+                QmpClient *client,
+                const char *event,
+                sd_json_variant *data,
+                void *userdata) {
+
+        VmspawnQmpBridge *bridge = ASSERT_PTR(userdata);
+
+        assert(client);
+        assert(event);
+
+        /* Dispatch job status changes to pending continuations (e.g. blockdev-create) */
+        if (streq(event, "JOB_STATUS_CHANGE"))
+                return dispatch_pending_job(bridge, data);
+
+        /* Notification still fans out below. */
+        if (streq(event, "DEVICE_DELETED"))
+                (void) vmspawn_qmp_dispatch_device_deleted(bridge, data);
+
+        if (!bridge->event_callback)
+                return 0;
+
+        return bridge->event_callback(client, event, data, bridge->event_userdata);
+}
+
+void vmspawn_qmp_bridge_bind_event(VmspawnQmpBridge *b, qmp_event_callback_t callback, void *userdata) {
+        assert(b);
+
+        b->event_callback = callback;
+        b->event_userdata = userdata;
+}
+
 int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event) {
         _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
         _cleanup_close_ int fd_close = ASSERT_FD(TAKE_FD(fd));
@@ -1887,6 +1977,10 @@ int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event) {
         r = qmp_client_set_description(bridge->qmp, "vmspawn-qmp-client");
         if (r < 0)
                 return log_error_errno(r, "Failed to set QMP client description: %m");
+
+        /* Command callbacks find the bridge through the client's userdata. */
+        qmp_client_set_userdata(bridge->qmp, bridge);
+        qmp_client_bind_event(bridge->qmp, on_qmp_event, bridge);
 
         r = qmp_client_attach_event(bridge->qmp, event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
