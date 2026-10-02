@@ -1857,6 +1857,9 @@ def inspect_sections(opts: UkifyConfig) -> None:
             json.dump(base, sys.stdout, indent=indent)
 
 
+CompGen = Literal['default', 'files', 'dirs', 'at-files', 'section-files']
+
+
 @dataclasses.dataclass(frozen=True)
 class ConfigItem:
     @staticmethod
@@ -1950,6 +1953,8 @@ class ConfigItem:
     const: Optional[Any] = None
     help: Optional[str] = None
 
+    compgen: CompGen = 'default'
+
     # metadata for config file parsing
     config_key: Optional[str] = None
     config_push: Callable[[argparse.Namespace, Optional[str], str, Any], None] = config_set_if_unset
@@ -1967,7 +1972,10 @@ class ConfigItem:
         kwargs = {
             key: val
             for key in dataclasses.asdict(self)
-            if (key not in ('name', 'config_key', 'config_push') and (val := getattr(self, key)) is not None)
+            if (
+                key not in ('name', 'compgen', 'config_key', 'config_push')
+                and (val := getattr(self, key)) is not None
+            )
         }
         args = self._names()
         parser.add_argument(*args, **kwargs)
@@ -2017,7 +2025,8 @@ class ConfigItem:
         return (section_name, key, value)
 
 
-VERBS = ('build', 'genkey', 'inspect')
+VERBS = ('build', 'genkey', 'inspect', 'completion')
+COMPLETION_SHELLS = ('bash', 'zsh')
 
 CONFIG_ITEMS = [
     ConfigItem(
@@ -2040,23 +2049,27 @@ CONFIG_ITEMS = [
         ('--config', '-c'),
         metavar='PATH',
         type=Path,
+        compgen='files',
         help='configuration file',
     ),
     ConfigItem(
         '--linux',
         type=Path,
+        compgen='files',
         help='vmlinuz file [.linux section]',
         config_key='UKI/Linux',
     ),
     ConfigItem(
         '--os-release',
         metavar='TEXT|@PATH',
+        compgen='at-files',
         help='path to os-release file [.osrel section]',
         config_key='UKI/OSRelease',
     ),
     ConfigItem(
         '--cmdline',
         metavar='TEXT|@PATH',
+        compgen='at-files',
         help='kernel command line [.cmdline section]',
         config_key='UKI/Cmdline',
     ),
@@ -2064,6 +2077,7 @@ CONFIG_ITEMS = [
         '--initrd',
         metavar='INITRD',
         type=Path,
+        compgen='files',
         action='append',
         help='initrd file [part of .initrd section]',
         config_key='UKI/Initrd',
@@ -2073,6 +2087,7 @@ CONFIG_ITEMS = [
         '--efifw',
         metavar='DIR',
         type=Path,
+        compgen='dirs',
         action='append',
         default=[],
         help='Directory with efi firmware binary file [.efifw section]',
@@ -2083,6 +2098,7 @@ CONFIG_ITEMS = [
         '--microcode',
         metavar='UCODE',
         type=Path,
+        compgen='files',
         help='microcode file [.ucode section]',
         config_key='UKI/Microcode',
     ),
@@ -2090,6 +2106,7 @@ CONFIG_ITEMS = [
         '--splash',
         metavar='BMP',
         type=Path,
+        compgen='files',
         help='splash image bitmap file [.splash section]',
         config_key='UKI/Splash',
     ),
@@ -2097,6 +2114,7 @@ CONFIG_ITEMS = [
         '--devicetree',
         metavar='PATH',
         type=Path,
+        compgen='files',
         help='Device Tree file [.dtb section]',
         config_key='UKI/DeviceTree',
     ),
@@ -2104,6 +2122,7 @@ CONFIG_ITEMS = [
         '--devicetree-auto',
         metavar='PATH',
         type=Path,
+        compgen='files',
         action='append',
         help='DeviceTree file for automatic selection [.dtbauto section]',
         default=[],
@@ -2113,6 +2132,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--hwids',
         metavar='DIR',
+        compgen='dirs',
         help='Directory with HWID text files [.hwids section]',
         config_key='UKI/HWIDs',
     ),
@@ -2125,6 +2145,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--sbat',
         metavar='TEXT|@PATH',
+        compgen='at-files',
         help='SBAT policy [.sbat section]',
         default=[],
         action='append',
@@ -2135,6 +2156,7 @@ CONFIG_ITEMS = [
         '--pcrpkey',
         metavar='KEY',
         type=Path,
+        compgen='files',
         help='embedded public key to seal secrets to [.pcrpkey section]',
         config_key='UKI/PCRPKey',
     ),
@@ -2142,6 +2164,7 @@ CONFIG_ITEMS = [
         '--section',
         dest='sections',
         metavar='NAME:TEXT|@PATH',
+        compgen='section-files',
         action='append',
         default=[],
         help='section as name and contents [NAME section] or section to print',
@@ -2149,6 +2172,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--profile',
         metavar='TEST|@PATH',
+        compgen='at-files',
         help='Profile information [.profile section]',
         config_key='UKI/Profile',
     ),
@@ -2156,6 +2180,7 @@ CONFIG_ITEMS = [
         '--join-profile',
         dest='join_profiles',
         metavar='PATH',
+        compgen='files',
         action='append',
         default=[],
         help='A PE binary containing an additional profile to add to the UKI',
@@ -2171,12 +2196,14 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--pcrsig',
         metavar='TEST|@PATH',
+        compgen='at-files',
         help='Signed PCR policy JSON [.pcrsig section] to append to an existing UKI',
         config_key='UKI/PCRSig',
     ),
     ConfigItem(
         '--join-pcrsig',
         metavar='PATH',
+        compgen='files',
         help='A PE binary containing a UKI without a .pcrsig to join with --pcrsig',
     ),
     ConfigItem(
@@ -2189,6 +2216,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--stub',
         type=Path,
+        compgen='files',
         help='path to the sd-stub file [.text,.data,… sections]',
         config_key='UKI/Stub',
     ),
@@ -2230,12 +2258,14 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--secureboot-private-key',
         dest='sb_key',
+        compgen='files',
         help='required by --signtool=sbsign|systemd-sbsign. Path to key file or engine/provider designation for SB signing',
         config_key='UKI/SecureBootPrivateKey',
     ),
     ConfigItem(
         '--secureboot-certificate',
         dest='sb_cert',
+        compgen='files',
         help=(
             'required by --signtool=sbsign. sbsign needs a path to certificate file or engine-specific designation for SB signing'
         ),
@@ -2251,6 +2281,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--secureboot-certificate-dir',
         dest='sb_certdir',
+        compgen='dirs',
         default='/etc/pki/pesign',
         help=(
             'required by --signtool=pesign. Path to nss certificate database directory for PE signing. Default is /etc/pki/pesign'
@@ -2285,6 +2316,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--pcr-private-key',
         dest='pcr_private_keys',
+        compgen='files',
         action='append',
         help='private part of the keypair or engine/provider designation for signing PCR signatures',
         config_key='PCRSignature:/PCRPrivateKey',
@@ -2294,6 +2326,7 @@ CONFIG_ITEMS = [
         '--pcr-public-key',
         dest='pcr_public_keys',
         metavar='PATH',
+        compgen='files',
         action='append',
         help='public part of the keypair or engine/provider designation for signing PCR signatures',
         config_key='PCRSignature:/PCRPublicKey',
@@ -2303,6 +2336,7 @@ CONFIG_ITEMS = [
         '--pcr-certificate',
         dest='pcr_certificates',
         metavar='PATH',
+        compgen='files',
         action='append',
         help='certificate part of the keypair or engine/provider designation for signing PCR signatures',
         config_key='PCRSignature:/PCRCertificate',
@@ -2330,12 +2364,14 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--tools',
         type=Path,
+        compgen='dirs',
         action='append',
         help='Directories to search for tools (systemd-measure, …)',
     ),
     ConfigItem(
         ('--output', '-o'),
         type=Path,
+        compgen='files',
         help='output file path',
     ),
     ConfigItem(
@@ -2466,6 +2502,7 @@ def create_parser() -> argparse.ArgumentParser:
           ukify {b}build{e} [--linux=LINUX] [--initrd=INITRD] [options…]
             ukify {b}genkey{e} [options…]
             ukify {b}inspect{e} FILE… [options…]
+            ukify {b}completion{e} SHELL
         ''').format(b=Style.bold, e=Style.reset),
         allow_abbrev=False,
         add_help=False,
@@ -2487,6 +2524,244 @@ def create_parser() -> argparse.ArgumentParser:
     )  # fmt: skip
 
     return p
+
+
+@dataclasses.dataclass(frozen=True)
+class CompletionItem:
+    names: Sequence[str]
+    help: str
+    choices: list[str]
+    takes_argument: bool
+    repeatable: bool
+    compgen: CompGen
+
+
+def collect_completion_arguments() -> list[CompletionItem]:
+    compgens = {name: item.compgen for item in CONFIG_ITEMS for name in item._names()}
+    options = []
+
+    for action in create_parser()._actions:  # pylint: disable=protected-access
+        if not action.option_strings or action.help == argparse.SUPPRESS:
+            continue
+
+        options.append(
+            CompletionItem(
+                names=action.option_strings,
+                help=action.help or '',
+                choices=[str(c) for c in action.choices] if action.choices is not None else [],
+                takes_argument=action.nargs != 0,
+                repeatable=isinstance(action, argparse._AppendAction),  # pylint: disable=protected-access
+                compgen=compgens.get(action.option_strings[0], 'default'),
+            )
+        )
+
+    return options
+
+
+def finalize_completion_bash(options: list[CompletionItem]) -> str:
+    def assignments(entries: dict[str, str]) -> str:
+        return ' '.join(f'[{shlex.quote(k)}]={shlex.quote(v)}' for k, v in entries.items())
+
+    by_name = {name: option for option in options for name in option.names}
+    template = textwrap.dedent(r'''
+        # SPDX-License-Identifier: LGPL-2.1-or-later
+        # shellcheck shell=bash
+
+        _ukify_completion() {
+            local cur="$2" word option="" verb="" prefix="" end_options=""
+            local line="$COMP_LINE" previous="" wordbreak_prefix kind file_action=""
+            local -i i position=0 cword=-1
+            local -a words=()
+            local -a options=(##OPTIONS##)
+            local -A choices=(##CHOICES##)
+            local -A arguments=(##ARGUMENTS##)
+
+            COMPREPLY=()
+
+            # Rejoin separators split out by Bash, including the colon in NAME:@PATH.
+            for ((i = 0; i <= COMP_CWORD; i++)); do
+                word=${COMP_WORDS[i]}
+                if ((i > 1)) && [[ $line != [[:blank:]]* ]] &&
+                    [[ $word =~ ^[=@:]+$ || $previous =~ ^[=@:]+$ ]]; then
+                    words[cword]+=$word
+                else
+                    cword=$((cword + 1))
+                    words[cword]=$word
+                fi
+                line=${line#*"$word"}
+                previous=$word
+            done
+
+            wordbreak_prefix=${words[cword]%"$cur"}
+            cur=${words[cword]}
+
+            for ((i = 1; i < cword; i++)); do
+                word=${words[i]}
+                if [[ -n $option ]]; then
+                    option=""
+                elif [[ -z $end_options && $word == -- ]]; then
+                    end_options=yes
+                elif [[ -z $end_options && $word == -* ]]; then
+                    if [[ $word != *=* && -n ${arguments[$word]-} ]]; then
+                        option=$word
+                    fi
+                else
+                    [[ -n $verb ]] || verb=$word
+                    position=$((position + 1))
+                fi
+            done
+
+            if [[ -z $option && -z $end_options && $cur == --*=* ]]; then
+                option=${cur%%=*}
+                prefix=$option=
+                cur=${cur#*=}
+            elif [[ -z $option && -z $end_options && $cur == -* ]]; then
+                readarray -t COMPREPLY < <(compgen -W "${options[*]}" -- "$cur")
+                return
+            fi
+
+            if [[ -n $option ]]; then
+                kind=${arguments[$option]-}
+                if [[ $kind == at-files || $kind == section-files ]]; then
+                    cur=${cur/\\@/@}
+                fi
+                if [[ $kind == section-files ]]; then
+                    [[ $cur == *:* ]] || return
+                    prefix+=${cur%%:*}:
+                    cur=${cur#*:}
+                    if [[ $cur == text@* || $cur == binary@* ]]; then
+                        prefix+=${cur%%@*}
+                        cur=@${cur#*@}
+                    fi
+                    kind=at-files
+                fi
+                if [[ $kind == at-files ]]; then
+                    [[ $cur == @* ]] || return
+                    prefix+=@
+                    cur=${cur#@}
+                    kind=files
+                fi
+
+                if [[ -n ${choices[$option]-} ]]; then
+                    readarray -t COMPREPLY < <(compgen -W "${choices[$option]}" -- "$cur")
+                elif [[ $kind == files ]]; then
+                    file_action='file'
+                elif [[ $kind == dirs ]]; then
+                    file_action='directory'
+                fi
+            elif [[ -z $verb ]]; then
+                readarray -t COMPREPLY < <(compgen -W "##VERBS##" -- "$cur")
+            elif [[ $verb == completion && $position == 1 ]]; then
+                readarray -t COMPREPLY < <(compgen -W "##SHELLS##" -- "$cur")
+            elif [[ $verb != build && $verb != genkey && $verb != completion ]]; then
+                file_action='file'
+            fi
+
+            if [[ -n $file_action ]]; then
+                compopt -o filenames
+                readarray -t COMPREPLY < <(compgen -A "$file_action" -- "$cur")
+                if [[ -n ${COMPREPLY[0]-} && -z ${COMPREPLY[1]-} && -d ${COMPREPLY[0]} ]]; then
+                    compopt -o nospace
+                fi
+            fi
+
+            i=0
+            for word in "${COMPREPLY[@]}"; do
+                if [[ -n $file_action && -d $word ]]; then
+                    word+=/
+                fi
+                word=$prefix$word
+                COMPREPLY[i]=${word#"$wordbreak_prefix"}
+                i=$((i + 1))
+            done
+        }
+
+        complete -F _ukify_completion ukify
+    ''').lstrip('\n')
+
+    return (
+        template.replace('##OPTIONS##', shlex.join(by_name))
+        .replace(
+            '##CHOICES##',
+            assignments({name: ' '.join(o.choices) for name, o in by_name.items() if o.choices}),
+        )
+        .replace(
+            '##ARGUMENTS##',
+            assignments({name: o.compgen for name, o in by_name.items() if o.takes_argument}),
+        )
+        .replace('##VERBS##', ' '.join(VERBS))
+        .replace('##SHELLS##', ' '.join(COMPLETION_SHELLS))
+    )
+
+
+def finalize_completion_zsh(options: list[CompletionItem]) -> str:
+    template = textwrap.dedent('''\
+        #compdef ukify
+        # SPDX-License-Identifier: LGPL-2.1-or-later
+
+        _ukify_at_files() {
+            compset -P '@' && _files
+        }
+
+        _ukify_section_files() {
+            compset -P 1 '*:' || return
+            if [[ $PREFIX == text@* ]]; then
+                compset -P text
+            elif [[ $PREFIX == binary@* ]]; then
+                compset -P binary
+            fi
+            _ukify_at_files
+        }
+
+        _ukify_verb() {
+            local -a verbs=(##VERBS##) shells=(##SHELLS##)
+            if (( CURRENT == 1 )); then
+                _describe -t commands 'ukify verb' verbs
+            elif [[ $words[1] == completion ]] && (( CURRENT == 2 )); then
+                _describe 'shell' shells
+            elif [[ $words[1] == inspect ]]; then
+                _files
+            fi
+        }
+
+    ''')
+    lines = [
+        template.replace('##VERBS##', shlex.join(VERBS)).replace('##SHELLS##', shlex.join(COMPLETION_SHELLS)),
+        '_arguments -s -S \\\n',
+    ]
+
+    for option in options:
+        description = option.help.replace('\\', '\\\\').replace('[', r'\[').replace(']', r'\]')
+        for name in option.names:
+            spec = '*' if option.repeatable else f'({" ".join(option.names)})'
+            spec += name
+            if option.takes_argument:
+                spec += '=' if name.startswith('--') else '+'
+            spec += f'[{description}]'
+            if option.takes_argument:
+                spec += ':argument:'
+                if option.choices:
+                    spec += '(' + ' '.join(option.choices) + ')'
+                elif option.compgen == 'files':
+                    spec += '_files'
+                elif option.compgen == 'dirs':
+                    spec += '_files -/'
+                elif option.compgen == 'at-files':
+                    spec += '_ukify_at_files'
+                elif option.compgen == 'section-files':
+                    spec += '_ukify_section_files'
+            lines.append(f'    {shlex.quote(spec)} \\\n')
+
+    lines.append("    '*::ukify verb:_ukify_verb'\n")
+    return ''.join(lines)
+
+
+def print_completion(shell: str) -> None:
+    func = {
+        'bash': finalize_completion_bash,
+        'zsh': finalize_completion_zsh,
+    }[shell]
+    print(func(collect_completion_arguments()), end='')
 
 
 def resolve_at_path(value: Optional[str]) -> Union[Path, str, None]:
@@ -2673,12 +2948,24 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
 
 def parse_args(args: Optional[list[str]] = None) -> argparse.Namespace:
-    opts = create_parser().parse_args(args)
+    parser = create_parser()
+    opts = parser.parse_args(args)
 
     # argparse puts some unknown options in opts.positional. Make sure we don't
     # try to interpret something that is an option as a positional argument.
     if any((bad_opt := o).startswith('-') for o in opts.positional):
         raise ValueError(f'Unknown option: {bad_opt.partition("=")[0]}')
+
+    if opts.positional and opts.positional[0] == 'completion':
+        if len(opts.positional) != 2:
+            parser.error('completion requires exactly one shell: ' + ', '.join(COMPLETION_SHELLS))
+        if opts.positional[1] not in COMPLETION_SHELLS:
+            parser.error(
+                f'unsupported shell {opts.positional[1]!r}: choose from ' + ', '.join(COMPLETION_SHELLS)
+            )
+        opts.verb = 'completion'
+        opts.shell = opts.positional[1]
+        return opts
 
     apply_config(opts)
     finalize_options(opts)
@@ -2686,7 +2973,12 @@ def parse_args(args: Optional[list[str]] = None) -> argparse.Namespace:
 
 
 def main() -> None:
-    opts = UkifyConfig.from_namespace(parse_args())
+    args = parse_args()
+    if args.verb == 'completion':
+        print_completion(args.shell)
+        return
+
+    opts = UkifyConfig.from_namespace(args)
     if opts.summary:
         # TODO: replace pprint() with some fancy formatting.
         pprint.pprint(vars(opts))
