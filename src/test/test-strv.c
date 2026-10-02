@@ -611,6 +611,23 @@ TEST(strv_sort_uniq) {
         ASSERT_NULL(a[5]);
 }
 
+static int str_compare_reverse(char * const *a, char * const *b) {
+        return -strcmp(*a, *b);
+}
+
+TEST(strv_sort_uniq_full) {
+        _cleanup_strv_free_ char **a = NULL;
+
+        ASSERT_NULL(strv_sort_uniq_full(a, str_compare_reverse));
+
+        ASSERT_NOT_NULL((a = strv_new("b", "a", "c", "a", "b", "a")));
+        assert_se(strv_sort_uniq_full(a, str_compare_reverse) == a);
+        ASSERT_STREQ(a[0], "c");
+        ASSERT_STREQ(a[1], "b");
+        ASSERT_STREQ(a[2], "a");
+        ASSERT_NULL(a[3]);
+}
+
 TEST(strv_extend_strv_biconcat) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
