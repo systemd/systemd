@@ -28,3 +28,5 @@ SuccessExitStatus=PROTOCOL
 SuccessExitStatus=UNAVAILABLE
 # The tool returns EX_CANTCREAT if the NV index space is exhausted.
 SuccessExitStatus=CANTCREAT
+# The tool returns EX_CONFIG if the booted UKI carries no PCR public key or no signed policy for NvPCR initialization.
+SuccessExitStatus=CONFIG
