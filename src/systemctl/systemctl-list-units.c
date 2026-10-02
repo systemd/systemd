@@ -119,6 +119,13 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         size_t job_count = 0;
         int r;
 
+        if (arg_completion_names) {
+                FOREACH_ARRAY(u, unit_infos, c)
+                        print_unit_completion_names(u->id);
+
+                return 0;
+        }
+
         table = table_new("", "unit", "load", "active", "sub", "job", "description");
         if (!table)
                 return log_oom();
