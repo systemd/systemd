@@ -217,6 +217,11 @@
           upper limit. The number of hotplug slots can optionally be specified after a second colon
           and defaults to 1.</para>
 
+          <para>Unless confidential computing is enabled, a virtio-balloon device is attached to the
+          virtual machine. Free page reporting is enabled on it, so memory the guest frees is returned
+          to the host, and the guest is permitted to deflate the balloon on its own when it runs out
+          of memory. The balloon is not inflated by <command>systemd-vmspawn</command> itself at this time.</para>
+
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
