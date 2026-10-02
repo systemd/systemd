@@ -13,6 +13,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
@@ -292,6 +293,7 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
         if (m->manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "machine", m->name,
+                        "owner_uid", FORMAT_UID(m->uid),
                         NULL
                 };
 
@@ -337,6 +339,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         if (m->manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {
                         "machine", m->name,
+                        "owner_uid", FORMAT_UID(m->uid),
                         "verb", "login",
                         NULL
                 };
@@ -454,6 +457,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 
                 const char *details[] = {
                         "machine", m->name,
+                        "owner_uid", FORMAT_UID(m->uid),
                         "verb", "shell",
                         "user", user,
                         "program", path,
