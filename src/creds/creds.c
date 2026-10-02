@@ -1568,13 +1568,18 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
         /* Relax security requirements if peer wants to encrypt credentials for themselves */
         bool own_scope = p.scope == CREDENTIAL_USER && p.uid == peer_uid;
         bool ask_polkit = !own_scope || !timestamp_fresh;
+        CredentialScope polkit_scope = p.scope;
         for (;;) {
                 if (ask_polkit) {
+                        _cleanup_strv_free_ char **details = credential_polkit_details(p.name, polkit_scope, p.uid, timestamp_fresh);
+                        if (!details)
+                                return -ENOMEM;
+
                         r = varlink_verify_polkit_async(
                                         link,
                                         /* bus= */ NULL,
                                         "io.systemd.credentials.decrypt",
-                                        /* details= */ NULL,
+                                        (const char**) details,
                                         polkit_registry);
                         if (r <= 0)
                                 return r;
@@ -1599,6 +1604,7 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 /* So the secret was apparently intended for the system. Let's retry decrypting it after
                  * acquiring polkit's permission. */
                 ask_polkit = true;
+                polkit_scope = CREDENTIAL_SYSTEM;
         }
 
         if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
