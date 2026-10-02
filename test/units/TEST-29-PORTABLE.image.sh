@@ -17,6 +17,11 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     ARGS+=(--profile=trusted)
 fi
 
+# Attaching with a profile that doesn't exist must fail and must not leave anything behind
+(! portablectl attach --runtime --profile=nonexistent /usr/share/minimal_0.raw minimal-app0)
+test ! -e /run/systemd/system.attached/minimal-app0.service
+test ! -e /run/systemd/system.attached/minimal-app0.service.d
+
 portablectl "${ARGS[@]}" attach --now --runtime /usr/share/minimal_0.raw minimal-app0
 
 portablectl is-attached minimal-app0
@@ -28,6 +33,12 @@ systemctl is-active minimal-app0-bar.service && exit 1
 # Ensure pinning by policy works
 cat /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf
 grep -q -F 'root=signed+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf
+
+# Reattaching with a profile that doesn't exist must fail without detaching the image first
+(! portablectl reattach --now --runtime --profile=nonexistent /usr/share/minimal_1.raw minimal-app0)
+portablectl is-attached minimal-app0
+systemctl is-active minimal-app0.service
+systemctl is-active minimal-app0-foo.service
 
 portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
