@@ -101,6 +101,7 @@ int arg_invocation_offset = 0;
 char *arg_field = NULL;
 bool arg_catalog = false;
 bool arg_reverse = false;
+bool arg_completion_names = false;
 int arg_journal_type = 0;
 int arg_journal_additional_open_flags = 0;
 int arg_namespace_flags = 0;
@@ -809,6 +810,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 return r;
                         break;
 
+                OPTION_LONG("completion-names", NULL, "List unit names for shell completion"):
+                        arg_completion_names = true;
+                        break;
+
                 OPTION_LONG("list-boots", NULL, "Show terse information about recorded boots"):
                         arg_action = ACTION_LIST_BOOTS;
                         break;
@@ -962,6 +967,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && arg_merge)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Using --boot or --list-boots with --merge is not supported.");
+
+        if (arg_completion_names && arg_action != ACTION_LIST_FIELDS)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--completion-names can only be used with -F/--field.");
 
         if (!strv_isempty(arg_system_units) && arg_journal_type == SD_JOURNAL_CURRENT_USER) {
                 /* Specifying --user and --unit= at the same time makes no sense (as the former excludes the user

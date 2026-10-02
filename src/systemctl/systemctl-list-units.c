@@ -119,6 +119,20 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         size_t job_count = 0;
         int r;
 
+        /* Handle completion-names mode: just output unit names and base names for .service units */
+        if (arg_completion_names) {
+                FOREACH_ARRAY(u, unit_infos, c) {
+                        printf("%s\n", u->id);
+
+                        /* For .service units, also output the name without .service suffix */
+                        if (endswith(u->id, ".service")) {
+                                printf("%.*s\n", (int) (strlen(u->id) - 8), u->id); /* 8 = strlen(".service") */
+                        }
+                }
+
+                return 0;
+        }
+
         table = table_new("", "unit", "load", "active", "sub", "job", "description");
         if (!table)
                 return log_oom();
