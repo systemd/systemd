@@ -1454,7 +1454,7 @@ static int method_activate_session_on_seat(sd_bus_message *message, void *userda
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT,
                                          "Session %s not on seat %s", session_name, seat_name);
 
-        r = check_polkit_chvt(message, m, error);
+        r = check_polkit_chvt(message, m, seat, error);
         if (r < 0)
                 return r;
         if (r == 0)
