@@ -42,6 +42,7 @@
 #include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -1345,18 +1346,34 @@ static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_err
         return sd_bus_message_send(reply);
 }
 
+static int transfer_verify_cancel_async(Transfer *t, sd_bus_message *msg, sd_bus_error *error) {
+        char id[DECIMAL_STR_MAX(uint32_t)];
+
+        assert(t);
+        assert(msg);
+
+        xsprintf(id, "%" PRIu32, t->id);
+
+        const char *details[] = {
+                "transfer", id,
+                NULL
+        };
+
+        return bus_verify_polkit_async(
+                        msg,
+                        "org.freedesktop.import1.cancel",
+                        details,
+                        &t->manager->polkit_registry,
+                        error);
+}
+
 static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Transfer *t = ASSERT_PTR(userdata);
         int r;
 
         assert(msg);
 
-        r = bus_verify_polkit_async(
-                        msg,
-                        "org.freedesktop.import1.cancel",
-                        /* details= */ NULL,
-                        &t->manager->polkit_registry,
-                        error);
+        r = transfer_verify_cancel_async(t, msg, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1377,17 +1394,6 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
 
         assert(msg);
 
-        r = bus_verify_polkit_async(
-                        msg,
-                        "org.freedesktop.import1.cancel",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
-
         r = sd_bus_message_read(msg, "u", &id);
         if (r < 0)
                 return r;
@@ -1397,6 +1403,12 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
         t = hashmap_get(m->transfers, UINT32_TO_PTR(id));
         if (!t)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_TRANSFER, "No transfer by id %" PRIu32, id);
+
+        r = transfer_verify_cancel_async(t, msg, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = transfer_cancel(t);
         if (r < 0)
